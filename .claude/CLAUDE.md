@@ -1,0 +1,81 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+This is the **Feature Definition Language (FDL)** — a framework-agnostic specification for defining software features as YAML blueprints. AI tools (Claude Code, Copilot, etc.) read these blueprints to generate correct, complete implementations for any tech stack.
+
+## Commands
+
+```bash
+# Validate all blueprints
+node scripts/validate.js
+
+# Validate a single blueprint
+node scripts/validate.js blueprints/auth/login.blueprint.yaml
+
+# Watch mode validation
+npm run validate:watch
+
+# Run tests
+node --test tests/
+```
+
+## Architecture
+
+Three-layer system where skills consume blueprints validated by the schema:
+
+```
+Skill Layer (.claude/skills/)    — Claude Code skills that create/generate from blueprints
+Blueprint Layer (blueprints/)    — YAML feature definitions organized by category
+Schema Layer (schema/)           — Meta-schema that validates all blueprints
+```
+
+- **Schema:** `schema/blueprint.schema.yaml` is the meta-schema. `scripts/validate.js` embeds a JSON Schema equivalent and uses AJV for validation. Two validation passes: file-level (structure) then cross-reference (relationship targets exist).
+- **Blueprints:** `blueprints/{category}/{feature}.blueprint.yaml` — self-contained feature specs. Current categories in schema: auth, data, access, ui, integration, notification, payment.
+- **Skills:** `/fdl-create` generates new blueprint YAML from a feature description. `/fdl-generate` produces implementation code from a blueprint for a target framework (nextjs, express, laravel, flutter, payload_cms).
+
+## Blueprint Structure
+
+Required top-level fields: `feature`, `version`, `description`, `category`, `fields`, `rules`, `flows`
+Optional: `tags`, `related`, `events`, `errors`, `ui_hints`, `extensions`
+
+### Naming Conventions
+
+| Element    | Convention       | Example                      |
+|------------|------------------|------------------------------|
+| Features   | kebab-case       | `password-reset`             |
+| Fields     | snake_case       | `first_name`                 |
+| Error codes| UPPER_SNAKE_CASE | `LOGIN_INVALID_CREDENTIALS`  |
+| Events     | dot.notation     | `login.success`              |
+| Files      | `{feature}.blueprint.yaml` | `login.blueprint.yaml` |
+
+### Field Types
+
+text, email, password, number, boolean, date, datetime, phone, url, file, select, multiselect, hidden, token, rich_text, json
+
+### Relationship Types
+
+- `required` — feature cannot work without this
+- `recommended` — should have
+- `optional` — nice to have
+- `extends` — builds on another feature
+
+## Validation
+
+`scripts/validate.js` (~350 lines) does two things:
+1. Parses each YAML blueprint and validates against the embedded JSON Schema (AJV with ajv-formats)
+2. Cross-references `related` entries to confirm target blueprints exist
+
+When adding fields to the schema, you must update **both** `schema/blueprint.schema.yaml` (source of truth) and the `blueprintJsonSchema` object in `scripts/validate.js` (the machine-readable equivalent used at runtime).
+
+## Rules
+
+- YAML is the source of truth — never edit generated files
+- Comments in YAML should explain WHY (security reasons, best practices)
+- Error messages must be user-safe (never leak internal state)
+- Security rules use OWASP recommendations as defaults
+- All fields need validation — no unvalidated inputs
+- Every blueprint must define flows for both happy path and error scenarios
+- When creating a new blueprint, update `related` arrays in existing blueprints that should reference it

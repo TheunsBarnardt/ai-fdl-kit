@@ -1,0 +1,277 @@
+# ============================================================
+# Feature Definition Language (FDL) — Meta-Schema v0.1.0
+# ============================================================
+# This schema defines the structure that ALL blueprints must follow.
+# It is the spec itself — the "schema of schemas."
+# ============================================================
+
+schema:
+  name: "Feature Definition Language"
+  version: "0.1.0"
+  description: "Framework-agnostic specification for defining software features"
+  license: "MIT"
+
+# ─── REQUIRED TOP-LEVEL FIELDS ─────────────────────────────
+# Every blueprint MUST include these fields
+
+required:
+  feature:
+    type: string
+    description: "Unique kebab-case identifier (e.g., 'login', 'password-reset')"
+    pattern: "^[a-z][a-z0-9-]*$"
+
+  version:
+    type: string
+    description: "Semantic version of this blueprint"
+    pattern: "^\\d+\\.\\d+\\.\\d+$"
+
+  description:
+    type: string
+    description: "One-line human-readable summary of what this feature does"
+    maxLength: 200
+
+  category:
+    type: string
+    description: "Feature category for organization"
+    oneOf:
+      - auth          # Authentication & identity
+      - data          # CRUD, search, storage
+      - access        # Roles, permissions, policies
+      - ui            # UI patterns (modals, forms, navigation)
+      - integration   # External services, webhooks, APIs
+      - notification  # Email, push, in-app
+      - payment       # Billing, checkout, subscriptions
+
+  fields:
+    type: array
+    description: "Inputs and data the feature works with"
+    minItems: 1
+    items:
+      type: field
+
+  rules:
+    type: object
+    description: "Business logic, security policies, and constraints"
+
+  flows:
+    type: object
+    description: "User journeys — happy path and every edge case"
+    minKeys: 1
+    # At minimum, a happy_path flow is required
+
+# ─── OPTIONAL TOP-LEVEL FIELDS ─────────────────────────────
+
+optional:
+  tags:
+    type: array
+    description: "Searchable tags for discovery"
+    items:
+      type: string
+
+  related:
+    type: array
+    description: "Features this blueprint connects to"
+    items:
+      type: relationship
+
+  events:
+    type: array
+    description: "Named events this feature emits for other features to consume"
+    items:
+      type: event
+
+  errors:
+    type: array
+    description: "Standardized error codes with HTTP status and user-safe messages"
+    items:
+      type: error
+
+  ui_hints:
+    type: object
+    description: "Non-binding layout and UX suggestions — adapters may ignore these"
+
+  extensions:
+    type: object
+    description: "Framework-specific overrides keyed by adapter name"
+    # e.g., extensions.nextjs, extensions.laravel, extensions.flutter
+
+# ─── TYPE DEFINITIONS ──────────────────────────────────────
+
+types:
+
+  # --- Field ---
+  field:
+    required:
+      name:
+        type: string
+        description: "Field identifier (snake_case)"
+        pattern: "^[a-z][a-z0-9_]*$"
+      type:
+        type: string
+        description: "Data type"
+        oneOf:
+          - text          # Free-form text
+          - email         # Email address
+          - password      # Masked input, hashed storage
+          - number        # Integer or decimal
+          - boolean       # True/false, checkbox
+          - date          # Date only (no time)
+          - datetime      # Date + time
+          - phone         # Phone number
+          - url           # URL/URI
+          - file          # File upload
+          - select        # Single choice from options
+          - multiselect   # Multiple choices from options
+          - hidden        # Not shown to user (system fields)
+          - token         # System-generated (JWT, OTP, UUID)
+          - rich_text     # Formatted text (HTML/Markdown)
+          - json          # Arbitrary JSON data
+      required:
+        type: boolean
+        description: "Whether the field must be provided"
+    optional:
+      label:
+        type: string
+        description: "Human-readable display label"
+      placeholder:
+        type: string
+        description: "Input placeholder text"
+      default:
+        type: any
+        description: "Default value if not provided"
+      validation:
+        type: array
+        description: "Validation rules applied in order"
+        items:
+          type: validation_rule
+      options:
+        type: array
+        description: "For select/multiselect — available choices"
+        items:
+          type: object
+          properties:
+            value: { type: string }
+            label: { type: string }
+      sensitive:
+        type: boolean
+        description: "If true, value should be masked/encrypted (passwords, tokens)"
+        default: false
+      immutable:
+        type: boolean
+        description: "If true, cannot be changed after creation"
+        default: false
+
+  # --- Validation Rule ---
+  validation_rule:
+    required:
+      type:
+        type: string
+        oneOf:
+          - required       # Field must have a value
+          - minLength      # Minimum string length
+          - maxLength      # Maximum string length
+          - min            # Minimum numeric value
+          - max            # Maximum numeric value
+          - pattern        # Regex pattern match
+          - email          # Valid email format
+          - phone          # Valid phone format
+          - url            # Valid URL format
+          - oneOf          # Value must be in a list
+          - unique         # Value must be unique (e.g., email not taken)
+          - match          # Must match another field (e.g., confirm_password)
+          - custom         # Adapter-defined validation
+      message:
+        type: string
+        description: "User-facing error message when validation fails"
+    optional:
+      value:
+        type: any
+        description: "The constraint value (e.g., 8 for minLength: 8)"
+      field:
+        type: string
+        description: "Reference to another field (for 'match' type)"
+
+  # --- Relationship ---
+  relationship:
+    required:
+      feature:
+        type: string
+        description: "The related feature's identifier"
+      type:
+        type: string
+        oneOf:
+          - required       # Cannot function without this feature
+          - recommended    # Should have, app works without it
+          - optional       # Nice to have enhancement
+          - extends        # Builds on top of this feature
+    optional:
+      reason:
+        type: string
+        description: "Why this relationship exists"
+      ui_link:
+        type: string
+        description: "Suggested link text (e.g., 'Forgot password?')"
+      insert_after:
+        type: string
+        description: "Where in the parent flow this feature inserts (e.g., 'flows.happy_path.6')"
+
+  # --- Event ---
+  event:
+    required:
+      name:
+        type: string
+        description: "Dot-notation event name (e.g., 'login.success')"
+        pattern: "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+      payload:
+        type: array
+        description: "Data fields included in the event"
+        items:
+          type: string
+    optional:
+      description:
+        type: string
+        description: "What triggers this event and who might listen"
+
+  # --- Error ---
+  error:
+    required:
+      code:
+        type: string
+        description: "UPPER_SNAKE_CASE error identifier"
+        pattern: "^[A-Z][A-Z0-9_]*$"
+      status:
+        type: number
+        description: "HTTP status code"
+        oneOf: [400, 401, 403, 404, 409, 422, 423, 429, 500]
+      message:
+        type: string
+        description: "User-safe error message — NEVER leak internal details"
+    optional:
+      retry:
+        type: boolean
+        description: "Whether the user can retry this action"
+        default: false
+      redirect:
+        type: string
+        description: "Where to send the user on this error"
+
+# ─── CONVENTIONS ───────────────────────────────────────────
+
+conventions:
+  naming:
+    features: "kebab-case (e.g., password-reset)"
+    fields: "snake_case (e.g., remember_me)"
+    errors: "UPPER_SNAKE_CASE (e.g., LOGIN_INVALID_CREDENTIALS)"
+    events: "dot.notation (e.g., login.success)"
+
+  security:
+    - "Error messages must never reveal internal state"
+    - "Password fields must use constant-time comparison"
+    - "Rate limiting should be applied to all public endpoints"
+    - "Session tokens must be cryptographically random"
+    - "OWASP Top 10 defaults are the baseline"
+
+  documentation:
+    - "YAML comments explain WHY, not WHAT"
+    - "Every security rule should cite its source (OWASP, RFC, etc.)"
+    - "Flows must cover happy path AND every failure case"
