@@ -18,7 +18,7 @@ node scripts/validate.js blueprints/auth/login.blueprint.yaml
 # Watch mode validation
 npm run validate:watch
 
-# Run tests
+# Run tests (when test files exist)
 node --test tests/
 ```
 
