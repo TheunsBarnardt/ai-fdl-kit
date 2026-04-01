@@ -41,6 +41,7 @@ required:
       - integration   # External services, webhooks, APIs
       - notification  # Email, push, in-app
       - payment       # Billing, checkout, subscriptions
+      - workflow       # Business processes, approvals, pipelines
 
   fields:
     type: array
@@ -48,16 +49,29 @@ required:
     minItems: 1
     items:
       type: field
+    # Optional for system-driven features (webhooks, scheduled jobs, background workers)
+    # that have no user-facing inputs. A warning is emitted if missing.
 
   rules:
     type: object
     description: "Business logic, security policies, and constraints"
 
+# ─── CONDITIONALLY REQUIRED ───────────────────────────────
+# A blueprint must have at least ONE of these (or both)
+
   flows:
     type: object
-    description: "User journeys — happy path and every edge case"
+    description: "Step-by-step procedures — good for business process documentation"
     minKeys: 1
-    # At minimum, a happy_path flow is required
+    # Use when documenting exact procedures for human actors to follow.
+    # Required if outcomes is not provided.
+
+  outcomes:
+    type: object
+    description: "Outcome-based acceptance criteria — what must be true, not how to do it"
+    minKeys: 1
+    # Preferred for AI code generation. Describe given/then/result for each scenario.
+    # Required if flows is not provided.
 
 # ─── OPTIONAL TOP-LEVEL FIELDS ─────────────────────────────
 
@@ -85,6 +99,22 @@ optional:
     description: "Standardized error codes with HTTP status and user-safe messages"
     items:
       type: error
+
+  actors:
+    type: array
+    description: "Roles, people, departments, or systems that participate in the process"
+    items:
+      type: actor
+
+  states:
+    type: object
+    description: "State machine definition — valid statuses and allowed transitions"
+    # Define which field holds the state, valid values, and transition rules
+
+  sla:
+    type: object
+    description: "Service level agreements — time constraints on steps or transitions"
+    # Define max durations, escalation rules, and compliance targets
 
   ui_hints:
     type: object
@@ -160,6 +190,31 @@ types:
         type: boolean
         description: "If true, cannot be changed after creation"
         default: false
+
+  # --- Actor ---
+  actor:
+    required:
+      id:
+        type: string
+        description: "Unique snake_case identifier (e.g., 'finance_manager')"
+        pattern: "^[a-z][a-z0-9_]*$"
+      name:
+        type: string
+        description: "Human-readable name (e.g., 'Finance Manager')"
+      type:
+        type: string
+        description: "What kind of participant this is"
+        oneOf:
+          - human          # A person or role (employee, manager)
+          - system         # An automated system (payment gateway, scheduler)
+          - external       # An outside party (vendor, auditor, customer)
+    optional:
+      description:
+        type: string
+        description: "What this actor is responsible for in this process"
+      role:
+        type: string
+        description: "Role or department (e.g., 'finance', 'engineering')"
 
   # --- Validation Rule ---
   validation_rule:

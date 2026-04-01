@@ -28,9 +28,9 @@ const blueprintJsonSchema = {
     "version",
     "description",
     "category",
-    "fields",
     "rules",
-    "flows",
+    // fields is optional for system-driven features (webhooks, scheduled jobs)
+    // flows and outcomes are conditionally required — checked in validateFile()
   ],
   properties: {
     feature: {
@@ -57,6 +57,7 @@ const blueprintJsonSchema = {
         "integration",
         "notification",
         "payment",
+        "workflow",
       ],
     },
     tags: {
@@ -76,6 +77,10 @@ const blueprintJsonSchema = {
       type: "object",
       minProperties: 1,
     },
+    outcomes: {
+      type: "object",
+      minProperties: 1,
+    },
     related: {
       type: "array",
       items: { $ref: "#/$defs/relationship" },
@@ -88,11 +93,35 @@ const blueprintJsonSchema = {
       type: "array",
       items: { $ref: "#/$defs/error" },
     },
+    actors: {
+      type: "array",
+      items: { $ref: "#/$defs/actor" },
+    },
+    states: { type: "object" },
+    sla: { type: "object" },
     ui_hints: { type: "object" },
     extensions: { type: "object" },
   },
   additionalProperties: false,
   $defs: {
+    actor: {
+      type: "object",
+      required: ["id", "name", "type"],
+      properties: {
+        id: {
+          type: "string",
+          pattern: "^[a-z][a-z0-9_]*$",
+        },
+        name: { type: "string" },
+        type: {
+          type: "string",
+          enum: ["human", "system", "external"],
+        },
+        description: { type: "string" },
+        role: { type: "string" },
+      },
+      additionalProperties: false,
+    },
     field: {
       type: "object",
       required: ["name", "type", "required"],
@@ -253,16 +282,62 @@ function validateFile(filePath) {
 
   const valid = validate(data);
 
-  if (valid) {
-    return { file: relPath, valid: true, feature: data.feature, version: data.version };
+  if (!valid) {
+    const errors = validate.errors.map((err) => {
+      const path = err.instancePath || "(root)";
+      return `  ${path}: ${err.message}${err.params ? ` (${JSON.stringify(err.params)})` : ""}`;
+    });
+    return { file: relPath, valid: false, errors };
   }
 
-  const errors = validate.errors.map((err) => {
-    const path = err.instancePath || "(root)";
-    return `  ${path}: ${err.message}${err.params ? ` (${JSON.stringify(err.params)})` : ""}`;
-  });
+  // ─── Custom validation checks ───────────────────────────
 
-  return { file: relPath, valid: false, errors };
+  const customErrors = [];
+  const customWarnings = [];
+
+  // Check: must have at least one of flows or outcomes
+  const hasFlows = data.flows && Object.keys(data.flows).length > 0;
+  const hasOutcomes = data.outcomes && Object.keys(data.outcomes).length > 0;
+  if (!hasFlows && !hasOutcomes) {
+    customErrors.push('  (root): must have at least one of "flows" or "outcomes"');
+  }
+
+  // Check: fields is optional but warn if missing (system-driven features may skip it)
+  if (!data.fields || data.fields.length === 0) {
+    customWarnings.push(
+      `${data.feature} has no fields — this is OK for system-driven features but unusual otherwise`
+    );
+  }
+
+  // Check: outcome structure — each outcome should have given, then, or result
+  if (data.outcomes) {
+    const validOutcomeKeys = new Set(["given", "then", "result"]);
+    for (const [name, outcome] of Object.entries(data.outcomes)) {
+      if (typeof outcome !== "object" || outcome === null) {
+        customErrors.push(`  outcomes.${name}: must be an object with given/then/result keys`);
+        continue;
+      }
+      const outcomeKeys = Object.keys(outcome);
+      const hasValidKey = outcomeKeys.some((k) => validOutcomeKeys.has(k));
+      if (!hasValidKey) {
+        customErrors.push(
+          `  outcomes.${name}: must have at least one of "given", "then", or "result"`
+        );
+      }
+    }
+  }
+
+  if (customErrors.length > 0) {
+    return { file: relPath, valid: false, errors: customErrors };
+  }
+
+  return {
+    file: relPath,
+    valid: true,
+    feature: data.feature,
+    version: data.version,
+    warnings: customWarnings,
+  };
 }
 
 // ─── Cross-blueprint relationship validation ──────────────
@@ -329,17 +404,26 @@ async function main() {
     }
   }
 
-  // Cross-reference check
-  const warnings = validateRelationships(results);
-  if (warnings.length > 0) {
-    console.log(`\n  WARNINGS (missing related blueprints):`);
-    for (const w of warnings) {
+  // Collect all warnings: per-file custom warnings + cross-reference warnings
+  const allWarnings = [];
+
+  for (const result of results) {
+    if (result.valid && result.warnings) {
+      allWarnings.push(...result.warnings);
+    }
+  }
+
+  allWarnings.push(...validateRelationships(results));
+
+  if (allWarnings.length > 0) {
+    console.log(`\n  WARNINGS:`);
+    for (const w of allWarnings) {
       console.log(`    WARN  ${w}`);
     }
   }
 
   console.log(`\n${"=".repeat(50)}`);
-  console.log(`  ${passed} passed, ${failed} failed, ${warnings.length} warnings`);
+  console.log(`  ${passed} passed, ${failed} failed, ${allWarnings.length} warnings`);
   console.log(`${"=".repeat(50)}\n`);
 
   process.exit(failed > 0 ? 1 : 0);

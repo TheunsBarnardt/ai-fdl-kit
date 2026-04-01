@@ -33,13 +33,29 @@ Schema Layer (schema/)           — Meta-schema that validates all blueprints
 ```
 
 - **Schema:** `schema/blueprint.schema.yaml` is the meta-schema. `scripts/validate.js` embeds a JSON Schema equivalent and uses AJV for validation. Two validation passes: file-level (structure) then cross-reference (relationship targets exist).
-- **Blueprints:** `blueprints/{category}/{feature}.blueprint.yaml` — self-contained feature specs. Current categories in schema: auth, data, access, ui, integration, notification, payment.
-- **Skills:** `/fdl-create` generates new blueprint YAML from a feature description. `/fdl-generate` produces implementation code from a blueprint for a target framework (nextjs, express, laravel, flutter, payload_cms).
+- **Blueprints:** `blueprints/{category}/{feature}.blueprint.yaml` — self-contained feature specs. Current categories in schema: auth, data, access, ui, integration, notification, payment, workflow.
+- **Skills:** `/fdl-create` generates new blueprint YAML from a feature description. `/fdl-generate` produces implementation code from a blueprint for a target framework (nextjs, express, laravel, flutter, payload_cms). `/fdl-extract` reads a document (PDF, DOCX, etc.) and extracts rules into a blueprint. All skills are conversational — users don't need to know YAML.
 
 ## Blueprint Structure
 
-Required top-level fields: `feature`, `version`, `description`, `category`, `fields`, `rules`, `flows`
-Optional: `tags`, `related`, `events`, `errors`, `ui_hints`, `extensions`
+Required top-level fields: `feature`, `version`, `description`, `category`, `rules`
+Conditionally required: `outcomes` and/or `flows` — at least one must be present
+Optional: `fields` (omit for system-driven features), `tags`, `related`, `events`, `errors`, `actors`, `states`, `sla`, `ui_hints`, `extensions`
+
+### Outcomes vs Flows
+
+A blueprint must have at least one of `outcomes` or `flows` (or both).
+
+- **`outcomes`** (preferred for code generation) — acceptance criteria in given/then/result format. Tells AI **what must be true**, not how to do it. Best for generating implementation code.
+- **`flows`** (preferred for business process documentation) — step-by-step procedures with actors and conditions. Tells humans **what steps to follow**. Best for workflow documentation.
+
+Use `outcomes` alone for technical features (login, CRUD, checkout). Use both for business processes where humans need documented procedures (approvals, onboarding).
+
+### Workflow / Business Process Fields
+
+- **`actors`** — who participates (human roles, systems, external parties). Each actor has `id`, `name`, `type` (human/system/external), optional `description` and `role`.
+- **`states`** — state machine definition. Defines `field` (which field holds state), `values` (valid statuses with initial/terminal markers), and `transitions` (allowed moves with actor, condition, and description).
+- **`sla`** — time constraints on transitions or overall process (e.g., "manager must review within 48h"). Includes `max_duration` and `escalation` rules.
 
 ### Naming Conventions
 
@@ -49,6 +65,7 @@ Optional: `tags`, `related`, `events`, `errors`, `ui_hints`, `extensions`
 | Fields     | snake_case       | `first_name`                 |
 | Error codes| UPPER_SNAKE_CASE | `LOGIN_INVALID_CREDENTIALS`  |
 | Events     | dot.notation     | `login.success`              |
+| Actors     | snake_case       | `finance_manager`            |
 | Files      | `{feature}.blueprint.yaml` | `login.blueprint.yaml` |
 
 ### Field Types
@@ -77,5 +94,5 @@ When adding fields to the schema, you must update **both** `schema/blueprint.sch
 - Error messages must be user-safe (never leak internal state)
 - Security rules use OWASP recommendations as defaults
 - All fields need validation — no unvalidated inputs
-- Every blueprint must define flows for both happy path and error scenarios
+- Every blueprint must define outcomes or flows (or both) covering success and error scenarios
 - When creating a new blueprint, update `related` arrays in existing blueprints that should reference it

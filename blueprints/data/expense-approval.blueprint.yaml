@@ -1,0 +1,695 @@
+# ============================================================
+# EXPENSE APPROVAL — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# A multi-step expense approval workflow. Demonstrates FDL's
+# ability to document business processes — not just UI features.
+#
+# Three audiences read this file:
+#   Business Analyst  → flows, actors, sla (process documentation)
+#   Developer         → fields, rules, extensions (code generation)
+#   Compliance/Audit  → rules, sla, errors (policy adherence)
+# ============================================================
+
+feature: expense-approval
+version: "1.0.0"
+description: Submit and approve employee expense reports with receipt validation
+category: data
+tags: [expense, approval, workflow, finance, reimbursement]
+
+# ─── ACTORS ───────────────────────────────────────────────
+# Who participates in this process
+
+actors:
+  - id: employee
+    name: "Employee"
+    type: human
+    description: "Submits expense reports for reimbursement"
+    role: any
+
+  - id: manager
+    name: "Direct Manager"
+    type: human
+    description: "First-level approval for all expenses"
+    role: management
+
+  - id: finance_manager
+    name: "Finance Manager"
+    type: human
+    description: "Second-level approval required for expenses over threshold"
+    role: finance
+
+  - id: payment_system
+    name: "Payment System"
+    type: system
+    description: "Processes approved reimbursements via payroll or direct deposit"
+
+  - id: audit_system
+    name: "Audit Logger"
+    type: system
+    description: "Records all state transitions for compliance"
+
+# ─── FIELDS ───────────────────────────────────────────────
+
+fields:
+  - name: title
+    type: text
+    required: true
+    label: "Expense Title"
+    placeholder: "Q1 Client Dinner"
+    validation:
+      - type: required
+        message: "Title is required"
+      - type: maxLength
+        value: 200
+        message: "Title is too long"
+
+  - name: amount
+    type: number
+    required: true
+    label: "Amount"
+    placeholder: "0.00"
+    validation:
+      - type: required
+        message: "Amount is required"
+      - type: min
+        value: 0.01
+        message: "Amount must be greater than zero"
+      - type: max
+        value: 50000
+        message: "Expenses over $50,000 require a separate purchase order"
+
+  - name: currency
+    type: select
+    required: true
+    label: "Currency"
+    default: "USD"
+    options:
+      - { value: "USD", label: "US Dollar" }
+      - { value: "EUR", label: "Euro" }
+      - { value: "GBP", label: "British Pound" }
+
+  - name: category
+    type: select
+    required: true
+    label: "Expense Category"
+    options:
+      - { value: "travel", label: "Travel" }
+      - { value: "meals", label: "Meals & Entertainment" }
+      - { value: "supplies", label: "Office Supplies" }
+      - { value: "software", label: "Software & Subscriptions" }
+      - { value: "equipment", label: "Equipment" }
+      - { value: "other", label: "Other" }
+
+  - name: date_incurred
+    type: date
+    required: true
+    label: "Date of Expense"
+    validation:
+      - type: required
+        message: "Date is required"
+      # Cannot be in the future or more than 90 days ago
+      - type: custom
+        value: "date <= today AND date >= today - 90 days"
+        message: "Expense must be within the last 90 days"
+
+  - name: description
+    type: rich_text
+    required: true
+    label: "Description & Business Justification"
+    placeholder: "Describe the expense and why it was necessary"
+    validation:
+      - type: required
+        message: "Description is required"
+      - type: minLength
+        value: 10
+        message: "Please provide a more detailed description"
+
+  - name: receipt
+    type: file
+    required: false
+    label: "Receipt"
+    # Receipt is required when amount > 25 (enforced in rules)
+    validation:
+      - type: custom
+        value: "file.size <= 10MB AND file.type IN [pdf, png, jpg, jpeg]"
+        message: "Receipt must be a PDF or image under 10MB"
+
+  - name: status
+    type: select
+    required: true
+    label: "Status"
+    default: "draft"
+    immutable: false
+    # Transitions governed by state machine — not user-editable directly
+    options:
+      - { value: "draft", label: "Draft" }
+      - { value: "submitted", label: "Submitted" }
+      - { value: "manager_approved", label: "Manager Approved" }
+      - { value: "pending_finance", label: "Pending Finance Review" }
+      - { value: "approved", label: "Approved" }
+      - { value: "rejected", label: "Rejected" }
+      - { value: "paid", label: "Paid" }
+
+  - name: rejection_reason
+    type: text
+    required: false
+    label: "Rejection Reason"
+    # Required when transitioning to rejected state
+
+  - name: submitted_by
+    type: hidden
+    required: true
+    sensitive: false
+    immutable: true
+
+  - name: approved_by
+    type: hidden
+    required: false
+
+# ─── STATES ───────────────────────────────────────────────
+# State machine — defines valid status transitions
+# This section documents the lifecycle of an expense report
+
+states:
+  field: status
+
+  values:
+    draft:
+      label: "Draft"
+      initial: true
+      description: "Employee is preparing the expense report"
+    submitted:
+      label: "Submitted"
+      description: "Awaiting manager review"
+    manager_approved:
+      label: "Manager Approved"
+      description: "Manager approved; may need finance review for large amounts"
+    pending_finance:
+      label: "Pending Finance Review"
+      description: "Requires finance manager sign-off (amount over threshold)"
+    approved:
+      label: "Approved"
+      description: "Fully approved, queued for payment"
+    rejected:
+      label: "Rejected"
+      terminal: true
+      description: "Rejected by manager or finance — employee can revise and resubmit"
+    paid:
+      label: "Paid"
+      terminal: true
+      description: "Reimbursement processed"
+
+  transitions:
+    submit:
+      from: draft
+      to: submitted
+      actor: employee
+      description: "Employee submits expense for approval"
+
+    manager_approve:
+      from: submitted
+      to: manager_approved
+      actor: manager
+      description: "Direct manager approves the expense"
+
+    escalate_to_finance:
+      from: manager_approved
+      to: pending_finance
+      actor: system
+      condition: "amount > rules.approval.finance_threshold"
+      description: "Auto-escalated when amount exceeds finance threshold"
+
+    finance_approve:
+      from: pending_finance
+      to: approved
+      actor: finance_manager
+      description: "Finance manager approves high-value expense"
+
+    auto_approve:
+      from: manager_approved
+      to: approved
+      actor: system
+      condition: "amount <= rules.approval.finance_threshold"
+      description: "Auto-approved when under finance threshold"
+
+    reject:
+      from: [submitted, pending_finance]
+      to: rejected
+      actor: [manager, finance_manager]
+      requires: rejection_reason
+      description: "Reviewer rejects with mandatory reason"
+
+    revise:
+      from: rejected
+      to: draft
+      actor: employee
+      description: "Employee revises and can resubmit rejected expense"
+
+    process_payment:
+      from: approved
+      to: paid
+      actor: payment_system
+      description: "System processes reimbursement via payroll"
+
+# ─── RULES ────────────────────────────────────────────────
+
+rules:
+  approval:
+    finance_threshold: 1000
+    # Expenses over $1,000 require finance manager approval
+    # Under $1,000 auto-approve after manager sign-off
+    max_single_expense: 50000
+    # Anything above $50k requires a purchase order instead
+
+  receipt:
+    required_above: 25
+    # Receipts mandatory for expenses over $25
+    # Company policy — IRS documentation requirement
+    accepted_formats: [pdf, png, jpg, jpeg]
+    max_size_mb: 10
+
+  submission:
+    max_age_days: 90
+    # Expenses older than 90 days cannot be submitted
+    # Fiscal quarter boundary enforcement
+    duplicate_detection: true
+    # Warn if same amount + date + category already exists
+
+  security:
+    rate_limit:
+      window_seconds: 3600
+      max_requests: 20
+      scope: per_user
+    # Users can only submit 20 expenses per hour
+
+  audit:
+    log_all_transitions: true
+    # Every status change is recorded with actor, timestamp, IP
+    retention_days: 2555
+    # ~7 years — tax compliance requirement
+
+# ─── SLA ──────────────────────────────────────────────────
+# Service level agreements — time constraints on the process
+
+sla:
+  manager_review:
+    transition: submit
+    # From submitted → manager_approved or rejected
+    max_duration: "48h"
+    escalation: notify_department_head
+    description: "Manager must review within 48 business hours"
+
+  finance_review:
+    transition: escalate_to_finance
+    # From pending_finance → approved or rejected
+    max_duration: "72h"
+    escalation: notify_cfo
+    description: "Finance must review within 72 business hours"
+
+  payment_processing:
+    transition: manager_approve
+    # From approved → paid
+    max_duration: "5d"
+    description: "Reimbursement processed within 5 business days of final approval"
+
+  overall_completion:
+    from_state: submitted
+    to_state: paid
+    max_duration: "30d"
+    description: "End-to-end from submission to payment within 30 calendar days"
+
+# ─── FLOWS ────────────────────────────────────────────────
+
+flows:
+  submit_expense:
+    description: "Employee submits a new expense report"
+    steps:
+      - id: validate
+        action: validate_fields
+        actor: employee
+        description: "Validate all required fields and formats"
+      - id: check_receipt
+        action: check_receipt_required
+        actor: system
+        condition: "amount > rules.receipt.required_above"
+        description: "Require receipt upload if amount exceeds $25"
+        on_fail: receipt_missing
+        documents: [receipt]
+      - id: check_duplicates
+        action: detect_duplicate_expense
+        actor: system
+        condition: "rules.submission.duplicate_detection == true"
+        description: "Warn if a similar expense already exists"
+      - id: submit
+        action: transition_state
+        actor: employee
+        description: "Move status from draft → submitted"
+      - id: notify_manager
+        action: send_notification
+        actor: system
+        template: expense_submitted_for_review
+        description: "Email the direct manager that a new expense needs review"
+      - id: emit_submitted
+        action: emit
+        event: expense.submitted
+
+  manager_review:
+    description: "Manager reviews and approves or rejects the expense"
+    steps:
+      - id: load_expense
+        action: load_expense_with_receipt
+        actor: manager
+        description: "Manager opens the expense report with all attachments"
+      - id: verify_business_purpose
+        action: review_justification
+        actor: manager
+        description: "Verify the expense has a legitimate business purpose"
+      - id: decide
+        action: approve_or_reject
+        actor: manager
+        description: "Manager approves or rejects (rejection requires reason)"
+        on_fail: rejection_flow
+      - id: check_threshold
+        action: check_finance_threshold
+        actor: system
+        condition: "amount > rules.approval.finance_threshold"
+        description: "Route to finance if over $1,000, otherwise auto-approve"
+      - id: emit_reviewed
+        action: emit
+        event: expense.manager_reviewed
+
+  finance_review:
+    description: "Finance manager reviews high-value expenses"
+    steps:
+      - id: load_expense
+        action: load_expense_with_history
+        actor: finance_manager
+        description: "Review expense with audit trail and manager approval"
+      - id: verify_budget
+        action: check_department_budget
+        actor: finance_manager
+        description: "Verify department has remaining budget for this expense"
+      - id: decide
+        action: approve_or_reject
+        actor: finance_manager
+        description: "Finance approves or rejects"
+        on_fail: rejection_flow
+      - id: emit_approved
+        action: emit
+        event: expense.approved
+
+  rejection_flow:
+    description: "Expense rejected by a reviewer"
+    trigger: "reviewer clicks reject"
+    steps:
+      - id: require_reason
+        action: validate_rejection_reason
+        description: "Rejection reason is mandatory"
+      - id: transition
+        action: transition_state
+        description: "Move status to rejected"
+      - id: notify_employee
+        action: send_notification
+        actor: system
+        template: expense_rejected
+        description: "Email the employee with rejection reason"
+      - id: emit_rejected
+        action: emit
+        event: expense.rejected
+
+  payment_flow:
+    description: "System processes approved expense for reimbursement"
+    steps:
+      - id: queue_payment
+        action: create_payment_record
+        actor: payment_system
+        description: "Create reimbursement entry in payroll system"
+      - id: process
+        action: execute_payment
+        actor: payment_system
+        description: "Process via direct deposit or payroll"
+        on_fail: payment_failed
+      - id: transition
+        action: transition_state
+        description: "Move status to paid"
+      - id: notify_employee
+        action: send_notification
+        actor: system
+        template: expense_reimbursed
+        description: "Confirm reimbursement to the employee"
+      - id: emit_paid
+        action: emit
+        event: expense.paid
+
+  receipt_missing:
+    description: "Receipt required but not attached"
+    trigger: "amount > rules.receipt.required_above AND no receipt uploaded"
+    steps:
+      - action: show_error
+        error: EXPENSE_RECEIPT_REQUIRED
+
+  payment_failed:
+    description: "Payment processing failed"
+    trigger: "payment system returns error"
+    steps:
+      - action: emit
+        event: expense.payment_failed
+      - action: send_notification
+        actor: system
+        template: payment_failed_alert
+        description: "Alert finance team of payment failure"
+      - action: show_error
+        error: EXPENSE_PAYMENT_FAILED
+
+# ─── OUTCOMES ─────────────────────────────────────────────
+# Acceptance criteria — what must be true for each scenario
+
+outcomes:
+  expense_submitted:
+    given:
+      - user is authenticated
+      - title is provided (max 200 chars)
+      - amount is between $0.01 and $50,000
+      - category is one of the valid options
+      - date is within last 90 days
+      - description has at least 10 characters
+      - receipt is attached if amount > $25 (PDF/PNG/JPG, max 10MB)
+      - no duplicate expense exists (same amount + date + category)
+      - not rate limited (max 20 per hour per user)
+    then:
+      - status transitions from draft to submitted
+      - direct manager is notified via email
+      - expense.submitted event is emitted
+      - all state transitions are logged for audit (actor, timestamp, IP)
+    result: expense appears in manager's review queue
+
+  manager_approves:
+    given:
+      - reviewer has manager role for the submitting employee
+      - expense is in submitted status
+    then:
+      - if amount <= $1,000, status transitions to approved (auto-skip finance)
+      - if amount > $1,000, status transitions to pending_finance
+      - expense.manager_reviewed event is emitted
+    result: expense moves to next stage based on amount threshold
+
+  finance_approves:
+    given:
+      - reviewer has finance_manager role
+      - expense is in pending_finance status
+      - department has remaining budget for this expense
+    then:
+      - status transitions to approved
+      - expense.approved event is emitted
+    result: expense is queued for payment processing
+
+  expense_rejected:
+    given:
+      - reviewer is manager or finance_manager
+      - expense is in submitted or pending_finance status
+      - rejection reason is provided (mandatory)
+    then:
+      - status transitions to rejected
+      - employee is notified with rejection reason
+      - expense.rejected event is emitted
+    result: employee can revise (status back to draft) and resubmit
+
+  payment_processed:
+    given:
+      - expense is in approved status
+      - payment system is available
+    then:
+      - reimbursement is created in payroll system
+      - status transitions to paid
+      - employee is notified of reimbursement
+      - expense.paid event is emitted
+    result: employee receives reimbursement via direct deposit or payroll
+
+  payment_failed:
+    given:
+      - payment system returns error
+    then:
+      - expense.payment_failed event is emitted
+      - finance team is alerted
+    result: expense stays in approved status, finance investigates
+
+  sla_breached:
+    given:
+      - manager review exceeds 48 hours
+      - OR finance review exceeds 72 hours
+      - OR end-to-end exceeds 30 days
+    then:
+      - expense.sla_breached event is emitted
+      - escalation notification sent (department head or CFO)
+    result: escalation path activated per SLA rules
+
+# ─── ERRORS ───────────────────────────────────────────────
+
+errors:
+  - code: EXPENSE_VALIDATION_ERROR
+    status: 422
+    message: "Please check your input and try again"
+    retry: true
+
+  - code: EXPENSE_RECEIPT_REQUIRED
+    status: 422
+    message: "A receipt is required for expenses over $25"
+    retry: true
+
+  - code: EXPENSE_DUPLICATE_DETECTED
+    status: 409
+    message: "A similar expense already exists. Please review before submitting."
+    retry: true
+
+  - code: EXPENSE_NOT_FOUND
+    status: 404
+    message: "Expense report not found"
+    retry: false
+
+  - code: EXPENSE_INVALID_TRANSITION
+    status: 422
+    message: "This action is not allowed in the current status"
+    retry: false
+
+  - code: EXPENSE_UNAUTHORIZED
+    status: 403
+    message: "You do not have permission to perform this action"
+    retry: false
+
+  - code: EXPENSE_BUDGET_EXCEEDED
+    status: 422
+    message: "This expense would exceed the department budget. Please contact finance."
+    retry: false
+
+  - code: EXPENSE_PAYMENT_FAILED
+    status: 500
+    message: "Payment processing failed. Finance has been notified."
+    retry: false
+
+  - code: EXPENSE_RATE_LIMITED
+    status: 429
+    message: "Too many submissions. Please try again later."
+    retry: false
+
+# ─── EVENTS ───────────────────────────────────────────────
+
+events:
+  - name: expense.submitted
+    description: "New expense submitted for approval"
+    payload: [expense_id, submitted_by, amount, category, timestamp]
+
+  - name: expense.manager_reviewed
+    description: "Manager completed review (approve or reject)"
+    payload: [expense_id, reviewer_id, decision, amount, timestamp]
+
+  - name: expense.approved
+    description: "Expense fully approved (all levels)"
+    payload: [expense_id, approved_by, amount, timestamp]
+
+  - name: expense.rejected
+    description: "Expense rejected at any level"
+    payload: [expense_id, rejected_by, reason, amount, timestamp]
+
+  - name: expense.paid
+    description: "Reimbursement processed successfully"
+    payload: [expense_id, user_id, amount, payment_method, timestamp]
+
+  - name: expense.payment_failed
+    description: "Reimbursement processing failed"
+    payload: [expense_id, user_id, amount, error_detail, timestamp]
+
+  - name: expense.sla_breached
+    description: "An SLA deadline was exceeded"
+    payload: [expense_id, sla_name, expected_duration, actual_duration, timestamp]
+
+# ─── RELATIONSHIPS ────────────────────────────────────────
+
+related:
+  - feature: login
+    type: required
+    reason: "Users must be authenticated to submit expenses"
+
+  - feature: roles-permissions
+    type: recommended
+    reason: "Manager and finance roles determine who can approve"
+
+  - feature: notifications
+    type: recommended
+    reason: "Email and in-app notifications at each step"
+
+  - feature: file-upload
+    type: required
+    reason: "Receipt upload functionality"
+
+  - feature: audit-log
+    type: recommended
+    reason: "All transitions logged for compliance"
+
+# ─── UI HINTS ─────────────────────────────────────────────
+
+ui_hints:
+  screens:
+    submit:
+      layout: single_column
+      max_width: 600px
+      title: "Submit Expense"
+      fields_order: [title, amount, currency, category, date_incurred, description, receipt]
+      actions:
+        primary:
+          label: "Submit for Approval"
+          type: submit
+        secondary:
+          - label: "Save Draft"
+            action: save_draft
+
+    review:
+      layout: two_column
+      title: "Review Expense"
+      left_column: [title, amount, currency, category, date_incurred, description]
+      right_column: [receipt, status, submitted_by]
+      actions:
+        primary:
+          label: "Approve"
+          type: submit
+          style: success
+        secondary:
+          - label: "Reject"
+            action: reject
+            style: danger
+            requires_reason: true
+
+    list:
+      layout: table
+      title: "My Expenses"
+      columns: [title, amount, category, date_incurred, status]
+      filters: [status, category, date_range]
+      sort_default: date_incurred_desc
+
+  accessibility:
+    aria_live_region: true
+
+  loading:
+    disable_button: true
+    show_spinner: true
+    prevent_double_submit: true

@@ -240,6 +240,51 @@ flows:
       - action: show_field_errors
         description: "Display per-field error messages"
 
+# ─── OUTCOMES ──────────────────────────────────────────────
+# Acceptance criteria — what must be true for each scenario
+
+outcomes:
+  successful_signup:
+    given:
+      - first_name and last_name are valid (1-100 chars, Unicode letters/hyphens/apostrophes)
+      - email is valid format, normalized (lowercase, trimmed)
+      - email is not already registered
+      - password meets requirements (8-64 chars, uppercase + lowercase + digit)
+      - confirm_password matches password
+      - terms_accepted is true
+      - not rate limited (max 5 signups per hour per IP)
+    then:
+      - password is hashed with bcrypt (12 salt rounds)
+      - user record is created with role "user" and email_verified false
+      - verification email is sent
+      - signup.success event is emitted with user_id, email, timestamp, ip, user_agent
+    result: redirect to confirmation page with "Account created! Please check your email to verify."
+
+  email_already_registered:
+    given:
+      - email already exists in database
+    then:
+      - signup.duplicate_email event is emitted
+      - existing-account notification sent to the email owner
+    result: show SAME success response as new signup (enumeration prevention)
+
+  bot_detected:
+    given:
+      - honeypot field is filled OR captcha failed (when bot protection enabled)
+    then:
+      - signup.bot_detected event is emitted
+    result: show generic rate limit error (don't reveal bot detection triggered)
+
+  rate_limited:
+    given:
+      - more than 5 signup attempts in 1 hour from this IP
+    result: show "Too many attempts. Please try again later."
+
+  validation_failed:
+    given:
+      - any field fails validation
+    result: show per-field error messages inline
+
 # ─── ERRORS ────────────────────────────────────────────────
 
 errors:

@@ -212,6 +212,63 @@ flows:
       - action: show_error
         error: LOGIN_RATE_LIMITED
 
+# ─── OUTCOMES ──────────────────────────────────────────────
+# Acceptance criteria — what must be true for each scenario
+# AI code generators should use these instead of flows
+
+outcomes:
+  successful_login:
+    given:
+      - email is valid format
+      - email is normalized (lowercase, trimmed)
+      - user exists in database
+      - account is not locked (failed_attempts < 5 or lockout expired)
+      - account is not disabled (status != disabled)
+      - password matches stored hash (constant-time comparison via bcrypt)
+      - email is verified (when rules.email.require_verified is true)
+    then:
+      - failed attempt counter is reset to 0
+      - access token is created (JWT, 15-min expiry)
+      - refresh token is created (7-day expiry, or 30-day if remember_me)
+      - refresh token rotates on each use
+      - tokens are set as cookies (httpOnly, secure, sameSite strict)
+      - login.success event is emitted with user_id, email, timestamp, ip, user_agent, session_id
+    result: redirect to /dashboard
+
+  invalid_credentials:
+    given:
+      - user not found OR password does not match
+    then:
+      - failed attempt counter is incremented
+      - if attempts reach 5, account is locked for 15 minutes
+      - login.failed event is emitted
+      - if newly locked, login.locked event is emitted and optional lockout email sent
+    result: show "Invalid email or password" (SAME message for both cases — enumeration prevention)
+
+  account_locked:
+    given:
+      - failed_attempts >= 5 AND lockout period has not expired
+    then:
+      - login.locked event is emitted
+    result: show "Account temporarily locked. Please try again later."
+
+  email_not_verified:
+    given:
+      - user exists, password correct, but email_verified is false
+    then:
+      - login.unverified event is emitted
+    result: redirect to email-verification with message "Please verify your email before logging in"
+
+  account_disabled:
+    given:
+      - user.status is disabled
+    result: show "This account has been disabled. Please contact support."
+
+  rate_limited:
+    given:
+      - more than 10 requests in 60 seconds from this IP
+    result: show "Too many login attempts. Please wait a moment."
+
 # ─── ERRORS ────────────────────────────────────────────────
 # Every error this feature can return
 # Messages are user-safe — no internal details

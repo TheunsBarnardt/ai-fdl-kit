@@ -8,245 +8,259 @@ arguments: "<feature-name> [category]"
 
 # FDL Create — Blueprint Authoring Skill
 
-Create a new FDL blueprint YAML file from a feature description. Ensures the blueprint follows the FDL meta-schema and connects properly to existing blueprints.
+Create a new FDL blueprint by having a conversation with the user. The user does NOT need to know YAML or the FDL schema — ask plain-language questions, offer smart defaults, and generate everything behind the scenes.
 
 ## Usage
 
 ```
 /fdl-create checkout payment
 /fdl-create file-upload data
+/fdl-create expense-approval workflow
 /fdl-create roles access
-/fdl-create dashboard ui
 ```
 
 ## Arguments
 
 - `<feature-name>` — Kebab-case feature identifier (e.g., `checkout`, `file-upload`)
-- `[category]` — Optional. One of: auth, data, access, ui, integration, notification, payment. If omitted, will be inferred or asked.
+- `[category]` — Optional. One of: auth, data, access, ui, integration, notification, payment, workflow. If omitted, infer or ask.
+
+## Core Principle: The User Knows NOTHING About YAML
+
+- NEVER show YAML to the user during the conversation
+- NEVER ask the user to "define flows" or "specify validation rules"
+- NEVER use FDL jargon (fields, outcomes, events, etc.) — use plain language
+- DO use the AskUserQuestion tool to present choices
+- DO offer smart defaults based on domain knowledge
+- DO summarize what you'll create in plain-English bullet points
+- DO generate the YAML silently and just show the final summary
 
 ## Workflow
 
-### Step 1: Gather Requirements
+### Phase 1: Understand the Feature (1-2 questions max)
 
-Ask the user (if not already clear from context):
-1. What does this feature do? (one sentence)
-2. What fields/inputs does it need?
-3. Are there security concerns? (rate limiting, auth required, etc.)
-4. Does it relate to any existing blueprints?
+If the user gave a clear feature name (e.g., `/fdl-create checkout payment`), use domain knowledge to fill in most details. Only ask what you genuinely don't know.
 
-If the user says something simple like `/fdl-create checkout`, use domain knowledge to fill in sensible defaults and confirm with the user.
+**Use AskUserQuestion with options like:**
 
-### Step 2: Check Existing Blueprints
+Question 1 — Scope (only if unclear):
+"What should the checkout feature handle?"
+- Options: "Simple one-time payment", "Subscription/recurring billing", "Multi-step with cart review", etc.
 
-1. Glob for `blueprints/**/*.blueprint.yaml`
-2. Parse all existing blueprints
-3. Check if this feature already exists (error if so)
-4. Identify potential relationships:
-   - Does any existing blueprint reference this feature in `related`?
-   - Should this feature reference existing ones?
+Question 2 — Users (only if unclear):
+"Who uses this feature?"
+- Options: "Any visitor (public)", "Logged-in users only", "Admin/staff only", "Multiple roles"
 
-### Step 3: Load the Meta-Schema
+**DO NOT ask more than 2 questions in Phase 1.** Use domain knowledge for everything else.
 
-1. Read `schema/blueprint.schema.yaml`
-2. Use it as the template for the new blueprint
-3. Ensure all required fields are included
+### Phase 2: Present Smart Defaults (confirmation, not interrogation)
 
-### Step 4: Generate the Blueprint
+Based on the feature name, category, and your domain knowledge, draft the full blueprint internally. Then present a plain-English summary for confirmation:
 
-Create the YAML file with ALL sections:
+```
+Here's what I'll create for the checkout feature:
 
-```yaml
-# ============================================================
-# {FEATURE_NAME} — Feature Blueprint
-# FDL v0.1.0 | Blueprint v1.0.0
-# ============================================================
-# {Description of what this feature does and why it matters}
-# ============================================================
+DATA IT COLLECTS:
+  - Payment method (card token from Stripe/payment provider)
+  - Billing amount and currency
+  - Billing address (street, city, state, zip, country)
 
-feature: {feature-name}
-version: "1.0.0"
-description: {one-line description}
-category: {category}
-tags: [{relevant, tags}]
+WHAT SHOULD HAPPEN:
+  ✓ Successful payment → order confirmed, receipt emailed, redirect to confirmation page
+  ✗ Card declined → show "Payment was declined, please try another card"
+  ✗ Insufficient funds → same message (don't reveal the specific reason)
+  ✗ Payment provider down → show "Unable to process payment, please try again"
+  ✗ Too many attempts → rate limit (10 per hour per user)
 
-fields:
-  # Every input the feature needs
-  # Include type, required, label, validation
+SECURITY:
+  - Requires login
+  - Card details never touch our server (tokenized via Stripe)
+  - Rate limited to prevent abuse
+  - Amount validated server-side (can't be modified by client)
 
-rules:
-  # Business logic and security policies
-  # Include rate_limit if public-facing
-  # Include security section if handling sensitive data
+CONNECTS TO:
+  - Cart (required) — needs items to check out
+  - Login (required) — must be authenticated
+  - Order history (recommended) — view past orders
 
-flows:
-  # happy_path is REQUIRED
-  # Add error flows for every failure case
-  # Each flow has steps with id, action, description
-
-errors:
-  # Standardized error codes
-  # UPPER_SNAKE_CASE codes
-  # User-safe messages (never leak internals)
-
-events:
-  # Signals for other features to consume
-  # dot.notation names
-  # Include payload fields
-
-related:
-  # Connections to other features
-  # required, recommended, optional, extends
-
-ui_hints:
-  # Layout suggestions
-  # Field ordering
-  # Action buttons and links
-  # Accessibility
-
-extensions:
-  # Framework-specific overrides (optional)
+Want me to adjust anything, or should I create it?
 ```
 
-### Step 5: Validate
+**Use AskUserQuestion:** "Does this look right?"
+- "Yes, create it" (proceed)
+- "I want to change something" (ask what)
+- "Add more detail" (ask which area)
 
-1. Run the blueprint through the JSON Schema validator (mentally or via script)
-2. Check:
-   - [ ] `feature` is kebab-case
-   - [ ] `version` is valid semver
-   - [ ] `description` is under 200 chars
-   - [ ] `category` is a valid enum value
-   - [ ] Every field has `name`, `type`, `required`
-   - [ ] Every field name is snake_case
-   - [ ] Every validation rule has `type` and `message`
-   - [ ] Every error code is UPPER_SNAKE_CASE
-   - [ ] Every event name is dot.notation
-   - [ ] `flows` has at least a `happy_path`
-   - [ ] Every flow step that can fail has an `on_fail` reference
-   - [ ] Related features use valid relationship types
+### Phase 3: Generate Silently
 
-### Step 6: Update Related Blueprints
+1. **Check existing blueprints** — Glob for `blueprints/**/*.blueprint.yaml`, ensure no duplicate
+2. **Generate the blueprint YAML** with ALL sections:
+   - `feature`, `version`, `description`, `category`, `tags`
+   - `fields` — with name, type, required, label, placeholder, validation
+   - `rules` — business logic, security, rate limiting
+   - `outcomes` — given/then/result for each scenario (preferred over flows for AI code gen)
+   - `flows` — step-by-step procedures ONLY if the feature involves human actors or business processes
+   - `errors` — UPPER_SNAKE_CASE codes with user-safe messages
+   - `events` — dot.notation names with payloads
+   - `actors` — only if multiple roles are involved
+   - `states` — only if there's a lifecycle/status field
+   - `sla` — only if there are time constraints
+   - `related` — connections to existing blueprints
+   - `ui_hints` — layout, field order, accessibility
+3. **Write the file** to `blueprints/{category}/{feature}.blueprint.yaml`
+4. **Validate** — run `node scripts/validate.js` on the file
+5. **Fix any validation errors** silently and re-validate
 
-If this new feature should be referenced by existing blueprints:
-1. Show the user which blueprints should add a `related` entry
-2. Ask for confirmation
-3. Add the relationship entries
+### Phase 4: Show Summary
 
-Example: Creating `mfa` should add a reference in `login.blueprint.yaml`:
-```yaml
-related:
-  - feature: mfa
-    type: optional
-    reason: "Second factor after password verification"
+Show a clean summary (no YAML):
+
+```
+Created: blueprints/payment/checkout.blueprint.yaml
+
+  checkout v1.0.0 — Process a payment for items in the cart
+
+  Data:      4 fields (payment_token, amount, currency, billing_address)
+  Outcomes:  4 scenarios (success, card declined, provider error, rate limited)
+  Security:  Auth required, rate limited, tokenized payments
+  Events:    3 (checkout.success, checkout.failed, checkout.refunded)
+  Connects:  cart (required), login (required), order-history (recommended)
+
+  Validation: PASS ✓
+
+  Next: Run /fdl-generate checkout nextjs to create the code
 ```
 
-### Step 7: Write and Confirm
+### Phase 5: Update Related Blueprints
 
-1. Write the file to `blueprints/{category}/{feature}.blueprint.yaml`
-2. Run `node scripts/validate.js` on the new file
-3. Show the user a summary:
-   ```
-   Created: blueprints/payment/checkout.blueprint.yaml
+If existing blueprints should reference this new feature:
+1. Tell the user: "The login blueprint should reference checkout — want me to add that?"
+2. On confirmation, add the `related` entry to the existing blueprint
 
-   Feature: checkout v1.0.0
-   Fields: 4 (card_token, amount, currency, billing_address)
-   Flows: 5 (happy_path, payment_failed, card_declined, insufficient_funds, rate_limited)
-   Errors: 5
-   Events: 3 (checkout.success, checkout.failed, checkout.refunded)
-   Related: cart (required), login (required), receipt (recommended)
+## Outcomes Format (use this instead of flows for code generation)
 
-   Validation: PASS
-   ```
+When generating the blueprint, prefer `outcomes` over `flows`:
 
-## Blueprint Quality Checklist
+```yaml
+outcomes:
+  successful_checkout:
+    given:
+      - user is authenticated
+      - cart has at least one item
+      - payment token is valid
+      - billing address is complete
+      - amount matches server-calculated total
+    then:
+      - payment is charged via provider
+      - order record is created with status "confirmed"
+      - cart is cleared
+      - confirmation email is sent
+      - checkout.success event is emitted
+    result: redirect to order confirmation page
 
-When creating a blueprint, ensure:
+  card_declined:
+    given:
+      - payment provider returns decline
+    then:
+      - checkout.failed event is emitted
+      - no order is created
+    result: show "Payment was declined. Please try another payment method."
+```
+
+## When to Include `flows` Alongside `outcomes`
+
+Include BOTH `outcomes` AND `flows` when:
+- The feature involves **human actors** performing manual steps (approvals, reviews)
+- The feature is a **business process** that needs to be documented as a procedure
+- The category is `workflow`
+
+For pure technical features (login, checkout, CRUD), `outcomes` alone is sufficient.
+
+## Quality Checklist (internal — don't show to user)
 
 ### Security
-- [ ] Public-facing features have `rate_limit` rules
-- [ ] Sensitive fields are marked `sensitive: true`
+- [ ] Public features have rate limiting
+- [ ] Sensitive fields marked `sensitive: true`
 - [ ] Error messages don't leak internal state
-- [ ] Authentication requirements are specified
-- [ ] Input validation covers XSS/injection vectors (maxLength, pattern)
+- [ ] Auth requirements specified in rules
 
 ### Completeness
-- [ ] Every user action has a flow
-- [ ] Every flow that can fail has an error flow
+- [ ] Every success scenario has an outcome
+- [ ] Every failure scenario has an outcome
 - [ ] Every error has a code, status, and message
 - [ ] Related features are identified
-- [ ] Events cover success AND failure cases
-
-### Usability
-- [ ] Fields have labels and placeholders
-- [ ] UI hints include field ordering
-- [ ] Accessibility hints are present (autofocus, autocomplete, aria)
-- [ ] Loading states are defined
-- [ ] Links to related features are specified
+- [ ] Events cover success AND failure
 
 ### Conventions
 - [ ] Feature name: kebab-case
 - [ ] Field names: snake_case
 - [ ] Error codes: UPPER_SNAKE_CASE
 - [ ] Event names: dot.notation
+- [ ] Actor IDs: snake_case
 - [ ] Comments explain WHY, not WHAT
 
-## Common Patterns to Reuse
+## Example: What a Good Outcome Looks Like
 
-### Rate Limiting (copy into any public feature)
+**User says:** `/fdl-create file-upload data`
+
+**You ask (Phase 1):**
+"What kind of files will users upload?"
+- Profile pictures / avatars
+- Documents (PDF, Word, etc.)
+- Any file type
+- Mixed (images + documents)
+
+**You present (Phase 2):**
+```
+Here's what I'll create for file upload:
+
+DATA IT NEEDS:
+  - The file itself (max 10MB, accepts images + PDFs)
+  - An optional description/label for the file
+  - Which record this file belongs to (e.g., user profile, expense report)
+
+WHAT SHOULD HAPPEN:
+  ✓ File uploaded → validated, stored, thumbnail generated (for images), linked to record
+  ✗ File too large → "File must be under 10MB"
+  ✗ Wrong file type → "Only images and PDFs are accepted"
+  ✗ Upload fails → "Upload failed, please try again"
+  ✗ Storage full → "Unable to store file, please contact support"
+
+SECURITY:
+  - File content is validated (not just extension — check magic bytes)
+  - Filenames are sanitized (prevent path traversal)
+  - Files stored outside webroot (no direct URL access)
+  - Virus/malware scanning (optional, recommended)
+  - Rate limited: 20 uploads per hour per user
+
+CONNECTS TO:
+  - Login (required) — must be authenticated
+  - Any feature that accepts attachments
+
+Want me to adjust anything?
+```
+
+**You generate (Phase 3):** A complete blueprint with outcomes like:
+
 ```yaml
-rules:
-  security:
-    rate_limit:
-      window_seconds: 60
-      max_requests: 10
-      scope: per_ip
+outcomes:
+  successful_upload:
+    given:
+      - user is authenticated
+      - file size is under max_size_mb (10MB)
+      - file MIME type matches allowed_types (validated via magic bytes, not just extension)
+      - filename is sanitized (no path traversal characters)
+      - user has not exceeded upload rate limit (20/hour)
+    then:
+      - file is stored in configured storage backend (local, S3, etc.)
+      - file record is created with original_name, stored_path, size, mime_type, uploaded_by
+      - if image, thumbnail is generated at configured dimensions
+      - file_upload.success event is emitted
+    result: return file record with ID and URL
+
+  file_too_large:
+    given:
+      - file size exceeds max_size_mb
+    result: show "File must be under 10MB"
 ```
 
-### Standard CRUD Flows
-```yaml
-flows:
-  create:
-    steps:
-      - id: validate
-        action: validate_fields
-      - id: authorize
-        action: check_permissions
-      - id: create
-        action: create_record
-      - id: emit
-        action: emit
-        event: {feature}.created
-  read:
-    steps: [authorize, fetch, return]
-  update:
-    steps: [validate, authorize, update, emit]
-  delete:
-    steps: [authorize, soft_delete, emit]
-```
-
-### Authentication Guard
-```yaml
-rules:
-  access:
-    requires_auth: true
-    roles: ["user", "admin"]
-```
-
-## Examples
-
-### Simple Feature
-```
-/fdl-create search data
-```
-Creates a search blueprint with query field, pagination rules, result flows.
-
-### Complex Feature
-```
-/fdl-create checkout payment
-```
-Creates a full checkout blueprint with payment fields, fraud rules, success/failure/retry flows, Stripe/PayPal extensions.
-
-### Feature That Extends Another
-```
-/fdl-create mfa auth
-```
-Creates MFA blueprint that `extends` login, with TOTP/SMS fields, verification flows, backup codes.
+Notice: the outcomes describe WHAT must be true, not HOW to implement it. The code generator decides whether to use multer, busboy, S3 SDK, etc.
