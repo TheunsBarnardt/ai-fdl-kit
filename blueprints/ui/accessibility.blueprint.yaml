@@ -1,0 +1,299 @@
+# ============================================================
+# ACCESSIBILITY — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# WCAG 2.1 AA compliance patterns for keyboard navigation,
+# focus management, ARIA attributes, and screen reader support.
+# ============================================================
+
+feature: accessibility
+version: "1.0.0"
+description: >
+  WCAG 2.1 AA compliance with keyboard navigation, focus management, ARIA attributes,
+  skip links, screen reader support, contrast enforcement, and reduced motion preferences.
+category: ui
+tags:
+  - accessibility
+  - wcag
+  - aria
+  - keyboard-navigation
+  - screen-reader
+  - focus-management
+
+fields:
+  - name: component_id
+    type: text
+    label: Component ID
+    required: true
+    validation:
+      - type: minLength
+        value: 1
+        message: "Component ID is required"
+  - name: role
+    type: select
+    label: ARIA Role
+    required: false
+    options:
+      - {value: "button", label: "Button"}
+      - {value: "link", label: "Link"}
+      - {value: "dialog", label: "Dialog"}
+      - {value: "alert", label: "Alert"}
+      - {value: "alertdialog", label: "Alert Dialog"}
+      - {value: "navigation", label: "Navigation"}
+      - {value: "region", label: "Region"}
+      - {value: "tablist", label: "Tab List"}
+      - {value: "tab", label: "Tab"}
+      - {value: "tabpanel", label: "Tab Panel"}
+      - {value: "menu", label: "Menu"}
+      - {value: "menuitem", label: "Menu Item"}
+      - {value: "tree", label: "Tree"}
+      - {value: "status", label: "Status"}
+      - {value: "log", label: "Log"}
+  - name: aria_label
+    type: text
+    label: ARIA Label
+    required: false
+  - name: aria_describedby
+    type: text
+    label: Described By Element ID
+    required: false
+  - name: aria_live
+    type: select
+    label: Live Region Politeness
+    required: false
+    options:
+      - {value: "off", label: "Off"}
+      - {value: "polite", label: "Polite"}
+      - {value: "assertive", label: "Assertive"}
+  - name: tab_index
+    type: number
+    label: Tab Index
+    required: false
+  - name: alt_text
+    type: text
+    label: Alternative Text
+    required: false
+  - name: contrast_ratio
+    type: number
+    label: Contrast Ratio
+    required: false
+    validation:
+      - type: min
+        value: 1.0
+        message: "Contrast ratio must be at least 1.0"
+  - name: focus_trap_enabled
+    type: boolean
+    label: Focus Trap Enabled
+    required: false
+  - name: reduced_motion
+    type: boolean
+    label: Respect Reduced Motion
+    required: false
+  - name: skip_link_target
+    type: text
+    label: Skip Link Target ID
+    required: false
+
+rules:
+  interactive_elements_keyboard_accessible:
+    description: >
+      All interactive elements (buttons, links, form controls, custom widgets)
+      must be operable via keyboard alone. Elements must be reachable via Tab
+      and activatable via Enter or Space as appropriate for their role.
+  images_require_alt_text:
+    description: >
+      All img elements and image-role elements must have meaningful alt text.
+      Decorative images must use alt="" or role="presentation" to be hidden
+      from assistive technology.
+  form_inputs_require_labels:
+    description: >
+      Every form input must have a visible label element associated via the
+      for/id attribute pair, or an aria-label/aria-labelledby attribute.
+      Placeholder text alone is not sufficient as a label.
+  modals_trap_focus:
+    description: >
+      When a modal dialog is open, keyboard focus must be trapped within the
+      dialog. Tab and Shift+Tab cycle through focusable elements inside the
+      modal. Focus returns to the triggering element when the modal closes.
+  error_messages_linked_via_aria:
+    description: >
+      Form validation error messages must be programmatically associated with
+      their input via aria-describedby. Error messages must also be announced
+      to screen readers using aria-live="polite" or role="alert".
+  color_contrast_minimum:
+    description: >
+      Normal text must have a contrast ratio of at least 4.5:1 against its
+      background. Large text (18pt or 14pt bold) requires at least 3:1.
+      UI components and graphical objects require at least 3:1.
+  respect_reduced_motion:
+    description: >
+      When the user has prefers-reduced-motion: reduce set, all non-essential
+      animations and transitions must be disabled or reduced to simple opacity
+      fades under 200ms.
+  skip_navigation_link:
+    description: >
+      Pages must provide a skip link as the first focusable element that jumps
+      to the main content area, bypassing repetitive navigation blocks.
+  live_regions_for_dynamic_content:
+    description: >
+      Dynamic content updates (loading states, success/error messages, counters)
+      must use aria-live regions so screen readers announce changes without
+      requiring the user to navigate to the updated area.
+  focus_visible_indicator:
+    description: >
+      All focusable elements must have a visible focus indicator that meets
+      WCAG 2.1 focus-visible requirements. The focus ring must have at least
+      3:1 contrast against adjacent colors.
+
+outcomes:
+  keyboard_navigation_works:
+    priority: 1
+    given:
+      - "a page contains interactive elements (buttons, links, form controls)"
+      - "user navigates using only keyboard (Tab, Shift+Tab, Enter, Space, Escape)"
+    then:
+      - action: set_field
+        target: tab_index
+        description: All interactive elements included in logical tab order
+    result: "All interactive elements are reachable and operable via keyboard alone"
+
+  skip_link_bypasses_navigation:
+    priority: 2
+    given:
+      - "a page has repetitive navigation blocks"
+      - "skip link is the first focusable element"
+      - "user activates the skip link"
+    then:
+      - action: set_field
+        target: skip_link_target
+        description: Focus moves to main content area bypassing navigation
+    result: "User can skip repetitive navigation and jump directly to main content"
+
+  modal_focus_trapped:
+    priority: 3
+    given:
+      - "a modal dialog is opened"
+      - field: focus_trap_enabled
+        source: input
+        operator: eq
+        value: true
+    then:
+      - action: set_field
+        target: focus_trap_enabled
+        value: true
+        description: Focus confined to modal, Tab/Shift+Tab cycle within dialog
+      - action: emit_event
+        event: accessibility.focus.trapped
+        payload: [component_id, role]
+    result: "Focus is trapped within the modal until it is dismissed"
+
+  screen_reader_announces_updates:
+    priority: 4
+    given:
+      - "dynamic content on the page changes (loading, success, error)"
+      - field: aria_live
+        source: input
+        operator: in
+        value: ["polite", "assertive"]
+    then:
+      - action: emit_event
+        event: accessibility.live_region.updated
+        payload: [component_id, aria_live, content]
+    result: "Screen reader announces the content change without user navigation"
+
+  form_error_announced:
+    priority: 5
+    given:
+      - "a form field fails validation"
+      - "an error message element exists for the field"
+    then:
+      - action: set_field
+        target: aria_describedby
+        description: Error message ID linked to input via aria-describedby
+      - action: emit_event
+        event: accessibility.error.announced
+        payload: [component_id, error_message]
+    result: "Validation error is programmatically linked to input and announced by screen reader"
+
+  contrast_ratio_enforced:
+    priority: 6
+    given:
+      - "text or UI component is rendered"
+      - field: contrast_ratio
+        source: computed
+        operator: lt
+        value: 4.5
+    then: []
+    result: "Element flagged as failing WCAG AA contrast requirements"
+    error: A11Y_CONTRAST_INSUFFICIENT
+
+  reduced_motion_respected:
+    priority: 7
+    given:
+      - "user has prefers-reduced-motion: reduce enabled"
+      - field: reduced_motion
+        source: system
+        operator: eq
+        value: true
+    then:
+      - action: set_field
+        target: reduced_motion
+        value: true
+        description: Non-essential animations disabled or reduced to opacity fades under 200ms
+    result: "Animations suppressed for users who prefer reduced motion"
+
+  image_missing_alt_text:
+    priority: 8
+    given:
+      - "an image element is rendered"
+      - field: alt_text
+        source: input
+        operator: not_exists
+    then: []
+    result: "Image flagged as missing alternative text for assistive technology"
+    error: A11Y_MISSING_ALT_TEXT
+
+errors:
+  - code: A11Y_CONTRAST_INSUFFICIENT
+    message: Color contrast ratio does not meet WCAG 2.1 AA minimum of 4.5:1 for normal text.
+    status: 400
+  - code: A11Y_MISSING_ALT_TEXT
+    message: Image element is missing alternative text required for screen reader access.
+    status: 400
+  - code: A11Y_MISSING_LABEL
+    message: Form input is missing an associated label element or aria-label attribute.
+    status: 400
+  - code: A11Y_FOCUS_TRAP_FAILED
+    message: Modal dialog failed to trap focus within its boundaries.
+    status: 500
+  - code: A11Y_SKIP_LINK_MISSING
+    message: Page is missing a skip navigation link as the first focusable element.
+    status: 400
+
+events:
+  - name: accessibility.focus.trapped
+    description: Focus was successfully trapped within a modal dialog
+    payload: [component_id, role]
+  - name: accessibility.live_region.updated
+    description: A live region announced dynamic content to assistive technology
+    payload: [component_id, aria_live, content]
+  - name: accessibility.error.announced
+    description: A validation error was linked to its input and announced
+    payload: [component_id, error_message]
+  - name: accessibility.audit.completed
+    description: Automated accessibility audit completed on a page or component
+    payload: [page_url, violations_count, warnings_count]
+
+related:
+  - feature: form-builder
+    type: recommended
+    reason: Form builder should enforce accessible labels, error linking, and keyboard operation
+  - feature: theme-configuration
+    type: recommended
+    reason: Theme system must enforce color contrast ratios for all color combinations
+  - feature: responsive-layout
+    type: optional
+    reason: Responsive layouts should maintain focus order and landmark structure across breakpoints
+  - feature: dark-mode
+    type: optional
+    reason: Dark mode theme must independently meet WCAG contrast requirements

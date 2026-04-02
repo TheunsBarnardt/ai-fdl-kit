@@ -1,0 +1,688 @@
+{
+  "feature": "bulk-operations",
+  "version": "1.0.0",
+  "description": "Batch update, delete, and export operations for large record sets with progress tracking, atomic or best-effort execution, and error logging.\n",
+  "category": "workflow",
+  "tags": [
+    "bulk",
+    "batch-processing",
+    "mass-update",
+    "mass-delete",
+    "data-export",
+    "background-jobs",
+    "progress-tracking"
+  ],
+  "actors": [
+    {
+      "id": "operator",
+      "name": "Operator",
+      "type": "human",
+      "description": "Initiates bulk operations and monitors progress"
+    },
+    {
+      "id": "batch_processor",
+      "name": "Batch Processor",
+      "type": "system",
+      "description": "Executes bulk operations in background with progress reporting"
+    }
+  ],
+  "fields": [
+    {
+      "name": "operation_id",
+      "type": "text",
+      "label": "Operation ID",
+      "required": true,
+      "validation": [
+        {
+          "type": "pattern",
+          "value": "^[a-z0-9-]+$",
+          "message": "Operation ID must be lowercase alphanumeric with hyphens"
+        }
+      ]
+    },
+    {
+      "name": "operation_type",
+      "type": "select",
+      "label": "Operation Type",
+      "required": true,
+      "options": [
+        {
+          "value": "update",
+          "label": "Bulk Update"
+        },
+        {
+          "value": "delete",
+          "label": "Bulk Delete"
+        },
+        {
+          "value": "export",
+          "label": "Bulk Export"
+        },
+        {
+          "value": "archive",
+          "label": "Bulk Archive"
+        },
+        {
+          "value": "restore",
+          "label": "Bulk Restore"
+        }
+      ]
+    },
+    {
+      "name": "entity_type",
+      "type": "text",
+      "label": "Entity Type",
+      "required": true
+    },
+    {
+      "name": "selection_mode",
+      "type": "select",
+      "label": "Selection Mode",
+      "required": true,
+      "options": [
+        {
+          "value": "ids",
+          "label": "Explicit IDs"
+        },
+        {
+          "value": "filter",
+          "label": "Filter Criteria"
+        }
+      ]
+    },
+    {
+      "name": "selected_ids",
+      "type": "json",
+      "label": "Selected Record IDs",
+      "required": false
+    },
+    {
+      "name": "filter_criteria",
+      "type": "json",
+      "label": "Filter Criteria",
+      "required": false
+    },
+    {
+      "name": "changes",
+      "type": "json",
+      "label": "Changes to Apply",
+      "required": false
+    },
+    {
+      "name": "execution_mode",
+      "type": "select",
+      "label": "Execution Mode",
+      "required": true,
+      "options": [
+        {
+          "value": "atomic",
+          "label": "Atomic (all or nothing)"
+        },
+        {
+          "value": "best_effort",
+          "label": "Best Effort (skip failures)"
+        }
+      ]
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "label": "Status",
+      "required": true,
+      "options": [
+        {
+          "value": "pending_confirmation",
+          "label": "Pending Confirmation"
+        },
+        {
+          "value": "confirmed",
+          "label": "Confirmed"
+        },
+        {
+          "value": "processing",
+          "label": "Processing"
+        },
+        {
+          "value": "completed",
+          "label": "Completed"
+        },
+        {
+          "value": "completed_with_errors",
+          "label": "Completed with Errors"
+        },
+        {
+          "value": "failed",
+          "label": "Failed"
+        },
+        {
+          "value": "cancelled",
+          "label": "Cancelled"
+        }
+      ]
+    },
+    {
+      "name": "total_count",
+      "type": "number",
+      "label": "Total Records",
+      "required": true,
+      "validation": [
+        {
+          "type": "min",
+          "value": 1,
+          "message": "Total count must be at least 1"
+        },
+        {
+          "type": "max",
+          "value": 10000,
+          "message": "Total count must not exceed 10,000"
+        }
+      ]
+    },
+    {
+      "name": "processed_count",
+      "type": "number",
+      "label": "Processed Records",
+      "required": false,
+      "validation": [
+        {
+          "type": "min",
+          "value": 0,
+          "message": "Processed count cannot be negative"
+        }
+      ]
+    },
+    {
+      "name": "success_count",
+      "type": "number",
+      "label": "Successful Records",
+      "required": false,
+      "validation": [
+        {
+          "type": "min",
+          "value": 0,
+          "message": "Success count cannot be negative"
+        }
+      ]
+    },
+    {
+      "name": "error_count",
+      "type": "number",
+      "label": "Failed Records",
+      "required": false,
+      "validation": [
+        {
+          "type": "min",
+          "value": 0,
+          "message": "Error count cannot be negative"
+        }
+      ]
+    },
+    {
+      "name": "error_log",
+      "type": "json",
+      "label": "Error Log",
+      "required": false
+    },
+    {
+      "name": "confirmed_by",
+      "type": "text",
+      "label": "Confirmed By",
+      "required": false
+    },
+    {
+      "name": "confirmed_at",
+      "type": "datetime",
+      "label": "Confirmed At",
+      "required": false
+    }
+  ],
+  "rules": {
+    "max_batch_size": {
+      "description": "A single bulk operation may process a maximum of 10,000 records. Requests exceeding this limit must be rejected with an error suggesting the user split the operation into smaller batches.\n"
+    },
+    "background_processing_with_progress": {
+      "description": "All bulk operations must run in background jobs. The system provides real-time progress updates (processed_count, error_count) that clients can poll or receive via server-sent events.\n"
+    },
+    "atomic_or_best_effort": {
+      "description": "In atomic mode, all changes are wrapped in a transaction and rolled back if any record fails. In best-effort mode, failures are logged and processing continues with remaining records.\n"
+    },
+    "confirmation_for_destructive_operations": {
+      "description": "Delete and archive operations require explicit confirmation before execution. The system presents a summary (record count, affected entities) and requires the operator to confirm the action.\n"
+    },
+    "changes_required_for_updates": {
+      "description": "Bulk update operations must include a non-empty changes object specifying which fields to modify and their new values.\n"
+    },
+    "selection_required": {
+      "description": "Either selected_ids (for explicit selection) or filter_criteria (for dynamic selection) must be provided. Both cannot be empty.\n"
+    },
+    "error_log_retention": {
+      "description": "Error logs for failed records must include the record ID, error code, and error message. Logs are retained for 30 days after operation completion.\n"
+    }
+  },
+  "outcomes": {
+    "bulk_update_executed": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "operation_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "update"
+        },
+        "records are selected by IDs or filter criteria",
+        {
+          "field": "changes",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "total_count",
+          "source": "computed",
+          "operator": "lte",
+          "value": 10000
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "confirmed",
+          "to": "processing"
+        },
+        {
+          "action": "call_service",
+          "target": "batch_processor",
+          "description": "Apply changes to each selected record with progress tracking"
+        },
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "processing",
+          "to": "completed"
+        },
+        {
+          "action": "emit_event",
+          "event": "bulk.operation.completed",
+          "payload": [
+            "operation_id",
+            "operation_type",
+            "total_count",
+            "success_count",
+            "error_count"
+          ]
+        }
+      ],
+      "result": "All selected records updated with specified changes"
+    },
+    "bulk_delete_confirmed": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "operation_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "delete",
+            "archive"
+          ]
+        },
+        "records are selected by IDs or filter criteria"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "pending_confirmation",
+          "to": "pending_confirmation",
+          "description": "Present confirmation dialog with record count and impact summary"
+        },
+        {
+          "action": "emit_event",
+          "event": "bulk.confirmation.required",
+          "payload": [
+            "operation_id",
+            "operation_type",
+            "total_count",
+            "entity_type"
+          ]
+        }
+      ],
+      "result": "Destructive operation awaits explicit confirmation before execution"
+    },
+    "bulk_delete_executed": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "operation_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "delete",
+            "archive"
+          ]
+        },
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "eq",
+          "value": "confirmed"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "confirmed",
+          "to": "processing"
+        },
+        {
+          "action": "call_service",
+          "target": "batch_processor",
+          "description": "Delete or archive each selected record with progress tracking"
+        },
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "processing",
+          "to": "completed"
+        },
+        {
+          "action": "emit_event",
+          "event": "bulk.operation.completed",
+          "payload": [
+            "operation_id",
+            "operation_type",
+            "total_count",
+            "success_count",
+            "error_count"
+          ]
+        }
+      ],
+      "result": "Selected records deleted or archived after confirmation"
+    },
+    "bulk_export_executed": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "operation_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "export"
+        },
+        "records are selected by IDs or filter criteria"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "confirmed",
+          "to": "processing"
+        },
+        {
+          "action": "call_service",
+          "target": "batch_processor",
+          "description": "Export selected records to file with progress tracking"
+        },
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "processing",
+          "to": "completed"
+        },
+        {
+          "action": "emit_event",
+          "event": "bulk.export.completed",
+          "payload": [
+            "operation_id",
+            "total_count",
+            "file_url"
+          ]
+        }
+      ],
+      "result": "Selected records exported to downloadable file"
+    },
+    "operation_completed_with_errors": {
+      "priority": 5,
+      "given": [
+        {
+          "field": "execution_mode",
+          "source": "input",
+          "operator": "eq",
+          "value": "best_effort"
+        },
+        "one or more records fail during processing"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "processing",
+          "to": "completed_with_errors"
+        },
+        {
+          "action": "set_field",
+          "target": "error_log",
+          "description": "Record ID, error code, and message for each failed record"
+        },
+        {
+          "action": "emit_event",
+          "event": "bulk.operation.completed_with_errors",
+          "payload": [
+            "operation_id",
+            "total_count",
+            "success_count",
+            "error_count",
+            "error_log"
+          ]
+        }
+      ],
+      "result": "Operation completes but with partial failures logged in error log"
+    },
+    "atomic_operation_rolled_back": {
+      "priority": 6,
+      "given": [
+        {
+          "field": "execution_mode",
+          "source": "input",
+          "operator": "eq",
+          "value": "atomic"
+        },
+        "any record fails during processing"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "processing",
+          "to": "failed"
+        },
+        {
+          "action": "set_field",
+          "target": "error_log",
+          "description": "Record the failure that caused the rollback"
+        },
+        {
+          "action": "emit_event",
+          "event": "bulk.operation.rolled_back",
+          "payload": [
+            "operation_id",
+            "operation_type",
+            "failed_record_id",
+            "error_details"
+          ]
+        }
+      ],
+      "result": "Entire operation rolled back due to failure in atomic mode",
+      "error": "BULK_ATOMIC_ROLLBACK"
+    },
+    "batch_size_exceeded": {
+      "priority": 7,
+      "given": [
+        {
+          "field": "total_count",
+          "source": "computed",
+          "operator": "gt",
+          "value": 10000
+        }
+      ],
+      "then": [],
+      "result": "Operation rejected because record count exceeds maximum batch size",
+      "error": "BULK_SIZE_EXCEEDED"
+    },
+    "operation_cancelled": {
+      "priority": 8,
+      "given": [
+        "operator cancels the operation while it is processing"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "processing",
+          "to": "cancelled"
+        },
+        {
+          "action": "emit_event",
+          "event": "bulk.operation.cancelled",
+          "payload": [
+            "operation_id",
+            "processed_count",
+            "total_count"
+          ]
+        }
+      ],
+      "result": "Operation cancelled; already-processed records are not rolled back in best-effort mode"
+    }
+  },
+  "errors": [
+    {
+      "code": "BULK_SIZE_EXCEEDED",
+      "message": "Batch size exceeds the maximum of 10,000 records. Split into smaller operations.",
+      "status": 400
+    },
+    {
+      "code": "BULK_ATOMIC_ROLLBACK",
+      "message": "Atomic operation rolled back due to a failure. No records were modified.",
+      "status": 500
+    },
+    {
+      "code": "BULK_NO_SELECTION",
+      "message": "No records selected. Provide either record IDs or filter criteria.",
+      "status": 400
+    },
+    {
+      "code": "BULK_MISSING_CHANGES",
+      "message": "Bulk update requires a non-empty changes object specifying fields to modify.",
+      "status": 400
+    },
+    {
+      "code": "BULK_CONFIRMATION_REQUIRED",
+      "message": "Destructive operation requires explicit confirmation before execution.",
+      "status": 403
+    },
+    {
+      "code": "BULK_OPERATION_NOT_FOUND",
+      "message": "The specified bulk operation ID does not exist.",
+      "status": 404
+    },
+    {
+      "code": "BULK_ENTITY_TYPE_INVALID",
+      "message": "The specified entity type does not exist or does not support bulk operations.",
+      "status": 400
+    }
+  ],
+  "events": [
+    {
+      "name": "bulk.operation.completed",
+      "description": "Bulk operation completed successfully",
+      "payload": [
+        "operation_id",
+        "operation_type",
+        "total_count",
+        "success_count",
+        "error_count"
+      ]
+    },
+    {
+      "name": "bulk.operation.completed_with_errors",
+      "description": "Bulk operation completed in best-effort mode with some failures",
+      "payload": [
+        "operation_id",
+        "total_count",
+        "success_count",
+        "error_count",
+        "error_log"
+      ]
+    },
+    {
+      "name": "bulk.operation.rolled_back",
+      "description": "Atomic bulk operation rolled back due to failure",
+      "payload": [
+        "operation_id",
+        "operation_type",
+        "failed_record_id",
+        "error_details"
+      ]
+    },
+    {
+      "name": "bulk.operation.cancelled",
+      "description": "Bulk operation was cancelled by the operator",
+      "payload": [
+        "operation_id",
+        "processed_count",
+        "total_count"
+      ]
+    },
+    {
+      "name": "bulk.confirmation.required",
+      "description": "Destructive bulk operation is awaiting confirmation",
+      "payload": [
+        "operation_id",
+        "operation_type",
+        "total_count",
+        "entity_type"
+      ]
+    },
+    {
+      "name": "bulk.export.completed",
+      "description": "Bulk export operation completed with downloadable file",
+      "payload": [
+        "operation_id",
+        "total_count",
+        "file_url"
+      ]
+    },
+    {
+      "name": "bulk.progress.updated",
+      "description": "Progress update during bulk operation processing",
+      "payload": [
+        "operation_id",
+        "processed_count",
+        "total_count",
+        "error_count"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "task-management",
+      "type": "recommended",
+      "reason": "Bulk operations run as background tasks with progress tracking"
+    },
+    {
+      "feature": "data-table",
+      "type": "recommended",
+      "reason": "Data tables provide the UI for selecting records and initiating bulk operations"
+    },
+    {
+      "feature": "report-generation",
+      "type": "optional",
+      "reason": "Bulk export operations may use report templates for formatted output"
+    },
+    {
+      "feature": "automation-rules",
+      "type": "optional",
+      "reason": "Automation rules can trigger bulk operations based on events"
+    }
+  ]
+}

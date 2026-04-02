@@ -1,0 +1,436 @@
+# ============================================================
+# NOTIFICATION PREFERENCES — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Per-user per-channel opt-in/opt-out preferences with
+# category-level granularity. Supports quiet hours, frequency
+# caps, digest mode, and do-not-disturb across all channels.
+# ============================================================
+
+feature: notification-preferences
+version: "1.0.0"
+description: Manage per-user notification preferences across channels and categories with quiet hours and frequency caps
+category: notification
+tags: [preferences, opt-in, opt-out, quiet-hours, digest, do-not-disturb, notification, settings]
+
+# --- FIELDS -------------------------------------------------
+
+fields:
+  - name: user_id
+    type: text
+    required: true
+    label: "User ID"
+    sensitive: false
+    validation:
+      - type: required
+        message: "User ID is required"
+
+  - name: channel
+    type: select
+    required: true
+    label: "Notification Channel"
+    options:
+      - { value: "email", label: "Email" }
+      - { value: "sms", label: "SMS" }
+      - { value: "push", label: "Push" }
+      - { value: "in_app", label: "In App" }
+    sensitive: false
+    validation:
+      - type: required
+        message: "Channel is required"
+
+  - name: category
+    type: select
+    required: true
+    label: "Notification Category"
+    options:
+      - { value: "marketing", label: "Marketing" }
+      - { value: "transactional", label: "Transactional" }
+      - { value: "security", label: "Security" }
+      - { value: "social", label: "Social" }
+      - { value: "updates", label: "Updates" }
+      - { value: "reminders", label: "Reminders" }
+    sensitive: false
+    validation:
+      - type: required
+        message: "Category is required"
+
+  - name: enabled
+    type: boolean
+    required: true
+    label: "Enabled"
+    default: true
+
+  - name: quiet_hours_start
+    type: text
+    required: false
+    label: "Quiet Hours Start"
+    validation:
+      - type: pattern
+        value: "^([01]\\d|2[0-3]):[0-5]\\d$"
+        message: "Must be in HH:MM 24-hour format"
+
+  - name: quiet_hours_end
+    type: text
+    required: false
+    label: "Quiet Hours End"
+    validation:
+      - type: pattern
+        value: "^([01]\\d|2[0-3]):[0-5]\\d$"
+        message: "Must be in HH:MM 24-hour format"
+
+  - name: quiet_hours_timezone
+    type: text
+    required: false
+    label: "Timezone"
+    validation:
+      - type: pattern
+        value: "^[A-Za-z_]+/[A-Za-z_]+$"
+        message: "Must be a valid IANA timezone identifier"
+
+  - name: do_not_disturb
+    type: boolean
+    required: false
+    label: "Do Not Disturb"
+    default: false
+
+  - name: do_not_disturb_until
+    type: datetime
+    required: false
+    label: "Do Not Disturb Until"
+
+  - name: digest_mode
+    type: select
+    required: false
+    label: "Digest Mode"
+    options:
+      - { value: "off", label: "Off" }
+      - { value: "hourly", label: "Hourly" }
+      - { value: "daily", label: "Daily" }
+      - { value: "weekly", label: "Weekly" }
+    default: "off"
+
+  - name: digest_time
+    type: text
+    required: false
+    label: "Digest Delivery Time"
+    default: "09:00"
+    validation:
+      - type: pattern
+        value: "^([01]\\d|2[0-3]):[0-5]\\d$"
+        message: "Must be in HH:MM 24-hour format"
+
+  - name: frequency_cap_per_day
+    type: number
+    required: false
+    label: "Daily Frequency Cap"
+    default: 0
+    validation:
+      - type: min
+        value: 0
+        message: "Frequency cap cannot be negative"
+
+# --- RULES --------------------------------------------------
+
+rules:
+  defaults:
+    new_user_defaults:
+      email:
+        marketing: false
+        transactional: true
+        security: true
+        social: true
+        updates: true
+        reminders: true
+      sms:
+        marketing: false
+        transactional: false
+        security: true
+        social: false
+        updates: false
+        reminders: false
+      push:
+        marketing: false
+        transactional: true
+        security: true
+        social: true
+        updates: true
+        reminders: true
+      in_app:
+        marketing: true
+        transactional: true
+        security: true
+        social: true
+        updates: true
+        reminders: true
+
+  overrides:
+    security_always_on: true
+    # SECURITY notifications (2FA, password change, login alerts) cannot be disabled
+    # This overrides user preferences for the security category
+    transactional_always_on_for_in_app: true
+    # Transactional notifications always show in-app even if other channels are off
+
+  quiet_hours:
+    default_start: "22:00"
+    default_end: "08:00"
+    applies_to: [marketing, social, updates, reminders]
+    # Quiet hours never apply to security or transactional notifications
+    queue_during_quiet: true
+    # Queue notifications during quiet hours; deliver when quiet hours end
+
+  frequency_caps:
+    check_before_send: true
+    # Every notification send must check frequency caps before delivery
+    cap_exceeded_action: queue_for_digest
+    # When cap is reached, batch remaining into next digest delivery
+
+  do_not_disturb:
+    overrides_all: true
+    # DND overrides all preferences except security notifications
+    security_exception: true
+    # Security notifications (2FA, breach alerts) bypass DND
+    auto_expire: true
+    # DND automatically expires at do_not_disturb_until timestamp
+
+  compliance:
+    unsubscribe_must_be_immediate: true
+    # Opt-out must take effect within 1 request (no "processing period")
+    preference_export: true
+    # Users can export their preference data (GDPR right of access)
+    preference_deletion: true
+    # Users can request deletion of all preferences (GDPR right to erasure)
+
+# --- OUTCOMES -----------------------------------------------
+
+outcomes:
+  user_not_found:
+    priority: 1
+    error: PREFERENCES_USER_NOT_FOUND
+    given:
+      - field: user_id
+        source: db
+        operator: not_exists
+        description: "User does not exist in the system"
+    result: reject with user not found error
+
+  security_category_locked:
+    priority: 2
+    error: PREFERENCES_SECURITY_LOCKED
+    given:
+      - field: category
+        source: input
+        operator: eq
+        value: security
+        description: "User is attempting to disable security notifications"
+      - field: enabled
+        source: input
+        operator: eq
+        value: false
+        description: "Attempting to opt out"
+    result: reject — security notifications cannot be disabled
+
+  preferences_updated:
+    priority: 10
+    transaction: true
+    given:
+      - field: user_id
+        source: db
+        operator: exists
+        description: "User exists"
+      - field: channel
+        source: input
+        operator: in
+        value: [email, sms, push, in_app]
+        description: "Valid notification channel"
+      - field: category
+        source: input
+        operator: in
+        value: [marketing, transactional, security, social, updates, reminders]
+        description: "Valid notification category"
+    then:
+      - action: set_field
+        target: preference
+        value: "input"
+        description: "Update the channel-category preference record"
+      - action: emit_event
+        event: preferences.updated
+        payload: [user_id, channel, category, enabled, timestamp]
+    result: preference saved and applied immediately
+
+  quiet_hours_set:
+    priority: 11
+    given:
+      - field: quiet_hours_start
+        source: input
+        operator: exists
+        description: "Quiet hours start time provided"
+      - field: quiet_hours_end
+        source: input
+        operator: exists
+        description: "Quiet hours end time provided"
+    then:
+      - action: set_field
+        target: quiet_hours
+        value: "input"
+        description: "Save quiet hours window"
+      - action: emit_event
+        event: preferences.updated
+        payload: [user_id, quiet_hours_start, quiet_hours_end, quiet_hours_timezone, timestamp]
+    result: quiet hours configured for the user
+
+  dnd_enabled:
+    priority: 12
+    given:
+      - field: do_not_disturb
+        source: input
+        operator: eq
+        value: true
+        description: "User is enabling Do Not Disturb"
+    then:
+      - action: set_field
+        target: do_not_disturb
+        value: true
+        description: "Enable global Do Not Disturb"
+      - action: emit_event
+        event: preferences.updated
+        payload: [user_id, do_not_disturb, do_not_disturb_until, timestamp]
+    result: all non-security notifications paused until DND is disabled or expires
+
+  dnd_auto_expired:
+    priority: 13
+    given:
+      - field: do_not_disturb
+        source: db
+        operator: eq
+        value: true
+        description: "DND is currently active"
+      - field: do_not_disturb_until
+        source: db
+        operator: lt
+        value: now
+        description: "DND expiry time has passed"
+    then:
+      - action: set_field
+        target: do_not_disturb
+        value: false
+        description: "Auto-disable DND"
+      - action: emit_event
+        event: preferences.updated
+        payload: [user_id, do_not_disturb, expired_at, timestamp]
+    result: DND automatically disabled and normal notification delivery resumes
+
+  digest_mode_configured:
+    priority: 14
+    given:
+      - field: digest_mode
+        source: input
+        operator: in
+        value: [hourly, daily, weekly]
+        description: "User selected a digest mode"
+    then:
+      - action: set_field
+        target: digest_mode
+        value: "input"
+        description: "Save digest mode preference"
+      - action: set_field
+        target: digest_time
+        value: "input"
+        description: "Save preferred digest delivery time"
+      - action: emit_event
+        event: preferences.updated
+        payload: [user_id, digest_mode, digest_time, timestamp]
+    result: notifications will be batched and delivered according to digest schedule
+
+# --- ERRORS -------------------------------------------------
+
+errors:
+  - code: PREFERENCES_USER_NOT_FOUND
+    status: 404
+    message: "User not found"
+    retry: false
+
+  - code: PREFERENCES_SECURITY_LOCKED
+    status: 403
+    message: "Security notifications cannot be disabled"
+    retry: false
+
+  - code: PREFERENCES_INVALID_CHANNEL
+    status: 422
+    message: "Invalid notification channel"
+    retry: false
+
+  - code: PREFERENCES_INVALID_CATEGORY
+    status: 422
+    message: "Invalid notification category"
+    retry: false
+
+  - code: PREFERENCES_VALIDATION_ERROR
+    status: 422
+    message: "Please check your preference settings and try again"
+    retry: true
+
+# --- EVENTS -------------------------------------------------
+
+events:
+  - name: preferences.updated
+    description: "User notification preferences changed"
+    payload: [user_id, channel, category, enabled, timestamp]
+
+# --- RELATIONSHIPS ------------------------------------------
+
+related:
+  - feature: email-notifications
+    type: required
+    reason: "Email channel preferences control email delivery"
+
+  - feature: sms-notifications
+    type: required
+    reason: "SMS channel preferences control SMS delivery"
+
+  - feature: push-notifications
+    type: required
+    reason: "Push channel preferences control push delivery"
+
+  - feature: in-app-notifications
+    type: required
+    reason: "In-app channel preferences control in-app delivery"
+
+  - feature: signup
+    type: recommended
+    reason: "Initialize default preferences when a new user signs up"
+
+# --- UI HINTS -----------------------------------------------
+
+ui_hints:
+  layout: settings_page
+  description: "Notification preferences page in user settings"
+
+  components:
+    channel_matrix:
+      description: "Grid of toggles: rows = categories, columns = channels"
+      rows: [marketing, transactional, security, social, updates, reminders]
+      columns: [email, sms, push, in_app]
+      disabled_cells:
+        - category: security
+          channels: [email, sms, push, in_app]
+          reason: "Security notifications are always enabled"
+
+    quiet_hours:
+      description: "Time picker for quiet hours start/end with timezone selector"
+      show_preview: true
+
+    do_not_disturb:
+      description: "Toggle with optional duration picker"
+      quick_options: ["1 hour", "Until tomorrow", "Until I turn it off"]
+
+    digest_settings:
+      description: "Digest mode selector with delivery time picker"
+      show_when: "digest_mode != off"
+
+  fields_order: [do_not_disturb, channel_matrix, quiet_hours, digest_settings]
+
+  accessibility:
+    autofocus: do_not_disturb
+    aria_live_region: true
+    keyboard_navigation: true

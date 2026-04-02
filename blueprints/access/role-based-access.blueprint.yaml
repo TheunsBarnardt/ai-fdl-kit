@@ -1,0 +1,336 @@
+# ============================================================
+# ROLE-BASED ACCESS CONTROL — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Generic RBAC system with role hierarchy, permission
+# inheritance, and granular access checks. Supports
+# system-protected roles and super_admin bypass.
+# ============================================================
+
+feature: role-based-access
+version: "1.0.0"
+description: Role-based access control with hierarchical permission inheritance
+category: access
+tags: [rbac, permissions, roles, authorization, hierarchy, security, access-control]
+
+# ─── FIELDS ───────────────────────────────────────────────
+
+fields:
+  - name: role_id
+    type: text
+    required: true
+    label: "Role ID"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Role ID is required"
+      - type: pattern
+        value: "^[a-z][a-z0-9_]{1,63}$"
+        message: "Role ID must be lowercase alphanumeric with underscores"
+
+  - name: role_name
+    type: text
+    required: true
+    label: "Role Name"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Role name is required"
+      - type: minLength
+        value: 2
+        message: "Role name must be at least 2 characters"
+      - type: maxLength
+        value: 128
+        message: "Role name must be at most 128 characters"
+
+  - name: description
+    type: text
+    required: false
+    label: "Description"
+    sensitive: false
+    validation:
+      - type: maxLength
+        value: 500
+        message: "Description must be at most 500 characters"
+
+  - name: permissions
+    type: json
+    required: true
+    label: "Permissions"
+    # Array of permission strings, e.g. ["users.read", "users.write", "reports.export"]
+    sensitive: false
+    validation:
+      - type: required
+        message: "At least one permission is required"
+
+  - name: parent_role
+    type: text
+    required: false
+    label: "Parent Role"
+    # References another role_id for inheritance
+    sensitive: false
+
+  - name: is_system_role
+    type: boolean
+    required: false
+    label: "System Role"
+    default: false
+    # System roles (super_admin, admin) cannot be deleted or renamed
+
+  - name: is_active
+    type: boolean
+    required: false
+    label: "Active"
+    default: true
+
+# ─── RULES ────────────────────────────────────────────────
+
+rules:
+  hierarchy:
+    inheritance_direction: upward
+    # Child roles inherit all permissions from their parent role chain
+    max_depth: 10
+    # Prevents infinite loops in role hierarchy
+    circular_reference_check: true
+    # Validate no cycles exist when setting parent_role
+
+  system_roles:
+    protected:
+      - super_admin
+      - admin
+    # System roles cannot be deleted, renamed, or have is_system_role changed
+    super_admin_bypass: true
+    # super_admin skips all permission checks — always granted
+
+  permissions:
+    format: "resource.action"
+    # e.g. "users.read", "reports.export", "settings.write"
+    wildcard_support: true
+    # "users.*" grants all actions on users resource
+    case_sensitive: false
+    deduplication: true
+    # Merged permissions from hierarchy are deduplicated
+
+  assignment:
+    max_roles_per_user: 20
+    # A user can hold multiple roles simultaneously
+    effective_permissions: union
+    # User's effective permissions = union of all assigned role permissions
+
+# ─── OUTCOMES ─────────────────────────────────────────────
+
+outcomes:
+  permission_denied_no_role:
+    priority: 1
+    error: ACCESS_DENIED
+    given:
+      - field: user_roles
+        source: db
+        operator: not_exists
+        description: "User has no roles assigned"
+    then:
+      - action: emit_event
+        event: access.denied
+        payload: [user_id, resource, action, timestamp, ip_address, reason]
+    result: deny access with "You do not have permission to perform this action"
+
+  permission_denied:
+    priority: 2
+    error: ACCESS_DENIED
+    given:
+      - field: required_permission
+        source: computed
+        operator: not_in
+        value: effective_permissions
+        description: "Required permission not in user's effective permission set"
+      - field: is_super_admin
+        source: computed
+        operator: eq
+        value: false
+        description: "User is not a super_admin (super_admin bypasses all checks)"
+    then:
+      - action: emit_event
+        event: access.denied
+        payload: [user_id, resource, action, required_permission, timestamp, ip_address]
+    result: deny access with "You do not have permission to perform this action"
+
+  permission_granted:
+    priority: 5
+    given:
+      - any:
+          - field: is_super_admin
+            source: computed
+            operator: eq
+            value: true
+            description: "User holds super_admin role — bypass all checks"
+          - field: required_permission
+            source: computed
+            operator: in
+            value: effective_permissions
+            description: "Required permission found in user's effective permission set"
+    then:
+      - action: emit_event
+        event: access.granted
+        payload: [user_id, resource, action, timestamp, matched_permission]
+    result: allow access to the requested resource
+
+  role_assigned:
+    priority: 10
+    given:
+      - field: target_role
+        source: db
+        operator: exists
+        description: "Role exists in system"
+      - field: target_role
+        source: db
+        operator: neq
+        value: already_assigned
+        description: "Role not already assigned to user"
+    then:
+      - action: create_record
+        type: user_role_assignment
+        target: user_roles
+        description: "Create role assignment record"
+      - action: emit_event
+        event: role.assigned
+        payload: [user_id, role_id, assigned_by, timestamp]
+    result: role successfully assigned to user
+
+  role_not_found:
+    priority: 3
+    error: ROLE_NOT_FOUND
+    given:
+      - field: target_role
+        source: db
+        operator: not_exists
+        description: "Requested role does not exist"
+    result: show "The specified role does not exist"
+
+  role_revoked:
+    priority: 11
+    given:
+      - field: target_role
+        source: db
+        operator: exists
+        description: "Role exists in system"
+      - field: assignment
+        source: db
+        operator: exists
+        description: "User currently holds this role"
+    then:
+      - action: delete_record
+        type: user_role_assignment
+        target: user_roles
+        description: "Remove role assignment record"
+      - action: emit_event
+        event: role.revoked
+        payload: [user_id, role_id, revoked_by, timestamp]
+    result: role successfully revoked from user
+
+  system_role_delete_blocked:
+    priority: 4
+    error: SYSTEM_ROLE_PROTECTED
+    given:
+      - field: is_system_role
+        source: db
+        operator: eq
+        value: true
+        description: "Role is a protected system role"
+    result: show "System roles cannot be deleted or modified"
+
+  permission_invalid:
+    priority: 6
+    error: PERMISSION_INVALID
+    given:
+      - field: permission
+        source: input
+        operator: not_exists
+        description: "Permission string does not match any registered permission"
+    result: show "The specified permission is not valid"
+
+# ─── ERRORS ───────────────────────────────────────────────
+
+errors:
+  - code: ACCESS_DENIED
+    status: 403
+    message: "You do not have permission to perform this action"
+    retry: false
+
+  - code: ROLE_NOT_FOUND
+    status: 404
+    message: "The specified role does not exist"
+    retry: false
+
+  - code: PERMISSION_INVALID
+    status: 422
+    message: "The specified permission is not valid"
+    retry: false
+
+  - code: SYSTEM_ROLE_PROTECTED
+    status: 403
+    message: "System roles cannot be deleted or modified"
+    retry: false
+
+  - code: ROLE_HIERARCHY_CYCLE
+    status: 422
+    message: "Setting this parent role would create a circular reference"
+    retry: false
+
+# ─── EVENTS ───────────────────────────────────────────────
+
+events:
+  - name: access.granted
+    description: "Permission check passed — access allowed"
+    payload: [user_id, resource, action, timestamp, matched_permission]
+
+  - name: access.denied
+    description: "Permission check failed — access denied"
+    payload: [user_id, resource, action, required_permission, timestamp, ip_address]
+
+  - name: role.assigned
+    description: "Role assigned to a user"
+    payload: [user_id, role_id, assigned_by, timestamp]
+
+  - name: role.revoked
+    description: "Role removed from a user"
+    payload: [user_id, role_id, revoked_by, timestamp]
+
+  - name: role.created
+    description: "New role created in the system"
+    payload: [role_id, role_name, created_by, timestamp]
+
+  - name: role.updated
+    description: "Role permissions or metadata modified"
+    payload: [role_id, changes, updated_by, timestamp]
+
+# ─── RELATIONSHIPS ────────────────────────────────────────
+
+related:
+  - feature: login
+    type: required
+    reason: "User must be authenticated before role-based access checks apply"
+
+  - feature: audit-logging
+    type: recommended
+    reason: "Access grants and denials should be logged for compliance"
+
+  - feature: team-organization
+    type: optional
+    reason: "Roles can be scoped per organization or team"
+
+# ─── UI HINTS ─────────────────────────────────────────────
+
+ui_hints:
+  layout: table_with_detail
+  max_width: 960px
+
+  actions:
+    primary:
+      label: "Create Role"
+      type: submit
+    secondary:
+      label: "Assign Role"
+      type: button
+
+  accessibility:
+    aria_live_region: true

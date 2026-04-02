@@ -1,0 +1,415 @@
+{
+  "feature": "data-import-export",
+  "version": "1.0.0",
+  "description": "Bulk data import and export supporting CSV, Excel, and JSON formats with column mapping, row validation, background processing, and configurable error handling",
+  "category": "data",
+  "tags": [
+    "import",
+    "export",
+    "csv",
+    "excel",
+    "json",
+    "bulk-data",
+    "etl",
+    "background-processing"
+  ],
+  "fields": [
+    {
+      "name": "file",
+      "type": "file",
+      "required": true,
+      "label": "Import File",
+      "validation": [
+        {
+          "type": "max",
+          "value": 52428800,
+          "message": "File size must not exceed 50 MB"
+        }
+      ]
+    },
+    {
+      "name": "format",
+      "type": "select",
+      "required": true,
+      "label": "File Format",
+      "options": [
+        {
+          "value": "csv",
+          "label": "CSV"
+        },
+        {
+          "value": "xlsx",
+          "label": "XLSX"
+        },
+        {
+          "value": "json",
+          "label": "JSON"
+        }
+      ]
+    },
+    {
+      "name": "mapping",
+      "type": "json",
+      "required": false,
+      "label": "Column-to-Field Mapping"
+    },
+    {
+      "name": "on_error",
+      "type": "select",
+      "required": false,
+      "label": "Error Handling Strategy",
+      "options": [
+        {
+          "value": "skip",
+          "label": "Skip"
+        },
+        {
+          "value": "fail",
+          "label": "Fail"
+        }
+      ],
+      "default": "skip"
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "required": true,
+      "label": "Job Status",
+      "options": [
+        {
+          "value": "pending",
+          "label": "Pending"
+        },
+        {
+          "value": "validating",
+          "label": "Validating"
+        },
+        {
+          "value": "processing",
+          "label": "Processing"
+        },
+        {
+          "value": "completed",
+          "label": "Completed"
+        },
+        {
+          "value": "partial",
+          "label": "Partial"
+        },
+        {
+          "value": "failed",
+          "label": "Failed"
+        }
+      ]
+    },
+    {
+      "name": "error_log",
+      "type": "json",
+      "required": false,
+      "label": "Error Log"
+    },
+    {
+      "name": "row_count",
+      "type": "number",
+      "required": false,
+      "label": "Total Row Count"
+    },
+    {
+      "name": "success_count",
+      "type": "number",
+      "required": false,
+      "label": "Successfully Processed Rows"
+    },
+    {
+      "name": "failure_count",
+      "type": "number",
+      "required": false,
+      "label": "Failed Rows"
+    },
+    {
+      "name": "export_format",
+      "type": "select",
+      "required": false,
+      "label": "Export Format",
+      "options": [
+        {
+          "value": "csv",
+          "label": "CSV"
+        },
+        {
+          "value": "xlsx",
+          "label": "XLSX"
+        },
+        {
+          "value": "json",
+          "label": "JSON"
+        }
+      ]
+    },
+    {
+      "name": "export_filters",
+      "type": "json",
+      "required": false,
+      "label": "Export Filters"
+    },
+    {
+      "name": "download_url",
+      "type": "url",
+      "required": false,
+      "label": "Export Download URL"
+    }
+  ],
+  "rules": {
+    "import": {
+      "max_file_size_bytes": 52428800,
+      "max_rows": 100000,
+      "background_threshold_rows": 1000,
+      "validate_before_insert": true,
+      "duplicate_detection": "configurable",
+      "supported_encodings": [
+        "utf-8",
+        "utf-16",
+        "latin-1"
+      ]
+    },
+    "column_mapping": {
+      "auto_detect": true,
+      "case_insensitive": true,
+      "unmapped_columns": "ignore"
+    },
+    "export": {
+      "max_records": 500000,
+      "streaming": true,
+      "download_url_expiry_hours": 24
+    },
+    "error_handling": {
+      "skip_mode": "log_and_continue",
+      "fail_mode": "abort_and_rollback",
+      "error_log_max_entries": 10000
+    }
+  },
+  "outcomes": {
+    "import_completed": {
+      "priority": 1,
+      "given": [
+        "a valid import file is uploaded",
+        "all rows pass validation"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "completed"
+        },
+        {
+          "action": "set_field",
+          "target": "success_count",
+          "description": "Set to total row count"
+        },
+        {
+          "action": "emit_event",
+          "event": "import.completed",
+          "payload": [
+            "job_id",
+            "format",
+            "row_count",
+            "success_count",
+            "duration_ms"
+          ]
+        }
+      ],
+      "result": "All rows imported successfully; status set to completed"
+    },
+    "import_partial": {
+      "priority": 2,
+      "given": [
+        "a valid import file is uploaded",
+        "some rows fail validation",
+        "on_error strategy is 'skip'"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "partial"
+        },
+        {
+          "action": "set_field",
+          "target": "error_log",
+          "description": "Populate with details of each failed row"
+        },
+        {
+          "action": "emit_event",
+          "event": "import.completed",
+          "payload": [
+            "job_id",
+            "format",
+            "row_count",
+            "success_count",
+            "failure_count"
+          ]
+        }
+      ],
+      "result": "Valid rows imported; failed rows logged in error_log; status set to partial"
+    },
+    "import_failed": {
+      "priority": 3,
+      "error": "IMPORT_FAILED",
+      "given": [
+        {
+          "any": [
+            "the file is corrupted or in an unsupported format",
+            "a row fails validation and on_error strategy is 'fail'"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "failed"
+        },
+        {
+          "action": "set_field",
+          "target": "error_log",
+          "description": "Populate with failure details"
+        },
+        {
+          "action": "emit_event",
+          "event": "import.failed",
+          "payload": [
+            "job_id",
+            "format",
+            "error_summary"
+          ]
+        }
+      ],
+      "result": "Import aborted; all changes rolled back; error details provided"
+    },
+    "export_completed": {
+      "priority": 4,
+      "given": [
+        "an export request is submitted with valid parameters",
+        "records matching the filters exist"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "download_url",
+          "description": "Generate signed download URL for the exported file"
+        },
+        {
+          "action": "emit_event",
+          "event": "export.completed",
+          "payload": [
+            "job_id",
+            "format",
+            "record_count",
+            "file_size_bytes"
+          ]
+        }
+      ],
+      "result": "Export file generated and download URL returned"
+    },
+    "import_file_too_large": {
+      "priority": 10,
+      "error": "IMPORT_FILE_TOO_LARGE",
+      "given": [
+        {
+          "field": "file",
+          "source": "input",
+          "operator": "gt",
+          "value": 52428800,
+          "description": "Uploaded file exceeds 50 MB limit"
+        }
+      ],
+      "result": "Error returned indicating file size limit"
+    }
+  },
+  "errors": [
+    {
+      "code": "IMPORT_FAILED",
+      "status": 422,
+      "message": "Import failed; check error log for details"
+    },
+    {
+      "code": "IMPORT_FILE_TOO_LARGE",
+      "status": 413,
+      "message": "Import file exceeds the maximum allowed size of 50 MB"
+    },
+    {
+      "code": "IMPORT_INVALID_FORMAT",
+      "status": 400,
+      "message": "File format is not supported or file is corrupted"
+    },
+    {
+      "code": "IMPORT_MAPPING_INVALID",
+      "status": 400,
+      "message": "Column mapping references fields that do not exist"
+    },
+    {
+      "code": "EXPORT_NO_RECORDS",
+      "status": 404,
+      "message": "No records match the export filters"
+    }
+  ],
+  "events": [
+    {
+      "name": "import.started",
+      "description": "An import job has been created and is queued for processing",
+      "payload": [
+        "job_id",
+        "format",
+        "file_size_bytes",
+        "row_count"
+      ]
+    },
+    {
+      "name": "import.completed",
+      "description": "An import job finished processing (fully or partially)",
+      "payload": [
+        "job_id",
+        "format",
+        "row_count",
+        "success_count",
+        "failure_count"
+      ]
+    },
+    {
+      "name": "import.failed",
+      "description": "An import job failed and was rolled back",
+      "payload": [
+        "job_id",
+        "format",
+        "error_summary"
+      ]
+    },
+    {
+      "name": "export.completed",
+      "description": "An export job finished and the file is ready for download",
+      "payload": [
+        "job_id",
+        "format",
+        "record_count",
+        "file_size_bytes"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "file-storage",
+      "type": "required",
+      "reason": "Import files and export outputs are stored in cloud storage"
+    },
+    {
+      "feature": "pagination",
+      "type": "optional",
+      "reason": "Export may paginate through large datasets during generation"
+    },
+    {
+      "feature": "audit-trail",
+      "type": "recommended",
+      "reason": "Import and export operations should be recorded for compliance"
+    }
+  ]
+}

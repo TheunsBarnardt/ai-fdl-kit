@@ -1,0 +1,664 @@
+{
+  "feature": "webhook-outbound",
+  "version": "1.0.0",
+  "description": "Deliver outbound webhooks to external systems with signing, retries, and endpoint health monitoring",
+  "category": "notification",
+  "tags": [
+    "webhook",
+    "outbound",
+    "integration",
+    "hmac",
+    "retry",
+    "delivery-logs",
+    "event-subscriptions",
+    "api"
+  ],
+  "fields": [
+    {
+      "name": "url",
+      "type": "url",
+      "required": true,
+      "label": "Endpoint URL",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Endpoint URL is required"
+        },
+        {
+          "type": "pattern",
+          "value": "^https://",
+          "message": "Webhook endpoints must use HTTPS"
+        },
+        {
+          "type": "maxLength",
+          "value": 2048,
+          "message": "URL is too long"
+        }
+      ]
+    },
+    {
+      "name": "secret",
+      "type": "token",
+      "required": true,
+      "label": "Signing Secret",
+      "sensitive": true,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Signing secret is required"
+        },
+        {
+          "type": "minLength",
+          "value": 32,
+          "message": "Secret must be at least 32 characters"
+        }
+      ]
+    },
+    {
+      "name": "events",
+      "type": "multiselect",
+      "required": true,
+      "label": "Subscribed Events",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "At least one event subscription is required"
+        }
+      ]
+    },
+    {
+      "name": "active",
+      "type": "boolean",
+      "required": true,
+      "label": "Active",
+      "default": true
+    },
+    {
+      "name": "last_delivery_status",
+      "type": "select",
+      "required": false,
+      "label": "Last Delivery Status",
+      "options": [
+        {
+          "value": "success",
+          "label": "Success"
+        },
+        {
+          "value": "failed",
+          "label": "Failed"
+        },
+        {
+          "value": "pending",
+          "label": "Pending"
+        },
+        {
+          "value": "disabled",
+          "label": "Disabled"
+        }
+      ],
+      "sensitive": false
+    },
+    {
+      "name": "description",
+      "type": "text",
+      "required": false,
+      "label": "Description",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "maxLength",
+          "value": 255,
+          "message": "Description is too long"
+        }
+      ]
+    },
+    {
+      "name": "headers",
+      "type": "json",
+      "required": false,
+      "label": "Custom Headers",
+      "sensitive": false
+    },
+    {
+      "name": "failure_count",
+      "type": "number",
+      "required": false,
+      "label": "Consecutive Failures",
+      "default": 0
+    },
+    {
+      "name": "disabled_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Disabled At"
+    }
+  ],
+  "rules": {
+    "delivery": {
+      "method": "POST",
+      "content_type": "application/json",
+      "timeout_seconds": 30,
+      "max_retries": 5,
+      "retry_backoff": "exponential",
+      "retry_base_seconds": 60,
+      "retry_schedule": [
+        60,
+        300,
+        1800,
+        7200,
+        86400
+      ]
+    },
+    "signing": {
+      "algorithm": "hmac_sha256",
+      "header_name": "X-Webhook-Signature",
+      "timestamp_header": "X-Webhook-Timestamp",
+      "signature_format": "sha256={{signature}}",
+      "replay_tolerance_seconds": 300
+    },
+    "health_monitoring": {
+      "consecutive_failure_threshold": 10,
+      "auto_disable": true,
+      "health_check_interval_minutes": 60,
+      "auto_re_enable_on_health_check": true
+    },
+    "secret_rotation": {
+      "rotation_supported": true,
+      "dual_secret_window_hours": 24,
+      "minimum_secret_length": 32
+    },
+    "payload": {
+      "max_size_bytes": 65536,
+      "include_event_type": true,
+      "include_delivery_id": true,
+      "include_timestamp": true,
+      "include_webhook_id": true,
+      "idempotency_key": true
+    },
+    "rate_limiting": {
+      "per_endpoint_per_minute": 60,
+      "global_per_second": 200,
+      "concurrent_per_endpoint": 5
+    },
+    "security": {
+      "https_only": true,
+      "ip_allowlist_support": true,
+      "secret_encryption_at_rest": true,
+      "no_redirect_follow": true,
+      "private_network_block": true,
+      "dns_rebinding_protection": true
+    }
+  },
+  "outcomes": {
+    "invalid_endpoint": {
+      "priority": 1,
+      "error": "WEBHOOK_INVALID_ENDPOINT",
+      "given": [
+        {
+          "field": "url",
+          "source": "input",
+          "operator": "not_exists",
+          "description": "URL is missing or invalid"
+        }
+      ],
+      "result": "reject with invalid endpoint error"
+    },
+    "endpoint_disabled": {
+      "priority": 2,
+      "error": "WEBHOOK_ENDPOINT_DISABLED",
+      "given": [
+        {
+          "field": "active",
+          "source": "db",
+          "operator": "eq",
+          "value": false,
+          "description": "Webhook endpoint is disabled"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "webhook.skipped",
+          "payload": [
+            "webhook_id",
+            "url",
+            "event_type",
+            "reason",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "skip delivery and log that endpoint is disabled"
+    },
+    "ssrf_blocked": {
+      "priority": 3,
+      "error": "WEBHOOK_SSRF_BLOCKED",
+      "given": [
+        {
+          "field": "resolved_ip",
+          "source": "computed",
+          "operator": "in",
+          "value": [
+            "private_ranges"
+          ],
+          "description": "URL resolves to private/internal IP range"
+        }
+      ],
+      "result": "reject delivery to prevent SSRF attack"
+    },
+    "rate_limited": {
+      "priority": 4,
+      "error": "WEBHOOK_RATE_LIMITED",
+      "given": [
+        {
+          "field": "endpoint_send_count",
+          "source": "computed",
+          "operator": "gte",
+          "value": 60,
+          "description": "Endpoint has received 60+ deliveries this minute"
+        }
+      ],
+      "result": "queue for deferred delivery after rate limit window"
+    },
+    "webhook_delivered": {
+      "priority": 10,
+      "transaction": true,
+      "given": [
+        {
+          "field": "url",
+          "source": "db",
+          "operator": "exists",
+          "description": "Webhook endpoint is registered"
+        },
+        {
+          "field": "active",
+          "source": "db",
+          "operator": "eq",
+          "value": true,
+          "description": "Endpoint is active"
+        },
+        {
+          "field": "event_type",
+          "source": "input",
+          "operator": "exists",
+          "description": "Event type matches a subscribed event"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "webhook_signer",
+          "description": "Generate HMAC-SHA256 signature of the payload"
+        },
+        {
+          "action": "call_service",
+          "target": "http_client",
+          "description": "Deliver signed payload to endpoint URL"
+        },
+        {
+          "action": "set_field",
+          "target": "failure_count",
+          "value": 0,
+          "description": "Reset consecutive failure counter on success"
+        },
+        {
+          "action": "set_field",
+          "target": "last_delivery_status",
+          "value": "success"
+        },
+        {
+          "action": "create_record",
+          "type": "delivery_log",
+          "target": "delivery_log",
+          "description": "Record successful delivery with response status and latency"
+        },
+        {
+          "action": "emit_event",
+          "event": "webhook.delivered",
+          "payload": [
+            "webhook_id",
+            "delivery_id",
+            "url",
+            "event_type",
+            "response_status",
+            "latency_ms",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "webhook delivered successfully with signature verification"
+    },
+    "webhook_failed": {
+      "priority": 11,
+      "given": [
+        {
+          "any": [
+            {
+              "field": "response_status",
+              "source": "system",
+              "operator": "gte",
+              "value": 400,
+              "description": "Endpoint returned 4xx or 5xx error"
+            },
+            {
+              "field": "response_status",
+              "source": "system",
+              "operator": "not_exists",
+              "description": "Connection timeout or network error"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "failure_count",
+          "value": "increment",
+          "description": "Increment consecutive failure counter"
+        },
+        {
+          "action": "set_field",
+          "target": "last_delivery_status",
+          "value": "failed"
+        },
+        {
+          "action": "create_record",
+          "type": "delivery_log",
+          "target": "delivery_log",
+          "description": "Record failed delivery with error details"
+        },
+        {
+          "action": "emit_event",
+          "event": "webhook.failed",
+          "payload": [
+            "webhook_id",
+            "delivery_id",
+            "url",
+            "event_type",
+            "response_status",
+            "error",
+            "retry_count",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "log failure, increment counter, and schedule retry with exponential backoff"
+    },
+    "webhook_auto_disabled": {
+      "priority": 12,
+      "given": [
+        {
+          "field": "failure_count",
+          "source": "db",
+          "operator": "gte",
+          "value": 10,
+          "description": "10+ consecutive delivery failures"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "active",
+          "value": false,
+          "description": "Auto-disable the webhook endpoint"
+        },
+        {
+          "action": "set_field",
+          "target": "disabled_at",
+          "value": "now"
+        },
+        {
+          "action": "emit_event",
+          "event": "webhook.disabled",
+          "payload": [
+            "webhook_id",
+            "url",
+            "failure_count",
+            "last_error",
+            "timestamp"
+          ]
+        },
+        {
+          "action": "notify",
+          "channel": "email",
+          "target": "webhook_owner",
+          "description": "Notify endpoint owner that their webhook has been disabled"
+        }
+      ],
+      "result": "endpoint auto-disabled after repeated failures; owner notified"
+    },
+    "secret_rotated": {
+      "priority": 13,
+      "given": [
+        {
+          "field": "new_secret",
+          "source": "input",
+          "operator": "exists",
+          "description": "A new signing secret is provided for rotation"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "previous_secret",
+          "value": "current_secret",
+          "description": "Move current secret to previous (dual-secret window)"
+        },
+        {
+          "action": "set_field",
+          "target": "secret",
+          "value": "new_secret",
+          "description": "Set new primary signing secret"
+        },
+        {
+          "action": "set_field",
+          "target": "previous_secret_expires_at",
+          "value": "now + 24h",
+          "description": "Old secret remains valid for 24 hours"
+        },
+        {
+          "action": "emit_event",
+          "event": "webhook.secret_rotated",
+          "payload": [
+            "webhook_id",
+            "url",
+            "rotated_at",
+            "dual_window_expires_at",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "new secret active immediately; old secret valid for 24-hour transition window"
+    }
+  },
+  "errors": [
+    {
+      "code": "WEBHOOK_INVALID_ENDPOINT",
+      "status": 422,
+      "message": "Invalid webhook endpoint URL",
+      "retry": false
+    },
+    {
+      "code": "WEBHOOK_ENDPOINT_DISABLED",
+      "status": 422,
+      "message": "Webhook endpoint is disabled",
+      "retry": false
+    },
+    {
+      "code": "WEBHOOK_SSRF_BLOCKED",
+      "status": 403,
+      "message": "Webhook delivery blocked for security reasons",
+      "retry": false
+    },
+    {
+      "code": "WEBHOOK_RATE_LIMITED",
+      "status": 429,
+      "message": "Webhook delivery rate limit exceeded",
+      "retry": true
+    },
+    {
+      "code": "WEBHOOK_DELIVERY_FAILED",
+      "status": 503,
+      "message": "Webhook delivery failed",
+      "retry": true
+    },
+    {
+      "code": "WEBHOOK_PAYLOAD_TOO_LARGE",
+      "status": 413,
+      "message": "Webhook payload exceeds maximum size",
+      "retry": false
+    },
+    {
+      "code": "WEBHOOK_VALIDATION_ERROR",
+      "status": 422,
+      "message": "Please check the webhook configuration and try again",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "webhook.delivered",
+      "description": "Webhook payload successfully delivered to endpoint",
+      "payload": [
+        "webhook_id",
+        "delivery_id",
+        "url",
+        "event_type",
+        "response_status",
+        "latency_ms",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "webhook.failed",
+      "description": "Webhook delivery failed (will retry if eligible)",
+      "payload": [
+        "webhook_id",
+        "delivery_id",
+        "url",
+        "event_type",
+        "response_status",
+        "error",
+        "retry_count",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "webhook.disabled",
+      "description": "Webhook endpoint auto-disabled after repeated failures",
+      "payload": [
+        "webhook_id",
+        "url",
+        "failure_count",
+        "last_error",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "webhook.skipped",
+      "description": "Webhook delivery skipped because endpoint is disabled",
+      "payload": [
+        "webhook_id",
+        "url",
+        "event_type",
+        "reason",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "webhook.secret_rotated",
+      "description": "Webhook signing secret was rotated",
+      "payload": [
+        "webhook_id",
+        "url",
+        "rotated_at",
+        "dual_window_expires_at",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "email-notifications",
+      "type": "optional",
+      "reason": "Email provider bounce/delivery webhooks use similar patterns"
+    },
+    {
+      "feature": "sms-notifications",
+      "type": "optional",
+      "reason": "SMS delivery receipt callbacks follow webhook patterns"
+    },
+    {
+      "feature": "push-notifications",
+      "type": "optional",
+      "reason": "Push delivery callbacks from providers"
+    },
+    {
+      "feature": "in-app-notifications",
+      "type": "optional",
+      "reason": "Trigger in-app notification when outbound webhook fails"
+    }
+  ],
+  "ui_hints": {
+    "layout": "settings_page",
+    "description": "Webhook management in developer/integration settings",
+    "components": {
+      "endpoint_list": {
+        "description": "List of registered webhook endpoints",
+        "columns": [
+          "url",
+          "description",
+          "events",
+          "active",
+          "last_delivery_status",
+          "failure_count"
+        ],
+        "actions": [
+          "edit",
+          "disable",
+          "delete",
+          "test",
+          "rotate_secret"
+        ]
+      },
+      "endpoint_form": {
+        "description": "Create or edit a webhook endpoint",
+        "fields_order": [
+          "url",
+          "description",
+          "events",
+          "headers",
+          "active"
+        ],
+        "show_secret_once": true
+      },
+      "delivery_log": {
+        "description": "Delivery attempt history for debugging",
+        "columns": [
+          "delivery_id",
+          "event_type",
+          "response_status",
+          "latency_ms",
+          "created_at"
+        ],
+        "expandable": true,
+        "expand_shows": [
+          "request_payload",
+          "response_body",
+          "headers"
+        ]
+      },
+      "test_delivery": {
+        "description": "Send a test webhook payload to verify endpoint",
+        "action": "send_test",
+        "shows_response": true
+      }
+    },
+    "accessibility": {
+      "aria_live_region": true,
+      "keyboard_navigation": true
+    }
+  }
+}

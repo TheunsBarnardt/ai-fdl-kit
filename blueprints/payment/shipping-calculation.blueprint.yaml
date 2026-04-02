@@ -1,0 +1,304 @@
+# ============================================================
+# SHIPPING CALCULATION — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Shipping rates, zone-based pricing, carrier integration,
+# dimensional weight, and delivery estimation.
+# ============================================================
+
+feature: shipping-calculation
+version: "1.0.0"
+description: "Shipping rate calculation with zone-based pricing, dimensional weight, free shipping thresholds, carrier quotes, and delivery estimation."
+category: payment
+tags:
+  - shipping
+  - rates
+  - carriers
+  - delivery
+  - zones
+  - logistics
+  - e-commerce
+
+fields:
+  - name: shipment_id
+    type: text
+    label: Shipment ID
+    required: true
+    validation:
+      - type: pattern
+        value: "^shp_[a-zA-Z0-9]+$"
+        message: "Shipment ID must match the required format"
+  - name: origin_address
+    type: json
+    label: Origin Address
+    required: true
+  - name: destination_address
+    type: json
+    label: Destination Address
+    required: true
+  - name: package_weight
+    type: number
+    label: Package Weight (kg)
+    required: true
+    validation:
+      - type: min
+        value: 0.01
+        message: "Package weight must be greater than zero"
+  - name: package_dimensions
+    type: json
+    label: Package Dimensions
+    required: true
+  - name: dimensional_weight
+    type: number
+    label: Dimensional Weight (kg)
+    required: false
+  - name: carrier
+    type: select
+    label: Shipping Carrier
+    required: true
+    options:
+      - {value: "standard_post", label: "Standard Post"}
+      - {value: "express_courier", label: "Express Courier"}
+      - {value: "freight", label: "Freight"}
+      - {value: "custom", label: "Custom / Third-Party"}
+  - name: service_level
+    type: select
+    label: Service Level
+    required: true
+    options:
+      - {value: "standard", label: "Standard (5-7 business days)"}
+      - {value: "express", label: "Express (2-3 business days)"}
+      - {value: "overnight", label: "Overnight (next business day)"}
+      - {value: "economy", label: "Economy (7-14 business days)"}
+  - name: rate
+    type: number
+    label: Shipping Rate
+    required: true
+    validation:
+      - type: min
+        value: 0
+        message: "Shipping rate must be zero or greater"
+  - name: estimated_delivery
+    type: date
+    label: Estimated Delivery Date
+    required: false
+  - name: tracking_number
+    type: text
+    label: Tracking Number
+    required: false
+  - name: shipping_zone
+    type: text
+    label: Shipping Zone
+    required: false
+  - name: free_shipping_eligible
+    type: boolean
+    label: Free Shipping Eligible
+    required: false
+    default: false
+  - name: order_subtotal
+    type: number
+    label: Order Subtotal
+    required: false
+
+rules:
+  dimensional_weight_calculation:
+    description: >
+      Dimensional (volumetric) weight is calculated as
+      (length x width x height) / dimensional factor. The dimensional
+      factor is typically 5000 for cm/kg. The billable weight is the
+      greater of actual weight and dimensional weight.
+  zone_mapping:
+    description: >
+      Shipping zones are determined by the origin and destination
+      postal codes or country pairs. Zone definitions map to rate
+      tiers. Domestic and international zones use separate rate tables.
+  free_shipping_threshold:
+    description: >
+      Orders above a configurable subtotal threshold (e.g., $75)
+      qualify for free standard shipping. Free shipping does not
+      apply to express or overnight service levels.
+  carrier_rate_quotes:
+    description: >
+      Real-time rate quotes are fetched from carrier APIs when
+      available. Rates are cached for 15 minutes per origin/destination
+      pair. If the carrier API is unavailable, fallback to stored
+      rate tables.
+  delivery_estimation:
+    description: >
+      Estimated delivery dates are calculated from carrier transit
+      times, origin processing time (1 business day), and destination
+      country customs clearance (2-5 business days for international).
+  restricted_destinations:
+    description: >
+      Certain products cannot be shipped to restricted destinations
+      (embargoed countries, hazmat restrictions). Validation occurs
+      before rate calculation.
+  insurance_and_signature:
+    description: >
+      Orders above a configurable value threshold (e.g., $500)
+      automatically include shipping insurance and signature
+      confirmation at no extra cost.
+
+outcomes:
+  rate_calculated:
+    priority: 1
+    given:
+      - "origin and destination addresses are valid"
+      - "package weight and dimensions are provided"
+      - "destination is not restricted"
+    then:
+      - action: set_field
+        target: dimensional_weight
+        description: Calculated from package dimensions
+      - action: set_field
+        target: shipping_zone
+        description: Determined from origin/destination pair
+      - action: set_field
+        target: rate
+        description: Rate calculated using billable weight and zone
+      - action: set_field
+        target: estimated_delivery
+        description: Calculated from carrier transit times
+      - action: emit_event
+        event: shipping.rate_calculated
+        payload: [shipment_id, carrier, service_level, rate, estimated_delivery]
+    result: "Shipping rate and estimated delivery calculated for all available service levels"
+
+  free_shipping_applied:
+    priority: 2
+    given:
+      - field: order_subtotal
+        source: input
+        operator: gte
+        value: 75
+      - field: service_level
+        operator: eq
+        value: standard
+    then:
+      - action: set_field
+        target: rate
+        value: 0
+      - action: set_field
+        target: free_shipping_eligible
+        value: true
+    result: "Free standard shipping applied, order meets threshold"
+
+  carrier_rate_fetched:
+    priority: 3
+    given:
+      - "carrier API is available"
+      - "origin and destination are within carrier service area"
+    then:
+      - action: call_service
+        target: carrier_api
+        description: Fetch real-time rate quote from carrier
+      - action: set_field
+        target: rate
+        description: Updated with carrier-quoted rate
+      - action: set_field
+        target: estimated_delivery
+        description: Updated with carrier-quoted transit time
+    result: "Real-time carrier rate quote applied"
+
+  carrier_rate_fallback:
+    priority: 4
+    given:
+      - "carrier API is unavailable or returns an error"
+    then:
+      - action: set_field
+        target: rate
+        description: Calculated from stored rate tables as fallback
+      - action: set_field
+        target: estimated_delivery
+        description: Estimated from standard transit time tables
+    result: "Fallback rate applied from stored rate tables"
+
+  shipping_label_created:
+    priority: 5
+    given:
+      - "order is confirmed and paid"
+      - "shipping rate has been calculated"
+    then:
+      - action: call_service
+        target: carrier_api
+        description: Generate shipping label with carrier
+      - action: set_field
+        target: tracking_number
+        description: Tracking number assigned by carrier
+      - action: emit_event
+        event: shipping.label_created
+        payload: [shipment_id, carrier, tracking_number, label_url]
+    result: "Shipping label generated with tracking number"
+
+  tracking_updated:
+    priority: 6
+    given:
+      - "carrier provides a tracking status update"
+      - field: tracking_number
+        operator: exists
+    then:
+      - action: emit_event
+        event: shipping.tracking_updated
+        payload: [shipment_id, tracking_number, status, location, timestamp]
+    result: "Shipment tracking information updated"
+
+  restricted_destination:
+    priority: 1
+    error: SHIPPING_RESTRICTED_DESTINATION
+    given:
+      - "destination address is in a restricted or embargoed region"
+    then:
+      - action: notify
+        channel: ui
+        description: Inform customer that shipping to this destination is not available
+    result: "Cannot ship to the specified destination"
+
+  package_exceeds_limits:
+    priority: 2
+    error: SHIPPING_PACKAGE_TOO_LARGE
+    given:
+      - "package weight or dimensions exceed carrier maximum"
+    then:
+      - action: notify
+        channel: ui
+        description: Suggest freight shipping or splitting into multiple packages
+    result: "Package exceeds standard shipping limits"
+
+errors:
+  - code: SHIPPING_RESTRICTED_DESTINATION
+    message: Shipping is not available to the specified destination.
+    status: 400
+  - code: SHIPPING_PACKAGE_TOO_LARGE
+    message: Package exceeds maximum weight or dimension limits for this carrier.
+    status: 400
+  - code: SHIPPING_ADDRESS_INVALID
+    message: The shipping address could not be validated. Please check and try again.
+    status: 400
+  - code: SHIPPING_CARRIER_UNAVAILABLE
+    message: The selected carrier is currently unavailable. Please try a different shipping option.
+    status: 503
+  - code: SHIPPING_NO_RATES_AVAILABLE
+    message: No shipping rates are available for this origin/destination combination.
+    status: 404
+
+events:
+  - name: shipping.rate_calculated
+    description: Shipping rate calculated for a shipment
+    payload: [shipment_id, carrier, service_level, rate, estimated_delivery]
+  - name: shipping.label_created
+    description: Shipping label generated with carrier
+    payload: [shipment_id, carrier, tracking_number, label_url]
+  - name: shipping.tracking_updated
+    description: Shipment tracking status updated
+    payload: [shipment_id, tracking_number, status, location, timestamp]
+
+related:
+  - feature: cart-checkout
+    type: required
+    reason: Shipping rates displayed during checkout flow
+  - feature: currency-conversion
+    type: optional
+    reason: Shipping rates may need currency conversion for international orders
+  - feature: refunds-returns
+    type: optional
+    reason: Return shipping label generation

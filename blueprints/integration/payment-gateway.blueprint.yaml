@@ -1,0 +1,325 @@
+# ============================================================
+# Payment Gateway — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Abstract payment provider integration supporting charge,
+# authorize/capture, void, and refund operations
+# ============================================================
+
+feature: payment-gateway
+version: "1.0.0"
+description: "Process payments through a provider-agnostic gateway abstraction supporting authorization, capture, void, refund, and webhook-driven status updates"
+category: integration
+tags: [payments, gateway, transactions, pci, financial]
+
+fields:
+  - name: amount
+    type: number
+    required: true
+    label: "Payment amount in smallest currency unit (e.g., cents)"
+    validation:
+      - type: min
+        value: 1
+        message: "Amount must be at least 1"
+
+  - name: currency
+    type: text
+    required: true
+    label: "ISO 4217 currency code (e.g., USD, EUR, GBP)"
+    validation:
+      - type: pattern
+        value: "^[A-Z]{3}$"
+        message: "Currency must be a 3-letter ISO 4217 code"
+
+  - name: payment_method_token
+    type: token
+    required: true
+    label: "Tokenized payment method (never raw card data)"
+
+  - name: description
+    type: text
+    required: false
+    label: "Human-readable payment description"
+    validation:
+      - type: maxLength
+        value: 500
+        message: "Description must not exceed 500 characters"
+
+  - name: metadata
+    type: json
+    required: false
+    label: "Arbitrary key-value metadata attached to the payment"
+
+  - name: idempotency_key
+    type: text
+    required: true
+    label: "Unique key to prevent duplicate charges"
+    validation:
+      - type: maxLength
+        value: 255
+        message: "Idempotency key must not exceed 255 characters"
+
+  - name: status
+    type: select
+    required: false
+    label: "Current payment status"
+    options:
+      - value: pending
+        label: "Pending"
+      - value: authorized
+        label: "Authorized"
+      - value: captured
+        label: "Captured"
+      - value: voided
+        label: "Voided"
+      - value: refunded
+        label: "Refunded"
+      - value: partially_refunded
+        label: "Partially Refunded"
+      - value: failed
+        label: "Failed"
+
+  - name: provider_transaction_id
+    type: text
+    required: false
+    label: "Transaction ID from the payment provider"
+
+  - name: failure_code
+    type: text
+    required: false
+    label: "Provider-specific failure code"
+
+  - name: failure_message
+    type: text
+    required: false
+    label: "Human-readable failure description"
+
+  - name: three_d_secure_status
+    type: select
+    required: false
+    label: "3D Secure authentication status"
+    options:
+      - value: not_required
+        label: "Not Required"
+      - value: required
+        label: "Required"
+      - value: authenticated
+        label: "Authenticated"
+      - value: failed
+        label: "Failed"
+
+  - name: refund_amount
+    type: number
+    required: false
+    label: "Amount to refund (partial or full)"
+    validation:
+      - type: min
+        value: 1
+        message: "Refund amount must be at least 1"
+
+rules:
+  idempotency:
+    - "Every mutation (charge, capture, void, refund) must include an idempotency_key"
+    - "Duplicate requests with same idempotency_key return the original response without re-processing"
+    - "Idempotency keys expire after 24 hours"
+  pci_compliance:
+    - "Raw card numbers, CVV, and magnetic stripe data must never be logged, stored, or transmitted"
+    - "Only tokenized payment methods (payment_method_token) are accepted"
+    - "All payment API communication occurs over TLS 1.2+"
+  three_d_secure:
+    - "3D Secure authentication required for card-not-present transactions when mandated by issuer"
+    - "If 3D Secure fails, payment may proceed at merchant's risk (liability shift)"
+  webhook_verification:
+    - "All provider webhook payloads must be verified via HMAC signature before processing"
+    - "Webhook events update payment status asynchronously"
+  amounts:
+    - "Amount must be a positive integer in smallest currency unit (cents, pence, etc.)"
+    - "Refund amount must not exceed original captured amount"
+    - "Partial refunds allowed; total refunds must not exceed captured amount"
+  authorization:
+    - "Authorization holds expire after 7 days if not captured"
+    - "Voiding releases the hold immediately; only authorized (uncaptured) payments can be voided"
+
+outcomes:
+  payment_authorized:
+    priority: 1
+    given:
+      - field: amount
+        source: input
+        operator: gt
+        value: 0
+      - field: payment_method_token
+        source: input
+        operator: exists
+      - field: idempotency_key
+        source: input
+        operator: exists
+    then:
+      - action: set_field
+        target: status
+        value: authorized
+      - action: emit_event
+        event: payment.authorized
+        payload: [provider_transaction_id, amount, currency]
+    result: "Payment authorized; funds held on customer payment method pending capture"
+
+  payment_captured:
+    priority: 2
+    given:
+      - field: status
+        source: db
+        operator: eq
+        value: authorized
+      - "Capture request received within authorization hold period"
+    then:
+      - action: transition_state
+        field: status
+        from: authorized
+        to: captured
+      - action: emit_event
+        event: payment.captured
+        payload: [provider_transaction_id, amount, currency]
+    result: "Payment captured; funds transferred from customer to merchant"
+
+  payment_voided:
+    priority: 3
+    given:
+      - field: status
+        source: db
+        operator: eq
+        value: authorized
+      - "Void request received before capture"
+    then:
+      - action: transition_state
+        field: status
+        from: authorized
+        to: voided
+      - action: emit_event
+        event: payment.voided
+        payload: [provider_transaction_id, amount, currency]
+    result: "Authorization voided; hold released on customer payment method"
+
+  payment_refunded:
+    priority: 4
+    given:
+      - field: status
+        source: db
+        operator: in
+        value: [captured, partially_refunded]
+      - field: refund_amount
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: emit_event
+        event: payment.refunded
+        payload: [provider_transaction_id, refund_amount, currency]
+    result: "Refund processed; funds returned to customer payment method within 5-10 business days"
+
+  payment_failed_declined:
+    priority: 5
+    error: PAYMENT_DECLINED
+    given:
+      - "Payment provider declines the transaction (insufficient funds, fraud, expired card)"
+    then:
+      - action: set_field
+        target: status
+        value: failed
+      - action: emit_event
+        event: payment.failed
+        payload: [provider_transaction_id, failure_code, failure_message]
+    result: "Payment declined; failure code and message returned to caller"
+
+  payment_failed_3ds:
+    priority: 6
+    error: THREE_D_SECURE_FAILED
+    given:
+      - field: three_d_secure_status
+        source: computed
+        operator: eq
+        value: failed
+    then:
+      - action: set_field
+        target: status
+        value: failed
+      - action: emit_event
+        event: payment.failed
+        payload: [provider_transaction_id, failure_code, failure_message]
+    result: "3D Secure authentication failed; payment not processed"
+
+  payment_failed_invalid_token:
+    priority: 7
+    error: INVALID_PAYMENT_TOKEN
+    given:
+      - "payment_method_token is expired, revoked, or does not exist"
+    then:
+      - action: set_field
+        target: status
+        value: failed
+      - action: emit_event
+        event: payment.failed
+        payload: [failure_code, failure_message]
+    result: "Payment rejected; customer must provide a new payment method"
+
+  duplicate_request:
+    priority: 8
+    given:
+      - "Request with same idempotency_key already processed"
+    then: []
+    result: "Original response returned without re-processing the payment"
+
+  refund_exceeds_captured:
+    priority: 9
+    error: REFUND_EXCEEDS_AMOUNT
+    given:
+      - "Refund amount exceeds remaining captured amount"
+    then:
+      - action: emit_event
+        event: payment.refund_failed
+        payload: [provider_transaction_id, refund_amount, remaining_amount]
+    result: "Refund rejected; amount exceeds what is available to refund"
+
+errors:
+  - code: PAYMENT_DECLINED
+    status: 422
+    message: "Payment was declined by the issuer. Try a different payment method."
+  - code: THREE_D_SECURE_FAILED
+    status: 401
+    message: "3D Secure authentication failed. Payment cannot be processed."
+  - code: INVALID_PAYMENT_TOKEN
+    status: 400
+    message: "Payment method token is invalid or expired. Provide a new payment method."
+  - code: REFUND_EXCEEDS_AMOUNT
+    status: 400
+    message: "Refund amount exceeds the captured payment amount."
+  - code: AUTHORIZATION_EXPIRED
+    status: 400
+    message: "Authorization hold has expired. Create a new payment authorization."
+  - code: VOID_NOT_ALLOWED
+    status: 400
+    message: "Payment cannot be voided. Only authorized (uncaptured) payments can be voided."
+  - code: WEBHOOK_SIGNATURE_INVALID
+    status: 401
+    message: "Webhook signature verification failed. Payload may have been tampered with."
+
+events:
+  - name: payment.authorized
+    payload: [provider_transaction_id, amount, currency, payment_method_type]
+  - name: payment.captured
+    payload: [provider_transaction_id, amount, currency]
+  - name: payment.voided
+    payload: [provider_transaction_id, amount, currency]
+  - name: payment.refunded
+    payload: [provider_transaction_id, refund_amount, currency, remaining_amount]
+  - name: payment.failed
+    payload: [provider_transaction_id, failure_code, failure_message]
+  - name: payment.refund_failed
+    payload: [provider_transaction_id, refund_amount, error_reason]
+
+related:
+  - feature: webhook-ingestion
+    type: required
+    reason: "Receive async payment status updates from provider webhooks"
+  - feature: api-gateway
+    type: recommended
+    reason: "Route payment API requests through gateway with rate limiting"

@@ -1,0 +1,602 @@
+{
+  "feature": "push-notifications",
+  "version": "1.0.0",
+  "description": "Deliver mobile and web push notifications with device management, topic subscriptions, and rich media",
+  "category": "notification",
+  "tags": [
+    "push",
+    "mobile",
+    "web-push",
+    "fcm",
+    "apns",
+    "notifications",
+    "real-time",
+    "device-tokens"
+  ],
+  "fields": [
+    {
+      "name": "device_token",
+      "type": "token",
+      "required": true,
+      "label": "Device Token",
+      "sensitive": true,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Device token is required"
+        },
+        {
+          "type": "minLength",
+          "value": 32,
+          "message": "Device token is too short"
+        }
+      ]
+    },
+    {
+      "name": "platform",
+      "type": "select",
+      "required": true,
+      "label": "Platform",
+      "options": [
+        {
+          "value": "ios",
+          "label": "iOS"
+        },
+        {
+          "value": "android",
+          "label": "Android"
+        },
+        {
+          "value": "web",
+          "label": "Web"
+        }
+      ],
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Platform is required"
+        }
+      ]
+    },
+    {
+      "name": "title",
+      "type": "text",
+      "required": true,
+      "label": "Notification Title",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Title is required"
+        },
+        {
+          "type": "maxLength",
+          "value": 65,
+          "message": "Title should be 65 characters or fewer"
+        }
+      ]
+    },
+    {
+      "name": "body",
+      "type": "text",
+      "required": true,
+      "label": "Notification Body",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Body is required"
+        },
+        {
+          "type": "maxLength",
+          "value": 240,
+          "message": "Body should be 240 characters or fewer"
+        }
+      ]
+    },
+    {
+      "name": "image_url",
+      "type": "url",
+      "required": false,
+      "label": "Rich Media Image",
+      "sensitive": false
+    },
+    {
+      "name": "action_url",
+      "type": "url",
+      "required": false,
+      "label": "Action URL",
+      "sensitive": false
+    },
+    {
+      "name": "topic",
+      "type": "text",
+      "required": false,
+      "label": "Topic",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "pattern",
+          "value": "^[a-zA-Z0-9._-]+$",
+          "message": "Topic must be alphanumeric with dots, hyphens, or underscores"
+        }
+      ]
+    },
+    {
+      "name": "badge_count",
+      "type": "number",
+      "required": false,
+      "label": "Badge Count",
+      "default": 0,
+      "validation": [
+        {
+          "type": "min",
+          "value": 0,
+          "message": "Badge count cannot be negative"
+        }
+      ]
+    },
+    {
+      "name": "silent",
+      "type": "boolean",
+      "required": false,
+      "label": "Silent Push",
+      "default": false
+    },
+    {
+      "name": "priority",
+      "type": "select",
+      "required": false,
+      "label": "Delivery Priority",
+      "options": [
+        {
+          "value": "high",
+          "label": "High"
+        },
+        {
+          "value": "normal",
+          "label": "Normal"
+        }
+      ],
+      "default": "normal"
+    },
+    {
+      "name": "ttl_seconds",
+      "type": "number",
+      "required": false,
+      "label": "Time to Live",
+      "default": 86400,
+      "validation": [
+        {
+          "type": "min",
+          "value": 0,
+          "message": "TTL cannot be negative"
+        },
+        {
+          "type": "max",
+          "value": 2419200,
+          "message": "TTL cannot exceed 28 days"
+        }
+      ]
+    },
+    {
+      "name": "data_payload",
+      "type": "json",
+      "required": false,
+      "label": "Custom Data Payload",
+      "sensitive": false
+    }
+  ],
+  "rules": {
+    "delivery": {
+      "provider_abstraction": true,
+      "max_retries": 3,
+      "retry_backoff": "exponential",
+      "retry_base_seconds": 10,
+      "timeout_seconds": 15
+    },
+    "device_management": {
+      "token_refresh_on_error": true,
+      "stale_token_cleanup_days": 90,
+      "max_devices_per_user": 10,
+      "dedup_tokens": true
+    },
+    "topics": {
+      "max_subscriptions_per_user": 100,
+      "max_subscribers_per_topic": 1000000,
+      "topic_naming": "kebab-case"
+    },
+    "payload": {
+      "max_size_bytes": 4096,
+      "rich_media_max_size_mb": 5,
+      "collapse_key_support": true
+    },
+    "rate_limiting": {
+      "per_device_per_minute": 5,
+      "per_topic_per_minute": 30,
+      "global_per_second": 500
+    },
+    "security": {
+      "token_encryption_at_rest": true,
+      "payload_sanitization": true,
+      "url_validation": true
+    }
+  },
+  "outcomes": {
+    "rate_limited": {
+      "priority": 1,
+      "error": "PUSH_RATE_LIMITED",
+      "given": [
+        {
+          "field": "device_send_count",
+          "source": "computed",
+          "operator": "gte",
+          "value": 5,
+          "description": "Device has received 5+ push notifications this minute"
+        }
+      ],
+      "result": "reject with rate limit error"
+    },
+    "invalid_device_token": {
+      "priority": 2,
+      "error": "PUSH_INVALID_TOKEN",
+      "given": [
+        {
+          "field": "device_token",
+          "source": "db",
+          "operator": "not_exists",
+          "description": "Device token is not registered or has been invalidated"
+        }
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "device_token",
+          "target": "device_token",
+          "description": "Remove invalid token from device registry"
+        },
+        {
+          "action": "emit_event",
+          "event": "push.token_invalid",
+          "payload": [
+            "device_token",
+            "platform",
+            "user_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "remove stale token and skip delivery"
+    },
+    "payload_too_large": {
+      "priority": 3,
+      "error": "PUSH_PAYLOAD_TOO_LARGE",
+      "given": [
+        {
+          "field": "payload_size",
+          "source": "computed",
+          "operator": "gt",
+          "value": 4096,
+          "description": "Total payload exceeds 4KB provider limit"
+        }
+      ],
+      "result": "reject with payload size error"
+    },
+    "push_sent": {
+      "priority": 10,
+      "transaction": true,
+      "given": [
+        {
+          "field": "device_token",
+          "source": "db",
+          "operator": "exists",
+          "description": "Device token is registered and valid"
+        },
+        {
+          "field": "title",
+          "source": "input",
+          "operator": "exists",
+          "description": "Notification title is present"
+        },
+        {
+          "field": "body",
+          "source": "input",
+          "operator": "exists",
+          "description": "Notification body is present"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "push_provider",
+          "method": "send",
+          "description": "Deliver notification via FCM, APNs, or web push based on platform"
+        },
+        {
+          "action": "set_field",
+          "target": "badge_count",
+          "value": "increment",
+          "description": "Increment app badge count for recipient",
+          "when": "silent == false"
+        },
+        {
+          "action": "create_record",
+          "type": "push_log",
+          "target": "delivery_log",
+          "description": "Record delivery attempt"
+        },
+        {
+          "action": "emit_event",
+          "event": "push.sent",
+          "payload": [
+            "tracking_id",
+            "user_id",
+            "device_token",
+            "platform",
+            "title",
+            "silent",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "push notification delivered to provider for dispatch"
+    },
+    "push_delivered": {
+      "priority": 11,
+      "given": [
+        {
+          "field": "delivery_status",
+          "source": "system",
+          "operator": "eq",
+          "value": "delivered",
+          "description": "Provider confirmed delivery to device"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "delivered_at",
+          "value": "now"
+        },
+        {
+          "action": "emit_event",
+          "event": "push.delivered",
+          "payload": [
+            "tracking_id",
+            "user_id",
+            "device_token",
+            "delivered_at",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "update delivery log with confirmed delivery"
+    },
+    "push_dismissed": {
+      "priority": 12,
+      "given": [
+        {
+          "field": "user_action",
+          "source": "system",
+          "operator": "eq",
+          "value": "dismissed",
+          "description": "User dismissed the notification without tapping"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "badge_count",
+          "value": "decrement",
+          "description": "Decrement badge count on dismiss"
+        },
+        {
+          "action": "emit_event",
+          "event": "push.dismissed",
+          "payload": [
+            "tracking_id",
+            "user_id",
+            "notification_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "record dismissal and update badge count"
+    },
+    "topic_broadcast": {
+      "priority": 13,
+      "given": [
+        {
+          "field": "topic",
+          "source": "input",
+          "operator": "exists",
+          "description": "A topic is specified for broadcast delivery"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "push_provider",
+          "method": "send_to_topic",
+          "description": "Broadcast notification to all topic subscribers"
+        },
+        {
+          "action": "emit_event",
+          "event": "push.broadcast",
+          "payload": [
+            "topic",
+            "title",
+            "subscriber_count",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "notification broadcast to all subscribers of the topic"
+    }
+  },
+  "errors": [
+    {
+      "code": "PUSH_RATE_LIMITED",
+      "status": 429,
+      "message": "Push notification rate limit exceeded",
+      "retry": true
+    },
+    {
+      "code": "PUSH_INVALID_TOKEN",
+      "status": 410,
+      "message": "Device token is no longer valid",
+      "retry": false
+    },
+    {
+      "code": "PUSH_PAYLOAD_TOO_LARGE",
+      "status": 413,
+      "message": "Notification payload exceeds maximum size",
+      "retry": false
+    },
+    {
+      "code": "PUSH_DELIVERY_FAILED",
+      "status": 503,
+      "message": "Push notification delivery failed",
+      "retry": true
+    },
+    {
+      "code": "PUSH_TOPIC_NOT_FOUND",
+      "status": 404,
+      "message": "Topic does not exist",
+      "retry": false
+    },
+    {
+      "code": "PUSH_VALIDATION_ERROR",
+      "status": 422,
+      "message": "Please check the notification parameters and try again",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "push.sent",
+      "description": "Push notification sent to provider",
+      "payload": [
+        "tracking_id",
+        "user_id",
+        "device_token",
+        "platform",
+        "title",
+        "silent",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "push.delivered",
+      "description": "Push notification confirmed delivered to device",
+      "payload": [
+        "tracking_id",
+        "user_id",
+        "device_token",
+        "delivered_at",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "push.dismissed",
+      "description": "User dismissed the notification",
+      "payload": [
+        "tracking_id",
+        "user_id",
+        "notification_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "push.broadcast",
+      "description": "Notification broadcast to a topic",
+      "payload": [
+        "topic",
+        "title",
+        "subscriber_count",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "push.token_invalid",
+      "description": "Device token was found to be invalid and removed",
+      "payload": [
+        "device_token",
+        "platform",
+        "user_id",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "notification-preferences",
+      "type": "required",
+      "reason": "Must check user push notification preferences before sending"
+    },
+    {
+      "feature": "in-app-notifications",
+      "type": "recommended",
+      "reason": "Push notifications often have corresponding in-app notification entries"
+    },
+    {
+      "feature": "email-notifications",
+      "type": "optional",
+      "reason": "Fallback to email when push delivery fails or is not available"
+    },
+    {
+      "feature": "sms-notifications",
+      "type": "optional",
+      "reason": "Fallback to SMS for critical alerts when push is unavailable"
+    }
+  ],
+  "ui_hints": {
+    "layout": "admin_panel",
+    "description": "Push notification management and device registry",
+    "admin_views": [
+      {
+        "view": "device_registry",
+        "description": "Registered devices per user",
+        "columns": [
+          "user_id",
+          "platform",
+          "device_token",
+          "registered_at",
+          "last_active_at"
+        ],
+        "actions": [
+          "remove_device"
+        ]
+      },
+      {
+        "view": "delivery_log",
+        "description": "Push notification delivery history",
+        "columns": [
+          "user_id",
+          "platform",
+          "title",
+          "status",
+          "sent_at",
+          "delivered_at"
+        ]
+      },
+      {
+        "view": "topic_manager",
+        "description": "Manage topic subscriptions",
+        "columns": [
+          "topic",
+          "subscriber_count",
+          "last_broadcast_at"
+        ],
+        "actions": [
+          "broadcast",
+          "delete_topic"
+        ]
+      }
+    ],
+    "accessibility": {
+      "aria_live_region": true
+    }
+  }
+}

@@ -1,0 +1,471 @@
+{
+  "feature": "internationalization",
+  "version": "1.0.0",
+  "description": "Internationalization with locale switching, translation keys, pluralization, and RTL support",
+  "category": "ui",
+  "tags": [
+    "i18n",
+    "localization",
+    "translation",
+    "rtl",
+    "locale",
+    "internationalization",
+    "ui"
+  ],
+  "fields": [
+    {
+      "name": "locale",
+      "type": "text",
+      "required": true,
+      "label": "Current Locale",
+      "placeholder": "en-US",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Locale is required"
+        },
+        {
+          "type": "pattern",
+          "value": "^[a-z]{2}(-[A-Z]{2})?$",
+          "message": "Locale must be a valid BCP 47 tag (e.g., en, en-US, fr-FR)"
+        }
+      ]
+    },
+    {
+      "name": "fallback_locale",
+      "type": "text",
+      "required": true,
+      "label": "Fallback Locale",
+      "default": "en",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Fallback locale is required"
+        },
+        {
+          "type": "pattern",
+          "value": "^[a-z]{2}(-[A-Z]{2})?$",
+          "message": "Fallback locale must be a valid BCP 47 tag"
+        }
+      ]
+    },
+    {
+      "name": "translations",
+      "type": "json",
+      "required": false,
+      "label": "Translation Map",
+      "sensitive": false
+    },
+    {
+      "name": "supported_locales",
+      "type": "json",
+      "required": true,
+      "label": "Supported Locales",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "At least one supported locale is required"
+        }
+      ]
+    },
+    {
+      "name": "direction",
+      "type": "select",
+      "required": false,
+      "label": "Text Direction",
+      "options": [
+        {
+          "value": "ltr",
+          "label": "Left to Right"
+        },
+        {
+          "value": "rtl",
+          "label": "Right to Left"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "default": "auto"
+    }
+  ],
+  "rules": {
+    "fallback": {
+      "chain": [
+        "exact_locale",
+        "language_only",
+        "fallback_locale"
+      ],
+      "missing_key_behavior": "show_key",
+      "log_missing_keys": true,
+      "missing_key_log_level": "warn"
+    },
+    "message_format": {
+      "standard": "icu",
+      "interpolation_delimiter": "{",
+      "html_escaping": true,
+      "allow_rich_text": false
+    },
+    "formatting": {
+      "date_format": "locale_default",
+      "number_format": "locale_default",
+      "currency_format": "locale_default",
+      "relative_time": true
+    },
+    "rtl": {
+      "auto_detect": true,
+      "rtl_locales": [
+        "ar",
+        "he",
+        "fa",
+        "ur"
+      ],
+      "mirror_layout": true,
+      "logical_properties": true
+    },
+    "detection": {
+      "auto_detect_browser_language": true,
+      "priority": [
+        "url_param",
+        "cookie",
+        "browser",
+        "fallback"
+      ],
+      "persist_preference": "cookie",
+      "cookie_name": "locale",
+      "cookie_max_age_days": 365
+    },
+    "performance": {
+      "lazy_load_bundles": true,
+      "chunk_by_namespace": true,
+      "preload_fallback": true,
+      "cache_bundles": true
+    }
+  },
+  "outcomes": {
+    "unsupported_locale": {
+      "priority": 1,
+      "error": "I18N_UNSUPPORTED_LOCALE",
+      "given": [
+        {
+          "field": "locale",
+          "source": "input",
+          "operator": "not_in",
+          "value": "supported_locales",
+          "description": "Requested locale is not in the supported list"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "locale",
+          "value": "fallback_locale",
+          "description": "Fall back to default locale"
+        },
+        {
+          "action": "emit_event",
+          "event": "i18n.locale_fallback",
+          "payload": [
+            "requested_locale",
+            "fallback_locale",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "use fallback locale and log warning"
+    },
+    "missing_translation_key": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "translation_key",
+          "source": "input",
+          "operator": "exists",
+          "description": "Translation key is requested"
+        },
+        {
+          "field": "translation_value",
+          "source": "computed",
+          "operator": "not_exists",
+          "description": "No translation found in current locale or fallback chain"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "i18n.missing_key",
+          "payload": [
+            "key",
+            "locale",
+            "fallback_locale",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "display raw translation key and log warning for developer review"
+    },
+    "fallback_chain_resolved": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "translation_key",
+          "source": "input",
+          "operator": "exists",
+          "description": "Translation key is requested"
+        },
+        {
+          "field": "translation_value",
+          "source": "computed",
+          "operator": "not_exists",
+          "description": "No translation in exact locale (e.g., fr-CA)"
+        },
+        {
+          "field": "translation_value_language",
+          "source": "computed",
+          "operator": "exists",
+          "description": "Translation found in language-only locale (e.g., fr)"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "i18n.fallback_used",
+          "payload": [
+            "key",
+            "requested_locale",
+            "resolved_locale",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "return translation from language-only locale"
+    },
+    "rtl_locale_detected": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "locale",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "ar",
+            "he",
+            "fa",
+            "ur"
+          ],
+          "description": "Active locale uses right-to-left script"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "direction",
+          "value": "rtl",
+          "description": "Set document direction to RTL"
+        }
+      ],
+      "result": "set dir=\"rtl\" on document root and apply mirrored layout"
+    },
+    "locale_switched": {
+      "priority": 5,
+      "transaction": true,
+      "given": [
+        {
+          "field": "locale",
+          "source": "input",
+          "operator": "in",
+          "value": "supported_locales",
+          "description": "New locale is in the supported list"
+        },
+        {
+          "field": "locale",
+          "source": "input",
+          "operator": "neq",
+          "value": "current_locale",
+          "description": "New locale differs from current locale"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "current_locale",
+          "value": "locale",
+          "description": "Update active locale"
+        },
+        {
+          "action": "set_field",
+          "target": "direction",
+          "value": "auto",
+          "description": "Recalculate text direction for new locale"
+        },
+        {
+          "action": "emit_event",
+          "event": "i18n.locale_changed",
+          "payload": [
+            "previous_locale",
+            "new_locale",
+            "direction",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "load locale bundle, update all translated strings, persist preference in cookie"
+    },
+    "bundle_loaded": {
+      "priority": 6,
+      "given": [
+        {
+          "field": "locale",
+          "source": "input",
+          "operator": "exists",
+          "description": "Locale is set"
+        },
+        {
+          "field": "locale_bundle",
+          "source": "computed",
+          "operator": "not_exists",
+          "description": "Locale bundle not yet loaded in memory"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "locale_loader",
+          "description": "Lazy-load the locale bundle for the active locale"
+        },
+        {
+          "action": "emit_event",
+          "event": "i18n.bundle_loaded",
+          "payload": [
+            "locale",
+            "namespace",
+            "bundle_size_kb",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "fetch and cache locale bundle, then re-render translated content"
+    },
+    "translate_with_interpolation": {
+      "priority": 10,
+      "given": [
+        {
+          "field": "translation_key",
+          "source": "input",
+          "operator": "exists",
+          "description": "Translation key is provided"
+        },
+        {
+          "field": "translation_value",
+          "source": "computed",
+          "operator": "exists",
+          "description": "Translation found in active locale or fallback"
+        }
+      ],
+      "result": "return translated string with ICU MessageFormat interpolation and HTML escaping"
+    }
+  },
+  "errors": [
+    {
+      "code": "I18N_UNSUPPORTED_LOCALE",
+      "status": 400,
+      "message": "The requested locale is not supported",
+      "retry": false
+    },
+    {
+      "code": "I18N_MISSING_KEY",
+      "status": 404,
+      "message": "Translation key not found",
+      "retry": false
+    },
+    {
+      "code": "I18N_BUNDLE_LOAD_FAILED",
+      "status": 500,
+      "message": "Failed to load locale bundle. Please try again.",
+      "retry": true
+    },
+    {
+      "code": "I18N_INVALID_FORMAT",
+      "status": 400,
+      "message": "Invalid ICU message format in translation value",
+      "retry": false
+    }
+  ],
+  "events": [
+    {
+      "name": "i18n.locale_changed",
+      "description": "User switched to a different locale",
+      "payload": [
+        "previous_locale",
+        "new_locale",
+        "direction",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "i18n.missing_key",
+      "description": "Translation key not found in any locale in the fallback chain",
+      "payload": [
+        "key",
+        "locale",
+        "fallback_locale",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "i18n.bundle_loaded",
+      "description": "Locale translation bundle loaded into memory",
+      "payload": [
+        "locale",
+        "namespace",
+        "bundle_size_kb",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "i18n.locale_fallback",
+      "description": "Requested locale not supported, fell back to default",
+      "payload": [
+        "requested_locale",
+        "fallback_locale",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "i18n.fallback_used",
+      "description": "Translation resolved from fallback locale instead of exact match",
+      "payload": [
+        "key",
+        "requested_locale",
+        "resolved_locale",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "toast-notifications",
+      "type": "recommended",
+      "reason": "Toast messages need translation support"
+    },
+    {
+      "feature": "form-builder",
+      "type": "recommended",
+      "reason": "Form labels, placeholders, and validation messages need translation"
+    },
+    {
+      "feature": "navigation-menu",
+      "type": "optional",
+      "reason": "Navigation labels need translation and RTL layout support"
+    },
+    {
+      "feature": "theme-configuration",
+      "type": "optional",
+      "reason": "Theme may include locale-specific font choices"
+    }
+  ]
+}

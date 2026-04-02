@@ -1,0 +1,623 @@
+{
+  "feature": "in-app-notifications",
+  "version": "1.0.0",
+  "description": "Real-time in-app notification center with read state, grouping, deep links, and persistent storage",
+  "category": "notification",
+  "tags": [
+    "in-app",
+    "notification-center",
+    "real-time",
+    "websocket",
+    "sse",
+    "bell-icon",
+    "deep-links",
+    "grouping"
+  ],
+  "fields": [
+    {
+      "name": "title",
+      "type": "text",
+      "required": true,
+      "label": "Notification Title",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Title is required"
+        },
+        {
+          "type": "maxLength",
+          "value": 120,
+          "message": "Title must be 120 characters or fewer"
+        }
+      ]
+    },
+    {
+      "name": "body",
+      "type": "text",
+      "required": true,
+      "label": "Notification Body",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Body is required"
+        },
+        {
+          "type": "maxLength",
+          "value": 500,
+          "message": "Body must be 500 characters or fewer"
+        }
+      ]
+    },
+    {
+      "name": "type",
+      "type": "select",
+      "required": true,
+      "label": "Notification Type",
+      "options": [
+        {
+          "value": "info",
+          "label": "Info"
+        },
+        {
+          "value": "success",
+          "label": "Success"
+        },
+        {
+          "value": "warning",
+          "label": "Warning"
+        },
+        {
+          "value": "error",
+          "label": "Error"
+        },
+        {
+          "value": "action_required",
+          "label": "Action Required"
+        }
+      ],
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Notification type is required"
+        }
+      ]
+    },
+    {
+      "name": "read_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Read At",
+      "sensitive": false
+    },
+    {
+      "name": "action_url",
+      "type": "url",
+      "required": false,
+      "label": "Action URL",
+      "sensitive": false
+    },
+    {
+      "name": "icon",
+      "type": "text",
+      "required": false,
+      "label": "Icon",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "maxLength",
+          "value": 255,
+          "message": "Icon reference is too long"
+        }
+      ]
+    },
+    {
+      "name": "group_key",
+      "type": "text",
+      "required": false,
+      "label": "Group Key",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "pattern",
+          "value": "^[a-zA-Z0-9._-]+$",
+          "message": "Group key must be alphanumeric with dots, hyphens, or underscores"
+        },
+        {
+          "type": "maxLength",
+          "value": 128,
+          "message": "Group key is too long"
+        }
+      ]
+    },
+    {
+      "name": "recipient_user_id",
+      "type": "text",
+      "required": true,
+      "label": "Recipient User ID",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Recipient user ID is required"
+        }
+      ]
+    },
+    {
+      "name": "sender_id",
+      "type": "text",
+      "required": false,
+      "label": "Sender ID",
+      "sensitive": false
+    },
+    {
+      "name": "priority",
+      "type": "select",
+      "required": false,
+      "label": "Priority",
+      "options": [
+        {
+          "value": "high",
+          "label": "High"
+        },
+        {
+          "value": "normal",
+          "label": "Normal"
+        },
+        {
+          "value": "low",
+          "label": "Low"
+        }
+      ],
+      "default": "normal"
+    },
+    {
+      "name": "expires_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Expiry Time",
+      "sensitive": false
+    },
+    {
+      "name": "metadata",
+      "type": "json",
+      "required": false,
+      "label": "Custom Metadata",
+      "sensitive": false
+    }
+  ],
+  "rules": {
+    "delivery": {
+      "real_time_channel": "websocket",
+      "fallback_channel": "sse",
+      "polling_interval_seconds": 30,
+      "delivery_guarantee": "at_least_once"
+    },
+    "persistence": {
+      "storage": "database",
+      "retention_days": 90,
+      "max_per_user": 1000
+    },
+    "read_state": {
+      "track_read_at": true,
+      "track_dismissed_at": true,
+      "mark_all_read": true
+    },
+    "grouping": {
+      "enabled": true,
+      "collapse_threshold": 3,
+      "group_summary_template": "{{count}} new {{type}} notifications",
+      "expand_on_click": true
+    },
+    "pagination": {
+      "default_page_size": 20,
+      "max_page_size": 100,
+      "cursor_based": true
+    },
+    "security": {
+      "user_isolation": true,
+      "xss_prevention": true,
+      "action_url_validation": true
+    }
+  },
+  "outcomes": {
+    "user_not_found": {
+      "priority": 1,
+      "error": "NOTIFICATION_USER_NOT_FOUND",
+      "given": [
+        {
+          "field": "recipient_user_id",
+          "source": "db",
+          "operator": "not_exists",
+          "description": "Recipient user does not exist"
+        }
+      ],
+      "result": "reject with user not found error"
+    },
+    "storage_limit_reached": {
+      "priority": 2,
+      "error": "NOTIFICATION_STORAGE_LIMIT",
+      "given": [
+        {
+          "field": "user_notification_count",
+          "source": "db",
+          "operator": "gte",
+          "value": 1000,
+          "description": "User has reached the maximum notification storage limit"
+        }
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "notification",
+          "target": "oldest_notification",
+          "description": "Remove the oldest notification to make room"
+        }
+      ],
+      "result": "remove oldest notification and proceed with creation"
+    },
+    "notification_created": {
+      "priority": 10,
+      "transaction": true,
+      "given": [
+        {
+          "field": "recipient_user_id",
+          "source": "db",
+          "operator": "exists",
+          "description": "Recipient user exists"
+        },
+        {
+          "field": "title",
+          "source": "input",
+          "operator": "exists",
+          "description": "Title is present"
+        },
+        {
+          "field": "body",
+          "source": "input",
+          "operator": "exists",
+          "description": "Body is present"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "notification",
+          "target": "notification",
+          "description": "Persist notification to database with unread state"
+        },
+        {
+          "action": "call_service",
+          "target": "realtime_channel",
+          "description": "Deliver notification via WebSocket/SSE to connected clients"
+        },
+        {
+          "action": "set_field",
+          "target": "unread_count",
+          "value": "increment",
+          "description": "Increment unread badge count for recipient"
+        },
+        {
+          "action": "emit_event",
+          "event": "notification.created",
+          "payload": [
+            "notification_id",
+            "recipient_user_id",
+            "type",
+            "title",
+            "group_key",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "notification created, persisted, and delivered in real time"
+    },
+    "notification_read": {
+      "priority": 11,
+      "given": [
+        {
+          "field": "notification_id",
+          "source": "input",
+          "operator": "exists",
+          "description": "Notification ID is provided"
+        },
+        {
+          "field": "read_at",
+          "source": "db",
+          "operator": "not_exists",
+          "description": "Notification has not been read yet"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "read_at",
+          "value": "now",
+          "description": "Set read timestamp"
+        },
+        {
+          "action": "set_field",
+          "target": "unread_count",
+          "value": "decrement",
+          "description": "Decrement unread badge count"
+        },
+        {
+          "action": "emit_event",
+          "event": "notification.read",
+          "payload": [
+            "notification_id",
+            "recipient_user_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "notification marked as read and badge count updated"
+    },
+    "mark_all_read": {
+      "priority": 12,
+      "transaction": true,
+      "given": [
+        {
+          "field": "mark_all",
+          "source": "input",
+          "operator": "eq",
+          "value": true,
+          "description": "User triggered mark-all-as-read"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "read_at",
+          "value": "now",
+          "description": "Set read timestamp on all unread notifications for this user"
+        },
+        {
+          "action": "set_field",
+          "target": "unread_count",
+          "value": 0,
+          "description": "Reset unread badge count to zero"
+        },
+        {
+          "action": "emit_event",
+          "event": "notification.all_read",
+          "payload": [
+            "recipient_user_id",
+            "count_marked",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "all unread notifications marked as read and badge reset"
+    },
+    "notification_dismissed": {
+      "priority": 13,
+      "given": [
+        {
+          "field": "notification_id",
+          "source": "input",
+          "operator": "exists",
+          "description": "Notification ID is provided for dismissal"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "dismissed_at",
+          "value": "now",
+          "description": "Record dismissal timestamp"
+        },
+        {
+          "action": "set_field",
+          "target": "unread_count",
+          "value": "decrement",
+          "description": "Decrement unread badge count if was unread",
+          "when": "read_at is null"
+        },
+        {
+          "action": "emit_event",
+          "event": "notification.dismissed",
+          "payload": [
+            "notification_id",
+            "recipient_user_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "notification dismissed and hidden from feed"
+    },
+    "notification_clicked": {
+      "priority": 14,
+      "given": [
+        {
+          "field": "notification_id",
+          "source": "input",
+          "operator": "exists",
+          "description": "Notification clicked by user"
+        },
+        {
+          "field": "action_url",
+          "source": "db",
+          "operator": "exists",
+          "description": "Notification has an action URL"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "read_at",
+          "value": "now",
+          "description": "Auto-mark as read on click",
+          "when": "read_at is null"
+        },
+        {
+          "action": "emit_event",
+          "event": "notification.clicked",
+          "payload": [
+            "notification_id",
+            "recipient_user_id",
+            "action_url",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "mark as read and navigate to action URL"
+    }
+  },
+  "errors": [
+    {
+      "code": "NOTIFICATION_USER_NOT_FOUND",
+      "status": 404,
+      "message": "Recipient user not found",
+      "retry": false
+    },
+    {
+      "code": "NOTIFICATION_NOT_FOUND",
+      "status": 404,
+      "message": "Notification not found",
+      "retry": false
+    },
+    {
+      "code": "NOTIFICATION_STORAGE_LIMIT",
+      "status": 500,
+      "message": "Notification storage limit reached",
+      "retry": true
+    },
+    {
+      "code": "NOTIFICATION_UNAUTHORIZED",
+      "status": 403,
+      "message": "You can only access your own notifications",
+      "retry": false
+    },
+    {
+      "code": "NOTIFICATION_VALIDATION_ERROR",
+      "status": 422,
+      "message": "Please check the notification parameters and try again",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "notification.created",
+      "description": "New in-app notification created and delivered",
+      "payload": [
+        "notification_id",
+        "recipient_user_id",
+        "type",
+        "title",
+        "group_key",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "notification.read",
+      "description": "Notification marked as read",
+      "payload": [
+        "notification_id",
+        "recipient_user_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "notification.dismissed",
+      "description": "Notification dismissed by user",
+      "payload": [
+        "notification_id",
+        "recipient_user_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "notification.all_read",
+      "description": "All notifications marked as read (bulk operation)",
+      "payload": [
+        "recipient_user_id",
+        "count_marked",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "notification.clicked",
+      "description": "Notification clicked, navigating to action URL",
+      "payload": [
+        "notification_id",
+        "recipient_user_id",
+        "action_url",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "notification-preferences",
+      "type": "required",
+      "reason": "Must check in-app notification preferences before displaying"
+    },
+    {
+      "feature": "push-notifications",
+      "type": "recommended",
+      "reason": "Push notifications complement in-app when user is not online"
+    },
+    {
+      "feature": "email-notifications",
+      "type": "optional",
+      "reason": "Email digest of unread in-app notifications"
+    },
+    {
+      "feature": "webhook-outbound",
+      "type": "optional",
+      "reason": "Trigger outbound webhooks when notifications are created"
+    }
+  ],
+  "ui_hints": {
+    "layout": "notification_panel",
+    "description": "Bell icon with dropdown notification center",
+    "components": {
+      "bell_icon": {
+        "position": "top_right",
+        "show_badge": true,
+        "badge_shows": "unread_count",
+        "animate_on_new": true
+      },
+      "notification_panel": {
+        "position": "dropdown_right",
+        "max_height": "480px",
+        "width": "380px",
+        "show_header": true,
+        "header_actions": [
+          "mark_all_read",
+          "settings_link"
+        ]
+      },
+      "notification_item": {
+        "show_icon": true,
+        "show_timestamp": true,
+        "show_type_indicator": true,
+        "swipe_to_dismiss": true,
+        "click_action": "navigate_to_action_url"
+      },
+      "empty_state": {
+        "message": "You're all caught up!",
+        "icon": "check_circle"
+      }
+    },
+    "fields_order": [
+      "icon",
+      "title",
+      "body",
+      "timestamp"
+    ],
+    "pagination": {
+      "type": "infinite_scroll",
+      "load_more_text": "Load older notifications"
+    },
+    "accessibility": {
+      "autofocus": "first_notification",
+      "aria_live_region": true,
+      "keyboard_navigation": true,
+      "screen_reader_labels": true
+    }
+  }
+}

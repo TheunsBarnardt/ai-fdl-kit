@@ -1,0 +1,309 @@
+# ============================================================
+# API Gateway — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# API routing, authentication, versioning, rate limiting,
+# request/response transformation, and circuit breaking
+# ============================================================
+
+feature: api-gateway
+version: "1.0.0"
+description: "Route, authenticate, rate-limit, and transform API requests through a centralized gateway with versioning, circuit breaking, and CORS support"
+category: integration
+tags: [api, gateway, routing, rate-limiting, circuit-breaker, cors]
+
+fields:
+  - name: route_path
+    type: text
+    required: true
+    label: "API route path pattern (e.g., /api/v1/users/:id)"
+    validation:
+      - type: pattern
+        value: "^/"
+        message: "Route path must start with /"
+
+  - name: method
+    type: select
+    required: true
+    label: "HTTP method"
+    options:
+      - value: GET
+        label: "GET"
+      - value: POST
+        label: "POST"
+      - value: PUT
+        label: "PUT"
+      - value: PATCH
+        label: "PATCH"
+      - value: DELETE
+        label: "DELETE"
+      - value: OPTIONS
+        label: "OPTIONS"
+
+  - name: upstream_url
+    type: url
+    required: true
+    label: "Upstream service URL to proxy requests to"
+
+  - name: auth_type
+    type: select
+    required: false
+    label: "Authentication mechanism for this route"
+    options:
+      - value: none
+        label: "None (public)"
+      - value: api_key
+        label: "API Key"
+      - value: jwt
+        label: "JWT Bearer Token"
+      - value: oauth
+        label: "OAuth 2.0"
+
+  - name: rate_limit
+    type: number
+    required: false
+    label: "Maximum requests per minute per client"
+    validation:
+      - type: min
+        value: 1
+        message: "Rate limit must be at least 1 request per minute"
+
+  - name: version
+    type: text
+    required: false
+    label: "API version (e.g., v1, v2)"
+    validation:
+      - type: pattern
+        value: "^v[0-9]+$"
+        message: "API version must match format v1, v2, etc."
+
+  - name: timeout_ms
+    type: number
+    required: false
+    label: "Upstream request timeout in milliseconds"
+    validation:
+      - type: min
+        value: 100
+        message: "Timeout must be at least 100ms"
+      - type: max
+        value: 120000
+        message: "Timeout must not exceed 120000ms"
+
+  - name: cors_origins
+    type: json
+    required: false
+    label: "Allowed CORS origins"
+
+  - name: request_size_limit
+    type: number
+    required: false
+    label: "Maximum request body size in bytes"
+
+  - name: circuit_state
+    type: select
+    required: false
+    label: "Circuit breaker state"
+    options:
+      - value: closed
+        label: "Closed (normal)"
+      - value: open
+        label: "Open (failing)"
+      - value: half_open
+        label: "Half Open (testing)"
+
+  - name: circuit_failure_threshold
+    type: number
+    required: false
+    label: "Number of failures before circuit opens"
+    validation:
+      - type: min
+        value: 1
+        message: "Failure threshold must be at least 1"
+
+  - name: circuit_reset_timeout_ms
+    type: number
+    required: false
+    label: "Milliseconds before open circuit transitions to half-open"
+
+rules:
+  routing:
+    - "Routes are matched by path pattern and HTTP method"
+    - "Path parameters (e.g., :id) are extracted and forwarded to upstream"
+    - "If no route matches, return 404 with standardized error response"
+    - "Route priority: exact match > parameterized > wildcard"
+  versioning:
+    - "API version resolved from Accept-Version header or URL path prefix"
+    - "When version header is absent, default to latest version"
+    - "Deprecated versions return Sunset header with deprecation date"
+  authentication:
+    - "API key validated against registered client keys"
+    - "JWT tokens verified using RS256 or HS256 with configured secret/public key"
+    - "OAuth tokens validated against token introspection endpoint or JWT claims"
+    - "Authentication failures return 401 with WWW-Authenticate header"
+  rate_limiting:
+    - "Rate limits enforced per client (identified by API key, JWT subject, or IP)"
+    - "Sliding window algorithm: count requests in rolling 60-second window"
+    - "Rate-limited responses return 429 with Retry-After and X-RateLimit-Remaining headers"
+  request_limits:
+    - "Maximum request body size is 10MB by default; configurable per route"
+    - "Request timeout defaults to 30000ms (30 seconds); configurable per route"
+  circuit_breaker:
+    - "Circuit opens after 5 consecutive upstream failures (configurable)"
+    - "Open circuit rejects requests immediately with 503 for 60 seconds (configurable)"
+    - "After reset timeout, circuit transitions to half-open; next request tests upstream"
+    - "Successful half-open request closes circuit; failure re-opens it"
+  cors:
+    - "OPTIONS preflight requests handled automatically for configured origins"
+    - "Access-Control-Allow-Origin set to requesting origin if in allowed list"
+    - "Wildcard (*) origin only allowed when auth_type is none"
+
+outcomes:
+  request_routed:
+    priority: 1
+    given:
+      - field: route_path
+        source: request
+        operator: exists
+      - field: method
+        source: request
+        operator: exists
+      - "Route matches registered path and method"
+      - "Authentication passes (if required)"
+      - "Rate limit not exceeded"
+      - field: circuit_state
+        source: system
+        operator: neq
+        value: open
+    then:
+      - action: emit_event
+        event: gateway.request
+        payload: [route_path, method, upstream_url, client_id, response_time_ms]
+    result: "Request proxied to upstream service; response returned to client with gateway headers"
+
+  request_rejected_auth:
+    priority: 2
+    error: GATEWAY_AUTH_FAILED
+    given:
+      - "Route requires authentication"
+      - "Request missing or invalid credentials (API key, JWT, or OAuth token)"
+    then:
+      - action: emit_event
+        event: gateway.error
+        payload: [route_path, method, client_id, error_code]
+    result: "401 returned with WWW-Authenticate header indicating required auth scheme"
+
+  request_rate_limited:
+    priority: 3
+    error: GATEWAY_RATE_LIMITED
+    given:
+      - "Client exceeds configured rate_limit for the route"
+    then:
+      - action: emit_event
+        event: gateway.error
+        payload: [route_path, method, client_id, rate_limit, retry_after]
+    result: "429 returned with Retry-After and X-RateLimit-Remaining headers"
+
+  upstream_timeout:
+    priority: 4
+    error: GATEWAY_UPSTREAM_TIMEOUT
+    given:
+      - "Upstream service does not respond within timeout_ms"
+    then:
+      - action: emit_event
+        event: gateway.error
+        payload: [route_path, method, upstream_url, timeout_ms]
+    result: "504 returned to client; timeout recorded for circuit breaker evaluation"
+
+  circuit_open:
+    priority: 5
+    error: GATEWAY_CIRCUIT_OPEN
+    given:
+      - field: circuit_state
+        source: system
+        operator: eq
+        value: open
+    then:
+      - action: emit_event
+        event: gateway.circuit_opened
+        payload: [upstream_url, failure_count, circuit_reset_timeout_ms]
+    result: "503 returned immediately without contacting upstream; circuit resets after timeout"
+
+  circuit_half_open_success:
+    priority: 6
+    given:
+      - field: circuit_state
+        source: system
+        operator: eq
+        value: half_open
+      - "Test request to upstream succeeds"
+    then:
+      - action: set_field
+        target: circuit_state
+        value: closed
+      - action: emit_event
+        event: gateway.circuit_closed
+        payload: [upstream_url]
+    result: "Circuit breaker closed; normal traffic flow resumed to upstream"
+
+  request_body_too_large:
+    priority: 7
+    error: GATEWAY_PAYLOAD_TOO_LARGE
+    given:
+      - "Request body size exceeds request_size_limit"
+    then: []
+    result: "413 returned; client must reduce payload size"
+
+  route_not_found:
+    priority: 8
+    error: GATEWAY_ROUTE_NOT_FOUND
+    given:
+      - "No registered route matches the request path and method"
+    then:
+      - action: emit_event
+        event: gateway.error
+        payload: [route_path, method]
+    result: "404 returned with standardized error response"
+
+errors:
+  - code: GATEWAY_AUTH_FAILED
+    status: 401
+    message: "Authentication required. Provide valid credentials for this endpoint."
+  - code: GATEWAY_RATE_LIMITED
+    status: 429
+    message: "Rate limit exceeded. Retry after the specified duration."
+  - code: GATEWAY_UPSTREAM_TIMEOUT
+    status: 500
+    message: "Upstream service did not respond within the configured timeout."
+  - code: GATEWAY_CIRCUIT_OPEN
+    status: 503
+    message: "Service temporarily unavailable. Upstream circuit breaker is open."
+  - code: GATEWAY_PAYLOAD_TOO_LARGE
+    status: 413
+    message: "Request body exceeds the maximum allowed size."
+  - code: GATEWAY_ROUTE_NOT_FOUND
+    status: 404
+    message: "No route matches the requested path and method."
+  - code: GATEWAY_FORBIDDEN
+    status: 403
+    message: "Authenticated but not authorized to access this resource."
+
+events:
+  - name: gateway.request
+    payload: [route_path, method, upstream_url, client_id, response_time_ms, status_code]
+  - name: gateway.error
+    payload: [route_path, method, client_id, error_code, error_message]
+  - name: gateway.circuit_opened
+    payload: [upstream_url, failure_count, reset_timeout_ms]
+  - name: gateway.circuit_closed
+    payload: [upstream_url]
+
+related:
+  - feature: oauth-provider
+    type: recommended
+    reason: "Gateway validates OAuth tokens issued by the provider"
+  - feature: webhook-ingestion
+    type: optional
+    reason: "Incoming webhooks routed through gateway for authentication"
+  - feature: payment-gateway
+    type: optional
+    reason: "Payment API requests routed through gateway with rate limiting"

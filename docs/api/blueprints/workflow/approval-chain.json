@@ -1,0 +1,675 @@
+{
+  "feature": "approval-chain",
+  "version": "1.0.0",
+  "description": "Multi-level approval workflow with sequential/parallel approvers, delegation, auto-approve rules, timeout escalation, and audit history.\n",
+  "category": "workflow",
+  "tags": [
+    "approval",
+    "workflow",
+    "multi-level",
+    "delegation",
+    "escalation",
+    "audit-trail"
+  ],
+  "actors": [
+    {
+      "id": "requester",
+      "name": "Requester",
+      "type": "human",
+      "description": "Submits a request that requires one or more levels of approval"
+    },
+    {
+      "id": "approver",
+      "name": "Approver",
+      "type": "human",
+      "description": "Reviews and approves or rejects requests at their assigned level"
+    },
+    {
+      "id": "delegate",
+      "name": "Delegate",
+      "type": "human",
+      "description": "Acts on behalf of an approver who has delegated authority"
+    },
+    {
+      "id": "escalation_target",
+      "name": "Escalation Target",
+      "type": "human",
+      "description": "Receives escalated requests when approval times out"
+    },
+    {
+      "id": "system",
+      "name": "Approval Engine",
+      "type": "system",
+      "description": "Manages approval flow, timeout detection, escalation, and auto-approve logic"
+    }
+  ],
+  "fields": [
+    {
+      "name": "request_id",
+      "type": "text",
+      "required": true,
+      "label": "Request ID"
+    },
+    {
+      "name": "request_type",
+      "type": "text",
+      "required": true,
+      "label": "Request Type",
+      "validation": [
+        {
+          "type": "required",
+          "message": "Request type is required"
+        }
+      ]
+    },
+    {
+      "name": "requester_id",
+      "type": "text",
+      "required": true,
+      "label": "Requester"
+    },
+    {
+      "name": "title",
+      "type": "text",
+      "required": true,
+      "label": "Request Title",
+      "validation": [
+        {
+          "type": "required",
+          "message": "Title is required"
+        },
+        {
+          "type": "maxLength",
+          "value": 500,
+          "message": "Title must be 500 characters or fewer"
+        }
+      ]
+    },
+    {
+      "name": "description",
+      "type": "rich_text",
+      "required": false,
+      "label": "Request Description"
+    },
+    {
+      "name": "approval_levels",
+      "type": "json",
+      "required": true,
+      "label": "Approval Levels",
+      "validation": [
+        {
+          "type": "required",
+          "message": "At least one approval level is required"
+        }
+      ]
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "required": true,
+      "label": "Overall Status",
+      "default": "draft",
+      "options": [
+        {
+          "value": "draft",
+          "label": "Draft"
+        },
+        {
+          "value": "pending",
+          "label": "Pending Approval"
+        },
+        {
+          "value": "in_review",
+          "label": "In Review"
+        },
+        {
+          "value": "approved",
+          "label": "Approved"
+        },
+        {
+          "value": "rejected",
+          "label": "Rejected"
+        },
+        {
+          "value": "escalated",
+          "label": "Escalated"
+        },
+        {
+          "value": "withdrawn",
+          "label": "Withdrawn"
+        }
+      ]
+    },
+    {
+      "name": "current_level",
+      "type": "number",
+      "required": false,
+      "default": 0,
+      "label": "Current Approval Level"
+    },
+    {
+      "name": "approval_history",
+      "type": "json",
+      "required": false,
+      "label": "Approval History"
+    },
+    {
+      "name": "delegations",
+      "type": "json",
+      "required": false,
+      "label": "Active Delegations"
+    },
+    {
+      "name": "auto_approve_rules",
+      "type": "json",
+      "required": false,
+      "label": "Auto-Approve Rules"
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "draft",
+        "description": "Request created but not yet submitted for approval",
+        "initial": true
+      },
+      {
+        "name": "pending",
+        "description": "Request submitted and waiting for first-level review"
+      },
+      {
+        "name": "in_review",
+        "description": "Request is being reviewed at the current approval level"
+      },
+      {
+        "name": "approved",
+        "description": "All approval levels have approved the request",
+        "terminal": true
+      },
+      {
+        "name": "rejected",
+        "description": "Request was rejected by an approver",
+        "terminal": true
+      },
+      {
+        "name": "escalated",
+        "description": "Approval timed out and was escalated to a higher authority"
+      },
+      {
+        "name": "withdrawn",
+        "description": "Requester withdrew the request before completion",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "draft",
+        "to": "pending",
+        "actor": "requester",
+        "description": "Requester submits the request for approval"
+      },
+      {
+        "from": "pending",
+        "to": "in_review",
+        "actor": "system",
+        "description": "System routes request to first-level approvers"
+      },
+      {
+        "from": "in_review",
+        "to": "in_review",
+        "actor": "system",
+        "condition": "current level approved but more levels remain",
+        "description": "Advance to next approval level"
+      },
+      {
+        "from": "in_review",
+        "to": "approved",
+        "actor": "approver",
+        "condition": "final level approved",
+        "description": "Last approval level passes, request fully approved"
+      },
+      {
+        "from": "in_review",
+        "to": "rejected",
+        "actor": "approver",
+        "description": "Approver rejects the request"
+      },
+      {
+        "from": "in_review",
+        "to": "escalated",
+        "actor": "system",
+        "condition": "timeout_hours exceeded without response",
+        "description": "Approval timed out and escalated"
+      },
+      {
+        "from": "escalated",
+        "to": "in_review",
+        "actor": "escalation_target",
+        "description": "Escalation target takes over the review"
+      },
+      {
+        "from": "pending",
+        "to": "withdrawn",
+        "actor": "requester",
+        "description": "Requester withdraws before review begins"
+      },
+      {
+        "from": "in_review",
+        "to": "withdrawn",
+        "actor": "requester",
+        "description": "Requester withdraws during review"
+      }
+    ]
+  },
+  "sla": {
+    "level_response_time": {
+      "transition": "approve_level",
+      "max_duration": "48h",
+      "escalation": "escalate to next approver in hierarchy or designated escalation_target"
+    },
+    "total_approval_time": {
+      "transition": "submit",
+      "max_duration": "168h",
+      "escalation": "notify system administrator"
+    }
+  },
+  "rules": {
+    "approval_strategy": {
+      "description": "Each level defines a strategy: \"all\" requires every approver to approve, \"any\" requires at least one, \"first\" accepts the first response (approve or reject). The strategy is evaluated per level independently.\n"
+    },
+    "timeout_escalation": {
+      "description": "If no approver at a level responds within timeout_hours, the request is escalated. Escalation routes to the configured escalation_target or the next level's approvers.\n"
+    },
+    "delegation": {
+      "description": "An approver can delegate their approval authority to another user for a specified period. The delegate's decisions carry the same weight as the original approver's. Delegations expire automatically after valid_until.\n"
+    },
+    "immutable_history": {
+      "description": "Once an approval action is recorded in approval_history, it cannot be modified or deleted. Each entry includes approver, action, comment, and timestamp for audit compliance.\n"
+    },
+    "auto_approve": {
+      "description": "Configurable rules can automatically approve a level without human intervention (e.g., requests under a certain amount or from specific roles). Auto-approved entries are logged in history with actor \"system\".\n"
+    },
+    "withdrawal_rules": {
+      "description": "A requester can withdraw their request at any point before the final approval. Withdrawal is recorded in history and notifies all involved approvers.\n"
+    },
+    "no_self_approval": {
+      "description": "A requester cannot approve their own request. If the requester appears in an approval level's approver list, they are skipped for that level.\n"
+    }
+  },
+  "outcomes": {
+    "request_submitted": {
+      "priority": 1,
+      "given": [
+        "requester is authenticated",
+        {
+          "field": "approval_levels",
+          "source": "input",
+          "operator": "exists",
+          "description": "At least one approval level is configured"
+        },
+        {
+          "field": "title",
+          "source": "input",
+          "operator": "exists",
+          "description": "Request title is provided"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "draft",
+          "to": "pending"
+        },
+        {
+          "action": "emit_event",
+          "event": "approval.requested",
+          "payload": [
+            "request_id",
+            "request_type",
+            "requester_id",
+            "approval_levels"
+          ]
+        },
+        {
+          "action": "notify",
+          "channel": "email",
+          "description": "First-level approvers notified of pending request"
+        }
+      ],
+      "result": "Request submitted and routed to first approval level"
+    },
+    "level_approved_all_strategy": {
+      "priority": 2,
+      "given": [
+        "current level strategy is 'all'",
+        "all approvers at the current level have approved"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "current_level",
+          "value": "current_level + 1"
+        },
+        {
+          "action": "emit_event",
+          "event": "approval.approved",
+          "payload": [
+            "request_id",
+            "level",
+            "approver_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Current level approved; request advances to next level or completes"
+    },
+    "level_approved_any_strategy": {
+      "priority": 3,
+      "given": [
+        "current level strategy is 'any'",
+        "at least one approver at the current level has approved"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "current_level",
+          "value": "current_level + 1"
+        },
+        {
+          "action": "emit_event",
+          "event": "approval.approved",
+          "payload": [
+            "request_id",
+            "level",
+            "approver_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Current level approved by any single approver; advances"
+    },
+    "level_approved_first_strategy": {
+      "priority": 4,
+      "given": [
+        "current level strategy is 'first'",
+        "first approver at the current level has responded with approve"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "current_level",
+          "value": "current_level + 1"
+        },
+        {
+          "action": "emit_event",
+          "event": "approval.approved",
+          "payload": [
+            "request_id",
+            "level",
+            "approver_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "First response accepted; level complete"
+    },
+    "request_fully_approved": {
+      "priority": 5,
+      "given": [
+        "all approval levels have been approved",
+        "current_level equals total number of levels"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "in_review",
+          "to": "approved"
+        },
+        {
+          "action": "emit_event",
+          "event": "approval.approved",
+          "payload": [
+            "request_id",
+            "request_type",
+            "requester_id",
+            "final_approver_id"
+          ]
+        },
+        {
+          "action": "notify",
+          "channel": "email",
+          "description": "Requester notified of full approval"
+        }
+      ],
+      "result": "Request fully approved across all levels"
+    },
+    "request_rejected": {
+      "priority": 6,
+      "given": [
+        "an approver at any level rejects the request"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "in_review",
+          "to": "rejected"
+        },
+        {
+          "action": "emit_event",
+          "event": "approval.rejected",
+          "payload": [
+            "request_id",
+            "level",
+            "approver_id",
+            "reason",
+            "timestamp"
+          ]
+        },
+        {
+          "action": "notify",
+          "channel": "email",
+          "description": "Requester notified of rejection with reason"
+        }
+      ],
+      "result": "Request rejected and requester informed"
+    },
+    "approval_escalated": {
+      "priority": 7,
+      "given": [
+        "timeout_hours exceeded for current level",
+        "no sufficient approvals received"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "in_review",
+          "to": "escalated"
+        },
+        {
+          "action": "emit_event",
+          "event": "approval.escalated",
+          "payload": [
+            "request_id",
+            "level",
+            "timeout_hours",
+            "escalation_target_id"
+          ]
+        },
+        {
+          "action": "notify",
+          "channel": "email",
+          "description": "Escalation target and requester notified of timeout"
+        }
+      ],
+      "result": "Approval escalated to designated authority"
+    },
+    "approval_delegated": {
+      "priority": 8,
+      "given": [
+        "approver has configured a valid delegation",
+        "delegation is within its valid_until period"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "approval.delegated",
+          "payload": [
+            "request_id",
+            "from_approver_id",
+            "to_delegate_id"
+          ]
+        },
+        {
+          "action": "notify",
+          "channel": "in_app",
+          "description": "Delegate notified of approval responsibility"
+        }
+      ],
+      "result": "Approval authority delegated; delegate can act on behalf of approver"
+    },
+    "auto_approved": {
+      "priority": 9,
+      "given": [
+        "request matches configured auto-approve rules for current level"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "current_level",
+          "value": "current_level + 1"
+        },
+        {
+          "action": "emit_event",
+          "event": "approval.approved",
+          "payload": [
+            "request_id",
+            "level",
+            "system",
+            "auto-approved"
+          ]
+        }
+      ],
+      "result": "Level auto-approved by system based on configured rules"
+    },
+    "self_approval_blocked": {
+      "priority": 10,
+      "error": "APPROVAL_SELF_APPROVAL",
+      "given": [
+        "approver_id equals requester_id"
+      ],
+      "then": [],
+      "result": "Self-approval rejected"
+    }
+  },
+  "errors": [
+    {
+      "code": "APPROVAL_NOT_FOUND",
+      "message": "The approval request does not exist.",
+      "status": 404
+    },
+    {
+      "code": "APPROVAL_ALREADY_DECIDED",
+      "message": "This approval level has already been decided.",
+      "status": 409
+    },
+    {
+      "code": "APPROVAL_NOT_AUTHORIZED",
+      "message": "You are not an authorized approver for this level.",
+      "status": 403
+    },
+    {
+      "code": "APPROVAL_SELF_APPROVAL",
+      "message": "You cannot approve your own request.",
+      "status": 403
+    },
+    {
+      "code": "APPROVAL_ALREADY_WITHDRAWN",
+      "message": "This request has already been withdrawn.",
+      "status": 409
+    },
+    {
+      "code": "APPROVAL_INVALID_LEVEL",
+      "message": "The specified approval level configuration is invalid.",
+      "status": 400
+    }
+  ],
+  "events": [
+    {
+      "name": "approval.requested",
+      "description": "A new approval request was submitted",
+      "payload": [
+        "request_id",
+        "request_type",
+        "requester_id",
+        "approval_levels"
+      ]
+    },
+    {
+      "name": "approval.approved",
+      "description": "An approval level or the full request was approved",
+      "payload": [
+        "request_id",
+        "level",
+        "approver_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "approval.rejected",
+      "description": "An approval request was rejected",
+      "payload": [
+        "request_id",
+        "level",
+        "approver_id",
+        "reason",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "approval.escalated",
+      "description": "An approval timed out and was escalated",
+      "payload": [
+        "request_id",
+        "level",
+        "timeout_hours",
+        "escalation_target_id"
+      ]
+    },
+    {
+      "name": "approval.delegated",
+      "description": "Approval authority was delegated to another user",
+      "payload": [
+        "request_id",
+        "from_approver_id",
+        "to_delegate_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "task-management",
+      "type": "optional",
+      "reason": "Tasks requiring sign-off can trigger an approval chain"
+    },
+    {
+      "feature": "expense-approval",
+      "type": "extends",
+      "reason": "Expense approval is a specific instance of a generic approval chain"
+    },
+    {
+      "feature": "email-notifications",
+      "type": "recommended",
+      "reason": "Notify approvers and requesters of status changes"
+    },
+    {
+      "feature": "role-based-access",
+      "type": "recommended",
+      "reason": "Approver roles and delegation permissions require access control"
+    }
+  ]
+}

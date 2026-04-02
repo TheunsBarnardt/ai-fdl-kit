@@ -1,0 +1,355 @@
+# ============================================================
+# RATE LIMITING — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Per-user, per-IP, and per-API-key request throttling.
+# Supports fixed window, sliding window, and token bucket
+# algorithms with configurable per-endpoint limits.
+# ============================================================
+
+feature: rate-limiting
+version: "1.0.0"
+description: Configurable request throttling with multiple scopes and algorithms to protect APIs from abuse
+category: access
+tags: [rate-limiting, throttling, api-protection, security, ddos, abuse-prevention, middleware]
+
+# ─── FIELDS ───────────────────────────────────────────────
+
+fields:
+  - name: rule_id
+    type: text
+    required: true
+    label: "Rate Limit Rule ID"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Rule ID is required"
+
+  - name: scope
+    type: select
+    required: true
+    label: "Scope"
+    options:
+      - value: ip
+        label: "IP"
+      - value: user
+        label: "User"
+      - value: api_key
+        label: "API Key"
+      - value: ip_and_user
+        label: "IP and User"
+      - value: endpoint
+        label: "Endpoint"
+      - value: global
+        label: "Global"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Rate limit scope is required"
+
+  - name: endpoint
+    type: text
+    required: false
+    label: "Endpoint Pattern"
+    # Glob or regex pattern: "/api/auth/*", "/api/v1/users"
+    sensitive: false
+    validation:
+      - type: maxLength
+        value: 512
+        message: "Endpoint pattern must be at most 512 characters"
+
+  - name: algorithm
+    type: select
+    required: true
+    label: "Algorithm"
+    options:
+      - value: fixed_window
+        label: "Fixed Window"
+      - value: sliding_window
+        label: "Sliding Window"
+      - value: token_bucket
+        label: "Token Bucket"
+    default: sliding_window
+    sensitive: false
+    validation:
+      - type: required
+        message: "Algorithm is required"
+
+  - name: limit
+    type: number
+    required: true
+    label: "Request Limit"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Request limit is required"
+      - type: min
+        value: 1
+        message: "Limit must be at least 1"
+      - type: max
+        value: 1000000
+        message: "Limit must be at most 1,000,000"
+
+  - name: window_seconds
+    type: number
+    required: true
+    label: "Window (seconds)"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Window duration is required"
+      - type: min
+        value: 1
+        message: "Window must be at least 1 second"
+      - type: max
+        value: 86400
+        message: "Window must be at most 86400 seconds (24 hours)"
+
+  - name: burst_allowance
+    type: number
+    required: false
+    label: "Burst Allowance"
+    # Extra requests allowed above limit for short bursts (token bucket only)
+    default: 0
+    sensitive: false
+    validation:
+      - type: min
+        value: 0
+        message: "Burst allowance cannot be negative"
+
+  - name: current_count
+    type: number
+    required: false
+    label: "Current Request Count"
+    sensitive: false
+    # Tracked in-memory or Redis — current requests in the window
+
+  - name: remaining
+    type: number
+    required: false
+    label: "Remaining Requests"
+    sensitive: false
+
+  - name: reset_at
+    type: datetime
+    required: false
+    label: "Window Reset Time"
+    sensitive: false
+
+  - name: retry_after_seconds
+    type: number
+    required: false
+    label: "Retry After (seconds)"
+    sensitive: false
+
+# ─── RULES ────────────────────────────────────────────────
+
+rules:
+  algorithms:
+    fixed_window:
+      description: "Count requests in fixed time buckets (e.g., per minute from :00 to :59)"
+      # Simple but can allow 2x burst at window boundaries
+      reset_behavior: hard_reset
+
+    sliding_window:
+      description: "Weighted average of current and previous window counts"
+      # Smooths boundary bursts — recommended default
+      weight_formula: "previous_window_count * (1 - elapsed_ratio) + current_count"
+
+    token_bucket:
+      description: "Tokens replenish at a steady rate, requests consume tokens"
+      # Allows controlled bursts while maintaining average rate
+      refill_rate: "limit / window_seconds"
+      max_tokens: "limit + burst_allowance"
+
+  headers:
+    # Standard rate limit response headers (IETF draft)
+    x_ratelimit_limit: true
+    # X-RateLimit-Limit: maximum requests allowed in window
+    x_ratelimit_remaining: true
+    # X-RateLimit-Remaining: requests remaining in current window
+    x_ratelimit_reset: true
+    # X-RateLimit-Reset: UTC epoch seconds when the window resets
+    retry_after: true
+    # Retry-After: seconds until the client should retry (on 429)
+
+  storage:
+    backend: redis
+    # In-memory counters with Redis for distributed deployments
+    fallback: in_memory
+    # Fall back to in-process memory if Redis unavailable
+    key_prefix: "rl:"
+    key_format: "rl:{scope}:{identifier}:{endpoint}:{window}"
+
+  bypass:
+    allowlist_ips: []
+    # IPs exempt from rate limiting (e.g., monitoring, health checks)
+    allowlist_api_keys: []
+    # API keys exempt from rate limiting (e.g., internal services)
+    # NEVER put customer API keys in allowlist
+
+  escalation:
+    warning_threshold_percent: 80
+    # Emit warning event when 80% of limit consumed
+    ban_threshold_consecutive_429s: 50
+    # After 50 consecutive 429s from same source, consider temporary ban
+    ban_duration_minutes: 60
+
+# ─── OUTCOMES ─────────────────────────────────────────────
+
+outcomes:
+  request_allowed:
+    priority: 5
+    given:
+      - field: current_count
+        source: computed
+        operator: lt
+        value: limit
+        description: "Request count is below the configured limit"
+    then:
+      - action: set_field
+        target: current_count
+        value: "increment"
+        description: "Increment the request counter for this scope/window"
+      - action: set_field
+        target: remaining
+        value: "limit - current_count - 1"
+        description: "Calculate remaining requests for response header"
+    result: allow request and set rate limit response headers
+
+  rate_limit_warning:
+    priority: 3
+    given:
+      - field: current_count
+        source: computed
+        operator: gte
+        value: "limit * 0.8"
+        description: "Request count has reached 80% of limit"
+      - field: current_count
+        source: computed
+        operator: lt
+        value: limit
+        description: "But not yet at the limit"
+    then:
+      - action: set_field
+        target: current_count
+        value: "increment"
+        description: "Increment the request counter"
+      - action: emit_event
+        event: rate_limit.warning
+        payload: [scope, identifier, endpoint, current_count, limit, window_seconds]
+    result: allow request but emit warning event for monitoring
+
+  rate_limit_exceeded:
+    priority: 1
+    error: RATE_LIMIT_EXCEEDED
+    given:
+      - field: current_count
+        source: computed
+        operator: gte
+        value: limit
+        description: "Request count has reached or exceeded the limit"
+    then:
+      - action: emit_event
+        event: rate_limit.exceeded
+        payload: [scope, identifier, endpoint, limit, window_seconds, ip_address, timestamp]
+    result: reject request with 429 status, Retry-After header, and rate limit headers
+
+  burst_allowed:
+    priority: 2
+    given:
+      - field: algorithm
+        source: db
+        operator: eq
+        value: token_bucket
+        description: "Token bucket algorithm is in use"
+      - field: current_count
+        source: computed
+        operator: gte
+        value: limit
+        description: "Base limit exceeded"
+      - field: current_count
+        source: computed
+        operator: lt
+        value: "limit + burst_allowance"
+        description: "But within burst allowance"
+    then:
+      - action: set_field
+        target: current_count
+        value: "increment"
+        description: "Consume burst token"
+      - action: emit_event
+        event: rate_limit.burst_used
+        payload: [scope, identifier, endpoint, burst_remaining, timestamp]
+    result: allow request using burst allowance and set headers
+
+# ─── ERRORS ───────────────────────────────────────────────
+
+errors:
+  - code: RATE_LIMIT_EXCEEDED
+    status: 429
+    message: "Too many requests. Please try again later."
+    retry: true
+
+  - code: RATE_LIMIT_CONFIG_INVALID
+    status: 422
+    message: "Invalid rate limit configuration"
+    retry: false
+
+  - code: RATE_LIMIT_STORAGE_ERROR
+    status: 503
+    message: "Rate limit service temporarily unavailable"
+    retry: true
+
+# ─── EVENTS ───────────────────────────────────────────────
+
+events:
+  - name: rate_limit.exceeded
+    description: "Request rejected because rate limit was exceeded"
+    payload: [scope, identifier, endpoint, limit, window_seconds, ip_address, timestamp]
+
+  - name: rate_limit.warning
+    description: "Request count approaching the configured limit (80% threshold)"
+    payload: [scope, identifier, endpoint, current_count, limit, window_seconds]
+
+  - name: rate_limit.burst_used
+    description: "Request allowed using burst allowance (token bucket)"
+    payload: [scope, identifier, endpoint, burst_remaining, timestamp]
+
+  - name: rate_limit.ban_triggered
+    description: "Source temporarily banned after excessive consecutive 429s"
+    payload: [scope, identifier, ban_duration_minutes, consecutive_429_count, timestamp]
+
+# ─── RELATIONSHIPS ────────────────────────────────────────
+
+related:
+  - feature: login
+    type: recommended
+    reason: "Login endpoints should have strict rate limits to prevent brute force"
+
+  - feature: role-based-access
+    type: optional
+    reason: "Rate limit rules can vary by user role or API key tier"
+
+  - feature: audit-logging
+    type: optional
+    reason: "Rate limit violations can be recorded in the audit trail"
+
+# ─── UI HINTS ─────────────────────────────────────────────
+
+ui_hints:
+  layout: table_with_detail
+  max_width: 1100px
+
+  actions:
+    primary:
+      label: "Create Rule"
+      type: submit
+    secondary:
+      label: "View Metrics"
+      type: button
+
+  fields_order: [scope, endpoint, algorithm, limit, window_seconds, burst_allowance]
+
+  accessibility:
+    aria_live_region: true

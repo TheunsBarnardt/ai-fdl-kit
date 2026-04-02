@@ -1,0 +1,302 @@
+# ============================================================
+# STATE MACHINE — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Generic configurable state machine engine with guards,
+# actions, history tracking, and deterministic transitions.
+# ============================================================
+
+feature: state-machine
+version: "1.0.0"
+description: >
+  Generic state machine engine with named states, guarded transitions,
+  entry/exit actions, history tracking, and lifecycle validation rules.
+category: workflow
+tags:
+  - state-machine
+  - finite-automaton
+  - workflow-engine
+  - lifecycle-management
+  - transitions
+  - event-driven
+
+actors:
+  - id: machine_admin
+    name: Machine Administrator
+    type: human
+    description: Defines and configures state machine definitions
+  - id: entity_actor
+    name: Entity Actor
+    type: human
+    description: Triggers events that cause state transitions on entities
+  - id: engine
+    name: State Machine Engine
+    type: system
+    description: Evaluates guards, executes transitions, and records history
+
+fields:
+  - name: machine_id
+    type: text
+    label: Machine ID
+    required: true
+    validation:
+      - type: pattern
+        value: "^[a-z0-9-]+$"
+        message: "Machine ID must be lowercase alphanumeric with hyphens"
+  - name: name
+    type: text
+    label: Machine Name
+    required: true
+    validation:
+      - type: minLength
+        value: 1
+        message: "Machine name is required"
+      - type: maxLength
+        value: 200
+        message: "Machine name must be 200 characters or fewer"
+  - name: entity_type
+    type: text
+    label: Entity Type
+    required: true
+  - name: current_state
+    type: text
+    label: Current State
+    required: true
+  - name: states
+    type: json
+    label: State Definitions
+    required: true
+    # Array of: { id, label, initial (boolean), terminal (boolean), on_enter[] (actions), on_exit[] (actions) }
+  - name: transitions
+    type: json
+    label: Transition Definitions
+    required: true
+    # Array of: { id, from, to, event, guard (expression), actions[], description }
+  - name: history
+    type: json
+    label: Transition History
+    required: false
+    # Array of: { from, to, event, actor, timestamp, metadata }
+  - name: metadata
+    type: json
+    label: Machine Metadata
+    required: false
+
+rules:
+  exactly_one_initial_state:
+    description: >
+      Every state machine definition must have exactly one state marked as
+      initial. This is the state assigned when a new entity is created.
+      Zero or multiple initial states are a configuration error.
+  at_least_one_terminal_state:
+    description: >
+      Every state machine definition must have at least one state marked as
+      terminal. Terminal states represent completed lifecycles and do not
+      allow outgoing transitions.
+  no_orphan_states:
+    description: >
+      Every non-initial state must be reachable from the initial state via
+      at least one chain of transitions. States with no incoming transitions
+      (except the initial state) are configuration errors.
+  deterministic_transitions:
+    description: >
+      For any given (current_state, event) pair, at most one transition may
+      be eligible after guard evaluation. If multiple transitions share the
+      same from-state and event, their guard conditions must be mutually
+      exclusive to ensure deterministic behavior.
+  terminal_states_no_outgoing:
+    description: >
+      States marked as terminal must not have any outgoing transitions
+      defined. Attempting to add a transition from a terminal state is a
+      configuration error.
+  history_immutable:
+    description: >
+      Transition history entries are append-only. Once recorded, history
+      entries cannot be modified or deleted to ensure a complete audit trail.
+  guard_expressions_validated:
+    description: >
+      Guard expressions on transitions must be valid expressions using the
+      FDL expression syntax. Invalid guards are rejected at configuration
+      time, not at transition time.
+  on_enter_exit_actions:
+    description: >
+      Entry and exit actions on states execute automatically during
+      transitions. Exit actions of the source state run before entry actions
+      of the target state. Action failures cause the transition to roll back.
+
+outcomes:
+  machine_definition_created:
+    priority: 1
+    given:
+      - "administrator provides state machine definition with states and transitions"
+      - "exactly one initial state is defined"
+      - "at least one terminal state is defined"
+      - "no orphan states exist"
+      - "all transitions are deterministic"
+    then:
+      - action: create_record
+        type: state_machine
+        target: state_machine
+        description: Store validated machine definition
+      - action: emit_event
+        event: state_machine.created
+        payload: [machine_id, name, entity_type, state_count, transition_count]
+    result: "State machine definition validated and created successfully"
+
+  transition_executed:
+    priority: 2
+    given:
+      - "an event is dispatched for an entity with a current state"
+      - "a transition exists from current state matching the event"
+      - "the transition guard evaluates to true (or has no guard)"
+    then:
+      - action: call_service
+        target: engine
+        description: Execute exit actions of source state
+      - action: transition_state
+        field: current_state
+        from: source_state
+        to: target_state
+      - action: call_service
+        target: engine
+        description: Execute entry actions of target state
+      - action: call_service
+        target: engine
+        description: Execute transition actions
+      - action: set_field
+        target: history
+        description: Append transition record with from, to, event, actor, and timestamp
+      - action: emit_event
+        event: state_machine.transitioned
+        payload: [machine_id, entity_id, from_state, to_state, event, actor]
+    result: "Entity transitions to new state with all actions executed and history recorded"
+    transaction: true
+
+  transition_guard_blocks:
+    priority: 3
+    given:
+      - "an event is dispatched for an entity with a current state"
+      - "a transition exists from current state matching the event"
+      - "the transition guard evaluates to false"
+    then:
+      - action: emit_event
+        event: state_machine.transition_blocked
+        payload: [machine_id, entity_id, current_state, event, guard_expression]
+    result: "Transition blocked because guard condition is not satisfied"
+    error: STATE_MACHINE_GUARD_FAILED
+
+  no_valid_transition:
+    priority: 4
+    given:
+      - "an event is dispatched for an entity"
+      - "no transition exists from the current state matching the event"
+    then: []
+    result: "Event ignored because no transition is defined for this state and event combination"
+    error: STATE_MACHINE_NO_TRANSITION
+
+  transition_from_terminal_rejected:
+    priority: 5
+    given:
+      - "an event is dispatched for an entity in a terminal state"
+    then: []
+    result: "Event rejected because entity is in a terminal state with no outgoing transitions"
+    error: STATE_MACHINE_TERMINAL_STATE
+
+  entity_initialized:
+    priority: 6
+    given:
+      - "a new entity is created for a registered state machine"
+    then:
+      - action: set_field
+        target: current_state
+        description: Set to the machine's initial state
+      - action: call_service
+        target: engine
+        description: Execute entry actions of the initial state
+      - action: set_field
+        target: history
+        description: Record initial state assignment
+      - action: emit_event
+        event: state_machine.entity_initialized
+        payload: [machine_id, entity_id, initial_state]
+    result: "New entity assigned to the initial state with entry actions executed"
+
+  definition_validation_fails:
+    priority: 7
+    given:
+      - any:
+          - "no initial state is defined"
+          - "multiple initial states are defined"
+          - "no terminal state is defined"
+          - "orphan states exist"
+          - "non-deterministic transitions detected"
+          - "terminal state has outgoing transitions"
+    then: []
+    result: "State machine definition rejected due to validation errors"
+    error: STATE_MACHINE_INVALID_DEFINITION
+
+  transition_action_fails:
+    priority: 8
+    given:
+      - "a transition is executing"
+      - "an entry action, exit action, or transition action throws an error"
+    then:
+      - action: emit_event
+        event: state_machine.action_failed
+        payload: [machine_id, entity_id, action, error_details]
+    result: "Transition rolled back and entity remains in original state"
+    error: STATE_MACHINE_ACTION_FAILED
+
+errors:
+  - code: STATE_MACHINE_INVALID_DEFINITION
+    message: State machine definition is invalid. Check initial/terminal states, orphan states, and transition determinism.
+    status: 400
+  - code: STATE_MACHINE_NO_TRANSITION
+    message: No transition defined for the given state and event combination.
+    status: 409
+  - code: STATE_MACHINE_GUARD_FAILED
+    message: Transition guard condition evaluated to false. The transition is not allowed.
+    status: 403
+  - code: STATE_MACHINE_TERMINAL_STATE
+    message: Entity is in a terminal state and cannot transition further.
+    status: 409
+  - code: STATE_MACHINE_ACTION_FAILED
+    message: A transition action failed. The transition has been rolled back.
+    status: 500
+  - code: STATE_MACHINE_NOT_FOUND
+    message: The specified state machine definition does not exist.
+    status: 404
+  - code: STATE_MACHINE_DUPLICATE_ID
+    message: A state machine with this ID already exists.
+    status: 409
+
+events:
+  - name: state_machine.created
+    description: A new state machine definition was created
+    payload: [machine_id, name, entity_type, state_count, transition_count]
+  - name: state_machine.transitioned
+    description: An entity transitioned from one state to another
+    payload: [machine_id, entity_id, from_state, to_state, event, actor]
+  - name: state_machine.transition_blocked
+    description: A transition was blocked by a guard condition
+    payload: [machine_id, entity_id, current_state, event, guard_expression]
+  - name: state_machine.entity_initialized
+    description: A new entity was assigned to its initial state
+    payload: [machine_id, entity_id, initial_state]
+  - name: state_machine.action_failed
+    description: An action during transition failed causing rollback
+    payload: [machine_id, entity_id, action, error_details]
+
+related:
+  - feature: automation-rules
+    type: recommended
+    reason: Automation rules can trigger events that drive state machine transitions
+  - feature: approval-chain
+    type: optional
+    reason: Approval workflows can be modeled as state machines with approval/rejection transitions
+  - feature: task-management
+    type: optional
+    reason: Task lifecycle (open, in progress, done) can be managed by a state machine
+  - feature: bulk-operations
+    type: optional
+    reason: Bulk operations may trigger state transitions on multiple entities simultaneously

@@ -1,0 +1,667 @@
+{
+  "feature": "refunds-returns",
+  "version": "1.0.0",
+  "description": "Refund processing and return merchandise management with reason codes, approval workflow, partial/full refunds, and restocking.",
+  "category": "payment",
+  "tags": [
+    "refunds",
+    "returns",
+    "rma",
+    "store-credit",
+    "restocking",
+    "e-commerce"
+  ],
+  "fields": [
+    {
+      "name": "return_id",
+      "type": "text",
+      "label": "Return ID",
+      "required": true,
+      "validation": [
+        {
+          "type": "pattern",
+          "value": "^ret_[a-zA-Z0-9]+$",
+          "message": "Return ID must match the required format"
+        }
+      ]
+    },
+    {
+      "name": "order_id",
+      "type": "text",
+      "label": "Original Order ID",
+      "required": true
+    },
+    {
+      "name": "customer_id",
+      "type": "text",
+      "label": "Customer ID",
+      "required": true
+    },
+    {
+      "name": "items",
+      "type": "json",
+      "label": "Return Items",
+      "required": true
+    },
+    {
+      "name": "reason",
+      "type": "select",
+      "label": "Return Reason",
+      "required": true,
+      "options": [
+        {
+          "value": "defective",
+          "label": "Defective Product"
+        },
+        {
+          "value": "wrong_item",
+          "label": "Wrong Item Received"
+        },
+        {
+          "value": "not_as_described",
+          "label": "Not As Described"
+        },
+        {
+          "value": "changed_mind",
+          "label": "Changed Mind"
+        },
+        {
+          "value": "damaged_shipping",
+          "label": "Damaged in Shipping"
+        },
+        {
+          "value": "other",
+          "label": "Other"
+        }
+      ]
+    },
+    {
+      "name": "refund_type",
+      "type": "select",
+      "label": "Refund Type",
+      "required": true,
+      "options": [
+        {
+          "value": "full",
+          "label": "Full Refund"
+        },
+        {
+          "value": "partial",
+          "label": "Partial Refund"
+        }
+      ]
+    },
+    {
+      "name": "refund_amount",
+      "type": "number",
+      "label": "Refund Amount",
+      "required": true,
+      "validation": [
+        {
+          "type": "min",
+          "value": 0,
+          "message": "Refund amount must be zero or greater"
+        }
+      ]
+    },
+    {
+      "name": "refund_method",
+      "type": "select",
+      "label": "Refund Method",
+      "required": true,
+      "options": [
+        {
+          "value": "original",
+          "label": "Original Payment Method"
+        },
+        {
+          "value": "store_credit",
+          "label": "Store Credit"
+        }
+      ]
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "label": "Return Status",
+      "required": true,
+      "options": [
+        {
+          "value": "requested",
+          "label": "Requested"
+        },
+        {
+          "value": "approved",
+          "label": "Approved"
+        },
+        {
+          "value": "processing",
+          "label": "Processing"
+        },
+        {
+          "value": "completed",
+          "label": "Completed"
+        },
+        {
+          "value": "rejected",
+          "label": "Rejected"
+        }
+      ]
+    },
+    {
+      "name": "return_tracking",
+      "type": "text",
+      "label": "Return Tracking Number",
+      "required": false
+    },
+    {
+      "name": "return_label_url",
+      "type": "url",
+      "label": "Return Shipping Label",
+      "required": false
+    },
+    {
+      "name": "restocked",
+      "type": "boolean",
+      "label": "Items Restocked",
+      "required": false,
+      "default": false
+    },
+    {
+      "name": "notes",
+      "type": "text",
+      "label": "Internal Notes",
+      "required": false
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "requested",
+        "description": "Customer has submitted a return request",
+        "initial": true
+      },
+      {
+        "name": "approved",
+        "description": "Return approved by support, shipping label issued"
+      },
+      {
+        "name": "processing",
+        "description": "Returned items received and being inspected"
+      },
+      {
+        "name": "completed",
+        "description": "Refund issued and return finalized",
+        "terminal": true
+      },
+      {
+        "name": "rejected",
+        "description": "Return request denied",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "requested",
+        "to": "approved",
+        "actor": "support_agent",
+        "description": "Support reviews and approves the return request",
+        "condition": "Order is within return window and reason is valid"
+      },
+      {
+        "from": "requested",
+        "to": "rejected",
+        "actor": "support_agent",
+        "description": "Support denies the return request",
+        "condition": "Order outside return window, item not eligible, or policy violation"
+      },
+      {
+        "from": "approved",
+        "to": "processing",
+        "actor": "system",
+        "description": "Returned package received at warehouse",
+        "condition": "Return tracking shows delivered"
+      },
+      {
+        "from": "processing",
+        "to": "completed",
+        "actor": "warehouse_staff",
+        "description": "Items inspected, refund issued",
+        "condition": "Item condition verified"
+      }
+    ]
+  },
+  "rules": {
+    "return_window": {
+      "description": "Returns must be requested within 30 days of order delivery. Defective items may be returned within 90 days.\n"
+    },
+    "refund_amount_cap": {
+      "description": "Refund amount cannot exceed the original order total. Partial refunds are calculated from returned item line totals.\n"
+    },
+    "original_payment_refund": {
+      "description": "Refunds to the original payment method use the same payment processor and token. If the original method is unavailable (expired card, closed account), store credit is issued instead.\n"
+    },
+    "restocking_fee": {
+      "description": "A restocking fee (typically 10-15%) may apply for non-defective returns where the item has been opened. Defective and wrong-item returns are exempt from restocking fees.\n"
+    },
+    "return_shipping": {
+      "description": "Prepaid return shipping labels are generated for approved returns. Shipping cost is covered by the merchant for defective or wrong items; customer pays for change-of-mind returns.\n"
+    },
+    "inspection_required": {
+      "description": "Returned items are inspected before refund is issued. Items must match the declared condition. Discrepancies may result in reduced refund amount.\n"
+    },
+    "auto_approve_policy": {
+      "description": "Returns for orders under a configurable threshold (e.g., $25) with reason \"defective\" or \"wrong_item\" may be auto-approved without manual review.\n"
+    }
+  },
+  "outcomes": {
+    "return_requested": {
+      "priority": 1,
+      "given": [
+        "customer submits a return request",
+        "order is within the return window",
+        "items are eligible for return"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "return",
+          "target": "return",
+          "description": "Return record created with requested status"
+        },
+        {
+          "action": "emit_event",
+          "event": "refund.requested",
+          "payload": [
+            "return_id",
+            "order_id",
+            "customer_id",
+            "items",
+            "reason"
+          ]
+        },
+        {
+          "action": "notify",
+          "channel": "email",
+          "description": "Confirmation email sent to customer"
+        }
+      ],
+      "result": "Return request submitted and pending review"
+    },
+    "return_approved": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "status",
+          "operator": "eq",
+          "value": "requested"
+        },
+        "support agent reviews and approves the request"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "requested",
+          "to": "approved"
+        },
+        {
+          "action": "set_field",
+          "target": "return_label_url",
+          "description": "Prepaid shipping label generated"
+        },
+        {
+          "action": "emit_event",
+          "event": "refund.approved",
+          "payload": [
+            "return_id",
+            "order_id",
+            "refund_amount",
+            "refund_method"
+          ]
+        },
+        {
+          "action": "notify",
+          "channel": "email",
+          "description": "Approval notification with return shipping label"
+        }
+      ],
+      "result": "Return approved, shipping label issued to customer"
+    },
+    "return_auto_approved": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "status",
+          "operator": "eq",
+          "value": "requested"
+        },
+        {
+          "field": "refund_amount",
+          "source": "input",
+          "operator": "lte",
+          "value": 25
+        },
+        {
+          "any": [
+            {
+              "field": "reason",
+              "operator": "eq",
+              "value": "defective"
+            },
+            {
+              "field": "reason",
+              "operator": "eq",
+              "value": "wrong_item"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "requested",
+          "to": "approved"
+        },
+        {
+          "action": "set_field",
+          "target": "return_label_url",
+          "description": "Prepaid shipping label generated automatically"
+        },
+        {
+          "action": "emit_event",
+          "event": "refund.approved",
+          "payload": [
+            "return_id",
+            "order_id",
+            "refund_amount",
+            {
+              "auto_approved": true
+            }
+          ]
+        }
+      ],
+      "result": "Low-value defective/wrong-item return auto-approved"
+    },
+    "return_rejected": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "status",
+          "operator": "eq",
+          "value": "requested"
+        },
+        "return does not meet policy requirements"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "requested",
+          "to": "rejected"
+        },
+        {
+          "action": "emit_event",
+          "event": "refund.rejected",
+          "payload": [
+            "return_id",
+            "order_id",
+            "reason"
+          ]
+        },
+        {
+          "action": "notify",
+          "channel": "email",
+          "description": "Rejection notification with explanation"
+        }
+      ],
+      "result": "Return request denied with reason provided to customer"
+    },
+    "return_received": {
+      "priority": 5,
+      "given": [
+        {
+          "field": "status",
+          "operator": "eq",
+          "value": "approved"
+        },
+        "return tracking shows package delivered to warehouse"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "approved",
+          "to": "processing"
+        },
+        {
+          "action": "emit_event",
+          "event": "return.received",
+          "payload": [
+            "return_id",
+            "tracking_number",
+            "received_date"
+          ]
+        }
+      ],
+      "result": "Returned package received, inspection in progress"
+    },
+    "return_shipped": {
+      "priority": 6,
+      "given": [
+        {
+          "field": "status",
+          "operator": "eq",
+          "value": "approved"
+        },
+        "customer ships the return package"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "return_tracking",
+          "description": "Tracking number recorded"
+        },
+        {
+          "action": "emit_event",
+          "event": "return.shipped",
+          "payload": [
+            "return_id",
+            "return_tracking",
+            "carrier"
+          ]
+        }
+      ],
+      "result": "Return shipment in transit"
+    },
+    "refund_completed": {
+      "priority": 7,
+      "given": [
+        {
+          "field": "status",
+          "operator": "eq",
+          "value": "processing"
+        },
+        "items pass inspection"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "processing",
+          "to": "completed"
+        },
+        {
+          "action": "set_field",
+          "target": "restocked",
+          "value": true,
+          "description": "Items returned to inventory if in sellable condition"
+        },
+        {
+          "action": "emit_event",
+          "event": "refund.processed",
+          "payload": [
+            "return_id",
+            "order_id",
+            "refund_amount",
+            "refund_method"
+          ]
+        },
+        {
+          "action": "notify",
+          "channel": "email",
+          "description": "Refund confirmation sent to customer"
+        }
+      ],
+      "result": "Refund issued, items restocked, return completed",
+      "transaction": true
+    },
+    "return_outside_window": {
+      "priority": 1,
+      "error": "RETURN_WINDOW_EXPIRED",
+      "given": [
+        "customer requests a return",
+        "order delivery date is beyond the return window"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "ui",
+          "description": "Inform customer the return window has closed"
+        }
+      ],
+      "result": "Return cannot be processed, window expired"
+    },
+    "refund_exceeds_order": {
+      "priority": 2,
+      "error": "REFUND_EXCEEDS_ORDER_TOTAL",
+      "given": [
+        {
+          "field": "refund_amount",
+          "source": "input",
+          "operator": "gt",
+          "value": "order_total"
+        }
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "ui",
+          "description": "Refund amount capped at order total"
+        }
+      ],
+      "result": "Refund amount cannot exceed the original order total"
+    }
+  },
+  "errors": [
+    {
+      "code": "RETURN_WINDOW_EXPIRED",
+      "message": "The return window for this order has expired.",
+      "status": 400
+    },
+    {
+      "code": "RETURN_ITEM_NOT_ELIGIBLE",
+      "message": "One or more items in this order are not eligible for return.",
+      "status": 400
+    },
+    {
+      "code": "REFUND_EXCEEDS_ORDER_TOTAL",
+      "message": "The refund amount cannot exceed the original order total.",
+      "status": 400
+    },
+    {
+      "code": "RETURN_ALREADY_PROCESSED",
+      "message": "A return has already been processed for these items.",
+      "status": 409
+    },
+    {
+      "code": "REFUND_PAYMENT_FAILED",
+      "message": "Unable to process refund to the original payment method. Store credit will be issued instead.",
+      "status": 500
+    }
+  ],
+  "events": [
+    {
+      "name": "refund.requested",
+      "description": "Customer submitted a return and refund request",
+      "payload": [
+        "return_id",
+        "order_id",
+        "customer_id",
+        "items",
+        "reason"
+      ]
+    },
+    {
+      "name": "refund.approved",
+      "description": "Return request approved by support or auto-approved",
+      "payload": [
+        "return_id",
+        "order_id",
+        "refund_amount",
+        "refund_method"
+      ]
+    },
+    {
+      "name": "refund.processed",
+      "description": "Refund issued to customer",
+      "payload": [
+        "return_id",
+        "order_id",
+        "refund_amount",
+        "refund_method"
+      ]
+    },
+    {
+      "name": "refund.rejected",
+      "description": "Return request denied",
+      "payload": [
+        "return_id",
+        "order_id",
+        "reason"
+      ]
+    },
+    {
+      "name": "return.shipped",
+      "description": "Customer shipped the return package",
+      "payload": [
+        "return_id",
+        "return_tracking",
+        "carrier"
+      ]
+    },
+    {
+      "name": "return.received",
+      "description": "Return package received at warehouse",
+      "payload": [
+        "return_id",
+        "tracking_number",
+        "received_date"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "cart-checkout",
+      "type": "required",
+      "reason": "Returns reference original orders placed through checkout"
+    },
+    {
+      "feature": "payment-methods",
+      "type": "required",
+      "reason": "Refunds issued to original payment method"
+    },
+    {
+      "feature": "invoicing-payments",
+      "type": "optional",
+      "reason": "Credit notes generated for refunded invoices"
+    },
+    {
+      "feature": "shipping-calculation",
+      "type": "optional",
+      "reason": "Return shipping label generation and cost calculation"
+    }
+  ]
+}

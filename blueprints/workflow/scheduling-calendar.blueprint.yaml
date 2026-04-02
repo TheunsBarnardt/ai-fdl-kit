@@ -1,0 +1,354 @@
+# ============================================================
+# SCHEDULING & CALENDAR — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Events, bookings, and availability management with conflict
+# detection, recurring event support, timezone handling, and
+# configurable slot granularity.
+# ============================================================
+
+feature: scheduling-calendar
+version: "1.0.0"
+description: >
+  Calendar event management with bookings, availability tracking,
+  recurring events (RRULE), conflict detection, timezone-aware
+  storage, and configurable time slot granularity.
+category: workflow
+tags:
+  - calendar
+  - scheduling
+  - events
+  - bookings
+  - availability
+  - recurring
+  - timezone
+
+actors:
+  - id: organizer
+    name: Organizer
+    type: human
+    description: Creates and manages calendar events and bookings
+  - id: attendee
+    name: Attendee
+    type: human
+    description: Receives invitations and responds to event requests
+  - id: system
+    name: Calendar Engine
+    type: system
+    description: Handles conflict detection, recurrence expansion, and reminders
+
+fields:
+  - name: event_id
+    type: text
+    required: true
+    label: "Event ID"
+
+  - name: title
+    type: text
+    required: true
+    label: "Event Title"
+    placeholder: "Weekly team standup"
+    validation:
+      - type: required
+        message: "Event title is required"
+      - type: maxLength
+        value: 500
+        message: "Title must be 500 characters or fewer"
+
+  - name: start_time
+    type: datetime
+    required: true
+    label: "Start Time"
+    # Stored in UTC, displayed in user's local timezone
+    validation:
+      - type: required
+        message: "Start time is required"
+
+  - name: end_time
+    type: datetime
+    required: true
+    label: "End Time"
+    # Must be after start_time
+    validation:
+      - type: required
+        message: "End time is required"
+
+  - name: all_day
+    type: boolean
+    required: false
+    default: false
+    label: "All Day Event"
+
+  - name: recurrence_rule
+    type: text
+    required: false
+    label: "Recurrence Rule"
+    # RRULE format per RFC 5545 (e.g., FREQ=WEEKLY;BYDAY=MO,WE,FR)
+
+  - name: recurrence_exceptions
+    type: json
+    required: false
+    label: "Recurrence Exceptions"
+    # Array of dates excluded from the recurrence pattern
+
+  - name: location
+    type: text
+    required: false
+    label: "Location"
+    placeholder: "Conference Room A / https://meet.example.com/abc"
+
+  - name: attendees
+    type: json
+    required: false
+    label: "Attendees"
+    # Array of { user_id, email, response_status: accepted/declined/tentative/pending }
+
+  - name: status
+    type: select
+    required: true
+    label: "Event Status"
+    default: "confirmed"
+    options:
+      - { value: "tentative", label: "Tentative" }
+      - { value: "confirmed", label: "Confirmed" }
+      - { value: "canceled", label: "Canceled" }
+
+  - name: reminder_minutes
+    type: json
+    required: false
+    label: "Reminders"
+    # Array of integers: minutes before event to send a reminder (e.g., [15, 60])
+
+  - name: buffer_minutes
+    type: number
+    required: false
+    default: 0
+    label: "Buffer Time (minutes)"
+    # Minutes of buffer required before and after this event
+
+  - name: organizer_id
+    type: text
+    required: true
+    label: "Organizer"
+
+  - name: timezone
+    type: text
+    required: false
+    label: "Display Timezone"
+    # IANA timezone identifier (e.g., America/New_York)
+
+rules:
+  no_double_booking:
+    description: >
+      No two confirmed events for the same attendee may overlap in
+      time. The system checks start_time/end_time (including buffer)
+      against all existing confirmed events for each attendee before
+      creating or updating an event.
+  timezone_handling:
+    description: >
+      All times are stored in UTC. Display conversion uses the
+      event's timezone field or the user's profile timezone. DST
+      transitions are handled by the IANA timezone database.
+  recurring_events:
+    description: >
+      Recurrence rules follow RFC 5545 RRULE syntax supporting
+      FREQ values: DAILY, WEEKLY, MONTHLY, YEARLY. Exceptions are
+      stored as explicit date exclusions. Editing a single occurrence
+      creates an exception and a standalone override event.
+  slot_granularity:
+    description: >
+      Booking slots snap to 15-minute boundaries. Events cannot
+      start or end at arbitrary minutes; they round to the nearest
+      15-minute mark (00, 15, 30, 45).
+  buffer_enforcement:
+    description: >
+      When buffer_minutes is set, conflict detection extends the
+      event window by the buffer amount on both sides. Back-to-back
+      events must respect the larger buffer of the two adjacent events.
+  end_after_start:
+    description: >
+      end_time must always be after start_time. For all-day events,
+      end_time defaults to start_time + 24 hours if not explicitly set.
+
+outcomes:
+  event_created:
+    priority: 1
+    given:
+      - "organizer is authenticated"
+      - field: title
+        source: input
+        operator: exists
+        description: "Event title is provided"
+      - field: start_time
+        source: input
+        operator: exists
+        description: "Start time is provided"
+      - "no time conflict exists for the organizer or any attendee"
+    then:
+      - action: create_record
+        type: event
+        target: calendar_events
+        description: "New event created with confirmed or tentative status"
+      - action: emit_event
+        event: event.created
+        payload: [event_id, title, organizer_id, start_time, end_time]
+      - action: notify
+        channel: email
+        description: "Invitation sent to all attendees"
+    result: "Event created and attendees notified"
+
+  event_updated:
+    priority: 2
+    given:
+      - "organizer is authenticated and owns the event"
+      - "updated time slot has no conflicts for any attendee"
+    then:
+      - action: set_field
+        target: "updated fields"
+        value: "new values"
+      - action: emit_event
+        event: event.updated
+        payload: [event_id, changed_fields, organizer_id]
+      - action: notify
+        channel: email
+        description: "Attendees notified of event changes"
+    result: "Event updated and attendees notified of changes"
+
+  event_canceled:
+    priority: 3
+    given:
+      - "organizer is authenticated and owns the event"
+      - field: status
+        source: db
+        operator: neq
+        value: "canceled"
+        description: "Event is not already canceled"
+    then:
+      - action: transition_state
+        field: status
+        from: "current_status"
+        to: canceled
+      - action: emit_event
+        event: event.canceled
+        payload: [event_id, organizer_id, attendee_ids]
+      - action: notify
+        channel: email
+        description: "All attendees notified of cancellation"
+    result: "Event canceled and all participants notified"
+
+  booking_requested:
+    priority: 4
+    given:
+      - "attendee selects an available time slot"
+      - "slot aligns with 15-minute granularity"
+      - "no conflict with existing bookings"
+    then:
+      - action: create_record
+        type: booking
+        target: calendar_events
+        description: "Booking created with tentative status pending organizer confirmation"
+      - action: emit_event
+        event: booking.requested
+        payload: [event_id, attendee_id, start_time, end_time]
+      - action: notify
+        channel: in_app
+        description: "Organizer notified of booking request"
+    result: "Booking request submitted for organizer approval"
+
+  booking_confirmed:
+    priority: 5
+    given:
+      - "organizer reviews a tentative booking"
+      - "time slot is still available (no conflict since request)"
+    then:
+      - action: transition_state
+        field: status
+        from: tentative
+        to: confirmed
+      - action: emit_event
+        event: booking.confirmed
+        payload: [event_id, attendee_id, organizer_id]
+      - action: notify
+        channel: email
+        description: "Attendee notified of confirmed booking"
+    result: "Booking confirmed and both parties notified"
+
+  conflict_detected:
+    priority: 6
+    error: CALENDAR_CONFLICT
+    given:
+      - "requested time range overlaps with an existing confirmed event"
+      - "overlap includes buffer time if configured"
+    then: []
+    result: "Event creation or update rejected due to time conflict"
+
+  invalid_recurrence:
+    priority: 7
+    error: CALENDAR_INVALID_RRULE
+    given:
+      - "recurrence_rule does not conform to RFC 5545 RRULE syntax"
+    then: []
+    result: "Event rejected with invalid recurrence rule error"
+
+  invalid_time_range:
+    priority: 8
+    error: CALENDAR_INVALID_TIME
+    given:
+      - field: end_time
+        source: input
+        operator: lte
+        value: "start_time"
+        description: "End time is not after start time"
+    then: []
+    result: "Event rejected because end time must be after start time"
+
+errors:
+  - code: CALENDAR_CONFLICT
+    message: "The requested time conflicts with an existing event."
+    status: 409
+  - code: CALENDAR_INVALID_RRULE
+    message: "The recurrence rule is not valid RFC 5545 RRULE syntax."
+    status: 400
+  - code: CALENDAR_INVALID_TIME
+    message: "End time must be after start time."
+    status: 400
+  - code: CALENDAR_EVENT_NOT_FOUND
+    message: "The requested calendar event does not exist."
+    status: 404
+  - code: CALENDAR_ACCESS_DENIED
+    message: "You do not have permission to modify this event."
+    status: 403
+  - code: CALENDAR_SLOT_MISALIGNED
+    message: "Event times must align to 15-minute boundaries."
+    status: 400
+
+events:
+  - name: event.created
+    description: "A new calendar event was created"
+    payload: [event_id, title, organizer_id, start_time, end_time]
+  - name: event.updated
+    description: "A calendar event was modified"
+    payload: [event_id, changed_fields, organizer_id]
+  - name: event.canceled
+    description: "A calendar event was canceled"
+    payload: [event_id, organizer_id, attendee_ids]
+  - name: booking.requested
+    description: "An attendee requested a booking slot"
+    payload: [event_id, attendee_id, start_time, end_time]
+  - name: booking.confirmed
+    description: "An organizer confirmed a booking request"
+    payload: [event_id, attendee_id, organizer_id]
+
+related:
+  - feature: task-management
+    type: optional
+    reason: "Task due dates and milestones can sync to calendar events"
+  - feature: approval-chain
+    type: optional
+    reason: "Event bookings for shared resources may require approval"
+  - feature: email-notifications
+    type: recommended
+    reason: "Send event invitations and reminders via email"
+  - feature: push-notifications
+    type: optional
+    reason: "Send real-time reminder notifications before events"

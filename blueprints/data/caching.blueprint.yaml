@@ -1,0 +1,240 @@
+# ============================================================
+# CACHING — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Cache strategies: read-through, write-through, write-behind,
+# and cache-aside. Multi-tier caching with stampede protection.
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: caching
+version: "1.0.0"
+description: Multi-tier caching with read-through, write-through, write-behind, and cache-aside strategies, stampede protection, and configurable invalidation
+category: data
+tags: [caching, performance, redis, cdn, invalidation, ttl, stampede-protection]
+
+fields:
+  - name: cache_key
+    type: text
+    required: true
+    label: "Cache Key"
+    validation:
+      - type: maxLength
+        value: 512
+        message: "Cache key must not exceed 512 characters"
+
+  - name: ttl_seconds
+    type: number
+    required: false
+    label: "Time-to-Live (seconds)"
+    default: 3600
+    validation:
+      - type: min
+        value: 1
+        message: "TTL must be at least 1 second"
+      - type: max
+        value: 604800
+        message: "TTL must not exceed 7 days (604800 seconds)"
+
+  - name: invalidation_strategy
+    type: select
+    required: true
+    label: "Invalidation Strategy"
+    options:
+      - value: "time"
+        label: "Time"
+      - value: "event"
+        label: "Event"
+      - value: "manual"
+        label: "Manual"
+
+  - name: cache_tier
+    type: select
+    required: true
+    label: "Cache Tier"
+    options:
+      - value: "memory"
+        label: "Memory"
+      - value: "redis"
+        label: "Redis"
+      - value: "cdn"
+        label: "CDN"
+
+  - name: cache_strategy
+    type: select
+    required: true
+    label: "Cache Strategy"
+    options:
+      - value: "read_through"
+        label: "Read Through"
+      - value: "write_through"
+        label: "Write Through"
+      - value: "write_behind"
+        label: "Write Behind"
+      - value: "cache_aside"
+        label: "Cache Aside"
+
+  - name: compressed
+    type: boolean
+    required: false
+    label: "Compression Enabled"
+    default: false
+
+  - name: cache_tags
+    type: json
+    required: false
+    label: "Cache Tags"
+
+rules:
+  strategies:
+    read_through:
+      description: "Cache checks for key; on miss, loads from source, stores in cache, returns value"
+      automatic_population: true
+    write_through:
+      description: "Writes go to cache and source simultaneously; strong consistency"
+      consistency: "strong"
+    write_behind:
+      description: "Writes go to cache immediately; source updated asynchronously"
+      consistency: "eventual"
+      flush_interval_ms: 1000
+    cache_aside:
+      description: "Application manages cache explicitly; reads check cache first, writes update source and invalidate cache"
+      manual_management: true
+
+  ttl:
+    max_ttl_seconds: 604800
+    # 7 days maximum; prevents stale data from persisting indefinitely
+    default_ttl_seconds: 3600
+    # 1 hour default
+    jitter_percent: 10
+    # Add random jitter to TTL to prevent thundering herd on expiry
+    # Actual TTL = configured TTL +/- 10%
+
+  stampede_protection:
+    enabled: true
+    mutex_strategy: true
+    # On cache miss, only one request fetches from source; others wait
+    mutex_timeout_ms: 5000
+    # If mutex holder takes too long, release and allow another attempt
+    probabilistic_early_expiry: true
+    # Some requests may refetch slightly before TTL expires
+    # Prevents all requests from hitting source simultaneously at expiry
+
+  compression:
+    enabled: true
+    threshold_bytes: 1024
+    # Values larger than 1 KB are compressed before storage
+    algorithm: "gzip"
+
+  multi_tier:
+    enabled: true
+    # Requests check memory first, then Redis, then source
+    # Populates missed tiers on read (promotion)
+    tier_order: [memory, redis, cdn]
+    memory_max_entries: 10000
+    # LRU eviction when memory cache exceeds this limit
+
+  tagging:
+    enabled: true
+    # Cache entries can be tagged for group invalidation
+    # e.g., tag all user-related caches with "user:{id}"
+    max_tags_per_entry: 10
+
+  warming:
+    enabled: true
+    # Pre-populate cache for known hot keys on startup or schedule
+    # Prevents cold-start cache misses
+
+outcomes:
+  cache_hit:
+    priority: 1
+    given:
+      - "a cache lookup is performed"
+      - "the key exists in the cache and has not expired"
+    then:
+      - action: emit_event
+        event: cache.hit
+        payload: [cache_key, cache_tier, ttl_remaining]
+    result: "Cached value returned without hitting the data source"
+
+  cache_miss:
+    priority: 2
+    given:
+      - "a cache lookup is performed"
+      - "the key does not exist in the cache or has expired"
+    then:
+      - action: emit_event
+        event: cache.miss
+        payload: [cache_key, cache_tier]
+    result: "Value fetched from data source; cache populated for subsequent requests"
+
+  cache_invalidated:
+    priority: 3
+    given:
+      - any:
+        - "a data change event triggers event-based invalidation"
+        - "a manual purge request is received"
+        - "tag-based invalidation is triggered"
+    then:
+      - action: invalidate
+        target: cache_key
+        description: "Remove entry from all cache tiers"
+      - action: emit_event
+        event: cache.invalidated
+        payload: [cache_key, invalidation_reason, cache_tier]
+    result: "Cache entry removed; next read will fetch from source"
+
+  cache_warmed:
+    priority: 4
+    given:
+      - "a cache warming job is triggered (startup or scheduled)"
+      - "a list of hot keys is available"
+    then:
+      - action: emit_event
+        event: cache.warmed
+        payload: [keys_warmed, cache_tier, duration_ms]
+    result: "Cache pre-populated with frequently accessed data"
+
+  cache_write_failed:
+    priority: 10
+    error: CACHE_WRITE_FAILED
+    given:
+      - "an attempt to write to the cache tier fails (e.g., Redis unavailable)"
+    result: "Write proceeds to source; cache failure is logged but does not block the operation"
+
+errors:
+  - code: CACHE_WRITE_FAILED
+    status: 500
+    message: "Failed to write to cache; operation completed against data source"
+
+  - code: CACHE_INVALIDATION_FAILED
+    status: 500
+    message: "Cache invalidation failed; stale data may be served temporarily"
+
+events:
+  - name: cache.hit
+    description: "A cache lookup found a valid entry"
+    payload: [cache_key, cache_tier, ttl_remaining]
+
+  - name: cache.miss
+    description: "A cache lookup did not find a valid entry"
+    payload: [cache_key, cache_tier]
+
+  - name: cache.invalidated
+    description: "A cache entry was removed or expired"
+    payload: [cache_key, invalidation_reason, cache_tier]
+
+  - name: cache.warmed
+    description: "Cache warming job completed"
+    payload: [keys_warmed, cache_tier, duration_ms]
+
+related:
+  - feature: search-and-filtering
+    type: optional
+    reason: "Search results benefit from caching for repeated queries"
+
+  - feature: pagination
+    type: optional
+    reason: "Paginated results can be cached by page key"

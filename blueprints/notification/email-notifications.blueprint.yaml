@@ -1,0 +1,388 @@
+# ============================================================
+# EMAIL NOTIFICATIONS — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Transactional email delivery for welcome messages, receipts,
+# alerts, and password resets. Template engine with variable
+# substitution, delivery tracking, bounce handling, and
+# automatic unsubscribe link injection for compliance.
+# ============================================================
+
+feature: email-notifications
+version: "1.0.0"
+description: Send transactional and system emails with template rendering, delivery tracking, and bounce handling
+category: notification
+tags: [email, transactional, templates, delivery-tracking, bounce-handling, unsubscribe, notification]
+
+# --- FIELDS -------------------------------------------------
+
+fields:
+  - name: recipient_email
+    type: email
+    required: true
+    label: "Recipient Email"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Recipient email is required"
+      - type: email
+        message: "Please enter a valid email address"
+      - type: maxLength
+        value: 255
+        message: "Email address is too long"
+
+  - name: template_id
+    type: text
+    required: true
+    label: "Template ID"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Template ID is required"
+      - type: pattern
+        value: "^[a-z0-9_-]+$"
+        message: "Template ID must be lowercase alphanumeric with hyphens or underscores"
+
+  - name: template_variables
+    type: json
+    required: false
+    label: "Template Variables"
+    sensitive: false
+
+  - name: subject
+    type: text
+    required: true
+    label: "Email Subject"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Subject is required"
+      - type: maxLength
+        value: 998
+        # RFC 2822 line length limit
+        message: "Subject line is too long"
+
+  - name: from_address
+    type: email
+    required: false
+    label: "From Address"
+    sensitive: false
+
+  - name: reply_to
+    type: email
+    required: false
+    label: "Reply-To Address"
+    sensitive: false
+
+  - name: category
+    type: select
+    required: true
+    label: "Email Category"
+    options:
+      - { value: "transactional", label: "Transactional" }
+      - { value: "security", label: "Security" }
+      - { value: "marketing", label: "Marketing" }
+      - { value: "system", label: "System" }
+    sensitive: false
+    validation:
+      - type: required
+        message: "Email category is required"
+
+  - name: priority
+    type: select
+    required: false
+    label: "Send Priority"
+    options:
+      - { value: "high", label: "High" }
+      - { value: "normal", label: "Normal" }
+      - { value: "low", label: "Low" }
+    default: normal
+
+  - name: tracking_id
+    type: text
+    required: false
+    label: "Tracking ID"
+    sensitive: false
+
+  - name: unsubscribe_url
+    type: url
+    required: false
+    label: "Unsubscribe URL"
+    sensitive: false
+
+# --- RULES --------------------------------------------------
+
+rules:
+  delivery:
+    provider_abstraction: true
+    # Support multiple providers (SES, SendGrid, Mailgun, Postmark)
+    # via a common interface — never hard-code a single provider
+    max_retries: 3
+    retry_backoff: exponential
+    retry_base_seconds: 30
+    timeout_seconds: 30
+
+  templates:
+    engine: variable_substitution
+    # Supports {{variable}} syntax with nested object access
+    escape_html: true
+    # SECURITY: always escape HTML in variable values to prevent XSS
+    fallback_to_plain_text: true
+    required_variables_check: true
+    # Fail fast if a required variable is missing from the payload
+
+  bounce_handling:
+    soft_bounce_max_retries: 3
+    hard_bounce_action: suppress
+    # Permanently suppress hard-bounced addresses
+    complaint_action: unsubscribe
+    # Auto-unsubscribe on spam complaints (ISP feedback loops)
+    suppression_list: true
+
+  compliance:
+    unsubscribe_link_required: true
+    # CAN-SPAM / GDPR: all non-transactional emails must include unsubscribe
+    list_unsubscribe_header: true
+    # RFC 8058: one-click unsubscribe via List-Unsubscribe header
+    physical_address_required: true
+    # CAN-SPAM requires sender physical address in marketing emails
+
+  rate_limiting:
+    per_recipient_per_hour: 10
+    per_domain_per_minute: 100
+    global_per_second: 50
+
+  security:
+    dkim_signing: true
+    spf_validation: true
+    dmarc_policy: reject
+    # Authenticate all outbound emails
+    sanitize_variables: true
+    # Strip potentially dangerous content from template variables
+
+# --- OUTCOMES -----------------------------------------------
+
+outcomes:
+  rate_limited:
+    priority: 1
+    error: EMAIL_RATE_LIMITED
+    given:
+      - field: recipient_send_count
+        source: computed
+        operator: gte
+        value: 10
+        description: "Recipient has received 10+ emails this hour"
+    result: queue email for deferred delivery after rate limit window
+
+  invalid_template:
+    priority: 2
+    error: EMAIL_TEMPLATE_NOT_FOUND
+    given:
+      - field: template_id
+        source: db
+        operator: not_exists
+        description: "Template ID does not exist in template registry"
+    result: reject with template not found error
+
+  missing_variables:
+    priority: 3
+    error: EMAIL_MISSING_VARIABLES
+    given:
+      - field: required_variables
+        source: computed
+        operator: neq
+        value: satisfied
+        description: "Template requires variables that were not provided"
+    result: reject with missing variables error listing which variables are absent
+
+  recipient_suppressed:
+    priority: 4
+    error: EMAIL_RECIPIENT_SUPPRESSED
+    given:
+      - field: recipient_email
+        source: db
+        operator: eq
+        value: suppressed
+        description: "Recipient is on suppression list (hard bounce or unsubscribe)"
+    then:
+      - action: emit_event
+        event: email.suppressed
+        payload: [recipient_email, template_id, reason, timestamp]
+    result: silently skip delivery and log suppression hit
+
+  email_sent:
+    priority: 10
+    transaction: true
+    given:
+      - field: template_id
+        source: db
+        operator: exists
+        description: "Template exists and is active"
+      - field: recipient_email
+        source: input
+        operator: matches
+        value: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+        description: "Recipient email is valid format"
+      - field: recipient_email
+        source: db
+        operator: neq
+        value: suppressed
+        description: "Recipient is not on suppression list"
+    then:
+      - action: call_service
+        target: template_engine
+        description: "Render template with variable substitution and HTML escaping"
+      - action: call_service
+        target: email_provider
+        description: "Deliver email via configured provider"
+      - action: create_record
+        type: email_log
+        target: delivery_log
+        description: "Record delivery attempt with tracking ID"
+      - action: emit_event
+        event: email.sent
+        payload: [tracking_id, recipient_email, template_id, category, timestamp]
+    result: email queued for delivery with tracking ID returned
+
+  email_bounced:
+    priority: 11
+    given:
+      - field: delivery_status
+        source: system
+        operator: eq
+        value: bounced
+        description: "Provider reported a bounce (webhook callback)"
+    then:
+      - action: set_field
+        target: bounce_count
+        value: "increment"
+        description: "Increment bounce counter for this recipient"
+      - action: set_field
+        target: suppressed
+        value: true
+        description: "Add to suppression list on hard bounce"
+        when: "bounce_type == \"hard\""
+      - action: emit_event
+        event: email.bounced
+        payload: [tracking_id, recipient_email, bounce_type, reason, timestamp]
+    result: update delivery log and suppress recipient on hard bounce
+
+  email_opened:
+    priority: 12
+    given:
+      - field: tracking_pixel_hit
+        source: system
+        operator: eq
+        value: true
+        description: "Tracking pixel was loaded by recipient email client"
+    then:
+      - action: set_field
+        target: opened_at
+        value: "now"
+        description: "Record first open timestamp"
+      - action: emit_event
+        event: email.opened
+        payload: [tracking_id, recipient_email, opened_at, user_agent]
+    result: record open event in delivery log
+
+# --- ERRORS -------------------------------------------------
+
+errors:
+  - code: EMAIL_RATE_LIMITED
+    status: 429
+    message: "Email rate limit exceeded. Please try again later."
+    retry: true
+
+  - code: EMAIL_TEMPLATE_NOT_FOUND
+    status: 404
+    message: "Email template not found"
+    retry: false
+
+  - code: EMAIL_MISSING_VARIABLES
+    status: 422
+    message: "Required template variables are missing"
+    retry: false
+
+  - code: EMAIL_RECIPIENT_SUPPRESSED
+    status: 422
+    message: "Recipient address is suppressed"
+    retry: false
+
+  - code: EMAIL_DELIVERY_FAILED
+    status: 503
+    message: "Email delivery failed. The message will be retried automatically."
+    retry: true
+
+  - code: EMAIL_VALIDATION_ERROR
+    status: 422
+    message: "Please check the email parameters and try again"
+    retry: true
+
+# --- EVENTS -------------------------------------------------
+
+events:
+  - name: email.sent
+    description: "Email successfully queued for delivery"
+    payload: [tracking_id, recipient_email, template_id, category, timestamp]
+
+  - name: email.bounced
+    description: "Email delivery bounced (soft or hard)"
+    payload: [tracking_id, recipient_email, bounce_type, reason, timestamp]
+
+  - name: email.opened
+    description: "Recipient opened the email (tracking pixel loaded)"
+    payload: [tracking_id, recipient_email, opened_at, user_agent]
+
+  - name: email.suppressed
+    description: "Delivery skipped because recipient is on suppression list"
+    payload: [recipient_email, template_id, reason, timestamp]
+
+  - name: email.delivered
+    description: "Provider confirmed delivery to recipient mailbox"
+    payload: [tracking_id, recipient_email, delivered_at, timestamp]
+
+# --- RELATIONSHIPS ------------------------------------------
+
+related:
+  - feature: notification-preferences
+    type: required
+    reason: "Must check user email opt-in preferences before sending"
+
+  - feature: password-reset
+    type: optional
+    reason: "Password reset emails are a common transactional email type"
+
+  - feature: email-verification
+    type: optional
+    reason: "Verification emails are sent via this system"
+
+  - feature: signup
+    type: optional
+    reason: "Welcome emails triggered on signup"
+
+  - feature: webhook-outbound
+    type: optional
+    reason: "Bounce and delivery webhooks from providers use outbound webhook patterns"
+
+# --- UI HINTS -----------------------------------------------
+
+ui_hints:
+  layout: admin_panel
+  description: "Email delivery management is typically an admin/back-office concern"
+
+  admin_views:
+    - view: delivery_log
+      description: "Searchable log of all sent emails with status"
+      columns: [recipient_email, template_id, category, status, sent_at, opened_at]
+
+    - view: suppression_list
+      description: "Manage suppressed email addresses"
+      columns: [email, reason, suppressed_at]
+      actions: [remove_suppression]
+
+    - view: template_manager
+      description: "Preview and edit email templates"
+      actions: [preview, edit, send_test]
+
+  accessibility:
+    aria_live_region: true

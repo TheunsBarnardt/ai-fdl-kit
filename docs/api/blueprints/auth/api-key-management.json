@@ -1,0 +1,698 @@
+{
+  "feature": "api-key-management",
+  "version": "1.0.0",
+  "description": "Create, rotate, revoke, and scope API keys for programmatic access",
+  "category": "auth",
+  "tags": [
+    "authentication",
+    "api-key",
+    "security",
+    "programmatic-access",
+    "developer"
+  ],
+  "fields": [
+    {
+      "name": "key_id",
+      "type": "text",
+      "required": true,
+      "label": "Key ID",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Key ID is required"
+        }
+      ]
+    },
+    {
+      "name": "key_hash",
+      "type": "hidden",
+      "required": true,
+      "label": "Key Hash",
+      "sensitive": true
+    },
+    {
+      "name": "key_prefix",
+      "type": "text",
+      "required": true,
+      "label": "Key Prefix",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "maxLength",
+          "value": 12,
+          "message": "Key prefix is too long"
+        }
+      ]
+    },
+    {
+      "name": "name",
+      "type": "text",
+      "required": true,
+      "label": "Key Name",
+      "placeholder": "My API Key",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Key name is required"
+        },
+        {
+          "type": "maxLength",
+          "value": 128,
+          "message": "Key name must be less than 128 characters"
+        },
+        {
+          "type": "minLength",
+          "value": 1,
+          "message": "Key name cannot be empty"
+        }
+      ]
+    },
+    {
+      "name": "scopes",
+      "type": "multiselect",
+      "required": true,
+      "label": "Permissions",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "At least one permission scope is required"
+        }
+      ]
+    },
+    {
+      "name": "expires_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Expiration Date",
+      "sensitive": false
+    },
+    {
+      "name": "last_used_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Last Used",
+      "sensitive": false
+    },
+    {
+      "name": "last_used_ip",
+      "type": "text",
+      "required": false,
+      "label": "Last Used IP",
+      "sensitive": false
+    },
+    {
+      "name": "created_by",
+      "type": "text",
+      "required": true,
+      "label": "Created By",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Creator user ID is required"
+        }
+      ]
+    },
+    {
+      "name": "created_at",
+      "type": "datetime",
+      "required": true,
+      "label": "Created At",
+      "sensitive": false
+    },
+    {
+      "name": "revoked_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Revoked At",
+      "sensitive": false
+    },
+    {
+      "name": "environment",
+      "type": "select",
+      "required": true,
+      "label": "Environment",
+      "options": [
+        {
+          "value": "live",
+          "label": "Live"
+        },
+        {
+          "value": "test",
+          "label": "Test"
+        }
+      ],
+      "default": "test",
+      "validation": [
+        {
+          "type": "required",
+          "message": "Environment is required"
+        },
+        {
+          "type": "oneOf",
+          "value": [
+            "live",
+            "test"
+          ],
+          "message": "Environment must be live or test"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "security": {
+      "key_generation": {
+        "algorithm": "cryptographic_random",
+        "length_bytes": 32,
+        "format": "sk_{environment}_{random}",
+        "prefix_live": "sk_live_",
+        "prefix_test": "sk_test_",
+        "show_once": true
+      },
+      "storage": {
+        "hash_algorithm": "sha256",
+        "never_store_plaintext": true
+      },
+      "rate_limit_per_key": {
+        "default_window_seconds": 60,
+        "default_max_requests": 100,
+        "burst_allowance": 20
+      },
+      "max_keys_per_user": 25,
+      "rate_limit": {
+        "window_seconds": 60,
+        "max_requests": 10,
+        "scope": "per_user"
+      }
+    },
+    "rotation": {
+      "grace_period_hours": 24,
+      "notify_on_rotation": true
+    },
+    "expiration": {
+      "warn_before_days": 7,
+      "auto_revoke_on_expiry": true
+    }
+  },
+  "outcomes": {
+    "rate_limited": {
+      "priority": 1,
+      "error": "API_KEY_RATE_LIMITED",
+      "given": [
+        {
+          "field": "management_request_count",
+          "source": "computed",
+          "operator": "gt",
+          "value": 10,
+          "description": "More than 10 key management requests in 60 seconds"
+        }
+      ],
+      "result": "show \"Too many requests. Please wait a moment.\""
+    },
+    "max_keys_exceeded": {
+      "priority": 2,
+      "error": "API_KEY_LIMIT_EXCEEDED",
+      "given": [
+        {
+          "field": "active_key_count",
+          "source": "db",
+          "operator": "gte",
+          "value": 25,
+          "description": "User already has 25 active API keys"
+        }
+      ],
+      "result": "show \"Maximum number of API keys reached. Please revoke unused keys.\""
+    },
+    "create_key": {
+      "priority": 5,
+      "transaction": true,
+      "given": [
+        {
+          "field": "name",
+          "source": "input",
+          "operator": "exists",
+          "description": "Key name provided"
+        },
+        {
+          "field": "scopes",
+          "source": "input",
+          "operator": "exists",
+          "description": "At least one scope selected"
+        },
+        {
+          "field": "active_key_count",
+          "source": "db",
+          "operator": "lt",
+          "value": 25,
+          "description": "User has not exceeded key limit"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "api_key",
+          "target": "api_key",
+          "description": "Generate cryptographic random key, store hash only"
+        },
+        {
+          "action": "emit_event",
+          "event": "api_key.created",
+          "payload": [
+            "user_id",
+            "key_id",
+            "key_prefix",
+            "name",
+            "scopes",
+            "environment",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "show full key ONCE — warn user to copy it now as it cannot be retrieved again"
+    },
+    "rotate_key": {
+      "priority": 6,
+      "transaction": true,
+      "given": [
+        {
+          "field": "target_key",
+          "source": "db",
+          "operator": "exists",
+          "description": "Target key exists"
+        },
+        {
+          "field": "target_key_revoked_at",
+          "source": "db",
+          "operator": "not_exists",
+          "description": "Target key is not already revoked"
+        },
+        {
+          "field": "target_key_created_by",
+          "source": "db",
+          "operator": "eq",
+          "value": "current_user_id",
+          "description": "User owns the target key"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "api_key",
+          "target": "new_api_key",
+          "description": "Generate new key with same name, scopes, and environment"
+        },
+        {
+          "action": "set_field",
+          "target": "old_key_grace_expiry",
+          "value": "now + 24h",
+          "description": "Old key remains valid for 24-hour grace period"
+        },
+        {
+          "action": "emit_event",
+          "event": "api_key.rotated",
+          "payload": [
+            "user_id",
+            "old_key_id",
+            "new_key_id",
+            "key_prefix",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "show new key ONCE — old key valid for 24 more hours"
+    },
+    "revoke_key": {
+      "priority": 7,
+      "transaction": true,
+      "given": [
+        {
+          "field": "target_key",
+          "source": "db",
+          "operator": "exists",
+          "description": "Target key exists"
+        },
+        {
+          "field": "target_key_revoked_at",
+          "source": "db",
+          "operator": "not_exists",
+          "description": "Key is not already revoked"
+        },
+        {
+          "field": "target_key_created_by",
+          "source": "db",
+          "operator": "eq",
+          "value": "current_user_id",
+          "description": "User owns the target key"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "revoked_at",
+          "value": "now"
+        },
+        {
+          "action": "invalidate",
+          "target": "api_key",
+          "description": "Immediately invalidate the key hash"
+        },
+        {
+          "action": "emit_event",
+          "event": "api_key.revoked",
+          "payload": [
+            "user_id",
+            "key_id",
+            "key_prefix",
+            "name",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "key revoked — all requests using this key will be rejected immediately"
+    },
+    "authenticate_with_key": {
+      "priority": 8,
+      "given": [
+        {
+          "field": "api_key",
+          "source": "request",
+          "operator": "exists",
+          "description": "API key provided in request header"
+        },
+        {
+          "field": "api_key_hash",
+          "source": "computed",
+          "operator": "eq",
+          "value": "stored_key_hash",
+          "description": "Key hash matches a stored hash"
+        },
+        {
+          "field": "key_revoked_at",
+          "source": "db",
+          "operator": "not_exists",
+          "description": "Key has not been revoked"
+        },
+        {
+          "all": [
+            {
+              "any": [
+                {
+                  "field": "key_expires_at",
+                  "source": "db",
+                  "operator": "not_exists",
+                  "description": "Key has no expiration"
+                },
+                {
+                  "field": "key_expires_at",
+                  "source": "db",
+                  "operator": "gt",
+                  "value": "now",
+                  "description": "Key has not expired"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "last_used_at",
+          "value": "now"
+        },
+        {
+          "action": "set_field",
+          "target": "last_used_ip",
+          "value": "request_ip"
+        },
+        {
+          "action": "emit_event",
+          "event": "api_key.used",
+          "payload": [
+            "key_id",
+            "key_prefix",
+            "timestamp",
+            "ip_address",
+            "endpoint"
+          ]
+        }
+      ],
+      "result": "request authenticated — enforce scopes on subsequent authorization checks"
+    },
+    "key_expired": {
+      "priority": 9,
+      "error": "API_KEY_EXPIRED",
+      "given": [
+        {
+          "field": "api_key_hash",
+          "source": "computed",
+          "operator": "eq",
+          "value": "stored_key_hash",
+          "description": "Key hash matches"
+        },
+        {
+          "field": "key_expires_at",
+          "source": "db",
+          "operator": "lte",
+          "value": "now",
+          "description": "Key has expired"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "revoked_at",
+          "value": "now",
+          "description": "Auto-revoke expired key"
+        },
+        {
+          "action": "emit_event",
+          "event": "api_key.expired",
+          "payload": [
+            "key_id",
+            "key_prefix",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "show \"API key has expired. Please generate a new key.\""
+    },
+    "invalid_key": {
+      "priority": 10,
+      "error": "API_KEY_INVALID",
+      "given": [
+        {
+          "field": "api_key",
+          "source": "request",
+          "operator": "exists"
+        },
+        {
+          "field": "api_key_hash",
+          "source": "computed",
+          "operator": "neq",
+          "value": "stored_key_hash",
+          "description": "Key hash does not match any stored hash"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "api_key.invalid_attempt",
+          "payload": [
+            "key_prefix",
+            "timestamp",
+            "ip_address"
+          ]
+        }
+      ],
+      "result": "return 401 Unauthorized (generic message — do not reveal whether key exists)"
+    }
+  },
+  "errors": [
+    {
+      "code": "API_KEY_RATE_LIMITED",
+      "status": 429,
+      "message": "Too many requests. Please wait a moment.",
+      "retry": true
+    },
+    {
+      "code": "API_KEY_LIMIT_EXCEEDED",
+      "status": 409,
+      "message": "Maximum number of API keys reached. Please revoke unused keys.",
+      "retry": false
+    },
+    {
+      "code": "API_KEY_INVALID",
+      "status": 401,
+      "message": "Invalid API key",
+      "retry": false
+    },
+    {
+      "code": "API_KEY_EXPIRED",
+      "status": 401,
+      "message": "API key has expired",
+      "retry": false
+    },
+    {
+      "code": "API_KEY_REVOKED",
+      "status": 401,
+      "message": "API key has been revoked",
+      "retry": false
+    },
+    {
+      "code": "API_KEY_INSUFFICIENT_SCOPE",
+      "status": 403,
+      "message": "API key does not have the required permissions",
+      "retry": false
+    },
+    {
+      "code": "API_KEY_NOT_FOUND",
+      "status": 404,
+      "message": "API key not found",
+      "retry": false
+    },
+    {
+      "code": "API_KEY_PER_KEY_RATE_LIMITED",
+      "status": 429,
+      "message": "Rate limit exceeded for this API key",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "api_key.created",
+      "description": "New API key generated",
+      "payload": [
+        "user_id",
+        "key_id",
+        "key_prefix",
+        "name",
+        "scopes",
+        "environment",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "api_key.rotated",
+      "description": "API key rotated — new key issued, old key in grace period",
+      "payload": [
+        "user_id",
+        "old_key_id",
+        "new_key_id",
+        "key_prefix",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "api_key.revoked",
+      "description": "API key permanently revoked",
+      "payload": [
+        "user_id",
+        "key_id",
+        "key_prefix",
+        "name",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "api_key.used",
+      "description": "API key used to authenticate a request",
+      "payload": [
+        "key_id",
+        "key_prefix",
+        "timestamp",
+        "ip_address",
+        "endpoint"
+      ]
+    },
+    {
+      "name": "api_key.expired",
+      "description": "API key auto-revoked due to expiration",
+      "payload": [
+        "key_id",
+        "key_prefix",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "api_key.invalid_attempt",
+      "description": "Request made with an invalid API key",
+      "payload": [
+        "key_prefix",
+        "timestamp",
+        "ip_address"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "login",
+      "type": "required",
+      "reason": "User must be authenticated to manage API keys"
+    },
+    {
+      "feature": "session-management",
+      "type": "recommended",
+      "reason": "API key management requires an active session"
+    },
+    {
+      "feature": "multi-factor-auth",
+      "type": "recommended",
+      "reason": "MFA should be required before creating live API keys"
+    }
+  ],
+  "ui_hints": {
+    "layout": "single_column",
+    "max_width": "720px",
+    "key_list": {
+      "show_name": true,
+      "show_prefix": true,
+      "show_scopes": true,
+      "show_last_used": true,
+      "show_created_at": true,
+      "show_expires_at": true,
+      "show_environment_badge": true,
+      "sort_by": "created_at",
+      "sort_order": "descending"
+    },
+    "key_creation": {
+      "show_key_once_warning": true,
+      "copy_button": true,
+      "show_scopes_checklist": true,
+      "confirm_before_create": true
+    },
+    "key_display": {
+      "mask_key": true
+    },
+    "actions": {
+      "primary": {
+        "label": "Create API Key",
+        "type": "button"
+      },
+      "per_key": {
+        "rotate": {
+          "label": "Rotate",
+          "type": "button",
+          "confirm": true
+        },
+        "revoke": {
+          "label": "Revoke",
+          "type": "button",
+          "style": "danger",
+          "confirm": true
+        }
+      }
+    },
+    "accessibility": {
+      "aria_live_region": true,
+      "copy_confirmation": "API key copied to clipboard"
+    },
+    "loading": {
+      "show_skeleton": true,
+      "disable_button": true
+    }
+  }
+}

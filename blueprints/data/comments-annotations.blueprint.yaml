@@ -1,0 +1,304 @@
+# ============================================================
+# COMMENTS AND ANNOTATIONS — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Threaded comments on any entity (polymorphic) with mentions,
+# reactions, edit windows, and rate limiting.
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: comments-annotations
+version: "1.0.0"
+description: Threaded comments on any entity (polymorphic) with rich text, @mentions, reactions, edit windows, and rate limiting
+category: data
+tags: [comments, annotations, threading, mentions, reactions, polymorphic, collaboration]
+
+fields:
+  - name: comment_id
+    type: text
+    required: true
+    label: "Comment ID"
+
+  - name: body
+    type: rich_text
+    required: true
+    label: "Comment Body"
+    validation:
+      - type: maxLength
+        value: 10000
+        message: "Comment must not exceed 10,000 characters"
+      - type: minLength
+        value: 1
+        message: "Comment body is required"
+
+  - name: author_id
+    type: text
+    required: true
+    label: "Author ID"
+
+  - name: parent_comment_id
+    type: text
+    required: false
+    label: "Parent Comment ID"
+
+  - name: entity_type
+    type: text
+    required: true
+    label: "Entity Type"
+
+  - name: entity_id
+    type: text
+    required: true
+    label: "Entity ID"
+
+  - name: edited_at
+    type: datetime
+    required: false
+    label: "Last Edited At"
+
+  - name: reactions
+    type: json
+    required: false
+    label: "Reactions"
+
+  - name: mentions
+    type: json
+    required: false
+    label: "Mentions"
+
+  - name: thread_depth
+    type: number
+    required: false
+    label: "Thread Depth"
+
+  - name: is_deleted
+    type: boolean
+    required: false
+    label: "Soft Deleted"
+    default: false
+
+rules:
+  content:
+    max_length: 10000
+    # Maximum comment body length in characters
+    rich_text_allowed: true
+    # Supports bold, italic, lists, code blocks, links
+    sanitize_html: true
+    # Strip dangerous HTML to prevent XSS
+    mention_syntax: "@username"
+    # @username triggers mention parsing and notification
+
+  threading:
+    max_depth: 5
+    # Maximum nesting depth for replies
+    # Replies deeper than this are attached to the deepest allowed parent
+    collapse_threshold: 3
+    # UI hint: collapse thread after 3 replies
+
+  editing:
+    edit_window_minutes: 15
+    # Comments can only be edited within 15 minutes of creation
+    show_edit_indicator: true
+    # Edited comments display "(edited)" badge
+
+  deletion:
+    soft_delete: true
+    # Deleted comments show "[deleted]" placeholder to preserve thread structure
+    author_can_delete: true
+    admin_can_delete: true
+    # Admins can delete any comment
+
+  reactions:
+    max_reactions_per_user_per_comment: 5
+    # A user can add up to 5 different reactions on a single comment
+    allowed_reactions: "configurable"
+    # Deployment defines the set of allowed emoji reactions
+
+  rate_limiting:
+    max_comments_per_minute: 5
+    # Prevent spam by limiting comment creation rate
+    max_reactions_per_minute: 20
+
+  sorting:
+    default_sort: "created_at_asc"
+    # Comments are shown in chronological order by default
+    options: [created_at_asc, created_at_desc, reactions_count]
+
+outcomes:
+  comment_created:
+    priority: 1
+    given:
+      - "user submits a comment on an entity"
+      - "comment body passes validation"
+      - "user has not exceeded the rate limit"
+    then:
+      - action: create_record
+        type: comment
+        target: comment
+        description: "Create the comment record with body, author, entity reference"
+      - action: emit_event
+        event: comment.created
+        payload: [comment_id, entity_type, entity_id, author_id]
+    result: "Comment created and visible on the entity"
+
+  reply_created:
+    priority: 2
+    given:
+      - "user submits a reply to an existing comment"
+      - "parent comment exists and is not deleted"
+      - "thread depth does not exceed the maximum"
+    then:
+      - action: create_record
+        type: comment
+        target: comment
+        description: "Create reply with parent_comment_id set"
+      - action: emit_event
+        event: comment.replied
+        payload: [comment_id, parent_comment_id, entity_type, entity_id, author_id]
+    result: "Reply created and nested under the parent comment"
+
+  comment_edited:
+    priority: 3
+    given:
+      - "author edits their own comment"
+      - "the comment was created within the edit window (15 minutes)"
+    then:
+      - action: set_field
+        target: body
+        description: "Update comment body with new content"
+      - action: set_field
+        target: edited_at
+        description: "Set to current timestamp"
+      - action: emit_event
+        event: comment.edited
+        payload: [comment_id, author_id]
+    result: "Comment updated with edited indicator"
+
+  comment_deleted:
+    priority: 4
+    given:
+      - any:
+        - "the author deletes their own comment"
+        - "an admin deletes any comment"
+    then:
+      - action: set_field
+        target: is_deleted
+        value: true
+      - action: set_field
+        target: body
+        description: "Replace body with '[deleted]' placeholder"
+      - action: emit_event
+        event: comment.deleted
+        payload: [comment_id, entity_type, entity_id, deleted_by]
+    result: "Comment soft-deleted; shows '[deleted]' but thread structure preserved"
+
+  reaction_added:
+    priority: 5
+    given:
+      - "user adds a reaction to a comment"
+      - "user has not already added this reaction to this comment"
+      - "user has not exceeded max reactions per comment"
+    then:
+      - action: set_field
+        target: reactions
+        description: "Append reaction to the comment's reaction array"
+      - action: emit_event
+        event: comment.reacted
+        payload: [comment_id, emoji, user_id]
+    result: "Reaction added to the comment"
+
+  mention_detected:
+    priority: 6
+    given:
+      - "a comment or reply body contains @username references"
+      - "the mentioned users exist"
+    then:
+      - action: notify
+        channel: in_app
+        to: mentioned_users
+        description: "Send notification to each mentioned user"
+      - action: emit_event
+        event: comment.mentioned
+        payload: [comment_id, entity_type, entity_id, mentioned_user_ids]
+    result: "Mentioned users notified of the comment"
+
+  edit_window_expired:
+    priority: 10
+    error: COMMENT_EDIT_WINDOW_EXPIRED
+    given:
+      - "author attempts to edit a comment"
+      - field: edit_window
+        source: computed
+        operator: eq
+        value: false
+        description: "More than 15 minutes have passed since comment creation"
+    result: "Error returned indicating the edit window has closed"
+
+  rate_limited:
+    priority: 11
+    error: COMMENT_RATE_LIMITED
+    given:
+      - "user attempts to create a comment"
+      - "user has exceeded the rate limit"
+    result: "Error returned indicating rate limit exceeded"
+
+errors:
+  - code: COMMENT_EDIT_WINDOW_EXPIRED
+    status: 403
+    message: "Comments can only be edited within 15 minutes of creation"
+
+  - code: COMMENT_RATE_LIMITED
+    status: 429
+    message: "Comment rate limit exceeded; please wait before posting again"
+
+  - code: COMMENT_TOO_LONG
+    status: 400
+    message: "Comment body exceeds the maximum length of 10,000 characters"
+
+  - code: COMMENT_PARENT_NOT_FOUND
+    status: 404
+    message: "Parent comment does not exist"
+
+  - code: COMMENT_THREAD_DEPTH_EXCEEDED
+    status: 400
+    message: "Maximum reply nesting depth reached"
+
+events:
+  - name: comment.created
+    description: "A new top-level comment was created"
+    payload: [comment_id, entity_type, entity_id, author_id]
+
+  - name: comment.replied
+    description: "A reply was created on an existing comment"
+    payload: [comment_id, parent_comment_id, entity_type, entity_id, author_id]
+
+  - name: comment.edited
+    description: "A comment was edited within the edit window"
+    payload: [comment_id, author_id]
+
+  - name: comment.deleted
+    description: "A comment was soft-deleted"
+    payload: [comment_id, entity_type, entity_id, deleted_by]
+
+  - name: comment.mentioned
+    description: "Users were mentioned in a comment via @username"
+    payload: [comment_id, entity_type, entity_id, mentioned_user_ids]
+
+  - name: comment.reacted
+    description: "A reaction was added to a comment"
+    payload: [comment_id, emoji, user_id]
+
+related:
+  - feature: soft-delete
+    type: required
+    reason: "Comments use soft-delete to preserve thread structure"
+
+  - feature: search-and-filtering
+    type: recommended
+    reason: "Comments should be searchable by content and author"
+
+  - feature: audit-trail
+    type: optional
+    reason: "Comment edits and deletions can be tracked for moderation"

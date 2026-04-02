@@ -1,0 +1,595 @@
+{
+  "feature": "session-management",
+  "version": "1.0.0",
+  "description": "Active session listing, device tracking, and session revocation",
+  "category": "auth",
+  "tags": [
+    "authentication",
+    "session",
+    "security",
+    "device-tracking",
+    "identity"
+  ],
+  "fields": [
+    {
+      "name": "session_id",
+      "type": "token",
+      "required": true,
+      "label": "Session ID",
+      "sensitive": true,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Session ID is required"
+        }
+      ]
+    },
+    {
+      "name": "user_id",
+      "type": "text",
+      "required": true,
+      "label": "User ID",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "User ID is required"
+        }
+      ]
+    },
+    {
+      "name": "device_browser",
+      "type": "text",
+      "required": false,
+      "label": "Browser",
+      "sensitive": false
+    },
+    {
+      "name": "device_os",
+      "type": "text",
+      "required": false,
+      "label": "Operating System",
+      "sensitive": false
+    },
+    {
+      "name": "device_ip",
+      "type": "text",
+      "required": false,
+      "label": "IP Address",
+      "sensitive": false
+    },
+    {
+      "name": "device_location",
+      "type": "text",
+      "required": false,
+      "label": "Approximate Location",
+      "sensitive": false
+    },
+    {
+      "name": "device_type",
+      "type": "select",
+      "required": false,
+      "label": "Device Type",
+      "options": [
+        {
+          "value": "desktop",
+          "label": "Desktop"
+        },
+        {
+          "value": "mobile",
+          "label": "Mobile"
+        },
+        {
+          "value": "tablet",
+          "label": "Tablet"
+        },
+        {
+          "value": "api",
+          "label": "API"
+        },
+        {
+          "value": "unknown",
+          "label": "Unknown"
+        }
+      ],
+      "sensitive": false
+    },
+    {
+      "name": "created_at",
+      "type": "datetime",
+      "required": true,
+      "label": "Session Created",
+      "sensitive": false
+    },
+    {
+      "name": "last_active_at",
+      "type": "datetime",
+      "required": true,
+      "label": "Last Active",
+      "sensitive": false
+    },
+    {
+      "name": "expires_at",
+      "type": "datetime",
+      "required": true,
+      "label": "Session Expires",
+      "sensitive": false
+    },
+    {
+      "name": "revoked_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Session Revoked",
+      "sensitive": false
+    },
+    {
+      "name": "is_current",
+      "type": "boolean",
+      "required": false,
+      "label": "Current Session",
+      "default": false
+    },
+    {
+      "name": "user_agent",
+      "type": "text",
+      "required": false,
+      "label": "User Agent",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "maxLength",
+          "value": 512,
+          "message": "User agent string is too long"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "security": {
+      "session_id": {
+        "entropy_bytes": 32,
+        "storage": "server_side"
+      },
+      "concurrent_sessions": {
+        "max_per_user": 5,
+        "enforcement": "evict_oldest",
+        "notify_on_new_device": true
+      },
+      "idle_timeout_minutes": 30,
+      "absolute_timeout_hours": 24,
+      "ip_binding": {
+        "enabled": false,
+        "warn_on_ip_change": true
+      },
+      "rate_limit": {
+        "window_seconds": 60,
+        "max_requests": 10,
+        "scope": "per_user"
+      },
+      "revocation": {
+        "immediate": true,
+        "propagation": "synchronous"
+      }
+    },
+    "device_tracking": {
+      "fingerprint": false,
+      "parse_user_agent": true,
+      "geo_ip_lookup": true
+    }
+  },
+  "outcomes": {
+    "rate_limited": {
+      "priority": 1,
+      "error": "SESSION_RATE_LIMITED",
+      "given": [
+        {
+          "field": "request_count",
+          "source": "computed",
+          "operator": "gt",
+          "value": 10,
+          "description": "More than 10 session management requests in 60 seconds"
+        }
+      ],
+      "result": "show \"Too many requests. Please wait a moment.\""
+    },
+    "session_not_found": {
+      "priority": 2,
+      "error": "SESSION_NOT_FOUND",
+      "given": [
+        {
+          "field": "target_session",
+          "source": "db",
+          "operator": "not_exists",
+          "description": "Target session does not exist"
+        }
+      ],
+      "result": "show \"Session not found.\""
+    },
+    "unauthorized_revocation": {
+      "priority": 3,
+      "error": "SESSION_UNAUTHORIZED",
+      "given": [
+        {
+          "field": "target_session_user_id",
+          "source": "db",
+          "operator": "neq",
+          "value": "current_user_id",
+          "description": "User attempting to revoke a session that belongs to another user"
+        }
+      ],
+      "result": "show \"You do not have permission to manage this session.\""
+    },
+    "list_active_sessions": {
+      "priority": 5,
+      "given": [
+        {
+          "field": "user_id",
+          "source": "session",
+          "operator": "exists",
+          "description": "User is authenticated"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "session.listed",
+          "payload": [
+            "user_id",
+            "timestamp",
+            "active_count"
+          ]
+        }
+      ],
+      "result": "return list of active sessions with device info, marking the current session"
+    },
+    "create_session": {
+      "priority": 6,
+      "transaction": true,
+      "given": [
+        {
+          "field": "user_id",
+          "source": "input",
+          "operator": "exists",
+          "description": "Authenticated user ID provided"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "session",
+          "target": "session",
+          "description": "Create new session with device info and expiry"
+        },
+        {
+          "action": "set_field",
+          "target": "oldest_session",
+          "value": "revoked",
+          "description": "Evict oldest session if concurrent limit exceeded",
+          "when": "active_session_count >= 5"
+        },
+        {
+          "action": "emit_event",
+          "event": "session.created",
+          "payload": [
+            "user_id",
+            "session_id",
+            "device_browser",
+            "device_os",
+            "device_ip",
+            "timestamp"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "session.evicted",
+          "payload": [
+            "user_id",
+            "evicted_session_id",
+            "timestamp"
+          ],
+          "when": "active_session_count >= 5"
+        }
+      ],
+      "result": "session created with device tracking metadata"
+    },
+    "revoke_single_session": {
+      "priority": 7,
+      "transaction": true,
+      "given": [
+        {
+          "field": "target_session",
+          "source": "db",
+          "operator": "exists",
+          "description": "Target session exists"
+        },
+        {
+          "field": "target_session_user_id",
+          "source": "db",
+          "operator": "eq",
+          "value": "current_user_id",
+          "description": "Session belongs to the current user"
+        },
+        {
+          "field": "target_session",
+          "source": "input",
+          "operator": "neq",
+          "value": "current_session_id",
+          "description": "Cannot revoke the current session via this action"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "revoked_at",
+          "value": "now"
+        },
+        {
+          "action": "invalidate",
+          "target": "target_session",
+          "description": "Immediately invalidate the session token"
+        },
+        {
+          "action": "emit_event",
+          "event": "session.revoked",
+          "payload": [
+            "user_id",
+            "session_id",
+            "device_browser",
+            "device_os",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "session revoked — device is signed out"
+    },
+    "revoke_all_other_sessions": {
+      "priority": 8,
+      "transaction": true,
+      "given": [
+        {
+          "field": "user_id",
+          "source": "session",
+          "operator": "exists",
+          "description": "User is authenticated"
+        },
+        {
+          "field": "other_active_sessions",
+          "source": "db",
+          "operator": "exists",
+          "description": "User has other active sessions besides current"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "all_other_sessions_revoked_at",
+          "value": "now",
+          "description": "Mark all sessions except current as revoked"
+        },
+        {
+          "action": "invalidate",
+          "target": "all_other_sessions",
+          "description": "Immediately invalidate all other session tokens"
+        },
+        {
+          "action": "emit_event",
+          "event": "session.revoke_all",
+          "payload": [
+            "user_id",
+            "revoked_count",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "all other sessions revoked — user remains signed in on current device only"
+    },
+    "session_expired": {
+      "priority": 9,
+      "given": [
+        {
+          "any": [
+            {
+              "field": "last_active_at",
+              "source": "db",
+              "operator": "lt",
+              "value": "now - 30m",
+              "description": "Session idle for more than 30 minutes"
+            },
+            {
+              "field": "created_at",
+              "source": "db",
+              "operator": "lt",
+              "value": "now - 24h",
+              "description": "Session exceeded absolute timeout of 24 hours"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "revoked_at",
+          "value": "now"
+        },
+        {
+          "action": "invalidate",
+          "target": "session",
+          "description": "Invalidate expired session"
+        },
+        {
+          "action": "emit_event",
+          "event": "session.expired",
+          "payload": [
+            "user_id",
+            "session_id",
+            "reason",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "session expired — redirect to login"
+    }
+  },
+  "errors": [
+    {
+      "code": "SESSION_RATE_LIMITED",
+      "status": 429,
+      "message": "Too many requests. Please wait a moment.",
+      "retry": true
+    },
+    {
+      "code": "SESSION_NOT_FOUND",
+      "status": 404,
+      "message": "Session not found",
+      "retry": false
+    },
+    {
+      "code": "SESSION_UNAUTHORIZED",
+      "status": 403,
+      "message": "You do not have permission to manage this session",
+      "retry": false
+    },
+    {
+      "code": "SESSION_ALREADY_REVOKED",
+      "status": 409,
+      "message": "This session has already been revoked",
+      "retry": false
+    },
+    {
+      "code": "SESSION_CANNOT_REVOKE_CURRENT",
+      "status": 400,
+      "message": "You cannot revoke your current session. Use logout instead.",
+      "retry": false
+    },
+    {
+      "code": "SESSION_EXPIRED",
+      "status": 401,
+      "message": "Your session has expired. Please sign in again.",
+      "retry": false,
+      "redirect": "login"
+    }
+  ],
+  "events": [
+    {
+      "name": "session.created",
+      "description": "New session created for a user",
+      "payload": [
+        "user_id",
+        "session_id",
+        "device_browser",
+        "device_os",
+        "device_ip",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "session.revoked",
+      "description": "A specific session was revoked by the user",
+      "payload": [
+        "user_id",
+        "session_id",
+        "device_browser",
+        "device_os",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "session.expired",
+      "description": "Session expired due to idle or absolute timeout",
+      "payload": [
+        "user_id",
+        "session_id",
+        "reason",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "session.revoke_all",
+      "description": "User revoked all sessions except current",
+      "payload": [
+        "user_id",
+        "revoked_count",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "session.evicted",
+      "description": "Oldest session evicted due to concurrent session limit",
+      "payload": [
+        "user_id",
+        "evicted_session_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "session.listed",
+      "description": "User viewed their active sessions",
+      "payload": [
+        "user_id",
+        "timestamp",
+        "active_count"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "login",
+      "type": "required",
+      "reason": "Sessions are created during login"
+    },
+    {
+      "feature": "logout",
+      "type": "required",
+      "reason": "Logout terminates the current session"
+    },
+    {
+      "feature": "multi-factor-auth",
+      "type": "optional",
+      "reason": "MFA verification status is tracked per session"
+    },
+    {
+      "feature": "single-sign-on",
+      "type": "optional",
+      "reason": "SSO sessions need bridging and lifecycle management"
+    },
+    {
+      "feature": "oauth-social-login",
+      "type": "optional",
+      "reason": "OAuth sessions need tracking alongside password sessions"
+    }
+  ],
+  "ui_hints": {
+    "layout": "single_column",
+    "max_width": "640px",
+    "session_list": {
+      "show_device_icon": true,
+      "show_current_badge": true,
+      "show_location": true,
+      "show_last_active": true,
+      "sort_by": "last_active_at",
+      "sort_order": "descending"
+    },
+    "actions": {
+      "primary": {
+        "label": "Sign out all other devices",
+        "type": "button",
+        "full_width": true,
+        "style": "danger",
+        "confirm": true
+      },
+      "per_session": {
+        "label": "Sign out",
+        "type": "button",
+        "style": "danger",
+        "disabled_for_current": true
+      }
+    },
+    "accessibility": {
+      "aria_live_region": true,
+      "screen_reader_session_label": "{browser} on {os} — last active {time_ago}"
+    },
+    "loading": {
+      "show_skeleton": true
+    }
+  }
+}

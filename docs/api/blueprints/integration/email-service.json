@@ -1,0 +1,495 @@
+{
+  "feature": "email-service",
+  "version": "1.0.0",
+  "description": "Send transactional and marketing emails through a provider-agnostic abstraction supporting templates, attachments, delivery tracking, and batch sends",
+  "category": "integration",
+  "tags": [
+    "email",
+    "transactional",
+    "smtp",
+    "templates",
+    "notifications"
+  ],
+  "fields": [
+    {
+      "name": "from",
+      "type": "email",
+      "required": true,
+      "label": "Sender email address",
+      "validation": [
+        {
+          "type": "email",
+          "message": "Must be a valid email address"
+        }
+      ]
+    },
+    {
+      "name": "to",
+      "type": "json",
+      "required": true,
+      "label": "Recipient email addresses",
+      "validation": [
+        {
+          "type": "required",
+          "message": "At least one recipient is required"
+        }
+      ]
+    },
+    {
+      "name": "cc",
+      "type": "json",
+      "required": false,
+      "label": "CC recipient email addresses"
+    },
+    {
+      "name": "bcc",
+      "type": "json",
+      "required": false,
+      "label": "BCC recipient email addresses"
+    },
+    {
+      "name": "reply_to",
+      "type": "email",
+      "required": false,
+      "label": "Reply-to email address"
+    },
+    {
+      "name": "subject",
+      "type": "text",
+      "required": true,
+      "label": "Email subject line",
+      "validation": [
+        {
+          "type": "maxLength",
+          "value": 998,
+          "message": "Subject line must not exceed 998 characters"
+        }
+      ]
+    },
+    {
+      "name": "template_id",
+      "type": "text",
+      "required": false,
+      "label": "Template identifier for server-side rendering"
+    },
+    {
+      "name": "template_vars",
+      "type": "json",
+      "required": false,
+      "label": "Variables for template rendering (Handlebars/Mustache)"
+    },
+    {
+      "name": "body_html",
+      "type": "rich_text",
+      "required": false,
+      "label": "HTML email body"
+    },
+    {
+      "name": "body_text",
+      "type": "text",
+      "required": false,
+      "label": "Plain text email body (fallback)"
+    },
+    {
+      "name": "attachments",
+      "type": "json",
+      "required": false,
+      "label": "File attachments array (filename, content_type, data)",
+      "validation": [
+        {
+          "type": "max",
+          "value": 10,
+          "message": "Maximum 10 attachments per email"
+        }
+      ]
+    },
+    {
+      "name": "priority",
+      "type": "select",
+      "required": false,
+      "label": "Email priority",
+      "options": [
+        {
+          "value": "high",
+          "label": "High"
+        },
+        {
+          "value": "normal",
+          "label": "Normal"
+        },
+        {
+          "value": "low",
+          "label": "Low"
+        }
+      ]
+    },
+    {
+      "name": "message_id",
+      "type": "text",
+      "required": false,
+      "label": "Unique message identifier returned by provider"
+    },
+    {
+      "name": "delivery_status",
+      "type": "select",
+      "required": false,
+      "label": "Current delivery status",
+      "options": [
+        {
+          "value": "queued",
+          "label": "Queued"
+        },
+        {
+          "value": "sent",
+          "label": "Sent"
+        },
+        {
+          "value": "delivered",
+          "label": "Delivered"
+        },
+        {
+          "value": "bounced",
+          "label": "Bounced"
+        },
+        {
+          "value": "complained",
+          "label": "Complained"
+        },
+        {
+          "value": "failed",
+          "label": "Failed"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "recipients": [
+      "Maximum 50 recipients per single send (to + cc + bcc combined)",
+      "At least one recipient in to[] is required",
+      "All recipient addresses must be valid RFC 5322 email addresses"
+    ],
+    "content": [
+      "Either template_id or body_html/body_text must be provided",
+      "When template_id is set, template_vars are merged into the template at send time",
+      "HTML emails should always include a plain text fallback for accessibility"
+    ],
+    "attachments": [
+      "Maximum total attachment size is 25MB per email",
+      "Each attachment must include filename and content_type",
+      "Executable file types (.exe, .bat, .cmd, .scr) are rejected"
+    ],
+    "compliance": [
+      "Marketing emails must include an unsubscribe header (RFC 8058 List-Unsubscribe)",
+      "Sender domain must pass SPF, DKIM, and DMARC verification",
+      "Bounce and complaint rates must stay below provider thresholds (bounce < 5%, complaint < 0.1%)"
+    ],
+    "security": [
+      "Email content must be sanitized to prevent header injection attacks",
+      "Attachment content is scanned for malware before sending",
+      "Rate limiting applied per sender: max 100 emails per minute"
+    ]
+  },
+  "outcomes": {
+    "single_email_sent": {
+      "priority": 1,
+      "given": [
+        "Valid from address with verified domain",
+        "At least one valid recipient in to[]",
+        "Subject and body (template or inline) provided"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "email_message",
+          "fields": [
+            "from",
+            "to",
+            "subject",
+            "body_html",
+            "body_text",
+            "message_id"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "email.queued",
+          "payload": [
+            "message_id",
+            "from",
+            "to",
+            "subject"
+          ]
+        }
+      ],
+      "result": "Email queued for delivery; message_id returned for tracking"
+    },
+    "template_email_sent": {
+      "priority": 2,
+      "given": [
+        "template_id references a valid registered template",
+        "template_vars contain all required variables for the template"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "email.queued",
+          "payload": [
+            "message_id",
+            "template_id",
+            "to"
+          ]
+        }
+      ],
+      "result": "Template rendered with variables and email queued for delivery"
+    },
+    "batch_email_sent": {
+      "priority": 3,
+      "given": [
+        "Multiple recipients provided (batch mode)",
+        "Total recipients does not exceed 50"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "email.queued",
+          "payload": [
+            "message_id",
+            "recipient_count"
+          ]
+        }
+      ],
+      "result": "Batch email queued; each recipient receives an individual copy with unique tracking"
+    },
+    "email_delivered": {
+      "priority": 4,
+      "given": [
+        "Provider confirms delivery to recipient mail server"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "delivery_status",
+          "value": "delivered"
+        },
+        {
+          "action": "emit_event",
+          "event": "email.delivered",
+          "payload": [
+            "message_id",
+            "to",
+            "delivered_at"
+          ]
+        }
+      ],
+      "result": "Delivery status updated; delivery confirmation event emitted"
+    },
+    "email_bounced": {
+      "priority": 5,
+      "error": "EMAIL_BOUNCED",
+      "given": [
+        "Recipient mail server rejects the email (hard or soft bounce)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "delivery_status",
+          "value": "bounced"
+        },
+        {
+          "action": "emit_event",
+          "event": "email.bounced",
+          "payload": [
+            "message_id",
+            "to",
+            "bounce_type",
+            "bounce_reason"
+          ]
+        }
+      ],
+      "result": "Bounce recorded; hard bounces suppress future sends to that address"
+    },
+    "email_complained": {
+      "priority": 6,
+      "error": "EMAIL_COMPLAINED",
+      "given": [
+        "Recipient marks email as spam"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "delivery_status",
+          "value": "complained"
+        },
+        {
+          "action": "emit_event",
+          "event": "email.complained",
+          "payload": [
+            "message_id",
+            "to",
+            "complained_at"
+          ]
+        }
+      ],
+      "result": "Complaint recorded; recipient added to suppression list"
+    },
+    "invalid_sender": {
+      "priority": 7,
+      "error": "SENDER_NOT_VERIFIED",
+      "given": [
+        {
+          "field": "from",
+          "source": "input",
+          "operator": "exists"
+        },
+        "Sender domain fails SPF/DKIM/DMARC verification"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "email.send_failed",
+          "payload": [
+            "from",
+            "error_reason"
+          ]
+        }
+      ],
+      "result": "Send rejected; sender must verify domain before sending"
+    },
+    "attachment_too_large": {
+      "priority": 8,
+      "error": "ATTACHMENT_SIZE_EXCEEDED",
+      "given": [
+        "Total attachment size exceeds 25MB"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "email.send_failed",
+          "payload": [
+            "from",
+            "total_attachment_size"
+          ]
+        }
+      ],
+      "result": "Send rejected; reduce attachment size or use cloud storage links"
+    },
+    "rate_limited": {
+      "priority": 9,
+      "error": "EMAIL_RATE_LIMITED",
+      "given": [
+        "Sender exceeds 100 emails per minute"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "email.send_failed",
+          "payload": [
+            "from",
+            "retry_after"
+          ]
+        }
+      ],
+      "result": "Send rejected with retry-after header; client should back off and retry"
+    }
+  },
+  "errors": [
+    {
+      "code": "SENDER_NOT_VERIFIED",
+      "status": 403,
+      "message": "Sender domain is not verified. Configure SPF, DKIM, and DMARC records before sending."
+    },
+    {
+      "code": "EMAIL_BOUNCED",
+      "status": 400,
+      "message": "Email bounced. Recipient address may be invalid or mailbox full."
+    },
+    {
+      "code": "EMAIL_COMPLAINED",
+      "status": 400,
+      "message": "Recipient marked email as spam. Address added to suppression list."
+    },
+    {
+      "code": "ATTACHMENT_SIZE_EXCEEDED",
+      "status": 413,
+      "message": "Total attachment size exceeds 25MB limit. Reduce file sizes or use cloud storage links."
+    },
+    {
+      "code": "EMAIL_RATE_LIMITED",
+      "status": 429,
+      "message": "Rate limit exceeded. Maximum 100 emails per minute per sender."
+    },
+    {
+      "code": "TEMPLATE_NOT_FOUND",
+      "status": 404,
+      "message": "Template ID does not exist or is not published."
+    },
+    {
+      "code": "TEMPLATE_VARIABLE_MISSING",
+      "status": 400,
+      "message": "Required template variable is missing from template_vars."
+    }
+  ],
+  "events": [
+    {
+      "name": "email.queued",
+      "payload": [
+        "message_id",
+        "from",
+        "to",
+        "subject"
+      ]
+    },
+    {
+      "name": "email.sent",
+      "payload": [
+        "message_id",
+        "provider_message_id"
+      ]
+    },
+    {
+      "name": "email.delivered",
+      "payload": [
+        "message_id",
+        "to",
+        "delivered_at"
+      ]
+    },
+    {
+      "name": "email.bounced",
+      "payload": [
+        "message_id",
+        "to",
+        "bounce_type",
+        "bounce_reason"
+      ]
+    },
+    {
+      "name": "email.complained",
+      "payload": [
+        "message_id",
+        "to",
+        "complained_at"
+      ]
+    },
+    {
+      "name": "email.send_failed",
+      "payload": [
+        "message_id",
+        "error_code",
+        "error_reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "webhook-ingestion",
+      "type": "recommended",
+      "reason": "Receive delivery status webhooks from email provider"
+    },
+    {
+      "feature": "message-queue",
+      "type": "optional",
+      "reason": "Queue emails for async processing and retry"
+    }
+  ]
+}

@@ -1,0 +1,481 @@
+# ============================================================
+# OAUTH SOCIAL LOGIN — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# OAuth2 / OpenID Connect social sign-in supporting multiple
+# identity providers. Implements authorization code flow with
+# PKCE, CSRF protection via state parameter, account linking,
+# and profile synchronization.
+# ============================================================
+
+feature: oauth-social-login
+version: "1.0.0"
+description: Social sign-in via OAuth2/OIDC with account linking and profile sync
+category: auth
+tags: [authentication, oauth, oidc, social-login, identity, federation]
+
+# ─── FIELDS ───────────────────────────────────────────────
+
+fields:
+  - name: provider
+    type: select
+    required: true
+    label: "Identity Provider"
+    options:
+      - { value: "google", label: "Google" }
+      - { value: "github", label: "GitHub" }
+      - { value: "apple", label: "Apple" }
+      - { value: "microsoft", label: "Microsoft" }
+    validation:
+      - type: required
+        message: "Identity provider is required"
+      - type: oneOf
+        value: [google, github, apple, microsoft]
+        message: "Unsupported identity provider"
+
+  - name: provider_user_id
+    type: text
+    required: true
+    label: "Provider User ID"
+    sensitive: false
+    # Unique identifier from the identity provider
+
+  - name: access_token
+    type: token
+    required: false
+    label: "OAuth Access Token"
+    sensitive: true
+    # Short-lived token for API access to the provider
+
+  - name: refresh_token
+    type: token
+    required: false
+    label: "OAuth Refresh Token"
+    sensitive: true
+    # Long-lived token for refreshing access tokens
+
+  - name: id_token
+    type: token
+    required: false
+    label: "OIDC ID Token"
+    sensitive: true
+    # JWT containing user identity claims
+
+  - name: linked_at
+    type: datetime
+    required: false
+    label: "Account Linked At"
+    sensitive: false
+
+  - name: provider_email
+    type: email
+    required: false
+    label: "Provider Email"
+    sensitive: false
+
+  - name: provider_name
+    type: text
+    required: false
+    label: "Provider Display Name"
+    sensitive: false
+
+  - name: provider_avatar_url
+    type: url
+    required: false
+    label: "Provider Avatar URL"
+    sensitive: false
+
+  - name: state_parameter
+    type: token
+    required: true
+    label: "CSRF State Parameter"
+    sensitive: true
+    # Cryptographically random value for CSRF protection
+
+  - name: code_verifier
+    type: token
+    required: true
+    label: "PKCE Code Verifier"
+    sensitive: true
+    # Random string used in PKCE flow
+
+# ─── RULES ────────────────────────────────────────────────
+
+rules:
+  security:
+    oauth_flow: authorization_code
+    # Authorization code flow — never use implicit grant
+    pkce:
+      enabled: true
+      method: S256
+      # SHA-256 code challenge method (not plain)
+      code_verifier_length: 128
+      # Cryptographically random, 128 characters
+
+    state_parameter:
+      required: true
+      entropy_bytes: 32
+      # 256-bit random value for CSRF protection
+      expiry_seconds: 600
+      # State parameter valid for 10 minutes
+
+    token_storage:
+      encrypt_at_rest: true
+      encryption: aes_256_gcm
+      # Encrypt all OAuth tokens stored in database
+
+    callback_url:
+      strict_validation: true
+      # Only accept registered redirect URIs
+      https_required: true
+      # HTTPS mandatory for all callback URLs
+
+    rate_limit:
+      window_seconds: 60
+      max_requests: 10
+      scope: per_ip
+
+  account_linking:
+    match_by_email: true
+    # If a local account exists with the same verified email,
+    # offer to link rather than create a duplicate
+    require_confirmation: true
+    # User must confirm before linking to existing account
+    allow_multiple_providers: true
+    # One local account can link to multiple social providers
+    allow_unlink: true
+    # Users can remove linked providers (if another auth method exists)
+
+  profile_sync:
+    sync_on_login: true
+    # Update local profile fields from provider on each login
+    fields: [email, name, avatar_url]
+    overwrite_existing: false
+    # Do not overwrite user-modified local fields
+
+  providers:
+    google:
+      scopes: ["openid", "email", "profile"]
+      auth_url: "https://accounts.google.com/o/oauth2/v2/auth"
+      token_url: "https://oauth2.googleapis.com/token"
+    github:
+      scopes: ["user:email", "read:user"]
+      auth_url: "https://github.com/login/oauth/authorize"
+      token_url: "https://github.com/login/oauth/access_token"
+    apple:
+      scopes: ["name", "email"]
+      auth_url: "https://appleid.apple.com/auth/authorize"
+      token_url: "https://appleid.apple.com/auth/token"
+      response_mode: form_post
+      # Apple requires form_post response mode
+    microsoft:
+      scopes: ["openid", "email", "profile"]
+      auth_url: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+      token_url: "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+
+# ─── OUTCOMES ─────────────────────────────────────────────
+
+outcomes:
+  rate_limited:
+    priority: 1
+    error: OAUTH_RATE_LIMITED
+    given:
+      - field: request_count
+        source: computed
+        operator: gt
+        value: 10
+        description: "More than 10 OAuth requests in 60 seconds from this IP"
+    result: show "Too many login attempts. Please wait a moment."
+
+  invalid_state:
+    priority: 2
+    error: OAUTH_INVALID_STATE
+    given:
+      - any:
+          - field: state_parameter
+            source: request
+            operator: not_exists
+            description: "State parameter missing from callback"
+          - field: state_parameter
+            source: request
+            operator: neq
+            value: stored_state
+            description: "State parameter does not match stored value"
+    then:
+      - action: emit_event
+        event: oauth.csrf_detected
+        payload: [ip_address, provider, timestamp]
+    result: show "Authentication failed. Please try again." (CSRF protection triggered)
+
+  invalid_provider:
+    priority: 3
+    error: OAUTH_INVALID_PROVIDER
+    given:
+      - field: provider
+        source: input
+        operator: not_in
+        value: [google, github, apple, microsoft]
+        description: "Unsupported identity provider"
+    result: show "Unsupported login provider"
+
+  token_exchange_failed:
+    priority: 4
+    error: OAUTH_TOKEN_EXCHANGE_FAILED
+    given:
+      - field: authorization_code
+        source: request
+        operator: exists
+      - field: token_response
+        source: computed
+        operator: not_exists
+        description: "Token exchange with provider failed"
+    then:
+      - action: emit_event
+        event: oauth.token_failed
+        payload: [provider, timestamp, error_code]
+    result: show "Authentication failed. Please try again."
+
+  account_link_existing:
+    priority: 5
+    transaction: true
+    given:
+      - field: provider_email
+        source: computed
+        operator: exists
+        description: "Provider returned a verified email"
+      - field: local_account
+        source: db
+        operator: exists
+        description: "A local account exists with the same email"
+      - field: provider_link
+        source: db
+        operator: not_exists
+        description: "This provider is not yet linked to the local account"
+      - field: link_confirmed
+        source: input
+        operator: eq
+        value: true
+        description: "User confirmed account linking"
+    then:
+      - action: create_record
+        type: oauth_link
+        target: oauth_link
+        description: "Create link between local account and social provider"
+      - action: set_field
+        target: linked_at
+        value: "now"
+      - action: emit_event
+        event: oauth.linked
+        payload: [user_id, provider, provider_user_id, timestamp]
+    result: account linked — redirect to application
+
+  new_user_registration:
+    priority: 6
+    transaction: true
+    given:
+      - field: local_account
+        source: db
+        operator: not_exists
+        description: "No local account with this email"
+      - field: provider_email
+        source: computed
+        operator: exists
+        description: "Provider returned a verified email"
+    then:
+      - action: create_record
+        type: user
+        target: user
+        description: "Create new local user from provider profile"
+      - action: create_record
+        type: oauth_link
+        target: oauth_link
+        description: "Link new account to social provider"
+      - action: create_record
+        type: session
+        target: session
+        description: "Create authenticated session"
+      - action: emit_event
+        event: oauth.authorized
+        payload: [user_id, provider, provider_user_id, timestamp, is_new_user]
+    result: new account created and linked — redirect to onboarding or dashboard
+
+  returning_user_login:
+    priority: 10
+    transaction: true
+    given:
+      - field: provider_link
+        source: db
+        operator: exists
+        description: "Provider is already linked to a local account"
+      - field: local_account
+        source: db
+        operator: exists
+      - field: status
+        source: db
+        operator: neq
+        value: disabled
+        description: "Account is not disabled"
+    then:
+      - action: create_record
+        type: session
+        target: session
+        description: "Create authenticated session"
+      - action: set_field
+        target: provider_email
+        value: "provider_profile.email"
+        description: "Sync email from provider if changed"
+        when: "profile_sync_enabled == true"
+      - action: set_field
+        target: provider_name
+        value: "provider_profile.name"
+        when: "profile_sync_enabled == true"
+      - action: emit_event
+        event: oauth.authorized
+        payload: [user_id, provider, provider_user_id, timestamp, is_new_user]
+    result: redirect to dashboard
+
+  unlink_provider:
+    priority: 11
+    transaction: true
+    given:
+      - field: provider_link
+        source: db
+        operator: exists
+        description: "Provider link exists"
+      - field: alternative_auth_method
+        source: db
+        operator: exists
+        description: "User has at least one other auth method (password or another provider)"
+    then:
+      - action: delete_record
+        type: oauth_link
+        target: oauth_link
+        description: "Remove link between local account and social provider"
+      - action: emit_event
+        event: oauth.unlinked
+        payload: [user_id, provider, timestamp]
+    result: provider unlinked — user retains other authentication methods
+
+# ─── ERRORS ───────────────────────────────────────────────
+
+errors:
+  - code: OAUTH_RATE_LIMITED
+    status: 429
+    message: "Too many login attempts. Please wait a moment."
+    retry: true
+
+  - code: OAUTH_INVALID_STATE
+    status: 403
+    message: "Authentication failed. Please try again."
+    retry: true
+
+  - code: OAUTH_INVALID_PROVIDER
+    status: 400
+    message: "Unsupported login provider"
+    retry: false
+
+  - code: OAUTH_TOKEN_EXCHANGE_FAILED
+    status: 503
+    message: "Authentication failed. Please try again."
+    retry: true
+
+  - code: OAUTH_ACCOUNT_DISABLED
+    status: 403
+    message: "This account has been disabled. Please contact support."
+    retry: false
+
+  - code: OAUTH_EMAIL_NOT_PROVIDED
+    status: 400
+    message: "Email permission is required. Please grant email access and try again."
+    retry: true
+
+  - code: OAUTH_UNLINK_LAST_METHOD
+    status: 400
+    message: "Cannot remove your only login method. Add a password or another provider first."
+    retry: false
+
+# ─── EVENTS ───────────────────────────────────────────────
+
+events:
+  - name: oauth.authorized
+    description: "User authenticated via social provider"
+    payload: [user_id, provider, provider_user_id, timestamp, is_new_user]
+
+  - name: oauth.linked
+    description: "Social provider linked to existing account"
+    payload: [user_id, provider, provider_user_id, timestamp]
+
+  - name: oauth.unlinked
+    description: "Social provider unlinked from account"
+    payload: [user_id, provider, timestamp]
+
+  - name: oauth.csrf_detected
+    description: "CSRF attack detected via invalid state parameter"
+    payload: [ip_address, provider, timestamp]
+
+  - name: oauth.token_failed
+    description: "Token exchange with provider failed"
+    payload: [provider, timestamp, error_code]
+
+# ─── RELATIONSHIPS ────────────────────────────────────────
+
+related:
+  - feature: login
+    type: recommended
+    reason: "Social login is an alternative to password-based login"
+    ui_link: "Or sign in with email"
+    ui_link_position: below_form
+
+  - feature: signup
+    type: recommended
+    reason: "Social login can create new accounts automatically"
+
+  - feature: session-management
+    type: recommended
+    reason: "Sessions created via OAuth need tracking and revocation"
+
+  - feature: multi-factor-auth
+    type: optional
+    reason: "MFA can be required even after social authentication"
+
+# ─── UI HINTS ─────────────────────────────────────────────
+
+ui_hints:
+  layout: single_column_centered
+  max_width: 420px
+  show_logo: true
+
+  provider_buttons:
+    style: branded
+    # Show provider logos and brand colors
+    layout: stacked
+    order: [google, github, apple, microsoft]
+    full_width: true
+
+  account_linking:
+    show_confirmation_dialog: true
+    # "An account with this email already exists. Link it?"
+    show_linked_providers: true
+    # Show which providers are connected in account settings
+
+  actions:
+    primary:
+      label: "Continue with {provider}"
+      type: button
+      full_width: true
+
+  divider:
+    show: true
+    text: "or"
+    position: between_social_and_email
+    # Visual separator between social buttons and email form
+
+  accessibility:
+    aria_live_region: true
+    provider_button_labels: true
+    # "Sign in with Google", not just Google icon
+
+  loading:
+    show_spinner: true
+    disable_button: true
+    redirect_message: "Redirecting to {provider}..."

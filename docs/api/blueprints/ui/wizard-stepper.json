@@ -1,0 +1,413 @@
+{
+  "feature": "wizard-stepper",
+  "version": "1.0.0",
+  "description": "Multi-step form and process wizard with progress indicator, step validation, skip optional steps, save progress, and resume later",
+  "category": "ui",
+  "tags": [
+    "wizard",
+    "stepper",
+    "multi-step",
+    "progress",
+    "form-wizard",
+    "onboarding",
+    "workflow"
+  ],
+  "fields": [
+    {
+      "name": "steps",
+      "type": "json",
+      "required": true,
+      "label": "Step Definitions",
+      "validation": [
+        {
+          "type": "required",
+          "message": "At least one step is required"
+        }
+      ]
+    },
+    {
+      "name": "current_step",
+      "type": "number",
+      "required": true,
+      "label": "Current Step Index",
+      "default": 0,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Current step is required"
+        },
+        {
+          "type": "min",
+          "value": 0,
+          "message": "Step index must be zero or greater"
+        }
+      ]
+    },
+    {
+      "name": "progress_percent",
+      "type": "number",
+      "required": false,
+      "label": "Progress Percentage",
+      "default": 0,
+      "validation": [
+        {
+          "type": "min",
+          "value": 0,
+          "message": "Progress cannot be negative"
+        },
+        {
+          "type": "max",
+          "value": 100,
+          "message": "Progress cannot exceed 100"
+        }
+      ]
+    },
+    {
+      "name": "can_skip",
+      "type": "boolean",
+      "required": false,
+      "label": "Allow Skipping Optional Steps",
+      "default": true
+    },
+    {
+      "name": "data",
+      "type": "json",
+      "required": false,
+      "label": "Accumulated Step Data"
+    },
+    {
+      "name": "navigation_mode",
+      "type": "select",
+      "required": false,
+      "label": "Navigation Mode",
+      "default": "linear",
+      "options": [
+        {
+          "label": "Linear",
+          "value": "linear"
+        },
+        {
+          "label": "Non-Linear",
+          "value": "non-linear"
+        }
+      ]
+    },
+    {
+      "name": "save_state_id",
+      "type": "text",
+      "required": false,
+      "label": "Saved State Identifier"
+    }
+  ],
+  "rules": {
+    "navigation": {
+      "validate_before_advance": true,
+      "back_always_available": true,
+      "keyboard_navigation": true
+    },
+    "step_management": {
+      "max_steps": 20,
+      "optional_steps_skippable": true,
+      "non_linear_requires_completion": true
+    },
+    "persistence": {
+      "auto_save": true,
+      "storage": "localStorage",
+      "resume_session": true
+    },
+    "unsaved_changes": {
+      "warn_on_navigation": true,
+      "warn_on_browser_back": true
+    },
+    "progress": {
+      "calculation": "completed_steps / total_steps * 100",
+      "include_optional": true
+    }
+  },
+  "outcomes": {
+    "step_advanced": {
+      "priority": 1,
+      "given": [
+        "current step validation passes",
+        "there is a next step available"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "current_step",
+          "description": "Increment current step index"
+        },
+        {
+          "action": "set_field",
+          "target": "data",
+          "description": "Merge current step data into accumulated data"
+        },
+        {
+          "action": "set_field",
+          "target": "progress_percent",
+          "description": "Recalculate progress percentage"
+        },
+        {
+          "action": "emit_event",
+          "event": "wizard.step_changed",
+          "payload": [
+            "step_id",
+            "step_index",
+            "direction",
+            "progress_percent"
+          ]
+        }
+      ],
+      "result": "Next step content renders, progress indicator updates"
+    },
+    "step_back": {
+      "priority": 2,
+      "given": [
+        "current step is not the first step"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "current_step",
+          "description": "Decrement current step index"
+        },
+        {
+          "action": "emit_event",
+          "event": "wizard.step_changed",
+          "payload": [
+            "step_id",
+            "step_index",
+            "direction",
+            "progress_percent"
+          ]
+        }
+      ],
+      "result": "Previous step content renders with previously entered data preserved"
+    },
+    "step_skipped": {
+      "priority": 3,
+      "given": [
+        "current step is marked as optional",
+        "can_skip is enabled"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "current_step",
+          "description": "Skip to next step without validation"
+        },
+        {
+          "action": "set_field",
+          "target": "progress_percent",
+          "description": "Recalculate progress percentage"
+        },
+        {
+          "action": "emit_event",
+          "event": "wizard.step_changed",
+          "payload": [
+            "step_id",
+            "step_index",
+            "direction",
+            "progress_percent"
+          ]
+        }
+      ],
+      "result": "Optional step bypassed, next step renders"
+    },
+    "step_validation_failed": {
+      "priority": 4,
+      "error": "WIZARD_STEP_VALIDATION_FAILED",
+      "given": [
+        "user attempts to advance to next step",
+        "current step validation fails"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "wizard.validation_failed",
+          "payload": [
+            "step_id",
+            "step_index",
+            "errors"
+          ]
+        }
+      ],
+      "result": "Validation errors displayed on current step, navigation blocked"
+    },
+    "wizard_completed": {
+      "priority": 5,
+      "given": [
+        "user is on the last step",
+        "last step validation passes",
+        "all required steps are completed"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "wizard.completed",
+          "payload": [
+            "data",
+            "total_steps",
+            "completed_steps",
+            "duration"
+          ]
+        },
+        {
+          "action": "call_service",
+          "target": "submission_handler",
+          "description": "Submit all accumulated wizard data"
+        }
+      ],
+      "result": "Wizard complete, accumulated data submitted, completion screen shown"
+    },
+    "wizard_abandoned": {
+      "priority": 6,
+      "given": [
+        "user navigates away from wizard before completion",
+        "at least one step has been started"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "save_state_id",
+          "description": "Save current progress for later resumption"
+        },
+        {
+          "action": "emit_event",
+          "event": "wizard.abandoned",
+          "payload": [
+            "step_id",
+            "step_index",
+            "progress_percent",
+            "data"
+          ]
+        }
+      ],
+      "result": "Progress saved, user can resume later"
+    },
+    "wizard_resumed": {
+      "priority": 7,
+      "given": [
+        "user returns to a wizard with saved progress",
+        "save_state_id exists and contains valid data"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "current_step",
+          "description": "Restore saved step position"
+        },
+        {
+          "action": "set_field",
+          "target": "data",
+          "description": "Restore accumulated data from saved state"
+        },
+        {
+          "action": "set_field",
+          "target": "progress_percent",
+          "description": "Restore progress percentage"
+        },
+        {
+          "action": "emit_event",
+          "event": "wizard.step_changed",
+          "payload": [
+            "step_id",
+            "step_index",
+            "direction",
+            "progress_percent"
+          ]
+        }
+      ],
+      "result": "Wizard resumes at the last saved step with all data intact"
+    }
+  },
+  "errors": [
+    {
+      "code": "WIZARD_STEP_VALIDATION_FAILED",
+      "status": 422,
+      "message": "Please complete the required fields before proceeding",
+      "retry": true
+    },
+    {
+      "code": "WIZARD_STEP_NOT_FOUND",
+      "status": 404,
+      "message": "The requested step does not exist",
+      "retry": false
+    },
+    {
+      "code": "WIZARD_SAVE_FAILED",
+      "status": 500,
+      "message": "Failed to save wizard progress. Please try again.",
+      "retry": true
+    },
+    {
+      "code": "WIZARD_RESUME_EXPIRED",
+      "status": 410,
+      "message": "Your saved progress has expired. Please start again.",
+      "retry": false
+    }
+  ],
+  "events": [
+    {
+      "name": "wizard.step_changed",
+      "description": "User navigated to a different step (forward, back, skip, or resume)",
+      "payload": [
+        "step_id",
+        "step_index",
+        "direction",
+        "progress_percent"
+      ]
+    },
+    {
+      "name": "wizard.completed",
+      "description": "All required steps completed and wizard submitted",
+      "payload": [
+        "data",
+        "total_steps",
+        "completed_steps",
+        "duration"
+      ]
+    },
+    {
+      "name": "wizard.abandoned",
+      "description": "User left the wizard before completion",
+      "payload": [
+        "step_id",
+        "step_index",
+        "progress_percent",
+        "data"
+      ]
+    },
+    {
+      "name": "wizard.validation_failed",
+      "description": "Step validation failed when user attempted to advance",
+      "payload": [
+        "step_id",
+        "step_index",
+        "errors"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "form-builder",
+      "type": "recommended",
+      "reason": "Each wizard step typically contains a form built with the form builder"
+    },
+    {
+      "feature": "accessibility",
+      "type": "recommended",
+      "reason": "Stepper must be keyboard navigable with proper ARIA roles"
+    },
+    {
+      "feature": "toast-notifications",
+      "type": "optional",
+      "reason": "Progress save confirmations and validation errors can use toast notifications"
+    },
+    {
+      "feature": "internationalization",
+      "type": "optional",
+      "reason": "Step titles, validation messages, and button labels may need translation"
+    }
+  ]
+}

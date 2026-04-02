@@ -1,0 +1,254 @@
+# ============================================================
+# TAGGING AND CATEGORIZATION — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Tags, labels, and hierarchical categories for organizing
+# any entity. Supports tag groups, colors, and auto-slugs.
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: tagging-categorization
+version: "1.0.0"
+description: Tags, labels, and hierarchical categories for organizing entities with tag groups, colors, slug auto-generation, and category depth limits
+category: data
+tags: [tagging, categorization, labels, taxonomy, hierarchy, organization]
+
+fields:
+  - name: tag_name
+    type: text
+    required: true
+    label: "Tag Name"
+    validation:
+      - type: minLength
+        value: 1
+        message: "Tag name is required"
+      - type: maxLength
+        value: 100
+        message: "Tag name must not exceed 100 characters"
+
+  - name: tag_slug
+    type: text
+    required: false
+    label: "Tag Slug"
+
+  - name: tag_color
+    type: text
+    required: false
+    label: "Tag Color"
+    validation:
+      - type: pattern
+        value: "^#[0-9A-Fa-f]{6}$"
+        message: "Color must be a valid hex code (e.g., #FF5733)"
+
+  - name: tag_group
+    type: text
+    required: false
+    label: "Tag Group"
+
+  - name: category_path
+    type: text
+    required: false
+    label: "Category Path"
+
+  - name: parent_category_id
+    type: text
+    required: false
+    label: "Parent Category ID"
+
+  - name: category_name
+    type: text
+    required: false
+    label: "Category Name"
+    validation:
+      - type: maxLength
+        value: 200
+        message: "Category name must not exceed 200 characters"
+
+  - name: category_slug
+    type: text
+    required: false
+    label: "Category Slug"
+
+  - name: category_depth
+    type: number
+    required: false
+    label: "Category Depth"
+
+  - name: entity_type
+    type: text
+    required: true
+    label: "Entity Type"
+
+  - name: entity_id
+    type: text
+    required: true
+    label: "Entity ID"
+
+rules:
+  tags:
+    max_tags_per_entity: 50
+    # Prevent excessive tagging on a single entity
+    unique_within_scope: true
+    # Tag names must be unique within their tag_group
+    case_insensitive_matching: true
+    # "Urgent" and "urgent" are treated as the same tag
+    slug_auto_generation: true
+    # Slugs are auto-generated from name on create/update
+    slug_format: "kebab-case"
+
+  tag_groups:
+    predefined_groups_optional: true
+    # Groups can be predefined or created on the fly
+    max_groups: 100
+    # Limit total number of tag groups
+
+  categories:
+    max_depth: 5
+    # Category hierarchy cannot exceed 5 levels deep
+    unique_name_within_parent: true
+    # Sibling categories must have unique names
+    path_auto_generation: true
+    # category_path is auto-built from the ancestor chain
+    path_separator: "/"
+    prevent_circular_reference: true
+    # A category cannot be its own ancestor
+
+  deletion:
+    tag_deletion: "remove_associations"
+    # Deleting a tag removes it from all entities
+    category_deletion: "restrict_if_has_children"
+    # Cannot delete a category that has subcategories; must delete children first
+
+outcomes:
+  tag_applied:
+    priority: 1
+    given:
+      - "user applies a tag to an entity"
+      - "the tag exists or is being created inline"
+      - "the entity has fewer than the maximum allowed tags"
+      - "the tag is not already applied to this entity"
+    then:
+      - action: create_record
+        type: entity_tag
+        target: entity_tag
+        description: "Create association between entity and tag"
+      - action: emit_event
+        event: tag.applied
+        payload: [tag_name, tag_group, entity_type, entity_id]
+    result: "Tag applied to the entity"
+
+  tag_removed:
+    priority: 2
+    given:
+      - "user removes a tag from an entity"
+      - "the tag is currently applied to the entity"
+    then:
+      - action: delete_record
+        type: entity_tag
+        description: "Remove association between entity and tag"
+      - action: emit_event
+        event: tag.removed
+        payload: [tag_name, tag_group, entity_type, entity_id]
+    result: "Tag removed from the entity"
+
+  category_assigned:
+    priority: 3
+    given:
+      - "user assigns an entity to a category"
+      - "the category exists"
+    then:
+      - action: set_field
+        target: entity_category
+        description: "Set the entity's category to the specified category"
+      - action: emit_event
+        event: category.assigned
+        payload: [category_path, entity_type, entity_id]
+    result: "Entity assigned to the category"
+
+  category_created:
+    priority: 4
+    given:
+      - "user creates a new category"
+      - "the category name is unique within the parent"
+      - "the depth does not exceed the maximum"
+    then:
+      - action: create_record
+        type: category
+        target: category
+        description: "Create category with auto-generated slug and path"
+      - action: emit_event
+        event: category.created
+        payload: [category_name, category_path, parent_category_id]
+    result: "New category created in the hierarchy"
+
+  tag_limit_exceeded:
+    priority: 10
+    error: TAG_LIMIT_EXCEEDED
+    given:
+      - "user tries to apply a tag to an entity"
+      - "the entity already has the maximum number of tags"
+    result: "Error returned indicating tag limit reached"
+
+  category_depth_exceeded:
+    priority: 11
+    error: CATEGORY_DEPTH_EXCEEDED
+    given:
+      - "user tries to create a subcategory"
+      - "the parent category is already at the maximum depth"
+    result: "Error returned indicating category depth limit reached"
+
+  duplicate_tag:
+    priority: 12
+    error: TAG_ALREADY_APPLIED
+    given:
+      - "user tries to apply a tag that is already on the entity"
+    result: "Error returned indicating the tag is already applied"
+
+errors:
+  - code: TAG_LIMIT_EXCEEDED
+    status: 400
+    message: "Maximum number of tags per entity reached"
+
+  - code: CATEGORY_DEPTH_EXCEEDED
+    status: 400
+    message: "Category hierarchy cannot exceed the maximum depth"
+
+  - code: TAG_ALREADY_APPLIED
+    status: 409
+    message: "This tag is already applied to the entity"
+
+  - code: CATEGORY_HAS_CHILDREN
+    status: 409
+    message: "Cannot delete a category that has subcategories"
+
+  - code: CATEGORY_NAME_DUPLICATE
+    status: 409
+    message: "A category with this name already exists under the same parent"
+
+events:
+  - name: tag.applied
+    description: "A tag was applied to an entity"
+    payload: [tag_name, tag_group, entity_type, entity_id]
+
+  - name: tag.removed
+    description: "A tag was removed from an entity"
+    payload: [tag_name, tag_group, entity_type, entity_id]
+
+  - name: category.created
+    description: "A new category was created in the hierarchy"
+    payload: [category_name, category_path, parent_category_id]
+
+  - name: category.assigned
+    description: "An entity was assigned to a category"
+    payload: [category_path, entity_type, entity_id]
+
+related:
+  - feature: search-and-filtering
+    type: required
+    reason: "Tags and categories are primary facets for filtering and searching entities"
+
+  - feature: audit-trail
+    type: optional
+    reason: "Tag and category changes can be tracked for compliance"

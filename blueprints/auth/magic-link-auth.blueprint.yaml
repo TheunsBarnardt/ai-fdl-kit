@@ -1,0 +1,419 @@
+# ============================================================
+# MAGIC LINK AUTH — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Passwordless email login via single-use magic links.
+# Generates a cryptographic token, emails a login link,
+# validates the token with expiry and optional IP binding.
+# Eliminates password management for users.
+# ============================================================
+
+feature: magic-link-auth
+version: "1.0.0"
+description: Passwordless email login via single-use magic links
+category: auth
+tags: [authentication, passwordless, magic-link, email, security, identity]
+
+# ─── FIELDS ───────────────────────────────────────────────
+
+fields:
+  - name: email
+    type: email
+    required: true
+    label: "Email Address"
+    placeholder: "you@example.com"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Email is required"
+      - type: email
+        message: "Please enter a valid email address"
+      - type: maxLength
+        value: 255
+        message: "Email is too long"
+
+  - name: token_hash
+    type: hidden
+    required: true
+    label: "Token Hash"
+    sensitive: true
+    # SHA-256 hash of the magic link token
+    # NEVER store the plaintext token in the database
+
+  - name: expires_at
+    type: datetime
+    required: true
+    label: "Token Expires At"
+    sensitive: false
+
+  - name: used_at
+    type: datetime
+    required: false
+    label: "Token Used At"
+    sensitive: false
+    # Set when the token is consumed — prevents reuse
+
+  - name: ip_address
+    type: text
+    required: false
+    label: "Requester IP Address"
+    sensitive: false
+    # IP that requested the magic link (for optional binding)
+
+  - name: user_agent
+    type: text
+    required: false
+    label: "Requester User Agent"
+    sensitive: false
+    validation:
+      - type: maxLength
+        value: 512
+        message: "User agent string is too long"
+
+# ─── RULES ────────────────────────────────────────────────
+
+rules:
+  security:
+    token:
+      entropy_bytes: 32
+      # 256-bit cryptographically random token
+      hash_algorithm: sha256
+      # Store SHA-256 hash — never persist plaintext
+      expiry_minutes: 15
+      # Token valid for 15 minutes after generation
+      single_use: true
+      # Token is invalidated immediately after successful use
+
+    ip_binding:
+      enabled: false
+      # Optional: require verification from the same IP that requested the link
+      # Disabled by default — causes issues with VPNs and mobile networks
+      warn_on_ip_mismatch: true
+      # Log a warning if verification IP differs from request IP
+
+    rate_limit:
+      window_seconds: 300
+      max_requests: 3
+      scope: per_email
+      # Maximum 3 magic link requests per email per 5 minutes
+      cooldown_seconds: 60
+      # Minimum 60 seconds between requests to same email
+
+    rate_limit_global:
+      window_seconds: 60
+      max_requests: 20
+      scope: per_ip
+      # 20 magic link requests per minute per IP address
+
+    enumeration_prevention:
+      generic_response: true
+      # CRITICAL: always show "If an account exists, we sent a link"
+      # Never reveal whether the email is registered
+      constant_time_response: true
+      # Response time must not differ between existing/non-existing emails
+
+    max_active_tokens_per_email: 3
+    # Limit concurrent active tokens (invalidate oldest if exceeded)
+
+  email:
+    case_sensitive: false
+    trim_whitespace: true
+    link_format: "{base_url}/auth/magic-link/verify?token={token}"
+    subject: "Your sign-in link"
+    from_name: "Application"
+    # Do not include the token in the email subject line
+    # Link should be the only clickable element in the email body
+
+# ─── OUTCOMES ─────────────────────────────────────────────
+
+outcomes:
+  rate_limited_per_email:
+    priority: 1
+    error: MAGIC_LINK_RATE_LIMITED
+    given:
+      - field: email_request_count
+        source: computed
+        operator: gt
+        value: 3
+        description: "More than 3 magic link requests for this email in 5 minutes"
+    result: show "If an account exists with this email, we sent a sign-in link." (same message — enumeration prevention)
+
+  rate_limited_per_ip:
+    priority: 2
+    error: MAGIC_LINK_RATE_LIMITED
+    given:
+      - field: ip_request_count
+        source: computed
+        operator: gt
+        value: 20
+        description: "More than 20 magic link requests from this IP in 60 seconds"
+    result: show "Too many requests. Please wait a moment."
+
+  send_magic_link:
+    priority: 5
+    transaction: true
+    given:
+      - field: email
+        source: input
+        operator: matches
+        value: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+        description: "Email is valid format"
+      - field: user
+        source: db
+        operator: exists
+        description: "User with this email exists"
+      - field: status
+        source: db
+        operator: neq
+        value: disabled
+        description: "Account is not disabled"
+    then:
+      - action: delete_record
+        type: magic_link_token
+        target: oldest_active_token
+        description: "Invalidate oldest active token if limit exceeded"
+        when: "active_token_count >= 3"
+      - action: create_record
+        type: magic_link_token
+        target: magic_link_token
+        description: "Generate token, store hash, set 15-minute expiry"
+      - action: notify
+        channel: email
+        template: magic_link
+        description: "Send email with magic link"
+      - action: emit_event
+        event: magic_link.sent
+        payload: [user_id, email, timestamp, ip_address, expires_at]
+    result: show "If an account exists with this email, we sent a sign-in link." (same message always)
+
+  send_magic_link_no_account:
+    priority: 6
+    given:
+      - field: email
+        source: input
+        operator: matches
+        value: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+        description: "Email is valid format"
+      - field: user
+        source: db
+        operator: not_exists
+        description: "No user with this email exists"
+    result: show "If an account exists with this email, we sent a sign-in link." (SAME message — enumeration prevention)
+
+  token_expired:
+    priority: 7
+    error: MAGIC_LINK_EXPIRED
+    given:
+      - field: token_hash
+        source: computed
+        operator: eq
+        value: stored_token_hash
+        description: "Token hash matches a stored hash"
+      - field: expires_at
+        source: db
+        operator: lte
+        value: now
+        description: "Token has expired"
+    then:
+      - action: emit_event
+        event: magic_link.expired
+        payload: [email, timestamp]
+    result: show "This sign-in link has expired. Please request a new one."
+
+  token_already_used:
+    priority: 8
+    error: MAGIC_LINK_ALREADY_USED
+    given:
+      - field: token_hash
+        source: computed
+        operator: eq
+        value: stored_token_hash
+        description: "Token hash matches"
+      - field: used_at
+        source: db
+        operator: exists
+        description: "Token has already been used"
+    then:
+      - action: emit_event
+        event: magic_link.reuse_attempt
+        payload: [email, timestamp, ip_address]
+    result: show "This sign-in link has already been used. Please request a new one."
+
+  token_invalid:
+    priority: 9
+    error: MAGIC_LINK_INVALID
+    given:
+      - field: token_hash
+        source: computed
+        operator: neq
+        value: stored_token_hash
+        description: "Token hash does not match any stored hash"
+    result: show "Invalid sign-in link. Please request a new one."
+
+  verify_magic_link:
+    priority: 10
+    transaction: true
+    given:
+      - field: token_hash
+        source: computed
+        operator: eq
+        value: stored_token_hash
+        description: "Token hash matches a stored hash"
+      - field: expires_at
+        source: db
+        operator: gt
+        value: now
+        description: "Token has not expired"
+      - field: used_at
+        source: db
+        operator: not_exists
+        description: "Token has not been used"
+      - field: status
+        source: db
+        operator: neq
+        value: disabled
+        description: "Account is not disabled"
+    then:
+      - action: set_field
+        target: used_at
+        value: "now"
+        description: "Mark token as used (single-use)"
+      - action: create_record
+        type: session
+        target: session
+        description: "Create authenticated session"
+      - action: set_field
+        target: email_verified
+        value: true
+        description: "Implicitly verify email — user proved ownership"
+        when: "email_verified == false"
+      - action: emit_event
+        event: magic_link.verified
+        payload: [user_id, email, timestamp, ip_address, session_id]
+    result: redirect to dashboard
+
+# ─── ERRORS ───────────────────────────────────────────────
+
+errors:
+  - code: MAGIC_LINK_RATE_LIMITED
+    status: 429
+    message: "Too many requests. Please wait a moment."
+    retry: true
+
+  - code: MAGIC_LINK_EXPIRED
+    status: 401
+    message: "This sign-in link has expired. Please request a new one."
+    retry: true
+    redirect: magic-link-request
+
+  - code: MAGIC_LINK_ALREADY_USED
+    status: 401
+    message: "This sign-in link has already been used. Please request a new one."
+    retry: true
+    redirect: magic-link-request
+
+  - code: MAGIC_LINK_INVALID
+    status: 401
+    message: "Invalid sign-in link. Please request a new one."
+    retry: true
+    redirect: magic-link-request
+
+  - code: MAGIC_LINK_ACCOUNT_DISABLED
+    status: 403
+    message: "This account has been disabled. Please contact support."
+    retry: false
+
+  - code: MAGIC_LINK_VALIDATION_ERROR
+    status: 422
+    message: "Please enter a valid email address"
+    retry: true
+
+# ─── EVENTS ───────────────────────────────────────────────
+
+events:
+  - name: magic_link.sent
+    description: "Magic link email sent to user"
+    payload: [user_id, email, timestamp, ip_address, expires_at]
+
+  - name: magic_link.verified
+    description: "Magic link token successfully verified and session created"
+    payload: [user_id, email, timestamp, ip_address, session_id]
+
+  - name: magic_link.expired
+    description: "User attempted to use an expired magic link"
+    payload: [email, timestamp]
+
+  - name: magic_link.reuse_attempt
+    description: "User attempted to reuse an already-consumed magic link"
+    payload: [email, timestamp, ip_address]
+
+# ─── RELATIONSHIPS ────────────────────────────────────────
+
+related:
+  - feature: login
+    type: recommended
+    reason: "Magic link is an alternative to password-based login"
+    ui_link: "Sign in with password instead"
+    ui_link_position: below_form
+
+  - feature: signup
+    type: required
+    reason: "User account must exist to receive a magic link"
+
+  - feature: email-verification
+    type: optional
+    reason: "Magic link implicitly verifies email ownership"
+
+  - feature: session-management
+    type: recommended
+    reason: "Sessions created via magic link need tracking and revocation"
+
+  - feature: multi-factor-auth
+    type: optional
+    reason: "MFA can be required as additional factor after magic link"
+
+# ─── UI HINTS ─────────────────────────────────────────────
+
+ui_hints:
+  layout: single_column_centered
+  max_width: 420px
+  show_logo: true
+
+  request_form:
+    fields_order: [email]
+    show_explanation: true
+    # "We'll send you a sign-in link — no password needed"
+
+  success_state:
+    show_email_sent_icon: true
+    show_check_inbox_message: true
+    # "Check your inbox for a sign-in link"
+    show_resend_link: true
+    resend_cooldown_seconds: 60
+    # Disable resend button for 60 seconds
+
+  actions:
+    primary:
+      label: "Send sign-in link"
+      type: submit
+      full_width: true
+    resend:
+      label: "Resend link"
+      type: button
+      disabled_until_cooldown: true
+
+  links:
+    - label: "Sign in with password instead"
+      target: login
+      position: below_form
+
+  accessibility:
+    autofocus: email
+    autocomplete:
+      email: email
+    aria_live_region: true
+
+  loading:
+    disable_button: true
+    show_spinner: true
+    prevent_double_submit: true

@@ -1,0 +1,569 @@
+# ============================================================
+# DATA PRIVACY COMPLIANCE — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# GDPR and CCPA compliance: granular consent management,
+# right to access (data export), right to erasure (deletion
+# with cascading), data portability, and cookie consent.
+# Erasure requests must complete within 30 days.
+# ============================================================
+
+feature: data-privacy-compliance
+version: "1.0.0"
+description: GDPR/CCPA compliance with consent management, data export, right to erasure, and cookie consent
+category: access
+tags: [gdpr, ccpa, privacy, consent, erasure, data-portability, compliance, cookies, right-to-access]
+
+# ─── FIELDS ───────────────────────────────────────────────
+
+fields:
+  - name: consent_id
+    type: text
+    required: true
+    label: "Consent Record ID"
+    sensitive: false
+
+  - name: user_id
+    type: text
+    required: true
+    label: "User ID"
+    sensitive: false
+    validation:
+      - type: required
+        message: "User ID is required"
+
+  - name: consent_type
+    type: select
+    required: true
+    label: "Consent Type"
+    options:
+      - value: marketing
+        label: "Marketing"
+      - value: analytics
+        label: "Analytics"
+      - value: functional
+        label: "Functional"
+      - value: third_party_sharing
+        label: "Third Party Sharing"
+      - value: profiling
+        label: "Profiling"
+      - value: newsletter
+        label: "Newsletter"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Consent type is required"
+
+  - name: purpose
+    type: text
+    required: true
+    label: "Purpose"
+    # Human-readable description of what data is collected and why
+    sensitive: false
+    validation:
+      - type: required
+        message: "Purpose description is required"
+      - type: maxLength
+        value: 1000
+        message: "Purpose must be at most 1000 characters"
+
+  - name: legal_basis
+    type: select
+    required: true
+    label: "Legal Basis"
+    # GDPR Article 6 lawful basis
+    options:
+      - value: consent
+        label: "Consent"
+      - value: contract
+        label: "Contract"
+      - value: legal_obligation
+        label: "Legal Obligation"
+      - value: vital_interest
+        label: "Vital Interest"
+      - value: public_task
+        label: "Public Task"
+      - value: legitimate_interest
+        label: "Legitimate Interest"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Legal basis is required"
+
+  - name: granted_at
+    type: datetime
+    required: false
+    label: "Consent Granted At"
+    sensitive: false
+
+  - name: revoked_at
+    type: datetime
+    required: false
+    label: "Consent Revoked At"
+    sensitive: false
+
+  - name: is_active
+    type: boolean
+    required: true
+    label: "Consent Active"
+    default: false
+    sensitive: false
+
+  - name: consent_version
+    type: text
+    required: true
+    label: "Consent Version"
+    # Tracks which version of the privacy policy user consented to
+    sensitive: false
+    validation:
+      - type: required
+        message: "Consent version is required"
+
+  - name: ip_address_at_consent
+    type: text
+    required: false
+    label: "IP Address at Consent"
+    sensitive: true
+    # Proof of consent origin — stored encrypted
+
+  - name: erasure_request_id
+    type: text
+    required: false
+    label: "Erasure Request ID"
+    sensitive: false
+
+  - name: erasure_status
+    type: select
+    required: false
+    label: "Erasure Status"
+    options:
+      - value: requested
+        label: "Requested"
+      - value: in_progress
+        label: "In Progress"
+      - value: completed
+        label: "Completed"
+      - value: failed
+        label: "Failed"
+      - value: partially_completed
+        label: "Partially Completed"
+    sensitive: false
+
+  - name: erasure_requested_at
+    type: datetime
+    required: false
+    label: "Erasure Requested At"
+    sensitive: false
+
+  - name: erasure_completed_at
+    type: datetime
+    required: false
+    label: "Erasure Completed At"
+    sensitive: false
+
+  - name: export_format
+    type: select
+    required: false
+    label: "Export Format"
+    options:
+      - value: json
+        label: "JSON"
+      - value: csv
+        label: "CSV"
+    default: json
+    sensitive: false
+
+  - name: cookie_category
+    type: select
+    required: false
+    label: "Cookie Category"
+    options:
+      - value: strictly_necessary
+        label: "Strictly Necessary"
+      - value: functional
+        label: "Functional"
+      - value: analytics
+        label: "Analytics"
+      - value: marketing
+        label: "Marketing"
+    sensitive: false
+
+# ─── RULES ────────────────────────────────────────────────
+
+rules:
+  consent:
+    granular_per_purpose: true
+    # Each consent type is independently granted/revoked
+    opt_in_required: true
+    # GDPR: consent must be affirmative opt-in, no pre-checked boxes
+    withdrawal_as_easy_as_grant: true
+    # Revoking consent must be as easy as granting it
+    record_proof: true
+    # Store timestamp, IP, consent version, and user agent as proof
+    re_consent_on_policy_change: true
+    # Users must re-consent when privacy policy changes materially
+    minimum_age: 16
+    # GDPR: parental consent required under 16 (varies by member state)
+
+  erasure:
+    deadline_days: 30
+    # GDPR Article 17: respond within one calendar month
+    cascading_deletion: true
+    # Delete user data from all subsystems, backups, caches, and third parties
+    exceptions:
+      - legal_obligation
+      # Data required by law (e.g., financial records, tax) is exempt
+      - public_interest
+      # Data necessary for public interest purposes
+    verification_required: true
+    # User must verify identity before erasure is executed
+    notification_to_third_parties: true
+    # Notify all third parties who received the data (GDPR Article 19)
+
+  data_export:
+    formats: [json, csv]
+    # GDPR Article 20: data portability in machine-readable format
+    include_all_personal_data: true
+    exclude_derived_data: true
+    # Export raw personal data, not algorithmically derived scores/profiles
+    max_processing_hours: 24
+    # Export should complete within 24 hours for typical accounts
+    delivery: secure_download_link
+    link_expiry_hours: 48
+
+  cookies:
+    strictly_necessary_no_consent: true
+    # Essential cookies do not require consent
+    banner_required: true
+    granular_categories: true
+    # Users must be able to accept/reject each category independently
+    remember_preference: true
+    preference_duration_days: 365
+
+  data_processing_agreements:
+    required_for_third_parties: true
+    # DPA must exist with every third-party processor
+    annual_review: true
+
+# ─── OUTCOMES ─────────────────────────────────────────────
+
+outcomes:
+  consent_granted:
+    priority: 1
+    transaction: true
+    given:
+      - field: user_id
+        source: input
+        operator: exists
+        description: "User identity confirmed"
+      - field: consent_type
+        source: input
+        operator: exists
+        description: "Specific consent type selected"
+      - field: legal_basis
+        source: input
+        operator: exists
+        description: "Legal basis for processing specified"
+    then:
+      - action: create_record
+        type: consent_record
+        target: consents
+        description: "Create consent record with timestamp and proof"
+      - action: set_field
+        target: is_active
+        value: true
+        description: "Mark consent as active"
+      - action: set_field
+        target: granted_at
+        value: now
+        description: "Record consent grant timestamp"
+      - action: emit_event
+        event: privacy.consent_granted
+        payload: [user_id, consent_type, purpose, legal_basis, consent_version, timestamp]
+    result: consent recorded with proof of affirmative opt-in
+
+  consent_revoked:
+    priority: 2
+    transaction: true
+    given:
+      - field: consent_id
+        source: db
+        operator: exists
+        description: "Consent record exists"
+      - field: is_active
+        source: db
+        operator: eq
+        value: true
+        description: "Consent is currently active"
+    then:
+      - action: set_field
+        target: is_active
+        value: false
+        description: "Mark consent as revoked"
+      - action: set_field
+        target: revoked_at
+        value: now
+        description: "Record revocation timestamp"
+      - action: emit_event
+        event: privacy.consent_revoked
+        payload: [user_id, consent_type, purpose, timestamp]
+      - action: call_service
+        target: data_processing
+        method: stop_processing
+        description: "Cease data processing for this purpose immediately"
+    result: consent revoked and data processing stopped for this purpose
+
+  consent_not_found:
+    priority: 3
+    error: CONSENT_NOT_FOUND
+    given:
+      - field: consent_id
+        source: db
+        operator: not_exists
+        description: "No consent record found for the given ID"
+    result: show "Consent record not found"
+
+  erasure_requested:
+    priority: 4
+    transaction: true
+    given:
+      - field: user_id
+        source: input
+        operator: exists
+        description: "User identity confirmed"
+      - field: identity_verified
+        source: computed
+        operator: eq
+        value: true
+        description: "User identity verified through re-authentication"
+    then:
+      - action: create_record
+        type: erasure_request
+        target: erasure_requests
+        description: "Create erasure request with 30-day deadline"
+      - action: set_field
+        target: erasure_status
+        value: requested
+        description: "Set initial status to requested"
+      - action: set_field
+        target: erasure_requested_at
+        value: now
+        description: "Record request timestamp"
+      - action: emit_event
+        event: privacy.erasure_requested
+        payload: [user_id, erasure_request_id, deadline, timestamp]
+      - action: notify
+        channel: email
+        template: erasure_request_confirmation
+        description: "Confirm erasure request receipt to user"
+    result: erasure request created with 30-day compliance deadline
+
+  data_exported:
+    priority: 5
+    transaction: true
+    given:
+      - field: user_id
+        source: input
+        operator: exists
+        description: "User identity confirmed"
+      - field: identity_verified
+        source: computed
+        operator: eq
+        value: true
+        description: "User identity verified"
+      - field: export_format
+        source: input
+        operator: exists
+        description: "Export format selected (JSON or CSV)"
+    then:
+      - action: call_service
+        target: data_export
+        method: compile_personal_data
+        description: "Gather all personal data across subsystems"
+      - action: emit_event
+        event: privacy.data_exported
+        payload: [user_id, export_format, record_count, timestamp]
+      - action: notify
+        channel: email
+        template: data_export_ready
+        description: "Send secure download link (expires in 48 hours)"
+    result: personal data compiled and secure download link sent to user
+
+  data_deleted:
+    priority: 6
+    transaction: true
+    given:
+      - field: erasure_request_id
+        source: db
+        operator: exists
+        description: "Valid erasure request exists"
+      - field: erasure_status
+        source: db
+        operator: eq
+        value: in_progress
+        description: "Erasure is currently being processed"
+      - field: all_subsystems_cleared
+        source: computed
+        operator: eq
+        value: true
+        description: "Data deleted from all subsystems, caches, and third parties"
+    then:
+      - action: set_field
+        target: erasure_status
+        value: completed
+        description: "Mark erasure as completed"
+      - action: set_field
+        target: erasure_completed_at
+        value: now
+        description: "Record completion timestamp"
+      - action: emit_event
+        event: privacy.erasure_completed
+        payload: [user_id, erasure_request_id, subsystems_cleared, timestamp]
+      - action: notify
+        channel: email
+        template: erasure_complete
+        description: "Notify user that their data has been deleted"
+    result: all personal data deleted across all systems and user notified
+
+  erasure_deadline_approaching:
+    priority: 7
+    given:
+      - field: erasure_status
+        source: db
+        operator: in
+        value: [requested, in_progress]
+        description: "Erasure not yet completed"
+      - field: erasure_requested_at
+        source: db
+        operator: lt
+        value: "now - 25d"
+        description: "Request is older than 25 days (5 days until 30-day deadline)"
+    then:
+      - action: notify
+        channel: email
+        template: erasure_deadline_warning
+        description: "Alert DPO that erasure deadline is approaching"
+      - action: emit_event
+        event: privacy.erasure_deadline_warning
+        payload: [user_id, erasure_request_id, days_remaining, timestamp]
+    result: escalation alert sent to data protection officer
+
+  erasure_exempt:
+    priority: 8
+    error: ERASURE_EXEMPT
+    given:
+      - field: legal_hold
+        source: db
+        operator: eq
+        value: true
+        description: "Data is under legal hold or required by law"
+    result: show "Some data cannot be deleted due to legal obligations. Remaining data has been removed."
+
+# ─── ERRORS ───────────────────────────────────────────────
+
+errors:
+  - code: CONSENT_NOT_FOUND
+    status: 404
+    message: "Consent record not found"
+    retry: false
+
+  - code: CONSENT_ALREADY_REVOKED
+    status: 409
+    message: "This consent has already been revoked"
+    retry: false
+
+  - code: ERASURE_EXEMPT
+    status: 403
+    message: "Some data is exempt from erasure due to legal obligations"
+    retry: false
+
+  - code: ERASURE_IN_PROGRESS
+    status: 409
+    message: "An erasure request is already being processed for this account"
+    retry: false
+
+  - code: IDENTITY_VERIFICATION_REQUIRED
+    status: 401
+    message: "Identity verification is required before this action"
+    retry: true
+
+  - code: EXPORT_TOO_LARGE
+    status: 413
+    message: "Data export exceeds maximum size. Please contact support."
+    retry: false
+
+  - code: EXPORT_PROCESSING
+    status: 422
+    message: "Your data export is being prepared. You will receive a download link."
+    retry: false
+
+# ─── EVENTS ───────────────────────────────────────────────
+
+events:
+  - name: privacy.consent_granted
+    description: "User granted consent for a specific processing purpose"
+    payload: [user_id, consent_type, purpose, legal_basis, consent_version, timestamp]
+
+  - name: privacy.consent_revoked
+    description: "User revoked consent for a specific processing purpose"
+    payload: [user_id, consent_type, purpose, timestamp]
+
+  - name: privacy.data_exported
+    description: "User personal data exported for portability"
+    payload: [user_id, export_format, record_count, timestamp]
+
+  - name: privacy.erasure_requested
+    description: "User requested deletion of their personal data"
+    payload: [user_id, erasure_request_id, deadline, timestamp]
+
+  - name: privacy.erasure_completed
+    description: "All personal data successfully deleted across all systems"
+    payload: [user_id, erasure_request_id, subsystems_cleared, timestamp]
+
+  - name: privacy.erasure_deadline_warning
+    description: "Erasure request approaching 30-day compliance deadline"
+    payload: [user_id, erasure_request_id, days_remaining, timestamp]
+
+  - name: privacy.cookie_preference_updated
+    description: "User updated their cookie consent preferences"
+    payload: [user_id, cookie_categories_accepted, cookie_categories_rejected, timestamp]
+
+# ─── RELATIONSHIPS ────────────────────────────────────────
+
+related:
+  - feature: signup
+    type: required
+    reason: "Consent must be collected at registration"
+
+  - feature: audit-logging
+    type: required
+    reason: "All consent changes and data access must be audited for compliance"
+
+  - feature: team-organization
+    type: optional
+    reason: "Consent and erasure may need to be scoped per organization"
+
+  - feature: role-based-access
+    type: recommended
+    reason: "DPO role needs elevated access to privacy management tools"
+
+# ─── UI HINTS ─────────────────────────────────────────────
+
+ui_hints:
+  layout: tabbed_sections
+  max_width: 960px
+  tabs: [consent_management, data_export, erasure_requests, cookie_settings]
+
+  actions:
+    primary:
+      label: "Save Preferences"
+      type: submit
+    secondary:
+      label: "Download My Data"
+      type: button
+
+  fields_order: [consent_type, purpose, legal_basis]
+
+  accessibility:
+    aria_live_region: true
+    screen_reader_descriptions: true

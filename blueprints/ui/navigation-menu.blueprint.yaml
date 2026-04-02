@@ -1,0 +1,318 @@
+# ============================================================
+# NAVIGATION MENU — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Hierarchical navigation system supporting sidebar, top bar,
+# breadcrumb, and mega menu layouts. Features permission-based
+# visibility, active state detection, collapse/expand, badge
+# counters, and mobile-responsive hamburger menu.
+# ============================================================
+
+feature: navigation-menu
+version: "1.0.0"
+description: Hierarchical navigation with sidebar, breadcrumb, mega menu, and mobile support
+category: ui
+tags: [navigation, sidebar, breadcrumb, menu, responsive, accessibility, ui]
+
+# ─── FIELDS ───────────────────────────────────────────────
+
+fields:
+  - name: items
+    type: json
+    required: true
+    label: "Menu Items"
+    sensitive: false
+    # Array of menu item objects: { id, label, icon, href, children[], badge, permission, active }
+    validation:
+      - type: required
+        message: "At least one menu item is required"
+
+  - name: item_id
+    type: text
+    required: true
+    label: "Item ID"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Menu item ID is required"
+      - type: pattern
+        value: "^[a-z0-9-]+$"
+        message: "Item ID must be lowercase alphanumeric with hyphens"
+
+  - name: item_label
+    type: text
+    required: true
+    label: "Item Label"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Menu item label is required"
+      - type: maxLength
+        value: 50
+        message: "Label must be less than 50 characters"
+
+  - name: item_icon
+    type: text
+    required: false
+    label: "Item Icon"
+    sensitive: false
+    # Icon identifier (e.g., Lucide icon name, Material icon name)
+
+  - name: item_href
+    type: url
+    required: false
+    label: "Item Link"
+    sensitive: false
+    # URL or route path — omit for parent-only items
+
+  - name: item_children
+    type: json
+    required: false
+    label: "Child Items"
+    sensitive: false
+    # Nested menu items — max 3 levels deep
+
+  - name: item_badge
+    type: text
+    required: false
+    label: "Badge"
+    sensitive: false
+    # Counter or label shown on the menu item (e.g., "3", "New")
+
+  - name: item_permission
+    type: text
+    required: false
+    label: "Required Permission"
+    sensitive: false
+    # Permission key required to see this item — hidden if user lacks permission
+
+  - name: type
+    type: select
+    required: true
+    label: "Menu Type"
+    options:
+      - {value: "sidebar", label: "Sidebar"}
+      - {value: "topbar", label: "Top Bar"}
+      - {value: "breadcrumb", label: "Breadcrumb"}
+      - {value: "mega", label: "Mega Menu"}
+    sensitive: false
+    validation:
+      - type: required
+        message: "Menu type is required"
+
+  - name: collapsed
+    type: boolean
+    required: false
+    label: "Collapsed"
+    default: false
+    # Whether the sidebar is in collapsed (icon-only) state
+
+# ─── RULES ────────────────────────────────────────────────
+
+rules:
+  hierarchy:
+    max_nesting_levels: 3
+    # Deeper nesting creates poor UX — enforce 3-level limit
+    collapse_children_by_default: true
+    # Only expand the active branch on initial load
+
+  active_state:
+    detect_from_url: true
+    # Automatically highlight the menu item matching current URL/route
+    match_strategy: prefix
+    # "prefix" matches /settings for /settings/profile
+    expand_parent_on_active: true
+    # Auto-expand parent items when a child is active
+
+  permissions:
+    hide_unauthorized: true
+    # Items requiring a permission the user lacks are hidden (not disabled)
+    # NEVER show items users cannot access — reduces attack surface
+
+  badges:
+    max_value_display: 99
+    # Show "99+" for counts above 99
+    refresh_interval_seconds: 60
+    # Poll for updated badge counts every minute
+
+  mobile:
+    hamburger_breakpoint_px: 768
+    # Show hamburger menu below 768px viewport width
+    overlay_on_open: true
+    # Show backdrop overlay when mobile menu is open
+    close_on_navigation: true
+    # Automatically close mobile menu when a link is clicked
+
+  accessibility:
+    keyboard_navigable: true
+    # Full arrow-key navigation within menu
+    aria_roles: true
+    # Use role="navigation", role="menubar", role="menuitem"
+    focus_visible: true
+    # Visible focus indicator for keyboard users
+    skip_to_content_link: true
+    # Provide "Skip to content" link before navigation
+
+# ─── OUTCOMES ─────────────────────────────────────────────
+# What must be true in each scenario — AI decides how to implement
+
+outcomes:
+  empty_menu:
+    priority: 1
+    error: NAV_NO_ITEMS
+    given:
+      - field: items
+        source: input
+        operator: not_exists
+        description: "No menu items provided or all filtered by permissions"
+    result: render empty navigation landmark with no items
+
+  permission_filtered:
+    priority: 2
+    given:
+      - field: item_permission
+        source: computed
+        operator: exists
+        description: "Menu item has a permission requirement"
+      - field: user_permissions
+        source: session
+        operator: not_in
+        value: item_permission
+        description: "User does not have the required permission"
+    then:
+      - action: set_field
+        target: item_visible
+        value: false
+        description: "Hide menu item from user without permission"
+    result: item is completely hidden from the DOM (not just visually hidden)
+
+  nesting_limit_exceeded:
+    priority: 3
+    error: NAV_NESTING_EXCEEDED
+    given:
+      - field: nesting_depth
+        source: computed
+        operator: gt
+        value: 3
+        description: "Menu item exceeds 3-level nesting limit"
+    result: flatten items beyond level 3 into the nearest valid parent
+
+  active_item_detected:
+    priority: 5
+    given:
+      - field: current_url
+        source: request
+        operator: exists
+        description: "Current URL is available"
+      - field: item_href
+        source: input
+        operator: exists
+        description: "Menu item has an href"
+    then:
+      - action: set_field
+        target: item_active
+        value: true
+        description: "Mark item as active based on URL prefix match"
+        when: "current_url == item_href"
+      - action: set_field
+        target: parent_expanded
+        value: true
+        description: "Expand all parent items in the active branch"
+    result: active item highlighted with aria-current="page" and parent tree expanded
+
+  sidebar_collapsed:
+    priority: 6
+    given:
+      - field: type
+        source: input
+        operator: eq
+        value: sidebar
+        description: "Menu type is sidebar"
+      - field: collapsed
+        source: input
+        operator: eq
+        value: true
+        description: "Sidebar is in collapsed state"
+    then:
+      - action: set_field
+        target: show_labels
+        value: false
+        description: "Hide text labels, show only icons"
+    result: render icon-only sidebar with tooltips on hover
+
+  mobile_hamburger:
+    priority: 7
+    given:
+      - field: viewport_width
+        source: system
+        operator: lt
+        value: 768
+        description: "Viewport is below mobile breakpoint"
+    then:
+      - action: set_field
+        target: menu_visible
+        value: false
+        description: "Hide full menu, show hamburger toggle"
+    result: render hamburger icon that toggles full menu as overlay
+
+  render_menu:
+    priority: 10
+    given:
+      - field: items
+        source: input
+        operator: exists
+        description: "Menu items are provided"
+      - field: type
+        source: input
+        operator: in
+        value: [sidebar, topbar, breadcrumb, mega]
+        description: "Valid menu type selected"
+    result: render navigation menu with correct layout, active states, and accessibility attributes
+
+# ─── ERRORS ───────────────────────────────────────────────
+
+errors:
+  - code: NAV_NO_ITEMS
+    status: 400
+    message: "No navigation items available"
+    retry: false
+
+  - code: NAV_NESTING_EXCEEDED
+    status: 400
+    message: "Menu nesting exceeds maximum depth"
+    retry: false
+
+  - code: NAV_INVALID_TYPE
+    status: 400
+    message: "Invalid menu type. Must be sidebar, topbar, breadcrumb, or mega."
+    retry: false
+
+# ─── EVENTS ───────────────────────────────────────────────
+
+events:
+  - name: nav.item_clicked
+    description: "User clicked a navigation menu item"
+    payload: [item_id, item_href, menu_type, timestamp]
+
+  - name: nav.collapsed
+    description: "Sidebar navigation collapsed or expanded"
+    payload: [collapsed, menu_type, timestamp]
+
+  - name: nav.mobile_toggled
+    description: "Mobile hamburger menu opened or closed"
+    payload: [open, timestamp]
+
+# ─── RELATIONSHIPS ────────────────────────────────────────
+
+related:
+  - feature: responsive-layout
+    type: recommended
+    reason: "Navigation adapts to responsive layout breakpoints"
+
+  - feature: dashboard-analytics
+    type: optional
+    reason: "Dashboard is a common navigation destination"
+
+  - feature: theme-configuration
+    type: optional
+    reason: "Navigation styling adapts to theme settings"

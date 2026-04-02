@@ -1,0 +1,287 @@
+# ============================================================
+# CURRENCY CONVERSION — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Multi-currency support with live and cached exchange rates.
+# Converts amounts between currencies with configurable
+# rounding, locale-aware display formatting, and settlement
+# currency support for international transactions.
+# ============================================================
+
+feature: currency-conversion
+version: "1.0.0"
+description: Convert amounts between currencies using live or cached exchange rates
+category: payment
+tags: [currency, exchange-rate, multi-currency, localization, payment, finance]
+
+# ─── FIELDS ───────────────────────────────────────────────
+
+fields:
+  - name: from_currency
+    type: text
+    required: true
+    label: "From Currency"
+    placeholder: "USD"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Source currency is required"
+      - type: pattern
+        value: "^[A-Z]{3}$"
+        message: "Currency must be a valid 3-letter ISO 4217 code"
+
+  - name: to_currency
+    type: text
+    required: true
+    label: "To Currency"
+    placeholder: "EUR"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Target currency is required"
+      - type: pattern
+        value: "^[A-Z]{3}$"
+        message: "Currency must be a valid 3-letter ISO 4217 code"
+
+  - name: amount
+    type: number
+    required: true
+    label: "Amount"
+    placeholder: "100.00"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Amount is required"
+      - type: min
+        value: 0.01
+        message: "Amount must be greater than zero"
+      - type: max
+        value: 999999999.99
+        message: "Amount exceeds maximum allowed value"
+
+  - name: converted_amount
+    type: number
+    required: false
+    label: "Converted Amount"
+    sensitive: false
+    # Computed field — result of conversion
+
+  - name: exchange_rate
+    type: number
+    required: false
+    label: "Exchange Rate"
+    sensitive: false
+    # The rate applied for this conversion
+
+  - name: rate_source
+    type: select
+    required: false
+    label: "Rate Source"
+    options:
+      - {value: "live", label: "Live"}
+      - {value: "cached", label: "Cached"}
+      - {value: "manual", label: "Manual"}
+      - {value: "fallback", label: "Fallback"}
+    # Indicates where the rate was obtained
+
+  - name: rate_timestamp
+    type: datetime
+    required: false
+    label: "Rate Timestamp"
+    sensitive: false
+    # When the exchange rate was last fetched or updated
+
+# ─── RULES ────────────────────────────────────────────────
+
+rules:
+  rate_cache:
+    ttl_seconds: 3600
+    # Cache exchange rates for 1 hour to reduce API calls
+    fallback_to_last_known: true
+    # If live rate fetch fails, use last cached rate
+    max_stale_hours: 24
+    # Reject cached rates older than 24 hours
+
+  supported_currencies:
+    # ISO 4217 currencies supported by this system
+    base_currency: USD
+    list: [USD, EUR, GBP, JPY, CAD, AUD, CHF, CNY, INR, BRL, ZAR, SGD, HKD, KRW, MXN, NZD, SEK, NOK, DKK, PLN]
+
+  rounding:
+    method: bankers
+    # Banker's rounding (round half to even) to avoid bias
+    decimal_places: 2
+    # Most currencies use 2 decimal places
+    zero_decimal_currencies: [JPY, KRW]
+    # These currencies have no fractional units
+
+  display:
+    format_per_locale: true
+    # Use Intl.NumberFormat or equivalent for locale-aware display
+    show_currency_symbol: true
+    show_rate_source: false
+    # Do not expose rate source to end users by default
+
+  settlement:
+    currency: USD
+    # All transactions settle in this currency
+    convert_on_capture: true
+    # Convert to settlement currency at payment capture time
+
+# ─── OUTCOMES ─────────────────────────────────────────────
+# What must be true in each scenario — AI decides how to implement
+
+outcomes:
+  unsupported_currency:
+    priority: 1
+    error: CONVERSION_UNSUPPORTED_CURRENCY
+    given:
+      - any:
+          - field: from_currency
+            source: input
+            operator: not_in
+            value: [USD, EUR, GBP, JPY, CAD, AUD, CHF, CNY, INR, BRL, ZAR, SGD, HKD, KRW, MXN, NZD, SEK, NOK, DKK, PLN]
+          - field: to_currency
+            source: input
+            operator: not_in
+            value: [USD, EUR, GBP, JPY, CAD, AUD, CHF, CNY, INR, BRL, ZAR, SGD, HKD, KRW, MXN, NZD, SEK, NOK, DKK, PLN]
+    result: show "Currency not supported. Please select a supported currency."
+
+  same_currency:
+    priority: 2
+    error: CONVERSION_SAME_CURRENCY
+    given:
+      - field: from_currency
+        source: input
+        operator: eq
+        value: to_currency
+    result: return original amount with exchange rate 1.0
+
+  rate_unavailable:
+    priority: 3
+    error: CONVERSION_RATE_UNAVAILABLE
+    given:
+      - field: exchange_rate
+        source: computed
+        operator: not_exists
+      - field: rate_timestamp
+        source: db
+        operator: lt
+        value: "now - 24h"
+    then:
+      - action: emit_event
+        event: rate.fetch_failed
+        payload: [from_currency, to_currency, timestamp, error_reason]
+    result: show "Exchange rate temporarily unavailable. Please try again later."
+
+  rate_stale_fallback:
+    priority: 4
+    given:
+      - field: exchange_rate
+        source: computed
+        operator: not_exists
+      - field: rate_timestamp
+        source: db
+        operator: gte
+        value: "now - 24h"
+    then:
+      - action: set_field
+        target: rate_source
+        value: fallback
+      - action: emit_event
+        event: rate.fallback_used
+        payload: [from_currency, to_currency, rate_timestamp, exchange_rate]
+    result: convert using last known cached rate with fallback indicator
+
+  successful_conversion:
+    priority: 10
+    transaction: true
+    given:
+      - field: from_currency
+        source: input
+        operator: in
+        value: [USD, EUR, GBP, JPY, CAD, AUD, CHF, CNY, INR, BRL, ZAR, SGD, HKD, KRW, MXN, NZD, SEK, NOK, DKK, PLN]
+      - field: to_currency
+        source: input
+        operator: in
+        value: [USD, EUR, GBP, JPY, CAD, AUD, CHF, CNY, INR, BRL, ZAR, SGD, HKD, KRW, MXN, NZD, SEK, NOK, DKK, PLN]
+      - field: amount
+        source: input
+        operator: gt
+        value: 0
+      - field: exchange_rate
+        source: computed
+        operator: exists
+    then:
+      - action: set_field
+        target: converted_amount
+        value: "amount * exchange_rate"
+      - action: set_field
+        target: rate_source
+        value: live
+      - action: emit_event
+        event: conversion.executed
+        payload: [from_currency, to_currency, amount, converted_amount, exchange_rate, rate_source, rate_timestamp, timestamp]
+    result: return converted amount with rate details and formatted display
+
+# ─── ERRORS ───────────────────────────────────────────────
+
+errors:
+  - code: CONVERSION_UNSUPPORTED_CURRENCY
+    status: 400
+    message: "The selected currency is not supported"
+    retry: false
+
+  - code: CONVERSION_SAME_CURRENCY
+    status: 400
+    message: "Source and target currencies must be different"
+    retry: false
+
+  - code: CONVERSION_RATE_UNAVAILABLE
+    status: 503
+    message: "Exchange rate temporarily unavailable. Please try again later."
+    retry: true
+
+  - code: CONVERSION_INVALID_AMOUNT
+    status: 422
+    message: "Please enter a valid amount"
+    retry: true
+
+  - code: CONVERSION_VALIDATION_ERROR
+    status: 422
+    message: "Please check your input and try again"
+    retry: true
+
+# ─── EVENTS ───────────────────────────────────────────────
+
+events:
+  - name: rate.updated
+    description: "Exchange rate cache refreshed from external source"
+    payload: [from_currency, to_currency, old_rate, new_rate, rate_source, timestamp]
+
+  - name: conversion.executed
+    description: "Currency conversion completed successfully"
+    payload: [from_currency, to_currency, amount, converted_amount, exchange_rate, rate_source, rate_timestamp, timestamp]
+
+  - name: rate.fetch_failed
+    description: "Failed to fetch live exchange rate from provider"
+    payload: [from_currency, to_currency, timestamp, error_reason]
+
+  - name: rate.fallback_used
+    description: "Conversion used cached fallback rate instead of live rate"
+    payload: [from_currency, to_currency, rate_timestamp, exchange_rate]
+
+# ─── RELATIONSHIPS ────────────────────────────────────────
+
+related:
+  - feature: cart-checkout
+    type: recommended
+    reason: "Cart totals may need multi-currency display"
+
+  - feature: invoicing-payments
+    type: recommended
+    reason: "Invoices in foreign currencies require conversion for settlement"
+
+  - feature: payment-gateway
+    type: optional
+    reason: "Gateway may handle conversion at capture time"

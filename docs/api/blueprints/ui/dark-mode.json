@@ -1,0 +1,363 @@
+{
+  "feature": "dark-mode",
+  "version": "1.0.0",
+  "description": "Theme toggle supporting light, dark, and system-preference modes with CSS custom properties, user preference persistence, smooth transitions, and flash-of-wrong-theme prevention.\n",
+  "category": "ui",
+  "tags": [
+    "dark-mode",
+    "theming",
+    "css-custom-properties",
+    "prefers-color-scheme",
+    "user-preferences",
+    "color-scheme"
+  ],
+  "fields": [
+    {
+      "name": "theme",
+      "type": "select",
+      "label": "Theme",
+      "required": true,
+      "options": [
+        {
+          "value": "light",
+          "label": "Light"
+        },
+        {
+          "value": "dark",
+          "label": "Dark"
+        },
+        {
+          "value": "system",
+          "label": "System"
+        }
+      ],
+      "validation": [
+        {
+          "type": "required",
+          "message": "Theme selection is required"
+        }
+      ]
+    },
+    {
+      "name": "user_preference",
+      "type": "select",
+      "label": "User Preference",
+      "required": false,
+      "options": [
+        {
+          "value": "light",
+          "label": "Light"
+        },
+        {
+          "value": "dark",
+          "label": "Dark"
+        },
+        {
+          "value": "system",
+          "label": "System"
+        }
+      ]
+    },
+    {
+      "name": "system_preference",
+      "type": "select",
+      "label": "System Preference",
+      "required": false,
+      "options": [
+        {
+          "value": "light",
+          "label": "Light"
+        },
+        {
+          "value": "dark",
+          "label": "Dark"
+        }
+      ]
+    },
+    {
+      "name": "resolved_theme",
+      "type": "select",
+      "label": "Resolved Theme",
+      "required": true,
+      "options": [
+        {
+          "value": "light",
+          "label": "Light"
+        },
+        {
+          "value": "dark",
+          "label": "Dark"
+        }
+      ]
+    },
+    {
+      "name": "transition_duration_ms",
+      "type": "number",
+      "label": "Transition Duration (ms)",
+      "required": false,
+      "validation": [
+        {
+          "type": "min",
+          "value": 0,
+          "message": "Transition duration must be at least 0ms"
+        },
+        {
+          "type": "max",
+          "value": 1000,
+          "message": "Transition duration must not exceed 1000ms"
+        }
+      ]
+    },
+    {
+      "name": "component_override",
+      "type": "json",
+      "label": "Per-Component Theme Override",
+      "required": false
+    },
+    {
+      "name": "css_variables",
+      "type": "json",
+      "label": "CSS Custom Properties Map",
+      "required": false
+    }
+  ],
+  "rules": {
+    "respect_system_preference": {
+      "description": "When the user has not explicitly chosen a theme (preference is \"system\"), the resolved theme must match the operating system's prefers-color-scheme media query value.\n"
+    },
+    "no_flash_on_load": {
+      "description": "Theme must be resolved and applied before the first paint. Use an inline script in the document head that reads persisted preference from storage and sets the theme class/attribute on the html element synchronously.\n"
+    },
+    "transition_duration": {
+      "description": "Color transitions between themes must use a 200ms duration on background-color, color, and border-color properties. Transitions must not apply on initial page load to prevent visual flicker.\n"
+    },
+    "persist_user_choice": {
+      "description": "When a user explicitly selects a theme, persist the choice to local storage (or equivalent) so it survives page reloads and new sessions.\n"
+    },
+    "system_preference_listener": {
+      "description": "Register a matchMedia listener for prefers-color-scheme changes. When the user's preference is \"system\" and the OS theme changes, update the resolved theme in real time without page reload.\n"
+    },
+    "per_component_overrides": {
+      "description": "Individual components may override the global theme via a data attribute or prop. Overridden components must scope their CSS custom properties to avoid leaking into child components.\n"
+    },
+    "css_custom_properties_only": {
+      "description": "All theme-dependent colors, shadows, and borders must be defined as CSS custom properties. No hardcoded color values in component styles.\n"
+    }
+  },
+  "outcomes": {
+    "user_selects_theme": {
+      "priority": 1,
+      "given": [
+        "user explicitly selects a theme (light or dark)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "user_preference",
+          "description": "Store chosen theme as user preference"
+        },
+        {
+          "action": "set_field",
+          "target": "resolved_theme",
+          "description": "Apply the chosen theme immediately"
+        },
+        {
+          "action": "set_field",
+          "target": "theme",
+          "description": "Update theme field to the explicit choice"
+        },
+        {
+          "action": "emit_event",
+          "event": "theme.changed",
+          "payload": [
+            "theme",
+            "resolved_theme",
+            "source"
+          ]
+        }
+      ],
+      "result": "Theme changes immediately and preference is persisted to storage"
+    },
+    "system_preference_applied": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "user_preference",
+          "source": "db",
+          "operator": "eq",
+          "value": "system"
+        },
+        "operating system reports a preferred color scheme via prefers-color-scheme"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "system_preference",
+          "description": "Capture OS color scheme value"
+        },
+        {
+          "action": "set_field",
+          "target": "resolved_theme",
+          "description": "Resolve theme to match OS preference"
+        },
+        {
+          "action": "emit_event",
+          "event": "theme.changed",
+          "payload": [
+            "theme",
+            "resolved_theme",
+            "source"
+          ]
+        }
+      ],
+      "result": "Theme follows the operating system preference automatically"
+    },
+    "system_preference_changes_live": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "user_preference",
+          "source": "db",
+          "operator": "eq",
+          "value": "system"
+        },
+        "operating system color scheme changes while page is open"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "system_preference",
+          "description": "Update cached system preference"
+        },
+        {
+          "action": "set_field",
+          "target": "resolved_theme",
+          "description": "Resolve theme to new OS preference"
+        },
+        {
+          "action": "emit_event",
+          "event": "theme.system_preference_changed",
+          "payload": [
+            "system_preference",
+            "resolved_theme"
+          ]
+        }
+      ],
+      "result": "Theme updates in real time when OS color scheme changes"
+    },
+    "page_loads_without_flash": {
+      "priority": 4,
+      "given": [
+        "page is loading for the first time or after navigation",
+        "persisted theme preference exists in storage"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "resolved_theme",
+          "description": "Theme applied synchronously before first paint via inline script"
+        }
+      ],
+      "result": "Page renders with correct theme from the first frame with no flash"
+    },
+    "component_overrides_theme": {
+      "priority": 5,
+      "given": [
+        "a component specifies a theme override different from the global theme"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "component_override",
+          "description": "Component renders with its own scoped CSS custom properties"
+        }
+      ],
+      "result": "Component displays in its overridden theme while rest of page uses global theme"
+    },
+    "no_persisted_preference": {
+      "priority": 6,
+      "given": [
+        {
+          "field": "user_preference",
+          "source": "db",
+          "operator": "not_exists"
+        },
+        "page loads for the first time"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "theme",
+          "value": "system",
+          "description": "Default to system preference mode"
+        },
+        {
+          "action": "set_field",
+          "target": "resolved_theme",
+          "description": "Resolve theme from OS prefers-color-scheme"
+        }
+      ],
+      "result": "First-time visitors see the theme matching their OS preference"
+    }
+  },
+  "errors": [
+    {
+      "code": "THEME_STORAGE_UNAVAILABLE",
+      "message": "Unable to persist theme preference. Local storage may be disabled.",
+      "status": 500
+    },
+    {
+      "code": "THEME_INVALID_VALUE",
+      "message": "Theme value must be one of: light, dark, or system.",
+      "status": 400
+    },
+    {
+      "code": "THEME_OVERRIDE_SCOPE_LEAK",
+      "message": "Component theme override is leaking CSS custom properties to child elements.",
+      "status": 500
+    }
+  ],
+  "events": [
+    {
+      "name": "theme.changed",
+      "description": "Theme was changed by user action or system preference",
+      "payload": [
+        "theme",
+        "resolved_theme",
+        "source"
+      ]
+    },
+    {
+      "name": "theme.system_preference_changed",
+      "description": "Operating system color scheme changed while user preference is set to system",
+      "payload": [
+        "system_preference",
+        "resolved_theme"
+      ]
+    },
+    {
+      "name": "theme.preference_persisted",
+      "description": "User theme preference was saved to persistent storage",
+      "payload": [
+        "user_preference"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "theme-configuration",
+      "type": "required",
+      "reason": "Dark mode relies on the theme configuration system for CSS custom property definitions"
+    },
+    {
+      "feature": "accessibility",
+      "type": "recommended",
+      "reason": "Both light and dark themes must independently meet WCAG AA contrast ratios"
+    },
+    {
+      "feature": "responsive-layout",
+      "type": "optional",
+      "reason": "Theme toggle UI may need responsive positioning across breakpoints"
+    }
+  ]
+}

@@ -1,0 +1,337 @@
+# ============================================================
+# INTERNATIONALIZATION — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# i18n system with locale switching, translation keys,
+# pluralization, date/number/currency formatting per locale,
+# RTL layout support, browser language detection, and
+# lazy-loaded locale bundles for performance.
+# ============================================================
+
+feature: internationalization
+version: "1.0.0"
+description: Internationalization with locale switching, translation keys, pluralization, and RTL support
+category: ui
+tags: [i18n, localization, translation, rtl, locale, internationalization, ui]
+
+# ─── FIELDS ───────────────────────────────────────────────
+
+fields:
+  - name: locale
+    type: text
+    required: true
+    label: "Current Locale"
+    placeholder: "en-US"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Locale is required"
+      - type: pattern
+        value: "^[a-z]{2}(-[A-Z]{2})?$"
+        message: "Locale must be a valid BCP 47 tag (e.g., en, en-US, fr-FR)"
+
+  - name: fallback_locale
+    type: text
+    required: true
+    label: "Fallback Locale"
+    default: "en"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Fallback locale is required"
+      - type: pattern
+        value: "^[a-z]{2}(-[A-Z]{2})?$"
+        message: "Fallback locale must be a valid BCP 47 tag"
+
+  - name: translations
+    type: json
+    required: false
+    label: "Translation Map"
+    sensitive: false
+    # Nested key-value map: { "auth.login.title": "Sign In" }
+
+  - name: supported_locales
+    type: json
+    required: true
+    label: "Supported Locales"
+    sensitive: false
+    # Array of locale codes the application supports
+    validation:
+      - type: required
+        message: "At least one supported locale is required"
+
+  - name: direction
+    type: select
+    required: false
+    label: "Text Direction"
+    options:
+      - {value: "ltr", label: "Left to Right"}
+      - {value: "rtl", label: "Right to Left"}
+      - {value: "auto", label: "Auto"}
+    default: auto
+    # "auto" determines direction from locale
+
+# ─── RULES ────────────────────────────────────────────────
+
+rules:
+  fallback:
+    chain: [exact_locale, language_only, fallback_locale]
+    # Look up en-US first, then en, then fallback locale
+    # Example: fr-CA → fr → en
+    missing_key_behavior: show_key
+    # If no translation found in any fallback, display the raw key
+    log_missing_keys: true
+    # Log missing translation keys for developer review
+    missing_key_log_level: warn
+
+  message_format:
+    standard: icu
+    # Use ICU MessageFormat for interpolation and pluralization
+    # Example: "{count, plural, one {# item} other {# items}}"
+    interpolation_delimiter: "{"
+    # Interpolation uses { } delimiters: "Hello, {name}"
+    html_escaping: true
+    # Escape HTML in interpolated values to prevent XSS
+    allow_rich_text: false
+    # Rich text (HTML in translations) disabled by default
+
+  formatting:
+    date_format: locale_default
+    # Use Intl.DateTimeFormat with the active locale
+    number_format: locale_default
+    # Use Intl.NumberFormat with the active locale
+    currency_format: locale_default
+    # Use Intl.NumberFormat with style: "currency" and active locale
+    relative_time: true
+    # Support relative time formatting ("2 hours ago", "in 3 days")
+
+  rtl:
+    auto_detect: true
+    # Automatically set dir="rtl" for Arabic, Hebrew, Farsi, Urdu, etc.
+    rtl_locales: [ar, he, fa, ur]
+    mirror_layout: true
+    # Flip horizontal layout (margins, paddings, icons) for RTL locales
+    logical_properties: true
+    # Use CSS logical properties (margin-inline-start vs margin-left)
+
+  detection:
+    auto_detect_browser_language: true
+    # Read Accept-Language header or navigator.language
+    priority: [url_param, cookie, browser, fallback]
+    # Detection priority: ?lang=fr > cookie > browser > fallback
+    persist_preference: cookie
+    # Store user's locale preference in a cookie
+    cookie_name: locale
+    cookie_max_age_days: 365
+
+  performance:
+    lazy_load_bundles: true
+    # Only load the active locale bundle — do not bundle all locales
+    chunk_by_namespace: true
+    # Split translations by feature namespace (auth, dashboard, settings)
+    preload_fallback: true
+    # Always preload the fallback locale bundle
+    cache_bundles: true
+    # Cache loaded locale bundles in memory
+
+# ─── OUTCOMES ─────────────────────────────────────────────
+# What must be true in each scenario — AI decides how to implement
+
+outcomes:
+  unsupported_locale:
+    priority: 1
+    error: I18N_UNSUPPORTED_LOCALE
+    given:
+      - field: locale
+        source: input
+        operator: not_in
+        value: supported_locales
+        description: "Requested locale is not in the supported list"
+    then:
+      - action: set_field
+        target: locale
+        value: fallback_locale
+        description: "Fall back to default locale"
+      - action: emit_event
+        event: i18n.locale_fallback
+        payload: [requested_locale, fallback_locale, timestamp]
+    result: use fallback locale and log warning
+
+  missing_translation_key:
+    priority: 2
+    given:
+      - field: translation_key
+        source: input
+        operator: exists
+        description: "Translation key is requested"
+      - field: translation_value
+        source: computed
+        operator: not_exists
+        description: "No translation found in current locale or fallback chain"
+    then:
+      - action: emit_event
+        event: i18n.missing_key
+        payload: [key, locale, fallback_locale, timestamp]
+    result: display raw translation key and log warning for developer review
+
+  fallback_chain_resolved:
+    priority: 3
+    given:
+      - field: translation_key
+        source: input
+        operator: exists
+        description: "Translation key is requested"
+      - field: translation_value
+        source: computed
+        operator: not_exists
+        description: "No translation in exact locale (e.g., fr-CA)"
+      - field: translation_value_language
+        source: computed
+        operator: exists
+        description: "Translation found in language-only locale (e.g., fr)"
+    then:
+      - action: emit_event
+        event: i18n.fallback_used
+        payload: [key, requested_locale, resolved_locale, timestamp]
+    result: return translation from language-only locale
+
+  rtl_locale_detected:
+    priority: 4
+    given:
+      - field: locale
+        source: input
+        operator: in
+        value: [ar, he, fa, ur]
+        description: "Active locale uses right-to-left script"
+    then:
+      - action: set_field
+        target: direction
+        value: rtl
+        description: "Set document direction to RTL"
+    result: set dir="rtl" on document root and apply mirrored layout
+
+  locale_switched:
+    priority: 5
+    transaction: true
+    given:
+      - field: locale
+        source: input
+        operator: in
+        value: supported_locales
+        description: "New locale is in the supported list"
+      - field: locale
+        source: input
+        operator: neq
+        value: current_locale
+        description: "New locale differs from current locale"
+    then:
+      - action: set_field
+        target: current_locale
+        value: locale
+        description: "Update active locale"
+      - action: set_field
+        target: direction
+        value: auto
+        description: "Recalculate text direction for new locale"
+      - action: emit_event
+        event: i18n.locale_changed
+        payload: [previous_locale, new_locale, direction, timestamp]
+    result: load locale bundle, update all translated strings, persist preference in cookie
+
+  bundle_loaded:
+    priority: 6
+    given:
+      - field: locale
+        source: input
+        operator: exists
+        description: "Locale is set"
+      - field: locale_bundle
+        source: computed
+        operator: not_exists
+        description: "Locale bundle not yet loaded in memory"
+    then:
+      - action: call_service
+        target: locale_loader
+        description: "Lazy-load the locale bundle for the active locale"
+      - action: emit_event
+        event: i18n.bundle_loaded
+        payload: [locale, namespace, bundle_size_kb, timestamp]
+    result: fetch and cache locale bundle, then re-render translated content
+
+  translate_with_interpolation:
+    priority: 10
+    given:
+      - field: translation_key
+        source: input
+        operator: exists
+        description: "Translation key is provided"
+      - field: translation_value
+        source: computed
+        operator: exists
+        description: "Translation found in active locale or fallback"
+    result: return translated string with ICU MessageFormat interpolation and HTML escaping
+
+# ─── ERRORS ───────────────────────────────────────────────
+
+errors:
+  - code: I18N_UNSUPPORTED_LOCALE
+    status: 400
+    message: "The requested locale is not supported"
+    retry: false
+
+  - code: I18N_MISSING_KEY
+    status: 404
+    message: "Translation key not found"
+    retry: false
+
+  - code: I18N_BUNDLE_LOAD_FAILED
+    status: 500
+    message: "Failed to load locale bundle. Please try again."
+    retry: true
+
+  - code: I18N_INVALID_FORMAT
+    status: 400
+    message: "Invalid ICU message format in translation value"
+    retry: false
+
+# ─── EVENTS ───────────────────────────────────────────────
+
+events:
+  - name: i18n.locale_changed
+    description: "User switched to a different locale"
+    payload: [previous_locale, new_locale, direction, timestamp]
+
+  - name: i18n.missing_key
+    description: "Translation key not found in any locale in the fallback chain"
+    payload: [key, locale, fallback_locale, timestamp]
+
+  - name: i18n.bundle_loaded
+    description: "Locale translation bundle loaded into memory"
+    payload: [locale, namespace, bundle_size_kb, timestamp]
+
+  - name: i18n.locale_fallback
+    description: "Requested locale not supported, fell back to default"
+    payload: [requested_locale, fallback_locale, timestamp]
+
+  - name: i18n.fallback_used
+    description: "Translation resolved from fallback locale instead of exact match"
+    payload: [key, requested_locale, resolved_locale, timestamp]
+
+# ─── RELATIONSHIPS ────────────────────────────────────────
+
+related:
+  - feature: toast-notifications
+    type: recommended
+    reason: "Toast messages need translation support"
+
+  - feature: form-builder
+    type: recommended
+    reason: "Form labels, placeholders, and validation messages need translation"
+
+  - feature: navigation-menu
+    type: optional
+    reason: "Navigation labels need translation and RTL layout support"
+
+  - feature: theme-configuration
+    type: optional
+    reason: "Theme may include locale-specific font choices"

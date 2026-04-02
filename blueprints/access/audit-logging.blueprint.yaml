@@ -1,0 +1,357 @@
+# ============================================================
+# AUDIT LOGGING — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Immutable audit trail capturing who did what, when, and
+# from where. Append-only with hash-chain tamper detection.
+# No update or delete operations permitted on audit records.
+# ============================================================
+
+feature: audit-logging
+version: "1.0.0"
+description: Immutable, append-only audit trail with tamper detection and compliance-ready querying
+category: access
+tags: [audit, logging, compliance, security, immutable, trail, monitoring, forensics]
+
+# ─── FIELDS ───────────────────────────────────────────────
+
+fields:
+  - name: audit_id
+    type: text
+    required: true
+    label: "Audit Entry ID"
+    sensitive: false
+    # UUID v7 (time-sortable) for chronological ordering
+
+  - name: actor_id
+    type: text
+    required: true
+    label: "Actor ID"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Actor ID is required"
+
+  - name: actor_type
+    type: select
+    required: true
+    label: "Actor Type"
+    options:
+      - value: user
+        label: "User"
+      - value: system
+        label: "System"
+      - value: api_key
+        label: "API Key"
+      - value: service_account
+        label: "Service Account"
+      - value: anonymous
+        label: "Anonymous"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Actor type is required"
+
+  - name: action
+    type: text
+    required: true
+    label: "Action"
+    # Dot-notation: resource.verb (e.g. "user.created", "role.assigned")
+    sensitive: false
+    validation:
+      - type: required
+        message: "Action is required"
+      - type: pattern
+        value: "^[a-z_]+\\.[a-z_]+$"
+        message: "Action must follow resource.verb dot-notation"
+
+  - name: resource_type
+    type: text
+    required: true
+    label: "Resource Type"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Resource type is required"
+
+  - name: resource_id
+    type: text
+    required: true
+    label: "Resource ID"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Resource ID is required"
+
+  - name: changes
+    type: json
+    required: false
+    label: "Changes"
+    # JSON diff: { before: {...}, after: {...} }
+    sensitive: false
+
+  - name: ip_address
+    type: text
+    required: true
+    label: "IP Address"
+    sensitive: false
+    validation:
+      - type: required
+        message: "IP address is required"
+
+  - name: user_agent
+    type: text
+    required: false
+    label: "User Agent"
+    sensitive: false
+    validation:
+      - type: maxLength
+        value: 1024
+        message: "User agent must be at most 1024 characters"
+
+  - name: timestamp
+    type: datetime
+    required: true
+    label: "Timestamp"
+    sensitive: false
+    # Server-generated UTC timestamp — never trust client time
+
+  - name: hash
+    type: text
+    required: true
+    label: "Entry Hash"
+    sensitive: false
+    # SHA-256 hash of (previous_hash + entry_data) for tamper detection
+
+  - name: previous_hash
+    type: text
+    required: true
+    label: "Previous Entry Hash"
+    sensitive: false
+    # Hash chain linking — genesis entry uses a known seed value
+
+  - name: metadata
+    type: json
+    required: false
+    label: "Metadata"
+    sensitive: false
+    # Additional context: session_id, request_id, correlation_id, geo_location
+
+# ─── RULES ────────────────────────────────────────────────
+
+rules:
+  immutability:
+    append_only: true
+    # CRITICAL: No UPDATE or DELETE operations on audit records — ever
+    no_update: true
+    no_delete: true
+    soft_delete_prohibited: true
+    # Even soft-delete (is_deleted flag) is not allowed
+
+  tamper_detection:
+    algorithm: sha256
+    hash_chain: true
+    # Each entry's hash includes the previous entry's hash
+    # Breaking the chain indicates tampering
+    genesis_seed: "fdl-audit-genesis-v1"
+    verification_schedule: daily
+    # Background job verifies chain integrity every 24 hours
+
+  retention:
+    default_days: 2555
+    # ~7 years — meets most regulatory requirements
+    minimum_days: 365
+    # Cannot set retention below 1 year
+    deletion_method: crypto_shred
+    # After retention: delete encryption keys, not records
+
+  storage:
+    separate_database: true
+    # Audit logs should live in a separate data store
+    write_ahead_log: true
+    # WAL ensures durability even on crash
+    compression: true
+    indexing: [actor_id, action, resource_type, resource_id, timestamp]
+
+  query:
+    max_results_per_page: 100
+    require_date_range: true
+    # All queries must specify a date range to prevent full scans
+    max_date_range_days: 90
+    # Maximum 90-day window per query for performance
+    export_formats: [json, csv]
+
+# ─── OUTCOMES ─────────────────────────────────────────────
+
+outcomes:
+  entry_created:
+    priority: 1
+    transaction: true
+    given:
+      - field: actor_id
+        source: computed
+        operator: exists
+        description: "Actor identity resolved from session, API key, or system context"
+      - field: action
+        source: input
+        operator: exists
+        description: "Action descriptor provided"
+      - field: resource_type
+        source: input
+        operator: exists
+        description: "Resource type specified"
+      - field: resource_id
+        source: input
+        operator: exists
+        description: "Resource ID specified"
+    then:
+      - action: set_field
+        target: timestamp
+        value: now
+        description: "Set server-side UTC timestamp"
+      - action: set_field
+        target: hash
+        value: "sha256(previous_hash + entry_data)"
+        description: "Compute hash chain entry"
+      - action: create_record
+        type: audit_entry
+        target: audit_log
+        description: "Append entry to the immutable audit log"
+      - action: emit_event
+        event: audit.entry_created
+        payload: [audit_id, actor_id, action, resource_type, resource_id, timestamp]
+    result: audit entry appended to the immutable log
+
+  query_results:
+    priority: 5
+    given:
+      - field: date_range
+        source: input
+        operator: exists
+        description: "Date range filter provided (required for all queries)"
+      - field: date_range_days
+        source: computed
+        operator: lte
+        value: 90
+        description: "Date range does not exceed 90-day maximum"
+    result: return paginated audit entries matching the filter criteria
+
+  query_range_exceeded:
+    priority: 2
+    error: AUDIT_QUERY_RANGE_EXCEEDED
+    given:
+      - field: date_range_days
+        source: computed
+        operator: gt
+        value: 90
+        description: "Requested date range exceeds 90-day limit"
+    result: show "Please narrow your date range to 90 days or fewer"
+
+  chain_integrity_verified:
+    priority: 6
+    given:
+      - field: chain_valid
+        source: computed
+        operator: eq
+        value: true
+        description: "All hashes in the specified range verify correctly"
+    result: return integrity verification report with status pass
+
+  chain_tamper_detected:
+    priority: 3
+    error: AUDIT_TAMPER_DETECTED
+    given:
+      - field: chain_valid
+        source: computed
+        operator: eq
+        value: false
+        description: "Hash chain broken — one or more entries do not verify"
+    then:
+      - action: emit_event
+        event: audit.tamper_detected
+        payload: [first_invalid_entry_id, expected_hash, actual_hash, timestamp]
+      - action: notify
+        channel: email
+        template: tamper_alert
+        description: "Alert security team immediately"
+    result: report tamper detection with details of the first broken link
+
+# ─── ERRORS ───────────────────────────────────────────────
+
+errors:
+  - code: AUDIT_IMMUTABLE
+    status: 403
+    message: "Audit records cannot be modified or deleted"
+    retry: false
+
+  - code: AUDIT_QUERY_RANGE_EXCEEDED
+    status: 422
+    message: "Date range must not exceed 90 days"
+    retry: true
+
+  - code: AUDIT_TAMPER_DETECTED
+    status: 500
+    message: "Audit log integrity check failed — possible tampering detected"
+    retry: false
+
+  - code: AUDIT_WRITE_FAILED
+    status: 500
+    message: "Failed to write audit entry. The operation has been rolled back."
+    retry: true
+
+# ─── EVENTS ───────────────────────────────────────────────
+
+events:
+  - name: audit.entry_created
+    description: "New audit log entry appended"
+    payload: [audit_id, actor_id, action, resource_type, resource_id, timestamp]
+
+  - name: audit.tamper_detected
+    description: "Hash chain integrity check failed — possible tampering"
+    payload: [first_invalid_entry_id, expected_hash, actual_hash, timestamp]
+
+  - name: audit.retention_purge
+    description: "Entries beyond retention period crypto-shredded"
+    payload: [purged_count, oldest_entry_date, timestamp]
+
+  - name: audit.export_completed
+    description: "Audit log export completed"
+    payload: [export_id, format, record_count, date_range, requested_by, timestamp]
+
+# ─── RELATIONSHIPS ────────────────────────────────────────
+
+related:
+  - feature: login
+    type: recommended
+    reason: "Authentication events should be captured in the audit trail"
+
+  - feature: role-based-access
+    type: recommended
+    reason: "Permission changes and access decisions should be audited"
+
+  - feature: data-privacy-compliance
+    type: recommended
+    reason: "GDPR/CCPA compliance requires audit trails for data access"
+
+  - feature: team-organization
+    type: optional
+    reason: "Audit entries can be scoped per organization for multi-tenancy"
+
+# ─── UI HINTS ─────────────────────────────────────────────
+
+ui_hints:
+  layout: table_with_filters
+  max_width: 1400px
+
+  actions:
+    primary:
+      label: "Search Logs"
+      type: submit
+    secondary:
+      label: "Export"
+      type: button
+
+  fields_order: [timestamp, actor_id, action, resource_type, resource_id]
+
+  accessibility:
+    aria_live_region: true

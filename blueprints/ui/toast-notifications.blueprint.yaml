@@ -1,0 +1,321 @@
+# ============================================================
+# TOAST NOTIFICATIONS — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Snackbar/toast feedback system for transient user messages.
+# Supports success, error, warning, and info types with
+# configurable auto-dismiss, action buttons, stacking, and
+# accessible aria-live announcements.
+# ============================================================
+
+feature: toast-notifications
+version: "1.0.0"
+description: Transient toast/snackbar notifications with auto-dismiss, stacking, and accessibility
+category: ui
+tags: [toast, snackbar, notification, feedback, ui, accessibility]
+
+# ─── FIELDS ───────────────────────────────────────────────
+
+fields:
+  - name: message
+    type: text
+    required: true
+    label: "Message"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Notification message is required"
+      - type: maxLength
+        value: 200
+        message: "Message must be less than 200 characters"
+
+  - name: type
+    type: select
+    required: true
+    label: "Notification Type"
+    options:
+      - {value: "success", label: "Success"}
+      - {value: "error", label: "Error"}
+      - {value: "warning", label: "Warning"}
+      - {value: "info", label: "Info"}
+    sensitive: false
+    validation:
+      - type: required
+        message: "Notification type is required"
+
+  - name: duration_ms
+    type: number
+    required: false
+    label: "Duration (ms)"
+    default: 5000
+    sensitive: false
+    validation:
+      - type: min
+        value: 1000
+        message: "Duration must be at least 1 second"
+      - type: max
+        value: 30000
+        message: "Duration must be less than 30 seconds"
+
+  - name: dismissible
+    type: boolean
+    required: false
+    label: "Dismissible"
+    default: true
+    # Whether the user can manually close the toast
+
+  - name: action_label
+    type: text
+    required: false
+    label: "Action Button Label"
+    sensitive: false
+    validation:
+      - type: maxLength
+        value: 30
+        message: "Action label must be less than 30 characters"
+
+  - name: action_callback
+    type: text
+    required: false
+    label: "Action Callback"
+    sensitive: false
+    # Function name or event to trigger when action button is clicked
+
+  - name: position
+    type: select
+    required: false
+    label: "Position"
+    options:
+      - {value: "top-right", label: "Top Right"}
+      - {value: "top-left", label: "Top Left"}
+      - {value: "top-center", label: "Top Center"}
+      - {value: "bottom-right", label: "Bottom Right"}
+      - {value: "bottom-left", label: "Bottom Left"}
+      - {value: "bottom-center", label: "Bottom Center"}
+    default: bottom-right
+
+# ─── RULES ────────────────────────────────────────────────
+
+rules:
+  stacking:
+    max_visible: 5
+    # Maximum 5 toasts visible simultaneously
+    strategy: fifo
+    # First In First Out — oldest toast dismissed when limit reached
+    gap_px: 8
+    # Spacing between stacked toasts
+    animation: slide_in
+    # Slide in from the edge, fade out on dismiss
+
+  auto_dismiss:
+    default_duration_ms: 5000
+    # 5 seconds for success and info types
+    error_persistent: true
+    # Error toasts do NOT auto-dismiss — user must acknowledge
+    warning_duration_ms: 8000
+    # Warnings stay slightly longer than default
+    pause_on_hover: true
+    # Pause auto-dismiss timer when mouse hovers over toast
+
+  accessibility:
+    aria_live: polite
+    # Use aria-live="polite" for info/success
+    aria_live_error: assertive
+    # Use aria-live="assertive" for error/warning — interrupts screen reader
+    role: status
+    # role="status" for non-urgent, role="alert" for errors
+    focus_management: false
+    # Toasts should NOT steal focus — they are passive notifications
+    announce_dismissal: true
+    # Screen readers announce when a toast is dismissed
+
+  theming:
+    icon_per_type: true
+    # Each type has a distinct icon (checkmark, X, warning triangle, info circle)
+    color_per_type: true
+    # Distinct background/border colors per type (green, red, amber, blue)
+    respect_reduced_motion: true
+    # Disable animations when prefers-reduced-motion is active
+
+# ─── OUTCOMES ─────────────────────────────────────────────
+# What must be true in each scenario — AI decides how to implement
+
+outcomes:
+  empty_message:
+    priority: 1
+    error: TOAST_EMPTY_MESSAGE
+    given:
+      - field: message
+        source: input
+        operator: not_exists
+        description: "No message text provided"
+    result: do not render toast — silently fail or log warning
+
+  queue_overflow:
+    priority: 2
+    given:
+      - field: visible_count
+        source: computed
+        operator: gte
+        value: 5
+        description: "Maximum visible toasts already displayed"
+    then:
+      - action: set_field
+        target: oldest_toast
+        value: dismissed
+        description: "Dismiss oldest toast to make room (FIFO)"
+    result: dismiss oldest toast and display new one
+
+  error_toast:
+    priority: 3
+    given:
+      - field: type
+        source: input
+        operator: eq
+        value: error
+        description: "Notification type is error"
+    then:
+      - action: set_field
+        target: duration_ms
+        value: 0
+        description: "Error toasts are persistent — no auto-dismiss"
+      - action: set_field
+        target: dismissible
+        value: true
+        description: "Error toasts must be manually dismissible"
+      - action: set_field
+        target: aria_live
+        value: assertive
+        description: "Errors use assertive announcements for screen readers"
+    result: render persistent error toast with assertive aria-live and close button
+
+  warning_toast:
+    priority: 4
+    given:
+      - field: type
+        source: input
+        operator: eq
+        value: warning
+        description: "Notification type is warning"
+    then:
+      - action: set_field
+        target: duration_ms
+        value: 8000
+        description: "Warnings display for 8 seconds"
+      - action: set_field
+        target: aria_live
+        value: assertive
+        description: "Warnings use assertive announcements"
+    result: render warning toast with 8-second auto-dismiss and assertive aria-live
+
+  toast_with_action:
+    priority: 5
+    given:
+      - field: action_label
+        source: input
+        operator: exists
+        description: "Action button label is provided"
+      - field: action_callback
+        source: input
+        operator: exists
+        description: "Action callback is defined"
+    result: render toast with action button that triggers callback on click
+
+  hover_pause:
+    priority: 6
+    given:
+      - field: mouse_hover
+        source: system
+        operator: eq
+        value: true
+        description: "Mouse is hovering over the toast"
+      - field: duration_ms
+        source: input
+        operator: gt
+        value: 0
+        description: "Toast has auto-dismiss enabled"
+    then:
+      - action: set_field
+        target: timer_paused
+        value: true
+        description: "Pause auto-dismiss countdown"
+    result: pause auto-dismiss timer while mouse hovers, resume on mouse leave
+
+  default_toast:
+    priority: 10
+    given:
+      - field: message
+        source: input
+        operator: exists
+        description: "Message text is provided"
+      - field: type
+        source: input
+        operator: in
+        value: [success, info]
+        description: "Standard success or info notification"
+    then:
+      - action: emit_event
+        event: toast.shown
+        payload: [message, type, position, timestamp]
+    result: render toast with 5-second auto-dismiss, type-specific icon and color, and polite aria-live
+
+  toast_dismissed:
+    priority: 11
+    given:
+      - field: toast_id
+        source: input
+        operator: exists
+        description: "Toast exists and is visible"
+    then:
+      - action: emit_event
+        event: toast.dismissed
+        payload: [toast_id, type, dismissed_by, timestamp]
+    result: remove toast with fade-out animation and announce removal to screen readers
+
+# ─── ERRORS ───────────────────────────────────────────────
+
+errors:
+  - code: TOAST_EMPTY_MESSAGE
+    status: 400
+    message: "Notification message is required"
+    retry: false
+
+  - code: TOAST_INVALID_TYPE
+    status: 400
+    message: "Invalid notification type. Must be success, error, warning, or info."
+    retry: false
+
+  - code: TOAST_INVALID_POSITION
+    status: 400
+    message: "Invalid position. Must be top-right, top-left, top-center, bottom-right, bottom-left, or bottom-center."
+    retry: false
+
+# ─── EVENTS ───────────────────────────────────────────────
+
+events:
+  - name: toast.shown
+    description: "Toast notification displayed to the user"
+    payload: [message, type, position, duration_ms, timestamp]
+
+  - name: toast.dismissed
+    description: "Toast notification dismissed by user or auto-dismiss"
+    payload: [toast_id, type, dismissed_by, timestamp]
+
+  - name: toast.action_clicked
+    description: "User clicked the action button on a toast"
+    payload: [toast_id, action_label, timestamp]
+
+# ─── RELATIONSHIPS ────────────────────────────────────────
+
+related:
+  - feature: form-builder
+    type: recommended
+    reason: "Forms show success/error toasts after submission"
+
+  - feature: theme-configuration
+    type: optional
+    reason: "Toast colors and styling adapt to the active theme"
+
+  - feature: internationalization
+    type: optional
+    reason: "Toast messages may need translation and RTL support"

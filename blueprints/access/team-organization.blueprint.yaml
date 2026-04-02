@@ -1,0 +1,499 @@
+# ============================================================
+# TEAM ORGANIZATION — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Multi-tenancy with organizations, teams, workspaces, and
+# member invitations. Enforces data isolation between orgs
+# and supports owner/admin/member/viewer role hierarchy.
+# ============================================================
+
+feature: team-organization
+version: "1.0.0"
+description: Multi-tenant organization and team management with member invitations and data isolation
+category: access
+tags: [multi-tenancy, organizations, teams, workspaces, invitations, collaboration, saas]
+
+# ─── FIELDS ───────────────────────────────────────────────
+
+fields:
+  - name: org_id
+    type: text
+    required: true
+    label: "Organization ID"
+    sensitive: false
+
+  - name: org_name
+    type: text
+    required: true
+    label: "Organization Name"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Organization name is required"
+      - type: minLength
+        value: 2
+        message: "Organization name must be at least 2 characters"
+      - type: maxLength
+        value: 128
+        message: "Organization name must be at most 128 characters"
+
+  - name: org_slug
+    type: text
+    required: true
+    label: "Organization Slug"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Organization slug is required"
+      - type: pattern
+        value: "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$"
+        message: "Slug must be lowercase alphanumeric with hyphens, 3-64 characters"
+
+  - name: plan
+    type: select
+    required: true
+    label: "Plan"
+    sensitive: false
+    options:
+      - value: free
+        label: "Free"
+      - value: starter
+        label: "Starter"
+      - value: pro
+        label: "Pro"
+      - value: enterprise
+        label: "Enterprise"
+    default: free
+    validation:
+      - type: required
+        message: "Plan is required"
+
+  - name: owner_id
+    type: text
+    required: true
+    label: "Owner User ID"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Owner is required"
+
+  - name: member_user_id
+    type: text
+    required: true
+    label: "Member User ID"
+    sensitive: false
+
+  - name: member_role
+    type: select
+    required: true
+    label: "Member Role"
+    options:
+      - value: owner
+        label: "Owner"
+      - value: admin
+        label: "Admin"
+      - value: member
+        label: "Member"
+      - value: viewer
+        label: "Viewer"
+    default: member
+    sensitive: false
+
+  - name: invite_email
+    type: email
+    required: true
+    label: "Invite Email"
+    sensitive: false
+    validation:
+      - type: required
+        message: "Email is required"
+      - type: email
+        message: "Please enter a valid email address"
+
+  - name: invite_token
+    type: token
+    required: true
+    label: "Invite Token"
+    sensitive: true
+
+  - name: invited_at
+    type: datetime
+    required: true
+    label: "Invited At"
+    sensitive: false
+
+  - name: accepted_at
+    type: datetime
+    required: false
+    label: "Accepted At"
+    sensitive: false
+
+  - name: invite_status
+    type: select
+    required: true
+    label: "Invite Status"
+    options:
+      - value: pending
+        label: "Pending"
+      - value: accepted
+        label: "Accepted"
+      - value: declined
+        label: "Declined"
+      - value: expired
+        label: "Expired"
+    default: pending
+    sensitive: false
+
+# ─── RULES ────────────────────────────────────────────────
+
+rules:
+  data_isolation:
+    tenant_scope: org_id
+    # Every database query must be scoped to the current org_id
+    # Cross-org data access is never permitted
+    enforce_at: query_layer
+    row_level_security: true
+
+  slugs:
+    globally_unique: true
+    immutable_after_creation: false
+    # Slug changes trigger redirect from old slug
+    reserved: [api, admin, app, www, help, support, billing, status]
+
+  invitations:
+    token_length_bytes: 32
+    expiry_hours: 72
+    max_pending_per_org: 100
+    resend_cooldown_minutes: 5
+    # Prevent invite spam
+
+  roles:
+    hierarchy: [owner, admin, member, viewer]
+    # Higher role can manage lower roles
+    owner_minimum: 1
+    # Organization must always have at least one owner
+    owner_transfer_requires_confirmation: true
+
+  limits:
+    free:
+      max_members: 5
+      max_teams: 1
+    starter:
+      max_members: 25
+      max_teams: 5
+    pro:
+      max_members: 100
+      max_teams: 25
+    enterprise:
+      max_members: unlimited
+      max_teams: unlimited
+
+# ─── OUTCOMES ─────────────────────────────────────────────
+
+outcomes:
+  org_created:
+    priority: 1
+    transaction: true
+    given:
+      - field: org_name
+        source: input
+        operator: exists
+        description: "Organization name provided"
+      - field: org_slug
+        source: input
+        operator: exists
+        description: "Organization slug provided"
+      - field: org_slug
+        source: db
+        operator: not_exists
+        description: "Slug is not already taken"
+    then:
+      - action: create_record
+        type: organization
+        target: organizations
+        description: "Create the organization record"
+      - action: create_record
+        type: membership
+        target: org_members
+        description: "Add creator as owner of the new organization"
+      - action: emit_event
+        event: org.created
+        payload: [org_id, org_name, org_slug, owner_id, plan, timestamp]
+    result: organization created with the creator as owner
+
+  slug_taken:
+    priority: 2
+    error: ORG_SLUG_TAKEN
+    given:
+      - field: org_slug
+        source: db
+        operator: exists
+        description: "An organization with this slug already exists"
+    result: show "This organization URL is already taken"
+
+  member_invited:
+    priority: 3
+    transaction: true
+    given:
+      - field: invite_email
+        source: input
+        operator: exists
+        description: "Invite email provided"
+      - field: invite_email
+        source: db
+        operator: not_exists
+        description: "Email not already a member or pending invite in this org"
+      - field: member_count
+        source: computed
+        operator: lt
+        value: plan_member_limit
+        description: "Organization has not reached member limit for current plan"
+    then:
+      - action: create_record
+        type: invitation
+        target: org_invitations
+        description: "Create pending invitation with secure token"
+      - action: notify
+        channel: email
+        template: org_invite
+        description: "Send invitation email with accept/decline link"
+      - action: emit_event
+        event: member.invited
+        payload: [org_id, invite_email, invited_by, member_role, timestamp]
+    result: invitation sent to the provided email address
+
+  member_limit_reached:
+    priority: 4
+    error: ORG_MEMBER_LIMIT
+    given:
+      - field: member_count
+        source: computed
+        operator: gte
+        value: plan_member_limit
+        description: "Organization has reached the member limit for its plan"
+    result: show "Your plan's member limit has been reached. Upgrade to add more members."
+
+  invite_accepted:
+    priority: 5
+    transaction: true
+    given:
+      - field: invite_token
+        source: input
+        operator: exists
+        description: "Valid invite token provided"
+      - field: invite_status
+        source: db
+        operator: eq
+        value: pending
+        description: "Invitation is still pending"
+      - field: invited_at
+        source: db
+        operator: gt
+        value: "now - 72h"
+        description: "Invitation has not expired (72-hour window)"
+    then:
+      - action: set_field
+        target: invite_status
+        value: accepted
+        description: "Mark invitation as accepted"
+      - action: set_field
+        target: accepted_at
+        value: now
+        description: "Record acceptance timestamp"
+      - action: create_record
+        type: membership
+        target: org_members
+        description: "Add user as member with the invited role"
+      - action: emit_event
+        event: member.joined
+        payload: [org_id, user_id, member_role, invited_by, timestamp]
+    result: user added to the organization with the assigned role
+
+  invite_expired:
+    priority: 6
+    error: INVITE_EXPIRED
+    given:
+      - field: invited_at
+        source: db
+        operator: lt
+        value: "now - 72h"
+        description: "Invitation is older than 72 hours"
+    then:
+      - action: set_field
+        target: invite_status
+        value: expired
+        description: "Mark invitation as expired"
+    result: show "This invitation has expired. Please request a new one."
+
+  invite_declined:
+    priority: 7
+    given:
+      - field: invite_token
+        source: input
+        operator: exists
+        description: "Valid invite token provided"
+      - field: invite_status
+        source: db
+        operator: eq
+        value: pending
+        description: "Invitation is still pending"
+    then:
+      - action: set_field
+        target: invite_status
+        value: declined
+        description: "Mark invitation as declined"
+      - action: emit_event
+        event: member.invite_declined
+        payload: [org_id, invite_email, timestamp]
+    result: invitation declined
+
+  member_removed:
+    priority: 8
+    transaction: true
+    given:
+      - field: target_member
+        source: db
+        operator: exists
+        description: "Target member exists in the organization"
+      - field: target_member_role
+        source: db
+        operator: neq
+        value: owner
+        description: "Cannot remove the last owner — transfer ownership first"
+    then:
+      - action: delete_record
+        type: membership
+        target: org_members
+        description: "Remove member from organization"
+      - action: emit_event
+        event: member.removed
+        payload: [org_id, user_id, removed_by, timestamp]
+    result: member removed from the organization
+
+  member_role_changed:
+    priority: 9
+    given:
+      - field: target_member
+        source: db
+        operator: exists
+        description: "Target member exists in the organization"
+      - field: new_role
+        source: input
+        operator: exists
+        description: "New role specified"
+    then:
+      - action: set_field
+        target: member_role
+        value: new_role
+        description: "Update member's role"
+      - action: emit_event
+        event: member.role_changed
+        payload: [org_id, user_id, old_role, new_role, changed_by, timestamp]
+    result: member role updated
+
+# ─── ERRORS ───────────────────────────────────────────────
+
+errors:
+  - code: ORG_SLUG_TAKEN
+    status: 409
+    message: "This organization URL is already taken"
+    retry: false
+
+  - code: ORG_MEMBER_LIMIT
+    status: 403
+    message: "Member limit reached for your current plan"
+    retry: false
+
+  - code: INVITE_EXPIRED
+    status: 410
+    message: "This invitation has expired"
+    retry: false
+
+  - code: INVITE_ALREADY_ACCEPTED
+    status: 409
+    message: "This invitation has already been accepted"
+    retry: false
+
+  - code: MEMBER_ALREADY_EXISTS
+    status: 409
+    message: "This user is already a member of the organization"
+    retry: false
+
+  - code: OWNER_TRANSFER_REQUIRED
+    status: 403
+    message: "Cannot remove the last owner. Transfer ownership first."
+    retry: false
+
+  - code: INSUFFICIENT_ORG_PERMISSION
+    status: 403
+    message: "You do not have permission to perform this action in this organization"
+    retry: false
+
+# ─── EVENTS ───────────────────────────────────────────────
+
+events:
+  - name: org.created
+    description: "New organization created"
+    payload: [org_id, org_name, org_slug, owner_id, plan, timestamp]
+
+  - name: member.invited
+    description: "Member invitation sent"
+    payload: [org_id, invite_email, invited_by, member_role, timestamp]
+
+  - name: member.joined
+    description: "Member accepted invitation and joined the organization"
+    payload: [org_id, user_id, member_role, invited_by, timestamp]
+
+  - name: member.removed
+    description: "Member removed from the organization"
+    payload: [org_id, user_id, removed_by, timestamp]
+
+  - name: member.role_changed
+    description: "Member role updated within the organization"
+    payload: [org_id, user_id, old_role, new_role, changed_by, timestamp]
+
+  - name: member.invite_declined
+    description: "Member declined the invitation"
+    payload: [org_id, invite_email, timestamp]
+
+  - name: org.plan_changed
+    description: "Organization plan upgraded or downgraded"
+    payload: [org_id, old_plan, new_plan, changed_by, timestamp]
+
+# ─── RELATIONSHIPS ────────────────────────────────────────
+
+related:
+  - feature: role-based-access
+    type: recommended
+    reason: "Roles within an organization map to RBAC permission checks"
+
+  - feature: signup
+    type: required
+    reason: "Users must have an account before joining an organization"
+
+  - feature: audit-logging
+    type: recommended
+    reason: "Organization membership changes should be logged"
+
+  - feature: data-privacy-compliance
+    type: optional
+    reason: "Organizations may need GDPR/CCPA data isolation compliance"
+
+# ─── UI HINTS ─────────────────────────────────────────────
+
+ui_hints:
+  layout: dashboard_with_sidebar
+  max_width: 1200px
+
+  actions:
+    primary:
+      label: "Create Organization"
+      type: submit
+    secondary:
+      label: "Invite Member"
+      type: button
+
+  fields_order: [org_name, org_slug, plan]
+
+  accessibility:
+    aria_live_region: true

@@ -1,0 +1,324 @@
+# ============================================================
+# FILE STORAGE — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Cloud storage abstraction supporting any provider (S3, GCS,
+# Azure Blob). Signed URLs, virus scanning, deduplication.
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: file-storage
+version: "1.0.0"
+description: Cloud storage abstraction with signed URLs, virus scanning, content type validation, checksum deduplication, and multi-provider support
+category: data
+tags: [file-storage, upload, download, s3, cloud-storage, signed-urls, virus-scanning]
+
+fields:
+  - name: file_id
+    type: text
+    required: true
+    label: "File ID"
+
+  - name: bucket
+    type: text
+    required: true
+    label: "Storage Bucket"
+
+  - name: key
+    type: text
+    required: true
+    label: "Object Key"
+    validation:
+      - type: maxLength
+        value: 1024
+        message: "Object key must not exceed 1024 characters"
+
+  - name: filename
+    type: text
+    required: true
+    label: "Original Filename"
+    validation:
+      - type: maxLength
+        value: 255
+        message: "Filename must not exceed 255 characters"
+
+  - name: content_type
+    type: text
+    required: true
+    label: "MIME Content Type"
+
+  - name: size_bytes
+    type: number
+    required: true
+    label: "File Size (bytes)"
+    validation:
+      - type: min
+        value: 1
+        message: "File must not be empty"
+
+  - name: checksum_sha256
+    type: text
+    required: true
+    label: "SHA-256 Checksum"
+
+  - name: storage_provider
+    type: select
+    required: true
+    label: "Storage Provider"
+    options:
+      - value: "s3"
+        label: "S3"
+      - value: "gcs"
+        label: "GCS"
+      - value: "azure_blob"
+        label: "Azure Blob"
+      - value: "local"
+        label: "Local"
+
+  - name: upload_url
+    type: url
+    required: false
+    label: "Presigned Upload URL"
+
+  - name: download_url
+    type: url
+    required: false
+    label: "Presigned Download URL"
+
+  - name: uploaded_by
+    type: text
+    required: true
+    label: "Uploaded By"
+
+  - name: uploaded_at
+    type: datetime
+    required: true
+    label: "Upload Timestamp"
+
+  - name: scan_status
+    type: select
+    required: false
+    label: "Virus Scan Status"
+    options:
+      - value: "pending"
+        label: "Pending"
+      - value: "clean"
+        label: "Clean"
+      - value: "infected"
+        label: "Infected"
+      - value: "error"
+        label: "Error"
+    default: pending
+
+rules:
+  upload:
+    max_file_size_bytes: "configurable"
+    # Default 100 MB; configurable per bucket or content type
+    default_max_file_size_bytes: 104857600
+    allowed_content_types: "configurable"
+    # Whitelist of allowed MIME types per bucket
+    content_type_validation: "server_side"
+    # Never trust client-provided content type; detect from file magic bytes
+    presigned_upload: true
+    # Client uploads directly to storage via presigned URL (bypasses app server)
+    presigned_upload_expiry_seconds: 3600
+    # Upload URL valid for 1 hour
+
+  download:
+    presigned_download: true
+    # Client downloads directly from storage via presigned URL
+    presigned_download_expiry_seconds: 3600
+    # Download URL valid for 1 hour
+    content_disposition: "attachment"
+    # Force download rather than inline display by default
+
+  virus_scanning:
+    enabled: true
+    # All uploads are scanned before being made available
+    scan_on_upload: true
+    quarantine_on_detect: true
+    # Infected files are quarantined and not accessible for download
+    block_until_scanned: false
+    # Files are available immediately but flagged; configurable to block
+
+  deduplication:
+    enabled: true
+    strategy: "checksum"
+    # Files with identical SHA-256 checksums share the same storage object
+    # Metadata records are separate to maintain per-user ownership
+    scope: "per_bucket"
+
+  storage:
+    path_strategy: "date_partitioned"
+    # Keys are organized by date: uploads/{year}/{month}/{uuid}/{filename}
+    encryption_at_rest: true
+    # All stored files are encrypted using provider-managed keys
+    versioning: false
+    # File versioning is off by default; enable per bucket if needed
+
+  cleanup:
+    orphan_detection: true
+    # Detect storage objects with no metadata record and clean up
+    orphan_grace_period_days: 7
+    # Wait 7 days before cleaning orphaned objects (handles race conditions)
+
+outcomes:
+  file_uploaded:
+    priority: 1
+    given:
+      - "a file upload request is received"
+      - "the file passes size and content type validation"
+      - "the user is authenticated"
+    then:
+      - action: create_record
+        type: file_metadata
+        target: file_metadata
+        description: "Store file metadata (filename, size, content_type, checksum, bucket, key)"
+      - action: emit_event
+        event: file.uploaded
+        payload: [file_id, filename, content_type, size_bytes, uploaded_by]
+    result: "File stored and metadata recorded; virus scan queued"
+
+  file_downloaded:
+    priority: 2
+    given:
+      - "a file download request is received"
+      - "the file exists and the user has access"
+      - "the file is not quarantined (scan_status != infected)"
+    then:
+      - action: set_field
+        target: download_url
+        description: "Generate presigned download URL"
+      - action: emit_event
+        event: file.downloaded
+        payload: [file_id, downloaded_by]
+    result: "Presigned download URL returned to the client"
+
+  presigned_url_generated:
+    priority: 3
+    given:
+      - "a presigned upload URL is requested"
+      - "the content type and size are within allowed limits"
+    then:
+      - action: set_field
+        target: upload_url
+        description: "Generate presigned upload URL with expiry"
+    result: "Presigned upload URL returned for direct client-to-storage upload"
+
+  file_deleted:
+    priority: 4
+    given:
+      - "a file deletion request is received"
+      - "the file exists"
+      - "the user has permission to delete the file"
+    then:
+      - action: delete_record
+        type: file_metadata
+        description: "Remove file metadata record"
+      - action: emit_event
+        event: file.deleted
+        payload: [file_id, filename, deleted_by]
+    result: "File metadata removed; storage object scheduled for cleanup"
+
+  file_scanned_clean:
+    priority: 5
+    given:
+      - "virus scan completes on an uploaded file"
+      - "no threats detected"
+    then:
+      - action: set_field
+        target: scan_status
+        value: clean
+      - action: emit_event
+        event: file.scanned
+        payload: [file_id, scan_status, scan_engine]
+    result: "File marked as clean and fully available for download"
+
+  file_scanned_infected:
+    priority: 6
+    given:
+      - "virus scan completes on an uploaded file"
+      - "a threat is detected"
+    then:
+      - action: set_field
+        target: scan_status
+        value: infected
+      - action: notify
+        channel: in_app
+        to: uploaded_by
+        description: "Notify uploader that their file was quarantined"
+      - action: emit_event
+        event: file.quarantined
+        payload: [file_id, threat_name, uploaded_by]
+    result: "File quarantined; not available for download; uploader notified"
+
+  upload_too_large:
+    priority: 10
+    error: FILE_TOO_LARGE
+    given:
+      - "the uploaded file exceeds the maximum allowed size"
+    result: "Error returned indicating file size limit"
+
+  content_type_not_allowed:
+    priority: 11
+    error: FILE_CONTENT_TYPE_NOT_ALLOWED
+    given:
+      - "the detected content type is not in the allowed list for the target bucket"
+    result: "Error returned indicating the file type is not permitted"
+
+errors:
+  - code: FILE_TOO_LARGE
+    status: 413
+    message: "File exceeds the maximum allowed size"
+
+  - code: FILE_CONTENT_TYPE_NOT_ALLOWED
+    status: 422
+    message: "File type is not permitted for this upload"
+
+  - code: FILE_NOT_FOUND
+    status: 404
+    message: "File not found"
+
+  - code: FILE_QUARANTINED
+    status: 403
+    message: "File is quarantined due to a detected threat and cannot be downloaded"
+
+  - code: FILE_UPLOAD_URL_EXPIRED
+    status: 410
+    message: "Presigned upload URL has expired; request a new one"
+
+events:
+  - name: file.uploaded
+    description: "A file was uploaded and metadata recorded"
+    payload: [file_id, filename, content_type, size_bytes, uploaded_by]
+
+  - name: file.downloaded
+    description: "A file was downloaded by a user"
+    payload: [file_id, downloaded_by]
+
+  - name: file.deleted
+    description: "A file was deleted"
+    payload: [file_id, filename, deleted_by]
+
+  - name: file.scanned
+    description: "A file completed virus scanning"
+    payload: [file_id, scan_status, scan_engine]
+
+  - name: file.quarantined
+    description: "A file was quarantined due to a detected threat"
+    payload: [file_id, threat_name, uploaded_by]
+
+related:
+  - feature: data-import-export
+    type: recommended
+    reason: "Import/export operations use file storage for uploaded and generated files"
+
+  - feature: audit-trail
+    type: recommended
+    reason: "File uploads, downloads, and deletions should be tracked"
+
+  - feature: soft-delete
+    type: optional
+    reason: "Files can use soft-delete with retention before permanent removal"

@@ -1,0 +1,276 @@
+# ============================================================
+# SEARCH AND FILTERING — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Full-text search with faceted filters, sorting, and relevance
+# scoring. Supports saved searches and fuzzy matching.
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: search-and-filtering
+version: "1.0.0"
+description: Full-text search with faceted filters, sorting, relevance scoring, fuzzy matching, and saved searches
+category: data
+tags: [search, filtering, full-text, facets, sorting, relevance, fuzzy-matching]
+
+fields:
+  - name: query
+    type: text
+    required: false
+    label: "Search Query"
+    validation:
+      - type: maxLength
+        value: 500
+        message: "Search query must not exceed 500 characters"
+
+  - name: filters
+    type: json
+    required: false
+    label: "Filter Array"
+
+  - name: filter_field
+    type: text
+    required: true
+    label: "Filter Field Name"
+
+  - name: filter_operator
+    type: select
+    required: true
+    label: "Filter Operator"
+    options:
+      - value: "eq"
+        label: "Equals"
+      - value: "neq"
+        label: "Not Equals"
+      - value: "gt"
+        label: "Greater Than"
+      - value: "gte"
+        label: "Greater Than or Equal"
+      - value: "lt"
+        label: "Less Than"
+      - value: "lte"
+        label: "Less Than or Equal"
+      - value: "in"
+        label: "In"
+      - value: "not_in"
+        label: "Not In"
+      - value: "between"
+        label: "Between"
+      - value: "contains"
+        label: "Contains"
+      - value: "not_contains"
+        label: "Not Contains"
+      - value: "exists"
+        label: "Exists"
+      - value: "not_exists"
+        label: "Not Exists"
+
+  - name: filter_value
+    type: json
+    required: false
+    label: "Filter Value"
+
+  - name: sort_by
+    type: text
+    required: false
+    label: "Sort Field"
+
+  - name: sort_order
+    type: select
+    required: false
+    label: "Sort Order"
+    options:
+      - value: "asc"
+        label: "Ascending"
+      - value: "desc"
+        label: "Descending"
+    default: desc
+
+  - name: page
+    type: number
+    required: false
+    label: "Page Number"
+    default: 1
+    validation:
+      - type: min
+        value: 1
+        message: "Page must be at least 1"
+
+  - name: page_size
+    type: number
+    required: false
+    label: "Page Size"
+    default: 20
+    validation:
+      - type: min
+        value: 1
+        message: "Page size must be at least 1"
+      - type: max
+        value: 100
+        message: "Page size must not exceed 100"
+
+  - name: saved_search_name
+    type: text
+    required: false
+    label: "Saved Search Name"
+    validation:
+      - type: maxLength
+        value: 200
+        message: "Saved search name must not exceed 200 characters"
+
+  - name: total_results
+    type: number
+    required: false
+    label: "Total Result Count"
+
+  - name: relevance_score
+    type: number
+    required: false
+    label: "Relevance Score"
+
+rules:
+  search_index:
+    configurable_fields: true
+    # Each entity type defines which fields are indexed for full-text search
+    index_type: "inverted_index"
+    # Full-text search uses inverted index; can be backed by any search engine
+    analyzer: "standard"
+    # Default text analyzer; supports language-specific analyzers
+
+  query:
+    max_length: 500
+    min_length: 1
+    # Empty query returns all records (filtered/sorted as specified)
+    sanitize_input: true
+    # Strip dangerous characters to prevent injection
+
+  fuzzy_matching:
+    enabled: true
+    default_tolerance: 2
+    # Levenshtein distance tolerance for typo correction
+    min_query_length_for_fuzzy: 3
+    # Fuzzy matching only applies for queries of 3+ characters
+
+  filters:
+    max_filters: 20
+    # Prevent excessively complex queries
+    operators: [eq, neq, gt, gte, lt, lte, in, not_in, between, contains, not_contains, exists, not_exists]
+    # 'between' expects a two-element array [min, max]
+    # 'in' and 'not_in' expect an array of values
+    # 'contains' performs substring or array-contains matching
+    validate_field_names: true
+    # Only allow filtering on fields that exist in the schema
+
+  sorting:
+    default_sort: "relevance"
+    # When query is present, default sort is by relevance score
+    # When no query, default sort is by created_at desc
+    allowed_sort_fields_configurable: true
+    # Each entity type defines which fields are sortable
+
+  saved_searches:
+    max_per_user: 50
+    stores: [query, filters, sort_by, sort_order]
+    # Saved searches persist the full search configuration
+
+  rate_limiting:
+    max_requests_per_minute: 60
+    # Prevent abuse of search endpoints
+
+outcomes:
+  results_found:
+    priority: 1
+    given:
+      - "a search request is submitted with valid parameters"
+      - "matching records exist in the index"
+    then:
+      - action: set_field
+        target: total_results
+        description: "Set total count of matching records"
+      - action: emit_event
+        event: search.executed
+        payload: [query, filters, sort_by, result_count, response_time_ms]
+    result: "Paginated results returned with relevance scores, total count, and facet counts"
+
+  no_results:
+    priority: 2
+    given:
+      - "a search request is submitted with valid parameters"
+      - "no records match the query and filters"
+    then:
+      - action: emit_event
+        event: search.executed
+        payload: [query, filters, sort_by, result_count, response_time_ms]
+    result: "Empty result set returned with suggestions (spelling corrections, relaxed filters)"
+
+  search_saved:
+    priority: 3
+    given:
+      - "user submits a saved search request with a name"
+      - "user is authenticated"
+      - "saved search count is below the per-user limit"
+    then:
+      - action: create_record
+        type: saved_search
+        target: saved_search
+        description: "Persist query, filters, sort configuration under the given name"
+      - action: emit_event
+        event: search.saved
+        payload: [saved_search_id, user_id, search_name]
+    result: "Search configuration saved for future reuse"
+
+  search_error:
+    priority: 10
+    error: SEARCH_QUERY_INVALID
+    given:
+      - "the search request contains invalid parameters"
+      - "filter references a non-existent field or uses an unsupported operator"
+    result: "Error returned describing which parameters are invalid"
+
+  search_timeout:
+    priority: 11
+    error: SEARCH_TIMEOUT
+    given:
+      - "search execution exceeds the configured timeout threshold"
+    result: "Timeout error returned; client may retry with narrower filters"
+
+errors:
+  - code: SEARCH_QUERY_INVALID
+    status: 400
+    message: "Search query or filter parameters are invalid"
+
+  - code: SEARCH_TIMEOUT
+    status: 503
+    message: "Search request timed out; try narrowing your query"
+
+  - code: SEARCH_RATE_LIMITED
+    status: 429
+    message: "Too many search requests; please try again shortly"
+
+  - code: SAVED_SEARCH_LIMIT_REACHED
+    status: 400
+    message: "Maximum number of saved searches reached"
+
+events:
+  - name: search.executed
+    description: "A search query was executed (regardless of result count)"
+    payload: [query, filters, sort_by, result_count, response_time_ms]
+
+  - name: search.saved
+    description: "A search configuration was saved by a user"
+    payload: [saved_search_id, user_id, search_name]
+
+related:
+  - feature: pagination
+    type: required
+    reason: "Search results must be paginated for performance and usability"
+
+  - feature: caching
+    type: recommended
+    reason: "Frequently executed searches benefit from result caching"
+
+  - feature: audit-trail
+    type: optional
+    reason: "Search activity can be recorded for analytics and compliance"

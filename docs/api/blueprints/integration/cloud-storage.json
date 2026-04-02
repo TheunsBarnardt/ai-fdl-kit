@@ -1,0 +1,508 @@
+{
+  "feature": "cloud-storage",
+  "version": "1.0.0",
+  "description": "Manage object storage across cloud providers with upload, download, delete, presigned URLs, multipart upload, and lifecycle policy support",
+  "category": "integration",
+  "tags": [
+    "storage",
+    "cloud",
+    "s3",
+    "blob",
+    "file-upload",
+    "object-storage"
+  ],
+  "fields": [
+    {
+      "name": "provider",
+      "type": "select",
+      "required": true,
+      "label": "Cloud storage provider",
+      "options": [
+        {
+          "value": "s3",
+          "label": "S3-compatible"
+        },
+        {
+          "value": "gcs",
+          "label": "Google Cloud Storage"
+        },
+        {
+          "value": "azure",
+          "label": "Azure Blob Storage"
+        }
+      ]
+    },
+    {
+      "name": "bucket",
+      "type": "text",
+      "required": true,
+      "label": "Bucket or container name",
+      "validation": [
+        {
+          "type": "pattern",
+          "value": "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$",
+          "message": "Bucket name must be DNS-compatible lowercase alphanumeric"
+        }
+      ]
+    },
+    {
+      "name": "key",
+      "type": "text",
+      "required": true,
+      "label": "Object key (path within bucket)",
+      "validation": [
+        {
+          "type": "maxLength",
+          "value": 1024,
+          "message": "Object key must not exceed 1024 characters"
+        }
+      ]
+    },
+    {
+      "name": "content_type",
+      "type": "text",
+      "required": false,
+      "label": "MIME content type of the object"
+    },
+    {
+      "name": "size",
+      "type": "number",
+      "required": false,
+      "label": "Object size in bytes"
+    },
+    {
+      "name": "acl",
+      "type": "select",
+      "required": false,
+      "label": "Access control level",
+      "options": [
+        {
+          "value": "private",
+          "label": "Private (default)"
+        },
+        {
+          "value": "public-read",
+          "label": "Public Read"
+        }
+      ]
+    },
+    {
+      "name": "presigned_url",
+      "type": "url",
+      "required": false,
+      "label": "Presigned URL for temporary access"
+    },
+    {
+      "name": "presigned_expiry",
+      "type": "number",
+      "required": false,
+      "label": "Presigned URL expiry in seconds",
+      "validation": [
+        {
+          "type": "min",
+          "value": 60,
+          "message": "Presigned URL expiry must be at least 60 seconds"
+        },
+        {
+          "type": "max",
+          "value": 604800,
+          "message": "Presigned URL expiry must not exceed 7 days (604800 seconds)"
+        }
+      ]
+    },
+    {
+      "name": "encryption",
+      "type": "select",
+      "required": false,
+      "label": "Server-side encryption method",
+      "options": [
+        {
+          "value": "aes256",
+          "label": "AES-256 (provider-managed key)"
+        },
+        {
+          "value": "kms",
+          "label": "KMS (customer-managed key)"
+        }
+      ]
+    },
+    {
+      "name": "storage_class",
+      "type": "select",
+      "required": false,
+      "label": "Storage class for cost optimization",
+      "options": [
+        {
+          "value": "standard",
+          "label": "Standard"
+        },
+        {
+          "value": "infrequent",
+          "label": "Infrequent Access"
+        },
+        {
+          "value": "archive",
+          "label": "Archive"
+        }
+      ]
+    },
+    {
+      "name": "version_id",
+      "type": "text",
+      "required": false,
+      "label": "Object version identifier (when versioning enabled)"
+    },
+    {
+      "name": "etag",
+      "type": "text",
+      "required": false,
+      "label": "Entity tag for conditional operations"
+    },
+    {
+      "name": "upload_id",
+      "type": "text",
+      "required": false,
+      "label": "Multipart upload identifier"
+    }
+  ],
+  "rules": {
+    "upload": [
+      "Maximum single upload size is 5GB; use multipart upload for larger objects",
+      "Multipart upload required for objects over 100MB (recommended over 5MB)",
+      "Content-type should be set explicitly; auto-detection based on extension as fallback",
+      "All uploads must include a checksum (MD5 or SHA-256) for integrity verification"
+    ],
+    "security": [
+      "Server-side encryption is required for all objects at rest",
+      "Bucket-level public access is blocked by default; public-read ACL requires explicit opt-in",
+      "Presigned URLs must have an expiry; maximum 7 days (604800 seconds)",
+      "CORS configuration required for browser-based direct uploads"
+    ],
+    "lifecycle": [
+      "Lifecycle policies transition objects between storage classes based on age",
+      "Expired objects are deleted automatically per lifecycle rules",
+      "Versioned objects retain previous versions; lifecycle rules can expire non-current versions"
+    ],
+    "naming": [
+      "Bucket names must be globally unique and DNS-compatible (lowercase, no underscores)",
+      "Object keys use forward slashes as logical directory separators",
+      "Avoid special characters in keys except hyphens, underscores, dots, and slashes"
+    ]
+  },
+  "outcomes": {
+    "object_uploaded": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "bucket",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "key",
+          "source": "input",
+          "operator": "exists"
+        },
+        "Object body provided and size within single upload limit"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "storage_object",
+          "fields": [
+            "bucket",
+            "key",
+            "content_type",
+            "size",
+            "etag",
+            "encryption"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "object.uploaded",
+          "payload": [
+            "bucket",
+            "key",
+            "size",
+            "content_type"
+          ]
+        }
+      ],
+      "result": "Object stored with server-side encryption; etag returned for verification"
+    },
+    "multipart_upload_completed": {
+      "priority": 2,
+      "given": [
+        "Object size exceeds 100MB",
+        "Multipart upload initiated with upload_id",
+        "All parts uploaded and completed"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "storage_object",
+          "fields": [
+            "bucket",
+            "key",
+            "content_type",
+            "size",
+            "etag",
+            "upload_id"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "object.uploaded",
+          "payload": [
+            "bucket",
+            "key",
+            "size",
+            "upload_id"
+          ]
+        }
+      ],
+      "result": "Multipart upload assembled into final object; upload_id invalidated"
+    },
+    "object_downloaded": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "bucket",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "key",
+          "source": "input",
+          "operator": "exists"
+        },
+        "Object exists at the specified key"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "object.accessed",
+          "payload": [
+            "bucket",
+            "key",
+            "requester"
+          ]
+        }
+      ],
+      "result": "Object content and metadata returned; conditional GET supported via ETag/If-None-Match"
+    },
+    "presigned_url_generated": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "bucket",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "key",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "presigned_expiry",
+          "source": "input",
+          "operator": "lte",
+          "value": 604800
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "presigned_url",
+          "value": "generated_url"
+        }
+      ],
+      "result": "Presigned URL generated for temporary access; expires after specified duration"
+    },
+    "object_deleted": {
+      "priority": 5,
+      "given": [
+        {
+          "field": "bucket",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "key",
+          "source": "input",
+          "operator": "exists"
+        },
+        "Caller has delete permission on the object"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "storage_object",
+          "fields": [
+            "bucket",
+            "key"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "object.deleted",
+          "payload": [
+            "bucket",
+            "key",
+            "version_id"
+          ]
+        }
+      ],
+      "result": "Object deleted; if versioning enabled, a delete marker is placed"
+    },
+    "object_not_found": {
+      "priority": 6,
+      "error": "OBJECT_NOT_FOUND",
+      "given": [
+        "No object exists at the specified bucket/key path"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "object.access_denied",
+          "payload": [
+            "bucket",
+            "key",
+            "error_reason"
+          ]
+        }
+      ],
+      "result": "404 returned; object does not exist at the specified path"
+    },
+    "bucket_access_denied": {
+      "priority": 7,
+      "error": "BUCKET_ACCESS_DENIED",
+      "given": [
+        "Caller lacks permission to access the specified bucket"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "object.access_denied",
+          "payload": [
+            "bucket",
+            "requester",
+            "error_reason"
+          ]
+        }
+      ],
+      "result": "403 returned; caller does not have required IAM permissions"
+    },
+    "upload_too_large": {
+      "priority": 8,
+      "error": "UPLOAD_SIZE_EXCEEDED",
+      "given": [
+        {
+          "field": "size",
+          "source": "input",
+          "operator": "gt",
+          "value": 5368709120
+        }
+      ],
+      "then": [],
+      "result": "Upload rejected; use multipart upload for objects over 5GB"
+    },
+    "invalid_content_type": {
+      "priority": 9,
+      "error": "CONTENT_TYPE_NOT_ALLOWED",
+      "given": [
+        "Content type is not in the bucket's allowed content types list"
+      ],
+      "then": [],
+      "result": "Upload rejected; content type not permitted by bucket policy"
+    }
+  },
+  "errors": [
+    {
+      "code": "OBJECT_NOT_FOUND",
+      "status": 404,
+      "message": "Object does not exist at the specified path."
+    },
+    {
+      "code": "BUCKET_ACCESS_DENIED",
+      "status": 403,
+      "message": "Access denied. Check IAM permissions for the bucket."
+    },
+    {
+      "code": "UPLOAD_SIZE_EXCEEDED",
+      "status": 413,
+      "message": "Object exceeds maximum single upload size (5GB). Use multipart upload."
+    },
+    {
+      "code": "CONTENT_TYPE_NOT_ALLOWED",
+      "status": 422,
+      "message": "Content type is not allowed by the bucket policy."
+    },
+    {
+      "code": "BUCKET_NOT_FOUND",
+      "status": 404,
+      "message": "Bucket does not exist or is not accessible."
+    },
+    {
+      "code": "MULTIPART_UPLOAD_FAILED",
+      "status": 500,
+      "message": "Multipart upload failed. Incomplete parts have been cleaned up."
+    },
+    {
+      "code": "CHECKSUM_MISMATCH",
+      "status": 400,
+      "message": "Object checksum does not match the provided value. Upload may be corrupted."
+    }
+  ],
+  "events": [
+    {
+      "name": "object.uploaded",
+      "payload": [
+        "bucket",
+        "key",
+        "size",
+        "content_type",
+        "etag"
+      ]
+    },
+    {
+      "name": "object.deleted",
+      "payload": [
+        "bucket",
+        "key",
+        "version_id"
+      ]
+    },
+    {
+      "name": "object.accessed",
+      "payload": [
+        "bucket",
+        "key",
+        "requester"
+      ]
+    },
+    {
+      "name": "object.access_denied",
+      "payload": [
+        "bucket",
+        "key",
+        "requester",
+        "error_reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "api-gateway",
+      "type": "optional",
+      "reason": "Presigned URL generation may be exposed through API gateway"
+    },
+    {
+      "feature": "webhook-ingestion",
+      "type": "optional",
+      "reason": "Receive storage event notifications (object created, deleted)"
+    }
+  ]
+}

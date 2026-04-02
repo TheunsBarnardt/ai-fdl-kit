@@ -1,0 +1,217 @@
+# ============================================================
+# SOFT DELETE — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Trash, archive, and restore pattern with automatic purging.
+# Soft-deleted records are excluded from default queries.
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: soft-delete
+version: "1.0.0"
+description: Trash/archive/restore pattern with soft deletion, configurable retention periods, automatic purging, and cascade rules for related records
+category: data
+tags: [soft-delete, trash, archive, restore, purge, retention, data-lifecycle]
+
+fields:
+  - name: deleted_at
+    type: datetime
+    required: false
+    label: "Deleted At"
+
+  - name: deleted_by
+    type: text
+    required: false
+    label: "Deleted By"
+
+  - name: restore_before
+    type: datetime
+    required: false
+    label: "Auto-Purge Date"
+
+  - name: deletion_type
+    type: select
+    required: true
+    label: "Deletion Type"
+    options:
+      - value: "soft"
+        label: "Soft"
+      - value: "permanent"
+        label: "Permanent"
+    default: soft
+
+  - name: deletion_reason
+    type: text
+    required: false
+    label: "Deletion Reason"
+    validation:
+      - type: maxLength
+        value: 500
+        message: "Deletion reason must not exceed 500 characters"
+
+rules:
+  default_query_behavior:
+    exclude_soft_deleted: true
+    # Default queries (list, search, get) exclude soft-deleted records
+    # Explicit include_deleted=true parameter required to see them
+    soft_delete_scope: "per_model"
+    # Each model opts in to soft delete individually
+
+  retention:
+    default_retention_days: 30
+    # Soft-deleted records are auto-purged after 30 days
+    configurable_per_model: true
+    # Each model can override the default retention period
+    restore_before_auto_set: true
+    # restore_before is automatically set to deleted_at + retention_days
+
+  cascade:
+    strategy: "configurable"
+    # Options: cascade (soft-delete children), restrict (block if children exist), nullify (set FK to null)
+    default: "cascade"
+    # By default, soft-deleting a parent soft-deletes its children
+    restore_cascades: true
+    # Restoring a parent also restores its cascade-deleted children
+
+  permanent_delete:
+    admin_only: true
+    # Only users with admin privileges can permanently delete
+    requires_soft_delete_first: true
+    # Records must be soft-deleted before permanent deletion (two-step safety)
+    irreversible: true
+    # Permanent deletion cannot be undone
+
+  purge_job:
+    schedule: "daily"
+    # Background job runs daily to permanently purge expired records
+    batch_size: 1000
+    # Process in batches to avoid locking issues
+
+  unique_constraints:
+    scoped_to_active: true
+    # Unique constraints only apply to active (non-deleted) records
+    # Allows re-creation of a record with the same unique key after soft-delete
+
+outcomes:
+  record_soft_deleted:
+    priority: 1
+    given:
+      - "user requests deletion of a record"
+      - "the record exists and is not already soft-deleted"
+      - "user has permission to delete the record"
+    then:
+      - action: set_field
+        target: deleted_at
+        description: "Set to current timestamp"
+      - action: set_field
+        target: deleted_by
+        description: "Set to the requesting user's ID"
+      - action: set_field
+        target: restore_before
+        description: "Set to deleted_at + retention period"
+      - action: emit_event
+        event: record.soft_deleted
+        payload: [entity_type, entity_id, deleted_by, restore_before]
+    result: "Record marked as deleted; excluded from default queries; restorable until purge date"
+
+  record_restored:
+    priority: 2
+    given:
+      - "user requests restoration of a soft-deleted record"
+      - "the record exists and is currently soft-deleted"
+      - "the restore_before date has not passed"
+      - "user has permission to restore the record"
+    then:
+      - action: set_field
+        target: deleted_at
+        value: null
+      - action: set_field
+        target: deleted_by
+        value: null
+      - action: set_field
+        target: restore_before
+        value: null
+      - action: emit_event
+        event: record.restored
+        payload: [entity_type, entity_id, restored_by]
+    result: "Record restored to active state; visible in default queries again"
+
+  record_permanently_purged:
+    priority: 3
+    given:
+      - any:
+        - "the auto-purge job runs and restore_before has passed"
+        - "an admin explicitly requests permanent deletion of a soft-deleted record"
+    then:
+      - action: delete_record
+        type: record
+        description: "Permanently remove the record and its data from the database"
+      - action: emit_event
+        event: record.purged
+        payload: [entity_type, entity_id, purge_reason]
+    result: "Record permanently removed; cannot be restored"
+
+  delete_already_deleted:
+    priority: 4
+    error: RECORD_ALREADY_DELETED
+    given:
+      - "user requests deletion of a record"
+      - "the record is already soft-deleted"
+    result: "Error returned indicating the record is already in the trash"
+
+  restore_expired:
+    priority: 5
+    error: RECORD_RESTORE_EXPIRED
+    given:
+      - "user requests restoration of a soft-deleted record"
+      - "the restore_before date has passed"
+    result: "Error returned indicating the retention period has expired"
+
+  permanent_delete_not_soft_deleted:
+    priority: 6
+    error: RECORD_NOT_SOFT_DELETED
+    given:
+      - "admin requests permanent deletion of a record"
+      - "the record is not currently soft-deleted"
+    result: "Error returned; record must be soft-deleted before permanent deletion"
+
+errors:
+  - code: RECORD_ALREADY_DELETED
+    status: 409
+    message: "Record is already in the trash"
+
+  - code: RECORD_RESTORE_EXPIRED
+    status: 410
+    message: "Retention period has expired; record can no longer be restored"
+
+  - code: RECORD_NOT_SOFT_DELETED
+    status: 400
+    message: "Record must be soft-deleted before it can be permanently purged"
+
+  - code: PERMANENT_DELETE_UNAUTHORIZED
+    status: 403
+    message: "Only administrators can permanently delete records"
+
+events:
+  - name: record.soft_deleted
+    description: "A record was soft-deleted and moved to the trash"
+    payload: [entity_type, entity_id, deleted_by, restore_before]
+
+  - name: record.restored
+    description: "A soft-deleted record was restored to active state"
+    payload: [entity_type, entity_id, restored_by]
+
+  - name: record.purged
+    description: "A record was permanently purged from the database"
+    payload: [entity_type, entity_id, purge_reason]
+
+related:
+  - feature: audit-trail
+    type: required
+    reason: "All delete, restore, and purge operations must be tracked in the audit trail"
+
+  - feature: search-and-filtering
+    type: recommended
+    reason: "Search must respect soft-delete scoping to exclude trashed records by default"

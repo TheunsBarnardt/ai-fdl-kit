@@ -1,0 +1,234 @@
+{
+  "feature": "pagination",
+  "version": "1.0.0",
+  "description": "Cursor-based and offset-based pagination with configurable page sizes, stable sorting, and Link header support for REST APIs",
+  "category": "data",
+  "tags": [
+    "pagination",
+    "cursor",
+    "offset",
+    "paging",
+    "rest-api",
+    "list"
+  ],
+  "fields": [
+    {
+      "name": "page",
+      "type": "number",
+      "required": false,
+      "label": "Page Number (offset-based)",
+      "default": 1,
+      "validation": [
+        {
+          "type": "min",
+          "value": 1,
+          "message": "Page number must be at least 1"
+        }
+      ]
+    },
+    {
+      "name": "page_size",
+      "type": "number",
+      "required": false,
+      "label": "Items Per Page",
+      "default": 20,
+      "validation": [
+        {
+          "type": "min",
+          "value": 1,
+          "message": "Page size must be at least 1"
+        },
+        {
+          "type": "max",
+          "value": 100,
+          "message": "Page size must not exceed 100"
+        }
+      ]
+    },
+    {
+      "name": "cursor",
+      "type": "text",
+      "required": false,
+      "label": "Pagination Cursor"
+    },
+    {
+      "name": "total_count",
+      "type": "number",
+      "required": false,
+      "label": "Total Record Count"
+    },
+    {
+      "name": "has_next",
+      "type": "boolean",
+      "required": true,
+      "label": "Has Next Page"
+    },
+    {
+      "name": "has_previous",
+      "type": "boolean",
+      "required": true,
+      "label": "Has Previous Page"
+    },
+    {
+      "name": "next_cursor",
+      "type": "text",
+      "required": false,
+      "label": "Next Page Cursor"
+    },
+    {
+      "name": "previous_cursor",
+      "type": "text",
+      "required": false,
+      "label": "Previous Page Cursor"
+    }
+  ],
+  "rules": {
+    "offset_based": {
+      "default_page_size": 20,
+      "max_page_size": 100,
+      "includes_total_count": true,
+      "max_offset": 10000
+    },
+    "cursor_based": {
+      "preferred_for_large_datasets": true,
+      "cursor_encoding": "opaque_base64",
+      "stable_sort_required": true,
+      "no_total_count": true
+    },
+    "link_headers": {
+      "enabled": true,
+      "format": "RFC 8288"
+    },
+    "response_metadata": {
+      "offset_fields": [
+        "page",
+        "page_size",
+        "total_count",
+        "has_next",
+        "has_previous"
+      ],
+      "cursor_fields": [
+        "page_size",
+        "has_next",
+        "has_previous",
+        "next_cursor",
+        "previous_cursor"
+      ]
+    }
+  },
+  "outcomes": {
+    "page_returned": {
+      "priority": 1,
+      "given": [
+        "a paginated list request is made with valid parameters",
+        "records exist for the requested page"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "has_next",
+          "description": "Set to true if more records exist beyond the current page"
+        },
+        {
+          "action": "set_field",
+          "target": "has_previous",
+          "description": "Set to true if records exist before the current page"
+        }
+      ],
+      "result": "Page of results returned with pagination metadata and Link headers"
+    },
+    "empty_page": {
+      "priority": 2,
+      "given": [
+        "a paginated list request is made with valid parameters",
+        "no records exist for the requested page (page beyond last or empty dataset)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "has_next",
+          "value": false
+        },
+        {
+          "action": "set_field",
+          "target": "has_previous",
+          "description": "Set based on whether earlier pages have records"
+        }
+      ],
+      "result": "Empty array returned with pagination metadata indicating no more results"
+    },
+    "invalid_cursor": {
+      "priority": 3,
+      "error": "PAGINATION_INVALID_CURSOR",
+      "given": [
+        "a cursor-based request is made",
+        "the cursor token is malformed, expired, or references deleted data"
+      ],
+      "result": "Error returned instructing client to restart pagination from the beginning"
+    },
+    "page_size_exceeded": {
+      "priority": 4,
+      "error": "PAGINATION_PAGE_SIZE_EXCEEDED",
+      "given": [
+        "requested page_size exceeds the maximum allowed (100)"
+      ],
+      "result": "Error returned indicating the maximum page size"
+    },
+    "offset_too_deep": {
+      "priority": 5,
+      "error": "PAGINATION_OFFSET_TOO_DEEP",
+      "given": [
+        "offset-based pagination is used",
+        {
+          "field": "page",
+          "source": "input",
+          "operator": "gt",
+          "value": 500,
+          "description": "Computed offset exceeds max_offset threshold"
+        }
+      ],
+      "result": "Error returned suggesting client switch to cursor-based pagination"
+    }
+  },
+  "errors": [
+    {
+      "code": "PAGINATION_INVALID_CURSOR",
+      "status": 400,
+      "message": "Invalid or expired pagination cursor; please restart from the first page"
+    },
+    {
+      "code": "PAGINATION_PAGE_SIZE_EXCEEDED",
+      "status": 400,
+      "message": "Page size must not exceed 100"
+    },
+    {
+      "code": "PAGINATION_OFFSET_TOO_DEEP",
+      "status": 400,
+      "message": "Offset too large; use cursor-based pagination for deep result sets"
+    }
+  ],
+  "events": [
+    {
+      "name": "pagination.page_served",
+      "description": "A page of results was served to a client",
+      "payload": [
+        "page_or_cursor",
+        "page_size",
+        "result_count",
+        "has_next"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "search-and-filtering",
+      "type": "recommended",
+      "reason": "Search results are typically paginated"
+    },
+    {
+      "feature": "caching",
+      "type": "optional",
+      "reason": "Paginated responses can be cached by page/cursor key"
+    }
+  ]
+}

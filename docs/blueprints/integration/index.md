@@ -13,15 +13,22 @@ External service and hardware integration blueprints.
 
 | Blueprint | Description | Version |
 |-----------|-------------|----------|
+| [Api Gateway]({{ site.baseurl }}/blueprints/integration/api-gateway/) | Route, authenticate, rate-limit, and transform API requests through a centralized gateway with versioning, circuit breaking, and CORS support | 1.0.0 |
 | [Build Integration]({{ site.baseurl }}/blueprints/integration/build-integration/) | Integrate CSS framework with build tools (PostCSS, CLI, Webpack, Vite, Next.js) to process templates and generate optimized CSS | 1.0.0 |
 | [Clearing House Account Management]({{ site.baseurl }}/blueprints/integration/clearing-house-account-management/) | Account management services for payment clearing houses — account mirroring, proxy management, real-time account verification, and check digit verification | 1.0.0 |
 | [Clearing House Eft]({{ site.baseurl }}/blueprints/integration/clearing-house-eft/) | Electronic Funds Transfer operations via clearing house platform — inbound/outbound credits, debits, returns, on-us debits, payment cancellation, and system error correction | 1.0.0 |
 | [Clearing House Inbound Payments]({{ site.baseurl }}/blueprints/integration/clearing-house-inbound-payments/) | Clearing house inbound payment processing — receiving credit transfers and direct debits from the national payment system | 1.0.0 |
 | [Clearing House Outbound Payments]({{ site.baseurl }}/blueprints/integration/clearing-house-outbound-payments/) | Clearing house outbound payment operations including credit transfers, bulk payments, direct debits, returns, and cancellations | 1.0.0 |
 | [Clearing House Request To Pay]({{ site.baseurl }}/blueprints/integration/clearing-house-request-to-pay/) | Request-To-Pay (RTP) and refunds for clearing house payments — outbound/inbound RTP initiation, cancellation, and refund processing | 1.0.0 |
+| [Cloud Storage]({{ site.baseurl }}/blueprints/integration/cloud-storage/) | Manage object storage across cloud providers with upload, download, delete, presigned URLs, multipart upload, and lifecycle policy support | 1.0.0 |
+| [Email Service]({{ site.baseurl }}/blueprints/integration/email-service/) | Send transactional and marketing emails through a provider-agnostic abstraction supporting templates, attachments, delivery tracking, and batch sends | 1.0.0 |
 | [Market Data Feeds]({{ site.baseurl }}/blueprints/integration/market-data-feeds/) | Consume and distribute real-time and delayed market data including pricing, indices, commodities, forex, and trade feeds from multiple providers | 1.0.0 |
+| [Message Queue]({{ site.baseurl }}/blueprints/integration/message-queue/) | Process asynchronous jobs and events through a provider-agnostic message queue supporting publish, subscribe, acknowledge, retry with backoff, and dead-letter queues | 1.0.0 |
+| [Oauth Provider]({{ site.baseurl }}/blueprints/integration/oauth-provider/) | OAuth 2.0 authorization server for issuing tokens to third-party applications | 1.0.0 |
 | [Palm Vein]({{ site.baseurl }}/blueprints/integration/palm-vein/) | Biometric scanning hardware integration for palm vein pattern registration, feature extraction, and 1:N template matching | 1.0.0 |
+| [Payment Gateway]({{ site.baseurl }}/blueprints/integration/payment-gateway/) | Process payments through a provider-agnostic gateway abstraction supporting authorization, capture, void, refund, and webhook-driven status updates | 1.0.0 |
 | [Plugin Development]({{ site.baseurl }}/blueprints/integration/plugin-development/) | Create and register plugins to extend CSS framework with custom utilities, variants, and theme values | 1.0.0 |
 | [Plugin Overrides]({{ site.baseurl }}/blueprints/integration/plugin-overrides/) | Extensible plugin architecture with 12 UI override points, wrapping composition, field type customization, and sidebar panels | 1.0.0 |
 | [Prisma Cli]({{ site.baseurl }}/blueprints/integration/prisma-cli/) | CLI tools for schema validation, formatting, generation, and database introspection | 1.0.0 |
 | [Stablecoin Wallet Api]({{ site.baseurl }}/blueprints/integration/stablecoin-wallet-api/) | Stablecoin wallet infrastructure API — multi-chain wallets, addresses, deposits, withdrawals, swaps, gateway, checkout, and fiat offramp | 1.0.0 |
+| [Webhook Ingestion]({{ site.baseurl }}/blueprints/integration/webhook-ingestion/) | Receive and process incoming webhooks from external services with signature verification (HMAC/RSA), replay protection, idempotent deduplication, and async handler routing | 1.0.0 |

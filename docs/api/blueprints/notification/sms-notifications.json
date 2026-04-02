@@ -1,0 +1,544 @@
+{
+  "feature": "sms-notifications",
+  "version": "1.0.0",
+  "description": "Send SMS messages for OTP codes, alerts, and marketing with provider abstraction and compliance",
+  "category": "notification",
+  "tags": [
+    "sms",
+    "otp",
+    "alerts",
+    "marketing",
+    "tcpa",
+    "gdpr",
+    "notification",
+    "messaging"
+  ],
+  "fields": [
+    {
+      "name": "recipient_phone",
+      "type": "phone",
+      "required": true,
+      "label": "Recipient Phone Number",
+      "sensitive": true,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Recipient phone number is required"
+        },
+        {
+          "type": "pattern",
+          "value": "^\\+[1-9]\\d{6,14}$",
+          "message": "Phone number must be in E.164 format (e.g., +14155551234)"
+        }
+      ]
+    },
+    {
+      "name": "message_body",
+      "type": "text",
+      "required": true,
+      "label": "Message Body",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Message body is required"
+        },
+        {
+          "type": "maxLength",
+          "value": 1600,
+          "message": "Message exceeds maximum length"
+        }
+      ]
+    },
+    {
+      "name": "message_type",
+      "type": "select",
+      "required": true,
+      "label": "Message Type",
+      "options": [
+        {
+          "value": "otp",
+          "label": "OTP"
+        },
+        {
+          "value": "transactional",
+          "label": "Transactional"
+        },
+        {
+          "value": "alert",
+          "label": "Alert"
+        },
+        {
+          "value": "marketing",
+          "label": "Marketing"
+        }
+      ],
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Message type is required"
+        }
+      ]
+    },
+    {
+      "name": "sender_id",
+      "type": "text",
+      "required": false,
+      "label": "Sender ID",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "maxLength",
+          "value": 11,
+          "message": "Sender ID must be 11 characters or fewer"
+        }
+      ]
+    },
+    {
+      "name": "tracking_id",
+      "type": "text",
+      "required": false,
+      "label": "Tracking ID",
+      "sensitive": false
+    },
+    {
+      "name": "expiry_seconds",
+      "type": "number",
+      "required": false,
+      "label": "Message Expiry",
+      "default": 3600,
+      "validation": [
+        {
+          "type": "min",
+          "value": 60,
+          "message": "Expiry must be at least 60 seconds"
+        },
+        {
+          "type": "max",
+          "value": 86400,
+          "message": "Expiry must not exceed 24 hours"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "delivery": {
+      "provider_abstraction": true,
+      "max_retries": 2,
+      "retry_backoff": "exponential",
+      "retry_base_seconds": 15,
+      "timeout_seconds": 30
+    },
+    "phone_validation": {
+      "format": "e164",
+      "lookup_carrier": true,
+      "reject_landline_for_otp": true
+    },
+    "compliance": {
+      "tcpa": {
+        "prior_express_consent_required": true,
+        "opt_out_keywords": [
+          "STOP",
+          "UNSUBSCRIBE",
+          "CANCEL",
+          "END",
+          "QUIT"
+        ],
+        "opt_out_response": "You have been unsubscribed. Reply START to re-subscribe.",
+        "opt_in_keywords": [
+          "START",
+          "YES",
+          "SUBSCRIBE"
+        ],
+        "quiet_hours": {
+          "start": "21:00",
+          "end": "08:00",
+          "timezone": "recipient_local"
+        }
+      },
+      "gdpr": {
+        "consent_record_required": true,
+        "right_to_erasure": true
+      }
+    },
+    "rate_limiting": {
+      "per_recipient_per_minute": 2,
+      "per_recipient_per_hour": 10,
+      "per_recipient_per_day": 25,
+      "otp_per_recipient_per_hour": 5,
+      "global_per_second": 30
+    },
+    "security": {
+      "otp_masking": true,
+      "sensitive_data_scrubbing": true,
+      "number_sanitization": true
+    }
+  },
+  "outcomes": {
+    "rate_limited": {
+      "priority": 1,
+      "error": "SMS_RATE_LIMITED",
+      "given": [
+        {
+          "field": "recipient_send_count",
+          "source": "computed",
+          "operator": "gte",
+          "value": 2,
+          "description": "Recipient has received 2+ SMS this minute"
+        }
+      ],
+      "result": "reject with rate limit error"
+    },
+    "invalid_phone_number": {
+      "priority": 2,
+      "error": "SMS_INVALID_PHONE",
+      "given": [
+        {
+          "field": "recipient_phone",
+          "source": "input",
+          "operator": "not_exists",
+          "description": "Phone number failed E.164 validation or carrier lookup"
+        }
+      ],
+      "result": "reject with invalid phone number error"
+    },
+    "recipient_opted_out": {
+      "priority": 3,
+      "error": "SMS_RECIPIENT_OPTED_OUT",
+      "given": [
+        {
+          "field": "opt_out_status",
+          "source": "db",
+          "operator": "eq",
+          "value": true,
+          "description": "Recipient has opted out of SMS messages"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "sms.blocked",
+          "payload": [
+            "recipient_phone",
+            "message_type",
+            "reason",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "silently skip delivery and log opt-out hit"
+    },
+    "quiet_hours_blocked": {
+      "priority": 4,
+      "error": "SMS_QUIET_HOURS",
+      "given": [
+        {
+          "field": "message_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "marketing",
+          "description": "Message is a marketing SMS"
+        },
+        {
+          "field": "recipient_local_time",
+          "source": "computed",
+          "operator": "gt",
+          "value": "21:00",
+          "description": "Recipient local time is within quiet hours"
+        }
+      ],
+      "result": "queue for delivery after quiet hours end"
+    },
+    "missing_consent": {
+      "priority": 5,
+      "error": "SMS_CONSENT_REQUIRED",
+      "given": [
+        {
+          "field": "message_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "marketing",
+            "alert"
+          ],
+          "description": "Message type requires explicit consent"
+        },
+        {
+          "field": "consent_record",
+          "source": "db",
+          "operator": "not_exists",
+          "description": "No consent record found for this recipient and message type"
+        }
+      ],
+      "result": "reject with consent required error"
+    },
+    "sms_sent": {
+      "priority": 10,
+      "transaction": true,
+      "given": [
+        {
+          "field": "recipient_phone",
+          "source": "input",
+          "operator": "matches",
+          "value": "^\\+[1-9]\\d{6,14}$",
+          "description": "Phone number is valid E.164 format"
+        },
+        {
+          "field": "opt_out_status",
+          "source": "db",
+          "operator": "neq",
+          "value": true,
+          "description": "Recipient has not opted out"
+        },
+        {
+          "field": "message_body",
+          "source": "input",
+          "operator": "exists",
+          "description": "Message body is present"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "sms_provider",
+          "description": "Deliver SMS via configured provider"
+        },
+        {
+          "action": "create_record",
+          "type": "sms_log",
+          "target": "delivery_log",
+          "description": "Record delivery attempt with tracking ID and segment count"
+        },
+        {
+          "action": "emit_event",
+          "event": "sms.sent",
+          "payload": [
+            "tracking_id",
+            "recipient_phone",
+            "message_type",
+            "segment_count",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "SMS queued for delivery with tracking ID returned"
+    },
+    "sms_delivered": {
+      "priority": 11,
+      "given": [
+        {
+          "field": "delivery_status",
+          "source": "system",
+          "operator": "eq",
+          "value": "delivered",
+          "description": "Provider confirmed delivery via delivery receipt callback"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "delivered_at",
+          "value": "now",
+          "description": "Record delivery timestamp"
+        },
+        {
+          "action": "emit_event",
+          "event": "sms.delivered",
+          "payload": [
+            "tracking_id",
+            "recipient_phone",
+            "delivered_at",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "update delivery log with confirmed delivery"
+    },
+    "sms_failed": {
+      "priority": 12,
+      "given": [
+        {
+          "field": "delivery_status",
+          "source": "system",
+          "operator": "eq",
+          "value": "failed",
+          "description": "Provider reported delivery failure"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "failure_reason",
+          "value": "provider_error",
+          "description": "Record failure reason from provider"
+        },
+        {
+          "action": "emit_event",
+          "event": "sms.failed",
+          "payload": [
+            "tracking_id",
+            "recipient_phone",
+            "failure_reason",
+            "error_code",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "update delivery log with failure and trigger retry if eligible"
+    }
+  },
+  "errors": [
+    {
+      "code": "SMS_RATE_LIMITED",
+      "status": 429,
+      "message": "SMS rate limit exceeded. Please try again later.",
+      "retry": true
+    },
+    {
+      "code": "SMS_INVALID_PHONE",
+      "status": 422,
+      "message": "Invalid phone number. Please use E.164 format.",
+      "retry": false
+    },
+    {
+      "code": "SMS_RECIPIENT_OPTED_OUT",
+      "status": 422,
+      "message": "Recipient has opted out of SMS messages",
+      "retry": false
+    },
+    {
+      "code": "SMS_QUIET_HOURS",
+      "status": 422,
+      "message": "Marketing messages cannot be sent during quiet hours",
+      "retry": true
+    },
+    {
+      "code": "SMS_CONSENT_REQUIRED",
+      "status": 403,
+      "message": "Recipient consent is required for this message type",
+      "retry": false
+    },
+    {
+      "code": "SMS_DELIVERY_FAILED",
+      "status": 503,
+      "message": "SMS delivery failed. The message will be retried automatically.",
+      "retry": true
+    },
+    {
+      "code": "SMS_VALIDATION_ERROR",
+      "status": 422,
+      "message": "Please check the SMS parameters and try again",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "sms.sent",
+      "description": "SMS successfully queued for delivery",
+      "payload": [
+        "tracking_id",
+        "recipient_phone",
+        "message_type",
+        "segment_count",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "sms.delivered",
+      "description": "Provider confirmed SMS delivery to recipient",
+      "payload": [
+        "tracking_id",
+        "recipient_phone",
+        "delivered_at",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "sms.failed",
+      "description": "SMS delivery failed after all retries",
+      "payload": [
+        "tracking_id",
+        "recipient_phone",
+        "failure_reason",
+        "error_code",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "sms.blocked",
+      "description": "SMS blocked due to opt-out or compliance rule",
+      "payload": [
+        "recipient_phone",
+        "message_type",
+        "reason",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "notification-preferences",
+      "type": "required",
+      "reason": "Must check user SMS opt-in preferences before sending"
+    },
+    {
+      "feature": "email-notifications",
+      "type": "optional",
+      "reason": "Email fallback when SMS delivery fails"
+    },
+    {
+      "feature": "login",
+      "type": "optional",
+      "reason": "OTP codes for two-factor authentication during login"
+    },
+    {
+      "feature": "webhook-outbound",
+      "type": "optional",
+      "reason": "Delivery receipt callbacks from SMS providers"
+    }
+  ],
+  "ui_hints": {
+    "layout": "admin_panel",
+    "description": "SMS delivery management is typically an admin/back-office concern",
+    "admin_views": [
+      {
+        "view": "delivery_log",
+        "description": "Searchable log of all sent SMS with delivery status",
+        "columns": [
+          "recipient_phone",
+          "message_type",
+          "status",
+          "segment_count",
+          "sent_at",
+          "delivered_at"
+        ]
+      },
+      {
+        "view": "opt_out_list",
+        "description": "Manage opted-out phone numbers",
+        "columns": [
+          "phone",
+          "opted_out_at",
+          "reason"
+        ],
+        "actions": [
+          "remove_opt_out"
+        ]
+      },
+      {
+        "view": "consent_records",
+        "description": "View consent records for compliance audit",
+        "columns": [
+          "phone",
+          "message_type",
+          "consented_at",
+          "consent_source"
+        ]
+      }
+    ],
+    "accessibility": {
+      "aria_live_region": true
+    }
+  }
+}
