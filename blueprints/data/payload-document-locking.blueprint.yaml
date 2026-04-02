@@ -1,0 +1,179 @@
+# ============================================================
+# payload-document-locking — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/payloadcms/payload.git
+# Tech stack: Node.js + TypeScript
+# Files analyzed: 10+ (locked-documents/)
+# ============================================================
+
+feature: payload-document-locking
+version: "1.0.0"
+description: "Automatic document locking to prevent concurrent editing with configurable lock duration and override capability"
+category: data
+tags: [cms, locking, concurrent-editing, document-lock, pessimistic-locking, payload]
+
+actors:
+  - id: editor
+    name: Editor
+    type: human
+    description: "User currently editing a document and holding the lock"
+  - id: other_user
+    name: Other User
+    type: human
+    description: "Another user attempting to edit a locked document"
+  - id: lock_system
+    name: Lock System
+    type: system
+    description: "Payload's automatic lock management system"
+
+fields:
+  - name: document
+    type: json
+    required: true
+    label: "Locked Document Reference"
+    # Source: locked-documents/ — polymorphic relationship to any lockable collection
+
+  - name: global_slug
+    type: text
+    required: false
+    label: "Locked Global Slug"
+    # Source: locked-documents/ — tracks which global is locked (alternative to document)
+
+  - name: user
+    type: json
+    required: true
+    label: "Lock Owner"
+    # Source: locked-documents/ — relationship to the auth collection user who holds the lock
+
+rules:
+  locking:
+    enabled_by_default: true
+    # Source: collection/global config — lockDocuments defaults to true
+    configurable_per_collection: true
+    disable_option: "lockDocuments: false"
+
+    lock_duration:
+      default: "5m"
+      # Source: locked-documents/ — default lock duration, configurable
+      auto_release: true
+      # Locks auto-expire after the configured duration
+
+    requires_auth_collection: true
+    # Source: locked-documents/ — at least one auth-enabled collection must exist
+    # The lock must know WHO locked the document
+
+    auto_created_collection: "payload-locked-documents"
+    # Source: locked-documents/ — hidden system collection created automatically
+    # Only created if at least one collection/global has locking enabled
+
+  access:
+    create: "defaultAccess (must be authenticated)"
+    read: "defaultAccess"
+    update: "defaultAccess"
+    delete: "defaultAccess"
+
+outcomes:
+  lock_acquired:
+    priority: 10
+    given:
+      - "user opens a document for editing"
+      - "document is not currently locked by another user"
+    then:
+      - action: create_record
+        target: "payload-locked-documents"
+        description: "Lock record created with document reference and user"
+    result: "Document locked — other users see it as being edited"
+
+  lock_conflict:
+    priority: 3
+    error: DOCUMENT_LOCKED
+    given:
+      - "user attempts to edit a document"
+      - "document is locked by another user"
+      - "lock has not expired"
+    result: "User informed document is being edited by another user"
+
+  lock_override:
+    priority: 5
+    given:
+      - "user has appropriate permissions"
+      - "overrideLock flag is set on the operation"
+    then:
+      - "existing lock removed"
+      - "operation proceeds as normal"
+    result: "Lock overridden, operation completed"
+
+  lock_expired:
+    priority: 4
+    given:
+      - "document has a lock record"
+      - "lock duration has exceeded the configured maximum"
+    then:
+      - "lock treated as released"
+    result: "Document available for editing by any user"
+
+  lock_released:
+    priority: 10
+    given:
+      - "user finishes editing (navigates away or explicitly releases)"
+    then:
+      - action: delete_record
+        target: "payload-locked-documents"
+        description: "Lock record removed"
+    result: "Document unlocked and available for others"
+
+  lock_on_delete:
+    priority: 10
+    given:
+      - "document is being deleted"
+    then:
+      - "associated lock record removed"
+    result: "Lock cleaned up with document deletion"
+
+  lock_status_check:
+    priority: 10
+    given:
+      - "includeLockStatus flag set on findByID operation"
+    result: "Lock status returned alongside document data — includes who locked it and when"
+
+errors:
+  - code: DOCUMENT_LOCKED
+    status: 423
+    message: "This document is currently being edited by another user"
+    retry: true
+    # Source: errors/Locked.ts
+
+events:
+  - name: document.locked
+    payload: [collection_slug, document_id, user_id, timestamp]
+    description: "Emitted when a document is locked for editing"
+
+  - name: document.unlocked
+    payload: [collection_slug, document_id, user_id, timestamp]
+    description: "Emitted when a document lock is released"
+
+related:
+  - feature: payload-collections
+    type: required
+    reason: "Locking applies to collection documents"
+  - feature: payload-globals
+    type: optional
+    reason: "Globals also support document locking"
+  - feature: payload-auth
+    type: required
+    reason: "Lock requires authenticated user to track lock ownership"
+  - feature: payload-access-control
+    type: required
+    reason: "Lock override requires appropriate permissions"
+
+extensions:
+  tech_stack:
+    language: "TypeScript"
+    framework: "Payload CMS 3.x"
+    database: "Multi-adapter (MongoDB, PostgreSQL, SQLite, D1)"
+  auto_created_entities:
+    - name: "payload-locked-documents"
+      type: "collection"
+      description: "Hidden system collection storing active document locks"
+      hidden: true

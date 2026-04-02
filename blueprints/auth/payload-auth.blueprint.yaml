@@ -1,0 +1,503 @@
+# ============================================================
+# payload-auth — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/payloadcms/payload.git
+# Tech stack: Node.js + TypeScript + Next.js (multi-DB via adapters)
+# Files analyzed: 40+ (auth/operations/, auth/strategies/, auth/baseFields/)
+# ============================================================
+
+feature: payload-auth
+version: "1.0.0"
+description: "Full authentication system with JWT sessions, API keys, account locking, email verification, and custom strategies"
+category: auth
+tags: [cms, headless, jwt, sessions, api-key, pbkdf2, account-locking, email-verification, payload]
+
+actors:
+  - id: user
+    name: User
+    type: human
+    description: "End user authenticating via email/password, username/password, or API key"
+  - id: auth_service
+    name: Auth Service
+    type: system
+    description: "Payload auth engine — handles JWT signing, session management, password hashing"
+  - id: email_service
+    name: Email Service
+    type: system
+    description: "Pluggable email adapter for sending verification and password reset emails"
+
+fields:
+  - name: email
+    type: email
+    required: true
+    label: "Email"
+    validation:
+      - type: required
+        message: "Email is required"
+      - type: email
+        message: "Must be a valid email address"
+      - type: unique
+        message: "Email already in use"
+    # Source: auth/baseFields/email.ts — auto-lowercased and trimmed via beforeChange hook
+
+  - name: username
+    type: text
+    required: false
+    label: "Username"
+    # Source: auth/baseFields/username.ts — only added when loginWithUsername is enabled
+
+  - name: password
+    type: password
+    required: true
+    sensitive: true
+    label: "Password"
+    validation:
+      - type: minLength
+        value: 3
+        message: "Password must be at least 3 characters"
+    # Source: fields/validations.ts — default minimum 3, configurable per collection
+
+  - name: salt
+    type: hidden
+    required: false
+    sensitive: true
+    # Source: auth/baseFields/auth.ts — 32-byte random hex, used for PBKDF2 hashing
+
+  - name: hash
+    type: hidden
+    required: false
+    sensitive: true
+    # Source: auth/baseFields/auth.ts — PBKDF2-SHA256 derived key (512 bytes, 25000 iterations)
+
+  - name: reset_password_token
+    type: token
+    required: false
+    sensitive: true
+    # Source: auth/baseFields/auth.ts — 20-byte random token for password reset
+
+  - name: reset_password_expiration
+    type: datetime
+    required: false
+    # Source: auth/baseFields/auth.ts — defaults to 1 hour from generation
+
+  - name: login_attempts
+    type: number
+    required: false
+    default: 0
+    # Source: auth/baseFields/accountLock.ts — incremented on failed login
+
+  - name: lock_until
+    type: datetime
+    required: false
+    # Source: auth/baseFields/accountLock.ts — timestamp when lock expires
+
+  - name: verification_token
+    type: token
+    required: false
+    sensitive: true
+    # Source: auth/baseFields/verification.ts — random token for email verification
+
+  - name: verified
+    type: boolean
+    required: false
+    default: false
+    # Source: auth/baseFields/verification.ts — _verified field, set true on verification
+
+  - name: sessions
+    type: json
+    required: false
+    # Source: auth/baseFields/sessions.ts — array of {id (UUID), createdAt, expiresAt}
+
+  - name: enable_api_key
+    type: boolean
+    required: false
+    default: false
+    # Source: auth/baseFields/apiKey.ts — enables API key authentication for this user
+
+  - name: api_key
+    type: token
+    required: false
+    sensitive: true
+    # Source: auth/baseFields/apiKey.ts — AES-256-CTR encrypted at rest
+
+  - name: api_key_index
+    type: hidden
+    required: false
+    sensitive: true
+    # Source: auth/baseFields/apiKey.ts — HMAC-SHA256 hash for fast lookups
+
+rules:
+  security:
+    password_hashing:
+      algorithm: "PBKDF2"
+      digest: "SHA-256"
+      iterations: 25000
+      key_length: 512
+      salt_length: 32
+      # Source: auth/strategies/local/generatePasswordSaltHash.ts
+      # Why: PBKDF2 with high iterations and long key length prevents brute-force attacks
+
+    timing_safe_comparison: true
+    # Source: auth/strategies/local/authenticate.ts — uses crypto.timingSafeEqual
+
+    account_locking:
+      max_login_attempts: 0
+      # Source: auth/types.ts — default 0 means disabled; configurable per collection
+      lock_duration: "30m"
+      # Source: auth/strategies/local/incrementLoginAttempts.ts
+      auto_unlock: true
+      # Sessions created in last 20 seconds are revoked on lock
+      revoke_recent_sessions_on_lock: true
+
+    jwt:
+      algorithm: "HS256"
+      default_expiration: "2h"
+      # Source: auth/types.ts — tokenExpiration defaults to 7200 seconds
+      library: "jose"
+      # Source: auth/jwt.ts — uses jose SignJWT and jwtVerify
+
+    sessions:
+      enabled_by_default: true
+      # Source: auth/types.ts — useSessions defaults to true
+      id_format: "UUID v4"
+      auto_cleanup_expired: true
+      # Source: auth/sessions.ts — expired sessions filtered on each operation
+
+    cookies:
+      http_only: true
+      secure: "configurable"
+      same_site: "configurable"
+      name_pattern: "{cookiePrefix}-token"
+      # Source: auth/cookies.ts
+
+    csrf:
+      validates_origin_header: true
+      validates_sec_fetch_site: true
+      allows: ["same-origin", "same-site", "none"]
+      # Source: auth/csrf.ts
+
+    api_key_encryption:
+      algorithm: "AES-256-CTR"
+      iv_length: 16
+      # Source: auth/crypto.ts — encrypt/decrypt for API key storage
+
+    email_verification:
+      enabled_by_default: false
+      blocks_login_when_unverified: true
+      auto_verified_on_password_reset: true
+      # Source: auth/baseFields/verification.ts, auth/operations/resetPassword.ts
+
+  access:
+    auth_fields_hidden: true
+    # Source: auth/baseFields/auth.ts — salt, hash, tokens have create:false, update:false
+    sessions_read_own_only: true
+    # Source: auth/baseFields/sessions.ts — users can only read their own sessions
+    api_key_encrypted_at_rest: true
+
+sla:
+  token_expiration:
+    access_token: "2h"
+    reset_password_token: "1h"
+    # Source: auth/operations/forgotPassword.ts — configurable via forgotPassword.expiration
+
+outcomes:
+  login_success:
+    priority: 10
+    given:
+      - field: email
+        source: input
+        operator: exists
+        description: "User provides email (or username if loginWithUsername enabled)"
+      - field: password
+        source: input
+        operator: exists
+        description: "User provides password"
+      - "credentials match a user record (timing-safe comparison)"
+      - "account is not locked"
+      - "email is verified (if verification enabled)"
+    then:
+      - action: set_field
+        target: login_attempts
+        value: 0
+        description: "Reset failed attempt counter"
+      - action: emit_event
+        event: auth.login
+        payload: [user_id, email, timestamp, strategy]
+      - "JWT token signed with user fields marked saveToJWT"
+      - "Session created with UUID and expiration (if sessions enabled)"
+      - "Token set as HttpOnly cookie"
+    result: "User receives JWT token, user object, and expiration timestamp"
+    transaction: true
+
+  login_invalid_credentials:
+    priority: 5
+    error: AUTH_INVALID_CREDENTIALS
+    given:
+      - any:
+          - field: email
+            source: db
+            operator: not_exists
+            description: "No user found with provided email"
+          - "password does not match stored hash"
+    then:
+      - action: set_field
+        target: login_attempts
+        value: "login_attempts + 1"
+        when: "login_attempts >= 0"
+        description: "Increment failed attempt counter"
+    result: "Generic authentication error — does not reveal whether email exists"
+
+  login_account_locked:
+    priority: 2
+    error: AUTH_ACCOUNT_LOCKED
+    given:
+      - field: lock_until
+        source: db
+        operator: gt
+        value: now
+        description: "Account lock has not expired"
+    result: "User informed account is locked due to too many failed attempts"
+
+  login_unverified_email:
+    priority: 3
+    error: AUTH_EMAIL_UNVERIFIED
+    given:
+      - "email verification is enabled for this collection"
+      - field: verified
+        source: db
+        operator: eq
+        value: false
+    result: "User informed their email is not verified"
+
+  logout_success:
+    priority: 10
+    given:
+      - "user is authenticated"
+    then:
+      - action: invalidate
+        target: session
+        scope: current_session
+        description: "Remove session from user's sessions array"
+      - action: emit_event
+        event: auth.logout
+        payload: [user_id, timestamp]
+    result: "Session removed, auth cookie cleared"
+
+  forgot_password_sent:
+    priority: 10
+    given:
+      - field: email
+        source: input
+        operator: exists
+    then:
+      - action: set_field
+        target: reset_password_token
+        value: "random 20-byte hex token"
+      - action: set_field
+        target: reset_password_expiration
+        value: "now + 1h"
+      - action: notify
+        channel: email
+        template: "forgot_password"
+        to: user
+        description: "Email with reset link (customizable HTML/subject)"
+    result: "Success response regardless of whether email exists (prevents enumeration)"
+    # Source: auth/operations/forgotPassword.ts — fails silently for non-existent users
+
+  reset_password_success:
+    priority: 10
+    given:
+      - field: reset_password_token
+        source: input
+        operator: exists
+      - field: reset_password_expiration
+        source: db
+        operator: gt
+        value: now
+        description: "Token has not expired"
+    then:
+      - "New salt and hash generated from provided password"
+      - action: set_field
+        target: reset_password_token
+        value: null
+      - action: set_field
+        target: verified
+        value: true
+        description: "Auto-verify user on password reset"
+      - "New JWT token and session created"
+    result: "Password updated, user logged in with new token"
+    transaction: true
+
+  reset_password_expired:
+    priority: 3
+    error: AUTH_TOKEN_EXPIRED
+    given:
+      - field: reset_password_expiration
+        source: db
+        operator: lte
+        value: now
+    result: "User informed the reset token has expired"
+
+  verify_email_success:
+    priority: 10
+    given:
+      - field: verification_token
+        source: input
+        operator: exists
+      - "token matches stored verification token"
+    then:
+      - action: set_field
+        target: verified
+        value: true
+      - action: set_field
+        target: verification_token
+        value: null
+      - action: emit_event
+        event: auth.verify
+        payload: [user_id, email, timestamp]
+    result: "User email verified, can now log in"
+
+  refresh_token_success:
+    priority: 10
+    given:
+      - "user has valid JWT (not expired or about to expire)"
+      - "session ID in JWT matches an active session (if sessions enabled)"
+    then:
+      - "New JWT token signed with same user data"
+      - "Session expiration extended"
+    result: "New token returned with updated expiration"
+
+  unlock_account:
+    priority: 10
+    given:
+      - "requesting user has unlock permission"
+      - field: login_attempts
+        source: db
+        operator: gt
+        value: 0
+    then:
+      - action: set_field
+        target: login_attempts
+        value: 0
+      - action: set_field
+        target: lock_until
+        value: null
+    result: "Account unlocked, login attempts reset"
+
+  register_first_user:
+    priority: 10
+    given:
+      - "no users exist in the auth collection"
+    then:
+      - "User created with provided data"
+      - action: set_field
+        target: verified
+        value: true
+        description: "Auto-verify first user"
+      - "JWT token and session created"
+    result: "First user registered and logged in automatically"
+
+  me_current_user:
+    priority: 10
+    given:
+      - "user is authenticated via any strategy"
+    result: "Returns current user object, token expiration, and strategy name"
+
+  api_key_auth:
+    priority: 10
+    given:
+      - "Authorization header contains '{collectionSlug} API-Key {key}'"
+      - "HMAC-SHA256 of key matches stored apiKeyIndex"
+      - "email is verified (if verification enabled)"
+    result: "User authenticated with _strategy set to 'api-key'"
+
+errors:
+  - code: AUTH_INVALID_CREDENTIALS
+    status: 401
+    message: "The email or password provided is incorrect"
+    retry: true
+    # Source: errors/AuthenticationError.ts
+
+  - code: AUTH_ACCOUNT_LOCKED
+    status: 401
+    message: "This account has been locked due to too many failed login attempts"
+    retry: false
+    # Source: errors/LockedAuth.ts
+
+  - code: AUTH_EMAIL_UNVERIFIED
+    status: 401
+    message: "You must verify your email before logging in"
+    retry: false
+    # Source: errors/UnverifiedEmail.ts
+
+  - code: AUTH_FORBIDDEN
+    status: 403
+    message: "You are not allowed to perform this action"
+    retry: false
+    # Source: errors/Forbidden.ts
+
+  - code: AUTH_TOKEN_EXPIRED
+    status: 401
+    message: "The token has expired. Please request a new one"
+    retry: true
+
+  - code: AUTH_UNAUTHORIZED
+    status: 401
+    message: "You must be logged in to perform this action"
+    retry: false
+    # Source: errors/UnauthorizedError.ts
+
+events:
+  - name: auth.login
+    payload: [user_id, email, timestamp, strategy, ip_address]
+    description: "Emitted after successful login — triggers afterLogin hooks"
+
+  - name: auth.logout
+    payload: [user_id, timestamp]
+    description: "Emitted after logout — triggers afterLogout hooks"
+
+  - name: auth.verify
+    payload: [user_id, email, timestamp]
+    description: "Emitted when email verification succeeds"
+
+  - name: auth.forgot_password
+    payload: [user_id, email, token, timestamp]
+    description: "Emitted after forgot password token generated — triggers afterForgotPassword hooks"
+
+  - name: auth.reset_password
+    payload: [user_id, email, timestamp]
+    description: "Emitted after password is successfully reset"
+
+  - name: auth.refresh
+    payload: [user_id, token, timestamp]
+    description: "Emitted after token refresh — triggers afterRefresh hooks"
+
+  - name: auth.unlock
+    payload: [user_id, email, timestamp]
+    description: "Emitted when an account is unlocked"
+
+related:
+  - feature: payload-access-control
+    type: required
+    reason: "Auth provides the user identity that access control evaluates"
+  - feature: payload-collections
+    type: required
+    reason: "Auth-enabled collections are standard Payload collections with auth fields added"
+  - feature: payload-preferences
+    type: optional
+    reason: "Authenticated users can store UI preferences"
+
+extensions:
+  tech_stack:
+    language: "TypeScript"
+    framework: "Payload CMS 3.x (Next.js-based)"
+    database: "Multi-adapter (MongoDB, PostgreSQL, SQLite, D1)"
+    orm: "Drizzle (SQL) / Mongoose (MongoDB)"
+  auth_strategies:
+    - name: "local-jwt"
+      description: "Email/password with PBKDF2 hashing and JWT tokens"
+    - name: "api-key"
+      description: "HMAC-indexed API key with AES-256-CTR encryption at rest"
+    - name: "custom"
+      description: "Pluggable strategy array for OAuth, SAML, etc."

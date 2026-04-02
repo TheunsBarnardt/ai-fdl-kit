@@ -1,0 +1,422 @@
+# ============================================================
+# payload-collections — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/payloadcms/payload.git
+# Tech stack: Node.js + TypeScript + Next.js (multi-DB via adapters)
+# Files analyzed: 40+ (collections/operations/, collections/endpoints/, collections/config/)
+# ============================================================
+
+feature: payload-collections
+version: "1.0.0"
+description: "Full CRUD operations for document collections with pagination, filtering, hooks, bulk operations, and field selection"
+category: data
+tags: [cms, headless, crud, collections, pagination, filtering, hooks, bulk-operations, payload]
+
+actors:
+  - id: api_client
+    name: API Client
+    type: system
+    description: "REST or GraphQL client consuming the Payload API"
+  - id: admin_user
+    name: Admin User
+    type: human
+    description: "User with admin panel access managing collection documents"
+  - id: hook_system
+    name: Hook System
+    type: system
+    description: "Lifecycle hook engine executing beforeValidate, beforeChange, afterChange, etc."
+
+fields:
+  - name: id
+    type: text
+    required: true
+    immutable: true
+    # Source: auto-generated — ObjectID (MongoDB) or auto-increment/UUID (SQL)
+
+  - name: created_at
+    type: datetime
+    required: true
+    immutable: true
+    # Source: auto-added when timestamps:true (default)
+
+  - name: updated_at
+    type: datetime
+    required: true
+    # Source: auto-updated on every write operation
+
+  - name: slug
+    type: text
+    required: true
+    label: "Collection Slug"
+    validation:
+      - type: required
+        message: "Collection slug is required"
+      - type: pattern
+        value: "^[a-z][a-z0-9-]*$"
+        message: "Slug must be kebab-case"
+    # Source: collections/config/types.ts — URL identifier for the collection
+
+rules:
+  data:
+    pagination:
+      default_limit: 10
+      available_limits: [5, 10, 25, 50, 100]
+      # Source: config/defaults.ts — admin.pagination
+      page_numbering: "1-indexed"
+      disable_with_limit_zero: true
+
+    query_operators:
+      - equals
+      - not_equals
+      - like
+      - contains
+      - in
+      - not_in
+      - exists
+      - greater_than
+      - greater_than_equal
+      - less_than
+      - less_than_equal
+      - all
+      - within
+      - intersects
+      - near
+      # Source: collections/operations/find.ts — MongoDB-style where clauses
+
+    logical_operators: [and, or, nor]
+    # Source: where clause supports nested AND/OR/NOR groups
+
+    sort:
+      format: "field or -field (prefix with - for descending)"
+      multiple: true
+      default: "-createdAt"
+
+    field_selection:
+      select_include: true
+      select_exclude: true
+      # Source: operations support select parameter for field projection
+
+    relationship_population:
+      depth_control: true
+      default_depth: 2
+      # Source: config/types.ts — defaultDepth setting
+      selective_populate: true
+
+    timestamps:
+      auto_created_at: true
+      auto_updated_at: true
+      # Source: default behavior, configurable via timestamps:false
+
+    soft_delete:
+      trash_support: true
+      # Source: collection config trash:boolean
+      auto_filter_trashed: true
+
+  hooks:
+    lifecycle_order:
+      create: [beforeOperation, beforeValidate, beforeChange, "database write", afterChange, afterOperation]
+      read: [beforeOperation, "database query", afterRead, beforeRead, afterOperation]
+      update: [beforeOperation, beforeValidate, beforeChange, "database write", afterChange, afterOperation]
+      delete: [beforeOperation, beforeDelete, "database delete", afterDelete, afterOperation]
+    # Source: collections/operations/*.ts — consistent hook execution pattern
+
+    field_level_hooks: true
+    # Each field can have its own beforeValidate, beforeChange, afterChange, afterRead hooks
+
+    transaction_support: true
+    # Source: operations use initTransaction/commitTransaction/killTransaction
+
+outcomes:
+  create_document:
+    priority: 10
+    given:
+      - "user has create access for this collection"
+      - "data passes field validation"
+    then:
+      - "beforeValidate hooks execute"
+      - "beforeChange hooks execute (collection and field level)"
+      - action: create_record
+        target: "collection document"
+        description: "Insert document into database"
+      - "afterChange hooks execute with saved document"
+      - action: emit_event
+        event: collection.create
+        payload: [collection_slug, document_id, user_id]
+    result: "Created document returned with populated relationships (per depth setting)"
+    transaction: true
+
+  find_documents:
+    priority: 10
+    given:
+      - "user has read access for this collection"
+    then:
+      - "access control WHERE clause merged with user query"
+      - "trashed documents auto-filtered (unless trash:true in query)"
+      - "afterRead hooks execute on each document"
+    result: "Paginated response with docs array, totalDocs, totalPages, page, hasNextPage, hasPrevPage, limit"
+
+  find_by_id:
+    priority: 10
+    given:
+      - "user has read access for this collection"
+      - field: id
+        source: input
+        operator: exists
+    then:
+      - "afterRead hooks execute on document"
+      - "lock status checked if includeLockStatus:true"
+    result: "Single document returned with populated relationships"
+
+  find_by_id_not_found:
+    priority: 5
+    error: COLLECTION_NOT_FOUND
+    given:
+      - field: id
+        source: db
+        operator: not_exists
+    result: "404 error indicating document does not exist"
+
+  update_by_id:
+    priority: 10
+    given:
+      - "user has update access for this collection"
+      - field: id
+        source: input
+        operator: exists
+      - "data passes field validation"
+      - "document is not locked by another user (or overrideLock:true)"
+    then:
+      - "beforeValidate hooks execute with original document"
+      - "beforeChange hooks execute"
+      - action: set_field
+        target: updated_at
+        value: now
+      - "afterChange hooks execute with previous and new document"
+    result: "Updated document returned"
+    transaction: true
+
+  bulk_update:
+    priority: 10
+    given:
+      - "user has update access for this collection"
+      - "where clause matches one or more documents"
+    then:
+      - "each matching document processed through full hook lifecycle"
+    result: "BulkOperationResult with docs array and errors array (partial success supported)"
+    transaction: true
+
+  delete_by_id:
+    priority: 10
+    given:
+      - "user has delete access for this collection"
+      - field: id
+        source: input
+        operator: exists
+      - "document is not locked (or overrideLock:true)"
+    then:
+      - "beforeDelete hooks execute"
+      - action: delete_record
+        target: "collection document"
+        description: "Remove from database (or move to trash if trash enabled)"
+      - "afterDelete hooks execute with deleted document"
+      - "all associated versions deleted"
+      - "locked document record removed"
+    result: "Deleted document returned"
+    transaction: true
+
+  bulk_delete:
+    priority: 10
+    given:
+      - "user has delete access for this collection"
+      - "where clause matches one or more documents"
+    then:
+      - "each matching document processed through delete lifecycle"
+    result: "BulkOperationResult with deleted docs and any errors"
+
+  duplicate_document:
+    priority: 10
+    given:
+      - "user has create access for this collection"
+      - field: id
+        source: input
+        operator: exists
+        description: "Source document ID to duplicate from"
+    then:
+      - "source document fetched"
+      - "new document created via create operation with duplicateFromID"
+    result: "New document created as clone of source"
+
+  count_documents:
+    priority: 10
+    given:
+      - "user has read access for this collection"
+    result: "Returns totalDocs count matching the where clause"
+
+  find_distinct:
+    priority: 10
+    given:
+      - "user has read access"
+      - "field parameter specifies which field to get unique values for"
+    result: "Paginated list of unique field values matching the query"
+
+  restore_version:
+    priority: 10
+    given:
+      - "user has update access"
+      - "versioning is enabled for this collection"
+      - "version ID exists"
+    then:
+      - "version data merged with current document"
+      - "full update lifecycle executed"
+      - "new version created recording the restore"
+    result: "Document restored to specified version state"
+
+  doc_access_check:
+    priority: 10
+    given:
+      - "user is authenticated"
+    result: "Returns permission object with create/read/update/delete booleans and field-level access for each field"
+
+  access_denied:
+    priority: 1
+    error: COLLECTION_FORBIDDEN
+    given:
+      - "access function returns false"
+      - "disableErrors is not set"
+    result: "403 Forbidden error"
+
+errors:
+  - code: COLLECTION_NOT_FOUND
+    status: 404
+    message: "The requested document was not found"
+    retry: false
+    # Source: errors/NotFound.ts
+
+  - code: COLLECTION_FORBIDDEN
+    status: 403
+    message: "You are not allowed to perform this action"
+    retry: false
+    # Source: errors/Forbidden.ts
+
+  - code: COLLECTION_VALIDATION_ERROR
+    status: 400
+    message: "The data provided did not pass validation"
+    retry: true
+    # Source: errors/ValidationError.ts — includes per-field error details
+
+  - code: COLLECTION_LOCKED
+    status: 423
+    message: "This document is currently being edited by another user"
+    retry: true
+    # Source: errors/Locked.ts
+
+  - code: COLLECTION_QUERY_ERROR
+    status: 400
+    message: "The query contains invalid field paths or operators"
+    retry: true
+    # Source: errors/QueryError.ts
+
+events:
+  - name: collection.create
+    payload: [collection_slug, document_id, user_id, timestamp]
+    description: "Emitted after successful document creation — triggers afterChange hooks"
+
+  - name: collection.update
+    payload: [collection_slug, document_id, user_id, timestamp, changed_fields]
+    description: "Emitted after successful document update"
+
+  - name: collection.delete
+    payload: [collection_slug, document_id, user_id, timestamp]
+    description: "Emitted after successful document deletion"
+
+  - name: collection.read
+    payload: [collection_slug, document_id, user_id]
+    description: "Emitted on document read — triggers afterRead hooks"
+
+related:
+  - feature: payload-auth
+    type: optional
+    reason: "Collections can be auth-enabled to add login/registration capabilities"
+  - feature: payload-access-control
+    type: required
+    reason: "Every collection operation checks access control functions"
+  - feature: payload-versions
+    type: optional
+    reason: "Collections can enable versioning for draft/publish and history"
+  - feature: payload-uploads
+    type: optional
+    reason: "Collections can be upload-enabled for file management"
+  - feature: payload-document-locking
+    type: optional
+    reason: "Collections support document locking to prevent concurrent edits"
+
+extensions:
+  tech_stack:
+    language: "TypeScript"
+    framework: "Payload CMS 3.x (Next.js-based)"
+    database: "Multi-adapter (MongoDB, PostgreSQL, SQLite, D1)"
+    orm: "Drizzle (SQL) / Mongoose (MongoDB)"
+  rest_endpoints:
+    - method: GET
+      path: "/api/{slug}"
+      operation: find
+    - method: POST
+      path: "/api/{slug}"
+      operation: create
+    - method: PATCH
+      path: "/api/{slug}"
+      operation: bulk_update
+    - method: DELETE
+      path: "/api/{slug}"
+      operation: bulk_delete
+    - method: GET
+      path: "/api/{slug}/:id"
+      operation: findByID
+    - method: PATCH
+      path: "/api/{slug}/:id"
+      operation: updateByID
+    - method: DELETE
+      path: "/api/{slug}/:id"
+      operation: deleteByID
+    - method: POST
+      path: "/api/{slug}/:id/duplicate"
+      operation: duplicate
+    - method: GET
+      path: "/api/{slug}/count"
+      operation: count
+    - method: GET
+      path: "/api/{slug}/versions"
+      operation: findVersions
+    - method: GET
+      path: "/api/{slug}/versions/:id"
+      operation: findVersionByID
+    - method: POST
+      path: "/api/{slug}/versions/:id"
+      operation: restoreVersion
+    - method: POST
+      path: "/api/{slug}/access/:id?"
+      operation: docAccess
+  field_types:
+    - text
+    - email
+    - textarea
+    - number
+    - checkbox
+    - date
+    - select
+    - radio
+    - upload
+    - relationship
+    - array
+    - group
+    - blocks
+    - tabs
+    - row
+    - collapsible
+    - code
+    - json
+    - richtext
+    - point
+    - join
+    - ui

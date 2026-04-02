@@ -1,0 +1,192 @@
+# ============================================================
+# payload-globals — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/payloadcms/payload.git
+# Tech stack: Node.js + TypeScript
+# Files analyzed: 15+ (globals/operations/, globals/config/)
+# ============================================================
+
+feature: payload-globals
+version: "1.0.0"
+description: "Singleton document management for site-wide settings, navigation, headers, and footers with versioning and access control"
+category: data
+tags: [cms, globals, singleton, settings, configuration, site-wide, payload]
+
+actors:
+  - id: admin
+    name: Admin
+    type: human
+    description: "Administrator managing global settings"
+  - id: api_client
+    name: API Client
+    type: system
+    description: "REST or GraphQL client reading global data"
+
+fields:
+  - name: slug
+    type: text
+    required: true
+    label: "Global Slug"
+    validation:
+      - type: required
+        message: "Global slug is required"
+      - type: pattern
+        value: "^[a-z][a-z0-9-]*$"
+        message: "Slug must be kebab-case"
+    # Source: globals/config/types.ts — unique identifier for this global
+
+  - name: created_at
+    type: datetime
+    required: true
+    immutable: true
+
+  - name: updated_at
+    type: datetime
+    required: true
+
+rules:
+  data:
+    singleton_pattern: true
+    # Source: globals are single documents — no create/delete, only findOne/update
+    no_id_field: true
+    # Source: globals don't have an ID field like collections
+
+    hooks_supported:
+      - beforeOperation
+      - beforeRead
+      - afterRead
+      - beforeValidate
+      - beforeChange
+      - afterChange
+    # Source: globals/config/types.ts
+
+    versioning_supported: true
+    # Same versioning system as collections (drafts, autosave, restore)
+
+    localization_supported: true
+    # Globals can have locale-specific field values
+
+  access:
+    operations:
+      - read
+      - update
+      - readVersions
+    # Source: globals/config/types.ts — simpler than collections (no create/delete)
+
+outcomes:
+  find_global:
+    priority: 10
+    given:
+      - "user has read access for this global"
+    then:
+      - "beforeOperation hooks execute"
+      - "document retrieved from database"
+      - "afterRead hooks execute"
+      - "draft replaced if available and requested"
+    result: "Single global document returned with populated relationships"
+
+  update_global:
+    priority: 10
+    given:
+      - "user has update access for this global"
+      - "data passes field validation"
+      - "document is not locked by another user"
+    then:
+      - "beforeValidate hooks execute"
+      - "beforeChange hooks execute"
+      - "document updated in database"
+      - "version created if versioning enabled"
+      - "afterChange hooks execute"
+    result: "Updated global document returned"
+    transaction: true
+
+  find_global_versions:
+    priority: 10
+    given:
+      - "user has readVersions access"
+      - "versioning is enabled for this global"
+    result: "Paginated list of version history"
+
+  restore_global_version:
+    priority: 10
+    given:
+      - "user has update access"
+      - "versioning is enabled"
+      - "version ID exists"
+    then:
+      - "global restored to specified version state"
+      - "new version created recording the restore"
+    result: "Global restored to previous version"
+    transaction: true
+
+  global_doc_access:
+    priority: 10
+    given:
+      - "user is authenticated"
+    result: "Returns permission object with read/update/readVersions booleans and field-level access"
+
+errors:
+  - code: GLOBAL_FORBIDDEN
+    status: 403
+    message: "You are not allowed to access this global"
+    retry: false
+
+  - code: GLOBAL_VALIDATION_ERROR
+    status: 400
+    message: "The data provided did not pass validation"
+    retry: true
+
+  - code: GLOBAL_DUPLICATE
+    status: 500
+    message: "A global with this slug already exists"
+    retry: false
+    # Source: errors/DuplicateGlobal.ts
+
+events:
+  - name: global.update
+    payload: [global_slug, user_id, timestamp]
+    description: "Emitted after a global document is updated"
+
+  - name: global.read
+    payload: [global_slug, user_id]
+    description: "Emitted on global read — triggers afterRead hooks"
+
+related:
+  - feature: payload-collections
+    type: optional
+    reason: "Globals complement collections — collections for multiple docs, globals for singletons"
+  - feature: payload-access-control
+    type: required
+    reason: "Globals have their own access control configuration"
+  - feature: payload-versions
+    type: optional
+    reason: "Globals support the same versioning system as collections"
+  - feature: payload-document-locking
+    type: optional
+    reason: "Globals support document locking"
+
+extensions:
+  tech_stack:
+    language: "TypeScript"
+    framework: "Payload CMS 3.x"
+    database: "Multi-adapter (MongoDB, PostgreSQL, SQLite, D1)"
+  rest_endpoints:
+    - method: GET
+      path: "/api/globals/{slug}"
+      operation: findOne
+    - method: POST
+      path: "/api/globals/{slug}"
+      operation: update
+    - method: GET
+      path: "/api/globals/{slug}/versions"
+      operation: findVersions
+    - method: GET
+      path: "/api/globals/{slug}/versions/:id"
+      operation: findVersionByID
+    - method: POST
+      path: "/api/globals/{slug}/versions/:id"
+      operation: restoreVersion
+    - method: POST
+      path: "/api/globals/{slug}/access"
+      operation: docAccess

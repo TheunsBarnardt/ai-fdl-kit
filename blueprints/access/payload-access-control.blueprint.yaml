@@ -1,0 +1,206 @@
+# ============================================================
+# payload-access-control — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/payloadcms/payload.git
+# Tech stack: Node.js + TypeScript
+# Files analyzed: 15+ (auth/executeAccess.ts, auth/getAccessResults.ts, collections/config/types.ts)
+# ============================================================
+
+feature: payload-access-control
+version: "1.0.0"
+description: "Function-based access control with collection-level, field-level, and document-level permissions supporting boolean and WHERE clause results"
+category: access
+tags: [cms, access-control, permissions, rbac, field-level, document-level, where-clause, payload]
+
+actors:
+  - id: authenticated_user
+    name: Authenticated User
+    type: human
+    description: "Any user authenticated via JWT, API key, or custom strategy"
+  - id: anonymous_user
+    name: Anonymous User
+    type: human
+    description: "Unauthenticated visitor — access functions receive null user"
+  - id: access_engine
+    name: Access Engine
+    type: system
+    description: "Evaluates access functions and merges results with database queries"
+
+fields:
+  - name: access_result
+    type: json
+    required: true
+    label: "Access Result"
+    # Source: auth/executeAccess.ts — returns true (allow all), false (deny), or Where clause
+
+  - name: permission_object
+    type: json
+    required: true
+    label: "Permission Object"
+    # Source: SanitizedCollectionPermission / SanitizedGlobalPermission
+    # Contains: create, read, update, delete booleans + field-level access per field
+
+rules:
+  access:
+    collection_level_operations:
+      - create
+      - read
+      - update
+      - delete
+      - admin
+      - readVersions
+      - unlock
+      # Source: collections/config/types.ts — access object on collection config
+
+    global_level_operations:
+      - read
+      - update
+      - readVersions
+      # Source: globals/config/types.ts
+
+    field_level_operations:
+      - create
+      - read
+      - update
+      # Source: fields/config/types.ts — FieldAccess per field
+
+    access_function_signature:
+      input: "{req, id?, data?}"
+      output: "boolean | Where clause | Promise<boolean | Where>"
+      # Source: auth/executeAccess.ts
+
+    where_clause_merging:
+      description: "When access returns a Where clause, it is AND-merged with the user query"
+      # Source: collections/operations/find.ts — combineQueries()
+      enables_row_level_security: true
+      # Example: access returns {userId: {equals: req.user.id}} to show only owned docs
+
+    default_access_function: "Boolean(req.user)"
+    # Source: requires authenticated user by default
+
+    override_access:
+      flag: "overrideAccess: true"
+      description: "Bypasses all access checks — used by admin operations, scheduled tasks, webhooks"
+      # Source: all operations support this parameter
+
+    disable_errors:
+      flag: "disableErrors: true"
+      description: "Returns empty results instead of throwing Forbidden on access denial"
+
+  security:
+    field_level_access_context:
+      - "doc (full document)"
+      - "siblingData (parent object)"
+      - "blockData (nearest block parent)"
+      - "req (request with user)"
+      - "id (document ID)"
+    # Source: fields/config/types.ts — FieldAccessArgs
+
+    block_reference_permissions: true
+    # Source: supports access control on block-type fields within documents
+
+outcomes:
+  access_granted_boolean:
+    priority: 10
+    given:
+      - "access function returns true"
+    result: "Operation proceeds with no additional query constraints"
+
+  access_granted_where:
+    priority: 10
+    given:
+      - "access function returns a Where clause object"
+    then:
+      - "Where clause merged with user query via combineQueries()"
+      - "database query only returns documents matching both user query AND access filter"
+    result: "Operation proceeds with row-level filtering applied"
+
+  access_denied:
+    priority: 1
+    error: ACCESS_FORBIDDEN
+    given:
+      - "access function returns false"
+      - "disableErrors is not set"
+    result: "403 Forbidden error thrown"
+
+  access_denied_silent:
+    priority: 2
+    given:
+      - "access function returns false"
+      - "disableErrors is set to true"
+    result: "Empty result set returned (no error thrown)"
+
+  field_access_denied:
+    priority: 5
+    given:
+      - "field-level access function returns false for a specific field"
+    then:
+      - "field excluded from response (read access denied)"
+      - "field value ignored in input (create/update access denied)"
+    result: "Field silently excluded — no error, field just absent from response"
+
+  doc_access_check:
+    priority: 10
+    given:
+      - "user requests permission check via /access/:id endpoint"
+    then:
+      - "all collection-level access functions evaluated"
+      - "all field-level access functions evaluated"
+    result: "Complete permission object returned with boolean flags for each operation and each field"
+
+  admin_panel_access:
+    priority: 10
+    given:
+      - "user attempts to access admin panel for a collection"
+    then:
+      - "admin access function evaluated: ({req}) => boolean"
+    result: "User granted or denied access to this collection in the admin UI"
+
+errors:
+  - code: ACCESS_FORBIDDEN
+    status: 403
+    message: "You are not allowed to perform this action"
+    retry: false
+    # Source: errors/Forbidden.ts
+
+  - code: ACCESS_UNAUTHORIZED
+    status: 401
+    message: "You must be logged in to perform this action"
+    retry: false
+    # Source: errors/UnauthorizedError.ts
+
+events:
+  - name: access.denied
+    payload: [user_id, collection_slug, operation, timestamp]
+    description: "Emitted when access is denied — useful for audit logging"
+
+  - name: access.evaluated
+    payload: [user_id, collection_slug, operation, result_type]
+    description: "Emitted after access evaluation completes"
+
+related:
+  - feature: payload-auth
+    type: required
+    reason: "Access control depends on authenticated user identity from auth system"
+  - feature: payload-collections
+    type: required
+    reason: "Access functions are configured per collection"
+  - feature: payload-globals
+    type: required
+    reason: "Globals have their own access control configuration"
+
+extensions:
+  tech_stack:
+    language: "TypeScript"
+    framework: "Payload CMS 3.x"
+    database: "Multi-adapter (MongoDB, PostgreSQL, SQLite, D1)"
+  access_patterns:
+    - name: "Public read, auth write"
+      description: "read returns true, create/update/delete return Boolean(req.user)"
+    - name: "Owner-only"
+      description: "read/update/delete return Where clause filtering by userId field"
+    - name: "Role-based"
+      description: "Access function checks req.user.role against allowed roles"
+    - name: "Field-level redaction"
+      description: "Sensitive fields have read access returning false for non-admin users"

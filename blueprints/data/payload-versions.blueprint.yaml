@@ -1,0 +1,285 @@
+# ============================================================
+# payload-versions — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/payloadcms/payload.git
+# Tech stack: Node.js + TypeScript
+# Files analyzed: 31 (versions/)
+# ============================================================
+
+feature: payload-versions
+version: "1.0.0"
+description: "Document versioning with draft/publish workflow, autosave, version history, restore, scheduled publishing, and locale-specific status"
+category: data
+tags: [cms, versioning, drafts, publish, autosave, restore, scheduled-publish, localization, payload]
+
+actors:
+  - id: editor
+    name: Editor
+    type: human
+    description: "Content editor creating drafts, publishing, and restoring versions"
+  - id: scheduler
+    name: Scheduler
+    type: system
+    description: "Job-based scheduler for future publish/unpublish operations"
+  - id: autosave_engine
+    name: Autosave Engine
+    type: system
+    description: "Interval-based autosave that updates the latest version in place"
+
+fields:
+  - name: status
+    type: select
+    required: true
+    default: "draft"
+    label: "Publication Status"
+    options:
+      - value: "draft"
+        label: "Draft"
+      - value: "published"
+        label: "Published"
+    # Source: versions/baseFields.ts — _status field auto-added to versioned collections
+
+  - name: version
+    type: json
+    required: true
+    label: "Version Data"
+    # Source: versions/buildCollectionFields.ts — group containing full document snapshot
+
+  - name: parent
+    type: text
+    required: true
+    label: "Parent Document ID"
+    # Source: versions/buildCollectionFields.ts — relationship to main collection document
+
+  - name: snapshot
+    type: boolean
+    required: false
+    default: false
+    label: "Is Snapshot"
+    # Source: versions/saveSnapshot.ts — marks snapshots created during locale-specific publishing
+
+  - name: published_locale
+    type: text
+    required: false
+    label: "Published Locale"
+    # Source: versions/buildCollectionFields.ts — tracks which locale this version published
+
+  - name: latest
+    type: boolean
+    required: false
+    default: false
+    label: "Is Latest Version"
+    # Source: versions/buildCollectionFields.ts — marks the most recent version
+
+  - name: autosave
+    type: boolean
+    required: false
+    default: false
+    label: "Is Autosave Version"
+    # Source: versions/buildCollectionFields.ts — marks autosave versions
+
+states:
+  field: status
+  values:
+    - name: draft
+      description: "Document is being edited, not publicly visible"
+      initial: true
+    - name: published
+      description: "Document is live and publicly accessible"
+      terminal: false
+  transitions:
+    - from: draft
+      to: published
+      actor: editor
+      description: "Editor publishes the document"
+    - from: published
+      to: draft
+      actor: editor
+      description: "Editor unpublishes the document"
+
+rules:
+  versioning:
+    max_versions_per_document: 100
+    # Source: versions/enforceMaxVersions.ts — default 100, configurable via maxPerDoc
+    # Set to 0 for unlimited versions
+    cleanup_strategy: "delete oldest versions beyond max"
+
+    autosave:
+      enabled: "configurable per collection"
+      default_interval: "2000ms"
+      # Source: config/defaults.ts — 2 second interval
+      behavior: "updates latest version in place instead of creating new version"
+      # Source: versions/updateLatestVersion.ts — prevents version explosion
+      validate_on_save: "configurable"
+
+    draft_behavior:
+      saves_to_versions_table: true
+      # Published documents in main table, drafts in _versions table
+      required_fields_optional_in_draft: true
+      # Source: drafts don't require required fields (unless validate:true)
+      auto_replace_with_draft: true
+      # Source: versions/drafts/replaceWithDraftIfAvailable.ts
+
+    scheduled_publishing:
+      enabled: "configurable via schedulePublish option"
+      # Source: versions/schedule/job.ts — task-based scheduling
+      executes_with_user_permissions: true
+      supports_unpublish: true
+
+    localized_versioning:
+      per_locale_status: "experimental (localizeStatus)"
+      # Each locale can have independent draft/published state
+      snapshot_on_locale_publish: true
+      # Source: versions/saveSnapshot.ts — preserves other locales' drafts
+
+  retention:
+    retain_deleted_versions: "configurable"
+    # Source: versions.retainDeleted option
+
+sla:
+  autosave_interval:
+    default: "2s"
+    configurable: true
+
+outcomes:
+  save_draft:
+    priority: 10
+    given:
+      - "user has update access for this collection"
+      - "versioning with drafts is enabled"
+    then:
+      - action: transition_state
+        field: status
+        from: "*"
+        to: draft
+      - "version record created (or latest updated if autosave)"
+    result: "Document saved as draft — not publicly visible"
+
+  publish_document:
+    priority: 10
+    given:
+      - "user has update access"
+      - "document passes validation"
+    then:
+      - action: transition_state
+        field: status
+        from: draft
+        to: published
+      - "main collection document updated with published data"
+      - "version record created marking published state"
+      - "scheduled publish jobs cancelled if any"
+    result: "Document is now publicly accessible"
+    transaction: true
+
+  unpublish_document:
+    priority: 10
+    given:
+      - "user has update access"
+      - field: status
+        source: db
+        operator: eq
+        value: "published"
+    then:
+      - action: transition_state
+        field: status
+        from: published
+        to: draft
+      - "latest version updated (no new version created)"
+    result: "Document reverted to draft status"
+
+  autosave_draft:
+    priority: 10
+    given:
+      - "autosave is enabled for this collection"
+      - "document has unsaved changes"
+    then:
+      - "latest version updated in place (not a new version)"
+      - "version marked with autosave:true flag"
+    result: "Changes auto-saved without creating a new version entry"
+
+  find_versions:
+    priority: 10
+    given:
+      - "user has readVersions access"
+    result: "Paginated list of version history for a document"
+
+  restore_version:
+    priority: 10
+    given:
+      - "user has update access"
+      - "version ID exists in history"
+    then:
+      - "version data merged with current document"
+      - "full update lifecycle executed (hooks, validation)"
+      - "new version created recording the restore"
+      - "original createdAt preserved"
+    result: "Document restored to the state of the selected version"
+    transaction: true
+
+  schedule_publish:
+    priority: 10
+    given:
+      - "scheduled publishing is enabled"
+      - "user specifies a future publish date"
+    then:
+      - "job created in payload-jobs queue"
+      - "job stores: target document, desired status, user, locale"
+    result: "Document will be automatically published at the scheduled time"
+
+  enforce_max_versions:
+    priority: 1
+    given:
+      - "new version created"
+      - "total versions exceed maxPerDoc limit"
+    then:
+      - "oldest versions beyond the limit deleted"
+    result: "Version count kept within configured maximum"
+
+errors:
+  - code: VERSION_NOT_FOUND
+    status: 404
+    message: "The requested version was not found"
+    retry: false
+
+  - code: VERSION_ACCESS_DENIED
+    status: 403
+    message: "You do not have permission to view version history"
+    retry: false
+
+events:
+  - name: version.created
+    payload: [collection_slug, document_id, version_id, status, user_id]
+    description: "Emitted when a new version is saved"
+
+  - name: version.published
+    payload: [collection_slug, document_id, version_id, locale, user_id]
+    description: "Emitted when a document is published"
+
+  - name: version.restored
+    payload: [collection_slug, document_id, restored_version_id, user_id]
+    description: "Emitted when a previous version is restored"
+
+related:
+  - feature: payload-collections
+    type: required
+    reason: "Versions are per-collection — each collection can enable versioning independently"
+  - feature: payload-globals
+    type: optional
+    reason: "Globals also support versioning with the same system"
+  - feature: payload-job-queue
+    type: optional
+    reason: "Scheduled publishing uses the job queue system"
+  - feature: payload-access-control
+    type: required
+    reason: "readVersions access function controls who can view version history"
+
+extensions:
+  tech_stack:
+    language: "TypeScript"
+    framework: "Payload CMS 3.x"
+    database: "Multi-adapter (MongoDB, PostgreSQL, SQLite, D1)"
+  database_structure:
+    published_documents: "main collection table"
+    versions: "separate _versions collection/table per collection"
+    indexes: ["parent", "_status", "updatedAt", "latest", "autosave"]
