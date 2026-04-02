@@ -2,35 +2,35 @@
 # CHP-EFT — Feature Blueprint
 # FDL v0.1.0 | Blueprint v1.0.0
 # ============================================================
-# Electrum Clearing House Payments — Electronic Funds Transfer
+# Clearing House Electronic Funds Transfer
 # Covers EFT credits, debits, returns, on-us debits, payment
-# cancellation, and System Error Correction (SEC) through
-# BankservAfrica's EFT Settlement Module.
+# cancellation, and system error correction through the clearing
+# house settlement system.
 # ============================================================
 
-feature: chp-eft
+feature: clearing-house-eft
 version: "1.0.0"
-description: "Electronic Funds Transfer operations via Electrum's Clearing House Payments platform — inbound/outbound credits, debits, returns, on-us debits, payment cancellation, and system error correction (SEC)"
+description: "Electronic Funds Transfer operations via clearing house platform — inbound/outbound credits, debits, returns, on-us debits, payment cancellation, and system error correction"
 category: integration
-tags: [eft, payments, clearing-house, bankservafrica, south-africa, credits, debits, returns, sec, electrum]
+tags: [eft, payments, clearing-house, credits, debits, returns, system-error-correction]
 
 actors:
   - id: partner_system
     name: "Partner System"
     type: system
-    description: "Financial institution integrating with Electrum for EFT processing"
+    description: "Financial institution integrating with payment platform for EFT processing"
     role: "api-consumer"
 
-  - id: electrum
-    name: "Electrum Platform"
+  - id: payment_platform
+    name: "Payment Orchestration Platform"
     type: external
-    description: "Electrum payment orchestration platform that mediates between partner and BankservAfrica"
+    description: "Payment orchestration platform that mediates between partner and clearing house"
     role: "platform"
 
-  - id: bankservafrica
-    name: "BankservAfrica"
+  - id: clearing_house
+    name: "Clearing House Operator"
     type: external
-    description: "South African automated clearing house operator for EFT batch settlement"
+    description: "Automated clearing house operator for EFT batch settlement"
     role: "settlement"
 
   - id: counterparty_bank
@@ -181,7 +181,7 @@ states:
       # Partner has submitted the transaction request
     - id: submitted
       label: "Submitted"
-      # Transaction submitted to BankservAfrica for batch processing
+      # Transaction submitted to clearing house for batch processing
     - id: processing
       label: "Processing"
       # Transaction is being processed in the EFT settlement cycle
@@ -264,23 +264,23 @@ rules:
     # Duplicate requests with the same uetr must not create duplicate transactions
 
   settlement:
-    batch_processing: "EFT transactions are batch-processed through BankservAfrica — not real-time"
+    batch_processing: "EFT transactions are batch-processed through clearing house — not real-time"
     action_date: "Settlement occurs on the specified action_date"
 
   inbound_credits:
     endpoint: "POST /transactions/inbound/credit-transfer"
     immediate_impact: "Inbound credits have immediate financial impact on the partner's customer"
-    # Electrum sends to partner — partner must credit the beneficiary
+    # Platform sends to partner — partner must credit the beneficiary
 
   inbound_debits:
     endpoint: "POST /transactions/inbound/direct-debit"
     immediate_impact: "Inbound debits have immediate financial impact on the partner's customer"
-    # Electrum sends to partner — partner must debit the account holder
+    # Platform sends to partner — partner must debit the account holder
 
   outbound_credits:
     endpoint: "POST /transactions/outbound/credit-transfer"
     scheme: "ZA_EFT"
-    # Partner initiates — Electrum submits to BankservAfrica
+    # Partner initiates — platform submits to clearing house
 
   outbound_debits:
     endpoint: "POST /transactions/outbound/direct-debit"
@@ -301,7 +301,7 @@ rules:
   cancellation:
     endpoint: "POST /transactions/outbound/payment-cancellation"
     schemes: ["ZA_EFT", "ZA_AC"]
-    resolution: "Electrum delivers cancellation resolution via callback"
+    resolution: "Platform delivers cancellation resolution via callback"
 
   sec:
     description: "System Error Correction — used to correct errors in previously submitted EFT transactions"
@@ -386,7 +386,7 @@ outcomes:
   eft_inbound_credit_received:
     priority: 3
     given:
-      - "Electrum sends inbound credit notification"
+      - "Platform sends inbound credit notification"
       - field: creditor_account_number
         source: input
         operator: exists
@@ -408,7 +408,7 @@ outcomes:
   eft_inbound_debit_received:
     priority: 4
     given:
-      - "Electrum sends inbound debit notification"
+      - "Platform sends inbound debit notification"
       - field: debtor_account_number
         source: input
         operator: exists
@@ -456,7 +456,7 @@ outcomes:
   eft_inbound_return_received:
     priority: 6
     given:
-      - "Electrum sends inbound return notification"
+      - "Platform sends inbound return notification"
       - field: uetr
         source: input
         operator: exists
@@ -504,7 +504,7 @@ outcomes:
   eft_cancellation_resolved:
     priority: 8
     given:
-      - "Electrum delivers cancellation resolution via callback"
+      - "Platform delivers cancellation resolution via callback"
       - field: uetr
         source: input
         operator: exists
@@ -662,7 +662,7 @@ extensions:
     content_type: "application/json"
     openapi_spec: "https://docs.electrumsoftware.com/_spec/openapi/elpapi/elpapi.json"
   esm:
-    description: "EFT Settlement Module — BankservAfrica's batch settlement system"
+    description: "EFT Settlement Module — clearing house batch settlement system"
     record_types: [PAYMENT, UNPAID_INPUT, UNPAID_OUTPUT, RECALL_OUTPUT, SEC_REQUEST, SEC_RESPONSE, HOMED_BACK]
     payment_types: [CREDIT, DEBIT]
     directions: [INBOUND, OUTBOUND, ON_US]

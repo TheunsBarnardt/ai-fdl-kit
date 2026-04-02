@@ -212,7 +212,7 @@ description: "Pluggable component registration system with config-driven fields,
 ```yaml
 source:
   repo: https://github.com/puckeditor/puck
-  project: Puck Editor
+  project: Page editor
   tech_stack: TypeScript + React
   files_traced: 30
   entry_points:

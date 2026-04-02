@@ -41,7 +41,7 @@ Schema Layer (schema/)           — Meta-schema that validates all blueprints
 
 - **Schema:** `schema/blueprint.schema.yaml` is the meta-schema. `scripts/validate.js` embeds a JSON Schema equivalent and uses AJV for validation. Two validation passes: file-level (structure) then cross-reference (relationship targets exist).
 - **Blueprints:** `blueprints/{category}/{feature}.blueprint.yaml` — self-contained feature specs. Current categories in schema: auth, data, access, ui, integration, notification, payment, workflow.
-- **Skills:** `/fdl-create` generates new blueprint YAML from a feature description. `/fdl-generate` produces implementation code from a blueprint for any language or framework. `/fdl-extract` reads a document (PDF, DOCX, etc.) and extracts rules into a blueprint. `/fdl-extract-web` crawls a documentation website (using Chrome MCP tools for JS-rendered sites) and extracts API operations, rules, and requirements into blueprints. `/fdl-extract-code` analyzes an existing codebase (local folder or git repo URL) and reverse-engineers the implemented features into blueprints. All skills are conversational — users don't need to know YAML.
+- **Skills:** `/fdl-build` is the flagship orchestrator — describe an app in plain English, it searches existing blueprints, suggests related features via a checklist, disambiguates overlapping options, resolves gaps by delegating to other skills, and generates the full app. `/fdl-create` generates new blueprint YAML from a feature description. `/fdl-generate` produces implementation code from a blueprint for any language or framework. `/fdl-extract` reads a document (PDF, DOCX, etc.) and extracts rules into a blueprint. `/fdl-extract-web` crawls a documentation website (using Chrome MCP tools for JS-rendered sites) and extracts API operations, rules, and requirements into blueprints. `/fdl-extract-code` analyzes an existing codebase (local folder or git repo URL) and reverse-engineers the implemented features into blueprints. `/fdl-extract-code-feature` scans a repo, presents a feature menu, and extracts only selected features as portable blueprints. All skills are conversational — users don't need to know YAML.
 
 ## Blueprint Structure
 
@@ -217,6 +217,36 @@ Run `npm run generate` after any change to blueprint YAML files. This updates bo
 ### Manual docs pages
 All other files in `docs/` (index.md, commands.md, faq.md, etc.) are manually authored and should be updated when relevant content changes.
 
+## Automated Workflows
+
+**After every blueprint extraction or modification:**
+
+1. **Validate** — Run `node scripts/validate.js` to ensure all blueprints pass schema validation
+2. **Generate** — Run `npm run generate` to rebuild documentation and JSON API
+3. **Commit** — Create a git commit with:
+   - Updated blueprints (YAML files)
+   - Updated README.md (if blueprint count changed)
+   - Updated llms.txt (if features added/removed)
+   - Generated docs/ and docs/api/ (auto-generated, never manually edited)
+
+**Commit message format:**
+```
+Add/Update [feature-names]: [brief description]
+
+- [Extracted/Updated] [feature-name] ([category])
+- [Extracted/Updated] [feature-name] ([category])
+
+[One-line summary of why this change matters]
+```
+
+**This must happen automatically after extraction — no manual steps required.**
+
+If running extraction skills:
+- Validate first
+- Generate docs second
+- Commit last
+- Never leave uncommitted blueprint changes
+
 ## Rules
 
 - YAML is the source of truth — never edit generated files (including `docs/blueprints/` and `docs/api/`)
@@ -227,3 +257,29 @@ All other files in `docs/` (index.md, commands.md, faq.md, etc.) are manually au
 - Every blueprint must define outcomes or flows (or both) covering success and error scenarios
 - When creating a new blueprint, update `related` arrays in existing blueprints that should reference it
 - On every commit, update README.md, llms.txt, and relevant docs/ pages to reflect current state
+
+## IP & Vendor Protection
+
+When extracting blueprints from any codebase, ALWAYS:
+
+- ✅ **NEVER include company/product names** in blueprint names (e.g., ❌ "sasfin-onboarding" → ✅ "client-onboarding")
+- ✅ **NEVER mention source systems** in public documentation or descriptions
+- ✅ **Keep descriptions generic and framework-agnostic** — blueprints must work with ANY implementation
+- ✅ **Remove all proprietary references** from extraction results:
+  - Vendor names (DocuSign → "eSignature service", SharePoint → "document repository")
+  - Product names (Sasfin, Puck, BlockRadar, shadcn → generic descriptions)
+  - Specific hardware models (PVD300/PVM310 → "biometric scanning hardware")
+  - System names (Iress, Marble, TradeCIS → "market data provider")
+  - Integration partners (CRM system, payment clearing system, etc.)
+
+**Why?** Blueprints are meant to be portable and reusable across any organization. Exposing source systems, vendor dependencies, or company names can cause:
+- IP exposure and competitive risk
+- Lock-in to specific vendors/systems
+- Reduced portability of blueprints to other implementations
+- Trademark/brand concerns
+
+**During extraction:**
+- Replace all vendor/company references with functional descriptions
+- Keep technical patterns and field structures unchanged
+- Make descriptions work for ANY implementation (not vendor-locked)
+- Focus on WHAT the feature does, not which company built it

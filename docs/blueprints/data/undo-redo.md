@@ -166,7 +166,7 @@ description: "Linear history stack with debounced recording, forward-branch dest
 ```yaml
 source:
   repo: https://github.com/puckeditor/puck
-  project: Puck Editor
+  project: Page editor
   tech_stack: TypeScript + React
   files_traced: 12
   entry_points:

@@ -183,7 +183,7 @@ description: "Multi-viewport responsive preview with auto-zoom, manual zoom cont
 ```yaml
 source:
   repo: https://github.com/puckeditor/puck
-  project: Puck Editor
+  project: Page editor
   tech_stack: TypeScript + React
   files_traced: 8
   entry_points:

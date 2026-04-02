@@ -24,7 +24,7 @@ description: "Palm vein biometric authentication — alternative to password log
 | ID | Name | Type | Description |
 |----|------|------|-------------|
 | `user` | User | human | Person enrolling their palm or authenticating via palm vein scan |
-| `palm_scanner` | Palm Vein Scanner | external | PVD300/PVM310 hardware device that captures palm vein patterns |
+| `palm_scanner` | Palm Vein Scanner | external | Biometric scanning hardware that captures palm vein patterns |
 | `auth_system` | Authentication System | system | Backend that stores templates, performs matching, and issues sessions |
 
 ## Fields
@@ -256,7 +256,7 @@ description: "Palm vein biometric authentication — alternative to password log
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
 | login | extends | Adds palm vein as an alternative authentication method to password |
-| palm-vein | required | Requires the PVD300/PVM310 SDK integration for scanner operations |
+| palm-vein | required | Requires the biometric scanner SDK integration for scanner operations |
 | signup | recommended | Users may enroll palms during or after account creation |
 
 <details>

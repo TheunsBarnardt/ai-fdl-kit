@@ -204,7 +204,7 @@ description: "Event-driven automation engine that triggers actions based on reco
 ```yaml
 source:
   repo: https://github.com/odoo/odoo.git
-  project: Odoo
+  project: ERP system
   tech_stack: Python + JavaScript/OWL
   files_traced: 15
   entry_points:

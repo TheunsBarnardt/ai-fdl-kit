@@ -184,7 +184,7 @@ description: "Per-field-type transformation pipeline with read-only path resolut
 ```yaml
 source:
   repo: https://github.com/puckeditor/puck
-  project: Puck Editor
+  project: Page editor
   tech_stack: TypeScript + React
   files_traced: 8
   entry_points:

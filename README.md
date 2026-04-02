@@ -1,7 +1,7 @@
 # Feature Definition Language (FDL)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Blueprints](https://img.shields.io/badge/Blueprints-45-blue.svg)](blueprints/)
+[![Blueprints](https://img.shields.io/badge/Blueprints-51-blue.svg)](blueprints/)
 [![AI Tools](https://img.shields.io/badge/AI_Tools-Claude_|_ChatGPT_|_Copilot-purple.svg)](https://theunsbarnardt.github.io/claude-fdl/using-with-other-ai/)
 [![Docs](https://img.shields.io/badge/Docs-GitHub_Pages-green.svg)](https://theunsbarnardt.github.io/claude-fdl/)
 
@@ -9,7 +9,7 @@
 
 FDL is an open-source system for writing "blueprints" — YAML specifications that describe software features completely. You define the *what* (fields, rules, outcomes, errors, events). Any AI tool — Claude, ChatGPT, Copilot, Gemini — reads the blueprint and generates a correct, complete implementation for your chosen language and framework.
 
-No code. No YAML knowledge needed. Six CLI commands handle everything through plain-language conversation.
+No code. No YAML knowledge needed. Seven CLI commands handle everything through plain-language conversation.
 
 ---
 
@@ -27,6 +27,7 @@ No code. No YAML knowledge needed. Six CLI commands handle everything through pl
 
 | Method | When to use it | Command |
 |--------|---------------|---------|
+| **Build a full app** | Describe your app in plain English | `/fdl-build "nextjs POS with OTP login"` |
 | **Create from scratch** | You know what feature you want | `/fdl-create checkout payment` |
 | **Extract from a document** | You have a BRD, policy doc, or SOP | `/fdl-extract docs/policy.pdf` |
 | **Extract from a website** | API docs, developer portal | `/fdl-extract-web https://docs.example.com/api` |
@@ -47,8 +48,9 @@ npm install
 Open Claude Code and type:
 
 ```
-/fdl-create login auth        # Create the spec
-/fdl-generate login nextjs    # Generate the code
+/fdl-build "nextjs app with login and POS"   # Build a full app (recommended)
+/fdl-create login auth                        # Or create one blueprint at a time
+/fdl-generate login nextjs                    # Generate code from a blueprint
 ```
 
 ---
@@ -79,6 +81,8 @@ Blueprints aren't just templates — they encode transferable architectural patt
 - **Visual Editor Pack** — Collision detection, undo/redo, plugin systems
 - **ERP Pack** — POS sessions, tax computation, bank reconciliation, automation rules
 - **Workflow Pack** — Approval chains, SLA enforcement, event-driven automation
+- **Wealth Management Pack** — Portfolio valuations, market data feeds, document management, multi-account hierarchies, real-time pricing integration
+- **Onboarding Pack** — Client and advisor registration, multi-step onboarding workflows, proposal/quotation generation, state machines, DocuSign integration
 
 ---
 
@@ -86,9 +90,9 @@ Blueprints aren't just templates — they encode transferable architectural patt
 
 Full documentation at **[theunsbarnardt.github.io/claude-fdl](https://theunsbarnardt.github.io/claude-fdl/)**:
 
-- [The Six Commands](https://theunsbarnardt.github.io/claude-fdl/commands/) — detailed reference
+- [The Seven Commands](https://theunsbarnardt.github.io/claude-fdl/commands/) — detailed reference
 - [Blueprint Format](https://theunsbarnardt.github.io/claude-fdl/blueprint-format/) — what's inside a blueprint
-- [Blueprint Catalog](https://theunsbarnardt.github.io/claude-fdl/catalog/) — browse all 45 blueprints
+- [Blueprint Catalog](https://theunsbarnardt.github.io/claude-fdl/catalog/) — browse all 51 blueprints
 - [Combining Blueprints](https://theunsbarnardt.github.io/claude-fdl/combining/) — build complex systems
 - [Real-World Examples](https://theunsbarnardt.github.io/claude-fdl/examples/) — 8 walkthroughs
 - [Using with ChatGPT & Others](https://theunsbarnardt.github.io/claude-fdl/using-with-other-ai/) — no Claude required

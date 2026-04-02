@@ -1,0 +1,651 @@
+# ============================================================
+# Document Management — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Document management and storage system
+# Tech stack: .NET 5+ ASP.NET Core with document repository,
+# CRM integration, and PDF generation
+# Files analyzed: 25 files
+# ============================================================
+
+feature: document-management
+version: "1.0.0"
+description: "Store, retrieve, manage, and generate documents with metadata, permissions, version control, and dynamic PDF generation"
+category: data
+tags: [documents, file-management, pdf-generation, document-repository, metadata, permissions]
+
+actors:
+  - id: client
+    name: "Client"
+    type: human
+    description: "Document owner/beneficiary"
+
+  - id: financial_advisor
+    name: "Financial Advisor"
+    type: human
+    description: "Professional who manages client documents and generates reports"
+
+  - id: back_office
+    name: "Back Office Staff"
+    type: human
+    description: "Administrative staff uploading and organizing documents"
+
+  - id: document_repository
+    name: "Document Repository"
+    type: external
+    description: "Document storage and management backend"
+
+  - id: metadata_system
+    name: "Metadata Management System"
+    type: external
+    description: "Document metadata and audit trail storage"
+
+  - id: pdf_generator
+    name: "PDF Generation Engine"
+    type: external
+    description: "Dynamic PDF generation from templates and data"
+
+fields:
+  # Document metadata fields
+  - name: document_id
+    type: text
+    required: true
+
+  - name: document_name
+    type: text
+    required: true
+
+  - name: document_type
+    type: text
+    required: true
+
+  - name: display_type
+    type: text
+    required: true
+
+  - name: document_classification
+    type: text
+    required: true
+
+  - name: document_folder_id
+    type: number
+    required: true
+
+  - name: document_folder_name
+    type: text
+    required: false
+
+  - name: document_date
+    type: date
+    required: true
+
+  - name: document_size_bytes
+    type: number
+    required: true
+
+  - name: file_extension
+    type: text
+    required: true
+
+  - name: content_type
+    type: text
+    required: true
+
+  # Storage and access fields
+  - name: storage_location
+    type: text
+    required: true
+
+  - name: document_url
+    type: url
+    required: true
+
+  - name: is_local
+    type: boolean
+    required: true
+
+  - name: access_token
+    type: text
+    required: false
+
+  - name: share_with_sasfin
+    type: boolean
+    required: false
+
+  - name: is_active
+    type: boolean
+    required: true
+
+  - name: expiry_date
+    type: date
+    required: false
+
+  # Ownership and audit fields
+  - name: created_by
+    type: text
+    required: true
+
+  - name: created_date
+    type: datetime
+    required: true
+
+  - name: uploaded_to_crm_user_id
+    type: text
+    required: false
+
+  - name: last_modified_by
+    type: text
+    required: false
+
+  - name: last_modified_date
+    type: datetime
+    required: false
+
+  # Account linkage fields
+  - name: account_number
+    type: text
+    required: false
+
+  - name: dynamics_user_id
+    type: text
+    required: true
+
+  - name: aspnet_user_id
+    type: text
+    required: false
+
+  # Custom fields and free text
+  - name: free_text_description
+    type: text
+    required: false
+
+  - name: record_type
+    type: number
+    required: false
+
+  - name: status_reason
+    type: text
+    required: false
+
+  - name: policy_number
+    type: text
+    required: false
+
+  - name: document_process_id_name
+    type: text
+    required: false
+
+  # Historical and linked fields
+  - name: parent_document_id
+    type: text
+    required: false
+
+  - name: version_number
+    type: number
+    required: false
+
+states:
+  field: document_state
+  values:
+    - name: draft
+      description: "Document in preparation"
+
+    - name: uploaded
+      initial: true
+      description: "Document uploaded and available"
+
+    - name: archived
+      description: "Document archived but still accessible"
+
+    - name: expired
+      description: "Document expiry date passed"
+
+    - name: deleted
+      description: "Document marked for deletion"
+
+rules:
+  security:
+    authentication:
+      - "All document endpoints require JWT authentication via [Authorize] decorator"
+      # Source: Wealth.Api/Controllers/DocumentController.cs:19
+
+  access:
+    - "User can only view documents owned by or shared with their CRM account"
+    - "Client can download their own documents and research documents"
+    - "Advisors can access client's documents if CRM relationship exists"
+    - "Back office can upload documents on behalf of clients"
+    - "Offshore documents visible only to authorized users (office location check)"
+    - "Regulatory announcements are public-accessible"
+
+  business:
+    - "Document cannot be deleted immediately; mark as inactive first"
+    - "Expiry date enforcement: documents past expiry_date must show 'expired' status"
+    - "One-time URLs for statement documents expire after first access"
+    - "Document metadata immutable after upload except for notes/classification"
+    - "File size must not exceed configured limit (typically 100MB)"
+    - "Share permissions cannot grant higher access than creator's own access"
+    - "Deleted documents retained for audit trail (soft delete, not hard delete)"
+
+  compliance:
+    - "All document access logged for audit trail (user, timestamp, action)"
+    - "Regulatory announcements must be timestamped with notification time"
+    - "Infoslips URL regeneration tracked for compliance"
+    - "Document retention policies enforced per document type"
+
+sla:
+  document_retrieval:
+    metric: "Document retrieval"
+    max_duration: "3s"
+    reason: "Single document should download within 3 seconds"
+
+  metadata_update:
+    metric: "Metadata update"
+    max_duration: "1s"
+    reason: "Metadata changes should persist immediately"
+
+  pdf_generation:
+    metric: "PDF generation"
+    max_duration: "10s"
+    reason: "Dynamic PDF generation should complete within 10 seconds"
+
+  upload_processing:
+    metric: "Upload processing"
+    max_duration: "5s"
+    reason: "Document upload and indexing should complete within 5 seconds"
+
+outcomes:
+  # Retrieve client document
+  client_document_retrieved:
+    priority: 1
+    given:
+      - "user is authenticated"
+      - "document_id is provided"
+      - "document belongs to user's account"
+    then:
+      - action: fetch_record
+        source: sharepoint_system
+        query: "document by ID"
+        fields: [document_id, content_type, document_data]
+      - action: emit_event
+        event: document.downloaded
+        payload: [document_id, user_id, download_date, document_size_bytes]
+    result: "File downloaded successfully"
+
+  # List client documents
+  client_documents_listed:
+    priority: 2
+    given:
+      - "user is authenticated"
+      - "dynamics_user_id is provided"
+      - "optional: date_range specified"
+    then:
+      - action: fetch_record
+        source: crm_system
+        query: "documents for user in date range"
+        fields: [document_id, document_name, document_type, document_date, document_size_bytes]
+      - action: filter_data
+        by: is_active
+        value: true
+      - action: sort_data
+        by: document_date
+        order: descending
+    result: "List of documents user has access to"
+
+  # Upload document
+  document_uploaded:
+    priority: 3
+    given:
+      - "user is authenticated"
+      - "document_data (file content) is provided"
+      - "document_name is provided"
+      - "file_size <= max_allowed_size"
+      - field: file_extension
+        source: input
+        operator: in
+        value: [pdf, xlsx, docx, jpg, png, txt]
+    then:
+      - action: validate_data
+        rules: [file_not_empty, file_type_allowed, virus_scan_clean]
+      - action: create_record
+        type: document
+        fields: [document_id, document_name, document_type, created_date, created_by, document_size_bytes, file_extension, content_type]
+      - action: store_file
+        destination: sharepoint_system
+        file: document_data
+        location: "[user_folder]/[document_name]"
+      - action: create_record
+        type: document_metadata
+        fields: [document_id, document_classification, free_text_description, dynamics_user_id]
+      - action: emit_event
+        event: document.uploaded
+        payload: [document_id, document_name, created_by, document_size_bytes]
+    result: "Document stored and indexed, metadata recorded"
+    transaction: true
+
+  # Generate dynamic document/PDF
+  dynamic_document_generated:
+    priority: 4
+    given:
+      - "user is authenticated"
+      - "document_request contains template_id and data"
+      - "user has permission to generate documents"
+    then:
+      - action: fetch_record
+        source: crm_system
+        query: "document template by ID"
+        fields: [template_id, template_body]
+      - action: merge_data
+        template: template_body
+        with: "[request_data]"
+      - action: generate_output
+        engine: aspose_pdf
+        format: pdf
+        input: merged_content
+      - action: create_record
+        type: generated_document
+        fields: [document_id, document_name, created_date, created_by, original_request_params]
+      - action: emit_event
+        event: document.generated
+        payload: [document_id, template_id, created_by, generation_time_ms]
+    result: "PDF document generated and returned to user"
+
+  # Update document metadata
+  document_metadata_updated:
+    priority: 5
+    given:
+      - "user is authenticated"
+      - "document_id is provided"
+      - "user owns document"
+      - field: fields_to_update
+        source: input
+        operator: in
+        value: [classification, free_text_description, folder_id, expiry_date]
+    then:
+      - action: set_field
+        target: free_text_description
+        value: "[input_value]"
+      - action: set_field
+        target: document_classification
+        value: "[input_value]"
+      - action: set_field
+        target: last_modified_by
+        value: "[user_id]"
+      - action: set_field
+        target: last_modified_date
+        value: "now"
+      - action: emit_event
+        event: document.metadata_updated
+        payload: [document_id, fields_updated, user_id, update_date]
+    result: "Document metadata updated in system"
+
+  # Delete document
+  document_deleted:
+    priority: 6
+    given:
+      - "user is authenticated"
+      - "document_id is provided"
+      - "user owns document"
+      - "document is not system-protected"
+    then:
+      - action: set_field
+        target: is_active
+        value: false
+      - action: set_field
+        target: status_reason
+        value: "deleted"
+      - action: set_field
+        target: last_modified_by
+        value: "[user_id]"
+      - action: set_field
+        target: last_modified_date
+        value: "now"
+      - action: emit_event
+        event: document.deleted
+        payload: [document_id, user_id, deletion_date]
+    result: "Document marked as deleted (soft delete retained for audit)"
+    transaction: true
+
+  # Get regulatory announcements
+  regulatory_announcements_retrieved:
+    priority: 7
+    given:
+      - "start_date is provided"
+      - "end_date is provided"
+    then:
+      - action: fetch_record
+        source: metadata_system
+        query: "regulatory announcements in date range"
+        fields: [document_id, document_name, document_date, announcement_text]
+      - action: sort_data
+        by: document_date
+        order: descending
+    result: "List of regulatory announcements for the period"
+
+  # Retrieve statement documents
+  statement_documents_retrieved:
+    priority: 8
+    given:
+      - "account_number is provided"
+      - "start_date is provided"
+      - "end_date is provided"
+    then:
+      - action: fetch_record
+        source: metadata_system
+        query: "statement documents for account in date range"
+        fields: [document_id, document_name, document_date, document_url]
+    result: "List of statement documents available for download"
+
+  # Regenerate statement document download URL
+  infoslips_url_regenerated:
+    priority: 9
+    given:
+      - "user is authenticated"
+      - "download_url is provided"
+      - "send_options specified (email/download)"
+    then:
+      - action: generate_token
+        type: one_time_url
+        ttl: "24h"
+        max_uses: 1
+      - action: set_field
+        target: access_token
+        value: "generated_token"
+      - action: emit_event
+        event: document.infoslips_url_regenerated
+        payload: [document_id, send_option, regeneration_date]
+    result: "New one-time download URL generated"
+
+  # Get document folders
+  document_folders_retrieved:
+    priority: 10
+    given:
+      - "user is authenticated"
+      - "dynamics_user_id is provided"
+    then:
+      - action: fetch_record
+        source: crm_system
+        query: "document folders user has access to"
+        fields: [folder_id, folder_name, folder_path, folder_type]
+    result: "Hierarchical folder structure for user"
+
+  # Export document
+  document_exported:
+    priority: 11
+    given:
+      - "user is authenticated"
+      - "document_id is provided"
+      - "export_format specified (pdf, xlsx)"
+    then:
+      - action: fetch_record
+        source: sharepoint_system
+        query: "document by ID"
+        fields: [document_data]
+      - action: set_field
+        target: document_name
+        value: "[title]"
+      - action: emit_event
+        event: document.exported
+        payload: [document_id, export_format, user_id, export_date]
+    result: "Document exported in requested format"
+
+  # Error: Unauthorized access
+  access_denied:
+    priority: 1
+    error: DOCUMENT_ACCESS_DENIED
+    given:
+      - field: user_id
+        source: session
+        operator: not_exists
+    result: "401 Unauthorized - authentication required"
+
+  # Error: Document not found
+  document_not_found:
+    priority: 2
+    error: DOCUMENT_NOT_FOUND
+    given:
+      - field: document_id
+        source: input
+        operator: not_exists
+    result: "404 Not Found - document does not exist"
+
+  # Error: Document expired
+  document_expired:
+    priority: 3
+    given:
+      - field: expiry_date
+        source: db
+        operator: lt
+        value: "today"
+      - field: expiry_date
+        source: db
+        operator: not_exists
+    then:
+      - action: set_field
+        target: document_state
+        value: "expired"
+    result: "Document is expired and cannot be accessed"
+
+  # Error: File too large
+  file_size_exceeded:
+    priority: 4
+    error: DOCUMENT_FILE_TOO_LARGE
+    given:
+      - field: file_size_bytes
+        source: input
+        operator: gt
+        value: 104857600
+    result: "400 Bad Request - file too large"
+
+  # Error: Invalid file type
+  invalid_file_type:
+    priority: 5
+    error: DOCUMENT_INVALID_FILE_TYPE
+    given:
+      - field: file_extension
+        source: input
+        operator: not_in
+        value: [pdf, xlsx, docx, jpg, png, txt, ppt]
+    result: "400 Bad Request - file type not allowed"
+
+  # Error: PDF generation failed
+  pdf_generation_failed:
+    priority: 6
+    error: DOCUMENT_PDF_GENERATION_FAILED
+    given:
+      - "PDF generation engine encounters error"
+    then:
+      - action: emit_event
+        event: document.generation_failed
+        payload: [request_id, template_id, error_details, timestamp]
+    result: "500 Internal Server Error - please try again later"
+
+errors:
+  - code: DOCUMENT_ACCESS_DENIED
+    status: 401
+    message: "You do not have permission to access this document. Please verify your credentials."
+
+  - code: DOCUMENT_NOT_FOUND
+    status: 404
+    message: "The requested document could not be found. It may have been deleted or moved."
+
+  - code: DOCUMENT_EXPIRED
+    status: 410
+    message: "This document has expired and is no longer available."
+
+  - code: DOCUMENT_FILE_TOO_LARGE
+    status: 413
+    message: "The file you are trying to upload exceeds the maximum size of 100MB."
+
+  - code: DOCUMENT_INVALID_FILE_TYPE
+    status: 400
+    message: "The file type is not supported. Please upload one of: PDF, Excel, Word, Image, Text."
+
+  - code: DOCUMENT_UPLOAD_FAILED
+    status: 500
+    message: "The document upload failed. Please try again later."
+
+  - code: DOCUMENT_PDF_GENERATION_FAILED
+    status: 500
+    message: "Unable to generate PDF document. Please try again later."
+
+  - code: DOCUMENT_METADATA_UPDATE_FAILED
+    status: 500
+    message: "Unable to update document metadata. Please try again later."
+
+events:
+  - name: document.uploaded
+    description: "Document uploaded to system"
+    payload: [document_id, document_name, created_by, document_size_bytes]
+
+  - name: document.downloaded
+    description: "User downloaded a document"
+    payload: [document_id, user_id, download_date, document_size_bytes]
+
+  - name: document.deleted
+    description: "Document deleted by user"
+    payload: [document_id, user_id, deletion_date]
+
+  - name: document.metadata_updated
+    description: "Document metadata changed"
+    payload: [document_id, fields_updated, user_id, update_date]
+
+  - name: document.generated
+    description: "Dynamic document generated from template"
+    payload: [document_id, template_id, created_by, generation_time_ms]
+
+  - name: document.exported
+    description: "Document exported to format"
+    payload: [document_id, export_format, user_id, export_date]
+
+  - name: document.infoslips_url_regenerated
+    description: "One-time statement document URL regenerated"
+    payload: [document_id, send_option, regeneration_date]
+
+  - name: document.generation_failed
+    description: "Document generation encountered error"
+    payload: [request_id, template_id, error_details, timestamp]
+
+related:
+  - feature: portfolio-management
+    type: recommended
+    reason: "Documents linked to portfolio accounts"
+
+  - feature: authentication
+    type: required
+    reason: "User authentication and access control"
+
+extensions:
+  tech_stack:
+    language: "C#"
+    framework: "ASP.NET Core 5+"
+    database: "SQL Server (metadata and document information)"
+    storage: "Document repository, local file system"
+    pdf_engine: "PDF generation engine"
+
+  source:
+    repo: "Reference implementation"
+    project: "Document Management System"
+    entry_points:
+      - "Api/Controllers/DocumentController.cs"
+      - "Framework/Entities/DocumentResult.cs"
+      - "Framework/Entities/DocumentDataDTO.cs"

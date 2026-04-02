@@ -203,7 +203,7 @@ description: "Bank reconciliation with statement import, auto/manual matching, r
 ```yaml
 source:
   repo: https://github.com/odoo/odoo.git
-  project: Odoo
+  project: ERP system
   tech_stack: Python + JavaScript/OWL
   files_traced: 20
   entry_points:

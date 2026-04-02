@@ -1,0 +1,587 @@
+{
+  "feature": "expense-approval",
+  "version": "1.0.0",
+  "description": "Employee expense submission and approval workflow with multi-level authorization, reimbursement tracking, accounting journal entry generation, and payment processing.\n",
+  "category": "workflow",
+  "tags": [
+    "expenses",
+    "approval-workflow",
+    "reimbursement",
+    "employee-expenses",
+    "accounting-integration"
+  ],
+  "actors": [
+    {
+      "id": "employee",
+      "name": "Employee",
+      "type": "human",
+      "description": "Submits expense reports for approval and reimbursement"
+    },
+    {
+      "id": "expense_manager",
+      "name": "Expense Approver",
+      "type": "human",
+      "description": "Reviews and approves or rejects expense submissions"
+    },
+    {
+      "id": "accountant",
+      "name": "Accountant",
+      "type": "human",
+      "description": "Posts approved expenses to accounting and processes payment"
+    },
+    {
+      "id": "system",
+      "name": "Expense System",
+      "type": "system",
+      "description": "Computes amounts, generates journal entries, tracks payment state"
+    }
+  ],
+  "fields": [
+    {
+      "name": "expense_description",
+      "type": "text",
+      "label": "Description",
+      "required": true
+    },
+    {
+      "name": "employee_id",
+      "type": "text",
+      "label": "Employee",
+      "required": true
+    },
+    {
+      "name": "expense_date",
+      "type": "date",
+      "label": "Expense Date",
+      "required": true
+    },
+    {
+      "name": "product_id",
+      "type": "text",
+      "label": "Expense Category",
+      "required": true
+    },
+    {
+      "name": "total_amount",
+      "type": "number",
+      "label": "Total Amount",
+      "required": true
+    },
+    {
+      "name": "currency_id",
+      "type": "text",
+      "label": "Currency",
+      "required": true
+    },
+    {
+      "name": "quantity",
+      "type": "number",
+      "label": "Quantity",
+      "required": true,
+      "validation": [
+        {
+          "type": "min",
+          "value": 0,
+          "message": "Quantity must be zero or greater"
+        }
+      ]
+    },
+    {
+      "name": "unit_price",
+      "type": "number",
+      "label": "Unit Price",
+      "required": true
+    },
+    {
+      "name": "tax_ids",
+      "type": "json",
+      "label": "Taxes",
+      "required": false
+    },
+    {
+      "name": "tax_amount",
+      "type": "number",
+      "label": "Tax Amount",
+      "required": false
+    },
+    {
+      "name": "untaxed_amount",
+      "type": "number",
+      "label": "Untaxed Amount",
+      "required": false
+    },
+    {
+      "name": "payment_mode",
+      "type": "select",
+      "label": "Payment Mode",
+      "required": true,
+      "options": [
+        {
+          "value": "own_account",
+          "label": "Own Account"
+        },
+        {
+          "value": "company_account",
+          "label": "Company Account"
+        }
+      ]
+    },
+    {
+      "name": "approval_state",
+      "type": "select",
+      "label": "Approval Status",
+      "required": true,
+      "options": [
+        {
+          "value": "draft",
+          "label": "Draft"
+        },
+        {
+          "value": "submitted",
+          "label": "Submitted"
+        },
+        {
+          "value": "approved",
+          "label": "Approved"
+        },
+        {
+          "value": "refused",
+          "label": "Refused"
+        }
+      ]
+    },
+    {
+      "name": "expense_state",
+      "type": "select",
+      "label": "Overall State",
+      "required": true,
+      "options": [
+        {
+          "value": "draft",
+          "label": "Draft"
+        },
+        {
+          "value": "submitted",
+          "label": "Submitted"
+        },
+        {
+          "value": "approved",
+          "label": "Approved"
+        },
+        {
+          "value": "posted",
+          "label": "Posted"
+        },
+        {
+          "value": "in_payment",
+          "label": "In Payment"
+        },
+        {
+          "value": "paid",
+          "label": "Paid"
+        },
+        {
+          "value": "refused",
+          "label": "Refused"
+        }
+      ]
+    },
+    {
+      "name": "account_id",
+      "type": "text",
+      "label": "Expense Account",
+      "required": false
+    },
+    {
+      "name": "journal_entry_id",
+      "type": "text",
+      "label": "Journal Entry",
+      "required": false
+    },
+    {
+      "name": "amount_residual",
+      "type": "number",
+      "label": "Outstanding Balance",
+      "required": false
+    },
+    {
+      "name": "approval_date",
+      "type": "datetime",
+      "label": "Approval Date",
+      "required": false
+    },
+    {
+      "name": "receipt_attachment",
+      "type": "file",
+      "label": "Receipt",
+      "required": false
+    }
+  ],
+  "states": {
+    "field": "expense_state",
+    "values": [
+      {
+        "name": "draft",
+        "description": "Expense being prepared by employee, fully editable",
+        "initial": true
+      },
+      {
+        "name": "submitted",
+        "description": "Expense submitted for manager approval"
+      },
+      {
+        "name": "approved",
+        "description": "Manager approved, ready for accounting"
+      },
+      {
+        "name": "refused",
+        "description": "Manager or accountant refused the expense",
+        "terminal": true
+      },
+      {
+        "name": "posted",
+        "description": "Journal entry created in accounting"
+      },
+      {
+        "name": "in_payment",
+        "description": "Reimbursement payment initiated"
+      },
+      {
+        "name": "paid",
+        "description": "Employee fully reimbursed",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "draft",
+        "to": "submitted",
+        "actor": "employee",
+        "description": "Employee submits expense for review"
+      },
+      {
+        "from": "submitted",
+        "to": "approved",
+        "actor": "expense_manager",
+        "description": "Manager approves the expense",
+        "condition": "Approver must be the employee's manager, expense manager, or department manager. Cannot approve own expenses.\n"
+      },
+      {
+        "from": "submitted",
+        "to": "refused",
+        "actor": "expense_manager",
+        "description": "Manager refuses the expense"
+      },
+      {
+        "from": "approved",
+        "to": "posted",
+        "actor": "accountant",
+        "description": "Accountant posts the expense to accounting"
+      },
+      {
+        "from": "posted",
+        "to": "in_payment",
+        "actor": "accountant",
+        "description": "Reimbursement payment initiated"
+      },
+      {
+        "from": "in_payment",
+        "to": "paid",
+        "actor": "system",
+        "description": "Payment fully reconciled"
+      }
+    ]
+  },
+  "rules": {
+    "cannot_approve_own_expenses": {
+      "description": "An employee cannot approve their own expenses, regardless of their role. A different authorized approver must review.\n"
+    },
+    "approver_authorization_levels": {
+      "description": "Three authorization levels for expense approval: (1) direct manager of the employee, (2) designated expense manager, (3) department manager. At least one must approve.\n"
+    },
+    "editable_until_posted": {
+      "description": "Expenses are editable in draft, submitted, and approved states by authorized users. Once posted to accounting, they cannot be modified.\n"
+    },
+    "one_payment_per_expense": {
+      "description": "Each expense generates at most one payment record for reimbursement"
+    },
+    "account_derived_from_category": {
+      "description": "The expense account is automatically determined from the expense category (product). Can be overridden manually.\n"
+    },
+    "currency_conversion_at_expense_date": {
+      "description": "Multi-currency expenses are converted to company currency at the exchange rate on the expense date.\n"
+    },
+    "duplicate_detection": {
+      "description": "System detects potential duplicate expenses based on similar amount, date, and description, and warns the approver.\n"
+    }
+  },
+  "outcomes": {
+    "expense_submitted": {
+      "priority": 1,
+      "given": [
+        "employee has a draft expense with valid details",
+        "employee clicks submit"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "expense_state",
+          "from": "draft",
+          "to": "submitted"
+        },
+        {
+          "action": "set_field",
+          "target": "approval_state",
+          "value": "submitted"
+        },
+        {
+          "action": "notify",
+          "channel": "activity",
+          "description": "Activity created for the employee's manager to review"
+        },
+        {
+          "action": "emit_event",
+          "event": "expense.submitted",
+          "payload": [
+            "expense_id",
+            "employee_id",
+            "total_amount"
+          ]
+        }
+      ],
+      "result": "Expense appears in approver's queue"
+    },
+    "expense_approved": {
+      "priority": 2,
+      "given": [
+        "expense is in submitted state",
+        "authorized approver reviews and approves"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "expense_state",
+          "from": "submitted",
+          "to": "approved"
+        },
+        {
+          "action": "set_field",
+          "target": "approval_date",
+          "description": "Timestamp of approval recorded"
+        },
+        {
+          "action": "emit_event",
+          "event": "expense.approved",
+          "payload": [
+            "expense_id",
+            "approver_id",
+            "total_amount"
+          ]
+        }
+      ],
+      "result": "Expense approved, ready for accounting posting"
+    },
+    "expense_refused": {
+      "priority": 3,
+      "given": [
+        "expense is in submitted state",
+        "authorized approver refuses the expense"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "expense_state",
+          "from": "submitted",
+          "to": "refused"
+        },
+        {
+          "action": "set_field",
+          "target": "approval_date",
+          "description": "Refusal timestamp recorded"
+        },
+        {
+          "action": "notify",
+          "channel": "activity",
+          "description": "Employee notified of refusal"
+        },
+        {
+          "action": "emit_event",
+          "event": "expense.refused",
+          "payload": [
+            "expense_id",
+            "approver_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Expense rejected, employee notified"
+    },
+    "expense_posted": {
+      "priority": 4,
+      "given": [
+        "expense is approved",
+        "accountant posts to accounting"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "journal_entry",
+          "target": "journal_entry",
+          "description": "Journal entry created with debit to expense account and credit to payable account (own_account) or vendor account (company_account)\n"
+        },
+        {
+          "action": "transition_state",
+          "field": "expense_state",
+          "from": "approved",
+          "to": "posted"
+        },
+        {
+          "action": "emit_event",
+          "event": "expense.posted",
+          "payload": [
+            "expense_id",
+            "journal_entry_id"
+          ]
+        }
+      ],
+      "result": "Expense recorded in accounting, payment can proceed"
+    },
+    "expense_paid": {
+      "priority": 5,
+      "given": [
+        "expense is posted",
+        "reimbursement payment is processed and reconciled"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "expense_state",
+          "from": "in_payment",
+          "to": "paid"
+        },
+        {
+          "action": "set_field",
+          "target": "amount_residual",
+          "value": 0
+        },
+        {
+          "action": "emit_event",
+          "event": "expense.paid",
+          "payload": [
+            "expense_id",
+            "payment_id",
+            "amount"
+          ]
+        }
+      ],
+      "result": "Employee fully reimbursed, expense cycle complete"
+    },
+    "self_approval_blocked": {
+      "priority": 1,
+      "error": "EXPENSE_SELF_APPROVAL",
+      "given": [
+        "user attempts to approve their own expense"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "ui",
+          "description": "Show error that self-approval is not allowed"
+        }
+      ],
+      "result": "Approval rejected, different approver required"
+    }
+  },
+  "errors": [
+    {
+      "code": "EXPENSE_SELF_APPROVAL",
+      "message": "You cannot approve your own expenses. Please ask another authorized approver.",
+      "status": 403
+    },
+    {
+      "code": "EXPENSE_NOT_AUTHORIZED",
+      "message": "You are not authorized to approve expenses for this employee.",
+      "status": 403
+    },
+    {
+      "code": "EXPENSE_ALREADY_POSTED",
+      "message": "This expense has been posted to accounting and cannot be edited.",
+      "status": 403
+    },
+    {
+      "code": "EXPENSE_DUPLICATE_DETECTED",
+      "message": "A similar expense already exists. Please verify this is not a duplicate.",
+      "status": 400
+    }
+  ],
+  "events": [
+    {
+      "name": "expense.submitted",
+      "description": "Employee submitted an expense for approval",
+      "payload": [
+        "expense_id",
+        "employee_id",
+        "total_amount"
+      ]
+    },
+    {
+      "name": "expense.approved",
+      "description": "Expense approved by manager",
+      "payload": [
+        "expense_id",
+        "approver_id",
+        "total_amount"
+      ]
+    },
+    {
+      "name": "expense.refused",
+      "description": "Expense refused by manager",
+      "payload": [
+        "expense_id",
+        "approver_id",
+        "reason"
+      ]
+    },
+    {
+      "name": "expense.posted",
+      "description": "Expense posted to accounting",
+      "payload": [
+        "expense_id",
+        "journal_entry_id"
+      ]
+    },
+    {
+      "name": "expense.paid",
+      "description": "Employee reimbursement completed",
+      "payload": [
+        "expense_id",
+        "payment_id",
+        "amount"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "invoicing-payments",
+      "type": "required",
+      "reason": "Expense posting creates journal entries in the accounting system"
+    },
+    {
+      "feature": "automation-rules",
+      "type": "optional",
+      "reason": "Automate expense routing (e.g., auto-approve under threshold)"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/odoo/odoo.git",
+      "project": "ERP system",
+      "tech_stack": "Python + JavaScript/OWL",
+      "files_traced": 15,
+      "entry_points": [
+        "addons/hr_expense/models/hr_expense.py",
+        "addons/hr_expense/models/hr_expense_sheet.py"
+      ]
+    }
+  }
+}

@@ -246,7 +246,7 @@ const blueprintJsonSchema = {
         },
         status: {
           type: "integer",
-          enum: [400, 401, 403, 404, 409, 422, 423, 429, 500],
+          enum: [400, 401, 403, 404, 409, 410, 413, 422, 423, 429, 500, 503],
         },
         message: { type: "string" },
         retry: { type: "boolean" },
@@ -360,14 +360,37 @@ function validateFile(filePath) {
   // Each action has required and optional properties
 
   const actionContracts = {
+    // Core actions
     set_field:        { required: ["target"], optional: ["value", "description", "when"] },
     emit_event:       { required: ["event"],  optional: ["payload", "description", "when"] },
     transition_state: { required: ["field"],  optional: ["from", "to", "description", "when"] },
     notify:           { required: ["channel"], optional: ["template", "to", "description", "when"] },
     invalidate:       { required: ["target"], optional: ["scope", "description", "when"] },
-    create_record:    { required: ["target"], optional: ["description", "when"] },
-    delete_record:    { required: ["target"], optional: ["description", "when"] },
-    call_service:     { required: ["target"], optional: ["description", "when"] },
+    create_record:    { required: ["type"], optional: ["fields", "description", "when"] },
+    delete_record:    { required: ["type"], optional: ["id", "description", "when"] },
+    call_service:     { required: ["target"], optional: ["params", "description", "when"] },
+
+    // Data retrieval and query actions
+    fetch_record:     { required: ["source"], optional: ["query", "fields", "description", "when"] },
+    search_data:      { required: ["source"], optional: ["field", "operator", "value", "description", "when"] },
+
+    // Data transformation and computation actions
+    compute_field:    { required: ["field"], optional: ["formula", "description", "when"] },
+    filter_data:      { required: ["by"], optional: ["value", "description", "when"] },
+    filter_field:     { required: ["field"], optional: ["condition", "description", "when"] },
+    sort_data:        { required: ["by"], optional: ["order", "description", "when"] },
+    limit_results:    { required: ["count"], optional: ["description", "when"] },
+
+    // Data export and generation actions
+    export_data:      { required: ["format"], optional: ["fields", "style", "description", "when"] },
+    generate_output:  { required: ["engine"], optional: ["format", "input", "description", "when"] },
+    generate_token:   { required: ["type"], optional: ["ttl", "max_uses", "description", "when"] },
+
+    // Data handling actions
+    parse_data:       { required: ["format"], optional: ["source", "description", "when"] },
+    validate_data:    { required: ["rules"], optional: ["description", "when"] },
+    merge_data:       { required: ["template"], optional: ["with", "description", "when"] },
+    store_file:       { required: ["destination"], optional: ["file", "location", "description", "when"] },
   };
 
   const validActions = new Set(Object.keys(actionContracts));

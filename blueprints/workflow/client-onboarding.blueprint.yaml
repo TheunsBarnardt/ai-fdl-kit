@@ -1,0 +1,586 @@
+feature: client-onboarding
+version: 1.0.0
+description: Multi-step process for new clients to complete personal, contact, address, and employment details before account opening
+category: workflow
+tags:
+  - onboarding
+  - client-acquisition
+  - financial-services
+
+actors:
+  - id: client
+    name: Client
+    type: human
+    role: Client
+
+  - id: portfolio_manager
+    name: Portfolio Manager
+    type: human
+    role: Portfolio Manager
+
+  - id: pm_assistant
+    name: PM Assistant
+    type: human
+    role: PM Assistant
+
+  - id: onboarding_officer
+    name: Onboarding Officer
+    type: human
+    role: Onboarding-Activ8
+
+  - id: cid_officer
+    name: CID Officer
+    type: human
+    role: Onboarding-CID
+
+fields:
+  - name: onboarding_id
+    type: number
+    required: true
+    validation:
+      - type: required
+        message: Onboarding ID is required
+
+  - name: first_name
+    type: text
+    required: true
+    validation:
+      - type: required
+        message: First name is required
+      - type: maxLength
+        message: First name must not exceed 100 characters
+        value: 100
+
+  - name: last_name
+    type: text
+    required: true
+    validation:
+      - type: required
+        message: Last name is required
+      - type: maxLength
+        message: Last name must not exceed 100 characters
+        value: 100
+
+  - name: date_of_birth
+    type: date
+    required: true
+    validation:
+      - type: required
+        message: Date of birth is required
+
+  - name: identification_number
+    type: text
+    required: true
+    validation:
+      - type: required
+        message: Identification number is required
+
+  - name: passport_number
+    type: text
+    required: false
+    validation: []
+
+  - name: email
+    type: email
+    required: true
+    validation:
+      - type: required
+        message: Email is required
+      - type: email
+        message: Email must be valid
+
+  - name: mobile_phone
+    type: phone
+    required: true
+    validation:
+      - type: required
+        message: Mobile phone is required
+      - type: phone
+        message: Phone must be valid format
+
+  - name: home_phone
+    type: phone
+    required: false
+    validation: []
+
+  - name: work_phone
+    type: phone
+    required: false
+    validation: []
+
+  - name: physical_address_street
+    type: text
+    required: true
+    validation:
+      - type: required
+        message: Street address is required
+
+  - name: physical_address_city
+    type: text
+    required: true
+    validation:
+      - type: required
+        message: City is required
+
+  - name: physical_address_postal_code
+    type: text
+    required: true
+    validation:
+      - type: required
+        message: Postal code is required
+
+  - name: postal_address_same_as_physical
+    type: boolean
+    required: false
+    validation: []
+
+  - name: employer_name
+    type: text
+    required: true
+    validation:
+      - type: required
+        message: Employer name is required
+
+  - name: occupation
+    type: text
+    required: true
+    validation:
+      - type: required
+        message: Occupation is required
+
+  - name: industry_sector
+    type: text
+    required: true
+    validation:
+      - type: required
+        message: Industry sector is required
+
+  - name: status
+    type: select
+    required: true
+    validation:
+      - type: required
+        message: Status is required
+    options:
+      - value: initiated
+        label: Initiated
+      - value: starting
+        label: Starting
+      - value: in_progress
+        label: In Progress
+      - value: account_starting
+        label: Account Starting
+      - value: account_in_progress
+        label: Account In Progress
+      - value: submit_application
+        label: Submit Application
+      - value: waiting_approval
+        label: Waiting Approval
+      - value: approved
+        label: Approved
+      - value: mandate_signed
+        label: Mandate Signed
+      - value: cancelled
+        label: Cancelled
+      - value: expired
+        label: Expired
+
+rules:
+  validation:
+    - "Email must be valid format"
+    - "Phone numbers must be valid"
+    - "Date of birth must be in the past"
+
+  permissions:
+    - "Client can view/edit their own onboarding"
+    - "Portfolio Manager can manage assigned onboardings"
+    - "Onboarding-Activ8 can create and manage all"
+    - "Onboarding-CID can approve"
+
+states:
+  field: status
+  values:
+    - name: initiated
+      label: Initiated
+      initial: true
+
+    - name: starting
+      label: Starting
+
+    - name: in_progress
+      label: In Progress
+
+    - name: account_starting
+      label: Account Starting
+
+    - name: account_in_progress
+      label: Account In Progress
+
+    - name: submit_application
+      label: Submit Application
+
+    - name: waiting_approval
+      label: Waiting Approval
+
+    - name: approved
+      label: Approved
+
+    - name: mandate_signed
+      label: Mandate Signed
+      terminal: true
+
+    - name: cancelled
+      label: Cancelled
+      terminal: true
+
+    - name: expired
+      label: Expired
+      terminal: true
+
+outcomes:
+  get_personal_details:
+    priority: 10
+    given:
+      - field: onboarding_id
+        source: input
+        operator: exists
+      - field: client.role
+        source: session
+        operator: in
+        value: [Client, Portfolio Manager, PM Assistant, Onboarding-Activ8, Onboarding-CID]
+    then:
+      - action: emit_event
+        event: details.retrieved
+        payload: [onboarding_id]
+    result: Returns personal details
+
+  update_personal_details:
+    priority: 20
+    given:
+      - field: onboarding_id
+        source: input
+        operator: exists
+      - field: first_name
+        source: input
+        operator: exists
+      - field: client.role
+        source: session
+        operator: in
+        value: [Client, Portfolio Manager, PM Assistant, Onboarding-Activ8]
+    then:
+      - action: set_field
+        target: updated_at
+        value: now
+      - action: emit_event
+        event: details.updated
+        payload: [onboarding_id]
+    result: Personal details updated
+
+  get_contact_details:
+    priority: 11
+    given:
+      - field: onboarding_id
+        source: input
+        operator: exists
+      - field: client.role
+        source: session
+        operator: in
+        value: [Client, Portfolio Manager, PM Assistant, Onboarding-Activ8, Onboarding-CID]
+    then:
+      - action: emit_event
+        event: details.retrieved
+        payload: [onboarding_id]
+    result: Returns contact details
+
+  update_contact_details:
+    priority: 21
+    given:
+      - field: onboarding_id
+        source: input
+        operator: exists
+      - field: email
+        source: input
+        operator: exists
+      - field: mobile_phone
+        source: input
+        operator: exists
+      - field: client.role
+        source: session
+        operator: in
+        value: [Client, Portfolio Manager, PM Assistant, Onboarding-Activ8]
+    then:
+      - action: set_field
+        target: updated_at
+        value: now
+      - action: emit_event
+        event: details.updated
+        payload: [onboarding_id]
+    result: Contact details updated
+
+  get_address_details:
+    priority: 12
+    given:
+      - field: onboarding_id
+        source: input
+        operator: exists
+      - field: client.role
+        source: session
+        operator: in
+        value: [Client, Portfolio Manager, PM Assistant, Onboarding-Activ8, Onboarding-CID]
+    then:
+      - action: emit_event
+        event: details.retrieved
+        payload: [onboarding_id]
+    result: Returns address details
+
+  update_address_details:
+    priority: 22
+    given:
+      - field: onboarding_id
+        source: input
+        operator: exists
+      - field: physical_address_street
+        source: input
+        operator: exists
+      - field: physical_address_city
+        source: input
+        operator: exists
+      - field: client.role
+        source: session
+        operator: in
+        value: [Client, Portfolio Manager, PM Assistant, Onboarding-Activ8]
+    then:
+      - action: set_field
+        target: updated_at
+        value: now
+      - action: emit_event
+        event: details.updated
+        payload: [onboarding_id]
+    result: Address details updated
+
+  get_employment_details:
+    priority: 13
+    given:
+      - field: onboarding_id
+        source: input
+        operator: exists
+      - field: client.role
+        source: session
+        operator: in
+        value: [Client, Portfolio Manager, PM Assistant, Onboarding-Activ8, Onboarding-CID]
+    then:
+      - action: emit_event
+        event: details.retrieved
+        payload: [onboarding_id]
+    result: Returns employment details
+
+  update_employment_details:
+    priority: 23
+    given:
+      - field: onboarding_id
+        source: input
+        operator: exists
+      - field: employer_name
+        source: input
+        operator: exists
+      - field: occupation
+        source: input
+        operator: exists
+      - field: client.role
+        source: session
+        operator: in
+        value: [Client, Portfolio Manager, PM Assistant, Onboarding-Activ8]
+    then:
+      - action: set_field
+        target: updated_at
+        value: now
+      - action: emit_event
+        event: details.updated
+        payload: [onboarding_id]
+    result: Employment details updated
+
+  start_onboarding:
+    priority: 1
+    given:
+      - field: onboarding_id
+        source: input
+        operator: exists
+      - field: status
+        source: db
+        operator: eq
+        value: initiated
+      - field: client.role
+        source: session
+        operator: in
+        value: [Client, Portfolio Manager, PM Assistant, Onboarding-Activ8]
+    then:
+      - action: transition_state
+        field: status
+        from: initiated
+        to: starting
+      - action: emit_event
+        event: onboarding.started
+        payload: [onboarding_id]
+    result: Onboarding started
+
+  complete_client_onboarding:
+    priority: 5
+    given:
+      - field: onboarding_id
+        source: input
+        operator: exists
+      - field: status
+        source: db
+        operator: in
+        value: [in_progress, account_starting]
+      - field: first_name
+        source: db
+        operator: exists
+      - field: email
+        source: db
+        operator: exists
+      - field: physical_address_street
+        source: db
+        operator: exists
+      - field: employer_name
+        source: db
+        operator: exists
+      - field: client.role
+        source: session
+        operator: in
+        value: [Client, Portfolio Manager, PM Assistant, Onboarding-Activ8]
+    then:
+      - action: transition_state
+        field: status
+        from: in_progress
+        to: account_starting
+      - action: emit_event
+        event: client_details.completed
+        payload: [onboarding_id]
+    result: Client details completed
+
+  update_onboarding_progress:
+    priority: 2
+    given:
+      - field: onboarding_id
+        source: input
+        operator: exists
+      - field: client.role
+        source: session
+        operator: in
+        value: [Client, Portfolio Manager, PM Assistant, Onboarding-Activ8]
+    then:
+      - action: set_field
+        target: current_step
+        value: from_input
+      - action: set_field
+        target: updated_at
+        value: now
+      - action: emit_event
+        event: step.updated
+        payload: [onboarding_id]
+    result: Progress step updated
+
+  notify_client_onboarding_ready:
+    priority: 3
+    given:
+      - field: onboarding_id
+        source: input
+        operator: exists
+      - field: client.role
+        source: session
+        operator: in
+        value: [Client, Portfolio Manager, PM Assistant, Onboarding-Activ8]
+    then:
+      - action: emit_event
+        event: notification.sent
+        payload: [onboarding_id]
+    result: Client notified
+
+  get_onboarding_metadata:
+    priority: 14
+    given:
+      - field: onboarding_id
+        source: input
+        operator: exists
+      - field: client.role
+        source: session
+        operator: in
+        value: [Client, Portfolio Manager, PM Assistant, Onboarding-Activ8, Onboarding-CID]
+    then:
+      - action: emit_event
+        event: metadata.retrieved
+        payload: [onboarding_id]
+    result: Returns metadata with status
+
+errors:
+  - code: ONBOARDING_NOT_FOUND
+    status: 404
+    message: Onboarding record not found
+
+  - code: INVALID_EMAIL_FORMAT
+    status: 400
+    message: Email address is invalid
+
+  - code: INVALID_PHONE_FORMAT
+    status: 400
+    message: Phone number is invalid
+
+  - code: MISSING_REQUIRED_FIELD
+    status: 400
+    message: Required field is missing
+
+  - code: INVALID_STATUS_TRANSITION
+    status: 400
+    message: Invalid status transition
+
+  - code: UNAUTHORIZED_ACCESS
+    status: 403
+    message: Unauthorized access
+
+  - code: FORM_VALIDATION_FAILED
+    status: 400
+    message: Form validation failed
+
+events:
+  - name: onboarding.started
+    description: Onboarding workflow initiated
+    payload: [onboarding_id]
+
+  - name: details.retrieved
+    description: Details retrieved
+    payload: [onboarding_id]
+
+  - name: details.updated
+    description: Details updated
+    payload: [onboarding_id]
+
+  - name: step.updated
+    description: Step updated
+    payload: [onboarding_id]
+
+  - name: client_details.completed
+    description: Client details completed
+    payload: [onboarding_id]
+
+  - name: notification.sent
+    description: Notification sent
+    payload: [onboarding_id]
+
+  - name: metadata.retrieved
+    description: Metadata retrieved
+    payload: [onboarding_id]
+
+related:
+  - feature: advisor-onboarding
+    type: recommended
+
+  - feature: proposals-quotations
+    type: recommended
+
+  - feature: user-auth
+    type: required
+
+ui_hints:
+  form_layout: multi-step
+  progress_tracking: true

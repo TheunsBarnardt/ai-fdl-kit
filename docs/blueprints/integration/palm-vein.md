@@ -3,19 +3,19 @@ title: "Palm Vein Blueprint"
 layout: default
 parent: "Integration"
 grand_parent: Blueprint Catalog
-description: "Palm vein biometric integration with PVD300/PVM310 scanner for registration, feature extraction, and 1:N template matching. 16 fields. 13 outcomes. 13 error cod"
+description: "Biometric scanning hardware integration for palm vein pattern registration, feature extraction, and 1:N template matching. 16 fields. 13 outcomes. 13 error code"
 ---
 
 # Palm Vein Blueprint
 
-> Palm vein biometric integration with PVD300/PVM310 scanner for registration, feature extraction, and 1:N template matching
+> Biometric scanning hardware integration for palm vein pattern registration, feature extraction, and 1:N template matching
 
 | | |
 |---|---|
 | **Feature** | `palm-vein` |
 | **Category** | Integration |
 | **Version** | 1.0.0 |
-| **Tags** | biometric, palm-vein, hardware, sdk, authentication, pvd300, pvm310 |
+| **Tags** | biometric, vein-pattern, hardware, sdk, authentication |
 | **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/palm-vein.blueprint.yaml) |
 | **JSON API** | [palm-vein.json]({{ site.baseurl }}/api/blueprints/integration/palm-vein.json) |
 
@@ -24,7 +24,7 @@ description: "Palm vein biometric integration with PVD300/PVM310 scanner for reg
 | ID | Name | Type | Description |
 |----|------|------|-------------|
 | `host_application` | Host Application | system | The application that calls the SDK API to perform palm vein operations |
-| `palm_scanner` | Palm Vein Scanner Device | external | PVD300 scanner or PVM310 module hardware that captures palm vein images |
+| `palm_scanner` | Biometric Scanning Hardware | external | Biometric scanner hardware that captures palm vein images |
 
 ## Fields
 
@@ -355,10 +355,10 @@ sdk:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Palm Vein Blueprint",
-  "description": "Palm vein biometric integration with PVD300/PVM310 scanner for registration, feature extraction, and 1:N template matching. 16 fields. 13 outcomes. 13 error cod",
+  "description": "Biometric scanning hardware integration for palm vein pattern registration, feature extraction, and 1:N template matching. 16 fields. 13 outcomes. 13 error code",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
   "license": "https://opensource.org/licenses/MIT",
-  "keywords": "biometric, palm-vein, hardware, sdk, authentication, pvd300, pvm310"
+  "keywords": "biometric, vein-pattern, hardware, sdk, authentication"
 }
 </script>

@@ -216,7 +216,7 @@ description: "Centralized state management with sliced architecture, action disp
 ```yaml
 source:
   repo: https://github.com/puckeditor/puck
-  project: Puck Editor
+  project: Page editor
   tech_stack: TypeScript + React
   files_traced: 15
   entry_points:

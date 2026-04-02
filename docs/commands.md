@@ -2,12 +2,36 @@
 title: Commands
 layout: default
 nav_order: 2
-description: "The six FDL commands: create blueprints, extract from documents/websites/code, and generate implementations for any framework."
+description: "The seven FDL commands: build full apps, create blueprints, extract from documents/websites/code, and generate implementations for any framework."
 ---
 
-# The Six Commands
+# The Seven Commands
 
-FDL provides six Claude Code slash commands. You never need to write YAML — these commands handle everything through plain-language conversation.
+FDL provides seven Claude Code slash commands. You never need to write YAML — these commands handle everything through plain-language conversation.
+
+---
+
+## `/fdl-build` — Build a full app from a description (flagship)
+
+Describe your entire app in plain English. FDL searches its blueprint library, suggests related features you might be missing, warns about gaps, and generates the complete codebase.
+
+```
+/fdl-build "nextjs app with shadcn and mongoose, OTP login, full POS system"
+/fdl-build "express API for expense approval with email notifications"
+/fdl-build "flutter mobile app with biometric login and product catalog"
+```
+
+**What happens:**
+1. Claude parses your description into a tech stack (framework, UI, database) and feature list
+2. It searches the blueprint library and finds matching blueprints
+3. If multiple blueprints overlap (e.g., 3 types of authentication), it explains the difference and asks which one fits
+4. It presents a **grouped checklist** of all features — core, required dependencies, recommended additions, and optional extras — with reasons for each suggestion
+5. It warns about missing pieces: "You have POS but no tax engine — order totals won't include tax"
+6. For features with no existing blueprint, it offers to create one (via `/fdl-create`), extract from docs, or skip
+7. Once confirmed, it generates all features in dependency order with shared infrastructure and cross-feature integration
+8. Final summary shows all generated files, what needs manual setup (env vars, API keys), and how to run
+
+**This is the recommended starting point** — it guides you toward a complete, production-ready system.
 
 ---
 
@@ -136,10 +160,16 @@ Once you have a blueprint, generate a complete implementation for any language a
 
 ## Combining Commands
 
+The fastest way to build a full app:
+```
+/fdl-build "nextjs app with login and POS"   # Describe your app → get everything
+```
+
+Or work with individual blueprints:
 ```
 /fdl-create login auth          # Create the spec
 /fdl-generate login nextjs      # Generate Next.js code
 /fdl-generate login express     # Same spec, different framework
 ```
 
-Six commands. Complete feature from conversation to working code.
+Seven commands. From conversation to working application.

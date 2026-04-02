@@ -170,7 +170,7 @@ description: "Extensible plugin architecture with 12 UI override points, wrappin
 ```yaml
 source:
   repo: https://github.com/puckeditor/puck
-  project: Puck Editor
+  project: Page editor
   tech_stack: TypeScript + React
   files_traced: 25
   entry_points:
