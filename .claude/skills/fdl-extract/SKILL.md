@@ -288,3 +288,42 @@ If the same requirement appears with different values in different sections:
 1. Flag the contradiction to the user
 2. Use the more restrictive/secure value as the default
 3. Reference both sections in the YAML comment
+
+## Automatic Post-Extraction Workflow
+
+**After Step 7 (blueprint written and validated), this must happen automatically:**
+
+1. **Validate all blueprints:**
+   ```bash
+   node scripts/validate.js
+   ```
+   - If validation passes → proceed to Step 2
+   - If validation fails → fix issues and re-validate until PASS
+
+2. **Generate documentation and JSON API:**
+   ```bash
+   npm run generate
+   ```
+   - Regenerates all `docs/blueprints/**/*.md` files
+   - Regenerates all `docs/api/**/*.json` files and `registry.json`
+   - Ensures documentation is always in sync with blueprints
+
+3. **Create git commit:**
+   ```bash
+   git add -A
+   git commit -m "Extract/Update [feature-names]: [brief description]
+
+   - [Extracted/Updated] [feature-name] ([category])
+   - [Extracted/Updated] [feature-name] ([category])
+
+   [One-line summary of why this change matters]
+
+   Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>"
+   ```
+   - Update README.md badge (if blueprint count changed)
+   - Update llms.txt (if blueprints added/removed)
+   - Commit message must reference all extracted features
+
+**THIS MUST HAPPEN AUTOMATICALLY — the user should never need to ask for validation, generation, or commit. The extraction skill completes only when all three steps succeed.**
+
+If validation fails, fix issues silently and re-validate. Do not surface validation errors to the user without attempting fixes first.
