@@ -1,0 +1,253 @@
+# ============================================================
+# Responsive Layout — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/tailwindlabs/tailwindcss
+# Tech stack: TypeScript + CSS Media Queries
+# Files analyzed: src/variants.ts, src/utils/compare-breakpoints.ts, src/compat/config/resolve-config.ts
+# ============================================================
+
+feature: responsive-layout
+version: "1.0.0"
+description: "Design responsive layouts using breakpoint variants to apply different styles at different screen sizes"
+category: ui
+tags: [responsive, breakpoints, mobile-first, media-queries]
+
+actors:
+  - id: designer
+    name: Designer/Developer
+    type: human
+    description: "Creates responsive layouts by applying breakpoint variants"
+  - id: css_generator
+    name: CSS Generator
+    type: system
+    description: "Converts breakpoint variants to CSS media queries"
+
+fields:
+  - name: breakpoint_name
+    type: text
+    required: true
+    label: "Identifier for screen size tier (e.g., sm, md, lg, xl, 2xl)"
+    # Source: src/compat/config/resolve-config.ts:165 — Breakpoint names are config keys
+
+  - name: breakpoint_pixel_value
+    type: number
+    required: true
+    label: "Pixel value threshold for breakpoint (e.g., 640, 768, 1024)"
+    # Source: src/compat/config/resolve-config.ts:170 — Breakpoint stored as pixel value
+
+  - name: breakpoint_type
+    type: select
+    required: false
+    label: "Breakpoint threshold type"
+    options:
+      - value: min-width
+        label: min-width
+      - value: max-width
+        label: max-width
+      - value: "custom media query"
+        label: "custom media query"
+    # Source: src/compat/config/resolve-config.ts:160 — Screens can be {min}, {max}, or raw
+
+  - name: mobile_first_style
+    type: text
+    required: false
+    label: "Base style applied at smallest screen (no breakpoint prefix)"
+    # Source: src/variants.ts:100 — Mobile-first pattern: base + breakpoint overrides
+
+  - name: tablet_override_style
+    type: text
+    required: false
+    label: "Style applied at tablet breakpoint (e.g., md:)"
+    # Source: src/variants.ts — Variant applied at >= breakpoint threshold
+
+  - name: desktop_override_style
+    type: text
+    required: false
+    label: "Style applied at desktop breakpoint (e.g., lg:)"
+
+states:
+  field: layout_status
+  values:
+    - value: base
+      description: "Mobile layout applied (smallest screen)"
+      initial: true
+    - value: tablet
+      description: "Tablet layout applied (at md breakpoint)"
+    - value: desktop
+      description: "Desktop layout applied (at lg+ breakpoint)"
+
+rules:
+  mobile_first_approach:
+    - "Default styles (no breakpoint) apply to smallest screens"
+      # Source: src/variants.ts:100 — Base styles are mobile styles
+    - "Breakpoint variants (sm:, md:, lg:) add or override styles at larger screens"
+    - "Each breakpoint inherits and can override previous breakpoint styles"
+    - "Breakpoints are min-width based; styles apply at breakpoint and above"
+      # Source: src/compat/config/resolve-config.ts:170 — min-width media query
+  breakpoint_ordering:
+    - "Breakpoints must be ordered from smallest to largest"
+      # Source: src/utils/compare-breakpoints.ts — Comparison sorts breakpoints
+    - "Default breakpoints: sm (640px), md (768px), lg (1024px), xl (1280px), 2xl (1536px)"
+      # Source: src/compat/config/types.ts — Default theme values
+    - "Custom breakpoints can be added by extending theme.screens"
+  cascade:
+    - "CSS media queries are ordered by breakpoint size; larger breakpoints come last"
+      # Source: src/sort.ts:50 — Classes sorted by breakpoint order
+    - "Larger breakpoint styles override smaller breakpoint styles (CSS cascade)"
+    - "Multiple variants on same utility combine; sm:md:flex is invalid (variant order)"
+
+outcomes:
+  define_mobile_layout:
+    priority: 1
+    given:
+      - "Designer starts with mobile layout"
+      - "Sets grid to single column: 'grid grid-cols-1'"
+    then:
+      - action: set_field
+        target: mobile_first_style
+        value: "grid grid-cols-1"
+      - action: emit_event
+        event: layout.breakpoint_applied
+        payload: [breakpoint_name, "base", css_properties]
+    result: "Single-column layout on mobile devices"
+
+  add_tablet_layout:
+    priority: 2
+    given:
+      - "At tablet size (md: 768px), change to 2-column layout"
+      - "Developer writes 'md:grid-cols-2'"
+    then:
+      - action: transition_state
+        field: layout_status
+        from: base
+        to: tablet
+      - action: set_field
+        target: tablet_override_style
+        value: "grid-cols-2"
+      - action: emit_event
+        event: layout.breakpoint_applied
+        payload: ["md", "tablet", "grid-cols-2"]
+    result: "CSS media query generated: @media (min-width: 768px) { .md\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }"
+    # Source: src/compile.ts:50 — Variant converted to media query
+
+  override_at_desktop:
+    priority: 3
+    given:
+      - "At desktop (lg: 1024px), expand to 3-column layout"
+      - "Developer writes 'lg:grid-cols-3'"
+    then:
+      - action: transition_state
+        field: layout_status
+        from: tablet
+        to: desktop
+      - action: set_field
+        target: desktop_override_style
+        value: "grid-cols-3"
+    result: "Mobile (1 col) → Tablet (2 col) → Desktop (3 col) responsive cascade"
+
+  hide_element_on_mobile:
+    priority: 4
+    given:
+      - "Element should be hidden on mobile, visible on tablet+"
+      - "Developer writes 'hidden md:block'"
+    then:
+      - action: emit_event
+        event: layout.responsive_visibility
+        payload: [element, "hidden on mobile", "block on tablet+"]
+    result: "Element hidden at base (display: none), shown at md+ (display: block)"
+
+  custom_breakpoint:
+    priority: 5
+    given:
+      - "Project needs custom breakpoint at 900px for specific layout (sm, md, lg, xl, 2xl not sufficient)"
+      - "Developer configures theme.screens.custom: '900px'"
+    then:
+      - action: create_record
+        type: breakpoint
+        fields: [breakpoint_name, breakpoint_pixel_value]
+      - action: emit_event
+        event: layout.custom_breakpoint_defined
+        payload: [custom, "900px"]
+    result: "Custom breakpoint available; utilities like 'custom:flex' generate media query @media (min-width: 900px)"
+    # Source: src/compat/config/resolve-config.ts:165 — Custom screens added to breakpoints
+
+  responsive_spacing:
+    priority: 6
+    given:
+      - "Padding should be small on mobile, larger on desktop"
+      - "Developer writes 'p-4 md:p-6 lg:p-8'"
+    then:
+      - action: emit_event
+        event: layout.responsive_property
+        payload: [padding, "p-4 → p-6 → p-8"]
+    result: "Padding cascades: 1rem (mobile) → 1.5rem (tablet) → 2rem (desktop)"
+
+  container_query_responsive:
+    priority: 7
+    given:
+      - "Designer wants layout relative to container, not viewport (container queries)"
+      - "Some frameworks support '@container' variant"
+    then:
+      - action: emit_event
+        event: layout.container_query_applied
+        payload: [element, container_size]
+    result: "Layout adapts to container size instead of viewport; styles apply when container meets size threshold"
+
+  invalid_breakpoint_order:
+    priority: 10
+    error: BREAKPOINT_ORDER_INVALID
+    given:
+      - "Custom breakpoints configured in wrong order: lg (1024px), md (768px), sm (640px)"
+    then:
+      - action: emit_event
+        event: layout.breakpoint_order_error
+        payload: [breakpoints, error_message]
+    result: "CSS cascade broken; smaller breakpoints may override larger breakpoints unexpectedly"
+
+errors:
+  - code: BREAKPOINT_ORDER_INVALID
+    status: 400
+    message: "Breakpoints must be ordered from smallest to largest. Fix theme.screens to ensure correct cascade."
+  - code: UNKNOWN_BREAKPOINT
+    status: 400
+    message: "Breakpoint variant not recognized. Check breakpoint name in theme.screens config."
+
+events:
+  - name: layout.breakpoint_applied
+    payload: [breakpoint_name, layout_stage, css_properties]
+  - name: layout.responsive_visibility
+    payload: [element_selector, mobile_style, tablet_plus_style]
+  - name: layout.custom_breakpoint_defined
+    payload: [breakpoint_name, pixel_value]
+  - name: layout.responsive_property
+    payload: [property_name, value_cascade]
+  - name: layout.container_query_applied
+    payload: [element_selector, container_size]
+  - name: layout.breakpoint_order_error
+    payload: [breakpoints_list, error_message]
+
+related:
+  - feature: utility-composition
+    type: required
+    reason: "Responsive variants (md:, lg:) apply utilities at breakpoints"
+  - feature: theme-configuration
+    type: recommended
+    reason: "Breakpoints defined in theme.screens config"
+
+extensions:
+  tech_stack:
+    language: "CSS Media Queries + CSS Variables"
+    pattern: "Mobile-first responsive design"
+    media_query_type: "min-width (width >= breakpoint)"
+  source_location: "packages/tailwindcss/src"
+  default_breakpoints:
+    sm: "640px"
+    md: "768px"
+    lg: "1024px"
+    xl: "1280px"
+    "2xl": "1536px"
+  best_practices:
+    - "Start with mobile layout; progressively enhance for larger screens"
+    - "Keep breakpoint threshold values consistent across project"
+    - "Use named breakpoints (sm, md) not pixel values in markup"

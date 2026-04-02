@@ -1,0 +1,387 @@
+{
+  "feature": "arbitrary-values",
+  "version": "1.0.0",
+  "description": "Use one-off custom values in utilities without defining them in theme, enabling flexible styling beyond framework constraints",
+  "category": "ui",
+  "tags": [
+    "arbitrary",
+    "dynamic",
+    "custom-values",
+    "escape-hatch"
+  ],
+  "actors": [
+    {
+      "id": "developer",
+      "name": "Developer",
+      "type": "human",
+      "description": "Uses arbitrary values for unique styling requirements"
+    },
+    {
+      "id": "value_parser",
+      "name": "Value Parser",
+      "type": "system",
+      "description": "Parses and validates arbitrary value syntax"
+    }
+  ],
+  "fields": [
+    {
+      "name": "utility_name",
+      "type": "text",
+      "required": true,
+      "label": "Base utility name (e.g., 'w', 'p', 'bg')"
+    },
+    {
+      "name": "arbitrary_value_syntax",
+      "type": "text",
+      "required": true,
+      "label": "Value in square brackets: [value]"
+    },
+    {
+      "name": "css_value",
+      "type": "text",
+      "required": true,
+      "label": "CSS value inside brackets (must be valid CSS)"
+    },
+    {
+      "name": "theme_function_reference",
+      "type": "text",
+      "required": false,
+      "label": "Reference to theme value using theme() function"
+    },
+    {
+      "name": "css_variable_reference",
+      "type": "text",
+      "required": false,
+      "label": "Reference to CSS custom property (--variable-name)"
+    }
+  ],
+  "states": {
+    "field": "value_status",
+    "values": [
+      {
+        "value": "syntactically_valid",
+        "description": "Arbitrary value syntax is correct (brackets present)",
+        "initial": true
+      },
+      {
+        "value": "semantically_valid",
+        "description": "Value content is valid CSS"
+      },
+      {
+        "value": "compiled",
+        "description": "CSS rule generated with arbitrary value"
+      },
+      {
+        "value": "invalid",
+        "description": "Value is syntactically or semantically invalid"
+      }
+    ]
+  },
+  "rules": {
+    "syntax": [
+      "Arbitrary value format: utility[value] (square brackets contain CSS)",
+      "Value must be valid CSS; framework does not validate CSS syntax at parse time",
+      "Spaces inside brackets are allowed: [1rem 2rem] for multi-value properties",
+      "Slashes in values must be escaped if interpreted as modifiers: [line-height/1.5]"
+    ],
+    "content_validation": [
+      "Value cannot contain unbalanced brackets or quotes unless properly escaped",
+      "Value can reference theme() function: [theme(--color-primary)]",
+      "Value can reference CSS variables: [var(--spacing-unit)]"
+    ],
+    "performance": [
+      "Arbitrary values cannot be cached; each unique value generates CSS",
+      "For repeated values, define in theme instead of arbitrary values"
+    ],
+    "modifiers": [
+      "Arbitrary values can use modifiers: [rgba(255, 0, 0, 0.5)]/50 (opacity modifier)"
+    ]
+  },
+  "outcomes": {
+    "simple_arbitrary_width": {
+      "priority": 1,
+      "given": [
+        "Designer needs element with 200px width (not in spacing scale)",
+        "Designer writes 'w-[200px]'"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "css_value",
+          "value": "200px"
+        },
+        {
+          "action": "emit_event",
+          "event": "arbitrary_value.used",
+          "payload": [
+            "utility_name",
+            "css_value"
+          ]
+        }
+      ],
+      "result": "CSS rule generated: .w-\\[200px\\] { width: 200px; }"
+    },
+    "arbitrary_color_value": {
+      "priority": 2,
+      "given": [
+        "Designer needs specific color not in palette: 'bg-[#abc123]'",
+        "hex value is valid CSS color"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "css_value",
+          "value": "#abc123"
+        }
+      ],
+      "result": "CSS rule generated: .bg-\\[\\#abc123\\] { background-color: #abc123; }"
+    },
+    "arbitrary_rgba_color": {
+      "priority": 3,
+      "given": [
+        "Designer needs transparent color: 'bg-[rgba(255, 0, 0, 0.5)]'"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "css_value",
+          "value": "rgba(255, 0, 0, 0.5)"
+        }
+      ],
+      "result": "CSS rule generated: .bg-\\[rgba\\(255\\ 0\\ 0\\ 0\\.5\\)\\] { background-color: rgba(255, 0, 0, 0.5); }"
+    },
+    "arbitrary_with_theme_reference": {
+      "priority": 4,
+      "given": [
+        "Designer uses theme value in arbitrary: 'p-[theme(--spacing-4)]'",
+        "theme() function resolves --spacing-4 from config"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "theme_function_reference",
+          "value": "theme(--spacing-4)"
+        },
+        {
+          "action": "emit_event",
+          "event": "arbitrary_value.theme_referenced",
+          "payload": [
+            "utility_name",
+            "theme_key"
+          ]
+        }
+      ],
+      "result": "CSS rule generated: .p-\\[theme\\(--spacing-4\\)\\] { padding: 1rem; }"
+    },
+    "arbitrary_with_css_variable": {
+      "priority": 5,
+      "given": [
+        "Designer uses CSS variable in arbitrary: 'w-[var(--custom-width)]'",
+        "CSS variable defined in stylesheet or inline style"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "css_variable_reference",
+          "value": "var(--custom-width)"
+        },
+        {
+          "action": "emit_event",
+          "event": "arbitrary_value.css_variable_referenced",
+          "payload": [
+            "utility_name",
+            "variable_name"
+          ]
+        }
+      ],
+      "result": "CSS rule generated: .w-\\[var\\(--custom-width\\)\\] { width: var(--custom-width); }"
+    },
+    "arbitrary_with_modifier": {
+      "priority": 6,
+      "given": [
+        "Designer applies opacity modifier to arbitrary color: 'bg-[rgba(255, 0, 0, 0.5)]/75'",
+        "Modifier 75 means 75% opacity"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "arbitrary_value_syntax",
+          "value": "[rgba(255, 0, 0, 0.5)]/75"
+        },
+        {
+          "action": "emit_event",
+          "event": "arbitrary_value.modifier_applied",
+          "payload": [
+            "modifier_value"
+          ]
+        }
+      ],
+      "result": "Opacity modifier applied to arbitrary value"
+    },
+    "responsive_arbitrary_value": {
+      "priority": 7,
+      "given": [
+        "Designer wants custom width at different breakpoints: 'w-[200px] md:w-[300px] lg:w-[400px]'"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "arbitrary_value.responsive",
+          "payload": [
+            "breakpoints",
+            "arbitrary_values"
+          ]
+        }
+      ],
+      "result": "Each breakpoint generates separate CSS rule with arbitrary value"
+    },
+    "arbitrary_property": {
+      "priority": 8,
+      "given": [
+        "Designer needs custom CSS property: '[--custom-property:value]'",
+        "Some frameworks support arbitrary properties (e.g., [color:red])"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "css_value",
+          "value": "custom-value"
+        }
+      ],
+      "result": "Custom CSS property set or value applied (framework support varies)"
+    },
+    "invalid_arbitrary_syntax": {
+      "priority": 10,
+      "error": "INVALID_ARBITRARY_SYNTAX",
+      "given": [
+        "Developer writes malformed arbitrary: 'w-[200px' (missing closing bracket)",
+        "Or unbalanced brackets: 'bg-[rgba(255, 0, 0, 0.5)]'"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "arbitrary_value.syntax_error",
+          "payload": [
+            "utility_name",
+            "syntax_error"
+          ]
+        }
+      ],
+      "result": "Arbitrary value rejected; CSS not generated"
+    },
+    "invalid_theme_reference": {
+      "priority": 11,
+      "error": "INVALID_THEME_REFERENCE",
+      "given": [
+        "Developer references non-existent theme key: 'p-[theme(--spacing-missing)]'"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "arbitrary_value.theme_error",
+          "payload": [
+            "missing_key"
+          ]
+        }
+      ],
+      "result": "Theme reference fails; candidate marked invalid"
+    }
+  },
+  "errors": [
+    {
+      "code": "INVALID_ARBITRARY_SYNTAX",
+      "status": 400,
+      "message": "Arbitrary value syntax is invalid. Use square brackets: utility[value]"
+    },
+    {
+      "code": "INVALID_THEME_REFERENCE",
+      "status": 400,
+      "message": "Theme reference theme(key) is invalid. Check that the theme key exists."
+    },
+    {
+      "code": "UNBALANCED_BRACKETS",
+      "status": 400,
+      "message": "Arbitrary value contains unbalanced brackets. Ensure all brackets are properly closed."
+    }
+  ],
+  "events": [
+    {
+      "name": "arbitrary_value.used",
+      "payload": [
+        "utility_name",
+        "css_value"
+      ]
+    },
+    {
+      "name": "arbitrary_value.theme_referenced",
+      "payload": [
+        "utility_name",
+        "theme_key"
+      ]
+    },
+    {
+      "name": "arbitrary_value.css_variable_referenced",
+      "payload": [
+        "utility_name",
+        "variable_name"
+      ]
+    },
+    {
+      "name": "arbitrary_value.modifier_applied",
+      "payload": [
+        "modifier_value"
+      ]
+    },
+    {
+      "name": "arbitrary_value.responsive",
+      "payload": [
+        "breakpoints",
+        "arbitrary_values"
+      ]
+    },
+    {
+      "name": "arbitrary_value.syntax_error",
+      "payload": [
+        "utility_name",
+        "syntax_error"
+      ]
+    },
+    {
+      "name": "arbitrary_value.theme_error",
+      "payload": [
+        "missing_key"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "utility-composition",
+      "type": "recommended",
+      "reason": "Arbitrary values extend utilities beyond theme-defined values"
+    },
+    {
+      "feature": "theme-configuration",
+      "type": "optional",
+      "reason": "Arbitrary values reference theme via theme() function"
+    }
+  ],
+  "extensions": {
+    "tech_stack": {
+      "language": "TypeScript + CSS",
+      "pattern": "Escape hatch for dynamic/custom values",
+      "validation": "Syntactic (brackets); semantic validation deferred to CSS engine"
+    },
+    "source_location": "packages/tailwindcss/src",
+    "use_cases": [
+      "One-off values not in design system (e.g., w-[200px])",
+      "Dynamic values from design tokens (e.g., p-[theme(--spacing-custom)])",
+      "Runtime values from CSS variables (e.g., w-[var(--width)])",
+      "Complex values requiring CSS functions (e.g., bg-[rgba(...)])"
+    ],
+    "best_practices": [
+      "Use arbitrary values sparingly; prefer defining in theme for consistency",
+      "Document why arbitrary value is needed (design token missing?)",
+      "Reference theme() for values that should stay in sync with design system"
+    ]
+  }
+}

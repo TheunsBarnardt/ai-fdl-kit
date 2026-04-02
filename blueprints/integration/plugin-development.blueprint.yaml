@@ -1,0 +1,295 @@
+# ============================================================
+# Plugin Development — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/tailwindlabs/tailwindcss
+# Tech stack: TypeScript + JavaScript
+# Files analyzed: src/plugin.ts, src/plugin.test.ts, src/compat/plugin-api.ts
+# ============================================================
+
+feature: plugin-development
+version: "1.0.0"
+description: "Create and register plugins to extend CSS framework with custom utilities, variants, and theme values"
+category: integration
+tags: [extensibility, plugins, custom-utilities, theme-extension]
+
+actors:
+  - id: plugin_developer
+    name: Plugin Developer
+    type: human
+    description: "Creates custom utilities or theme extensions"
+  - id: framework_engine
+    name: Framework Engine
+    type: system
+    description: "CSS framework that processes and applies plugins"
+  - id: consumer_project
+    name: Consumer Project
+    type: system
+    description: "Project that installs and uses the plugin"
+
+fields:
+  - name: plugin_name
+    type: text
+    required: true
+    label: "Plugin Name"
+    # Source: src/plugin.ts:10 — Plugin returned from createPlugin function
+
+  - name: plugin_type
+    type: select
+    required: true
+    label: "Plugin Type"
+    options:
+      - value: utility
+        label: utility
+      - value: variant
+        label: variant
+      - value: "base-styles"
+        label: "base-styles"
+      - value: "theme-extension"
+        label: "theme-extension"
+    # Source: src/plugin.ts — addUtility, addVariant, addBase APIs
+
+  - name: utility_name
+    type: text
+    required: false
+    label: "Utility Name"
+    # Source: src/compat/plugin-api.ts:20 — addUtility(name, ...) signature
+
+  - name: utility_values
+    type: json
+    required: false
+    label: "Utility Values"
+    # Source: src/compat/plugin-api.ts:25 — Utility definition structure
+
+  - name: variant_name
+    type: text
+    required: false
+    label: "Variant Name"
+    # Source: src/compat/plugin-api.ts:30 — addVariant(name, selector) signature
+
+  - name: variant_selector
+    type: text
+    required: false
+    label: "Variant Selector"
+    # Source: src/compat/plugin-api.ts:32 — Variant selector as CSS string
+
+  - name: plugin_config
+    type: json
+    required: false
+    label: "Plugin Configuration"
+    # Source: src/compat/plugin-api.ts:45 — config returned from plugin function
+
+  - name: plugin_options
+    type: json
+    required: false
+    label: "Plugin Options"
+    # Source: src/plugin.ts:20 — plugin.withOptions receives options parameter
+
+  - name: theme_namespace
+    type: text
+    required: false
+    label: "Theme Namespace"
+    # Source: src/compat/config/types.ts — Theme extends specific namespaces
+
+states:
+  field: plugin_status
+  values:
+    - value: created
+      description: "Plugin function defined but not yet loaded"
+    - value: registered
+      description: "Plugin registered in project config"
+      initial: true
+    - value: loaded
+      description: "Plugin module loaded and instantiated"
+    - value: applied
+      description: "Plugin utilities and variants available in CSS generation"
+    - value: disabled
+      description: "Plugin disabled in config (not used)"
+
+rules:
+  plugin_format:
+    - "Plugin must export a function that receives plugin API utilities (addBase, addUtility, addVariant)"
+      # Source: src/plugin.ts:10 — createPlugin(handler) signature
+    - "Plugin can optionally return a config object to extend theme"
+      # Source: src/plugin.test.ts:30 — handler returns config object
+  registration:
+    - "Plugin must be registered in project config under plugins array"
+      # Source: src/compat/config/types.ts:6 — UserConfig.plugins: Plugin[]
+    - "Plugins are applied in order; later plugins can override earlier ones"
+      # Source: src/compat/config/resolve-config.ts:80 — Plugin iteration order
+  naming_conventions:
+    - "Custom utility names use kebab-case (e.g., 'prose-sm', 'card-outlined')"
+    - "Custom variant names use kebab-case (e.g., 'group-hover', 'supports-grid')"
+    - "Theme extension keys must match framework namespace format (--namespace-value)"
+  config_merge:
+    - "Plugin config extends theme; conflicting keys in user config take precedence"
+      # Source: src/compat/config/resolve-config.ts:80
+    - "Theme.extend in plugin is recursively merged with user theme.extend"
+  scope:
+    - "Plugin utilities and variants are global; they apply to all compiled CSS"
+    - "Plugin theme values are available via theme() function in arbitrary values"
+
+outcomes:
+  create_simple_utility:
+    priority: 1
+    given:
+      - "Plugin developer creates a utility for card layout"
+      - "Utility should have responsive values (sm: small-size, md: medium-size)"
+    then:
+      - action: create_record
+        type: utility
+        fields: [utility_name, utility_values]
+      - action: emit_event
+        event: plugin.utility_created
+        payload: [utility_name, utility_values]
+    result: "Custom utility registered; available in compiled CSS (e.g., 'card', 'sm:card')"
+    # Source: src/compat/plugin-api.ts:20 — addUtility(name, {...})
+
+  extend_theme_with_colors:
+    priority: 2
+    given:
+      - "Plugin provides custom color palette (brand-primary: #FF6B35, brand-secondary: #004E89)"
+      - "Plugin returns config object with colors"
+    then:
+      - action: create_record
+        type: theme_value
+        fields: [theme_namespace, color_values]
+      - action: emit_event
+        event: plugin.theme_extended
+        payload: [theme_namespace, new_values]
+    result: "Colors available in utilities (text-brand-primary, bg-brand-secondary) and theme() function"
+    # Source: src/plugin.test.ts:15 — Plugin config merged into theme
+
+  create_custom_variant:
+    priority: 3
+    given:
+      - "Plugin developer creates variant for 'even-child' pseudo-selector"
+      - "Selector provided: '&:nth-child(even)'"
+    then:
+      - action: create_record
+        type: variant
+        fields: [variant_name, variant_selector]
+      - action: emit_event
+        event: plugin.variant_created
+        payload: [variant_name, variant_selector]
+    result: "Custom variant available (even-child:flex, md:even-child:bg-gray-100)"
+
+  plugin_with_options:
+    priority: 4
+    given:
+      - "Plugin created with plugin.withOptions to accept configuration"
+      - "Consumer passes options when registering plugin"
+    then:
+      - action: set_field
+        target: plugin_options
+        value: "{prefix: 'tw-', customColor: '#FF0000'}"
+      - action: emit_event
+        event: plugin.instantiated_with_options
+        payload: [plugin_name, plugin_options]
+    result: "Plugin instance created with custom options; utilities and theme generated based on options"
+    # Source: src/plugin.ts:20 — plugin.withOptions pattern
+
+  plugin_adds_base_styles:
+    priority: 5
+    given:
+      - "Plugin provides reset or base styles for typography"
+      - "Plugin calls addBase({ h1: { fontSize: '2.5rem', fontWeight: 'bold' } })"
+    then:
+      - action: emit_event
+        event: plugin.base_styles_added
+        payload: [base_rules]
+    result: "Base styles injected at @layer base; applied to matched selectors without class needed"
+    # Source: src/plugin.test.ts:20 — addBase example
+
+  multiple_utilities_single_plugin:
+    priority: 6
+    given:
+      - "Plugin provides multiple utilities (prose-sm, prose-base, prose-lg)"
+    then:
+      - action: create_record
+        type: utility
+        fields: [utility_name, utility_values]
+        count: 3
+    result: "All utilities registered; each available with responsive variants (md:prose-base, lg:prose-lg)"
+
+  config_override_by_user:
+    priority: 7
+    given:
+      - "Plugin extends theme with color (brand: '#FF6B35')"
+      - "User config also defines brand color (brand: '#FF0000')"
+    then:
+      - action: set_field
+        target: theme_namespace
+        value: "{brand: '#FF0000'}"
+    result: "User-defined color takes precedence; utilities use user's color, not plugin's"
+    # Source: src/compat/config/resolve-config.ts:80 — User config merged after plugin
+
+  plugin_load_failure:
+    priority: 10
+    error: PLUGIN_LOAD_FAILED
+    given:
+      - "Plugin module fails to load or export invalid structure"
+      - "Plugin does not export a function"
+    then:
+      - action: emit_event
+        event: plugin.load_error
+        payload: [plugin_name, error_message]
+    result: "Build fails; error message indicates which plugin caused failure"
+
+  plugin_type_mismatch:
+    priority: 11
+    error: INVALID_PLUGIN_API_USAGE
+    given:
+      - "Plugin calls addUtility with invalid value structure"
+      - "Or addVariant with invalid selector syntax"
+    then:
+      - action: emit_event
+        event: plugin.validation_error
+        payload: [plugin_name, api_method, error_details]
+    result: "Build fails; error indicates which API call was invalid"
+
+errors:
+  - code: PLUGIN_LOAD_FAILED
+    status: 400
+    message: "Failed to load plugin module. Check that the plugin is properly exported and accessible."
+  - code: INVALID_PLUGIN_API_USAGE
+    status: 400
+    message: "Plugin API call is invalid. Verify utility/variant definition matches expected format."
+  - code: PLUGIN_THEME_CONFLICT
+    status: 400
+    message: "Plugin theme values conflict with framework reserved keys. Use a custom namespace."
+
+events:
+  - name: plugin.utility_created
+    payload: [utility_name, utility_values]
+  - name: plugin.variant_created
+    payload: [variant_name, variant_selector]
+  - name: plugin.theme_extended
+    payload: [theme_namespace, new_values]
+  - name: plugin.instantiated_with_options
+    payload: [plugin_name, options]
+  - name: plugin.base_styles_added
+    payload: [base_rules]
+  - name: plugin.load_error
+    payload: [plugin_name, error_message]
+
+related:
+  - feature: theme-configuration
+    type: recommended
+    reason: "Plugins can extend theme with custom values"
+  - feature: utility-composition
+    type: recommended
+    reason: "Custom utilities composed with variants like built-in utilities"
+  - feature: build-integration
+    type: optional
+    reason: "Plugins loaded and applied during build process"
+
+extensions:
+  tech_stack:
+    language: "TypeScript / JavaScript"
+    api_style: "Functional (builder pattern)"
+    pattern: "Factory pattern (plugin.withOptions for configurable plugins)"
+  source_location: "packages/tailwindcss/src"
+  plugin_patterns:
+    - "Simple: plugin(({ addBase, addUtility, addVariant }) => { ... })"
+    - "Configurable: plugin.withOptions((options) => (api) => { ... })"

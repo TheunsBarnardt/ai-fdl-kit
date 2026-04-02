@@ -1,0 +1,537 @@
+{
+  "feature": "build-integration",
+  "version": "1.0.0",
+  "description": "Integrate CSS framework with build tools (PostCSS, CLI, Webpack, Vite, Next.js) to process templates and generate optimized CSS",
+  "category": "integration",
+  "tags": [
+    "build-tools",
+    "bundling",
+    "optimization",
+    "postcss",
+    "cli"
+  ],
+  "actors": [
+    {
+      "id": "developer",
+      "name": "Developer",
+      "type": "human",
+      "description": "Configures build tool integration"
+    },
+    {
+      "id": "build_tool",
+      "name": "Build Tool",
+      "type": "system",
+      "description": "Build system (webpack, vite, next.js, esbuild, etc.)"
+    },
+    {
+      "id": "css_processor",
+      "name": "CSS Framework Processor",
+      "type": "system",
+      "description": "Processes CSS and generates output"
+    }
+  ],
+  "fields": [
+    {
+      "name": "integration_type",
+      "type": "select",
+      "required": true,
+      "label": "How CSS framework integrates with build system",
+      "options": [
+        {
+          "value": "postcss-plugin",
+          "label": "postcss-plugin"
+        },
+        {
+          "value": "cli",
+          "label": "cli"
+        },
+        {
+          "value": "webpack-loader",
+          "label": "webpack-loader"
+        },
+        {
+          "value": "vite-plugin",
+          "label": "vite-plugin"
+        },
+        {
+          "value": "next.js-plugin",
+          "label": "next.js-plugin"
+        },
+        {
+          "value": "custom-loader",
+          "label": "custom-loader"
+        }
+      ]
+    },
+    {
+      "name": "config_file_path",
+      "type": "text",
+      "required": true,
+      "label": "Path to configuration file"
+    },
+    {
+      "name": "input_css_path",
+      "type": "text",
+      "required": false,
+      "label": "Input CSS file path containing @tailwind directives"
+    },
+    {
+      "name": "output_css_path",
+      "type": "text",
+      "required": false,
+      "label": "Output CSS file path for generated CSS"
+    },
+    {
+      "name": "watch_mode_enabled",
+      "type": "boolean",
+      "required": false,
+      "label": "Whether to watch source files and regenerate CSS on changes"
+    },
+    {
+      "name": "content_paths",
+      "type": "json",
+      "required": true,
+      "label": "Glob patterns for files to scan for utility class usage"
+    },
+    {
+      "name": "template_file_extensions",
+      "type": "json",
+      "required": false,
+      "label": "File extensions to scan for CSS classes"
+    },
+    {
+      "name": "minify_output",
+      "type": "boolean",
+      "required": false,
+      "label": "Whether to minify generated CSS"
+    },
+    {
+      "name": "source_map_enabled",
+      "type": "boolean",
+      "required": false,
+      "label": "Whether to generate source maps for debugging"
+    }
+  ],
+  "states": {
+    "field": "build_status",
+    "values": [
+      {
+        "value": "configured",
+        "description": "Build tool integration configured",
+        "initial": true
+      },
+      {
+        "value": "building",
+        "description": "CSS generation in progress"
+      },
+      {
+        "value": "generated",
+        "description": "CSS successfully generated and written to output"
+      },
+      {
+        "value": "watching",
+        "description": "Watch mode active; rebuilding on source file changes"
+      },
+      {
+        "value": "failed",
+        "description": "Build or CSS generation failed"
+      }
+    ]
+  },
+  "rules": {
+    "configuration": [
+      "Config file must define content paths so framework knows which files to scan",
+      "Config file can be JavaScript (.js), TypeScript (.ts), or ESM (.mjs)",
+      "For PostCSS plugin, config specified in postcss.config.js under plugins array"
+    ],
+    "content_scanning": [
+      "Content paths use glob patterns to include template files",
+      "Scanner extracts all class names (including arbitrary values) from matched files",
+      "Unused classes not found in content are excluded from output CSS (purge)",
+      "File extensions must be explicitly listed; unmatched extensions are ignored"
+    ],
+    "build_output": [
+      "Generated CSS contains only utilities used in content files",
+      "Default theme and base styles always included (unless explicitly disabled)",
+      "CSS output is sorted by cascade order (base, layout, components, utilities)"
+    ],
+    "watch_mode": [
+      "Watch mode monitors source files and regenerates CSS on any change",
+      "Debouncing applied to prevent excessive rebuilds on rapid file changes",
+      "CSS reloading triggered in browser via live reload or HMR"
+    ]
+  },
+  "outcomes": {
+    "postcss_plugin_integration": {
+      "priority": 1,
+      "given": [
+        "Project uses PostCSS build pipeline",
+        "postcss.config.js configured with CSS framework plugin"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "postcss_plugin",
+          "fields": [
+            "plugin_name",
+            "config"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "build.postcss_configured",
+          "payload": [
+            "config_file_path"
+          ]
+        }
+      ],
+      "result": "PostCSS processes CSS framework directives (@tailwind, @layer); output CSS generated"
+    },
+    "cli_build_command": {
+      "priority": 2,
+      "given": [
+        "Project uses CLI for CSS generation",
+        "Command: tailwindcss --input src/styles.css --output dist/styles.css"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "build.cli_build_started",
+          "payload": [
+            "input_file",
+            "output_file"
+          ]
+        }
+      ],
+      "result": "CSS scanned from content files, generated, and written to output file"
+    },
+    "cli_watch_mode": {
+      "priority": 3,
+      "given": [
+        "Command: tailwindcss --input src/styles.css --output dist/styles.css --watch",
+        "File changes detected in content paths"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "build_status",
+          "from": "generated",
+          "to": "watching"
+        },
+        {
+          "action": "emit_event",
+          "event": "build.watch_triggered",
+          "payload": [
+            "changed_file"
+          ]
+        }
+      ],
+      "result": "CSS regenerated automatically; watch process continues until stopped"
+    },
+    "vite_plugin_integration": {
+      "priority": 4,
+      "given": [
+        "Project uses Vite as build tool",
+        "Vite config includes CSS framework plugin"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "vite_plugin",
+          "fields": [
+            "plugin_config"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "build.vite_configured",
+          "payload": [
+            "vite_config"
+          ]
+        }
+      ],
+      "result": "Vite processes CSS; HMR enabled for instant CSS updates during development"
+    },
+    "webpack_loader_integration": {
+      "priority": 5,
+      "given": [
+        "Project uses Webpack as build tool",
+        "Webpack config includes CSS framework loader"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "webpack_loader",
+          "fields": [
+            "loader_config"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "build.webpack_configured",
+          "payload": [
+            "webpack_config"
+          ]
+        }
+      ],
+      "result": "Webpack processes CSS files; generated CSS bundled with application"
+    },
+    "next_js_integration": {
+      "priority": 6,
+      "given": [
+        "Project uses Next.js framework",
+        "next.config.js or postcss.config.js includes CSS framework plugin"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "nextjs_plugin",
+          "fields": [
+            "plugin_config"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "build.nextjs_configured",
+          "payload": [
+            "nextjs_config"
+          ]
+        }
+      ],
+      "result": "Next.js build pipeline processes CSS; global styles and component styles scanned"
+    },
+    "content_configuration": {
+      "priority": 7,
+      "given": [
+        "Config specifies content paths: ['./src/**/*.{js,jsx,ts,tsx}', './pages/**/*.{js,jsx,ts,tsx}']"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "content_paths",
+          "value": "['./src/**/*.{js,jsx,ts,tsx}', './pages/**/*.{js,jsx,ts,tsx}']"
+        },
+        {
+          "action": "emit_event",
+          "event": "build.content_paths_configured",
+          "payload": [
+            "content_paths"
+          ]
+        }
+      ],
+      "result": "Scanner includes matching files; only utilities used in scanned files generate CSS"
+    },
+    "minified_output": {
+      "priority": 8,
+      "given": [
+        "Build configuration specifies minification",
+        "Command: tailwindcss --input src/styles.css --output dist/styles.css --minify"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "minify_output",
+          "value": true
+        },
+        {
+          "action": "emit_event",
+          "event": "build.minification_enabled",
+          "payload": []
+        }
+      ],
+      "result": "Generated CSS minified; whitespace and comments removed"
+    },
+    "missing_config_file": {
+      "priority": 10,
+      "error": "CONFIG_NOT_FOUND",
+      "given": [
+        "Build tool expects config file (tailwind.config.js) but file does not exist"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "build.config_error",
+          "payload": [
+            "config_file_path",
+            "error_message"
+          ]
+        }
+      ],
+      "result": "Build fails; error indicates missing config file"
+    },
+    "invalid_content_paths": {
+      "priority": 11,
+      "error": "INVALID_CONTENT_PATHS",
+      "given": [
+        "Content paths misconfigured (e.g., glob pattern invalid or paths do not exist)"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "build.content_error",
+          "payload": [
+            "content_paths",
+            "error_message"
+          ]
+        }
+      ],
+      "result": "Build succeeds but CSS may not include all utilities (false purge)"
+    },
+    "circular_dependency": {
+      "priority": 12,
+      "error": "CIRCULAR_DEPENDENCY",
+      "given": [
+        "Config or plugin loading causes circular dependency"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "build.dependency_error",
+          "payload": [
+            "error_message"
+          ]
+        }
+      ],
+      "result": "Build fails; circular dependency in config/plugin chain"
+    }
+  },
+  "errors": [
+    {
+      "code": "CONFIG_NOT_FOUND",
+      "status": 400,
+      "message": "Configuration file not found. Create tailwind.config.js or configure CSS framework in PostCSS config."
+    },
+    {
+      "code": "INVALID_CONTENT_PATHS",
+      "status": 400,
+      "message": "Content paths are invalid or unreachable. Check glob patterns and file paths in config."
+    },
+    {
+      "code": "BUILD_FAILED",
+      "status": 500,
+      "message": "CSS generation failed. Check config file and ensure templates are valid."
+    },
+    {
+      "code": "CIRCULAR_DEPENDENCY",
+      "status": 400,
+      "message": "Circular dependency detected in config or plugins. Check imports and module references."
+    }
+  ],
+  "events": [
+    {
+      "name": "build.postcss_configured",
+      "payload": [
+        "config_file_path",
+        "plugin_config"
+      ]
+    },
+    {
+      "name": "build.cli_build_started",
+      "payload": [
+        "input_file",
+        "output_file"
+      ]
+    },
+    {
+      "name": "build.watch_triggered",
+      "payload": [
+        "changed_file",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "build.vite_configured",
+      "payload": [
+        "vite_config"
+      ]
+    },
+    {
+      "name": "build.webpack_configured",
+      "payload": [
+        "webpack_config"
+      ]
+    },
+    {
+      "name": "build.nextjs_configured",
+      "payload": [
+        "nextjs_config"
+      ]
+    },
+    {
+      "name": "build.content_paths_configured",
+      "payload": [
+        "content_paths"
+      ]
+    },
+    {
+      "name": "build.minification_enabled",
+      "payload": []
+    },
+    {
+      "name": "build.config_error",
+      "payload": [
+        "config_file_path",
+        "error_message"
+      ]
+    },
+    {
+      "name": "build.content_error",
+      "payload": [
+        "content_paths",
+        "error_message"
+      ]
+    },
+    {
+      "name": "build.dependency_error",
+      "payload": [
+        "error_message"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "theme-configuration",
+      "type": "required",
+      "reason": "Build tool reads theme config for CSS generation"
+    },
+    {
+      "feature": "plugin-development",
+      "type": "optional",
+      "reason": "Build tool loads and applies plugins"
+    }
+  ],
+  "extensions": {
+    "tech_stack": {
+      "language": "TypeScript + PostCSS",
+      "build_tools_supported": [
+        "PostCSS",
+        "CLI",
+        "Webpack",
+        "Vite",
+        "Next.js",
+        "Remix",
+        "Nuxt",
+        "Astro"
+      ],
+      "package_managers": [
+        "npm",
+        "pnpm",
+        "yarn",
+        "bun"
+      ]
+    },
+    "source_location": "packages/@tailwindcss-*",
+    "integration_patterns": {
+      "postcss": "Plugin loaded in postcss.config.js",
+      "cli": "CLI command in npm scripts or build pipeline",
+      "framework": "Plugin provided by framework (Next.js, Vite, etc.)"
+    },
+    "best_practices": [
+      "Configure content paths to match all template files in project",
+      "Keep config file at project root for easy discovery",
+      "Use watch mode during development; single build for production",
+      "Enable source maps for development; minify for production",
+      "Pin CSS framework version to avoid unexpected CSS changes"
+    ]
+  }
+}

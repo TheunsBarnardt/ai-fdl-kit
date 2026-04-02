@@ -1,0 +1,363 @@
+{
+  "feature": "theme-configuration",
+  "version": "1.0.0",
+  "description": "Define and customize design tokens (colors, spacing, typography, breakpoints) that power a CSS framework",
+  "category": "ui",
+  "tags": [
+    "design-system",
+    "theming",
+    "customization",
+    "tokens"
+  ],
+  "actors": [
+    {
+      "id": "developer",
+      "name": "Developer",
+      "type": "human",
+      "description": "Team member configuring design tokens for a project"
+    },
+    {
+      "id": "design_system",
+      "name": "Design System Engine",
+      "type": "system",
+      "description": "CSS framework that generates utilities from theme configuration"
+    }
+  ],
+  "fields": [
+    {
+      "name": "theme_key",
+      "type": "text",
+      "required": true,
+      "label": "Theme Key"
+    },
+    {
+      "name": "theme_value",
+      "type": "text",
+      "required": true,
+      "label": "CSS Value"
+    },
+    {
+      "name": "color_palette",
+      "type": "select",
+      "required": false,
+      "label": "Color Namespace",
+      "options": [
+        {
+          "value": "colors",
+          "label": "colors"
+        },
+        {
+          "value": "backgroundColor",
+          "label": "backgroundColor"
+        },
+        {
+          "value": "borderColor",
+          "label": "borderColor"
+        },
+        {
+          "value": "textColor",
+          "label": "textColor"
+        },
+        {
+          "value": "outlineColor",
+          "label": "outlineColor"
+        },
+        {
+          "value": "ringColor",
+          "label": "ringColor"
+        },
+        {
+          "value": "shadowColor",
+          "label": "shadowColor"
+        }
+      ]
+    },
+    {
+      "name": "spacing_scale",
+      "type": "text",
+      "required": false,
+      "label": "Spacing Namespace"
+    },
+    {
+      "name": "breakpoint_name",
+      "type": "text",
+      "required": false,
+      "label": "Breakpoint Name"
+    },
+    {
+      "name": "breakpoint_value",
+      "type": "text",
+      "required": false,
+      "label": "Breakpoint Value"
+    },
+    {
+      "name": "extend_mode",
+      "type": "boolean",
+      "required": false,
+      "label": "Extend Mode"
+    },
+    {
+      "name": "prefix",
+      "type": "text",
+      "required": false,
+      "label": "Utility Prefix"
+    },
+    {
+      "name": "dark_mode_strategy",
+      "type": "select",
+      "required": false,
+      "label": "Dark Mode Strategy",
+      "options": [
+        {
+          "value": "false",
+          "label": "Disabled"
+        },
+        {
+          "value": "media",
+          "label": "media"
+        },
+        {
+          "value": "class",
+          "label": "class"
+        },
+        {
+          "value": "selector",
+          "label": "selector"
+        },
+        {
+          "value": "variant",
+          "label": "variant"
+        }
+      ]
+    }
+  ],
+  "states": {
+    "field": "theme_status",
+    "values": [
+      {
+        "value": "defined",
+        "description": "Theme value is declared in config"
+      },
+      {
+        "value": "resolved",
+        "description": "Theme value is processed and available to utilities",
+        "initial": true
+      },
+      {
+        "value": "referenced",
+        "description": "Theme value is used by one or more utilities"
+      },
+      {
+        "value": "deprecated",
+        "description": "Theme value is marked for removal"
+      }
+    ]
+  },
+  "rules": {
+    "naming": [
+      "Theme keys use CSS custom property format: --namespace-name (kebab-case after double dash)",
+      "Color palettes must use 3-digit or 6-digit hex (#fff, #ffffff), rgb(), or hsl() format",
+      "Spacing values must be valid CSS lengths (px, rem, em, %)"
+    ],
+    "inheritance": [
+      "Extend mode (theme.extend) merges with defaults; non-extend mode replaces defaults",
+      "Plugin-provided theme values take precedence over user config when using extend"
+    ],
+    "constraints": [
+      "Theme key cannot be just --* (wildcard reset); must be --namespace or --namespace-value",
+      "Breakpoint values must be ordered from smallest to largest for responsive cascading",
+      "Dark mode strategy cannot be both 'class' and 'selector' simultaneously"
+    ]
+  },
+  "outcomes": {
+    "define_color_palette": {
+      "priority": 1,
+      "given": [
+        "Developer provides a color name (e.g., 'primary') and hex value (e.g., '#3b82f6')",
+        "Developer decides whether to extend default colors or replace them"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "theme_value",
+          "value": "#3b82f6"
+        },
+        {
+          "action": "emit_event",
+          "event": "theme.color_defined",
+          "payload": [
+            "color_name",
+            "color_value"
+          ]
+        }
+      ],
+      "result": "Color palette entry created; utilities like 'bg-primary', 'text-primary' become available"
+    },
+    "extend_spacing_scale": {
+      "priority": 2,
+      "given": [
+        "Developer provides custom spacing multiplier (e.g., xs: '0.5rem')",
+        "extend_mode is true"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "theme_value",
+          "fields": [
+            "spacing_value"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "theme.spacing_extended",
+          "payload": [
+            "spacing_name",
+            "spacing_value"
+          ]
+        }
+      ],
+      "result": "New spacing value merged with defaults; utilities like 'p-xs', 'gap-xs' available"
+    },
+    "configure_responsive_breakpoints": {
+      "priority": 3,
+      "given": [
+        "Developer defines custom breakpoint (e.g., sm: '640px', tablet: '768px')"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "breakpoint_value",
+          "value": "640px"
+        },
+        {
+          "action": "transition_state",
+          "field": "theme_status",
+          "from": "defined",
+          "to": "resolved"
+        }
+      ],
+      "result": "Breakpoint registered; responsive variants (sm:, tablet:) auto-generated from CSS media queries"
+    },
+    "enable_dark_mode": {
+      "priority": 4,
+      "given": [
+        "Developer sets darkMode strategy (e.g., 'class', 'media', or custom)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "dark_mode_strategy",
+          "value": "class"
+        },
+        {
+          "action": "emit_event",
+          "event": "theme.dark_mode_enabled",
+          "payload": [
+            "dark_mode_strategy"
+          ]
+        }
+      ],
+      "result": "Dark mode variant (dark:) generated; utilities respond to dark mode selector"
+    },
+    "apply_prefix_to_utilities": {
+      "priority": 5,
+      "given": [
+        "prefix field is set (e.g., 'tw-')"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "prefix",
+          "value": "tw-"
+        }
+      ],
+      "result": "All utility class names prefixed (flex → tw-flex, p-4 → tw-p-4)"
+    },
+    "theme_value_not_found": {
+      "priority": 10,
+      "error": "THEME_VALUE_NOT_FOUND",
+      "given": [
+        "Utility references a theme key that does not exist (e.g., text-[theme(--color-missing)])"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "theme.error_invalid_reference",
+          "payload": [
+            "missing_key",
+            "utility_name"
+          ]
+        }
+      ],
+      "result": "Candidate marked invalid; utility not generated"
+    }
+  },
+  "errors": [
+    {
+      "code": "THEME_VALUE_NOT_FOUND",
+      "status": 400,
+      "message": "Theme key does not exist. Check spelling and ensure the key is defined in theme config."
+    },
+    {
+      "code": "INVALID_THEME_FORMAT",
+      "status": 400,
+      "message": "Theme value does not match expected CSS format (hex, rgb, hsl, length)."
+    },
+    {
+      "code": "BREAKPOINT_ORDER_INVALID",
+      "status": 400,
+      "message": "Breakpoints must be ordered from smallest to largest for responsive cascading."
+    }
+  ],
+  "events": [
+    {
+      "name": "theme.color_defined",
+      "payload": [
+        "color_name",
+        "color_value",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "theme.spacing_extended",
+      "payload": [
+        "spacing_name",
+        "spacing_value"
+      ]
+    },
+    {
+      "name": "theme.dark_mode_enabled",
+      "payload": [
+        "dark_mode_strategy"
+      ]
+    },
+    {
+      "name": "theme.error_invalid_reference",
+      "payload": [
+        "missing_key",
+        "utility_name"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "utility-composition",
+      "type": "recommended",
+      "reason": "Uses theme values to generate utilities"
+    },
+    {
+      "feature": "plugin-development",
+      "type": "optional",
+      "reason": "Plugins can extend theme with custom values"
+    }
+  ],
+  "extensions": {
+    "tech_stack": {
+      "language": "TypeScript + CSS",
+      "framework": "CSS utility framework",
+      "core_engine": "Rust (crates/oxide)",
+      "config_format": "JavaScript/TypeScript or YAML"
+    },
+    "source_location": "packages/tailwindcss/src"
+  }
+}
