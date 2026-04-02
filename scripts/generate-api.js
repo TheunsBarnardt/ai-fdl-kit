@@ -55,7 +55,7 @@ async function main() {
       description: bp.description,
       tags: bp.tags || [],
       api_url: `${registry.base_url}/${category}/${feature}.json`,
-      yaml_url: `https://raw.githubusercontent.com/TheunsBarnardt/claude-fdl/master/${file}`,
+      yaml_url: `https://raw.githubusercontent.com/TheunsBarnardt/claude-fdl/master/${file.replace(/\\/g, '/')}`,
     });
   }
 
