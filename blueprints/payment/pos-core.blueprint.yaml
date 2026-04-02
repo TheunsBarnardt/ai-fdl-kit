@@ -1,0 +1,472 @@
+# ============================================================
+# POS CORE — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/odoo/odoo.git
+# Source project: Odoo (Python + JavaScript/OWL)
+# Files traced: ~45
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: pos-core
+version: "1.0.0"
+description: >
+  Point-of-sale system managing sales sessions, product orders, payment
+  processing, cash register operations, receipt generation, and accounting
+  integration.
+category: payment
+tags:
+  - point-of-sale
+  - retail
+  - cash-register
+  - receipt
+  - session-management
+
+actors:
+  - id: cashier
+    name: Cashier
+    type: human
+    description: Operates the POS terminal, processes sales, handles payments
+  - id: manager
+    name: Store Manager
+    type: human
+    description: Opens/closes sessions, handles overrides, reviews reports
+  - id: customer
+    name: Customer
+    type: human
+    description: Purchases products and receives receipts
+  - id: accounting_system
+    name: Accounting System
+    type: system
+    description: Receives journal entries from closed sessions
+
+fields:
+  # === Session fields ===
+  # Unique identifier for the POS session
+  - name: session_id
+    type: text
+    label: Session ID
+    required: true
+  - name: session_state
+    type: select
+    label: Session State
+    required: true
+    options:
+      - {value: "opening_control", label: "Opening Control"}
+      - {value: "opened", label: "Opened"}
+      - {value: "closing_control", label: "Closing Control"}
+      - {value: "closed", label: "Closed"}
+  # Cash counted at session start
+  - name: opening_balance
+    type: number
+    label: Opening Cash Balance
+    required: false
+  # Calculated from opening + cash sales - cash returns
+  - name: closing_balance_expected
+    type: number
+    label: Expected Closing Balance
+    required: false
+  # Physically counted cash at closing
+  - name: closing_balance_actual
+    type: number
+    label: Actual Closing Balance
+    required: false
+  # Difference between actual and expected closing balance
+  - name: cash_difference
+    type: number
+    label: Cash Difference
+    required: false
+  # === Order fields ===
+  # Auto-generated unique order identifier
+  - name: order_reference
+    type: text
+    label: Order Reference
+    required: true
+  - name: order_state
+    type: select
+    label: Order State
+    required: true
+    options:
+      - {value: "draft", label: "Draft"}
+      - {value: "paid", label: "Paid"}
+      - {value: "done", label: "Done"}
+      - {value: "cancel", label: "Cancel"}
+  # Array of products with quantity, price, discount, taxes
+  - name: order_lines
+    type: json
+    label: Order Lines
+    required: true
+  # Optional customer reference for loyalty/invoicing
+  - name: customer_id
+    type: text
+    label: Customer
+    required: false
+  # Marks this order as a refund of a previous order
+  - name: is_refund
+    type: boolean
+    label: Is Refund
+    required: false
+  # Sum of all line totals including tax
+  - name: amount_total
+    type: number
+    label: Total Amount
+    required: true
+  - name: amount_tax
+    type: number
+    label: Tax Amount
+    required: true
+  # Sum of all payments on this order
+  - name: amount_paid
+    type: number
+    label: Amount Paid
+    required: true
+  # Cash returned to customer when overpaying
+  - name: amount_return
+    type: number
+    label: Change Given
+    required: false
+  # === Payment fields ===
+  # How the customer pays (cash, card, digital, etc.)
+  - name: payment_method
+    type: select
+    label: Payment Method
+    required: true
+  - name: payment_amount
+    type: number
+    label: Payment Amount
+    required: true
+  # External reference from payment terminal
+  - name: payment_reference
+    type: text
+    label: Payment Reference
+    required: false
+  # === Line fields ===
+  - name: product_id
+    type: text
+    label: Product
+    required: true
+  - name: quantity
+    type: number
+    label: Quantity
+    required: true
+    validation:
+      - {type: "min", value: -9999, message: "Quantity must be at least -9999"}
+      - {type: "max", value: 9999, message: "Quantity must be at most 9999"}
+  - name: unit_price
+    type: number
+    label: Unit Price
+    required: true
+  - name: discount_percent
+    type: number
+    label: Discount %
+    required: false
+    validation:
+      - {type: "min", value: 0, message: "Discount cannot be negative"}
+      - {type: "max", value: 100, message: "Discount cannot exceed 100%"}
+  - name: line_tax_ids
+    type: json
+    label: Applicable Taxes
+    required: false
+  - name: line_total_incl
+    type: number
+    label: Line Total (Tax Included)
+    required: true
+
+states:
+  field: session_state
+  values:
+    - name: opening_control
+      description: Session created, cashier entering opening balance
+      initial: true
+    - name: opened
+      description: Session active, orders can be processed
+    - name: closing_control
+      description: Session closing, cashier counting cash
+    - name: closed
+      description: Session finalized, journal entries posted
+      terminal: true
+  transitions:
+    - from: opening_control
+      to: opened
+      actor: cashier
+      description: Cashier confirms opening balance and opens the session
+    - from: opened
+      to: closing_control
+      actor: cashier
+      description: Cashier initiates end-of-day closing
+      condition: All orders must be paid or cancelled
+    - from: closing_control
+      to: closed
+      actor: cashier
+      description: Cash reconciled, session finalized and posted to accounting
+
+rules:
+  one_session_per_register:
+    description: Only one active session allowed per POS configuration at a time
+  session_before_lock_date:
+    description: Cannot open a session with a start date before the company accounting lock date
+  no_draft_orders_at_close:
+    description: All orders must be in paid or cancelled state before a session can close
+  all_invoices_posted:
+    description: All generated invoices must be posted before session can close
+  order_requires_session:
+    description: An order can only be created within an active (opened) session
+  payment_fully_covers_total:
+    description: >
+      Order can only transition to paid when total payments equal the order
+      total (within cash rounding tolerance if enabled)
+  cash_rounding_tolerance:
+    description: >
+      When cash rounding is enabled, payment difference must be within half
+      the rounding increment (e.g., 0.025 for 0.05 rounding)
+  return_requires_cash_method:
+    description: Cash change can only be given if a cash payment method is configured
+  payment_method_must_be_configured:
+    description: Payment method used must be one of the methods enabled in the POS configuration
+  refund_same_order_only:
+    description: A refund can only reference lines from a single original order
+  cannot_edit_paid_order:
+    description: Once an order is paid, its lines and payments cannot be modified
+  cash_variance_accounts_required:
+    description: >
+      If cash difference exists at closing, profit and loss accounts must be
+      configured on the cash journal to record the variance
+
+outcomes:
+  session_opened:
+    priority: 1
+    given:
+      - "manager or cashier initiates a new session"
+      - "no other session is active for this POS configuration"
+      - field: session_start_date
+        source: system
+        operator: gte
+        value: accounting_lock_date
+        description: Session start date is after accounting lock date
+    then:
+      - action: transition_state
+        field: session_state
+        from: opening_control
+        to: opened
+      - action: set_field
+        target: opening_balance
+        value: previous_session_closing_balance
+        description: Opening balance defaults to prior session's closing count
+      - action: emit_event
+        event: pos.session.opened
+        payload: [session_id, cashier_id, opening_balance]
+    result: "POS is ready to accept orders"
+
+  order_completed:
+    priority: 2
+    given:
+      - "cashier scans or selects products and adds them to the order"
+      - "customer provides payment equal to or exceeding the order total"
+    then:
+      - action: set_field
+        target: amount_paid
+        value: sum_of_payments
+      - action: set_field
+        target: amount_return
+        value: overpayment_amount
+        description: Change given back for cash overpayment
+      - action: transition_state
+        field: order_state
+        from: draft
+        to: paid
+      - action: emit_event
+        event: pos.order.paid
+        payload: [order_reference, amount_total, payment_method, customer_id]
+    result: "Order is marked as paid, receipt can be printed"
+
+  order_invoiced:
+    priority: 3
+    given:
+      - "order is in paid state"
+      - "invoice generation is requested (customer needs formal invoice)"
+      - "invoice journal is configured in POS settings"
+    then:
+      - action: create_record
+        target: invoice
+        description: Customer invoice or credit note created from the order
+      - action: transition_state
+        field: order_state
+        from: paid
+        to: done
+      - action: emit_event
+        event: pos.order.invoiced
+        payload: [order_reference, invoice_id, customer_id]
+    result: "Invoice created and linked to the order"
+
+  refund_processed:
+    priority: 4
+    given:
+      - "cashier selects a previous paid or done order to refund"
+      - "an active session exists"
+    then:
+      - action: create_record
+        target: refund_order
+        description: New order created with negative quantities referencing original lines
+      - action: set_field
+        target: is_refund
+        value: true
+      - action: emit_event
+        event: pos.order.refunded
+        payload: [refund_order_reference, original_order_reference, refund_amount]
+    result: "Refund order created with negative amounts; payment processed back to customer"
+
+  session_closed:
+    priority: 5
+    given:
+      - "all orders are paid or cancelled"
+      - "all invoices are posted"
+      - "cashier has entered actual cash count"
+    then:
+      - action: transition_state
+        field: session_state
+        from: closing_control
+        to: closed
+      - action: create_record
+        target: journal_entry
+        description: Accounting journal entry created for all session transactions
+      - action: emit_event
+        event: pos.session.closed
+        payload: [session_id, cash_difference, total_sales, total_returns]
+    result: "Session finalized, all transactions posted to accounting"
+
+  session_close_blocked_draft_orders:
+    priority: 1
+    error: POS_DRAFT_ORDERS_EXIST
+    given:
+      - "cashier attempts to close the session"
+      - "one or more orders are still in draft state"
+    then:
+      - action: notify
+        channel: ui
+        description: Display list of draft orders that must be paid or cancelled
+    result: "Session remains open until all draft orders are resolved"
+
+  payment_insufficient:
+    priority: 2
+    error: POS_PAYMENT_INSUFFICIENT
+    given:
+      - "cashier attempts to validate the order"
+      - field: amount_paid
+        source: computed
+        operator: lt
+        value: amount_total
+        description: Total payments are less than the order total
+    then:
+      - action: notify
+        channel: ui
+        description: Show how much more payment is needed
+    result: "Order stays in draft, cashier must collect remaining payment"
+
+  no_active_session:
+    priority: 1
+    error: POS_NO_ACTIVE_SESSION
+    given:
+      - "an order is submitted but no session is open for this POS"
+    then:
+      - action: notify
+        channel: ui
+        description: Prompt to open a new session
+    result: "Order cannot be processed until a session is opened"
+
+  order_cancelled:
+    priority: 6
+    given:
+      - "order is in draft state"
+      - "cashier cancels the order"
+    then:
+      - action: transition_state
+        field: order_state
+        from: draft
+        to: cancel
+      - action: emit_event
+        event: pos.order.cancelled
+        payload: [order_reference]
+    result: "Order is cancelled and excluded from session reporting"
+
+errors:
+  - code: POS_NO_ACTIVE_SESSION
+    message: No active session found. Please open a new session to process orders.
+    status: 400
+  - code: POS_PAYMENT_INSUFFICIENT
+    message: The order is not fully paid. Please collect the remaining amount.
+    status: 400
+  - code: POS_DRAFT_ORDERS_EXIST
+    message: Cannot close session while draft orders exist. Please pay or cancel all pending orders.
+    status: 400
+  - code: POS_DUPLICATE_SESSION
+    message: Another session is already open for this register.
+    status: 409
+  - code: POS_CANNOT_EDIT_PAID
+    message: This order has already been paid and cannot be modified.
+    status: 403
+  - code: POS_NO_CASH_METHOD
+    message: No cash payment method configured. Unable to process cash change.
+    status: 400
+  - code: POS_INVALID_PAYMENT_METHOD
+    message: The selected payment method is not enabled for this register.
+    status: 400
+  - code: POS_REFUND_MULTI_ORDER
+    message: A refund can only include lines from a single original order.
+    status: 400
+  - code: POS_CASH_VARIANCE_NO_ACCOUNT
+    message: Cash variance detected but no profit/loss account is configured on the cash journal.
+    status: 500
+  - code: POS_SESSION_BEFORE_LOCK
+    message: Cannot open a session before the accounting lock date.
+    status: 400
+
+events:
+  - name: pos.session.opened
+    description: Fired when a POS session is opened and ready for orders
+    payload: [session_id, cashier_id, opening_balance]
+  - name: pos.session.closed
+    description: Fired when a session is finalized and posted to accounting
+    payload: [session_id, cash_difference, total_sales, total_returns]
+  - name: pos.order.paid
+    description: Fired when an order is fully paid
+    payload: [order_reference, amount_total, payment_method, customer_id]
+  - name: pos.order.invoiced
+    description: Fired when an invoice is generated from a POS order
+    payload: [order_reference, invoice_id, customer_id]
+  - name: pos.order.refunded
+    description: Fired when a refund is processed against a previous order
+    payload: [refund_order_reference, original_order_reference, refund_amount]
+  - name: pos.order.cancelled
+    description: Fired when a draft order is cancelled
+    payload: [order_reference]
+  - name: pos.order.synced
+    description: Fired when order data is synchronized between terminals
+    payload: [order_reference, session_id, device_id]
+
+related:
+  - feature: self-order-kiosk
+    type: optional
+    reason: Customer-facing self-ordering extends POS order creation
+  - feature: loyalty-coupons
+    type: optional
+    reason: Loyalty programs apply rewards and discounts to POS orders
+  - feature: invoicing-payments
+    type: required
+    reason: POS session closing posts journal entries to the accounting system
+  - feature: tax-engine
+    type: required
+    reason: Tax computation applied to every order line
+
+extensions:
+  source:
+    repo: "https://github.com/odoo/odoo.git"
+    project: "Odoo"
+    tech_stack: "Python + JavaScript/OWL"
+    files_traced: 45
+    entry_points:
+      - "addons/point_of_sale/models/pos_order.py"
+      - "addons/point_of_sale/models/pos_session.py"
+      - "addons/point_of_sale/models/pos_config.py"
+      - "addons/point_of_sale/models/pos_payment.py"

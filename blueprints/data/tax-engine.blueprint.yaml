@@ -1,0 +1,307 @@
+# ============================================================
+# TAX ENGINE — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/odoo/odoo.git
+# Source project: Odoo (Python + JavaScript/OWL)
+# Files traced: ~15
+# ============================================================
+
+feature: tax-engine
+version: "1.0.0"
+description: >
+  Tax engine with percentage, fixed, division, group, and formula-based tax
+  types, repartition, cash-basis accounting, and fiscal position mapping.
+category: data
+tags:
+  - tax-computation
+  - vat
+  - sales-tax
+  - fiscal-position
+  - cash-basis
+
+actors:
+  - id: tax_admin
+    name: Tax Administrator
+    type: human
+    description: Configures tax rates, groups, repartition lines, and fiscal positions
+  - id: system
+    name: Tax Engine
+    type: system
+    description: Computes tax amounts on transactions
+
+fields:
+  - name: tax_name
+    type: text
+    label: Tax Name
+    required: true
+  - name: amount_type
+    type: select
+    label: Computation Type
+    required: true
+    options:
+      - {value: "percent", label: "Percent"}
+      - {value: "fixed", label: "Fixed"}
+      - {value: "group", label: "Group"}
+      - {value: "division", label: "Division"}
+      - {value: "code", label: "Code"}
+  - name: tax_amount
+    type: number
+    label: Tax Rate/Amount
+    required: true
+  - name: type_tax_use
+    type: select
+    label: Tax Scope
+    required: true
+    options:
+      - {value: "sale", label: "Sale"}
+      - {value: "purchase", label: "Purchase"}
+      - {value: "none", label: "None"}
+  - name: price_include
+    type: boolean
+    label: Included in Price
+    required: false
+  - name: tax_exigibility
+    type: select
+    label: Tax Exigibility
+    required: true
+    options:
+      - {value: "on_invoice", label: "On Invoice"}
+      - {value: "on_payment", label: "On Payment"}
+  - name: cash_basis_transition_account
+    type: text
+    label: Cash Basis Transition Account
+    required: false
+  - name: children_taxes
+    type: json
+    label: Child Taxes
+    required: false
+  - name: sequence
+    type: number
+    label: Computation Order
+    required: true
+  - name: invoice_repartition_lines
+    type: json
+    label: Invoice Repartition
+    required: true
+  - name: refund_repartition_lines
+    type: json
+    label: Refund Repartition
+    required: true
+  - name: custom_formula
+    type: text
+    label: Custom Formula
+    required: false
+  # === Fiscal Position fields ===
+  - name: fiscal_position_name
+    type: text
+    label: Fiscal Position Name
+    required: true
+  - name: tax_mapping_rules
+    type: json
+    label: Tax Mapping Rules
+    required: true
+
+rules:
+  tax_name_unique_per_scope:
+    description: >
+      Tax names must be unique within the same company, tax scope
+      (sale/purchase), and country.
+  group_tax_children_ordered:
+    description: >
+      Child taxes within a group are applied in sequence order. Each child's
+      base is the original base (not the accumulated result).
+  cash_basis_requires_reconcile_account:
+    description: >
+      Cash-basis taxes require a transition account that supports
+      reconciliation to hold the tax amount until payment.
+  price_include_adjusts_base:
+    description: >
+      When tax is included in price, the base is calculated by reverse-
+      computing: base = price / (1 + tax_rate). The tax amount is the
+      difference between price and base.
+  division_type_always_included:
+    description: >
+      Division-type taxes are always price-inclusive by definition.
+      The formula is: tax = price - (price / (1 + rate/100)).
+  formula_safe_evaluation:
+    description: >
+      Custom formula taxes are evaluated in a sandboxed environment.
+      Only approved variables (base, price_unit, quantity, product) are
+      available. No system access or imports allowed.
+  fiscal_position_auto_mapping:
+    description: >
+      When a fiscal position is set on a transaction, all tax lines are
+      automatically remapped according to the position's tax mapping rules.
+  repartition_must_sum_to_100:
+    description: >
+      Invoice and refund repartition line factors must sum to 100% for
+      accurate tax distribution across accounts.
+
+outcomes:
+  tax_computed_percent:
+    priority: 1
+    given:
+      - field: amount_type
+        source: db
+        operator: eq
+        value: percent
+      - "a transaction line has a base amount, quantity, and tax assigned"
+    then:
+      - action: set_field
+        target: tax_amount_result
+        description: "tax = base * quantity * (rate / 100)"
+      - action: set_field
+        target: total_included
+        description: "base + tax_amount"
+      - action: set_field
+        target: total_excluded
+        description: "base amount unchanged"
+    result: "Tax calculated as percentage of base and added to total"
+
+  tax_computed_fixed:
+    priority: 2
+    given:
+      - field: amount_type
+        source: db
+        operator: eq
+        value: fixed
+    then:
+      - action: set_field
+        target: tax_amount_result
+        description: "tax = fixed_amount * quantity"
+    result: "Fixed tax amount applied per unit regardless of price"
+
+  tax_computed_group:
+    priority: 3
+    given:
+      - field: amount_type
+        source: db
+        operator: eq
+        value: group
+      - "group has one or more child taxes"
+    then:
+      - action: call_service
+        target: tax_engine
+        description: >
+          Recursively compute each child tax in sequence order.
+          Each child uses the original base amount (not accumulated).
+          Results are aggregated across all children.
+    result: "Combined tax from all child taxes in the group"
+
+  tax_computed_price_inclusive:
+    priority: 4
+    given:
+      - "tax is marked as price-inclusive"
+    then:
+      - action: set_field
+        target: base_amount
+        description: "base = price / (1 + rate/100) — reverse-computed from total"
+      - action: set_field
+        target: tax_amount_result
+        description: "tax = price - base"
+      - action: set_field
+        target: total_excluded
+        description: "reverse-computed base (lower than displayed price)"
+    result: "Tax extracted from the inclusive price, base adjusted downward"
+
+  tax_computed_formula:
+    priority: 5
+    given:
+      - field: amount_type
+        source: db
+        operator: eq
+        value: code
+      - "a valid formula expression is configured"
+    then:
+      - action: call_service
+        target: tax_engine
+        description: >
+          Formula evaluated in sandbox with variables: base, price_unit,
+          quantity, product. Result used as tax amount.
+    result: "Tax computed from custom formula"
+
+  fiscal_position_applied:
+    priority: 6
+    given:
+      - "a fiscal position is assigned to the transaction"
+      - "the position has tax mapping rules"
+    then:
+      - action: set_field
+        target: applicable_taxes
+        description: Source taxes replaced with mapped destination taxes
+    result: "Tax lines reflect the customer's jurisdiction-specific rates"
+
+  cash_basis_deferred:
+    priority: 7
+    given:
+      - field: tax_exigibility
+        source: db
+        operator: eq
+        value: on_payment
+      - "invoice is posted but payment not yet received"
+    then:
+      - action: set_field
+        target: tax_account
+        description: Tax amount held in transition account instead of final tax account
+    result: >
+      Tax liability deferred until payment. On payment reconciliation,
+      amount moves from transition account to final tax account.
+
+  invalid_formula:
+    priority: 1
+    error: TAX_INVALID_FORMULA
+    given:
+      - "tax formula contains unsafe or invalid syntax"
+    then:
+      - action: notify
+        channel: ui
+        description: Formula validation error shown
+    result: "Tax configuration rejected until formula is corrected"
+
+errors:
+  - code: TAX_INVALID_FORMULA
+    message: The tax formula contains invalid syntax or unauthorized operations.
+    status: 400
+  - code: TAX_DUPLICATE_NAME
+    message: A tax with this name already exists for this scope and country.
+    status: 409
+  - code: TAX_CASH_BASIS_NO_ACCOUNT
+    message: Cash-basis taxes require a reconcilable transition account.
+    status: 400
+  - code: TAX_REPARTITION_UNBALANCED
+    message: Repartition line factors do not sum to 100%.
+    status: 400
+
+events:
+  - name: tax.computed
+    description: Tax calculation completed for a transaction line
+    payload: [tax_id, base_amount, tax_amount, total_included, total_excluded]
+  - name: tax.cash_basis.transferred
+    description: Cash-basis tax moved from transition account to final account on payment
+    payload: [tax_id, invoice_id, payment_id, amount]
+
+related:
+  - feature: invoicing-payments
+    type: required
+    reason: Tax engine computes taxes on every invoice line
+  - feature: pos-core
+    type: required
+    reason: POS order lines use tax engine for price calculation
+  - feature: quotation-order-management
+    type: required
+    reason: Sales order lines use tax engine for pricing
+  - feature: ecommerce-store
+    type: required
+    reason: Product prices on website include/exclude tax per configuration
+
+extensions:
+  source:
+    repo: "https://github.com/odoo/odoo.git"
+    project: "Odoo"
+    tech_stack: "Python + JavaScript/OWL"
+    files_traced: 15
+    entry_points:
+      - "addons/account/models/account_tax.py"
+      - "addons/account_tax_python/models/account_tax.py"
+      - "addons/account/models/account_fiscal_position.py"

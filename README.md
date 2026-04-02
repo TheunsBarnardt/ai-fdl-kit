@@ -1,7 +1,7 @@
 # Feature Definition Language (FDL)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Blueprints](https://img.shields.io/badge/Blueprints-33-blue.svg)](blueprints/)
+[![Blueprints](https://img.shields.io/badge/Blueprints-45-blue.svg)](blueprints/)
 [![AI Tools](https://img.shields.io/badge/AI_Tools-Claude_|_ChatGPT_|_Copilot-purple.svg)](#faq)
 
 **Define features as YAML blueprints. Generate complete implementations for any framework. Extract architectural patterns from any codebase, API docs, or business document.**
@@ -331,7 +331,7 @@ Plain text conditions still work alongside structured ones — use whichever is 
 
 ## Included Blueprints
 
-FDL ships with 33 blueprints. But here's the thing — **blueprints are not just templates to copy.** Each one encodes production-tested architectural patterns that transfer to entirely different problems. The login blueprint doesn't just build you a login page. It teaches AI how to build rate limiting, token lifecycle management, and enumeration prevention for *anything*.
+FDL ships with 45 blueprints. But here's the thing — **blueprints are not just templates to copy.** Each one encodes production-tested architectural patterns that transfer to entirely different problems. The login blueprint doesn't just build you a login page. It teaches AI how to build rate limiting, token lifecycle management, and enumeration prevention for *anything*.
 
 ### How to Think About Blueprints
 
@@ -416,6 +416,25 @@ Extracted from [Payload CMS](https://github.com/payloadcms/payload) (200+ source
 |-----------|-----------|-------------------|
 | `expense-approval` | Submit, review, approve, pay with actors and SLAs | **Role-based approval routing** (managers approve small, finance approves large) — works for loan approval, hiring, procurement, content review. **State machine with escalation** — works for any process with deadlines and fallback paths. **Conditional field requirements** (receipt required only above $25) — works for any "rules change based on value" scenario. **Audit trail** (who approved what, when, from where) — works for any compliance requirement. |
 
+### ERP Pack — Enterprise Resource Planning Patterns
+
+Extracted from [Odoo](https://github.com/odoo/odoo) (46,000+ source files, 617 addon modules) using `/fdl-extract-code-feature` — the world's most popular open-source ERP. These 12 blueprints are **framework-agnostic** — they describe the behavioral patterns behind POS, sales, accounting, eCommerce, and workflow automation for any stack.
+
+| Blueprint | What it is | What else you gain |
+|-----------|-----------|-------------------|
+| `pos-core` | POS sessions, orders, payments, cash register, refunds, accounting integration | **Session-based transaction isolation** (open → process → reconcile → close) — works for any shift-based or batch-processing system. **Cash rounding tolerance** — works for any system handling physical currency. **Multi-method payment splitting** — works for any checkout accepting mixed payment types. |
+| `self-order-kiosk` | Customer self-ordering via QR code (mobile) or kiosk terminal with real-time kitchen sync | **Two-layer access tokens** (config-level + per-order) — works for any system with public endpoints that need scoped authorization. **Operating-hour category filtering** — works for any time-gated content (menus, schedules, availability). **Server-side price revalidation** — works for any untrusted-client scenario. |
+| `quotation-order-management` | Quote creation, PDF generation, portal sharing, digital signature, prepayment, order confirmation | **Quote-to-order state machine** (draft → sent → confirmed → locked) — works for proposals, contracts, purchase orders. **Digital signature with portal access** — works for any document requiring customer approval. **Auto-lock on confirmation** — prevents post-approval tampering in any workflow. |
+| `loyalty-coupons` | 8 program types: loyalty points, coupons, gift cards, promo codes, e-wallets, buy-X-get-Y, next-order rewards | **Earning rule engine** (per-order, per-currency, per-unit with thresholds) — works for any points/rewards system. **Multi-reward-type redemption** (discount or free product) — works for any marketplace incentive program. **Code uniqueness across programs** — prevents code collision in multi-campaign systems. |
+| `product-configurator` | Multi-attribute variants (always/dynamic/no-variant), exclusion rules, visual pickers, matrix bulk ordering | **Three variant strategies** (pre-generate all, create on demand, track on order line) — works for any product with options. **Attribute exclusion rules** — prevents invalid combinations in any configuration system. **Matrix ordering grid** — works for bulk ordering across two dimensions (size × color). |
+| `invoicing-payments` | Customer invoices, vendor bills, credit notes, receipts, payment registration, multi-currency | **Document type polymorphism** (7 move types from one model) — works for any system with related document types sharing logic. **Payment state machine** (not_paid → partial → paid → reversed) — works for any receivables/payables system. **Fiscal position tax remapping** — works for any multi-jurisdiction tax scenario. |
+| `tax-engine` | Percentage, fixed, division, group, and formula-based taxes with repartition and cash-basis accounting | **Recursive group tax computation** — works for any hierarchical calculation (compound interest, tiered pricing, stacked fees). **Price-inclusive reverse computation** — works for any "price includes X" scenario (VAT-inclusive pricing, all-in fees). **Cash-basis deferred recognition** — works for any revenue/expense that's recognized on payment, not invoice. |
+| `bank-reconciliation` | Statement import, auto/manual matching, reconciliation models, partial/full tracking, write-offs | **Reconciliation model pattern** (condition → auto-create counterpart entries) — works for any rule-based matching system. **Partial → full reconciliation grouping** — works for any many-to-many matching problem. **Statement continuity validation** — works for any sequential record integrity check. |
+| `ecommerce-store` | Product catalog, cart, multi-step checkout, wishlist, product comparison, visitor tracking, pricelist | **Session-to-partner cart migration** — works for any anonymous-to-authenticated state transfer. **Geo-IP pricelist resolution** — works for any location-based pricing or content. **Wishlist with garbage collection** — works for any "save for later" feature with session expiry. |
+| `automation-rules` | Event-driven triggers (create/write/delete/time/webhook/message) with domain conditions and multi-actions | **Before/after domain transition detection** — works for any "when field changes from X to Y" automation. **Webhook-to-action bridge** — works for connecting any external event to internal business logic. **Anti-recursion guard** — prevents infinite loops in any event-driven system. |
+| `odoo-expense-approval` | Expense submission, multi-level approval, accounting posting, reimbursement tracking | **Cannot-approve-own rule** — works for any approval workflow requiring separation of duties. **Three-tier approver resolution** (manager → department → designated) — works for any hierarchical approval chain. **Dual payment modes** (employee-paid vs company-paid) — works for any reimbursement system. |
+| `purchase-agreements` | Blanket orders, calls for tender, vendor selection, PO generation, supplier catalog sync | **Supplier catalog synchronization** (create on confirm, cleanup on close) — works for any system maintaining derived/cached data from agreements. **Cannot-close-with-pending guard** — works for any parent-child lifecycle dependency. **Vendor duplicate warning** — works for any system preventing redundant active agreements. |
+
 ### Combining Blueprints — The Real Power
 
 Individual blueprints are useful. **Combining them is where it gets interesting:**
@@ -437,6 +456,10 @@ Individual blueprints are useful. **Combining them is where it gets interesting:
 | **Dashboard/report composer** | `drag-drop-editor` (widget placement) + `component-registry` (chart/table widgets) + `editor-state` (centralized state) + `responsive-viewport` (responsive preview) |
 | **Email template editor** | `component-registry` (email blocks) + `drag-drop-editor` (compose layouts) + `content-tree` (serialize to HTML) + `plugin-overrides` (custom block editors) |
 | **IDE/code editor layout** | `plugin-overrides` (panel system) + `editor-state` (centralized state with slices) + `responsive-viewport` (viewport management) + `undo-redo` (action history) |
+| **Mobile retail POS with biometrics** | `pos-core` (session + orders) + `biometric-auth` (palm vein login) + `loyalty-coupons` (rewards) + `chp-outbound-payments` (bank payments) + `invoicing-payments` (accounting) |
+| **Full eCommerce platform** | `ecommerce-store` (catalog + cart + checkout) + `product-configurator` (variants) + `quotation-order-management` (order lifecycle) + `invoicing-payments` (billing) + `tax-engine` (multi-rate tax) |
+| **ERP accounting suite** | `invoicing-payments` (invoices + bills) + `tax-engine` (computation) + `bank-reconciliation` (statement matching) + `odoo-expense-approval` (expense workflow) + `purchase-agreements` (procurement) |
+| **Business process automation platform** | `automation-rules` (trigger → action engine) + `odoo-expense-approval` (approval workflows) + `quotation-order-management` (order lifecycle) + `loyalty-coupons` (incentive campaigns) |
 
 ### Recreating or Customizing Blueprints
 
@@ -578,6 +601,87 @@ Now generate the same features for a completely different stack:
 /fdl-generate undo-redo svelte
 ```
 > You get a SvelteKit page builder with the same architectural patterns as Puck — but in Svelte, not React. Nothing was copy-pasted. The blueprints describe *behavior*, and the code generator picks the right patterns for each framework.
+
+### Example 8: Build a full POS + eCommerce mobile app with palm vein auth and bank-grade payments
+
+You want to build a mobile retail system: React Native frontend, MongoDB backend, palm vein biometric authentication, and Electrum Clearing House Payments for real bank transactions. Here's how FDL gets you there — combining 8+ blueprints to generate a complete system:
+
+**Step 1: Generate the biometric auth layer**
+
+```
+/fdl-generate biometric-auth react-native
+/fdl-generate palm-vein react-native
+/fdl-generate login react-native
+```
+> Claude generates: palm vein enrollment screens (scan left/right hand), biometric login flow with password fallback, session management with JWT — all for React Native with MongoDB models.
+
+**Step 2: Generate the POS system**
+
+```
+/fdl-generate pos-core react-native
+/fdl-generate self-order-kiosk react-native
+/fdl-generate loyalty-coupons express
+```
+> Claude generates: POS session management, order creation with product lines and tax calculation, customer self-ordering via QR code, loyalty points and coupon redemption — React Native screens + Express/MongoDB backend.
+
+**Step 3: Generate the eCommerce storefront**
+
+```
+/fdl-generate ecommerce-store react-native
+/fdl-generate product-configurator react-native
+/fdl-generate quotation-order-management express
+```
+> Claude generates: product catalog with category browsing and search, shopping cart with checkout flow, product variant selector, quotation-to-order lifecycle — all with MongoDB persistence.
+
+**Step 4: Generate the payment and accounting backbone**
+
+```
+/fdl-generate chp-inbound-payments express
+/fdl-generate chp-outbound-payments express
+/fdl-generate invoicing-payments express
+/fdl-generate tax-engine express
+/fdl-generate bank-reconciliation express
+```
+> Claude generates: Electrum CHP webhook receivers, outbound payment submission with idempotency, invoice lifecycle management, multi-rate tax computation, and bank statement reconciliation — all wired to MongoDB.
+
+**What you get:** A complete mobile retail platform where a customer scans their palm vein to authenticate, browses products on their phone, adds items to cart, applies loyalty rewards, checks out via Electrum bank payment, and gets an invoice — while the store manager runs the POS terminal with full session management, cash reconciliation, and accounting integration. 15+ blueprints, one cohesive system.
+
+**What you still do:** Connect the palm vein scanner SDK, configure your Electrum CHP credentials, style the React Native UI, and deploy.
+
+#### Using blueprints with ChatGPT, Copilot, or any other AI
+
+You don't need Claude Code or even this repo installed. Blueprints are plain YAML — any AI can read them directly from GitHub:
+
+**Option A: Paste a raw GitHub URL into ChatGPT**
+
+Open ChatGPT (or any AI chat) and paste:
+
+```
+Read this blueprint and generate a React Native + Express + MongoDB implementation:
+https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/pos-core.blueprint.yaml
+```
+
+ChatGPT will fetch the YAML, read the fields, rules, outcomes, and errors, and generate working code. Do the same for each blueprint you need.
+
+**Option B: Combine multiple blueprints in one prompt**
+
+```
+I'm building a mobile POS app with React Native and MongoDB.
+
+Read these blueprints and generate the full implementation:
+- https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/biometric-auth.blueprint.yaml
+- https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/pos-core.blueprint.yaml
+- https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/loyalty-coupons.blueprint.yaml
+- https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/invoicing-payments.blueprint.yaml
+
+Generate: models, API routes, React Native screens, and business logic.
+```
+
+**Option C: Copy-paste the YAML directly**
+
+If the AI can't fetch URLs, open the raw YAML file on GitHub, copy its contents, and paste it into the chat with your generation instructions.
+
+**No install, no clone, no CLI required.** The blueprints are the specification — any AI that can read YAML can generate from them.
 
 ---
 

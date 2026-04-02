@@ -1,0 +1,308 @@
+# ============================================================
+# AUTOMATION RULES — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/odoo/odoo.git
+# Source project: Odoo (Python + JavaScript/OWL)
+# Files traced: ~15
+# ============================================================
+
+feature: automation-rules
+version: "1.0.0"
+description: >
+  Event-driven automation engine that triggers actions based on record lifecycle events, field changes, time-based
+  schedules, incoming messages, and external webhooks with condition filtering.
+category: workflow
+tags:
+  - automation
+  - triggers
+  - event-driven
+  - scheduled-actions
+  - webhooks
+  - workflow-engine
+
+actors:
+  - id: automation_admin
+    name: Automation Admin
+    type: human
+    description: Creates and manages automation rules, conditions, and actions
+  - id: system
+    name: Automation Engine
+    type: system
+    description: Monitors events, evaluates conditions, executes actions
+
+fields:
+  - name: rule_name
+    type: text
+    label: Rule Name
+    required: true
+  - name: target_model
+    type: text
+    label: Target Record Type
+    required: true
+  - name: trigger_type
+    type: select
+    label: Trigger Type
+    required: true
+    options:
+      - {value: "on_create", label: "On Create"}
+      - {value: "on_write", label: "On Write"}
+      - {value: "on_create_or_write", label: "On Create or Write"}
+      - {value: "on_delete", label: "On Delete"}
+      - {value: "on_archive", label: "On Archive"}
+      - {value: "on_unarchive", label: "On Unarchive"}
+      - {value: "on_stage_set", label: "On Stage Set"}
+      - {value: "on_state_set", label: "On State Set"}
+      - {value: "on_priority_set", label: "On Priority Set"}
+      - {value: "on_tag_set", label: "On Tag Set"}
+      - {value: "on_user_set", label: "On User Set"}
+      - {value: "on_time", label: "On Time"}
+      - {value: "on_time_created", label: "On Time Created"}
+      - {value: "on_time_updated", label: "On Time Updated"}
+      - {value: "on_message_received", label: "On Message Received"}
+      - {value: "on_message_sent", label: "On Message Sent"}
+      - {value: "on_change", label: "On Change"}
+      - {value: "on_webhook", label: "On Webhook"}
+  - name: trigger_fields
+    type: json
+    label: Watched Fields
+    required: false
+  - name: trigger_field_value
+    type: text
+    label: Trigger Value
+    required: false
+  - name: filter_condition
+    type: json
+    label: Filter Condition
+    required: false
+  - name: pre_filter_condition
+    type: json
+    label: Before-Update Filter
+    required: false
+  - name: time_delay
+    type: number
+    label: Time Delay
+    required: false
+  - name: time_delay_unit
+    type: select
+    label: Delay Unit
+    required: false
+    options:
+      - {value: "minutes", label: "Minutes"}
+      - {value: "hours", label: "Hours"}
+      - {value: "days", label: "Days"}
+      - {value: "months", label: "Months"}
+  - name: time_date_field
+    type: text
+    label: Date Field
+    required: false
+  - name: actions
+    type: json
+    label: Actions
+    required: true
+  - name: action_type
+    type: select
+    label: Action Type
+    required: true
+    options:
+      - {value: "send_email", label: "Send Email"}
+      - {value: "send_sms", label: "Send SMS"}
+      - {value: "set_field", label: "Set Field"}
+      - {value: "create_record", label: "Create Record"}
+      - {value: "execute_code", label: "Execute Code"}
+      - {value: "post_message", label: "Post Message"}
+      - {value: "multi_action", label: "Multi Action"}
+  - name: webhook_uuid
+    type: text
+    label: Webhook Endpoint ID
+    required: false
+  - name: rule_active
+    type: boolean
+    label: Active
+    required: true
+
+rules:
+  message_triggers_require_mail_model:
+    description: >
+      Message-received and message-sent triggers are only valid on record
+      types that support messaging/threading.
+  on_change_only_code_actions:
+    description: >
+      The on_change trigger (UI field change) can only execute code-type
+      actions, not emails, SMS, or record creation.
+  trigger_field_tracking:
+    description: >
+      When specific trigger fields are set, the rule only fires if at
+      least one of those fields actually changed in the update operation.
+  before_after_domain_transition:
+    description: >
+      Pre-filter and post-filter conditions together define a state
+      transition: record must have matched the before-filter and must
+      now match the after-filter for the rule to fire.
+  webhook_uuid_immutable:
+    description: >
+      Webhook endpoint identifiers cannot be changed after creation to
+      ensure external integrations remain stable.
+  time_trigger_cron_scheduling:
+    description: >
+      Time-based rules are evaluated via periodic scheduled jobs. The
+      delay is calculated from the specified date field on each record.
+  no_recursive_automation:
+    description: >
+      Actions executed by an automation rule do not trigger other
+      automation rules to prevent infinite loops (guard flag set).
+
+outcomes:
+  rule_triggered_on_create:
+    priority: 1
+    given:
+      - "a new record is created matching the target model"
+      - "trigger type is on_create or on_create_or_write"
+      - "the new record matches the filter condition (if set)"
+    then:
+      - action: call_service
+        target: action_executor
+        description: Execute configured actions (email, field update, code, etc.)
+      - action: emit_event
+        event: automation.rule.fired
+        payload: [rule_id, trigger_type, record_id, actions_executed]
+    result: "Actions executed automatically on the new record"
+
+  rule_triggered_on_field_change:
+    priority: 2
+    given:
+      - "an existing record is updated"
+      - "one of the watched trigger fields changed"
+      - "record matched the before-filter BEFORE the change"
+      - "record matches the after-filter AFTER the change"
+    then:
+      - action: call_service
+        target: action_executor
+        description: Execute configured actions on the changed record
+      - action: emit_event
+        event: automation.rule.fired
+        payload: [rule_id, trigger_type, record_id, changed_fields]
+    result: "Actions executed based on the specific field transition"
+
+  rule_triggered_on_stage_set:
+    priority: 3
+    given:
+      - "record's stage/state/priority/tag/user field is set to the trigger value"
+    then:
+      - action: call_service
+        target: action_executor
+        description: Execute configured actions
+    result: "Actions fire when the specific value is reached"
+
+  rule_triggered_on_time:
+    priority: 4
+    given:
+      - "the scheduled job runs"
+      - "records exist where the date field + delay has passed"
+      - "those records match the filter condition"
+    then:
+      - action: call_service
+        target: action_executor
+        description: Execute actions on all matching records in batch
+      - action: emit_event
+        event: automation.rule.scheduled_batch
+        payload: [rule_id, record_count]
+    result: "Time-delayed actions execute on all qualifying records"
+
+  rule_triggered_by_webhook:
+    priority: 5
+    given:
+      - "external system sends HTTP request to the webhook endpoint"
+      - "webhook UUID matches an active rule"
+    then:
+      - action: call_service
+        target: action_executor
+        description: >
+          Parse webhook payload and execute code action with payload
+          available as context variable
+      - action: emit_event
+        event: automation.webhook.received
+        payload: [rule_id, webhook_uuid, source_ip]
+    result: "External event triggers internal automation"
+
+  rule_triggered_on_message:
+    priority: 6
+    given:
+      - "a message is received on (or sent from) a record"
+      - "the record type supports messaging"
+      - "trigger type is on_message_received or on_message_sent"
+    then:
+      - action: call_service
+        target: action_executor
+        description: Execute actions with message content available in context
+    result: "Incoming/outgoing message triggers automated response"
+
+  action_sends_email:
+    priority: 7
+    given:
+      - "rule fires and action type is send_email"
+    then:
+      - action: notify
+        channel: email
+        description: Email sent using configured template with record data merged
+    result: "Automated email sent to the record's contacts"
+
+  action_updates_field:
+    priority: 8
+    given:
+      - "rule fires and action type is set_field"
+    then:
+      - action: set_field
+        target: configured_field
+        description: Field value set to configured static or computed value
+    result: "Record field updated automatically"
+
+  rule_condition_not_met:
+    priority: 10
+    given:
+      - "trigger event occurs but record does not match filter conditions"
+    then: []
+    result: "Rule skipped, no actions executed"
+
+errors:
+  - code: AUTOMATION_INVALID_MODEL
+    message: The target record type does not exist or is not accessible.
+    status: 400
+  - code: AUTOMATION_MESSAGE_TRIGGER_INVALID
+    message: Message triggers are only available for record types that support messaging.
+    status: 400
+  - code: AUTOMATION_CODE_EXECUTION_ERROR
+    message: An error occurred while executing the automation code action.
+    status: 500
+  - code: AUTOMATION_WEBHOOK_NOT_FOUND
+    message: No active automation rule found for this webhook endpoint.
+    status: 404
+
+events:
+  - name: automation.rule.fired
+    description: An automation rule was triggered and its actions executed
+    payload: [rule_id, trigger_type, record_id, actions_executed]
+  - name: automation.rule.scheduled_batch
+    description: Time-based rule executed on a batch of records
+    payload: [rule_id, record_count]
+  - name: automation.webhook.received
+    description: External webhook triggered an automation rule
+    payload: [rule_id, webhook_uuid, source_ip]
+
+related:
+  - feature: quotation-order-management
+    type: optional
+    reason: Automate actions on sales orders (e.g., auto-assign team on creation)
+  - feature: odoo-expense-approval
+    type: optional
+    reason: Automate expense workflow steps (e.g., auto-approve under threshold)
+
+extensions:
+  source:
+    repo: "https://github.com/odoo/odoo.git"
+    project: "Odoo"
+    tech_stack: "Python + JavaScript/OWL"
+    files_traced: 15
+    entry_points:
+      - "addons/base_automation/models/base_automation.py"
+      - "addons/base_automation/models/ir_actions_server.py"

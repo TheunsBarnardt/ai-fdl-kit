@@ -1,0 +1,329 @@
+# ============================================================
+# BANK RECONCILIATION — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/odoo/odoo.git
+# Source project: Odoo (Python + JavaScript/OWL)
+# Files traced: ~20
+# ============================================================
+
+feature: bank-reconciliation
+version: "1.0.0"
+description: >
+  Bank reconciliation with statement import, auto/manual matching,
+  reconciliation models, partial/full tracking, and write-off management.
+category: data
+tags:
+  - bank-reconciliation
+  - statement-import
+  - matching
+  - accounting
+  - write-off
+
+actors:
+  - id: accountant
+    name: Accountant
+    type: human
+    description: Imports statements, reviews matches, resolves discrepancies
+  - id: system
+    name: Reconciliation Engine
+    type: system
+    description: Auto-matches statement lines, applies reconciliation models
+
+fields:
+  # === Statement fields ===
+  - name: statement_name
+    type: text
+    label: Statement Reference
+    required: true
+  - name: statement_date
+    type: date
+    label: Statement Date
+    required: true
+  - name: journal_id
+    type: text
+    label: Bank Journal
+    required: true
+  - name: balance_start
+    type: number
+    label: Starting Balance
+    required: true
+  - name: balance_end
+    type: number
+    label: Ending Balance
+    required: true
+  - name: balance_end_real
+    type: number
+    label: Bank-Reported Ending Balance
+    required: false
+  - name: is_complete
+    type: boolean
+    label: Statement Complete
+    required: false
+  - name: is_valid
+    type: boolean
+    label: Statement Valid
+    required: false
+  # === Statement Line fields ===
+  - name: line_amount
+    type: number
+    label: Amount
+    required: true
+  - name: line_date
+    type: date
+    label: Transaction Date
+    required: true
+  - name: payment_ref
+    type: text
+    label: Payment Reference
+    required: false
+  - name: partner_id
+    type: text
+    label: Partner
+    required: false
+  - name: transaction_type
+    type: text
+    label: Transaction Type
+    required: false
+  - name: is_reconciled
+    type: boolean
+    label: Reconciled
+    required: false
+  - name: amount_residual
+    type: number
+    label: Residual Amount
+    required: false
+  # === Reconciliation Model fields ===
+  - name: model_name
+    type: text
+    label: Model Name
+    required: true
+  - name: model_trigger
+    type: select
+    label: Trigger Type
+    required: true
+    options:
+      - {value: "manual", label: "Manual"}
+      - {value: "auto_reconcile", label: "Auto Reconcile"}
+  - name: match_journal_ids
+    type: json
+    label: Journal Filter
+    required: false
+  - name: match_amount_type
+    type: select
+    label: Amount Condition
+    required: false
+    options:
+      - {value: "lower", label: "Lower"}
+      - {value: "greater", label: "Greater"}
+      - {value: "between", label: "Between"}
+  - name: match_label_pattern
+    type: text
+    label: Label Pattern
+    required: false
+  - name: model_line_amount_type
+    type: select
+    label: Write-off Amount Type
+    required: true
+    options:
+      - {value: "fixed", label: "Fixed"}
+      - {value: "percentage", label: "Percentage"}
+      - {value: "percentage_of_statement_line", label: "Percentage of Statement Line"}
+      - {value: "regex", label: "Regex"}
+
+rules:
+  statement_continuity:
+    description: >
+      A statement is valid only if its starting balance matches the ending
+      balance of the previous statement for the same journal. The first
+      statement is always valid.
+  completeness_check:
+    description: >
+      A statement is complete when the computed ending balance (start +
+      posted lines) matches the bank-reported ending balance.
+  currency_aware_matching:
+    description: >
+      Reconciliation uses currency-specific zero-check for residual amounts.
+      A line is reconciled when residual is zero within the currency's
+      rounding precision.
+  multi_currency_rate_conversion:
+    description: >
+      When statement currency differs from journal or company currency,
+      amounts are converted using the bank's implied rate for that
+      transaction, not the system's daily rate.
+  auto_model_conditions:
+    description: >
+      Auto-reconciliation models only apply when ALL conditions match:
+      journal filter, amount range, label pattern, and partner filter.
+  partial_then_full:
+    description: >
+      Reconciliation proceeds as partial matches first. When all partial
+      matches for a set of lines zero out, they are grouped into a full
+      reconciliation for reporting.
+  exchange_difference_generated:
+    description: >
+      When reconciling multi-currency entries, exchange rate differences
+      are automatically recorded as separate journal entries.
+
+outcomes:
+  statement_imported:
+    priority: 1
+    given:
+      - "accountant imports a bank statement file (CSV, OFX, CAMT, etc.)"
+    then:
+      - action: create_record
+        target: bank_statement
+        description: Statement created with header data (date, balances)
+      - action: create_record
+        target: statement_lines
+        description: Individual transaction lines created from import data
+      - action: emit_event
+        event: bank.statement.imported
+        payload: [statement_id, journal_id, line_count, balance_start, balance_end]
+    result: "Statement lines ready for matching and reconciliation"
+
+  line_auto_reconciled:
+    priority: 2
+    given:
+      - "a reconciliation model with auto trigger exists"
+      - "statement line matches all model conditions (amount, label, partner)"
+    then:
+      - action: create_record
+        target: journal_entry
+        description: Counterpart journal entries created per model rules
+      - action: set_field
+        target: is_reconciled
+        value: true
+      - action: emit_event
+        event: bank.line.auto_reconciled
+        payload: [line_id, model_id, matched_entries]
+    result: "Statement line automatically matched and reconciled"
+
+  line_manually_matched:
+    priority: 3
+    given:
+      - "accountant selects a statement line"
+      - "accountant matches it to one or more open journal entries"
+    then:
+      - action: create_record
+        target: partial_reconcile
+        description: Partial reconciliation linking statement line to journal entries
+      - action: set_field
+        target: amount_residual
+        description: Residual amount reduced by matched amount
+      - action: emit_event
+        event: bank.line.manually_reconciled
+        payload: [line_id, matched_entry_ids, remaining_residual]
+    result: "Statement line partially or fully reconciled with existing entries"
+
+  full_reconciliation_achieved:
+    priority: 4
+    given:
+      - "all partial reconciliations for a set of entries zero out"
+    then:
+      - action: create_record
+        target: full_reconcile
+        description: Full reconciliation record groups all related partial matches
+      - action: emit_event
+        event: bank.reconciliation.complete
+        payload: [full_reconcile_id, line_ids]
+    result: "Entries fully reconciled and marked for reporting"
+
+  write_off_created:
+    priority: 5
+    given:
+      - "statement line amount does not exactly match any open entry"
+      - "accountant applies a reconciliation model to write off the difference"
+    then:
+      - action: create_record
+        target: write_off_entry
+        description: Journal entry for the difference amount posted to configured account
+      - action: set_field
+        target: is_reconciled
+        value: true
+    result: "Difference written off and line fully reconciled"
+
+  exchange_difference_recorded:
+    priority: 6
+    given:
+      - "multi-currency reconciliation creates a rate difference"
+    then:
+      - action: create_record
+        target: exchange_diff_entry
+        description: Automatic journal entry recording the exchange rate gain or loss
+    result: "Exchange difference posted to gain/loss account"
+
+  reconciliation_undone:
+    priority: 7
+    given:
+      - "accountant undoes a reconciliation on a statement line"
+    then:
+      - action: delete_record
+        target: partial_reconcile
+        description: Partial reconciliation records removed
+      - action: set_field
+        target: is_reconciled
+        value: false
+      - action: set_field
+        target: amount_residual
+        description: Residual amount restored
+    result: "Line returned to unreconciled state"
+
+  statement_invalid:
+    priority: 1
+    error: BANK_STATEMENT_INVALID
+    given:
+      - "statement starting balance does not match previous statement ending balance"
+    then:
+      - action: set_field
+        target: is_valid
+        value: false
+    result: "Statement flagged as invalid for accountant review"
+
+errors:
+  - code: BANK_STATEMENT_INVALID
+    message: Starting balance does not match the previous statement's ending balance.
+    status: 400
+  - code: BANK_STATEMENT_INCOMPLETE
+    message: Computed ending balance does not match the bank-reported balance.
+    status: 400
+  - code: BANK_LINE_ALREADY_RECONCILED
+    message: This statement line is already fully reconciled.
+    status: 400
+  - code: BANK_CURRENCY_MISMATCH
+    message: Foreign currency amount required when transaction currency differs from journal currency.
+    status: 400
+
+events:
+  - name: bank.statement.imported
+    description: Bank statement imported from file
+    payload: [statement_id, journal_id, line_count, balance_start, balance_end]
+  - name: bank.line.auto_reconciled
+    description: Statement line automatically matched by reconciliation model
+    payload: [line_id, model_id, matched_entries]
+  - name: bank.line.manually_reconciled
+    description: Statement line manually matched by accountant
+    payload: [line_id, matched_entry_ids, remaining_residual]
+  - name: bank.reconciliation.complete
+    description: Full reconciliation achieved for a set of entries
+    payload: [full_reconcile_id, line_ids]
+
+related:
+  - feature: invoicing-payments
+    type: required
+    reason: Statement lines reconciled against invoice payment entries
+  - feature: tax-engine
+    type: optional
+    reason: Cash-basis tax entries triggered by payment reconciliation
+
+extensions:
+  source:
+    repo: "https://github.com/odoo/odoo.git"
+    project: "Odoo"
+    tech_stack: "Python + JavaScript/OWL"
+    files_traced: 20
+    entry_points:
+      - "addons/account/models/account_bank_statement.py"
+      - "addons/account/models/account_bank_statement_line.py"
+      - "addons/account/models/account_reconcile_model.py"
+      - "addons/account/models/account_partial_reconcile.py"
