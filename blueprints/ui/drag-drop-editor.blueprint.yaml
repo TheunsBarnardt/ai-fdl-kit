@@ -1,0 +1,385 @@
+# ============================================================
+# DRAG-DROP-EDITOR — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/puckeditor/puck
+# Source project: Puck Editor (TypeScript + React)
+# Files traced: ~40
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: drag-drop-editor
+version: "1.0.0"
+description: Drag-and-drop page composition system with nested zones, collision detection, and component reordering
+category: ui
+tags: [drag-and-drop, editor, composition, visual-builder, page-builder]
+
+actors:
+  - id: user
+    name: Editor User
+    type: human
+    description: Person composing a page by dragging and dropping components
+
+  - id: collision_engine
+    name: Collision Detection Engine
+    type: system
+    description: Determines valid drop targets and insertion positions during drag operations
+
+  - id: zone_manager
+    name: Zone Manager
+    type: system
+    description: Tracks nested drop zones and determines deepest valid target
+
+fields:
+  - name: drag_mode
+    type: select
+    required: true
+    label: "Drag Mode"
+    validation:
+      - type: required
+        message: "Drag mode must be determined"
+    options:
+      - label: "New"
+        value: "new"
+      - label: "Existing"
+        value: "existing"
+
+  - name: dragged_item
+    type: json
+    required: false
+    label: "Currently Dragged Item"
+
+  - name: zone_compound
+    type: text
+    required: true
+    label: "Zone Identifier (parentId:slotName)"
+    validation:
+      - type: pattern
+        value: "^.+:.+$"
+        message: "Zone ID must be in format parentId:slotName"
+
+  - name: source_zone
+    type: text
+    required: false
+    label: "Source Zone"
+
+  - name: source_index
+    type: number
+    required: false
+    label: "Source Index"
+
+  - name: destination_zone
+    type: text
+    required: false
+    label: "Destination Zone"
+
+  - name: destination_index
+    type: number
+    required: false
+    label: "Destination Index"
+
+  - name: preview_index
+    type: json
+    required: false
+    label: "Preview State"
+
+  - name: collision_direction
+    type: select
+    required: false
+    label: "Collision Direction"
+    options:
+      - label: "Up"
+        value: "up"
+      - label: "Down"
+        value: "down"
+      - label: "Left"
+        value: "left"
+      - label: "Right"
+        value: "right"
+
+states:
+  field: drag_state
+  values:
+    - value: idle
+      initial: true
+      description: "No drag operation in progress"
+    - value: dragging
+      description: "User has initiated drag, ghost follows cursor"
+    - value: hovering_target
+      description: "Dragged item is over a valid drop zone"
+    - value: dropped
+      terminal: true
+      description: "Item has been placed at the target position"
+    - value: cancelled
+      terminal: true
+      description: "Drag was cancelled (Escape key, invalid target, pointer leave)"
+  transitions:
+    - from: idle
+      to: dragging
+      actor: user
+      condition: "Pointer moves 5px or 200ms delay elapsed after mousedown/touchstart"
+      description: "Drag activation with distance or delay threshold"
+    - from: dragging
+      to: hovering_target
+      actor: collision_engine
+      condition: "Pointer is over a valid drop zone that accepts the component type"
+      description: "Collision engine identifies deepest valid target"
+    - from: hovering_target
+      to: hovering_target
+      actor: collision_engine
+      condition: "Pointer moves to a different valid zone"
+      description: "Target changes as user moves between zones (100ms debounce on zone change)"
+    - from: hovering_target
+      to: dragging
+      actor: collision_engine
+      condition: "Pointer leaves all valid drop zones"
+      description: "No valid target under pointer"
+    - from: dragging
+      to: cancelled
+      actor: user
+      condition: "User presses Escape or pointer leaves the editor"
+      description: "Drag cancelled, restore original state"
+    - from: hovering_target
+      to: cancelled
+      actor: user
+      condition: "User presses Escape"
+      description: "Drag cancelled while over target"
+    - from: hovering_target
+      to: dropped
+      actor: user
+      condition: "User releases pointer over valid drop zone"
+      description: "Component placed at target position"
+
+rules:
+  drag_activation:
+    pointer_distance_px: 5
+    # Minimum pointer movement to distinguish drag from click
+    delay_ms: 200
+    # Alternative: hold for 200ms with 10px tolerance to activate
+    delay_tolerance_px: 10
+    touch_delay_ms: 200
+    # Touch devices use delay-based activation
+
+  collision_detection:
+    algorithm: "midpoint-with-direction"
+    # Primary: check if dragged item's leading edge passes target's midpoint
+    midpoint_offset_percent: 5
+    # 5% dead zone around midpoint to prevent flickering
+    direction_interval_px: 10
+    # Recalculate drag direction every 10px of movement
+    zone_buffer_px: 6
+    # Contract zone bounding boxes by 6px to prevent edge collisions
+    fallback_enabled: true
+    # Use closest-corners as fallback when primary collision fails
+
+  zone_management:
+    zone_change_debounce_ms: 100
+    # Debounce zone transitions to prevent rapid re-targeting in nested zones
+    depth_priority: true
+    # Deepest valid zone always takes priority
+    self_drop_prevention: true
+    # Cannot drop a component onto itself
+    descendant_drop_prevention: true
+    # Cannot drop a component into its own descendants (prevents circular nesting)
+
+  drag_axis:
+    auto_detection: true
+    # Inline elements drag on x-axis, block elements on y-axis
+    inline_axis: "x"
+    block_axis: "y"
+    dynamic_axis: true
+    # For mixed layouts, determine axis from dominant movement direction
+
+  animation:
+    drop_transition_ms: 200
+    # Wait for visual transition before committing state change
+    preview_immediate: true
+    # Preview updates instantly without waiting for state commit
+
+  position_sync:
+    measure_interval_ms: 100
+    # Overlay position recalculated every 100ms (10fps)
+    uses_resize_observer: true
+    uses_scroll_listener: true
+
+outcomes:
+  insert_new_component:
+    priority: 1
+    given:
+      - "user drags a component type from the palette"
+      - "user drops it on a valid zone that accepts that component type"
+    then:
+      - action: create_record
+        target: component_instance
+        description: "Create new component instance with generated unique ID and default props"
+      - action: set_field
+        target: content_tree
+        description: "Insert component at destination zone and index"
+      - action: emit_event
+        event: editor.component.inserted
+        payload: [component_id, component_type, destination_zone, destination_index]
+      - action: set_field
+        target: selected_item
+        description: "Select the newly inserted component"
+    result: "New component appears at drop position, is selected for editing"
+
+  move_existing_component:
+    priority: 2
+    given:
+      - "user drags an existing component from the canvas"
+      - "user drops it on a valid zone at a different position"
+    then:
+      - action: set_field
+        target: content_tree
+        description: "Remove component from source zone and insert at destination zone"
+      - action: emit_event
+        event: editor.component.moved
+        payload: [component_id, source_zone, source_index, destination_zone, destination_index]
+      - action: set_field
+        target: selected_item
+        description: "Select the moved component at its new position"
+    result: "Component appears at new position, original position is empty"
+
+  reorder_within_zone:
+    priority: 3
+    given:
+      - "user drags a component within the same zone"
+      - "destination index differs from source index"
+    then:
+      - action: set_field
+        target: content_tree
+        description: "Move component from source index to destination index within the same zone"
+      - action: emit_event
+        event: editor.component.reordered
+        payload: [component_id, zone, old_index, new_index]
+    result: "Component order updated within the zone"
+
+  drop_on_self:
+    priority: 4
+    error: DROP_ON_SELF
+    given:
+      - "target component is the same as the dragged component"
+    then:
+      - action: emit_event
+        event: editor.drag.rejected
+        payload: [component_id, reason]
+    result: "Drag cancelled, component returns to original position"
+
+  drop_on_descendant:
+    priority: 5
+    error: DROP_ON_DESCENDANT
+    given:
+      - "target zone belongs to a descendant of the dragged component"
+    then:
+      - action: emit_event
+        event: editor.drag.rejected
+        payload: [component_id, target_zone, reason]
+    result: "Drag cancelled, component returns to original position"
+
+  drop_type_not_allowed:
+    priority: 6
+    error: DROP_TYPE_NOT_ALLOWED
+    given:
+      - "target zone has an allow list that does not include the dragged component type"
+      - "OR target zone has a disallow list that includes the dragged component type"
+    then:
+      - action: emit_event
+        event: editor.drag.rejected
+        payload: [component_id, component_type, target_zone, reason]
+    result: "Zone does not accept this component type, drop rejected"
+
+  drag_cancelled:
+    priority: 7
+    given:
+      - "user presses Escape during drag"
+      - "OR pointer leaves the editor bounds"
+      - "OR drop target is void/invalid"
+    then:
+      - action: set_field
+        target: preview_index
+        description: "Clear all previews"
+      - action: transition_state
+        field: drag_state
+        from: dragging
+        to: cancelled
+      - action: emit_event
+        event: editor.drag.cancelled
+        payload: [component_id, drag_mode]
+    result: "Component returns to original position, no state change"
+
+  preview_updates_during_drag:
+    priority: 8
+    given:
+      - "drag is in progress"
+      - "pointer moves over a new valid target"
+    then:
+      - action: set_field
+        target: preview_index
+        description: "Update preview to show insertion indicator at new target position"
+    result: "Visual preview shows where the component will land before user releases"
+
+errors:
+  - code: DROP_ON_SELF
+    status: 400
+    message: "Cannot drop a component onto itself"
+
+  - code: DROP_ON_DESCENDANT
+    status: 400
+    message: "Cannot drop a component into its own child"
+
+  - code: DROP_TYPE_NOT_ALLOWED
+    status: 400
+    message: "This zone does not accept that component type"
+
+events:
+  - name: editor.component.inserted
+    description: "A new component was dragged from palette and placed on canvas"
+    payload: [component_id, component_type, destination_zone, destination_index]
+
+  - name: editor.component.moved
+    description: "An existing component was moved to a different position"
+    payload: [component_id, source_zone, source_index, destination_zone, destination_index]
+
+  - name: editor.component.reordered
+    description: "A component was reordered within the same zone"
+    payload: [component_id, zone, old_index, new_index]
+
+  - name: editor.drag.cancelled
+    description: "A drag operation was cancelled without placing the component"
+    payload: [component_id, drag_mode]
+
+  - name: editor.drag.rejected
+    description: "A drop was rejected due to validation rules"
+    payload: [component_id, reason]
+
+related:
+  - feature: component-registry
+    type: required
+    reason: "Drag-and-drop needs the component registry to know what's draggable and what zones accept"
+
+  - feature: content-tree
+    type: required
+    reason: "All insert/move/reorder operations modify the content tree"
+
+  - feature: editor-state
+    type: required
+    reason: "Drag state, selection, and preview state managed by the central store"
+
+  - feature: undo-redo
+    type: recommended
+    reason: "All drag operations should be undoable"
+
+extensions:
+  source:
+    repo: "https://github.com/puckeditor/puck"
+    project: "Puck Editor"
+    tech_stack: "TypeScript + React"
+    files_traced: 40
+    entry_points:
+      - "components/DragDropContext/index.tsx"
+      - "components/DraggableComponent/index.tsx"
+      - "components/DropZone/index.tsx"
+      - "lib/dnd/collision/dynamic/"
+      - "lib/dnd/NestedDroppablePlugin.ts"

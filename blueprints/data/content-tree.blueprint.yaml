@@ -1,0 +1,353 @@
+# ============================================================
+# CONTENT-TREE — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/puckeditor/puck
+# Source project: Puck Editor (TypeScript + React)
+# Files traced: ~30
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: content-tree
+version: "1.0.0"
+description: Hierarchical content tree with zone-based storage, tree walking, flattening, indexed lookups, and schema migration
+category: data
+tags: [content-tree, data-model, serialization, tree-operations, page-data]
+
+actors:
+  - id: editor
+    name: Editor System
+    type: system
+    description: System that modifies the content tree through user actions
+
+  - id: renderer
+    name: Render Engine
+    type: system
+    description: System that reads the content tree to produce visual output
+
+fields:
+  - name: root_props
+    type: json
+    required: true
+    label: "Root Properties"
+
+  - name: content
+    type: json
+    required: true
+    label: "Root Content"
+
+  - name: zones
+    type: json
+    required: false
+    label: "Zone Storage"
+
+  - name: node_index
+    type: json
+    required: false
+    label: "Node Index"
+
+  - name: zone_index
+    type: json
+    required: false
+    label: "Zone Index"
+
+rules:
+  data_model:
+    three_top_level_keys: true
+    # Data consists of: root (page props), content (top-level components), zones (slot content)
+    zone_compound_format: "parentId:slotName"
+    # All zones identified by compound key
+    root_zone_id: "root:default-zone"
+    # The top-level content area uses this fixed zone ID
+
+  tree_structure:
+    slots_stored_inline: true
+    # Slot content stored as arrays within parent component props
+    unlimited_nesting_depth: true
+    # Components can be nested to any depth through slots
+    unique_instance_ids: true
+    # Every component instance has a globally unique ID
+
+  indexing:
+    node_index_maintained: true
+    # Every tree mutation rebuilds the node index
+    zone_index_maintained: true
+    # Every tree mutation rebuilds the zone index
+    path_tracking: true
+    # Each node knows its full path from root (array of zone compound IDs)
+    parent_tracking: true
+    # Each node knows its direct parent component ID
+    flat_data_cached: true
+    # Flattened version of each node's props cached for efficient comparison
+
+  flattening:
+    nested_to_dotpath: true
+    # { styles: { color: "red" } } → { "styles.color": "red" }
+    array_indexed: true
+    # { items: [{name: "A"}] } → { "items.0.name": "A" }
+    empty_array_sentinel: "__puck_[]"
+    # Empty arrays encoded as sentinel string to preserve structure
+    empty_object_sentinel: "__puck_{}"
+    # Empty objects encoded as sentinel string
+
+  tree_walking:
+    dual_mapper_pattern: true
+    # Walker accepts two functions: mapContent (zone-level) and mapNodeOrSkip (node-level)
+    skip_optimization: true
+    # Returning null from mapNodeOrSkip skips unnecessary tree rebuilds
+    index_rebuild_on_walk: true
+    # Node and zone indexes rebuilt during every walk
+
+  migration:
+    version_upgrades: true
+    # Schema migrations supported to handle data format changes between versions
+
+  zone_registration:
+    register_on_mount: true
+    # Zones registered when their parent component mounts
+    unregister_on_unmount: true
+    # Zones unregistered when parent unmounts
+    cache_on_unregister: true
+    # Zone content cached on unregister for restoration if re-mounted
+
+outcomes:
+  insert_into_tree:
+    priority: 1
+    given:
+      - "a valid component instance with unique ID exists"
+      - "the destination zone exists or will be created"
+      - "the destination index is within bounds"
+    then:
+      - action: set_field
+        target: content_tree
+        description: "Walk tree, insert component at destination zone and index"
+      - action: set_field
+        target: node_index
+        description: "Add new node entry with path, parent, zone, and flat data"
+      - action: set_field
+        target: zone_index
+        description: "Update zone's content IDs array"
+      - action: emit_event
+        event: tree.node.inserted
+        payload: [node_id, zone, index]
+    result: "Component exists in tree at specified position, indexes updated"
+
+  move_in_tree:
+    priority: 2
+    given:
+      - "source zone and index point to an existing component"
+      - "destination zone and index are valid"
+      - "component is not being moved to its current position"
+    then:
+      - action: set_field
+        target: content_tree
+        description: "Walk tree, remove from source zone, insert at destination zone"
+      - action: set_field
+        target: node_index
+        description: "Update path and parent for moved node and all descendants"
+      - action: set_field
+        target: zone_index
+        description: "Update content IDs for both source and destination zones"
+      - action: emit_event
+        event: tree.node.moved
+        payload: [node_id, source_zone, destination_zone]
+    result: "Component relocated, all indexes reflect new position"
+
+  duplicate_in_tree:
+    priority: 3
+    given:
+      - "source zone and index point to an existing component"
+    then:
+      - action: create_record
+        target: component_clone
+        description: "Deep clone component with all props and nested children"
+      - action: set_field
+        target: clone_ids
+        description: "Regenerate unique IDs for the clone and ALL nested descendant components"
+      - action: set_field
+        target: content_tree
+        description: "Insert clone at source index + 1 in the same zone"
+      - action: emit_event
+        event: tree.node.duplicated
+        payload: [original_id, clone_id, zone]
+    result: "Identical copy with unique IDs placed next to original"
+
+  remove_from_tree:
+    priority: 4
+    given:
+      - "target zone and index point to an existing component"
+    then:
+      - action: delete_record
+        target: component_and_descendants
+        description: "Remove component and collect all descendant node IDs"
+      - action: set_field
+        target: node_index
+        description: "Delete index entries for removed node and all descendants"
+      - action: set_field
+        target: zone_index
+        description: "Delete zone entries owned by removed nodes, update parent zone"
+      - action: emit_event
+        event: tree.node.removed
+        payload: [node_id, descendant_count]
+    result: "Component and all nested children fully removed from tree and indexes"
+
+  reorder_in_zone:
+    priority: 5
+    given:
+      - "source and destination are in the same zone"
+      - "source index differs from destination index"
+    then:
+      - action: set_field
+        target: content_tree
+        description: "Move component from old index to new index within the zone"
+      - action: set_field
+        target: zone_index
+        description: "Update content IDs order for the zone"
+      - action: emit_event
+        event: tree.node.reordered
+        payload: [node_id, zone, old_index, new_index]
+    result: "Component order updated within zone"
+
+  register_zone:
+    priority: 6
+    given:
+      - "a component with slots mounts in the editor"
+    then:
+      - action: create_record
+        target: zone_entry
+        description: "Create zone entry in data and zone index, or restore from cache if previously registered"
+      - action: emit_event
+        event: tree.zone.registered
+        payload: [zone_compound, zone_type]
+    result: "Zone is available as a drop target"
+
+  unregister_zone:
+    priority: 7
+    given:
+      - "a component with slots unmounts from the editor"
+    then:
+      - action: set_field
+        target: zone_cache
+        description: "Cache zone content for potential restoration"
+      - action: delete_record
+        target: zone_entry
+        description: "Remove zone from data and zone index"
+      - action: emit_event
+        event: tree.zone.unregistered
+        payload: [zone_compound]
+    result: "Zone removed but content cached for re-registration"
+
+  lookup_node_by_id:
+    priority: 8
+    given:
+      - "a valid component ID is provided"
+    then:
+      - action: call_service
+        target: node_index
+        description: "Return node data, flat data, path, parent ID, and zone from index"
+    result: "Full node information returned in O(1) lookup"
+
+  walk_tree:
+    priority: 9
+    given:
+      - "a tree traversal is needed for any operation"
+    then:
+      - action: call_service
+        target: tree_walker
+        description: "Traverse root content, then recursively traverse slots of each component, applying mapContent and mapNodeOrSkip functions"
+    result: "Modified tree with rebuilt indexes"
+
+  migrate_data:
+    priority: 10
+    given:
+      - "data was saved in an older schema version"
+    then:
+      - action: call_service
+        target: migration
+        description: "Transform data structure to match current schema version"
+      - action: emit_event
+        event: tree.data.migrated
+        payload: [from_version, to_version]
+    result: "Data compatible with current editor version"
+
+errors:
+  - code: NODE_NOT_FOUND
+    status: 404
+    message: "Component not found at the specified position"
+
+  - code: ZONE_NOT_FOUND
+    status: 404
+    message: "Zone does not exist"
+
+  - code: INVALID_ZONE_FORMAT
+    status: 400
+    message: "Zone ID must follow parentId:slotName format"
+
+  - code: MIGRATION_FAILED
+    status: 500
+    message: "Failed to migrate data to current schema version"
+
+events:
+  - name: tree.node.inserted
+    description: "A component was inserted into the tree"
+    payload: [node_id, zone, index]
+
+  - name: tree.node.moved
+    description: "A component was moved between zones"
+    payload: [node_id, source_zone, destination_zone]
+
+  - name: tree.node.duplicated
+    description: "A component was cloned with new IDs"
+    payload: [original_id, clone_id, zone]
+
+  - name: tree.node.removed
+    description: "A component and its descendants were removed"
+    payload: [node_id, descendant_count]
+
+  - name: tree.node.reordered
+    description: "A component was reordered within its zone"
+    payload: [node_id, zone, old_index, new_index]
+
+  - name: tree.zone.registered
+    description: "A drop zone was registered (component mounted)"
+    payload: [zone_compound, zone_type]
+
+  - name: tree.zone.unregistered
+    description: "A drop zone was unregistered (component unmounted)"
+    payload: [zone_compound]
+
+  - name: tree.data.migrated
+    description: "Data was migrated from an older schema version"
+    payload: [from_version, to_version]
+
+related:
+  - feature: component-registry
+    type: required
+    reason: "Component configs define what can be stored in the tree"
+
+  - feature: drag-drop-editor
+    type: required
+    reason: "Drag operations trigger insert, move, and reorder on the tree"
+
+  - feature: editor-state
+    type: required
+    reason: "Tree is part of the centralized editor state"
+
+  - feature: undo-redo
+    type: recommended
+    reason: "Tree state snapshots enable undo/redo"
+
+extensions:
+  source:
+    repo: "https://github.com/puckeditor/puck"
+    project: "Puck Editor"
+    tech_stack: "TypeScript + React"
+    files_traced: 30
+    entry_points:
+      - "lib/data/walk-app-state.ts"
+      - "lib/data/flatten-node.ts"
+      - "types/Data.tsx"
+      - "reducer/actions/"
+      - "lib/migrate.ts"

@@ -1,14 +1,14 @@
 # Feature Definition Language (FDL)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Blueprints](https://img.shields.io/badge/Blueprints-25-blue.svg)](blueprints/)
+[![Blueprints](https://img.shields.io/badge/Blueprints-33-blue.svg)](blueprints/)
 [![AI Tools](https://img.shields.io/badge/AI_Tools-Claude_|_ChatGPT_|_Copilot-purple.svg)](#faq)
 
 **Define features as YAML blueprints. Generate complete implementations for any framework. Extract architectural patterns from any codebase, API docs, or business document.**
 
 FDL is an open-source system for writing "blueprints" — YAML specifications that describe software features completely. You define the what (fields, rules, outcomes, errors, events). Any AI tool — Claude, ChatGPT, Copilot, Gemini — reads the blueprint and generates a correct, complete implementation for your chosen language and framework.
 
-No code. No YAML knowledge needed. Five CLI commands handle everything through plain-language conversation.
+No code. No YAML knowledge needed. Six CLI commands handle everything through plain-language conversation.
 
 ---
 
@@ -45,6 +45,7 @@ There are three ways to create a blueprint:
 | **Extract from a document** | You have a BRD, policy doc, or SOP | `/fdl-extract docs/policy.pdf` |
 | **Extract from a website** | API docs, developer portal, integration guide | `/fdl-extract-web https://docs.example.com/api` |
 | **Extract from code** | Existing codebase, local folder, or git repo | `/fdl-extract-code ./src/auth login auth` |
+| **Extract features selectively** | Large repo, pick only the features you want | `/fdl-extract-code-feature https://github.com/org/repo` |
 | **Write YAML directly** | You're technical and want full control | Create a `.blueprint.yaml` file |
 
 Once you have a blueprint, generate code for any language or framework:
@@ -112,7 +113,7 @@ This checks that all blueprint files are well-formed and that relationships betw
 
 ---
 
-## The Five Commands
+## The Six Commands
 
 ### `/fdl-create` — Create a blueprint from a conversation
 
@@ -209,6 +210,28 @@ Have an existing app with business logic already implemented? Point Claude at th
 5. You confirm, and it generates blueprints with source file traceability (`# Source: src/auth/middleware/rateLimiter.ts:12`)
 
 **Handles edge cases:** Monorepos (asks which service to extract), no-framework codebases (follows import graphs from entry points), multi-language repos (asks which layer to focus on), private repos (asks you to clone locally first).
+
+### `/fdl-extract-code-feature` — Selectively extract features from a large repo
+
+Different from `/fdl-extract-code` — instead of extracting everything, this scans the entire repo, identifies discrete **features** (not files, not modules), presents a checkbox menu, and extracts only the ones you select as **portable, framework-agnostic blueprints**.
+
+```
+/fdl-extract-code-feature https://github.com/puckeditor/puck
+/fdl-extract-code-feature https://github.com/webstudio-is/webstudio
+/fdl-extract-code-feature https://github.com/microsoft/vscode
+/fdl-extract-code-feature C:/projects/some-app
+```
+
+**The key difference: portable output.** Regular `/fdl-extract-code` documents what's implemented (framework-aware). This command extracts **capabilities** you can rebuild in any stack. When you extract "drag-and-drop editor" from a React project, the blueprint says "component is moved to new position in the tree" — not "useSortable hook fires onDragEnd with arrayMove."
+
+**What happens:**
+1. Claude clones the repo (shallow, fast) and scans for features using structural signals (directories, routes, state management) and behavioral signals (drag/drop, undo/redo, plugin, auth, etc.)
+2. It presents features as a checkbox menu grouped by category — you pick which ones you want
+3. For each selected feature, it traces the code boundary across however many files it spans
+4. It generalizes away the framework — extracting behavior, rules, states, and data models as plain-English outcomes
+5. It generates one blueprint per feature with cross-references
+
+**Handles large repos:** For repos with 1000+ files (like VS Code), it presents top-level categories first, then drills into sub-features within selected categories.
 
 ### `/fdl-generate` — Generate code from a blueprint
 
@@ -308,7 +331,7 @@ Plain text conditions still work alongside structured ones — use whichever is 
 
 ## Included Blueprints
 
-FDL ships with 25 blueprints. But here's the thing — **blueprints are not just templates to copy.** Each one encodes production-tested architectural patterns that transfer to entirely different problems. The login blueprint doesn't just build you a login page. It teaches AI how to build rate limiting, token lifecycle management, and enumeration prevention for *anything*.
+FDL ships with 33 blueprints. But here's the thing — **blueprints are not just templates to copy.** Each one encodes production-tested architectural patterns that transfer to entirely different problems. The login blueprint doesn't just build you a login page. It teaches AI how to build rate limiting, token lifecycle management, and enumeration prevention for *anything*.
 
 ### How to Think About Blueprints
 
@@ -356,6 +379,21 @@ When you extract a payment system, you don't just get "how Electrum works." You 
 | `shadcn-cli` | CLI for installing UI components from registries | **Registry/plugin architecture** (namespace, URL, auth headers, dependency resolution) — build your own package registry, plugin marketplace, or template distribution system. **MCP server** (7 tools for AI assistants to discover and install components) — build AI-native interfaces for any catalog. **Framework detection** (auto-detect Next.js, Vite, Django, Rails, etc.) — build any multi-framework CLI tool. **Safe file mutation** (backup before overwrite, validate paths) — build any CLI that modifies user projects. |
 | `shadcn-components` | 56 accessible React UI components with design system | **Variant system via CVA** (variant + size to className) — build any component library with configurable visual states. **Compound component pattern** (Dialog.Trigger, Dialog.Content) — build composable UI APIs. **Multi-theme architecture** (6 design styles, light/dark, CSS variables in OKLCH) — build a swappable design system. **Accessibility patterns** (focus trap, ARIA attributes, keyboard navigation) — build WCAG-compliant components in any framework. |
 
+### Visual Editor Pack — Page Builder and Drag-and-Drop Patterns
+
+Extracted from [Puck Editor](https://github.com/puckeditor/puck) (279 source files) using `/fdl-extract-code-feature` — a production visual page builder. These 8 blueprints are **framework-agnostic** — they describe behavior, not React code. Use them to build a page builder, form editor, dashboard composer, or any drag-and-drop composition system in any stack.
+
+| Blueprint | What it is | What else you gain |
+|-----------|-----------|-------------------|
+| `drag-drop-editor` | Drag components from palette to canvas, reorder, nest into slots, with collision detection and zone management | **Midpoint collision detection with directional tracking** — works for any sortable list, kanban board, or layout builder. **Nested zone discovery with depth priority** — works for any tree-structured drag target (file managers, org charts, nested menus). **Dual drag modes** (new from palette vs. move existing) — works for any "add or rearrange" interface. **Preview-before-commit** — instant visual feedback while dragging, state commits only on drop. |
+| `component-registry` | Register pluggable components with config schemas, slots, lifecycle hooks, and per-instance permissions | **Config-driven component system** (render + fields + defaults + permissions) — build any plugin registry, widget catalog, or block library. **Slot architecture with allow/disallow lists** — works for any composable UI (email builders, form builders, document editors). **Three lifecycle hooks** (resolveData, resolveFields, resolvePermissions) — build dynamic forms where fields change based on other field values. **Per-instance permissions** — same component type, different edit rights per placement. |
+| `undo-redo` | Linear history stack with debounced recording, forward-branch destruction, and keyboard shortcuts | **250ms debounced recording** — prevents flooding from rapid typing or continuous dragging. Works for any editor. **Forward-branch destruction** — standard undo/redo behavior where new actions after undo discard the redo future. **State tidying on navigation** — clear stale UI focus when undoing. Works for any stateful application. |
+| `content-tree` | Hierarchical content tree with zone-based storage, tree walking, node/zone indexing, and schema migration | **Dual-mapper tree walker** (zone-level + node-level) — build any tree transformation: serializers, exporters, validators, renderers. **Node + zone indexing** — O(1) lookups by ID with path tracking and parent references. Works for any hierarchical data (file systems, comment threads, org structures). **Zone registration with cache** — mount/unmount zones dynamically without losing content. |
+| `field-transforms` | Per-field-type transformation pipeline with read-only resolution, async tracking, and trigger-based caching | **Transform pipeline by field type** — apply custom rendering/processing per data type. Works for any form system with mixed field types. **Wildcard read-only path matching** (`items[*].title`) — granular edit control in nested data. **Trigger-based skip logic** — avoid redundant async work when data hasn't changed. Works for any system with expensive computed properties. |
+| `editor-state` | Centralized state with sliced architecture, 12 action types, computed selections, and public API | **Sliced store architecture** (history, nodes, fields, permissions as independent slices) — works for any complex application state. **Dispatch interceptor** — automatic history recording and callback notification on every action. **Computed selections** — derive "selected item" from a selector reference. Works for any selection-based UI. |
+| `plugin-overrides` | 13 UI override points with wrapping composition, field type customization, and sidebar plugin panels | **Wrapping composition pattern** — plugins stack in order, each wrapping the previous. Works for any themeable or extensible UI. **Per-field-type overrides** — customize how text inputs, dropdowns, or arrays render without touching core code. **Sidebar plugin panels** — add custom tools alongside the editor. Works for any IDE-like panel system. |
+| `responsive-viewport` | Multi-viewport preview with auto-zoom, manual zoom (25%-200%), and iframe-based isolated rendering | **Auto-zoom algorithm** — scales content down to fit container, never scales up past 100%. Works for any preview/thumbnail system. **iframe-based style isolation** with MutationObserver sync — render content in a sandboxed frame while keeping styles current. **Viewport presets** (360px/768px/1280px/100%) — standard responsive breakpoints with custom preset support. |
+
 ### CMS Pack — Headless CMS Architecture Patterns
 
 Extracted from [Payload CMS](https://github.com/payloadcms/payload) (200+ source files) — a production headless CMS used by thousands of projects. These blueprints capture the architectural patterns behind any content management system.
@@ -394,6 +432,11 @@ Individual blueprints are useful. **Combining them is where it gets interesting:
 | **Multi-tenant SaaS with content** | `payload-collections` (data layer) + `payload-access-control` (tenant isolation via WHERE) + `payload-auth` (API keys for integrations) + `expense-approval` (approval workflows) |
 | **Background job processing platform** | `payload-job-queue` (task orchestration + retry + concurrency) + `payload-auth` (API key auth for triggers) + `login` (rate limiting for endpoints) |
 | **Document collaboration platform** | `payload-collections` (CRUD) + `payload-document-locking` (prevent concurrent edits) + `payload-versions` (history + restore) + `payload-uploads` (file attachments) |
+| **Visual page builder** | `drag-drop-editor` (DnD composition) + `component-registry` (pluggable blocks) + `content-tree` (hierarchical storage) + `undo-redo` (history) + `responsive-viewport` (preview) |
+| **Form builder** | `component-registry` (field type registry) + `drag-drop-editor` (arrange fields) + `field-transforms` (dynamic field logic) + `plugin-overrides` (custom field renderers) |
+| **Dashboard/report composer** | `drag-drop-editor` (widget placement) + `component-registry` (chart/table widgets) + `editor-state` (centralized state) + `responsive-viewport` (responsive preview) |
+| **Email template editor** | `component-registry` (email blocks) + `drag-drop-editor` (compose layouts) + `content-tree` (serialize to HTML) + `plugin-overrides` (custom block editors) |
+| **IDE/code editor layout** | `plugin-overrides` (panel system) + `editor-state` (centralized state with slices) + `responsive-viewport` (viewport management) + `undo-redo` (action history) |
 
 ### Recreating or Customizing Blueprints
 
@@ -514,6 +557,28 @@ Now use those patterns to build something entirely different:
 
 The blueprints capture the *architecture*, not the CMS. You get a CRUD system with hooks, a job queue with retry logic, a draft/publish workflow — all usable independently in any framework.
 
+### Example 7: Selectively extract features from a visual editor to build your own
+
+You want to build a page builder but don't want to start from scratch. Extract the features you need from an existing open-source editor:
+
+```
+/fdl-extract-code-feature https://github.com/puckeditor/puck
+```
+> Claude clones the repo, scans 279 files, identifies 12 discrete features.
+> It presents a checkbox menu: "Which features do you want blueprints for?"
+> You select: drag-and-drop, component registry, undo/redo, content tree, viewport.
+> For each, it traces the code boundary, extracts the behavioral logic, and generalizes it away from React.
+> 5 portable blueprints created, all cross-referenced.
+
+Now generate the same features for a completely different stack:
+
+```
+/fdl-generate drag-drop-editor svelte
+/fdl-generate component-registry svelte
+/fdl-generate undo-redo svelte
+```
+> You get a SvelteKit page builder with the same architectural patterns as Puck — but in Svelte, not React. Nothing was copy-pasted. The blueprints describe *behavior*, and the code generator picks the right patterns for each framework.
+
 ---
 
 ## Project Structure
@@ -537,6 +602,7 @@ claude-fdl/
       fdl-extract/             # Extract blueprints from documents
       fdl-extract-web/         # Extract blueprints from documentation websites
       fdl-extract-code/        # Extract blueprints from existing codebases
+      fdl-extract-code-feature/ # Selectively extract features from large repos
       fdl-generate/            # Generate code from blueprints
 ```
 
@@ -572,10 +638,10 @@ The validator checks:
 No. The `/fdl-create` and `/fdl-extract` commands handle everything through plain-language questions. You only see YAML if you choose to edit blueprints directly.
 
 **Can I extract from an existing codebase?**
-Yes. `/fdl-extract-code` reads a local folder or clones a git repo, then analyzes models, routes, middleware, validators, services, error handling, events, and tests to reverse-engineer the implemented features into blueprints. Works with any tech stack — Express, Django, Rails, Spring, Laravel, FastAPI, Next.js, Go, Rust, .NET, and more.
+Yes. `/fdl-extract-code` reads a local folder or clones a git repo, then analyzes models, routes, middleware, validators, services, error handling, events, and tests to reverse-engineer the implemented features into blueprints. Works with any tech stack — Express, Django, Rails, Spring, Laravel, FastAPI, Next.js, Go, Rust, .NET, and more. For large repos where you only want specific features, use `/fdl-extract-code-feature` — it scans the repo, presents a checkbox menu of discovered features, and extracts only the ones you select as portable, framework-agnostic blueprints.
 
 **Does this only work with Claude?**
-No. The blueprints are standard YAML files — any AI tool can read them. You can paste a blueprint into ChatGPT, Copilot, Gemini, or any other AI and ask it to generate code. The `/fdl-create`, `/fdl-extract`, `/fdl-extract-web`, `/fdl-extract-code`, and `/fdl-generate` slash commands are Claude Code skills that make the experience smoother, but the blueprints themselves are AI-agnostic.
+No. The blueprints are standard YAML files — any AI tool can read them. You can paste a blueprint into ChatGPT, Copilot, Gemini, or any other AI and ask it to generate code. The `/fdl-create`, `/fdl-extract`, `/fdl-extract-web`, `/fdl-extract-code`, `/fdl-extract-code-feature`, and `/fdl-generate` slash commands are Claude Code skills that make the experience smoother, but the blueprints themselves are AI-agnostic.
 
 **What languages and frameworks are supported?**
 All of them. Blueprints describe what the feature does, not how to build it. Any language, any framework: Next.js, Express, Laravel, Angular, React, Vue, C#/.NET, Rust, Python/Django, Go, Ruby on Rails, Flutter, Swift, and anything else. Some blueprints include optional `extensions` with hints for specific frameworks, but they're not required.
