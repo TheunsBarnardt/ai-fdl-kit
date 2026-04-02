@@ -38,6 +38,7 @@ There are three ways to create a blueprint:
 | **Create from scratch** | You know what feature you want | `/fdl-create checkout payment` |
 | **Extract from a document** | You have a BRD, policy doc, or SOP | `/fdl-extract docs/policy.pdf` |
 | **Extract from a website** | API docs, developer portal, integration guide | `/fdl-extract-web https://docs.example.com/api` |
+| **Extract from code** | Existing codebase, local folder, or git repo | `/fdl-extract-code ./src/auth login auth` |
 | **Write YAML directly** | You're technical and want full control | Create a `.blueprint.yaml` file |
 
 Once you have a blueprint, generate code for any language or framework:
@@ -105,7 +106,7 @@ This checks that all blueprint files are well-formed and that relationships betw
 
 ---
 
-## The Four Commands
+## The Five Commands
 
 ### `/fdl-create` — Create a blueprint from a conversation
 
@@ -178,6 +179,30 @@ Have an API you need to integrate with? Point Claude at the documentation site a
 - Webhook event catalogs with payload schemas
 
 **Prerequisite:** Chrome must be open with the Claude extension connected.
+
+### `/fdl-extract-code` — Extract rules from an existing codebase
+
+Have an existing app with business logic already implemented? Point Claude at the source code and it reverse-engineers the features into blueprints.
+
+```
+/fdl-extract-code ./src/auth login auth
+/fdl-extract-code C:/projects/my-app/src checkout payment
+/fdl-extract-code https://github.com/org/repo.git payments integration
+/fdl-extract-code ../other-project
+```
+
+**Accepts local folders or git repo URLs.** Git repos are cloned automatically (shallow clone for speed).
+
+**Works with any tech stack:** Express, Django, Rails, Spring Boot, Laravel, FastAPI, Next.js, Go, Rust, .NET, and more. Detects the framework from project manifests and code patterns.
+
+**What happens:**
+1. Claude maps the project structure — finds models, routes, middleware, validators, services, error classes, event handlers, and tests
+2. It reads each layer with language-specific patterns — ORM schemas for fields, route definitions for outcomes, middleware for security rules, test descriptions for acceptance criteria
+3. It shows you a plain-English summary: "Here's what I found in 14 files..."
+4. It flags incomplete code (TODO/FIXME comments), unused config, and ambiguous logic
+5. You confirm, and it generates blueprints with source file traceability (`# Source: src/auth/middleware/rateLimiter.ts:12`)
+
+**Handles edge cases:** Monorepos (asks which service to extract), no-framework codebases (follows import graphs from entry points), multi-language repos (asks which layer to focus on), private repos (asks you to clone locally first).
 
 ### `/fdl-generate` — Generate code from a blueprint
 
@@ -373,7 +398,23 @@ You need to integrate with a payment platform. The API docs are at a URL:
 ```
 > Now you have a complete integration layer with webhook handlers, API client, JWT signing, and error handling.
 
-### Example 4: Build a complete auth system
+### Example 4: Reverse-engineer an existing codebase into a blueprint
+
+You have a working Express app with authentication already implemented. You want to capture the exact business rules as a blueprint — then regenerate for a different framework:
+
+```
+/fdl-extract-code ./src/auth login auth
+```
+> Claude reads your models, routes, middleware, validators, and tests.
+> It finds: 8 fields from Prisma schema, rate limiting from middleware (5 attempts / 15 min), JWT token config from constants, 12 test cases as acceptance criteria.
+> You confirm, and it creates a blueprint with every rule traced back to its source file.
+
+```
+/fdl-generate login nextjs
+```
+> Now you have the same exact business rules implemented in Next.js — nothing lost in translation.
+
+### Example 5: Build a complete auth system
 
 ```
 /fdl-create login auth
@@ -405,6 +446,7 @@ claude-fdl/
       fdl-create/              # Create blueprints from conversation
       fdl-extract/             # Extract blueprints from documents
       fdl-extract-web/         # Extract blueprints from documentation websites
+      fdl-extract-code/        # Extract blueprints from existing codebases
       fdl-generate/            # Generate code from blueprints
 ```
 
@@ -439,8 +481,11 @@ The validator checks:
 **Do I need to know YAML?**
 No. The `/fdl-create` and `/fdl-extract` commands handle everything through plain-language questions. You only see YAML if you choose to edit blueprints directly.
 
+**Can I extract from an existing codebase?**
+Yes. `/fdl-extract-code` reads a local folder or clones a git repo, then analyzes models, routes, middleware, validators, services, error handling, events, and tests to reverse-engineer the implemented features into blueprints. Works with any tech stack — Express, Django, Rails, Spring, Laravel, FastAPI, Next.js, Go, Rust, .NET, and more.
+
 **Does this only work with Claude?**
-No. The blueprints are standard YAML files — any AI tool can read them. You can paste a blueprint into ChatGPT, Copilot, Gemini, or any other AI and ask it to generate code. The `/fdl-create`, `/fdl-extract`, and `/fdl-generate` slash commands are Claude Code skills that make the experience smoother, but the blueprints themselves are AI-agnostic.
+No. The blueprints are standard YAML files — any AI tool can read them. You can paste a blueprint into ChatGPT, Copilot, Gemini, or any other AI and ask it to generate code. The `/fdl-create`, `/fdl-extract`, `/fdl-extract-web`, `/fdl-extract-code`, and `/fdl-generate` slash commands are Claude Code skills that make the experience smoother, but the blueprints themselves are AI-agnostic.
 
 **What languages and frameworks are supported?**
 All of them. Blueprints describe what the feature does, not how to build it. Any language, any framework: Next.js, Express, Laravel, Angular, React, Vue, C#/.NET, Rust, Python/Django, Go, Ruby on Rails, Flutter, Swift, and anything else. Some blueprints include optional `extensions` with hints for specific frameworks, but they're not required.
