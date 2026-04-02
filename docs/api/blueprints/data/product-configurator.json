@@ -1,0 +1,416 @@
+{
+  "feature": "product-configurator",
+  "version": "1.0.0",
+  "description": "Product configuration with attributes, variant generation, exclusion rules, dynamic pricing, visual pickers, custom inputs, and matrix bulk ordering.\n",
+  "category": "data",
+  "tags": [
+    "product-configuration",
+    "variants",
+    "attributes",
+    "pricing",
+    "matrix-ordering"
+  ],
+  "actors": [
+    {
+      "id": "product_manager",
+      "name": "Product Manager",
+      "type": "human",
+      "description": "Defines product attributes, values, variants, and pricing rules"
+    },
+    {
+      "id": "buyer",
+      "name": "Buyer",
+      "type": "human",
+      "description": "Selects product configuration during ordering"
+    },
+    {
+      "id": "system",
+      "name": "Variant Engine",
+      "type": "system",
+      "description": "Generates, manages, and prices product variants"
+    }
+  ],
+  "fields": [
+    {
+      "name": "attribute_name",
+      "type": "text",
+      "label": "Attribute Name",
+      "required": true
+    },
+    {
+      "name": "variant_creation_mode",
+      "type": "select",
+      "label": "Variant Creation Mode",
+      "required": true,
+      "options": [
+        {
+          "value": "always",
+          "label": "Always"
+        },
+        {
+          "value": "dynamic",
+          "label": "Dynamic"
+        },
+        {
+          "value": "no_variant",
+          "label": "No Variant"
+        }
+      ]
+    },
+    {
+      "name": "display_type",
+      "type": "select",
+      "label": "Display Type",
+      "required": true,
+      "options": [
+        {
+          "value": "radio",
+          "label": "Radio"
+        },
+        {
+          "value": "pills",
+          "label": "Pills"
+        },
+        {
+          "value": "select",
+          "label": "Select"
+        },
+        {
+          "value": "color",
+          "label": "Color"
+        },
+        {
+          "value": "multi",
+          "label": "Multi"
+        },
+        {
+          "value": "image",
+          "label": "Image"
+        }
+      ]
+    },
+    {
+      "name": "attribute_values",
+      "type": "json",
+      "label": "Attribute Values",
+      "required": true
+    },
+    {
+      "name": "extra_price",
+      "type": "number",
+      "label": "Extra Price",
+      "required": false
+    },
+    {
+      "name": "is_custom",
+      "type": "boolean",
+      "label": "Custom Input",
+      "required": false
+    },
+    {
+      "name": "exclusion_rules",
+      "type": "json",
+      "label": "Exclusion Rules",
+      "required": false
+    },
+    {
+      "name": "product_add_mode",
+      "type": "select",
+      "label": "Add Mode",
+      "required": false,
+      "options": [
+        {
+          "value": "configurator",
+          "label": "Configurator"
+        },
+        {
+          "value": "matrix",
+          "label": "Matrix"
+        }
+      ]
+    }
+  ],
+  "states": {
+    "field": "configuration_status",
+    "values": [
+      {
+        "name": "unconfigured",
+        "description": "Product template has no attributes assigned",
+        "initial": true
+      },
+      {
+        "name": "configurable",
+        "description": "Attributes assigned, configurator available for buyers"
+      },
+      {
+        "name": "fully_generated",
+        "description": "All variant combinations have been created (always mode)"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "unconfigured",
+        "to": "configurable",
+        "actor": "product_manager",
+        "description": "Manager adds attribute lines with multiple values"
+      },
+      {
+        "from": "configurable",
+        "to": "fully_generated",
+        "actor": "system",
+        "description": "System generates all variant combinations for always-create attributes"
+      }
+    ]
+  },
+  "rules": {
+    "multi_checkbox_requires_no_variant": {
+      "description": "Multi-checkbox display type can only be used with no_variant creation mode, since multiple selections cannot map to a single variant.\n"
+    },
+    "variant_mode_immutable_once_used": {
+      "description": "The variant creation mode cannot be changed after attribute lines have been created — doing so would invalidate existing variants.\n"
+    },
+    "exclusion_prevents_invalid_combos": {
+      "description": "Excluded combinations are greyed out in the configurator UI and cannot be selected by the buyer.\n"
+    },
+    "dynamic_variants_created_on_order": {
+      "description": "For dynamic-mode attributes, the system checks if the selected combination already exists as a variant. If not, it creates one at the time of ordering.\n"
+    },
+    "no_variant_extra_price_on_line": {
+      "description": "No-variant attributes add their extra_price directly to the order line total rather than creating a separate product with different list price.\n"
+    },
+    "archived_variants_preserved": {
+      "description": "Variants that no longer match active combinations are archived (hidden) rather than deleted, preserving historical order references.\n"
+    },
+    "single_value_auto_assigned": {
+      "description": "Attribute lines with only one value are automatically assigned to all variants without requiring buyer selection.\n"
+    },
+    "price_updates_in_real_time": {
+      "description": "As the buyer selects attribute values, the displayed price updates immediately to reflect any extra prices from the selection.\n"
+    }
+  },
+  "outcomes": {
+    "product_configured_via_picker": {
+      "priority": 1,
+      "given": [
+        "buyer opens a configurable product in an order",
+        "product has attributes with multiple values"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "product.configurator.opened",
+          "payload": [
+            "product_template_id",
+            "available_attributes"
+          ]
+        }
+      ],
+      "result": "Configurator displays attribute lines sorted by sequence, each with its display type (radio, pills, color, etc.), exclusions greyed out, and running price total.\n"
+    },
+    "variant_selected_always_mode": {
+      "priority": 2,
+      "given": [
+        "buyer selects a combination of attribute values",
+        "all attributes use always-create mode",
+        "the combination is not excluded"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "order_line_product",
+          "description": "Existing variant assigned to the order line"
+        },
+        {
+          "action": "emit_event",
+          "event": "product.variant.selected",
+          "payload": [
+            "product_id",
+            "attribute_values",
+            "price"
+          ]
+        }
+      ],
+      "result": "Pre-existing variant added to order at computed price"
+    },
+    "variant_created_dynamic_mode": {
+      "priority": 3,
+      "given": [
+        "buyer selects a combination with dynamic-mode attributes",
+        "no existing variant matches the selected combination"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "product_variant",
+          "description": "New variant created with the selected attribute values"
+        },
+        {
+          "action": "set_field",
+          "target": "order_line_product",
+          "description": "Newly created variant assigned to the order line"
+        },
+        {
+          "action": "emit_event",
+          "event": "product.variant.created",
+          "payload": [
+            "product_id",
+            "attribute_values"
+          ]
+        }
+      ],
+      "result": "New variant generated on-the-fly and added to order"
+    },
+    "no_variant_attributes_applied": {
+      "priority": 4,
+      "given": [
+        "buyer selects no_variant attributes (e.g., custom engraving text)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "order_line_description",
+          "description": "Attribute values appended to line description"
+        },
+        {
+          "action": "set_field",
+          "target": "order_line_price",
+          "description": "Extra prices from no_variant selections added to line total"
+        }
+      ],
+      "result": "Attribute selections tracked on order line without creating a new variant"
+    },
+    "matrix_bulk_order": {
+      "priority": 5,
+      "given": [
+        "buyer opens a product in matrix mode",
+        "product has two configurable attribute dimensions"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "product.matrix.opened",
+          "payload": [
+            "product_template_id",
+            "row_attribute",
+            "column_attribute"
+          ]
+        }
+      ],
+      "result": "Grid displayed with row/column headers for each attribute value. Buyer enters quantities in each cell. Each non-zero cell creates an order line for that variant combination.\n"
+    },
+    "custom_value_entered": {
+      "priority": 6,
+      "given": [
+        "attribute value is marked as custom input",
+        "buyer enters free-text value"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "custom_attribute_value",
+          "description": "Custom value stored separately linked to the order line"
+        }
+      ],
+      "result": "Custom value appears in order line description for fulfillment"
+    },
+    "excluded_combination_blocked": {
+      "priority": 1,
+      "error": "CONFIGURATOR_EXCLUDED_COMBO",
+      "given": [
+        "buyer selects an attribute value that conflicts with another selection"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "ui",
+          "description": "Conflicting value greyed out or de-selected"
+        }
+      ],
+      "result": "Invalid combination prevented before order line creation"
+    }
+  },
+  "errors": [
+    {
+      "code": "CONFIGURATOR_EXCLUDED_COMBO",
+      "message": "This combination of options is not available.",
+      "status": 400
+    },
+    {
+      "code": "CONFIGURATOR_VARIANT_MODE_LOCKED",
+      "message": "Variant creation mode cannot be changed after attributes are in use.",
+      "status": 403
+    },
+    {
+      "code": "CONFIGURATOR_MULTI_REQUIRES_NO_VARIANT",
+      "message": "Multi-checkbox display requires no-variant creation mode.",
+      "status": 400
+    }
+  ],
+  "events": [
+    {
+      "name": "product.configurator.opened",
+      "description": "Configurator UI opened for a product",
+      "payload": [
+        "product_template_id",
+        "available_attributes"
+      ]
+    },
+    {
+      "name": "product.variant.selected",
+      "description": "Buyer selected an existing variant combination",
+      "payload": [
+        "product_id",
+        "attribute_values",
+        "price"
+      ]
+    },
+    {
+      "name": "product.variant.created",
+      "description": "New variant dynamically created from buyer's selection",
+      "payload": [
+        "product_id",
+        "attribute_values"
+      ]
+    },
+    {
+      "name": "product.matrix.opened",
+      "description": "Matrix ordering grid opened for bulk variant selection",
+      "payload": [
+        "product_template_id",
+        "row_attribute",
+        "column_attribute"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "quotation-order-management",
+      "type": "required",
+      "reason": "Configured products are added as lines on sales orders"
+    },
+    {
+      "feature": "ecommerce-store",
+      "type": "optional",
+      "reason": "Product configurator displayed on website product pages"
+    },
+    {
+      "feature": "pos-core",
+      "type": "optional",
+      "reason": "Product variants selected at POS terminal"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/odoo/odoo.git",
+      "project": "Odoo",
+      "tech_stack": "Python + JavaScript/OWL",
+      "files_traced": 20,
+      "entry_points": [
+        "addons/product/models/product_attribute.py",
+        "addons/product/models/product_template.py",
+        "addons/sale/controllers/product_configurator.py",
+        "addons/sale_product_matrix/models/product_template.py"
+      ]
+    }
+  }
+}

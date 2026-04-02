@@ -1,0 +1,408 @@
+{
+  "feature": "field-transforms",
+  "version": "1.0.0",
+  "description": "Per-field-type transformation pipeline with read-only path resolution, async tracking, and trigger-based caching",
+  "category": "data",
+  "tags": [
+    "field-transforms",
+    "data-resolution",
+    "computed-properties",
+    "pipeline",
+    "editor"
+  ],
+  "actors": [
+    {
+      "id": "transform_pipeline",
+      "name": "Transform Pipeline",
+      "type": "system",
+      "description": "System that applies per-field-type transformation functions to component data"
+    },
+    {
+      "id": "resolver",
+      "name": "Component Resolver",
+      "type": "system",
+      "description": "System that runs resolveData, resolveFields, and resolvePermissions lifecycle hooks"
+    }
+  ],
+  "fields": [
+    {
+      "name": "field_type",
+      "type": "select",
+      "required": true,
+      "label": "Field Type",
+      "options": [
+        {
+          "label": "Text",
+          "value": "text"
+        },
+        {
+          "label": "Number",
+          "value": "number"
+        },
+        {
+          "label": "Textarea",
+          "value": "textarea"
+        },
+        {
+          "label": "Select",
+          "value": "select"
+        },
+        {
+          "label": "Radio",
+          "value": "radio"
+        },
+        {
+          "label": "Rich Text",
+          "value": "richtext"
+        },
+        {
+          "label": "Array",
+          "value": "array"
+        },
+        {
+          "label": "Object",
+          "value": "object"
+        },
+        {
+          "label": "External",
+          "value": "external"
+        },
+        {
+          "label": "Custom",
+          "value": "custom"
+        },
+        {
+          "label": "Slot",
+          "value": "slot"
+        }
+      ]
+    },
+    {
+      "name": "field_value",
+      "type": "json",
+      "required": false,
+      "label": "Field Value"
+    },
+    {
+      "name": "prop_path",
+      "type": "text",
+      "required": true,
+      "label": "Property Path"
+    },
+    {
+      "name": "is_read_only",
+      "type": "boolean",
+      "required": false,
+      "label": "Is Read Only",
+      "default": false
+    },
+    {
+      "name": "component_id",
+      "type": "text",
+      "required": true,
+      "label": "Component ID"
+    },
+    {
+      "name": "resolve_trigger",
+      "type": "select",
+      "required": false,
+      "label": "Resolution Trigger",
+      "options": [
+        {
+          "label": "Insert",
+          "value": "insert"
+        },
+        {
+          "label": "Replace",
+          "value": "replace"
+        },
+        {
+          "label": "Move",
+          "value": "move"
+        },
+        {
+          "label": "Load",
+          "value": "load"
+        },
+        {
+          "label": "Force",
+          "value": "force"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "transform_pipeline": {
+      "per_field_type": true,
+      "walks_entire_props": true,
+      "handles_nested_objects": true,
+      "handles_arrays": true,
+      "handles_slots": true
+    },
+    "read_only_resolution": {
+      "exact_path_match": true,
+      "wildcard_path_match": true,
+      "force_read_only_flag": true
+    },
+    "caching": {
+      "cache_by_component_id": true,
+      "cache_stores_input_and_output": true,
+      "skip_on_unchanged": true
+    },
+    "trigger_based_skip": {
+      "move_skip_unless_parent_changed": true,
+      "force_always_resolves": true,
+      "insert_always_resolves": true
+    },
+    "async_tracking": {
+      "per_field_loading_state": true,
+      "deferred_loading_status": true
+    },
+    "default_transforms": {
+      "slot_transform": true,
+      "rich_text_transform": true,
+      "inline_text_transform": true
+    }
+  },
+  "outcomes": {
+    "apply_transforms": {
+      "priority": 1,
+      "given": [
+        "component data is being prepared for rendering or editing",
+        "field transform functions are registered for the field types in use"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "transform_pipeline",
+          "description": "Walk all component props, match field types to transform functions, apply transforms with value, readOnly state, componentId, and propPath"
+        }
+      ],
+      "result": "Transformed prop values returned for rendering"
+    },
+    "resolve_read_only": {
+      "priority": 2,
+      "given": [
+        "a field has a prop path",
+        "the component has read-only flags defined"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "read_only_resolver",
+          "description": "Check exact path match, then wildcard path match, then force flag to determine read-only state"
+        }
+      ],
+      "result": "Field marked as read-only or editable based on resolution"
+    },
+    "resolve_component_data": {
+      "priority": 3,
+      "given": [
+        "a trigger event occurs (insert, replace, move, load, or force)",
+        "the component has a resolveData lifecycle hook",
+        "cache check passes (data has changed, or trigger is force/insert)"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "resolver",
+          "description": "Call resolveData with current data, changed flags, last data, trigger, and parent reference"
+        },
+        {
+          "action": "set_field",
+          "target": "component_props",
+          "description": "Merge resolved props into component data"
+        },
+        {
+          "action": "set_field",
+          "target": "resolution_cache",
+          "description": "Cache the input/output pair for future skip checks"
+        },
+        {
+          "action": "emit_event",
+          "event": "field.data.resolved",
+          "payload": [
+            "component_id",
+            "trigger",
+            "did_change"
+          ]
+        }
+      ],
+      "result": "Component data updated with dynamically computed values"
+    },
+    "resolve_fields_schema": {
+      "priority": 4,
+      "given": [
+        "component data has changed",
+        "the component has a resolveFields lifecycle hook"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "resolver",
+          "description": "Call resolveFields with current data, changed flags, current fields, last fields, and app state"
+        },
+        {
+          "action": "set_field",
+          "target": "field_definitions",
+          "description": "Update visible field schema based on resolver output"
+        },
+        {
+          "action": "emit_event",
+          "event": "field.schema.resolved",
+          "payload": [
+            "component_id",
+            "changed_fields_count"
+          ]
+        }
+      ],
+      "result": "Field panel shows/hides fields based on current component state"
+    },
+    "resolve_permissions": {
+      "priority": 5,
+      "given": [
+        "component data or context has changed",
+        "the component has a resolvePermissions lifecycle hook"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "resolver",
+          "description": "Call resolvePermissions with current data, changed flags, current permissions, and app state"
+        },
+        {
+          "action": "set_field",
+          "target": "component_permissions",
+          "description": "Update component-level permissions (drag, edit, delete, duplicate, insert)"
+        },
+        {
+          "action": "emit_event",
+          "event": "field.permissions.resolved",
+          "payload": [
+            "component_id",
+            "permissions"
+          ]
+        }
+      ],
+      "result": "Component actions enabled/disabled based on resolved permissions"
+    },
+    "skip_resolution_on_cache_hit": {
+      "priority": 6,
+      "given": [
+        "trigger is 'replace' or 'move'",
+        "component data has not changed since last resolution",
+        "for 'move' trigger, parent component has not changed"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "field.resolution.skipped",
+          "payload": [
+            "component_id",
+            "trigger",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Resolution skipped, cached result used"
+    },
+    "recursive_slot_resolution": {
+      "priority": 7,
+      "given": [
+        "a component has slot fields containing child components",
+        "parent component is being resolved"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "resolver",
+          "description": "Recursively resolve each child component in each slot with same trigger"
+        }
+      ],
+      "result": "All nested components resolved with parent context propagated"
+    }
+  },
+  "errors": [
+    {
+      "code": "TRANSFORM_FAILED",
+      "status": 500,
+      "message": "Field transform failed to process"
+    },
+    {
+      "code": "RESOLVE_TIMEOUT",
+      "status": 500,
+      "message": "Component data resolution timed out"
+    },
+    {
+      "code": "RESOLVE_ABORTED",
+      "status": 500,
+      "message": "Resolution aborted because component was deleted during async operation"
+    }
+  ],
+  "events": [
+    {
+      "name": "field.data.resolved",
+      "description": "Component data was resolved via lifecycle hook",
+      "payload": [
+        "component_id",
+        "trigger",
+        "did_change"
+      ]
+    },
+    {
+      "name": "field.schema.resolved",
+      "description": "Field schema was updated via resolveFields hook",
+      "payload": [
+        "component_id",
+        "changed_fields_count"
+      ]
+    },
+    {
+      "name": "field.permissions.resolved",
+      "description": "Component permissions were resolved via lifecycle hook",
+      "payload": [
+        "component_id",
+        "permissions"
+      ]
+    },
+    {
+      "name": "field.resolution.skipped",
+      "description": "Resolution was skipped due to cache hit",
+      "payload": [
+        "component_id",
+        "trigger",
+        "reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "component-registry",
+      "type": "required",
+      "reason": "Lifecycle hooks (resolveData, resolveFields, resolvePermissions) are defined on component configs"
+    },
+    {
+      "feature": "content-tree",
+      "type": "required",
+      "reason": "Transforms operate on component data stored in the content tree"
+    },
+    {
+      "feature": "editor-state",
+      "type": "required",
+      "reason": "Resolution results update the centralized state"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/puckeditor/puck",
+      "project": "Puck Editor",
+      "tech_stack": "TypeScript + React",
+      "files_traced": 8,
+      "entry_points": [
+        "lib/field-transforms/",
+        "lib/resolve-component-data.ts",
+        "types/API/FieldTransforms.ts"
+      ]
+    }
+  }
+}

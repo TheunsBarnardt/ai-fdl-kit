@@ -1,0 +1,461 @@
+{
+  "feature": "purchase-agreements",
+  "version": "1.0.0",
+  "description": "Purchase agreement management supporting blanket orders and calls for tender with vendor selection, purchase order generation, and supplier catalog synchronization.\n",
+  "category": "workflow",
+  "tags": [
+    "procurement",
+    "blanket-order",
+    "call-for-tender",
+    "vendor-management",
+    "purchasing"
+  ],
+  "actors": [
+    {
+      "id": "procurement_officer",
+      "name": "Procurement Officer",
+      "type": "human",
+      "description": "Creates agreements, evaluates tenders, selects vendors"
+    },
+    {
+      "id": "vendor",
+      "name": "Vendor",
+      "type": "human",
+      "description": "Submits bids for tenders and fulfills blanket order requests"
+    },
+    {
+      "id": "system",
+      "name": "Procurement System",
+      "type": "system",
+      "description": "Generates POs from agreements, syncs supplier catalog"
+    }
+  ],
+  "fields": [
+    {
+      "name": "agreement_type",
+      "type": "select",
+      "label": "Agreement Type",
+      "required": true,
+      "options": [
+        {
+          "value": "blanket_order",
+          "label": "Blanket Order"
+        },
+        {
+          "value": "purchase_template",
+          "label": "Purchase Template"
+        }
+      ]
+    },
+    {
+      "name": "agreement_name",
+      "type": "text",
+      "label": "Agreement Reference",
+      "required": true
+    },
+    {
+      "name": "agreement_state",
+      "type": "select",
+      "label": "State",
+      "required": true,
+      "options": [
+        {
+          "value": "draft",
+          "label": "Draft"
+        },
+        {
+          "value": "confirmed",
+          "label": "Confirmed"
+        },
+        {
+          "value": "done",
+          "label": "Done"
+        },
+        {
+          "value": "cancel",
+          "label": "Cancel"
+        }
+      ]
+    },
+    {
+      "name": "vendor_id",
+      "type": "text",
+      "label": "Vendor",
+      "required": false
+    },
+    {
+      "name": "currency_id",
+      "type": "text",
+      "label": "Currency",
+      "required": true
+    },
+    {
+      "name": "date_start",
+      "type": "date",
+      "label": "Start Date",
+      "required": false
+    },
+    {
+      "name": "date_end",
+      "type": "date",
+      "label": "End Date",
+      "required": false
+    },
+    {
+      "name": "agreement_lines",
+      "type": "json",
+      "label": "Agreement Lines",
+      "required": true
+    },
+    {
+      "name": "line_product_id",
+      "type": "text",
+      "label": "Product",
+      "required": true
+    },
+    {
+      "name": "line_quantity",
+      "type": "number",
+      "label": "Agreed Quantity",
+      "required": true
+    },
+    {
+      "name": "line_price_unit",
+      "type": "number",
+      "label": "Agreed Price",
+      "required": true
+    },
+    {
+      "name": "quantity_ordered",
+      "type": "number",
+      "label": "Quantity Ordered",
+      "required": false
+    },
+    {
+      "name": "purchase_order_count",
+      "type": "number",
+      "label": "Generated POs",
+      "required": false
+    },
+    {
+      "name": "representative_id",
+      "type": "text",
+      "label": "Purchase Representative",
+      "required": false
+    }
+  ],
+  "states": {
+    "field": "agreement_state",
+    "values": [
+      {
+        "name": "draft",
+        "description": "Agreement being prepared, fully editable",
+        "initial": true
+      },
+      {
+        "name": "confirmed",
+        "description": "Agreement active, POs can be generated from it"
+      },
+      {
+        "name": "done",
+        "description": "Agreement closed, no more POs",
+        "terminal": true
+      },
+      {
+        "name": "cancel",
+        "description": "Agreement cancelled",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "draft",
+        "to": "confirmed",
+        "actor": "procurement_officer",
+        "description": "Agreement activated after vendor and terms are set",
+        "condition": "Must have at least one line. For blanket orders, all lines must have price > 0 and quantity > 0.\n"
+      },
+      {
+        "from": "confirmed",
+        "to": "done",
+        "actor": "procurement_officer",
+        "description": "Agreement closed after fulfillment",
+        "condition": "All generated purchase orders must be in a final state (not draft, sent, or awaiting approval).\n"
+      },
+      {
+        "from": [
+          "draft",
+          "confirmed"
+        ],
+        "to": "cancel",
+        "actor": "procurement_officer",
+        "description": "Agreement cancelled, all linked draft POs cancelled"
+      },
+      {
+        "from": "cancel",
+        "to": "draft",
+        "actor": "procurement_officer",
+        "description": "Reset cancelled agreement to draft"
+      }
+    ]
+  },
+  "rules": {
+    "blanket_order_requires_positive_prices": {
+      "description": "When confirming a blanket order, every line must have a unit price greater than zero and a quantity greater than zero.\n"
+    },
+    "end_date_after_start": {
+      "description": "End date must be on or after start date when both are set"
+    },
+    "cannot_close_with_pending_pos": {
+      "description": "An agreement cannot be closed (done) while there are purchase orders in draft, sent, or awaiting-approval states linked to it.\n"
+    },
+    "supplier_catalog_sync_on_confirm": {
+      "description": "Confirming a blanket order creates supplier catalog entries linking the vendor to each product at the agreed price.\n"
+    },
+    "supplier_catalog_cleanup_on_close": {
+      "description": "Closing or cancelling an agreement removes the supplier catalog entries it created, restoring previous vendor pricing.\n"
+    },
+    "type_immutable_after_draft": {
+      "description": "Agreement type and company cannot be changed after leaving draft state. Changing in draft regenerates the reference number.\n"
+    },
+    "delete_only_draft_or_cancel": {
+      "description": "Agreements can only be deleted in draft or cancelled state"
+    },
+    "vendor_duplicate_warning": {
+      "description": "When selecting a vendor for a blanket order, the system warns if an active blanket order already exists for that vendor (suggests completing the existing one first).\n"
+    }
+  },
+  "outcomes": {
+    "agreement_confirmed": {
+      "priority": 1,
+      "given": [
+        "procurement officer sets vendor and agreement lines",
+        "all lines have valid products, quantities, and prices"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "agreement_state",
+          "from": "draft",
+          "to": "confirmed"
+        },
+        {
+          "action": "create_record",
+          "target": "supplier_catalog_entries",
+          "description": "Vendor-product-price links created in supplier catalog"
+        },
+        {
+          "action": "emit_event",
+          "event": "purchase.agreement.confirmed",
+          "payload": [
+            "agreement_id",
+            "vendor_id",
+            "line_count"
+          ]
+        }
+      ],
+      "result": "Agreement active, vendor pricing synchronized, POs can be generated"
+    },
+    "purchase_order_generated": {
+      "priority": 2,
+      "given": [
+        "agreement is in confirmed state",
+        "procurement officer creates a purchase order from the agreement"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "purchase_order",
+          "description": "New PO created with products and prices from agreement lines"
+        },
+        {
+          "action": "set_field",
+          "target": "quantity_ordered",
+          "description": "Ordered quantity updated based on confirmed POs"
+        },
+        {
+          "action": "emit_event",
+          "event": "purchase.agreement.po_generated",
+          "payload": [
+            "agreement_id",
+            "purchase_order_id",
+            "vendor_id"
+          ]
+        }
+      ],
+      "result": "Purchase order created with pre-negotiated terms"
+    },
+    "agreement_closed": {
+      "priority": 3,
+      "given": [
+        "all generated POs are in final state",
+        "procurement officer closes the agreement"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "agreement_state",
+          "from": "confirmed",
+          "to": "done"
+        },
+        {
+          "action": "delete_record",
+          "target": "supplier_catalog_entries",
+          "description": "Agreement-specific supplier catalog entries cleaned up"
+        },
+        {
+          "action": "emit_event",
+          "event": "purchase.agreement.closed",
+          "payload": [
+            "agreement_id",
+            "total_ordered"
+          ]
+        }
+      ],
+      "result": "Agreement closed, vendor catalog restored to prior state"
+    },
+    "agreement_cancelled": {
+      "priority": 4,
+      "given": [
+        "procurement officer cancels the agreement"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "agreement_state",
+          "to": "cancel"
+        },
+        {
+          "action": "call_service",
+          "target": "purchase_order_service",
+          "description": "All linked draft purchase orders also cancelled"
+        },
+        {
+          "action": "delete_record",
+          "target": "supplier_catalog_entries",
+          "description": "Supplier catalog entries removed"
+        },
+        {
+          "action": "emit_event",
+          "event": "purchase.agreement.cancelled",
+          "payload": [
+            "agreement_id"
+          ]
+        }
+      ],
+      "result": "Agreement and linked draft POs cancelled"
+    },
+    "close_blocked_pending_pos": {
+      "priority": 1,
+      "error": "AGREEMENT_PENDING_POS",
+      "given": [
+        "procurement officer attempts to close the agreement",
+        "one or more linked POs are still in draft/sent/approval state"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "ui",
+          "description": "Show list of pending POs that must be finalized"
+        }
+      ],
+      "result": "Agreement cannot be closed until all POs are final"
+    },
+    "confirm_invalid_lines": {
+      "priority": 2,
+      "error": "AGREEMENT_INVALID_LINES",
+      "given": [
+        "blanket order has lines with zero price or zero quantity"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "ui",
+          "description": "Highlight lines with invalid pricing"
+        }
+      ],
+      "result": "Confirmation blocked until all lines have valid prices and quantities"
+    }
+  },
+  "errors": [
+    {
+      "code": "AGREEMENT_PENDING_POS",
+      "message": "Cannot close agreement while purchase orders are pending. Finalize or cancel them first.",
+      "status": 400
+    },
+    {
+      "code": "AGREEMENT_INVALID_LINES",
+      "message": "All agreement lines must have a positive price and quantity.",
+      "status": 400
+    },
+    {
+      "code": "AGREEMENT_END_BEFORE_START",
+      "message": "Agreement end date must be on or after the start date.",
+      "status": 400
+    },
+    {
+      "code": "AGREEMENT_DELETE_NOT_DRAFT",
+      "message": "Only draft or cancelled agreements can be deleted.",
+      "status": 403
+    }
+  ],
+  "events": [
+    {
+      "name": "purchase.agreement.confirmed",
+      "description": "Agreement activated and vendor pricing synchronized",
+      "payload": [
+        "agreement_id",
+        "vendor_id",
+        "line_count"
+      ]
+    },
+    {
+      "name": "purchase.agreement.po_generated",
+      "description": "Purchase order generated from an agreement",
+      "payload": [
+        "agreement_id",
+        "purchase_order_id",
+        "vendor_id"
+      ]
+    },
+    {
+      "name": "purchase.agreement.closed",
+      "description": "Agreement closed after fulfillment",
+      "payload": [
+        "agreement_id",
+        "total_ordered"
+      ]
+    },
+    {
+      "name": "purchase.agreement.cancelled",
+      "description": "Agreement cancelled",
+      "payload": [
+        "agreement_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "invoicing-payments",
+      "type": "required",
+      "reason": "Generated POs lead to vendor bills in accounting"
+    },
+    {
+      "feature": "automation-rules",
+      "type": "optional",
+      "reason": "Automate PO generation when stock falls below reorder point"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/odoo/odoo.git",
+      "project": "Odoo",
+      "tech_stack": "Python + JavaScript/OWL",
+      "files_traced": 10,
+      "entry_points": [
+        "addons/purchase_requisition/models/purchase_requisition.py",
+        "addons/purchase_requisition/models/purchase_requisition_line.py"
+      ]
+    }
+  }
+}

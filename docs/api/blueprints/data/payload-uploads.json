@@ -1,0 +1,363 @@
+{
+  "feature": "payload-uploads",
+  "version": "1.0.0",
+  "description": "File upload system with image resizing, focal-point cropping, MIME validation, cloud storage adapters, and range request support",
+  "category": "data",
+  "tags": [
+    "cms",
+    "uploads",
+    "files",
+    "images",
+    "sharp",
+    "resize",
+    "crop",
+    "focal-point",
+    "storage",
+    "payload"
+  ],
+  "actors": [
+    {
+      "id": "uploader",
+      "name": "Uploader",
+      "type": "human",
+      "description": "User uploading files through the admin panel or API"
+    },
+    {
+      "id": "image_processor",
+      "name": "Image Processor",
+      "type": "system",
+      "description": "Sharp-based image processing engine for resize, crop, and format conversion"
+    },
+    {
+      "id": "storage_adapter",
+      "name": "Storage Adapter",
+      "type": "system",
+      "description": "Pluggable storage backend — local filesystem or cloud (S3, GCS, Azure, R2, Vercel Blob, Uploadthing)"
+    }
+  ],
+  "fields": [
+    {
+      "name": "filename",
+      "type": "text",
+      "required": true,
+      "label": "Filename",
+      "validation": [
+        {
+          "type": "unique",
+          "message": "A file with this name already exists"
+        }
+      ]
+    },
+    {
+      "name": "filesize",
+      "type": "number",
+      "required": true,
+      "label": "File Size"
+    },
+    {
+      "name": "url",
+      "type": "url",
+      "required": true,
+      "label": "File URL"
+    },
+    {
+      "name": "mime_type",
+      "type": "text",
+      "required": true,
+      "label": "MIME Type"
+    },
+    {
+      "name": "width",
+      "type": "number",
+      "required": false,
+      "label": "Image Width"
+    },
+    {
+      "name": "height",
+      "type": "number",
+      "required": false,
+      "label": "Image Height"
+    },
+    {
+      "name": "thumbnail_url",
+      "type": "url",
+      "required": false,
+      "label": "Thumbnail URL"
+    },
+    {
+      "name": "focal_x",
+      "type": "number",
+      "required": false,
+      "label": "Focal Point X",
+      "default": 50
+    },
+    {
+      "name": "focal_y",
+      "type": "number",
+      "required": false,
+      "label": "Focal Point Y",
+      "default": 50
+    }
+  ],
+  "rules": {
+    "security": {
+      "restricted_file_types": {
+        "blocked_by_default": [
+          "exe",
+          "bat",
+          "php",
+          "js",
+          "jar",
+          "dmg",
+          "deb",
+          "rpm",
+          "msi",
+          "app",
+          "cmd",
+          "com",
+          "ps1",
+          "sh"
+        ],
+        "override": "allowRestrictedFileTypes: true"
+      },
+      "mime_type_validation": {
+        "primary_detection": "file buffer analysis (file-type library)",
+        "fallback": "extension-based detection",
+        "svg_special_handling": true,
+        "pdf_integrity_check": true
+      },
+      "filename_sanitization": true,
+      "svg_content_security_policy": true
+    },
+    "image_processing": {
+      "library": "Sharp",
+      "resize_modes": [
+        "resize with focal point (intelligent crop around focal coordinates)",
+        "standard resize (Sharp configuration)",
+        "omit (skip if image too small, respects withoutEnlargement)"
+      ],
+      "focal_point_cropping": true,
+      "format_conversion": true,
+      "animated_image_support": true,
+      "exif_auto_rotation": true,
+      "metadata_preservation": "configurable via withMetadata option"
+    },
+    "storage": {
+      "local_filesystem": true,
+      "cloud_adapters": [
+        "S3",
+        "GCS",
+        "Azure Blob",
+        "Cloudflare R2",
+        "Vercel Blob",
+        "Uploadthing"
+      ],
+      "disable_local_storage": "configurable",
+      "static_dir": "defaults to collection slug"
+    },
+    "access": {
+      "range_requests": true
+    }
+  },
+  "outcomes": {
+    "upload_success": {
+      "priority": 10,
+      "given": [
+        "user has create access for the upload collection",
+        "file passes MIME type validation",
+        "file is not a restricted type (or restrictions overridden)",
+        "file size within configured limits"
+      ],
+      "then": [
+        "filename sanitized for path safety",
+        "MIME type detected from file buffer",
+        "image dimensions extracted (with EXIF rotation adjustment)",
+        "image sizes generated per collection configuration",
+        "focal point crop applied if focal coordinates set",
+        "file stored via storage adapter (local or cloud)",
+        "document created in collection with file metadata"
+      ],
+      "result": "Upload document created with filename, URL, dimensions, MIME type, and all image size variants",
+      "transaction": true
+    },
+    "upload_restricted_type": {
+      "priority": 2,
+      "error": "UPLOAD_RESTRICTED_TYPE",
+      "given": [
+        "file extension or MIME type is in the restricted list",
+        "allowRestrictedFileTypes is not enabled"
+      ],
+      "result": "Upload rejected — file type not allowed"
+    },
+    "upload_invalid_mime": {
+      "priority": 3,
+      "error": "UPLOAD_INVALID_MIME",
+      "given": [
+        "collection specifies allowed MIME types",
+        "file MIME type does not match any allowed pattern"
+      ],
+      "result": "Upload rejected — MIME type not in allowed list"
+    },
+    "file_retrieval": {
+      "priority": 10,
+      "given": [
+        "GET request to /api/{slug}/file/:filename",
+        "user has read access"
+      ],
+      "then": [
+        "custom handler checked first (for cloud storage)",
+        "file served with correct Content-Type header",
+        "Range requests supported (HTTP 206)",
+        "SVG files served with Content-Security-Policy headers"
+      ],
+      "result": "File binary streamed to client"
+    },
+    "image_resize": {
+      "priority": 10,
+      "given": [
+        "uploaded file is an image",
+        "collection has imageSizes configured"
+      ],
+      "then": [
+        "each configured size processed through Sharp",
+        "focal point respected during crop/resize",
+        "animated images handled (frame count detection)",
+        "format conversion applied if specified",
+        "resized variants stored alongside original"
+      ],
+      "result": "Image size variants created with individual URLs, dimensions, and file sizes"
+    },
+    "file_deletion": {
+      "priority": 10,
+      "given": [
+        "user has delete access for the upload collection",
+        "document is being deleted"
+      ],
+      "then": [
+        "main file deleted from storage",
+        "all image size variants deleted",
+        "deletion errors logged but do not block document deletion"
+      ],
+      "result": "All associated files removed from storage"
+    },
+    "overwrite_existing": {
+      "priority": 10,
+      "given": [
+        "user has update access",
+        "overwriteExistingFiles flag is set",
+        "new file uploaded to replace existing"
+      ],
+      "then": [
+        "old file and variants deleted",
+        "new file processed and stored",
+        "document metadata updated"
+      ],
+      "result": "Existing file replaced with new upload"
+    }
+  },
+  "errors": [
+    {
+      "code": "UPLOAD_RESTRICTED_TYPE",
+      "status": 400,
+      "message": "This file type is not allowed",
+      "retry": true
+    },
+    {
+      "code": "UPLOAD_INVALID_MIME",
+      "status": 400,
+      "message": "This file type is not permitted for this collection",
+      "retry": true
+    },
+    {
+      "code": "UPLOAD_FILE_MISSING",
+      "status": 400,
+      "message": "No file was provided",
+      "retry": true
+    },
+    {
+      "code": "UPLOAD_ERROR",
+      "status": 400,
+      "message": "An error occurred while uploading the file",
+      "retry": true
+    },
+    {
+      "code": "UPLOAD_RETRIEVAL_ERROR",
+      "status": 500,
+      "message": "An error occurred while retrieving the file",
+      "retry": true
+    },
+    {
+      "code": "UPLOAD_DELETION_ERROR",
+      "status": 500,
+      "message": "An error occurred while deleting the file",
+      "retry": false
+    }
+  ],
+  "events": [
+    {
+      "name": "upload.create",
+      "payload": [
+        "collection_slug",
+        "document_id",
+        "filename",
+        "mime_type",
+        "filesize"
+      ],
+      "description": "Emitted after successful file upload — handled via collection afterChange hooks"
+    },
+    {
+      "name": "upload.delete",
+      "payload": [
+        "collection_slug",
+        "document_id",
+        "filename"
+      ],
+      "description": "Emitted when upload document and files are deleted"
+    }
+  ],
+  "related": [
+    {
+      "feature": "payload-collections",
+      "type": "required",
+      "reason": "Upload collections are standard Payload collections with upload fields added"
+    },
+    {
+      "feature": "payload-versions",
+      "type": "optional",
+      "reason": "Upload collections can enable versioning to track file history"
+    },
+    {
+      "feature": "payload-access-control",
+      "type": "required",
+      "reason": "File access controlled by collection access functions"
+    }
+  ],
+  "extensions": {
+    "tech_stack": {
+      "language": "TypeScript",
+      "framework": "Payload CMS 3.x",
+      "image_library": "Sharp",
+      "database": "Multi-adapter (MongoDB, PostgreSQL, SQLite, D1)"
+    },
+    "storage_adapters": [
+      {
+        "package": "@payloadcms/storage-s3"
+      },
+      {
+        "package": "@payloadcms/storage-gcs"
+      },
+      {
+        "package": "@payloadcms/storage-azure"
+      },
+      {
+        "package": "@payloadcms/storage-r2"
+      },
+      {
+        "package": "@payloadcms/storage-vercel-blob"
+      },
+      {
+        "package": "@payloadcms/storage-uploadthing"
+      }
+    ]
+  }
+}

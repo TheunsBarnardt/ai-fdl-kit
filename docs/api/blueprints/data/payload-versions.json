@@ -1,0 +1,365 @@
+{
+  "feature": "payload-versions",
+  "version": "1.0.0",
+  "description": "Document versioning with draft/publish workflow, autosave, version history, restore, scheduled publishing, and locale-specific status",
+  "category": "data",
+  "tags": [
+    "cms",
+    "versioning",
+    "drafts",
+    "publish",
+    "autosave",
+    "restore",
+    "scheduled-publish",
+    "localization",
+    "payload"
+  ],
+  "actors": [
+    {
+      "id": "editor",
+      "name": "Editor",
+      "type": "human",
+      "description": "Content editor creating drafts, publishing, and restoring versions"
+    },
+    {
+      "id": "scheduler",
+      "name": "Scheduler",
+      "type": "system",
+      "description": "Job-based scheduler for future publish/unpublish operations"
+    },
+    {
+      "id": "autosave_engine",
+      "name": "Autosave Engine",
+      "type": "system",
+      "description": "Interval-based autosave that updates the latest version in place"
+    }
+  ],
+  "fields": [
+    {
+      "name": "status",
+      "type": "select",
+      "required": true,
+      "default": "draft",
+      "label": "Publication Status",
+      "options": [
+        {
+          "value": "draft",
+          "label": "Draft"
+        },
+        {
+          "value": "published",
+          "label": "Published"
+        }
+      ]
+    },
+    {
+      "name": "version",
+      "type": "json",
+      "required": true,
+      "label": "Version Data"
+    },
+    {
+      "name": "parent",
+      "type": "text",
+      "required": true,
+      "label": "Parent Document ID"
+    },
+    {
+      "name": "snapshot",
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "label": "Is Snapshot"
+    },
+    {
+      "name": "published_locale",
+      "type": "text",
+      "required": false,
+      "label": "Published Locale"
+    },
+    {
+      "name": "latest",
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "label": "Is Latest Version"
+    },
+    {
+      "name": "autosave",
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "label": "Is Autosave Version"
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "draft",
+        "description": "Document is being edited, not publicly visible",
+        "initial": true
+      },
+      {
+        "name": "published",
+        "description": "Document is live and publicly accessible",
+        "terminal": false
+      }
+    ],
+    "transitions": [
+      {
+        "from": "draft",
+        "to": "published",
+        "actor": "editor",
+        "description": "Editor publishes the document"
+      },
+      {
+        "from": "published",
+        "to": "draft",
+        "actor": "editor",
+        "description": "Editor unpublishes the document"
+      }
+    ]
+  },
+  "rules": {
+    "versioning": {
+      "max_versions_per_document": 100,
+      "cleanup_strategy": "delete oldest versions beyond max",
+      "autosave": {
+        "enabled": "configurable per collection",
+        "default_interval": "2000ms",
+        "behavior": "updates latest version in place instead of creating new version",
+        "validate_on_save": "configurable"
+      },
+      "draft_behavior": {
+        "saves_to_versions_table": true,
+        "required_fields_optional_in_draft": true,
+        "auto_replace_with_draft": true
+      },
+      "scheduled_publishing": {
+        "enabled": "configurable via schedulePublish option",
+        "executes_with_user_permissions": true,
+        "supports_unpublish": true
+      },
+      "localized_versioning": {
+        "per_locale_status": "experimental (localizeStatus)",
+        "snapshot_on_locale_publish": true
+      }
+    },
+    "retention": {
+      "retain_deleted_versions": "configurable"
+    }
+  },
+  "sla": {
+    "autosave_interval": {
+      "default": "2s",
+      "configurable": true
+    }
+  },
+  "outcomes": {
+    "save_draft": {
+      "priority": 10,
+      "given": [
+        "user has update access for this collection",
+        "versioning with drafts is enabled"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "*",
+          "to": "draft"
+        },
+        "version record created (or latest updated if autosave)"
+      ],
+      "result": "Document saved as draft — not publicly visible"
+    },
+    "publish_document": {
+      "priority": 10,
+      "given": [
+        "user has update access",
+        "document passes validation"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "draft",
+          "to": "published"
+        },
+        "main collection document updated with published data",
+        "version record created marking published state",
+        "scheduled publish jobs cancelled if any"
+      ],
+      "result": "Document is now publicly accessible",
+      "transaction": true
+    },
+    "unpublish_document": {
+      "priority": 10,
+      "given": [
+        "user has update access",
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "eq",
+          "value": "published"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "published",
+          "to": "draft"
+        },
+        "latest version updated (no new version created)"
+      ],
+      "result": "Document reverted to draft status"
+    },
+    "autosave_draft": {
+      "priority": 10,
+      "given": [
+        "autosave is enabled for this collection",
+        "document has unsaved changes"
+      ],
+      "then": [
+        "latest version updated in place (not a new version)",
+        "version marked with autosave:true flag"
+      ],
+      "result": "Changes auto-saved without creating a new version entry"
+    },
+    "find_versions": {
+      "priority": 10,
+      "given": [
+        "user has readVersions access"
+      ],
+      "result": "Paginated list of version history for a document"
+    },
+    "restore_version": {
+      "priority": 10,
+      "given": [
+        "user has update access",
+        "version ID exists in history"
+      ],
+      "then": [
+        "version data merged with current document",
+        "full update lifecycle executed (hooks, validation)",
+        "new version created recording the restore",
+        "original createdAt preserved"
+      ],
+      "result": "Document restored to the state of the selected version",
+      "transaction": true
+    },
+    "schedule_publish": {
+      "priority": 10,
+      "given": [
+        "scheduled publishing is enabled",
+        "user specifies a future publish date"
+      ],
+      "then": [
+        "job created in payload-jobs queue",
+        "job stores: target document, desired status, user, locale"
+      ],
+      "result": "Document will be automatically published at the scheduled time"
+    },
+    "enforce_max_versions": {
+      "priority": 1,
+      "given": [
+        "new version created",
+        "total versions exceed maxPerDoc limit"
+      ],
+      "then": [
+        "oldest versions beyond the limit deleted"
+      ],
+      "result": "Version count kept within configured maximum"
+    }
+  },
+  "errors": [
+    {
+      "code": "VERSION_NOT_FOUND",
+      "status": 404,
+      "message": "The requested version was not found",
+      "retry": false
+    },
+    {
+      "code": "VERSION_ACCESS_DENIED",
+      "status": 403,
+      "message": "You do not have permission to view version history",
+      "retry": false
+    }
+  ],
+  "events": [
+    {
+      "name": "version.created",
+      "payload": [
+        "collection_slug",
+        "document_id",
+        "version_id",
+        "status",
+        "user_id"
+      ],
+      "description": "Emitted when a new version is saved"
+    },
+    {
+      "name": "version.published",
+      "payload": [
+        "collection_slug",
+        "document_id",
+        "version_id",
+        "locale",
+        "user_id"
+      ],
+      "description": "Emitted when a document is published"
+    },
+    {
+      "name": "version.restored",
+      "payload": [
+        "collection_slug",
+        "document_id",
+        "restored_version_id",
+        "user_id"
+      ],
+      "description": "Emitted when a previous version is restored"
+    }
+  ],
+  "related": [
+    {
+      "feature": "payload-collections",
+      "type": "required",
+      "reason": "Versions are per-collection — each collection can enable versioning independently"
+    },
+    {
+      "feature": "payload-globals",
+      "type": "optional",
+      "reason": "Globals also support versioning with the same system"
+    },
+    {
+      "feature": "payload-job-queue",
+      "type": "optional",
+      "reason": "Scheduled publishing uses the job queue system"
+    },
+    {
+      "feature": "payload-access-control",
+      "type": "required",
+      "reason": "readVersions access function controls who can view version history"
+    }
+  ],
+  "extensions": {
+    "tech_stack": {
+      "language": "TypeScript",
+      "framework": "Payload CMS 3.x",
+      "database": "Multi-adapter (MongoDB, PostgreSQL, SQLite, D1)"
+    },
+    "database_structure": {
+      "published_documents": "main collection table",
+      "versions": "separate _versions collection/table per collection",
+      "indexes": [
+        "parent",
+        "_status",
+        "updatedAt",
+        "latest",
+        "autosave"
+      ]
+    }
+  }
+}

@@ -1,0 +1,577 @@
+{
+  "feature": "quotation-order-management",
+  "version": "1.0.0",
+  "description": "Sales quotation-to-order lifecycle including quote creation, PDF generation, portal sharing, digital signature, prepayment, order confirmation, and invoicing.\n",
+  "category": "workflow",
+  "tags": [
+    "sales",
+    "quotation",
+    "order-management",
+    "invoicing",
+    "pdf-builder"
+  ],
+  "actors": [
+    {
+      "id": "salesperson",
+      "name": "Salesperson",
+      "type": "human",
+      "description": "Creates quotes, negotiates with customer, confirms orders"
+    },
+    {
+      "id": "customer",
+      "name": "Customer",
+      "type": "human",
+      "description": "Reviews quotes, signs, pays, and receives goods/services"
+    },
+    {
+      "id": "sales_manager",
+      "name": "Sales Manager",
+      "type": "human",
+      "description": "Reviews pipeline, manages team targets, handles overrides"
+    },
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Computes prices, generates PDFs, sends emails, tracks expiry"
+    }
+  ],
+  "fields": [
+    {
+      "name": "order_state",
+      "type": "select",
+      "label": "Order State",
+      "required": true,
+      "options": [
+        {
+          "value": "draft",
+          "label": "Draft"
+        },
+        {
+          "value": "sent",
+          "label": "Sent"
+        },
+        {
+          "value": "sale",
+          "label": "Sale"
+        },
+        {
+          "value": "cancel",
+          "label": "Cancel"
+        }
+      ]
+    },
+    {
+      "name": "partner_id",
+      "type": "text",
+      "label": "Customer",
+      "required": true
+    },
+    {
+      "name": "order_lines",
+      "type": "json",
+      "label": "Order Lines",
+      "required": true
+    },
+    {
+      "name": "amount_untaxed",
+      "type": "number",
+      "label": "Untaxed Amount",
+      "required": true
+    },
+    {
+      "name": "amount_tax",
+      "type": "number",
+      "label": "Tax Amount",
+      "required": true
+    },
+    {
+      "name": "amount_total",
+      "type": "number",
+      "label": "Total Amount",
+      "required": true
+    },
+    {
+      "name": "validity_date",
+      "type": "date",
+      "label": "Expiration Date",
+      "required": false
+    },
+    {
+      "name": "date_order",
+      "type": "datetime",
+      "label": "Order Date",
+      "required": true
+    },
+    {
+      "name": "commitment_date",
+      "type": "datetime",
+      "label": "Delivery Date",
+      "required": false
+    },
+    {
+      "name": "pricelist_id",
+      "type": "text",
+      "label": "Pricelist",
+      "required": false
+    },
+    {
+      "name": "payment_term_id",
+      "type": "text",
+      "label": "Payment Terms",
+      "required": false
+    },
+    {
+      "name": "invoice_status",
+      "type": "select",
+      "label": "Invoice Status",
+      "required": false,
+      "options": [
+        {
+          "value": "upselling",
+          "label": "Upselling"
+        },
+        {
+          "value": "invoiced",
+          "label": "Invoiced"
+        },
+        {
+          "value": "to_invoice",
+          "label": "To Invoice"
+        },
+        {
+          "value": "no",
+          "label": "No"
+        }
+      ]
+    },
+    {
+      "name": "require_signature",
+      "type": "boolean",
+      "label": "Require Signature",
+      "required": false
+    },
+    {
+      "name": "require_payment",
+      "type": "boolean",
+      "label": "Require Prepayment",
+      "required": false
+    },
+    {
+      "name": "prepayment_percent",
+      "type": "number",
+      "label": "Prepayment Percentage",
+      "required": false,
+      "validation": [
+        {
+          "type": "min",
+          "value": 0,
+          "message": "Prepayment percentage cannot be negative"
+        },
+        {
+          "type": "max",
+          "value": 100,
+          "message": "Prepayment percentage cannot exceed 100%"
+        }
+      ]
+    },
+    {
+      "name": "signed_by",
+      "type": "text",
+      "label": "Signed By",
+      "required": false
+    },
+    {
+      "name": "signed_on",
+      "type": "datetime",
+      "label": "Signed On",
+      "required": false
+    },
+    {
+      "name": "is_locked",
+      "type": "boolean",
+      "label": "Locked",
+      "required": false
+    },
+    {
+      "name": "product_id",
+      "type": "text",
+      "label": "Product",
+      "required": true
+    },
+    {
+      "name": "product_uom_qty",
+      "type": "number",
+      "label": "Quantity",
+      "required": true
+    },
+    {
+      "name": "price_unit",
+      "type": "number",
+      "label": "Unit Price",
+      "required": true
+    },
+    {
+      "name": "discount",
+      "type": "number",
+      "label": "Discount %",
+      "required": false
+    },
+    {
+      "name": "display_type",
+      "type": "select",
+      "label": "Line Type",
+      "required": false,
+      "options": [
+        {
+          "value": "line_section",
+          "label": "Section"
+        },
+        {
+          "value": "line_subsection",
+          "label": "Subsection"
+        },
+        {
+          "value": "line_note",
+          "label": "Note"
+        }
+      ]
+    },
+    {
+      "name": "is_downpayment",
+      "type": "boolean",
+      "label": "Is Down Payment",
+      "required": false
+    }
+  ],
+  "states": {
+    "field": "order_state",
+    "values": [
+      {
+        "name": "draft",
+        "description": "Quotation being prepared, fully editable",
+        "initial": true
+      },
+      {
+        "name": "sent",
+        "description": "Quotation sent to customer via email or portal link"
+      },
+      {
+        "name": "sale",
+        "description": "Confirmed sales order, locked for editing"
+      },
+      {
+        "name": "cancel",
+        "description": "Quotation or order has been cancelled",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "draft",
+        "to": "sent",
+        "actor": "salesperson",
+        "description": "Quotation emailed to customer or marked as sent"
+      },
+      {
+        "from": [
+          "draft",
+          "sent"
+        ],
+        "to": "sale",
+        "actor": "salesperson",
+        "description": "Order confirmed after customer approval/signature/payment",
+        "condition": "All product lines must have a valid product and unit of measure. If prepayment is required, payment must be received.\n"
+      },
+      {
+        "from": [
+          "draft",
+          "sent",
+          "sale"
+        ],
+        "to": "cancel",
+        "actor": "salesperson",
+        "description": "Order cancelled (only if not locked)",
+        "condition": "Order must not be locked"
+      },
+      {
+        "from": "cancel",
+        "to": "draft",
+        "actor": "salesperson",
+        "description": "Cancelled order reset to draft for rework"
+      }
+    ]
+  },
+  "rules": {
+    "confirmation_requires_valid_lines": {
+      "description": "Each product line must have a product and unit of measure assigned. Section, subsection, note, and downpayment lines are exempt.\n"
+    },
+    "prepayment_percent_range": {
+      "description": "Prepayment percentage must be between 0% and 100% when prepayment is required"
+    },
+    "locked_order_immutable": {
+      "description": "A locked order cannot be cancelled or modified until unlocked by a manager"
+    },
+    "confirmed_lines_not_deletable": {
+      "description": "Lines on a confirmed order cannot be deleted, except for uninvoiced downpayment lines and display-only lines (sections, notes).\n"
+    },
+    "analytic_distribution_required": {
+      "description": "Analytic distribution must be valid on all lines before order confirmation"
+    },
+    "draft_revert_clears_signature": {
+      "description": "Reverting to draft clears the customer's digital signature"
+    },
+    "auto_lock_on_confirm": {
+      "description": "Orders are automatically locked after confirmation to prevent accidental edits"
+    },
+    "pricelist_drives_pricing": {
+      "description": "Line prices are computed from the assigned pricelist rules at order creation"
+    }
+  },
+  "outcomes": {
+    "quotation_sent": {
+      "priority": 1,
+      "given": [
+        "salesperson creates a quotation with customer and product lines",
+        "salesperson sends the quotation via email"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "order_state",
+          "from": "draft",
+          "to": "sent"
+        },
+        {
+          "action": "emit_event",
+          "event": "sale.quotation.sent",
+          "payload": [
+            "order_id",
+            "partner_id",
+            "amount_total"
+          ]
+        }
+      ],
+      "result": "Customer receives quotation via email with portal link"
+    },
+    "order_confirmed": {
+      "priority": 2,
+      "given": [
+        "quotation is in draft or sent state",
+        "all product lines are valid",
+        "customer has signed (if signature required)",
+        "prepayment received (if prepayment required)"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "order_state",
+          "from": "sent",
+          "to": "sale"
+        },
+        {
+          "action": "set_field",
+          "target": "date_order",
+          "description": "Confirmation timestamp set to current time"
+        },
+        {
+          "action": "set_field",
+          "target": "is_locked",
+          "value": true
+        },
+        {
+          "action": "emit_event",
+          "event": "sale.order.confirmed",
+          "payload": [
+            "order_id",
+            "partner_id",
+            "amount_total"
+          ]
+        }
+      ],
+      "result": "Order confirmed, locked, and ready for fulfillment"
+    },
+    "order_cancelled": {
+      "priority": 3,
+      "given": [
+        "order is not locked",
+        "salesperson cancels the order"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "order_state",
+          "to": "cancel"
+        },
+        {
+          "action": "call_service",
+          "target": "invoice_service",
+          "description": "Cancel all linked draft invoices"
+        },
+        {
+          "action": "emit_event",
+          "event": "sale.order.cancelled",
+          "payload": [
+            "order_id"
+          ]
+        }
+      ],
+      "result": "Order cancelled, related draft invoices voided"
+    },
+    "order_reset_to_draft": {
+      "priority": 4,
+      "given": [
+        "order is in cancelled or sent state",
+        "salesperson resets to draft"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "order_state",
+          "to": "draft"
+        },
+        {
+          "action": "set_field",
+          "target": "signed_by",
+          "value": null
+        },
+        {
+          "action": "set_field",
+          "target": "signed_on",
+          "value": null
+        }
+      ],
+      "result": "Order is editable again, previous signature cleared"
+    },
+    "cancel_blocked_locked": {
+      "priority": 1,
+      "error": "SALE_ORDER_LOCKED",
+      "given": [
+        "salesperson attempts to cancel a locked order"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "ui",
+          "description": "Inform that order must be unlocked first"
+        }
+      ],
+      "result": "Cancellation prevented until manager unlocks the order"
+    },
+    "confirmation_invalid_lines": {
+      "priority": 1,
+      "error": "SALE_INVALID_LINES",
+      "given": [
+        "salesperson attempts to confirm order",
+        "one or more product lines missing product or unit of measure"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "ui",
+          "description": "Highlight lines with missing data"
+        }
+      ],
+      "result": "Confirmation blocked until all lines are valid"
+    }
+  },
+  "errors": [
+    {
+      "code": "SALE_ORDER_LOCKED",
+      "message": "This order is locked and cannot be modified. Ask a manager to unlock it.",
+      "status": 403
+    },
+    {
+      "code": "SALE_INVALID_LINES",
+      "message": "Some order lines are incomplete. Ensure all product lines have a product and unit assigned.",
+      "status": 400
+    },
+    {
+      "code": "SALE_CONFIRMATION_DATE_REQUIRED",
+      "message": "A confirmed order requires a confirmation date.",
+      "status": 400
+    },
+    {
+      "code": "SALE_LINE_DELETE_CONFIRMED",
+      "message": "Cannot delete lines from a confirmed order.",
+      "status": 403
+    }
+  ],
+  "events": [
+    {
+      "name": "sale.quotation.sent",
+      "description": "Quotation emailed to customer",
+      "payload": [
+        "order_id",
+        "partner_id",
+        "amount_total"
+      ]
+    },
+    {
+      "name": "sale.order.confirmed",
+      "description": "Quotation confirmed as a sales order",
+      "payload": [
+        "order_id",
+        "partner_id",
+        "amount_total"
+      ]
+    },
+    {
+      "name": "sale.order.cancelled",
+      "description": "Order cancelled by salesperson",
+      "payload": [
+        "order_id"
+      ]
+    },
+    {
+      "name": "sale.order.locked",
+      "description": "Order locked to prevent modifications",
+      "payload": [
+        "order_id"
+      ]
+    },
+    {
+      "name": "sale.order.unlocked",
+      "description": "Order unlocked by manager for editing",
+      "payload": [
+        "order_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "loyalty-coupons",
+      "type": "optional",
+      "reason": "Loyalty rewards and coupon codes applied to sales orders"
+    },
+    {
+      "feature": "product-configurator",
+      "type": "optional",
+      "reason": "Configurable products selected via attribute picker on order lines"
+    },
+    {
+      "feature": "invoicing-payments",
+      "type": "required",
+      "reason": "Confirmed orders generate invoices for payment collection"
+    },
+    {
+      "feature": "tax-engine",
+      "type": "required",
+      "reason": "Tax computation on every order line"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/odoo/odoo.git",
+      "project": "Odoo",
+      "tech_stack": "Python + JavaScript/OWL",
+      "files_traced": 35,
+      "entry_points": [
+        "addons/sale/models/sale_order.py",
+        "addons/sale/models/sale_order_line.py",
+        "addons/sale_management/models/sale_order.py",
+        "addons/sale_pdf_quote_builder/models/sale_order.py"
+      ]
+    }
+  }
+}

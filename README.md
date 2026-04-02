@@ -2,11 +2,12 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Blueprints](https://img.shields.io/badge/Blueprints-45-blue.svg)](blueprints/)
-[![AI Tools](https://img.shields.io/badge/AI_Tools-Claude_|_ChatGPT_|_Copilot-purple.svg)](#faq)
+[![AI Tools](https://img.shields.io/badge/AI_Tools-Claude_|_ChatGPT_|_Copilot-purple.svg)](https://theunsbarnardt.github.io/claude-fdl/using-with-other-ai/)
+[![Docs](https://img.shields.io/badge/Docs-GitHub_Pages-green.svg)](https://theunsbarnardt.github.io/claude-fdl/)
 
 **Define features as YAML blueprints. Generate complete implementations for any framework. Extract architectural patterns from any codebase, API docs, or business document.**
 
-FDL is an open-source system for writing "blueprints" — YAML specifications that describe software features completely. You define the what (fields, rules, outcomes, errors, events). Any AI tool — Claude, ChatGPT, Copilot, Gemini — reads the blueprint and generates a correct, complete implementation for your chosen language and framework.
+FDL is an open-source system for writing "blueprints" — YAML specifications that describe software features completely. You define the *what* (fields, rules, outcomes, errors, events). Any AI tool — Claude, ChatGPT, Copilot, Gemini — reads the blueprint and generates a correct, complete implementation for your chosen language and framework.
 
 No code. No YAML knowledge needed. Six CLI commands handle everything through plain-language conversation.
 
@@ -14,799 +15,84 @@ No code. No YAML knowledge needed. Six CLI commands handle everything through pl
 
 ## What Problems Does This Solve?
 
-**Problem 1: Every developer rebuilds the same features from scratch.**
-Login, signup, password reset, file upload, CRUD — these features exist in every app. Every time they're rebuilt, something gets missed. Rate limiting. Account lockout. Email verification. Proper error messages.
+- **Every developer rebuilds the same features from scratch.** Login, signup, password reset — something always gets missed.
+- **When you ask AI to "build login", it guesses.** There's no shared definition of what "login" actually needs.
+- **Business rules live in people's heads.** When it's time to build software, critical rules get lost.
 
-**Problem 2: When you ask AI to "build login", it guesses.**
-Different AI tools produce different results. One includes rate limiting, another doesn't. One handles account lockout, another ignores it. There's no shared definition of what "login" actually needs.
-
-**Problem 3: Business rules live in people's heads.**
-The expense approval policy is in a PDF somewhere. The onboarding process is in a wiki. The checkout flow is in someone's memory. When it's time to build or update the software, critical rules get lost in translation.
-
-**FDL solves all three.** A blueprint is the single source of truth for a feature — what data it needs, what rules govern it, what should happen in every scenario (success and failure), and how it connects to other features.
-
-**But blueprints go further than templates.** When you extract a codebase like shadcn-ui into a blueprint, you don't just capture "how shadcn works." You capture the *architectural patterns* — registry-based distribution, recursive dependency resolution, MCP server integration — that let AI build you an entirely new CLI tool, plugin marketplace, or component CDN using those same patterns. Blueprints are transferable expertise, not just feature specs.
+**FDL solves all three.** A blueprint is the single source of truth for a feature — what data it needs, what rules govern it, what should happen in every scenario.
 
 ---
 
 ## How It Works
 
-```
-You describe a feature          Claude Code generates
-in plain language          -->  the complete implementation
-                                for your framework
-```
-
-There are three ways to create a blueprint:
-
 | Method | When to use it | Command |
 |--------|---------------|---------|
 | **Create from scratch** | You know what feature you want | `/fdl-create checkout payment` |
 | **Extract from a document** | You have a BRD, policy doc, or SOP | `/fdl-extract docs/policy.pdf` |
-| **Extract from a website** | API docs, developer portal, integration guide | `/fdl-extract-web https://docs.example.com/api` |
-| **Extract from code** | Existing codebase, local folder, or git repo | `/fdl-extract-code ./src/auth login auth` |
-| **Extract features selectively** | Large repo, pick only the features you want | `/fdl-extract-code-feature https://github.com/org/repo` |
-| **Write YAML directly** | You're technical and want full control | Create a `.blueprint.yaml` file |
-
-Once you have a blueprint, generate code for any language or framework:
-
-```
-/fdl-generate login nextjs
-/fdl-generate signup express
-/fdl-generate login angular
-/fdl-generate signup csharp
-/fdl-generate expense-approval python
-```
+| **Extract from a website** | API docs, developer portal | `/fdl-extract-web https://docs.example.com/api` |
+| **Extract from code** | Existing codebase or git repo | `/fdl-extract-code ./src/auth login auth` |
+| **Extract features selectively** | Large repo, pick only what you want | `/fdl-extract-code-feature https://github.com/org/repo` |
+| **Generate code** | You have a blueprint, want code | `/fdl-generate login nextjs` |
 
 ---
 
 ## Getting Started
 
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) (v18 or later)
-- [Claude Code](https://claude.ai/code) (CLI, desktop app, or VS Code extension)
-
-### Step 1: Clone and install
-
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/TheunsBarnardt/claude-fdl.git
 cd claude-fdl
 npm install
 ```
 
-### Step 2: Create your first blueprint
-
-Open Claude Code in the project directory and type:
+Open Claude Code and type:
 
 ```
-/fdl-create login auth
-```
-
-Claude will ask you a couple of questions in plain English:
-
-> "What should happen when someone logs in successfully?"
-> "Should accounts lock after too many failed attempts?"
-
-Based on your answers, it generates a complete blueprint file — you never touch YAML.
-
-### Step 3: Generate the code
-
-```
-/fdl-generate login nextjs
-```
-
-Claude asks:
-
-> "Generate just login, or include related features (signup, password-reset)?"
-> "How should I handle the database? (mock data, Prisma, Drizzle, MongoDB)"
-
-Then it generates a complete, working implementation with all the security rules, error handling, and UI built in.
-
-### Step 4: Validate (optional)
-
-```bash
-node scripts/validate.js
-```
-
-This checks that all blueprint files are well-formed and that relationships between features are valid.
-
----
-
-## The Six Commands
-
-### `/fdl-create` — Create a blueprint from a conversation
-
-Tell Claude what feature you want. It asks plain-language questions, offers smart defaults, and generates the blueprint behind the scenes.
-
-```
-/fdl-create checkout payment
-/fdl-create file-upload data
-/fdl-create expense-approval workflow
-/fdl-create roles access
-```
-
-**What happens:**
-1. Claude asks 1-2 questions about what the feature should do
-2. It presents a plain-English summary: "Here's what I'll create..."
-3. You confirm or adjust
-4. Blueprint file is created and validated automatically
-
-**You never see YAML.** Claude handles all the technical details.
-
-### `/fdl-extract` — Extract rules from an existing document
-
-Have a business requirements document, company policy, SOP, or process diagram? Upload it and Claude extracts the rules into a blueprint.
-
-```
-/fdl-extract docs/expense-policy.pdf expense-approval workflow
-/fdl-extract requirements/checkout-spec.docx checkout payment
-/fdl-extract process/onboarding-flow.png onboarding ui
-```
-
-**Supported document types:** PDF, Word (.docx), text files, Markdown, images (flowcharts, diagrams)
-
-**What happens:**
-1. Claude reads the document
-2. It extracts: data fields, business rules, approval steps, roles, timelines, error cases
-3. It shows you a plain-English summary of what it found
-4. It flags anything unclear: "The document says 'large purchases need extra approval' but doesn't specify the dollar amount — what threshold should I use?"
-5. You confirm, and it generates the blueprint
-
-Every extracted rule includes a reference back to the source document (page number, section) so you can trace it.
-
-### `/fdl-extract-web` — Extract rules from a documentation website
-
-Have an API you need to integrate with? Point Claude at the documentation site and it crawls every page, extracts all API operations, rules, fields, and requirements into a blueprint.
-
-```
-/fdl-extract-web https://docs.electrumsoftware.com/epc/public/epc-overview epc-payments integration
-/fdl-extract-web https://developer.stripe.com/docs/payments checkout payment
-/fdl-extract-web https://docs.example.com/api
-```
-
-**Works with JS-rendered docs sites** (Docusaurus, ReadMe, Redocly, Swagger UI, etc.) — uses the Chrome browser to read fully-rendered content that standard HTTP fetching can't access.
-
-**What happens:**
-1. Claude opens the site in Chrome and maps **all navigation tabs** (Documentation, API Reference, Security, etc.) — not just the sidebar of the landing page
-2. It searches for OpenAPI/Swagger specs, Postman collections, and other machine-readable API definitions for maximum technical detail
-3. It crawls each page across all tabs, extracting API operations, request/response fields, error codes, authentication methods, security architecture, and integration flows
-4. It shows you a plain-English summary of everything found across all pages
-5. It flags unclear areas and asks you to clarify
-6. It generates one or more blueprints with source URL traceability
-
-**Captures both directions:**
-- **Inbound** — webhooks and callbacks the API sends TO you
-- **Outbound** — API calls you send TO the service
-
-**Discovers technical resources automatically:**
-- OpenAPI/Swagger specifications (JSON/YAML)
-- Postman collections
-- SDK/client library links
-- Webhook event catalogs with payload schemas
-
-**Prerequisite:** Chrome must be open with the Claude extension connected.
-
-### `/fdl-extract-code` — Extract rules from an existing codebase
-
-Have an existing app with business logic already implemented? Point Claude at the source code and it reverse-engineers the features into blueprints.
-
-```
-/fdl-extract-code ./src/auth login auth
-/fdl-extract-code C:/projects/my-app/src checkout payment
-/fdl-extract-code https://github.com/org/repo.git payments integration
-/fdl-extract-code ../other-project
-```
-
-**Accepts local folders or git repo URLs.** Git repos are cloned automatically (shallow clone for speed).
-
-**Works with any tech stack:** Express, Django, Rails, Spring Boot, Laravel, FastAPI, Next.js, Go, Rust, .NET, and more. Detects the framework from project manifests and code patterns.
-
-**What happens:**
-1. Claude maps the project structure — finds models, routes, middleware, validators, services, error classes, event handlers, and tests
-2. It reads each layer with language-specific patterns — ORM schemas for fields, route definitions for outcomes, middleware for security rules, test descriptions for acceptance criteria
-3. It shows you a plain-English summary: "Here's what I found in 14 files..."
-4. It flags incomplete code (TODO/FIXME comments), unused config, and ambiguous logic
-5. You confirm, and it generates blueprints with source file traceability (`# Source: src/auth/middleware/rateLimiter.ts:12`)
-
-**Handles edge cases:** Monorepos (asks which service to extract), no-framework codebases (follows import graphs from entry points), multi-language repos (asks which layer to focus on), private repos (asks you to clone locally first).
-
-### `/fdl-extract-code-feature` — Selectively extract features from a large repo
-
-Different from `/fdl-extract-code` — instead of extracting everything, this scans the entire repo, identifies discrete **features** (not files, not modules), presents a checkbox menu, and extracts only the ones you select as **portable, framework-agnostic blueprints**.
-
-```
-/fdl-extract-code-feature https://github.com/puckeditor/puck
-/fdl-extract-code-feature https://github.com/webstudio-is/webstudio
-/fdl-extract-code-feature https://github.com/microsoft/vscode
-/fdl-extract-code-feature C:/projects/some-app
-```
-
-**The key difference: portable output.** Regular `/fdl-extract-code` documents what's implemented (framework-aware). This command extracts **capabilities** you can rebuild in any stack. When you extract "drag-and-drop editor" from a React project, the blueprint says "component is moved to new position in the tree" — not "useSortable hook fires onDragEnd with arrayMove."
-
-**What happens:**
-1. Claude clones the repo (shallow, fast) and scans for features using structural signals (directories, routes, state management) and behavioral signals (drag/drop, undo/redo, plugin, auth, etc.)
-2. It presents features as a checkbox menu grouped by category — you pick which ones you want
-3. For each selected feature, it traces the code boundary across however many files it spans
-4. It generalizes away the framework — extracting behavior, rules, states, and data models as plain-English outcomes
-5. It generates one blueprint per feature with cross-references
-
-**Handles large repos:** For repos with 1000+ files (like VS Code), it presents top-level categories first, then drills into sub-features within selected categories.
-
-### `/fdl-generate` — Generate code from a blueprint
-
-Pick a blueprint and a framework. Claude generates a complete, working implementation.
-
-```
-/fdl-generate login nextjs
-/fdl-generate signup express
-/fdl-generate password-reset laravel
-/fdl-generate expense-approval nextjs
-```
-
-**Works with any language or framework.** Some blueprints include optional hints for specific frameworks (Next.js, Express, Laravel, etc.), but the core specification is language-agnostic. C#, Rust, Angular, Python, Go, Ruby — if Claude can write it, FDL can generate it.
-
-**What you get:**
-- Backend: routes, validation, business logic, error handling, security rules
-- Frontend: forms, error display, loading states, accessibility
-- Types: TypeScript interfaces for inputs, errors, and events
-- Events: hooks for audit logs, analytics, and notifications
-
-**What you still need to do:**
-- Connect your database (generated code uses mock data by default)
-- Set up email sending (for verification emails, password resets)
-- Add your CSS/styling (generated forms are functional, not styled)
-
----
-
-## What's Inside a Blueprint?
-
-You don't need to understand this to use FDL (the commands handle it for you), but here's what a blueprint contains:
-
-| Section | What it does | Example |
-|---------|-------------|---------|
-| **fields** | Data the feature collects | Email, password, amount, file upload |
-| **rules** | Business logic and security | "Lock account after 5 failed attempts" |
-| **outcomes** | What should happen in each scenario | "Given valid credentials, then create session, result: redirect to dashboard" |
-| **errors** | What to show when things go wrong | "Invalid email or password" (never reveals which one) |
-| **events** | Signals for other systems | "login.success" triggers audit log |
-| **actors** | Who's involved (for workflows) | Employee, Manager, Finance, System |
-| **states** | Status lifecycle (for workflows) | draft -> submitted -> approved -> paid |
-| **sla** | Time limits (for workflows) | "Manager must review within 48 hours" |
-| **related** | How features connect | Login requires signup, recommends password-reset |
-| **flows** | Step-by-step procedures (for documentation) | Useful for business process documentation |
-
-### Outcomes vs Flows
-
-FDL has two ways to describe what a feature does:
-
-**Outcomes** (recommended) describe **what must be true**:
-> "Given the user exists and the password matches, then a session is created and the login.success event fires. Result: redirect to dashboard."
-
-**Flows** describe **what steps to follow**:
-> "Step 1: Validate fields. Step 2: Look up user. Step 3: Compare password. Step 4: Create session."
-
-**Why outcomes are better for AI:** When you tell any AI *what* must be true instead of *how* to do it, it picks the best implementation for your specific framework. Outcomes are like acceptance criteria — flows are like recipes.
-
-**When to use flows:** For business processes where humans need documented procedures (expense approvals, employee onboarding, support ticket escalation).
-
-### Structured Conditions (machine-precise)
-
-Outcomes can use structured conditions that are unambiguous and machine-parseable:
-
-```
-INSTEAD OF:  "amount is over $1,000 and status is submitted"
-USE:         field: amount, source: input, operator: gt, value: 1000
-             field: status, source: db, operator: eq, value: submitted
-```
-
-Key features:
-- **AND/OR logic** — top-level conditions are AND; use `any:` for OR groups
-- **Priority** — outcomes are checked in order (rate limit first, success last)
-- **Data sources** — each condition knows where its data comes from (input, db, request, session, system)
-- **Structured side effects** — actions like `set_field`, `emit_event`, `transition_state`, `notify` are machine-parseable
-- **Operators with type contracts** — each operator has defined accepted types (e.g., `gt` accepts number/duration, `matches` accepts string regex)
-- **Error binding** — outcomes bind to specific error codes (`error: LOGIN_INVALID_CREDENTIALS`) so the code generator knows exactly which error to return
-- **Transaction boundaries** — `transaction: true` marks an outcome's side effects as atomic (all succeed or all roll back)
-- **Expression language** — `when:` conditions use a formal grammar: `failed_login_attempts >= 5`, `amount > 1000 and status == "submitted"`, `now - 60m`
-
-Plain text conditions still work alongside structured ones — use whichever is clearer.
-
----
-
-## Blueprint Categories
-
-| Category | What it's for | Examples |
-|----------|--------------|---------|
-| `auth` | Login, signup, identity | login, signup, password-reset, MFA, logout |
-| `data` | CRUD, storage, search | file-upload, CRUD, search, pagination |
-| `access` | Permissions and roles | roles, permissions, invite-users |
-| `ui` | UI patterns | onboarding wizard, dashboard, settings |
-| `integration` | External services | webhooks, API connectors, OAuth |
-| `notification` | Messaging | email, push notifications, in-app alerts |
-| `payment` | Money | checkout, subscriptions, invoicing |
-| `workflow` | Business processes | expense approval, content review, onboarding |
-
----
-
-## Included Blueprints
-
-FDL ships with 45 blueprints. But here's the thing — **blueprints are not just templates to copy.** Each one encodes production-tested architectural patterns that transfer to entirely different problems. The login blueprint doesn't just build you a login page. It teaches AI how to build rate limiting, token lifecycle management, and enumeration prevention for *anything*.
-
-### How to Think About Blueprints
-
-A blueprint is **captured expertise**. When you extract the shadcn-ui codebase into a blueprint, you don't just get "a description of shadcn." You get the architectural patterns for building:
-- Your own CLI with a plugin/registry system
-- Your own component distribution CDN
-- Your own MCP server so AI tools can discover and install your packages
-- Your own dependency resolver with recursive tree-walking
-
-When you extract a payment system, you don't just get "how Electrum works." You get the patterns for:
-- Asynchronous request-callback flows (any webhook system)
-- Idempotency key management (any distributed system)
-- Multi-party transaction orchestration (any escrow, marketplace, or clearing system)
-- State machines with SLA enforcement (any time-sensitive workflow)
-
-**The real power is combining blueprints.** Take the registry architecture from `shadcn-cli` + the state machine from `expense-approval` + the rate limiting from `login` — and you have the spec for a plugin marketplace with approval workflows and abuse prevention. No blueprint exists for that, but the patterns compose.
-
-### Auth Pack — Security Patterns You Can Reuse Everywhere
-
-| Blueprint | What it is | What else you gain |
-|-----------|-----------|-------------------|
-| `login` | Email + password auth with rate limiting, lockout, sessions | **Rate limiting per scope** (per-IP, per-email) — works for any brute-forceable endpoint. **Token lifecycle** (access + refresh with rotation) — works for API keys, OAuth, device tokens. **Enumeration prevention** — same pattern protects any lookup from leaking existence. |
-| `signup` | Registration with verification and bot prevention | **Layered validation** (format, uniqueness, business rules) — works for any multi-step form. **Bot detection** (honeypot + CAPTCHA + rate limit) — works for any public-facing endpoint. **Async side effects** (send email without blocking response) — works for any notification trigger. |
-| `password-reset` | Two-step recovery via secure email token | **Two-phase async verification** — the request-then-confirm pattern works for email changes, phone verification, account recovery, magic links. **Token hashing in storage** — prevents DB breach from exposing active tokens. **Session invalidation on credential change** — critical for any "account was compromised" response. |
-| `logout` | End session (single device or all devices) | **Scoped revocation** (this device vs. everywhere) — works for API key management, OAuth token revocation. **CSRF protection on state-changing actions** — applies to any POST that mutates state. |
-| `email-verification` | Confirm ownership via one-time token | **Token-based claim verification** — same pattern works for phone numbers, domains, webhook endpoints, device pairing. **Rate-limited resends** — prevents notification bombing in any system. |
-
-### Integration Pack — Distributed System Patterns
-
-| Blueprint | What it is | What else you gain |
-|-----------|-----------|-------------------|
-| `palm-vein` | Hardware SDK integration (PVD300/PVM310) | **Hardware device state machine** (init, open, idle, operating, closed) — works for any peripheral: scanners, printers, card readers, IoT devices. **Buffer lifecycle management** — works for any resource-heavy SDK. **Operation cancellation with cleanup** — works for any long-running hardware operation. |
-| `biometric-auth` | Palm vein as login alternative | **Multi-enrollment with selection** (left/right palm, up to 2) — works for backup phones, security keys, recovery emails. **Graceful fallback** (scanner unavailable, fall back to password) — works for any optional hardware feature. **Template auto-update on match** — works for any "improve accuracy over time" system. |
-| `chp-inbound-payments` | Receive payments from clearing system | **1-second ACK + async processing** — the acknowledge-immediately-process-later pattern works for any webhook receiver. **Idempotency via unique reference** — prevents duplicate processing in any distributed system. **Request-response decoupling** (receive request, ACK, POST response back later) — works for any long-running external integration. |
-| `chp-outbound-payments` | Send payments through clearing system | **Bulk operations** (submit N items, track individually) — works for batch email, bulk imports, mass notifications. **Conflict detection** (HTTP 409 with original error) — the detect-and-return-original pattern works for any retry scenario. **Status polling** — works for any long-running job. |
-| `chp-request-to-pay` | PayShap request-to-pay and refunds | **Time-limited offers** (RTP expires if not responded to) — works for coupon expiry, invite links, temporary access. **Cancellation with state guards** (only cancel if still pending) — works for any "undo" that's only valid in certain states. **Refund with sensible defaults** — works for any reversal operation. |
-| `chp-eft` | Batch electronic funds transfer | **Settlement batching** (collect, submit batch, get results later) — works for any queue-then-batch-process pattern. **Reason code enums** — works for categorized rejection/error reporting in any domain. **Post-fact correction** (undo already-committed transactions) — works for any system that needs reversals. |
-| `chp-account-management` | Account mirroring and proxy resolution | **Proxy resolution** (phone/email/ID to account number) — the indirect-to-direct identifier pattern works for username resolution, device discovery, DNS-like lookups. **Pre-flight verification** (check if account can receive before sending) — works for any "validate before expensive operation" pattern. |
-| `blockradar-api` | Blockchain wallet and transaction management | **Multi-chain abstraction** — works for any system that unifies multiple backends behind one API. **Webhook event catalog** — works for any event-driven integration. |
-
-### UI Pack — Component Architecture and Tooling Patterns
-
-| Blueprint | What it is | What else you gain |
-|-----------|-----------|-------------------|
-| `shadcn-cli` | CLI for installing UI components from registries | **Registry/plugin architecture** (namespace, URL, auth headers, dependency resolution) — build your own package registry, plugin marketplace, or template distribution system. **MCP server** (7 tools for AI assistants to discover and install components) — build AI-native interfaces for any catalog. **Framework detection** (auto-detect Next.js, Vite, Django, Rails, etc.) — build any multi-framework CLI tool. **Safe file mutation** (backup before overwrite, validate paths) — build any CLI that modifies user projects. |
-| `shadcn-components` | 56 accessible React UI components with design system | **Variant system via CVA** (variant + size to className) — build any component library with configurable visual states. **Compound component pattern** (Dialog.Trigger, Dialog.Content) — build composable UI APIs. **Multi-theme architecture** (6 design styles, light/dark, CSS variables in OKLCH) — build a swappable design system. **Accessibility patterns** (focus trap, ARIA attributes, keyboard navigation) — build WCAG-compliant components in any framework. |
-
-### Visual Editor Pack — Page Builder and Drag-and-Drop Patterns
-
-Extracted from [Puck Editor](https://github.com/puckeditor/puck) (279 source files) using `/fdl-extract-code-feature` — a production visual page builder. These 8 blueprints are **framework-agnostic** — they describe behavior, not React code. Use them to build a page builder, form editor, dashboard composer, or any drag-and-drop composition system in any stack.
-
-| Blueprint | What it is | What else you gain |
-|-----------|-----------|-------------------|
-| `drag-drop-editor` | Drag components from palette to canvas, reorder, nest into slots, with collision detection and zone management | **Midpoint collision detection with directional tracking** — works for any sortable list, kanban board, or layout builder. **Nested zone discovery with depth priority** — works for any tree-structured drag target (file managers, org charts, nested menus). **Dual drag modes** (new from palette vs. move existing) — works for any "add or rearrange" interface. **Preview-before-commit** — instant visual feedback while dragging, state commits only on drop. |
-| `component-registry` | Register pluggable components with config schemas, slots, lifecycle hooks, and per-instance permissions | **Config-driven component system** (render + fields + defaults + permissions) — build any plugin registry, widget catalog, or block library. **Slot architecture with allow/disallow lists** — works for any composable UI (email builders, form builders, document editors). **Three lifecycle hooks** (resolveData, resolveFields, resolvePermissions) — build dynamic forms where fields change based on other field values. **Per-instance permissions** — same component type, different edit rights per placement. |
-| `undo-redo` | Linear history stack with debounced recording, forward-branch destruction, and keyboard shortcuts | **250ms debounced recording** — prevents flooding from rapid typing or continuous dragging. Works for any editor. **Forward-branch destruction** — standard undo/redo behavior where new actions after undo discard the redo future. **State tidying on navigation** — clear stale UI focus when undoing. Works for any stateful application. |
-| `content-tree` | Hierarchical content tree with zone-based storage, tree walking, node/zone indexing, and schema migration | **Dual-mapper tree walker** (zone-level + node-level) — build any tree transformation: serializers, exporters, validators, renderers. **Node + zone indexing** — O(1) lookups by ID with path tracking and parent references. Works for any hierarchical data (file systems, comment threads, org structures). **Zone registration with cache** — mount/unmount zones dynamically without losing content. |
-| `field-transforms` | Per-field-type transformation pipeline with read-only resolution, async tracking, and trigger-based caching | **Transform pipeline by field type** — apply custom rendering/processing per data type. Works for any form system with mixed field types. **Wildcard read-only path matching** (`items[*].title`) — granular edit control in nested data. **Trigger-based skip logic** — avoid redundant async work when data hasn't changed. Works for any system with expensive computed properties. |
-| `editor-state` | Centralized state with sliced architecture, 12 action types, computed selections, and public API | **Sliced store architecture** (history, nodes, fields, permissions as independent slices) — works for any complex application state. **Dispatch interceptor** — automatic history recording and callback notification on every action. **Computed selections** — derive "selected item" from a selector reference. Works for any selection-based UI. |
-| `plugin-overrides` | 13 UI override points with wrapping composition, field type customization, and sidebar plugin panels | **Wrapping composition pattern** — plugins stack in order, each wrapping the previous. Works for any themeable or extensible UI. **Per-field-type overrides** — customize how text inputs, dropdowns, or arrays render without touching core code. **Sidebar plugin panels** — add custom tools alongside the editor. Works for any IDE-like panel system. |
-| `responsive-viewport` | Multi-viewport preview with auto-zoom, manual zoom (25%-200%), and iframe-based isolated rendering | **Auto-zoom algorithm** — scales content down to fit container, never scales up past 100%. Works for any preview/thumbnail system. **iframe-based style isolation** with MutationObserver sync — render content in a sandboxed frame while keeping styles current. **Viewport presets** (360px/768px/1280px/100%) — standard responsive breakpoints with custom preset support. |
-
-### CMS Pack — Headless CMS Architecture Patterns
-
-Extracted from [Payload CMS](https://github.com/payloadcms/payload) (200+ source files) — a production headless CMS used by thousands of projects. These blueprints capture the architectural patterns behind any content management system.
-
-| Blueprint | What it is | What else you gain |
-|-----------|-----------|-------------------|
-| `payload-auth` | JWT sessions + API keys + account locking + email verification + custom strategies | **Multi-strategy auth** (password, API key, custom) — works for any API that needs multiple auth methods. **Session management with UUID tracking** — works for any system that needs "log out everywhere." **Progressive account locking** (lock + revoke recent sessions) — works for any brute-forceable endpoint. |
-| `payload-collections` | Full CRUD with pagination, lifecycle hooks, bulk operations, and field selection | **Hook lifecycle architecture** (beforeValidate → beforeChange → afterChange for every operation) — build plugin systems, audit logging, or computed fields for any data layer. **Query-based access control** (WHERE clause merging) — build multi-tenant apps where users only see their own data. **Bulk operations with partial success** (some succeed, some fail, all reported) — works for any batch processing API. |
-| `payload-uploads` | File uploads with image resizing, focal-point cropping, and cloud storage adapters | **Multi-adapter storage pattern** (local, S3, GCS, Azure, R2, Vercel Blob) — build any system that needs swappable storage backends. **Image processing pipeline** (resize → crop → format convert → metadata preserve) — build a media service, thumbnail generator, or CDN origin. **Restricted file type validation** (buffer-level MIME detection, not just extension) — secure any upload endpoint. |
-| `payload-versions` | Draft/publish workflow, autosave, version history, restore, scheduled publishing | **Draft/publish state machine** — works for any content that needs review before going live (blog posts, product listings, legal documents). **Autosave without version explosion** (update-in-place for autosaves, new version for manual saves) — works for any editor with save-as-you-type. **Scheduled publishing via job queue** — works for any "go live at midnight" scenario. |
-| `payload-access-control` | Function-based permissions returning booleans or WHERE clauses | **Row-level security via query merging** — the access function returns a WHERE clause that gets AND-merged with every query. Build multi-tenant, team-scoped, or owner-only access for any database. **Field-level redaction** — hide salary fields from non-HR users, mask PII for support staff. **Permission introspection API** — let the frontend ask "what can I do?" before rendering UI. |
-| `payload-globals` | Singleton documents for site-wide settings, nav, headers, footers | **Singleton pattern** — simplified CRUD with no create/delete, just read/update. Works for app config, feature flags, site settings, or any "there's exactly one of these" data. |
-| `payload-job-queue` | Tasks, workflows, cron scheduling, retry with backoff, concurrency control | **Task orchestration with sub-tasks** — a workflow handler can spawn inline tasks with independent retry. Build CI/CD pipelines, ETL jobs, or multi-step data processing. **Exponential backoff retry** — works for any unreliable external service call. **Concurrency control** (exclusive: one-at-a-time; supersedes: latest cancels older) — prevent duplicate processing in any queue system. |
-| `payload-document-locking` | Pessimistic locking to prevent concurrent editing | **Pessimistic locking with auto-expiry** — lock a resource, auto-release after timeout. Works for any collaborative editing, checkout flows, or resource reservation system. **Lock override for admins** — break locks when users abandon sessions. |
-| `payload-preferences` | Per-user key-value storage for UI state and settings | **Per-user isolation via WHERE clause** — each user only sees their own data, enforced at the query level. Works for any user settings, saved filters, dashboard layouts, or personalization system. **Upsert key-value pattern** — simple create-or-update semantics for any preferences store. |
-
-### Workflow Pack — Business Process Patterns
-
-| Blueprint | What it is | What else you gain |
-|-----------|-----------|-------------------|
-| `expense-approval` | Submit, review, approve, pay with actors and SLAs | **Role-based approval routing** (managers approve small, finance approves large) — works for loan approval, hiring, procurement, content review. **State machine with escalation** — works for any process with deadlines and fallback paths. **Conditional field requirements** (receipt required only above $25) — works for any "rules change based on value" scenario. **Audit trail** (who approved what, when, from where) — works for any compliance requirement. |
-
-### ERP Pack — Enterprise Resource Planning Patterns
-
-Extracted from [Odoo](https://github.com/odoo/odoo) (46,000+ source files, 617 addon modules) using `/fdl-extract-code-feature` — the world's most popular open-source ERP. These 12 blueprints are **framework-agnostic** — they describe the behavioral patterns behind POS, sales, accounting, eCommerce, and workflow automation for any stack.
-
-| Blueprint | What it is | What else you gain |
-|-----------|-----------|-------------------|
-| `pos-core` | POS sessions, orders, payments, cash register, refunds, accounting integration | **Session-based transaction isolation** (open → process → reconcile → close) — works for any shift-based or batch-processing system. **Cash rounding tolerance** — works for any system handling physical currency. **Multi-method payment splitting** — works for any checkout accepting mixed payment types. |
-| `self-order-kiosk` | Customer self-ordering via QR code (mobile) or kiosk terminal with real-time kitchen sync | **Two-layer access tokens** (config-level + per-order) — works for any system with public endpoints that need scoped authorization. **Operating-hour category filtering** — works for any time-gated content (menus, schedules, availability). **Server-side price revalidation** — works for any untrusted-client scenario. |
-| `quotation-order-management` | Quote creation, PDF generation, portal sharing, digital signature, prepayment, order confirmation | **Quote-to-order state machine** (draft → sent → confirmed → locked) — works for proposals, contracts, purchase orders. **Digital signature with portal access** — works for any document requiring customer approval. **Auto-lock on confirmation** — prevents post-approval tampering in any workflow. |
-| `loyalty-coupons` | 8 program types: loyalty points, coupons, gift cards, promo codes, e-wallets, buy-X-get-Y, next-order rewards | **Earning rule engine** (per-order, per-currency, per-unit with thresholds) — works for any points/rewards system. **Multi-reward-type redemption** (discount or free product) — works for any marketplace incentive program. **Code uniqueness across programs** — prevents code collision in multi-campaign systems. |
-| `product-configurator` | Multi-attribute variants (always/dynamic/no-variant), exclusion rules, visual pickers, matrix bulk ordering | **Three variant strategies** (pre-generate all, create on demand, track on order line) — works for any product with options. **Attribute exclusion rules** — prevents invalid combinations in any configuration system. **Matrix ordering grid** — works for bulk ordering across two dimensions (size × color). |
-| `invoicing-payments` | Customer invoices, vendor bills, credit notes, receipts, payment registration, multi-currency | **Document type polymorphism** (7 move types from one model) — works for any system with related document types sharing logic. **Payment state machine** (not_paid → partial → paid → reversed) — works for any receivables/payables system. **Fiscal position tax remapping** — works for any multi-jurisdiction tax scenario. |
-| `tax-engine` | Percentage, fixed, division, group, and formula-based taxes with repartition and cash-basis accounting | **Recursive group tax computation** — works for any hierarchical calculation (compound interest, tiered pricing, stacked fees). **Price-inclusive reverse computation** — works for any "price includes X" scenario (VAT-inclusive pricing, all-in fees). **Cash-basis deferred recognition** — works for any revenue/expense that's recognized on payment, not invoice. |
-| `bank-reconciliation` | Statement import, auto/manual matching, reconciliation models, partial/full tracking, write-offs | **Reconciliation model pattern** (condition → auto-create counterpart entries) — works for any rule-based matching system. **Partial → full reconciliation grouping** — works for any many-to-many matching problem. **Statement continuity validation** — works for any sequential record integrity check. |
-| `ecommerce-store` | Product catalog, cart, multi-step checkout, wishlist, product comparison, visitor tracking, pricelist | **Session-to-partner cart migration** — works for any anonymous-to-authenticated state transfer. **Geo-IP pricelist resolution** — works for any location-based pricing or content. **Wishlist with garbage collection** — works for any "save for later" feature with session expiry. |
-| `automation-rules` | Event-driven triggers (create/write/delete/time/webhook/message) with domain conditions and multi-actions | **Before/after domain transition detection** — works for any "when field changes from X to Y" automation. **Webhook-to-action bridge** — works for connecting any external event to internal business logic. **Anti-recursion guard** — prevents infinite loops in any event-driven system. |
-| `odoo-expense-approval` | Expense submission, multi-level approval, accounting posting, reimbursement tracking | **Cannot-approve-own rule** — works for any approval workflow requiring separation of duties. **Three-tier approver resolution** (manager → department → designated) — works for any hierarchical approval chain. **Dual payment modes** (employee-paid vs company-paid) — works for any reimbursement system. |
-| `purchase-agreements` | Blanket orders, calls for tender, vendor selection, PO generation, supplier catalog sync | **Supplier catalog synchronization** (create on confirm, cleanup on close) — works for any system maintaining derived/cached data from agreements. **Cannot-close-with-pending guard** — works for any parent-child lifecycle dependency. **Vendor duplicate warning** — works for any system preventing redundant active agreements. |
-
-### Combining Blueprints — The Real Power
-
-Individual blueprints are useful. **Combining them is where it gets interesting:**
-
-| You want to build... | Combine these blueprints |
-|----------------------|--------------------------|
-| **Plugin marketplace with approval** | `shadcn-cli` (registry + CLI) + `expense-approval` (state machine + roles) + `login` (rate limiting) |
-| **Payment gateway** | `chp-outbound-payments` (orchestration) + `login` (API key auth) + `chp-account-management` (verification) |
-| **Hardware enrollment system** | `biometric-auth` (multi-enrollment + fallback) + `signup` (registration flow) + `email-verification` (claim verification) |
-| **SaaS onboarding wizard** | `signup` (account creation) + `email-verification` (confirm ownership) + `expense-approval` (step-by-step workflow pattern) |
-| **IoT device management platform** | `palm-vein` (hardware state machine) + `shadcn-cli` (registry for device drivers) + `chp-account-management` (proxy resolution for device IDs) |
-| **Loan origination system** | `expense-approval` (multi-step approval + SLAs) + `chp-outbound-payments` (disbursement) + `login` (secure access) |
-| **Headless CMS** | `payload-collections` (CRUD + hooks) + `payload-auth` (multi-strategy auth) + `payload-access-control` (row-level security) + `payload-versions` (draft/publish) |
-| **Multi-tenant SaaS with content** | `payload-collections` (data layer) + `payload-access-control` (tenant isolation via WHERE) + `payload-auth` (API keys for integrations) + `expense-approval` (approval workflows) |
-| **Background job processing platform** | `payload-job-queue` (task orchestration + retry + concurrency) + `payload-auth` (API key auth for triggers) + `login` (rate limiting for endpoints) |
-| **Document collaboration platform** | `payload-collections` (CRUD) + `payload-document-locking` (prevent concurrent edits) + `payload-versions` (history + restore) + `payload-uploads` (file attachments) |
-| **Visual page builder** | `drag-drop-editor` (DnD composition) + `component-registry` (pluggable blocks) + `content-tree` (hierarchical storage) + `undo-redo` (history) + `responsive-viewport` (preview) |
-| **Form builder** | `component-registry` (field type registry) + `drag-drop-editor` (arrange fields) + `field-transforms` (dynamic field logic) + `plugin-overrides` (custom field renderers) |
-| **Dashboard/report composer** | `drag-drop-editor` (widget placement) + `component-registry` (chart/table widgets) + `editor-state` (centralized state) + `responsive-viewport` (responsive preview) |
-| **Email template editor** | `component-registry` (email blocks) + `drag-drop-editor` (compose layouts) + `content-tree` (serialize to HTML) + `plugin-overrides` (custom block editors) |
-| **IDE/code editor layout** | `plugin-overrides` (panel system) + `editor-state` (centralized state with slices) + `responsive-viewport` (viewport management) + `undo-redo` (action history) |
-| **Mobile retail POS with biometrics** | `pos-core` (session + orders) + `biometric-auth` (palm vein login) + `loyalty-coupons` (rewards) + `chp-outbound-payments` (bank payments) + `invoicing-payments` (accounting) |
-| **Full eCommerce platform** | `ecommerce-store` (catalog + cart + checkout) + `product-configurator` (variants) + `quotation-order-management` (order lifecycle) + `invoicing-payments` (billing) + `tax-engine` (multi-rate tax) |
-| **ERP accounting suite** | `invoicing-payments` (invoices + bills) + `tax-engine` (computation) + `bank-reconciliation` (statement matching) + `odoo-expense-approval` (expense workflow) + `purchase-agreements` (procurement) |
-| **Business process automation platform** | `automation-rules` (trigger → action engine) + `odoo-expense-approval` (approval workflows) + `quotation-order-management` (order lifecycle) + `loyalty-coupons` (incentive campaigns) |
-
-### Recreating or Customizing Blueprints
-
-Every blueprint can be recreated from scratch with different rules:
-
-```
-/fdl-create login auth
-/fdl-create signup auth
-/fdl-create expense-approval workflow
-```
-
-Your answers shape the blueprint — different lockout thresholds, different password rules, different approval chains. Same architectural patterns, your business rules.
-
----
-
-## Real-World Examples
-
-### Example 1: Build a login system for your Next.js app
-
-```
-/fdl-create login auth
-```
-> Claude asks: "Should accounts lock after failed attempts?" You say yes, 5 attempts, 15-minute lockout.
-
-```
-/fdl-generate login nextjs
-```
-> Claude asks: "Use mock data or Prisma?" You pick Prisma.
-> Claude generates 5 files: page, server action, business logic, types, form component.
-> Rate limiting, lockout, secure cookies, enumeration prevention — all built in.
-
-### Example 2: Turn a policy document into working software
-
-Your company has an expense approval policy in a PDF. It says:
-- Expenses over $25 need receipts
-- Managers approve first
-- Expenses over $1,000 need finance approval too
-- Must be processed within 30 days
-
-```
-/fdl-extract docs/expense-policy.pdf expense-approval workflow
-```
-> Claude reads the PDF, extracts all the rules, shows you what it found.
-> You confirm, and it creates a blueprint with actors, state machine, SLAs, and all the business rules.
-
-```
-/fdl-generate expense-approval nextjs
-```
-> Now you have a working expense approval system with the exact rules from the PDF.
-
-### Example 3: Extract an API integration from a documentation website
-
-You need to integrate with a payment platform. The API docs are at a URL:
-
-```
-/fdl-extract-web https://docs.electrumsoftware.com/epc/public/epc-overview epc-payments integration
-```
-> Claude opens Chrome, maps all 12 sidebar pages, crawls each one.
-> It extracts: 6 inbound webhooks, 4 outbound API calls, JWT security requirements, CDV account validation, PayShap proxy resolution, and transaction lifecycle states.
-> You confirm, and it creates a blueprint with every API operation as an outcome.
-
-```
-/fdl-generate epc-payments express
-```
-> Now you have a complete integration layer with webhook handlers, API client, JWT signing, and error handling.
-
-### Example 4: Reverse-engineer an existing codebase into a blueprint
-
-You have a working Express app with authentication already implemented. You want to capture the exact business rules as a blueprint — then regenerate for a different framework:
-
-```
-/fdl-extract-code ./src/auth login auth
-```
-> Claude reads your models, routes, middleware, validators, and tests.
-> It finds: 8 fields from Prisma schema, rate limiting from middleware (5 attempts / 15 min), JWT token config from constants, 12 test cases as acceptance criteria.
-> You confirm, and it creates a blueprint with every rule traced back to its source file.
-
-```
-/fdl-generate login nextjs
-```
-> Now you have the same exact business rules implemented in Next.js — nothing lost in translation.
-
-### Example 5: Build a complete auth system
-
-```
-/fdl-create login auth
-/fdl-create signup auth
-/fdl-create password-reset auth
-/fdl-generate login nextjs
-/fdl-generate signup nextjs
-/fdl-generate password-reset nextjs
-```
-
-Six commands. Complete authentication system with login, registration, password reset, email verification hooks, rate limiting, account lockout, and secure session management.
-
-### Example 6: Extract an entire CMS from its codebase
-
-Payload CMS is a production headless CMS with auth, CRUD, uploads, versioning, access control, job queues, and more. Extract all of it into blueprints, then use those patterns to build your own:
-
-```
-/fdl-extract-code https://github.com/payloadcms/payload.git
-```
-> Claude clones the repo, analyzes 200+ source files across 9 feature areas.
-> It finds: JWT + API key auth, full CRUD with lifecycle hooks, image processing pipeline, draft/publish workflow, function-based access control, job queue with retry and concurrency, document locking, and user preferences.
-> You choose which features to extract — it generates 9 blueprints with cross-references.
-
-Now use those patterns to build something entirely different:
-
-```
-/fdl-generate payload-collections express
-```
-> Generates a full CRUD API with lifecycle hooks, pagination, query filtering, and bulk operations — using the same architectural patterns as Payload, but for your Express app.
-
-```
-/fdl-generate payload-job-queue nextjs
-```
-> Generates a job queue system with task definitions, retry with exponential backoff, concurrency control, and cron scheduling — the same patterns Payload uses internally.
-
-The blueprints capture the *architecture*, not the CMS. You get a CRUD system with hooks, a job queue with retry logic, a draft/publish workflow — all usable independently in any framework.
-
-### Example 7: Selectively extract features from a visual editor to build your own
-
-You want to build a page builder but don't want to start from scratch. Extract the features you need from an existing open-source editor:
-
-```
-/fdl-extract-code-feature https://github.com/puckeditor/puck
-```
-> Claude clones the repo, scans 279 files, identifies 12 discrete features.
-> It presents a checkbox menu: "Which features do you want blueprints for?"
-> You select: drag-and-drop, component registry, undo/redo, content tree, viewport.
-> For each, it traces the code boundary, extracts the behavioral logic, and generalizes it away from React.
-> 5 portable blueprints created, all cross-referenced.
-
-Now generate the same features for a completely different stack:
-
-```
-/fdl-generate drag-drop-editor svelte
-/fdl-generate component-registry svelte
-/fdl-generate undo-redo svelte
-```
-> You get a SvelteKit page builder with the same architectural patterns as Puck — but in Svelte, not React. Nothing was copy-pasted. The blueprints describe *behavior*, and the code generator picks the right patterns for each framework.
-
-### Example 8: Build a full POS + eCommerce mobile app with palm vein auth and bank-grade payments
-
-You want to build a mobile retail system: React Native frontend, MongoDB backend, palm vein biometric authentication, and Electrum Clearing House Payments for real bank transactions. Here's how FDL gets you there — combining 8+ blueprints to generate a complete system:
-
-**Step 1: Generate the biometric auth layer**
-
-```
-/fdl-generate biometric-auth react-native
-/fdl-generate palm-vein react-native
-/fdl-generate login react-native
-```
-> Claude generates: palm vein enrollment screens (scan left/right hand), biometric login flow with password fallback, session management with JWT — all for React Native with MongoDB models.
-
-**Step 2: Generate the POS system**
-
-```
-/fdl-generate pos-core react-native
-/fdl-generate self-order-kiosk react-native
-/fdl-generate loyalty-coupons express
-```
-> Claude generates: POS session management, order creation with product lines and tax calculation, customer self-ordering via QR code, loyalty points and coupon redemption — React Native screens + Express/MongoDB backend.
-
-**Step 3: Generate the eCommerce storefront**
-
-```
-/fdl-generate ecommerce-store react-native
-/fdl-generate product-configurator react-native
-/fdl-generate quotation-order-management express
-```
-> Claude generates: product catalog with category browsing and search, shopping cart with checkout flow, product variant selector, quotation-to-order lifecycle — all with MongoDB persistence.
-
-**Step 4: Generate the payment and accounting backbone**
-
-```
-/fdl-generate chp-inbound-payments express
-/fdl-generate chp-outbound-payments express
-/fdl-generate invoicing-payments express
-/fdl-generate tax-engine express
-/fdl-generate bank-reconciliation express
-```
-> Claude generates: Electrum CHP webhook receivers, outbound payment submission with idempotency, invoice lifecycle management, multi-rate tax computation, and bank statement reconciliation — all wired to MongoDB.
-
-**What you get:** A complete mobile retail platform where a customer scans their palm vein to authenticate, browses products on their phone, adds items to cart, applies loyalty rewards, checks out via Electrum bank payment, and gets an invoice — while the store manager runs the POS terminal with full session management, cash reconciliation, and accounting integration. 15+ blueprints, one cohesive system.
-
-**What you still do:** Connect the palm vein scanner SDK, configure your Electrum CHP credentials, style the React Native UI, and deploy.
-
-#### Using blueprints with ChatGPT, Copilot, or any other AI
-
-You don't need Claude Code or even this repo installed. Blueprints are plain YAML — any AI can read them directly from GitHub:
-
-**Option A: Paste a raw GitHub URL into ChatGPT**
-
-Open ChatGPT (or any AI chat) and paste:
-
-```
-Read this blueprint and generate a React Native + Express + MongoDB implementation:
-https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/pos-core.blueprint.yaml
-```
-
-ChatGPT will fetch the YAML, read the fields, rules, outcomes, and errors, and generate working code. Do the same for each blueprint you need.
-
-**Option B: Combine multiple blueprints in one prompt**
-
-```
-I'm building a mobile POS app with React Native and MongoDB.
-
-Read these blueprints and generate the full implementation:
-- https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/biometric-auth.blueprint.yaml
-- https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/pos-core.blueprint.yaml
-- https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/loyalty-coupons.blueprint.yaml
-- https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/invoicing-payments.blueprint.yaml
-
-Generate: models, API routes, React Native screens, and business logic.
-```
-
-**Option C: Copy-paste the YAML directly**
-
-If the AI can't fetch URLs, open the raw YAML file on GitHub, copy its contents, and paste it into the chat with your generation instructions.
-
-**No install, no clone, no CLI required.** The blueprints are the specification — any AI that can read YAML can generate from them.
-
----
-
-## Project Structure
-
-```
-claude-fdl/
-  schema/
-    blueprint.schema.yaml      # The rules that all blueprints must follow
-  blueprints/
-    auth/                      # Authentication blueprints
-    access/                    # Permissions and access control blueprints
-    data/                      # CRUD, storage, versioning, and data management blueprints
-    integration/               # External service and hardware integration blueprints
-    ui/                        # UI component systems and developer tooling blueprints
-    workflow/                  # Business process, job queue, and pipeline blueprints
-  scripts/
-    validate.js                # Validates blueprints are well-formed
-  .claude/
-    skills/
-      fdl-create/              # Create blueprints from conversation
-      fdl-extract/             # Extract blueprints from documents
-      fdl-extract-web/         # Extract blueprints from documentation websites
-      fdl-extract-code/        # Extract blueprints from existing codebases
-      fdl-extract-code-feature/ # Selectively extract features from large repos
-      fdl-generate/            # Generate code from blueprints
+/fdl-create login auth        # Create the spec
+/fdl-generate login nextjs    # Generate the code
 ```
 
 ---
 
-## Validation
+## Static API for AI Tools
 
-Check that all blueprints are valid:
+Every blueprint is available as JSON — no scraping needed:
 
-```bash
-# Validate everything
-node scripts/validate.js
-
-# Validate one blueprint
-node scripts/validate.js blueprints/auth/login.blueprint.yaml
-
-# Watch mode (re-validates on file changes)
-npm run validate:watch
+```
+GET /api/registry.json              — index of all 45 blueprints
+GET /api/blueprints/auth/login.json — complete blueprint as JSON
 ```
 
-The validator checks:
-- Blueprint structure matches the schema
-- All required sections are present
-- Naming conventions are followed
-- Related features point to blueprints that exist
-- Outcomes have the correct structure (given/then/result)
+Paste into ChatGPT: `https://theunsbarnardt.github.io/claude-fdl/api/blueprints/auth/login.json`
+
+[Browse the API registry](https://theunsbarnardt.github.io/claude-fdl/api/registry.json)
 
 ---
 
-## FAQ
+## What Else You Gain
 
-**Do I need to know YAML?**
-No. The `/fdl-create` and `/fdl-extract` commands handle everything through plain-language questions. You only see YAML if you choose to edit blueprints directly.
+Blueprints aren't just templates — they encode transferable architectural patterns:
 
-**Can I extract from an existing codebase?**
-Yes. `/fdl-extract-code` reads a local folder or clones a git repo, then analyzes models, routes, middleware, validators, services, error handling, events, and tests to reverse-engineer the implemented features into blueprints. Works with any tech stack — Express, Django, Rails, Spring, Laravel, FastAPI, Next.js, Go, Rust, .NET, and more. For large repos where you only want specific features, use `/fdl-extract-code-feature` — it scans the repo, presents a checkbox menu of discovered features, and extracts only the ones you select as portable, framework-agnostic blueprints.
-
-**Does this only work with Claude?**
-No. The blueprints are standard YAML files — any AI tool can read them. You can paste a blueprint into ChatGPT, Copilot, Gemini, or any other AI and ask it to generate code. The `/fdl-create`, `/fdl-extract`, `/fdl-extract-web`, `/fdl-extract-code`, `/fdl-extract-code-feature`, and `/fdl-generate` slash commands are Claude Code skills that make the experience smoother, but the blueprints themselves are AI-agnostic.
-
-**What languages and frameworks are supported?**
-All of them. Blueprints describe what the feature does, not how to build it. Any language, any framework: Next.js, Express, Laravel, Angular, React, Vue, C#/.NET, Rust, Python/Django, Go, Ruby on Rails, Flutter, Swift, and anything else. Some blueprints include optional `extensions` with hints for specific frameworks, but they're not required.
-
-**Can I use this for business processes, not just UI features?**
-Yes. Blueprints support actors (who does what), state machines (status lifecycles), SLAs (time limits), and approval chains. The expense-approval blueprint is a full example.
-
-**Can I extract rules from existing documents?**
-Yes. `/fdl-extract` reads PDFs, Word docs, text files, and even images of flowcharts. It extracts the rules and creates a blueprint, with references back to the source document.
-
-**Can I extract from a website or API docs?**
-Yes. `/fdl-extract-web` crawls documentation websites (even JS-rendered ones like Docusaurus, ReadMe, or Redocly) using Chrome. It discovers all navigation tabs (Documentation, API Reference, Security, etc.), searches for OpenAPI specs and Postman collections, reads every page, and extracts API operations, fields, rules, security architecture, and error codes into blueprints with source URL traceability.
-
-**How is this different from just asking AI to "build login"?**
-Without FDL, the AI guesses what "login" means. With FDL, there's a complete specification: 5 failed attempts = lockout, 15-minute duration, constant-time password comparison, generic error messages to prevent user enumeration, JWT with 15-minute access tokens. Nothing is left to chance. Every AI tool gets the same spec and produces consistent results.
+- **Auth Pack** — Rate limiting, token lifecycle, enumeration prevention
+- **Integration Pack** — Async callbacks, idempotency, hardware state machines
+- **UI Pack** — Registry architecture, MCP server integration, drag-and-drop
+- **CMS Pack** — Lifecycle hooks, row-level security, draft/publish workflows
+- **Visual Editor Pack** — Collision detection, undo/redo, plugin systems
+- **ERP Pack** — POS sessions, tax computation, bank reconciliation, automation rules
+- **Workflow Pack** — Approval chains, SLA enforcement, event-driven automation
 
 ---
 
-## Why This Matters for Next-Generation AI Models
+## Documentation
 
-FDL isn't just useful today — it becomes **dramatically more valuable** as AI models get more capable. Here's why.
+Full documentation at **[theunsbarnardt.github.io/claude-fdl](https://theunsbarnardt.github.io/claude-fdl/)**:
 
-### The Problem with "Build Me X"
-
-When you tell any current AI model to "build me a login system," it generates code based on patterns from its training data. The result is inconsistent — different models produce different security rules, different error handling, different edge cases. Every time you prompt, you roll the dice.
-
-Blueprints eliminate the dice roll. They give the model a **complete, unambiguous specification** — every field, every rule, every outcome, every error, every event. The model doesn't guess. It implements.
-
-### Better Models Need Better Specifications
-
-The trajectory of AI models is clear: each generation gets better at coding, reasoning, and multi-step execution. Claude Opus 4.6 can already read a blueprint and generate a full-stack implementation. But the next generation of models — like [Claude Mythos](https://fortune.com/2026/03/26/anthropic-says-testing-mythos-powerful-new-ai-model-after-data-leak-reveals-its-existence-step-change-in-capabilities/), which Anthropic describes as "a step change" in AI performance — will be able to do things current models can't:
-
-- **Autonomous multi-step execution** — Mythos [plans and executes sequences of actions on its own](https://www.mindstudio.ai/blog/what-is-claude-mythos-anthropic-most-powerful-model), moving across systems and making decisions without waiting for human input at each stage. A blueprint gives this kind of agent the **complete specification** it needs to work autonomously without going off-track.
-
-- **Multi-file code generation with planning** — Next-gen models show [dramatically higher scores on complex software engineering tasks](https://www.mindstudio.ai/blog/claude-mythos-vs-opus-4-6-capability-comparison) where the model needs to plan before writing. Blueprints are exactly this — a pre-planned specification that the model can execute with full context.
-
-- **Security-aware implementation** — Models like Mythos are [particularly strong at identifying vulnerabilities](https://siliconangle.com/2026/03/27/anthropic-launch-new-claude-mythos-model-advanced-reasoning-features/) and reasoning through security scenarios. FDL blueprints encode security rules explicitly (rate limiting, enumeration prevention, token hashing, CSRF protection) — giving security-aware models the exact constraints to enforce.
-
-### What This Means in Practice
-
-As models become more agentic and autonomous, the value of structured specifications increases exponentially:
-
-| Model capability | Without blueprints | With blueprints |
-|-----------------|-------------------|-----------------|
-| **Basic code generation** | Generates plausible code, misses edge cases | Generates correct code covering all specified scenarios |
-| **Multi-file projects** | Inconsistent patterns across files, forgets constraints | Consistent rules enforced across every file |
-| **Autonomous agents** | Drifts from intent, makes assumptions, invents requirements | Stays on-spec, implements exactly what's defined, nothing more |
-| **Cross-framework migration** | Re-prompts from scratch for each framework, loses rules | Same blueprint, different target — all rules preserved |
-| **Multi-model workflows** | Each model interprets differently, results diverge | Every model reads the same spec, results converge |
-
-### Blueprints as AI Infrastructure
-
-Think of FDL blueprints as **infrastructure for AI-powered development**:
-
-- **Today:** You use blueprints with Claude Code's slash commands to generate implementations. Works well.
-- **Near-term:** Agentic models consume blueprints autonomously — reading the spec, generating code, running tests, fixing failures, and shipping features with minimal human input. The blueprint is the agent's contract.
-- **Long-term:** Blueprints become the interface between humans and AI. You describe what you want in business terms. AI extracts it into a blueprint. Another AI (or the same one) generates the implementation. A third verifies it matches the spec. The blueprint is the shared language.
-
-The better the model, the more it benefits from precise specifications. A model that can plan, reason about security, and execute autonomously doesn't need less structure — it needs **better** structure so it can use its capabilities fully instead of wasting them on guessing requirements.
-
-**FDL is that structure.** Every blueprint you create today is an investment that gets more valuable with every model generation.
+- [The Six Commands](https://theunsbarnardt.github.io/claude-fdl/commands/) — detailed reference
+- [Blueprint Format](https://theunsbarnardt.github.io/claude-fdl/blueprint-format/) — what's inside a blueprint
+- [Blueprint Catalog](https://theunsbarnardt.github.io/claude-fdl/catalog/) — browse all 45 blueprints
+- [Combining Blueprints](https://theunsbarnardt.github.io/claude-fdl/combining/) — build complex systems
+- [Real-World Examples](https://theunsbarnardt.github.io/claude-fdl/examples/) — 8 walkthroughs
+- [Using with ChatGPT & Others](https://theunsbarnardt.github.io/claude-fdl/using-with-other-ai/) — no Claude required
+- [FAQ](https://theunsbarnardt.github.io/claude-fdl/faq/)
 
 ---
 

@@ -1,0 +1,519 @@
+{
+  "feature": "ecommerce-store",
+  "version": "1.0.0",
+  "description": "Full online storefront with product catalog, category browsing, attribute filtering, shopping cart, multi-step checkout, payment integration, wishlist, and pricelist support.\n",
+  "category": "ui",
+  "tags": [
+    "ecommerce",
+    "online-store",
+    "shopping-cart",
+    "checkout",
+    "wishlist",
+    "product-comparison"
+  ],
+  "actors": [
+    {
+      "id": "shopper",
+      "name": "Shopper",
+      "type": "human",
+      "description": "Browses products, adds to cart, completes checkout"
+    },
+    {
+      "id": "store_admin",
+      "name": "Store Administrator",
+      "type": "human",
+      "description": "Manages catalog, pricing, categories, and store settings"
+    },
+    {
+      "id": "system",
+      "name": "eCommerce Engine",
+      "type": "system",
+      "description": "Handles cart, pricing, checkout flow, visitor tracking"
+    }
+  ],
+  "fields": [
+    {
+      "name": "product_name",
+      "type": "text",
+      "label": "Product Name",
+      "required": true
+    },
+    {
+      "name": "product_description",
+      "type": "rich_text",
+      "label": "Product Description",
+      "required": false
+    },
+    {
+      "name": "product_price",
+      "type": "number",
+      "label": "Display Price",
+      "required": true
+    },
+    {
+      "name": "product_category",
+      "type": "text",
+      "label": "Product Category",
+      "required": false
+    },
+    {
+      "name": "product_attributes",
+      "type": "json",
+      "label": "Filterable Attributes",
+      "required": false
+    },
+    {
+      "name": "product_published",
+      "type": "boolean",
+      "label": "Published",
+      "required": true
+    },
+    {
+      "name": "product_images",
+      "type": "json",
+      "label": "Product Images",
+      "required": false
+    },
+    {
+      "name": "product_ribbon",
+      "type": "text",
+      "label": "Product Badge",
+      "required": false
+    },
+    {
+      "name": "cart_id",
+      "type": "text",
+      "label": "Cart ID",
+      "required": true
+    },
+    {
+      "name": "cart_lines",
+      "type": "json",
+      "label": "Cart Items",
+      "required": true
+    },
+    {
+      "name": "cart_quantity",
+      "type": "number",
+      "label": "Total Items",
+      "required": true
+    },
+    {
+      "name": "cart_total",
+      "type": "number",
+      "label": "Cart Total",
+      "required": true
+    },
+    {
+      "name": "delivery_amount",
+      "type": "number",
+      "label": "Delivery Cost",
+      "required": false
+    },
+    {
+      "name": "add_to_cart_action",
+      "type": "select",
+      "label": "After Add Action",
+      "required": false,
+      "options": [
+        {
+          "value": "stay",
+          "label": "Stay"
+        },
+        {
+          "value": "go_to_cart",
+          "label": "Go to Cart"
+        }
+      ]
+    },
+    {
+      "name": "billing_address",
+      "type": "json",
+      "label": "Billing Address",
+      "required": true
+    },
+    {
+      "name": "shipping_address",
+      "type": "json",
+      "label": "Shipping Address",
+      "required": false
+    },
+    {
+      "name": "payment_method",
+      "type": "text",
+      "label": "Payment Method",
+      "required": true
+    },
+    {
+      "name": "tax_display_mode",
+      "type": "select",
+      "label": "Tax Display",
+      "required": false,
+      "options": [
+        {
+          "value": "tax_excluded",
+          "label": "Tax Excluded"
+        },
+        {
+          "value": "tax_included",
+          "label": "Tax Included"
+        }
+      ]
+    },
+    {
+      "name": "pricelist_id",
+      "type": "text",
+      "label": "Active Pricelist",
+      "required": false
+    },
+    {
+      "name": "wishlist_items",
+      "type": "json",
+      "label": "Wishlist Products",
+      "required": false
+    },
+    {
+      "name": "visitor_id",
+      "type": "text",
+      "label": "Visitor ID",
+      "required": false
+    },
+    {
+      "name": "products_viewed",
+      "type": "json",
+      "label": "Viewed Products",
+      "required": false
+    }
+  ],
+  "states": {
+    "field": "checkout_stage",
+    "values": [
+      {
+        "name": "browsing",
+        "description": "Shopper is viewing the catalog",
+        "initial": true
+      },
+      {
+        "name": "cart",
+        "description": "Shopper is reviewing their cart"
+      },
+      {
+        "name": "address",
+        "description": "Shopper entering billing/shipping addresses"
+      },
+      {
+        "name": "payment",
+        "description": "Shopper selecting payment method"
+      },
+      {
+        "name": "confirmation",
+        "description": "Order placed and confirmed",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "browsing",
+        "to": "cart",
+        "actor": "shopper",
+        "description": "Shopper views cart or redirected after add-to-cart"
+      },
+      {
+        "from": "cart",
+        "to": "address",
+        "actor": "shopper",
+        "description": "Shopper proceeds to checkout",
+        "condition": "Cart must have at least one item"
+      },
+      {
+        "from": "address",
+        "to": "payment",
+        "actor": "shopper",
+        "description": "Addresses validated, proceed to payment selection"
+      },
+      {
+        "from": "payment",
+        "to": "confirmation",
+        "actor": "system",
+        "description": "Payment processed successfully, order confirmed"
+      }
+    ]
+  },
+  "rules": {
+    "session_or_partner_cart": {
+      "description": "Cart persists via browser session for anonymous users. When user logs in, session cart merges into their partner-linked cart.\n"
+    },
+    "pricelist_resolution_order": {
+      "description": "Pricelist resolved in order: customer-specific > geo-IP based > website default. Prices update throughout the store when pricelist changes.\n"
+    },
+    "fiscal_position_from_address": {
+      "description": "Tax computation adjusts based on the customer's billing/shipping address via fiscal position mapping.\n"
+    },
+    "wishlist_unique_per_customer": {
+      "description": "A product can appear only once per customer's wishlist. Duplicate adds are silently ignored.\n"
+    },
+    "wishlist_session_migration": {
+      "description": "Anonymous wishlist items (stored in session) are migrated to the customer's account on login. Session wishlists older than 5 weeks are garbage-collected.\n"
+    },
+    "product_must_be_published": {
+      "description": "Only published products with purchasable flag are shown in the storefront"
+    },
+    "express_checkout_single_page": {
+      "description": "Express checkout compresses address + payment into a single step for returning customers with saved addresses.\n"
+    },
+    "server_side_price_validation": {
+      "description": "All prices displayed on the frontend are revalidated server-side at checkout to prevent price manipulation.\n"
+    }
+  },
+  "outcomes": {
+    "product_added_to_cart": {
+      "priority": 1,
+      "given": [
+        "shopper clicks add-to-cart on a published product",
+        "product is in stock or available for backorder"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "cart_line",
+          "description": "Product added to cart with quantity and computed price"
+        },
+        {
+          "action": "set_field",
+          "target": "cart_quantity",
+          "description": "Total cart item count updated"
+        },
+        {
+          "action": "emit_event",
+          "event": "ecommerce.cart.item_added",
+          "payload": [
+            "cart_id",
+            "product_id",
+            "quantity",
+            "price"
+          ]
+        }
+      ],
+      "result": "Product appears in cart, total updated"
+    },
+    "checkout_completed": {
+      "priority": 2,
+      "given": [
+        "shopper has items in cart",
+        "billing address provided",
+        "payment method selected and processed successfully"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "checkout_stage",
+          "from": "payment",
+          "to": "confirmation"
+        },
+        {
+          "action": "emit_event",
+          "event": "ecommerce.order.placed",
+          "payload": [
+            "order_id",
+            "customer_id",
+            "amount_total",
+            "payment_method"
+          ]
+        }
+      ],
+      "result": "Order confirmed, confirmation page shown, confirmation email sent"
+    },
+    "wishlist_item_added": {
+      "priority": 3,
+      "given": [
+        "shopper clicks add-to-wishlist on a product",
+        "product is not already in their wishlist"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "wishlist_item",
+          "description": "Product saved to wishlist with current price snapshot"
+        },
+        {
+          "action": "emit_event",
+          "event": "ecommerce.wishlist.item_added",
+          "payload": [
+            "product_id",
+            "shopper_id"
+          ]
+        }
+      ],
+      "result": "Product saved to wishlist for later"
+    },
+    "products_compared": {
+      "priority": 4,
+      "given": [
+        "shopper selects two or more products for comparison"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "comparison_engine",
+          "description": "Attribute values grouped by category across selected products. Side-by-side comparison table generated.\n"
+        }
+      ],
+      "result": "Comparison table shows attribute differences across products"
+    },
+    "visitor_tracked": {
+      "priority": 5,
+      "given": [
+        "shopper views a product detail page"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "products_viewed",
+          "description": "Product added to visitor's viewed history"
+        }
+      ],
+      "result": "Product view recorded for analytics and recommendations"
+    },
+    "cart_empty_checkout_blocked": {
+      "priority": 1,
+      "error": "ECOMMERCE_EMPTY_CART",
+      "given": [
+        "shopper attempts to proceed to checkout",
+        "cart has zero items"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "ui",
+          "description": "Redirect back to shop with message"
+        }
+      ],
+      "result": "Checkout blocked until shopper adds items"
+    },
+    "payment_failed": {
+      "priority": 2,
+      "error": "ECOMMERCE_PAYMENT_FAILED",
+      "given": [
+        "payment processing returns an error"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "ui",
+          "description": "Payment error shown with option to retry or change method"
+        }
+      ],
+      "result": "Order not placed, shopper can retry"
+    }
+  },
+  "errors": [
+    {
+      "code": "ECOMMERCE_EMPTY_CART",
+      "message": "Your cart is empty. Add products before proceeding to checkout.",
+      "status": 400
+    },
+    {
+      "code": "ECOMMERCE_PAYMENT_FAILED",
+      "message": "Payment could not be processed. Please try again or use a different method.",
+      "status": 422
+    },
+    {
+      "code": "ECOMMERCE_PRODUCT_UNAVAILABLE",
+      "message": "One or more products in your cart are no longer available.",
+      "status": 400
+    },
+    {
+      "code": "ECOMMERCE_ADDRESS_INVALID",
+      "message": "Please provide a valid billing address to proceed.",
+      "status": 400
+    }
+  ],
+  "events": [
+    {
+      "name": "ecommerce.cart.item_added",
+      "description": "Product added to shopping cart",
+      "payload": [
+        "cart_id",
+        "product_id",
+        "quantity",
+        "price"
+      ]
+    },
+    {
+      "name": "ecommerce.cart.updated",
+      "description": "Cart quantities or items changed",
+      "payload": [
+        "cart_id",
+        "cart_total",
+        "cart_quantity"
+      ]
+    },
+    {
+      "name": "ecommerce.order.placed",
+      "description": "Order successfully placed after payment",
+      "payload": [
+        "order_id",
+        "customer_id",
+        "amount_total",
+        "payment_method"
+      ]
+    },
+    {
+      "name": "ecommerce.wishlist.item_added",
+      "description": "Product saved to wishlist",
+      "payload": [
+        "product_id",
+        "shopper_id"
+      ]
+    },
+    {
+      "name": "ecommerce.visitor.product_viewed",
+      "description": "Product detail page viewed by visitor",
+      "payload": [
+        "visitor_id",
+        "product_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "quotation-order-management",
+      "type": "required",
+      "reason": "The shopping cart is a draft sales order, confirmed at checkout"
+    },
+    {
+      "feature": "product-configurator",
+      "type": "optional",
+      "reason": "Configurable products use the attribute picker on product pages"
+    },
+    {
+      "feature": "loyalty-coupons",
+      "type": "optional",
+      "reason": "Promo codes and loyalty rewards applied during checkout"
+    },
+    {
+      "feature": "invoicing-payments",
+      "type": "required",
+      "reason": "Payment processing and invoice generation at checkout"
+    },
+    {
+      "feature": "tax-engine",
+      "type": "required",
+      "reason": "Product prices and cart totals computed with applicable taxes"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/odoo/odoo.git",
+      "project": "Odoo",
+      "tech_stack": "Python + JavaScript/OWL",
+      "files_traced": 50,
+      "entry_points": [
+        "addons/website_sale/controllers/main.py",
+        "addons/website_sale/models/sale_order.py",
+        "addons/website_sale_wishlist/models/product_wishlist.py",
+        "addons/website_sale_comparison/models/product_product.py"
+      ]
+    }
+  }
+}

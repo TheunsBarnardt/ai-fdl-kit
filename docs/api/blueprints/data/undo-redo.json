@@ -1,0 +1,334 @@
+{
+  "feature": "undo-redo",
+  "version": "1.0.0",
+  "description": "Linear history stack with debounced recording, forward-branch destruction, and keyboard shortcut navigation",
+  "category": "data",
+  "tags": [
+    "undo",
+    "redo",
+    "history",
+    "state-management",
+    "editor"
+  ],
+  "actors": [
+    {
+      "id": "user",
+      "name": "Editor User",
+      "type": "human",
+      "description": "Person performing actions in the editor that are recorded in history"
+    },
+    {
+      "id": "history_manager",
+      "name": "History Manager",
+      "type": "system",
+      "description": "System that records, navigates, and prunes the history stack"
+    }
+  ],
+  "fields": [
+    {
+      "name": "histories",
+      "type": "json",
+      "required": true,
+      "label": "History Stack"
+    },
+    {
+      "name": "history_index",
+      "type": "number",
+      "required": true,
+      "label": "Current Index",
+      "validation": [
+        {
+          "type": "required",
+          "message": "History index is required"
+        }
+      ]
+    },
+    {
+      "name": "has_past",
+      "type": "boolean",
+      "required": true,
+      "label": "Has Past (undo available)"
+    },
+    {
+      "name": "has_future",
+      "type": "boolean",
+      "required": true,
+      "label": "Has Future (redo available)"
+    }
+  ],
+  "rules": {
+    "recording": {
+      "debounce_ms": 250,
+      "excluded_actions": [
+        "register_zone",
+        "unregister_zone",
+        "set_data",
+        "set_ui"
+      ],
+      "snapshot_full_state": true
+    },
+    "navigation": {
+      "forward_branch_destruction": true,
+      "tidy_on_navigate": true
+    },
+    "stack": {
+      "no_max_size": true,
+      "unique_ids": true
+    },
+    "hotkeys": {
+      "undo": "Cmd+Z or Ctrl+Z",
+      "redo": "Cmd+Shift+Z or Ctrl+Shift+Z or Cmd+Y or Ctrl+Y"
+    }
+  },
+  "outcomes": {
+    "record_action": {
+      "priority": 1,
+      "given": [
+        "a state-changing action occurs (insert, move, delete, edit, etc.)",
+        "the action is not in the excluded list",
+        "debounce window of 250ms has elapsed since last recording"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "history_entry",
+          "description": "Snapshot current state with unique ID and append to history stack"
+        },
+        {
+          "action": "set_field",
+          "target": "history_index",
+          "description": "Move index to point to the new entry (end of stack)"
+        },
+        {
+          "action": "emit_event",
+          "event": "history.recorded",
+          "payload": [
+            "history_id",
+            "index",
+            "stack_size"
+          ]
+        }
+      ],
+      "result": "New state saved to history, undo becomes available"
+    },
+    "record_after_undo": {
+      "priority": 2,
+      "given": [
+        "user has undone to a past state (index < stack length - 1)",
+        "a new state-changing action occurs"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "histories",
+          "description": "Discard all entries after current index, append new entry"
+        },
+        {
+          "action": "set_field",
+          "target": "history_index",
+          "description": "Move index to the new end of stack"
+        },
+        {
+          "action": "emit_event",
+          "event": "history.branch_destroyed",
+          "payload": [
+            "discarded_count",
+            "new_stack_size"
+          ]
+        }
+      ],
+      "result": "Future history discarded, new timeline established"
+    },
+    "undo": {
+      "priority": 3,
+      "given": [
+        "user triggers undo (hotkey or UI button)",
+        "has_past is true (index > 0)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "history_index",
+          "description": "Decrement index by 1"
+        },
+        {
+          "action": "set_field",
+          "target": "application_state",
+          "description": "Restore state from history entry at new index, clearing field focus"
+        },
+        {
+          "action": "emit_event",
+          "event": "history.undo",
+          "payload": [
+            "from_index",
+            "to_index"
+          ]
+        }
+      ],
+      "result": "Application reverts to previous state, redo becomes available"
+    },
+    "redo": {
+      "priority": 4,
+      "given": [
+        "user triggers redo (hotkey or UI button)",
+        "has_future is true (index < stack length - 1)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "history_index",
+          "description": "Increment index by 1"
+        },
+        {
+          "action": "set_field",
+          "target": "application_state",
+          "description": "Restore state from history entry at new index, clearing field focus"
+        },
+        {
+          "action": "emit_event",
+          "event": "history.redo",
+          "payload": [
+            "from_index",
+            "to_index"
+          ]
+        }
+      ],
+      "result": "Application advances to next state in history"
+    },
+    "undo_at_beginning": {
+      "priority": 5,
+      "error": "UNDO_UNAVAILABLE",
+      "given": [
+        "user triggers undo",
+        "has_past is false (index is 0)"
+      ],
+      "result": "No action taken, undo button remains disabled"
+    },
+    "redo_at_end": {
+      "priority": 6,
+      "error": "REDO_UNAVAILABLE",
+      "given": [
+        "user triggers redo",
+        "has_future is false (index is at end of stack)"
+      ],
+      "result": "No action taken, redo button remains disabled"
+    },
+    "load_history": {
+      "priority": 7,
+      "given": [
+        "external system provides a saved history stack"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "histories",
+          "description": "Replace entire history stack with provided entries"
+        },
+        {
+          "action": "set_field",
+          "target": "history_index",
+          "description": "Set index to last entry"
+        },
+        {
+          "action": "set_field",
+          "target": "application_state",
+          "description": "Restore state from the latest history entry"
+        },
+        {
+          "action": "emit_event",
+          "event": "history.loaded",
+          "payload": [
+            "stack_size",
+            "index"
+          ]
+        }
+      ],
+      "result": "History restored from external source, full undo/redo available"
+    }
+  },
+  "errors": [
+    {
+      "code": "UNDO_UNAVAILABLE",
+      "status": 400,
+      "message": "Nothing to undo"
+    },
+    {
+      "code": "REDO_UNAVAILABLE",
+      "status": 400,
+      "message": "Nothing to redo"
+    }
+  ],
+  "events": [
+    {
+      "name": "history.recorded",
+      "description": "A new state snapshot was added to the history stack",
+      "payload": [
+        "history_id",
+        "index",
+        "stack_size"
+      ]
+    },
+    {
+      "name": "history.undo",
+      "description": "User navigated backward in history",
+      "payload": [
+        "from_index",
+        "to_index"
+      ]
+    },
+    {
+      "name": "history.redo",
+      "description": "User navigated forward in history",
+      "payload": [
+        "from_index",
+        "to_index"
+      ]
+    },
+    {
+      "name": "history.branch_destroyed",
+      "description": "Future history was discarded after a new action during undo state",
+      "payload": [
+        "discarded_count",
+        "new_stack_size"
+      ]
+    },
+    {
+      "name": "history.loaded",
+      "description": "History stack was loaded from an external source",
+      "payload": [
+        "stack_size",
+        "index"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "editor-state",
+      "type": "required",
+      "reason": "History records and restores the centralized editor state"
+    },
+    {
+      "feature": "drag-drop-editor",
+      "type": "recommended",
+      "reason": "Drag operations should be recorded in history for undo support"
+    },
+    {
+      "feature": "component-registry",
+      "type": "recommended",
+      "reason": "Component insert/edit/delete operations create history entries"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/puckeditor/puck",
+      "project": "Puck Editor",
+      "tech_stack": "TypeScript + React",
+      "files_traced": 12,
+      "entry_points": [
+        "store/slices/history.ts",
+        "lib/use-hotkey.ts",
+        "components/MenuBar/index.tsx"
+      ]
+    }
+  }
+}

@@ -1,0 +1,340 @@
+{
+  "feature": "plugin-overrides",
+  "version": "1.0.0",
+  "description": "Extensible plugin architecture with 12 UI override points, wrapping composition, field type customization, and sidebar panels",
+  "category": "integration",
+  "tags": [
+    "plugin",
+    "override",
+    "extensibility",
+    "customization",
+    "editor-plugins"
+  ],
+  "actors": [
+    {
+      "id": "plugin_author",
+      "name": "Plugin Author",
+      "type": "human",
+      "description": "Developer who creates plugins to extend editor behavior"
+    },
+    {
+      "id": "plugin_loader",
+      "name": "Plugin Loader",
+      "type": "system",
+      "description": "System that merges and composes plugin overrides at initialization"
+    },
+    {
+      "id": "editor_user",
+      "name": "Editor User",
+      "type": "human",
+      "description": "Person using the editor with plugins active"
+    }
+  ],
+  "fields": [
+    {
+      "name": "plugin_name",
+      "type": "text",
+      "required": false,
+      "label": "Plugin Name"
+    },
+    {
+      "name": "plugin_label",
+      "type": "text",
+      "required": false,
+      "label": "Plugin Label"
+    },
+    {
+      "name": "plugin_icon",
+      "type": "text",
+      "required": false,
+      "label": "Plugin Icon"
+    },
+    {
+      "name": "overrides",
+      "type": "json",
+      "required": false,
+      "label": "Override Definitions"
+    },
+    {
+      "name": "field_transforms",
+      "type": "json",
+      "required": false,
+      "label": "Field Transforms"
+    },
+    {
+      "name": "mobile_panel_height",
+      "type": "select",
+      "required": false,
+      "label": "Mobile Panel Height",
+      "options": [
+        {
+          "label": "Toggle",
+          "value": "toggle"
+        },
+        {
+          "label": "Min Content",
+          "value": "min-content"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "override_points": {
+      "available_overrides": [
+        "header",
+        "header_actions",
+        "preview",
+        "puck",
+        "fields",
+        "field_label",
+        "field_types",
+        "outline",
+        "drawer",
+        "drawer_item",
+        "component_overlay",
+        "iframe",
+        "action_bar"
+      ],
+      "total_count": 13
+    },
+    "override_composition": {
+      "wrapping_pattern": true,
+      "array_order": true,
+      "children_passthrough_required": true,
+      "immutable_plugins": true
+    },
+    "field_type_overrides": {
+      "per_type": true,
+      "same_wrapping_pattern": true
+    },
+    "built_in_plugins": {
+      "blocks_plugin": true,
+      "fields_plugin": true,
+      "outline_plugin": true,
+      "legacy_sidebar_plugin": true
+    },
+    "plugin_structure": {
+      "render_function": true,
+      "overrides_map": true,
+      "field_transforms_map": true,
+      "name_and_label": true,
+      "icon": true
+    },
+    "override_data_shapes": {
+      "header_receives": [
+        "actions",
+        "children"
+      ],
+      "header_actions_receives": [
+        "children"
+      ],
+      "fields_receives": [
+        "children",
+        "is_loading",
+        "item_selector"
+      ],
+      "field_label_receives": [
+        "children",
+        "icon",
+        "label",
+        "element_type",
+        "read_only"
+      ],
+      "component_overlay_receives": [
+        "children",
+        "hover",
+        "is_selected",
+        "component_id",
+        "component_type"
+      ],
+      "iframe_receives": [
+        "children",
+        "document"
+      ],
+      "action_bar_receives": [
+        "label",
+        "children",
+        "parent_action"
+      ],
+      "drawer_item_receives": [
+        "children",
+        "name"
+      ]
+    },
+    "default_fallback": {
+      "passthrough_default": true
+    }
+  },
+  "outcomes": {
+    "load_plugins": {
+      "priority": 1,
+      "given": [
+        "editor initializes with a plugins array"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "plugin_loader",
+          "description": "Iterate through plugins array, collect overrides from each"
+        },
+        {
+          "action": "call_service",
+          "target": "override_composer",
+          "description": "For each override point, compose a chain: plugin1(plugin2(plugin3(default)))"
+        },
+        {
+          "action": "set_field",
+          "target": "loaded_overrides",
+          "description": "Store the composed override functions for use by all editor components"
+        },
+        {
+          "action": "emit_event",
+          "event": "plugin.loaded",
+          "payload": [
+            "plugin_count",
+            "override_count"
+          ]
+        }
+      ],
+      "result": "All plugin overrides composed and ready for rendering"
+    },
+    "render_with_override": {
+      "priority": 2,
+      "given": [
+        "an editor component renders at an override point",
+        "one or more plugins have overrides for this point"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "loaded_overrides",
+          "description": "Call the composed override function with the override point's props and default children"
+        }
+      ],
+      "result": "Plugin-customized UI renders in place of or wrapping the default"
+    },
+    "render_custom_field_type": {
+      "priority": 3,
+      "given": [
+        "a component field has a specific type (e.g., text, select)",
+        "a plugin overrides that field type's rendering"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "field_type_override",
+          "description": "Call the composed field type override with field props, value, onChange, and default children"
+        }
+      ],
+      "result": "Custom field editor renders for this field type"
+    },
+    "render_plugin_panel": {
+      "priority": 4,
+      "given": [
+        "a plugin defines a render function and a label"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "plugin_panel_renderer",
+          "description": "Render plugin's panel in the sidebar with its icon and label as a tab"
+        }
+      ],
+      "result": "Plugin panel appears as a sidebar tab that users can switch to"
+    },
+    "apply_field_transforms": {
+      "priority": 5,
+      "given": [
+        "a plugin defines field transform functions"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "transform_merger",
+          "description": "Merge plugin's field transforms with existing transforms (plugin transforms override defaults)"
+        }
+      ],
+      "result": "Custom data transformation applied during field resolution"
+    },
+    "override_passthrough": {
+      "priority": 6,
+      "given": [
+        "no plugin provides an override for a specific point"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "default_override",
+          "description": "Render default passthrough component that simply renders children"
+        }
+      ],
+      "result": "Default editor UI renders unchanged"
+    }
+  },
+  "errors": [
+    {
+      "code": "PLUGIN_LOAD_FAILED",
+      "status": 500,
+      "message": "Failed to load plugin"
+    },
+    {
+      "code": "OVERRIDE_RENDER_FAILED",
+      "status": 500,
+      "message": "Plugin override failed to render"
+    },
+    {
+      "code": "CHILDREN_NOT_PASSED",
+      "status": 500,
+      "message": "Plugin override must pass children to maintain the composition chain"
+    }
+  ],
+  "events": [
+    {
+      "name": "plugin.loaded",
+      "description": "Plugins were loaded and overrides composed",
+      "payload": [
+        "plugin_count",
+        "override_count"
+      ]
+    },
+    {
+      "name": "plugin.panel.activated",
+      "description": "User switched to a plugin's sidebar panel",
+      "payload": [
+        "plugin_name"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "component-registry",
+      "type": "required",
+      "reason": "Plugins can customize component rendering and field editing"
+    },
+    {
+      "feature": "field-transforms",
+      "type": "recommended",
+      "reason": "Plugins can provide custom field transform functions"
+    },
+    {
+      "feature": "editor-state",
+      "type": "required",
+      "reason": "Plugin state and loaded overrides stored in the central store"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/puckeditor/puck",
+      "project": "Puck Editor",
+      "tech_stack": "TypeScript + React",
+      "files_traced": 25,
+      "entry_points": [
+        "types/API/Overrides.ts",
+        "lib/load-overrides.ts",
+        "lib/use-loaded-overrides.ts",
+        "plugins/",
+        "types/API/index.ts"
+      ]
+    }
+  }
+}

@@ -1,0 +1,423 @@
+{
+  "feature": "responsive-viewport",
+  "version": "1.0.0",
+  "description": "Multi-viewport responsive preview with auto-zoom, manual zoom controls, and iframe-based isolated rendering",
+  "category": "ui",
+  "tags": [
+    "viewport",
+    "responsive",
+    "preview",
+    "zoom",
+    "iframe",
+    "responsive-design"
+  ],
+  "actors": [
+    {
+      "id": "editor_user",
+      "name": "Editor User",
+      "type": "human",
+      "description": "Person previewing content at different viewport sizes"
+    },
+    {
+      "id": "zoom_engine",
+      "name": "Zoom Engine",
+      "type": "system",
+      "description": "System that calculates and applies zoom scaling"
+    },
+    {
+      "id": "style_sync",
+      "name": "Style Synchronizer",
+      "type": "system",
+      "description": "System that mirrors parent document styles into the preview iframe"
+    }
+  ],
+  "fields": [
+    {
+      "name": "viewport_width",
+      "type": "number",
+      "required": true,
+      "label": "Viewport Width"
+    },
+    {
+      "name": "viewport_height",
+      "type": "number",
+      "required": false,
+      "label": "Viewport Height"
+    },
+    {
+      "name": "viewport_label",
+      "type": "text",
+      "required": false,
+      "label": "Viewport Label"
+    },
+    {
+      "name": "viewport_icon",
+      "type": "text",
+      "required": false,
+      "label": "Viewport Icon"
+    },
+    {
+      "name": "zoom_level",
+      "type": "number",
+      "required": true,
+      "label": "Current Zoom",
+      "validation": [
+        {
+          "type": "required",
+          "message": "Zoom level is required"
+        }
+      ]
+    },
+    {
+      "name": "auto_zoom",
+      "type": "number",
+      "required": true,
+      "label": "Auto Zoom"
+    },
+    {
+      "name": "root_height",
+      "type": "number",
+      "required": false,
+      "label": "Root Height"
+    },
+    {
+      "name": "controls_visible",
+      "type": "boolean",
+      "required": true,
+      "label": "Controls Visible",
+      "default": true
+    },
+    {
+      "name": "iframe_enabled",
+      "type": "boolean",
+      "required": true,
+      "label": "Iframe Enabled",
+      "default": true
+    },
+    {
+      "name": "wait_for_styles",
+      "type": "boolean",
+      "required": true,
+      "label": "Wait for Styles",
+      "default": true
+    }
+  ],
+  "rules": {
+    "default_viewports": {
+      "presets": [
+        {
+          "width": 360,
+          "height": "auto",
+          "icon": "Smartphone",
+          "label": "Small"
+        },
+        {
+          "width": 768,
+          "height": "auto",
+          "icon": "Tablet",
+          "label": "Medium"
+        },
+        {
+          "width": 1280,
+          "height": "auto",
+          "icon": "Monitor",
+          "label": "Large"
+        },
+        {
+          "width": "100%",
+          "height": "auto",
+          "icon": "FullWidth",
+          "label": "Full-width"
+        }
+      ]
+    },
+    "zoom": {
+      "min_zoom": 0.25,
+      "max_zoom": 2,
+      "presets": [
+        0.25,
+        0.5,
+        0.75,
+        1,
+        1.25,
+        1.5,
+        2
+      ],
+      "auto_zoom_max": 1,
+      "zoom_capped_at_auto": true
+    },
+    "auto_zoom_algorithm": {
+      "fit_to_container": true,
+      "use_more_aggressive_scale": true,
+      "accounts_for_height": true
+    },
+    "auto_zoom_triggers": [
+      "sidebar_toggle",
+      "sidebar_resize",
+      "viewport_change",
+      "window_resize",
+      "first_load",
+      "zoom_change",
+      "content_height_change"
+    ],
+    "iframe_rendering": {
+      "style_synchronization": true,
+      "mutation_observer": true,
+      "async_stylesheet_loading": true,
+      "isolated_document": true,
+      "custom_frame_wrapper": true
+    },
+    "animation": {
+      "viewport_transition_ms": 150,
+      "transition_easing": "ease-out"
+    }
+  },
+  "outcomes": {
+    "switch_viewport": {
+      "priority": 1,
+      "given": [
+        "user clicks a viewport preset button"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "viewport_width",
+          "description": "Update current viewport width to preset value"
+        },
+        {
+          "action": "set_field",
+          "target": "viewport_height",
+          "description": "Update current viewport height (usually 'auto')"
+        },
+        {
+          "action": "call_service",
+          "target": "zoom_engine",
+          "description": "Recalculate auto-zoom for new viewport dimensions"
+        },
+        {
+          "action": "emit_event",
+          "event": "viewport.changed",
+          "payload": [
+            "width",
+            "height",
+            "label"
+          ]
+        }
+      ],
+      "result": "Preview resizes to new viewport with smooth transition"
+    },
+    "change_zoom": {
+      "priority": 2,
+      "given": [
+        "user selects a zoom level from dropdown or clicks +/- buttons",
+        "selected zoom is within range and does not exceed auto-zoom"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "zoom_level",
+          "description": "Update zoom to selected value"
+        },
+        {
+          "action": "call_service",
+          "target": "zoom_engine",
+          "description": "Recalculate root height for new zoom level"
+        },
+        {
+          "action": "emit_event",
+          "event": "viewport.zoom.changed",
+          "payload": [
+            "zoom_level",
+            "auto_zoom"
+          ]
+        }
+      ],
+      "result": "Preview scales to new zoom level with smooth transition"
+    },
+    "auto_zoom_recalculate": {
+      "priority": 3,
+      "given": [
+        "an auto-zoom trigger fires (sidebar toggle, window resize, etc.)"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "zoom_engine",
+          "description": "Compare viewport dimensions to container, compute scale factor using more aggressive of width/height ratios"
+        },
+        {
+          "action": "set_field",
+          "target": "auto_zoom",
+          "description": "Update auto-zoom value (0 to 1.0)"
+        },
+        {
+          "action": "set_field",
+          "target": "root_height",
+          "description": "Update calculated container height"
+        }
+      ],
+      "result": "Preview automatically scales to fit available space"
+    },
+    "first_load_viewport_selection": {
+      "priority": 4,
+      "given": [
+        "editor loads for the first time"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "viewport_selector",
+          "description": "Select the viewport preset closest to the current window dimensions"
+        },
+        {
+          "action": "call_service",
+          "target": "zoom_engine",
+          "description": "Calculate initial auto-zoom"
+        }
+      ],
+      "result": "Editor starts with the most appropriate viewport for the current screen"
+    },
+    "render_in_iframe": {
+      "priority": 5,
+      "given": [
+        "iframe rendering is enabled"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "iframe_creator",
+          "description": "Create iframe with empty HTML document containing a root container"
+        },
+        {
+          "action": "call_service",
+          "target": "style_sync",
+          "description": "Copy all parent document styles and stylesheets into iframe head"
+        },
+        {
+          "action": "call_service",
+          "target": "mutation_observer",
+          "description": "Watch parent styles for changes and sync to iframe automatically"
+        },
+        {
+          "action": "emit_event",
+          "event": "viewport.iframe.ready",
+          "payload": [
+            "iframe_document"
+          ]
+        }
+      ],
+      "result": "Preview content renders in isolated iframe with synced styles"
+    },
+    "render_without_iframe": {
+      "priority": 6,
+      "given": [
+        "iframe rendering is disabled"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "viewport_width",
+          "description": "Set to 100% (full container width)"
+        },
+        {
+          "action": "set_field",
+          "target": "zoom_level",
+          "description": "Set to 1.0 (no zoom)"
+        }
+      ],
+      "result": "Preview content renders directly in the editor DOM without isolation"
+    },
+    "style_sync_update": {
+      "priority": 7,
+      "given": [
+        "a stylesheet changes in the parent document",
+        "iframe rendering is active"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "style_sync",
+          "description": "Detect mutation via observer, update corresponding style in iframe head"
+        }
+      ],
+      "result": "Iframe preview reflects latest parent styles without reload"
+    }
+  },
+  "errors": [
+    {
+      "code": "IFRAME_LOAD_FAILED",
+      "status": 500,
+      "message": "Preview iframe failed to initialize"
+    },
+    {
+      "code": "STYLE_SYNC_FAILED",
+      "status": 500,
+      "message": "Failed to synchronize styles to preview"
+    },
+    {
+      "code": "ZOOM_OUT_OF_RANGE",
+      "status": 400,
+      "message": "Zoom level must be between 25% and 200%"
+    }
+  ],
+  "events": [
+    {
+      "name": "viewport.changed",
+      "description": "Viewport preset was switched",
+      "payload": [
+        "width",
+        "height",
+        "label"
+      ]
+    },
+    {
+      "name": "viewport.zoom.changed",
+      "description": "Zoom level was changed",
+      "payload": [
+        "zoom_level",
+        "auto_zoom"
+      ]
+    },
+    {
+      "name": "viewport.iframe.ready",
+      "description": "Iframe preview is fully loaded with synced styles",
+      "payload": [
+        "iframe_document"
+      ]
+    },
+    {
+      "name": "viewport.auto_zoom.recalculated",
+      "description": "Auto-zoom was recalculated due to a trigger event",
+      "payload": [
+        "auto_zoom",
+        "trigger"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "editor-state",
+      "type": "required",
+      "reason": "Viewport state and zoom config stored in centralized state"
+    },
+    {
+      "feature": "plugin-overrides",
+      "type": "optional",
+      "reason": "The iframe override point allows plugins to customize the preview frame"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/puckeditor/puck",
+      "project": "Puck Editor",
+      "tech_stack": "TypeScript + React",
+      "files_traced": 8,
+      "entry_points": [
+        "components/ViewportControls/",
+        "lib/get-zoom-config.ts",
+        "lib/use-reset-auto-zoom.ts",
+        "components/AutoFrame/"
+      ]
+    }
+  }
+}

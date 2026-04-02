@@ -1,0 +1,207 @@
+{
+  "feature": "payload-preferences",
+  "version": "1.0.0",
+  "description": "Per-user preferences storage for admin UI state including collapsed fields, tab positions, column visibility, sort order, and list view settings",
+  "category": "data",
+  "tags": [
+    "cms",
+    "preferences",
+    "user-settings",
+    "ui-state",
+    "personalization",
+    "admin-panel",
+    "payload"
+  ],
+  "actors": [
+    {
+      "id": "admin_user",
+      "name": "Admin User",
+      "type": "human",
+      "description": "Authenticated user whose UI preferences are stored"
+    },
+    {
+      "id": "admin_panel",
+      "name": "Admin Panel",
+      "type": "system",
+      "description": "Payload admin UI that reads and writes preferences"
+    }
+  ],
+  "fields": [
+    {
+      "name": "user",
+      "type": "json",
+      "required": true,
+      "label": "Preference Owner"
+    },
+    {
+      "name": "key",
+      "type": "text",
+      "required": true,
+      "label": "Preference Key"
+    },
+    {
+      "name": "value",
+      "type": "json",
+      "required": true,
+      "label": "Preference Value"
+    }
+  ],
+  "rules": {
+    "data": {
+      "key_value_storage": true,
+      "composite_key": "user + key",
+      "preference_types": {
+        "collapsed_fields": "string array of collapsed field paths",
+        "tab_indices": "array of {path: tabIndex} objects",
+        "field_state": "{collapsed: string[], tabIndex: number} per field",
+        "document_preferences": "{fields: {[key]: fieldState}}",
+        "column_preferences": "[{accessor, active}] for list view columns",
+        "collection_preferences": {
+          "columns": "column visibility and order",
+          "edit_view_type": "'default' | 'live-preview'",
+          "group_by": "field to group list by",
+          "limit": "items per page",
+          "list_view_type": "'folders' | 'list'",
+          "preset": "saved query preset ID",
+          "sort": "sort field"
+        }
+      }
+    },
+    "access": {
+      "per_user_isolation": true,
+      "hidden_from_admin": true
+    }
+  },
+  "outcomes": {
+    "get_preference": {
+      "priority": 10,
+      "given": [
+        "user is authenticated",
+        {
+          "field": "key",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        "query filtered to current user's preferences only"
+      ],
+      "result": "Preference value returned for the given key, or null if not set"
+    },
+    "set_preference": {
+      "priority": 10,
+      "given": [
+        "user is authenticated",
+        {
+          "field": "key",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "value",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        "user field auto-set from req.user via beforeValidate hook",
+        {
+          "action": "set_field",
+          "target": "value",
+          "value": "provided JSON value",
+          "description": "Upsert preference — create or update"
+        }
+      ],
+      "result": "Preference saved for the current user"
+    },
+    "delete_preference": {
+      "priority": 10,
+      "given": [
+        "user is authenticated",
+        {
+          "field": "key",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "target": "preference entry",
+          "description": "Remove preference for current user and key"
+        }
+      ],
+      "result": "Preference deleted"
+    },
+    "preference_isolation": {
+      "priority": 1,
+      "given": [
+        "user attempts to access another user's preferences"
+      ],
+      "result": "Empty result returned — access silently denied through WHERE clause filtering"
+    }
+  },
+  "errors": [
+    {
+      "code": "PREFERENCE_VALIDATION_ERROR",
+      "status": 400,
+      "message": "The preference value did not pass validation",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "preference.updated",
+      "payload": [
+        "user_id",
+        "key",
+        "timestamp"
+      ],
+      "description": "Emitted when a user preference is created or updated"
+    }
+  ],
+  "related": [
+    {
+      "feature": "payload-auth",
+      "type": "required",
+      "reason": "Preferences are per-user — requires authentication to identify the user"
+    },
+    {
+      "feature": "payload-collections",
+      "type": "required",
+      "reason": "Preferences stored in the auto-created payload-preferences collection"
+    }
+  ],
+  "extensions": {
+    "tech_stack": {
+      "language": "TypeScript",
+      "framework": "Payload CMS 3.x",
+      "database": "Multi-adapter (MongoDB, PostgreSQL, SQLite, D1)"
+    },
+    "rest_endpoints": [
+      {
+        "method": "GET",
+        "path": "/api/_preferences/:key",
+        "operation": "findOne"
+      },
+      {
+        "method": "POST",
+        "path": "/api/_preferences/:key",
+        "operation": "update"
+      },
+      {
+        "method": "DELETE",
+        "path": "/api/_preferences/:key",
+        "operation": "delete"
+      }
+    ],
+    "auto_created_entities": [
+      {
+        "name": "payload-preferences",
+        "type": "collection",
+        "description": "Hidden system collection storing per-user preferences",
+        "hidden": true
+      }
+    ]
+  }
+}

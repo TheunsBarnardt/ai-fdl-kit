@@ -1,0 +1,568 @@
+{
+  "feature": "invoicing-payments",
+  "version": "1.0.0",
+  "description": "Invoicing and payment lifecycle: customer invoices, vendor bills, credit notes, receipts, payment registration, multi-currency, and follow-up.\n",
+  "category": "payment",
+  "tags": [
+    "invoicing",
+    "payments",
+    "billing",
+    "credit-notes",
+    "multi-currency",
+    "accounting"
+  ],
+  "actors": [
+    {
+      "id": "accountant",
+      "name": "Accountant",
+      "type": "human",
+      "description": "Creates, validates, and posts invoices; registers payments"
+    },
+    {
+      "id": "customer",
+      "name": "Customer",
+      "type": "human",
+      "description": "Receives invoices, makes payments via portal or bank transfer"
+    },
+    {
+      "id": "vendor",
+      "name": "Vendor",
+      "type": "human",
+      "description": "Sends bills that are recorded and paid"
+    },
+    {
+      "id": "system",
+      "name": "Accounting System",
+      "type": "system",
+      "description": "Computes balances, reconciles payments, tracks due dates"
+    }
+  ],
+  "fields": [
+    {
+      "name": "move_type",
+      "type": "select",
+      "label": "Document Type",
+      "required": true,
+      "options": [
+        {
+          "value": "entry",
+          "label": "Entry"
+        },
+        {
+          "value": "out_invoice",
+          "label": "Out Invoice"
+        },
+        {
+          "value": "out_refund",
+          "label": "Out Refund"
+        },
+        {
+          "value": "in_invoice",
+          "label": "In Invoice"
+        },
+        {
+          "value": "in_refund",
+          "label": "In Refund"
+        },
+        {
+          "value": "out_receipt",
+          "label": "Out Receipt"
+        },
+        {
+          "value": "in_receipt",
+          "label": "In Receipt"
+        }
+      ]
+    },
+    {
+      "name": "invoice_state",
+      "type": "select",
+      "label": "State",
+      "required": true,
+      "options": [
+        {
+          "value": "draft",
+          "label": "Draft"
+        },
+        {
+          "value": "posted",
+          "label": "Posted"
+        },
+        {
+          "value": "cancel",
+          "label": "Cancel"
+        }
+      ]
+    },
+    {
+      "name": "payment_state",
+      "type": "select",
+      "label": "Payment State",
+      "required": true,
+      "options": [
+        {
+          "value": "not_paid",
+          "label": "Not Paid"
+        },
+        {
+          "value": "in_payment",
+          "label": "In Payment"
+        },
+        {
+          "value": "paid",
+          "label": "Paid"
+        },
+        {
+          "value": "partial",
+          "label": "Partial"
+        },
+        {
+          "value": "reversed",
+          "label": "Reversed"
+        },
+        {
+          "value": "blocked",
+          "label": "Blocked"
+        }
+      ]
+    },
+    {
+      "name": "partner_id",
+      "type": "text",
+      "label": "Customer/Vendor",
+      "required": true
+    },
+    {
+      "name": "invoice_date",
+      "type": "date",
+      "label": "Invoice Date",
+      "required": true
+    },
+    {
+      "name": "invoice_date_due",
+      "type": "date",
+      "label": "Due Date",
+      "required": true
+    },
+    {
+      "name": "amount_untaxed",
+      "type": "number",
+      "label": "Untaxed Amount",
+      "required": true
+    },
+    {
+      "name": "amount_tax",
+      "type": "number",
+      "label": "Tax Amount",
+      "required": true
+    },
+    {
+      "name": "amount_total",
+      "type": "number",
+      "label": "Total Amount",
+      "required": true
+    },
+    {
+      "name": "amount_residual",
+      "type": "number",
+      "label": "Amount Due",
+      "required": true
+    },
+    {
+      "name": "currency_id",
+      "type": "text",
+      "label": "Currency",
+      "required": true
+    },
+    {
+      "name": "journal_id",
+      "type": "text",
+      "label": "Journal",
+      "required": true
+    },
+    {
+      "name": "payment_term_id",
+      "type": "text",
+      "label": "Payment Terms",
+      "required": false
+    },
+    {
+      "name": "fiscal_position_id",
+      "type": "text",
+      "label": "Fiscal Position",
+      "required": false
+    },
+    {
+      "name": "invoice_lines",
+      "type": "json",
+      "label": "Invoice Lines",
+      "required": true
+    },
+    {
+      "name": "payment_amount",
+      "type": "number",
+      "label": "Payment Amount",
+      "required": true
+    },
+    {
+      "name": "payment_method",
+      "type": "select",
+      "label": "Payment Method",
+      "required": true,
+      "options": [
+        {
+          "value": "manual",
+          "label": "Manual"
+        },
+        {
+          "value": "bank_transfer",
+          "label": "Bank Transfer"
+        },
+        {
+          "value": "check",
+          "label": "Check"
+        },
+        {
+          "value": "online",
+          "label": "Online"
+        }
+      ]
+    },
+    {
+      "name": "payment_reference",
+      "type": "text",
+      "label": "Payment Reference",
+      "required": false
+    }
+  ],
+  "states": {
+    "field": "invoice_state",
+    "values": [
+      {
+        "name": "draft",
+        "description": "Invoice being prepared, fully editable",
+        "initial": true
+      },
+      {
+        "name": "posted",
+        "description": "Invoice validated and posted to accounting"
+      },
+      {
+        "name": "cancel",
+        "description": "Invoice cancelled",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "draft",
+        "to": "posted",
+        "actor": "accountant",
+        "description": "Accountant validates and posts the invoice",
+        "condition": "All required fields populated, amounts balanced"
+      },
+      {
+        "from": "posted",
+        "to": "draft",
+        "actor": "accountant",
+        "description": "Reset to draft for corrections (clears attachments)",
+        "condition": "Must not be in a state requiring cancellation request"
+      },
+      {
+        "from": [
+          "draft",
+          "posted"
+        ],
+        "to": "cancel",
+        "actor": "accountant",
+        "description": "Cancel the invoice"
+      }
+    ]
+  },
+  "rules": {
+    "balanced_journal_entry": {
+      "description": "Total debits must equal total credits in every journal entry"
+    },
+    "draft_only_editable": {
+      "description": "Only draft invoices can be edited; posted invoices are locked"
+    },
+    "reset_clears_attachments": {
+      "description": "Resetting to draft removes generated PDFs and report attachments"
+    },
+    "payment_term_computes_due_date": {
+      "description": "Due date automatically calculated from invoice date and payment terms"
+    },
+    "fiscal_position_maps_taxes": {
+      "description": "Fiscal position automatically remaps tax lines based on customer jurisdiction"
+    },
+    "multi_currency_rate_at_date": {
+      "description": "Multi-currency invoices use the exchange rate at invoice date for conversion. Payment reconciliation computes exchange differences.\n"
+    },
+    "lock_date_prevents_posting": {
+      "description": "Cannot post entries dated before the company accounting lock date"
+    },
+    "sequence_numbering": {
+      "description": "Posted invoices receive a sequential number that cannot be reused"
+    }
+  },
+  "outcomes": {
+    "invoice_posted": {
+      "priority": 1,
+      "given": [
+        "accountant creates a draft invoice with lines",
+        "all lines have valid accounts and amounts"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "invoice_state",
+          "from": "draft",
+          "to": "posted"
+        },
+        {
+          "action": "set_field",
+          "target": "invoice_number",
+          "description": "Sequential number assigned from journal sequence"
+        },
+        {
+          "action": "emit_event",
+          "event": "account.invoice.posted",
+          "payload": [
+            "invoice_id",
+            "move_type",
+            "partner_id",
+            "amount_total"
+          ]
+        }
+      ],
+      "result": "Invoice posted to accounting, number assigned, available on customer portal"
+    },
+    "payment_registered": {
+      "priority": 2,
+      "given": [
+        "invoice is posted with outstanding balance",
+        "accountant registers a payment"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "payment",
+          "description": "Payment record created and linked to invoice"
+        },
+        {
+          "action": "set_field",
+          "target": "amount_residual",
+          "description": "Residual amount reduced by payment"
+        },
+        {
+          "action": "set_field",
+          "target": "payment_state",
+          "description": "Updated to partial, in_payment, or paid based on remaining balance"
+        },
+        {
+          "action": "emit_event",
+          "event": "account.payment.registered",
+          "payload": [
+            "payment_id",
+            "invoice_id",
+            "amount",
+            "payment_method"
+          ]
+        }
+      ],
+      "result": "Payment recorded, invoice balance updated accordingly"
+    },
+    "invoice_fully_paid": {
+      "priority": 3,
+      "given": [
+        "total payments match or exceed invoice amount"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "payment_state",
+          "value": "paid"
+        },
+        {
+          "action": "emit_event",
+          "event": "account.invoice.paid",
+          "payload": [
+            "invoice_id",
+            "partner_id",
+            "amount_total"
+          ]
+        }
+      ],
+      "result": "Invoice marked as fully paid, no remaining balance"
+    },
+    "credit_note_created": {
+      "priority": 4,
+      "given": [
+        "accountant reverses a posted invoice"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "credit_note",
+          "description": "Credit note (out_refund or in_refund) created referencing original"
+        },
+        {
+          "action": "emit_event",
+          "event": "account.credit_note.created",
+          "payload": [
+            "credit_note_id",
+            "original_invoice_id",
+            "amount"
+          ]
+        }
+      ],
+      "result": "Credit note created and optionally reconciled against original invoice"
+    },
+    "payment_link_sent": {
+      "priority": 5,
+      "given": [
+        "invoice is posted with outstanding balance",
+        "accountant generates a payment link"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "account.payment_link.sent",
+          "payload": [
+            "invoice_id",
+            "payment_link_url",
+            "partner_id"
+          ]
+        }
+      ],
+      "result": "Customer receives link to pay online via portal"
+    },
+    "posting_blocked_lock_date": {
+      "priority": 1,
+      "error": "INVOICE_BEFORE_LOCK_DATE",
+      "given": [
+        "invoice date is before the company accounting lock date"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "ui",
+          "description": "Show lock date and prevent posting"
+        }
+      ],
+      "result": "Invoice cannot be posted until date is after lock date"
+    }
+  },
+  "errors": [
+    {
+      "code": "INVOICE_BEFORE_LOCK_DATE",
+      "message": "Cannot post an entry dated before the accounting lock date.",
+      "status": 400
+    },
+    {
+      "code": "INVOICE_UNBALANCED",
+      "message": "The journal entry is not balanced. Debits must equal credits.",
+      "status": 400
+    },
+    {
+      "code": "INVOICE_NO_LINES",
+      "message": "Cannot post an invoice with no lines.",
+      "status": 400
+    },
+    {
+      "code": "INVOICE_ALREADY_POSTED",
+      "message": "This invoice has already been posted and cannot be edited.",
+      "status": 403
+    },
+    {
+      "code": "PAYMENT_EXCEEDS_BALANCE",
+      "message": "Payment amount exceeds the remaining balance on this invoice.",
+      "status": 400
+    }
+  ],
+  "events": [
+    {
+      "name": "account.invoice.posted",
+      "description": "Invoice validated and posted to the ledger",
+      "payload": [
+        "invoice_id",
+        "move_type",
+        "partner_id",
+        "amount_total"
+      ]
+    },
+    {
+      "name": "account.invoice.paid",
+      "description": "Invoice fully paid",
+      "payload": [
+        "invoice_id",
+        "partner_id",
+        "amount_total"
+      ]
+    },
+    {
+      "name": "account.payment.registered",
+      "description": "Payment recorded against an invoice",
+      "payload": [
+        "payment_id",
+        "invoice_id",
+        "amount",
+        "payment_method"
+      ]
+    },
+    {
+      "name": "account.credit_note.created",
+      "description": "Credit note created to reverse an invoice",
+      "payload": [
+        "credit_note_id",
+        "original_invoice_id",
+        "amount"
+      ]
+    },
+    {
+      "name": "account.payment_link.sent",
+      "description": "Payment link generated and sent to customer",
+      "payload": [
+        "invoice_id",
+        "payment_link_url",
+        "partner_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "tax-engine",
+      "type": "required",
+      "reason": "Tax computation on every invoice line"
+    },
+    {
+      "feature": "bank-reconciliation",
+      "type": "required",
+      "reason": "Bank statement lines reconciled against invoice payments"
+    },
+    {
+      "feature": "quotation-order-management",
+      "type": "optional",
+      "reason": "Invoices generated from confirmed sales orders"
+    },
+    {
+      "feature": "pos-core",
+      "type": "optional",
+      "reason": "POS session closing generates accounting entries"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/odoo/odoo.git",
+      "project": "Odoo",
+      "tech_stack": "Python + JavaScript/OWL",
+      "files_traced": 40,
+      "entry_points": [
+        "addons/account/models/account_move.py",
+        "addons/account/models/account_payment.py",
+        "addons/account_payment/models/account_payment.py",
+        "addons/account/models/account_move_line.py"
+      ]
+    }
+  }
+}

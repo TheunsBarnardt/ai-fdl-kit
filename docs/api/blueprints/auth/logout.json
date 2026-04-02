@@ -1,0 +1,237 @@
+{
+  "feature": "logout",
+  "version": "1.0.0",
+  "description": "End a user session and clear all authentication tokens",
+  "category": "auth",
+  "tags": [
+    "authentication",
+    "session",
+    "security",
+    "identity"
+  ],
+  "fields": [
+    {
+      "name": "logout_scope",
+      "type": "select",
+      "required": false,
+      "label": "Sign out from",
+      "default": "current",
+      "options": [
+        {
+          "value": "current",
+          "label": "This device"
+        },
+        {
+          "value": "all",
+          "label": "All devices"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "security": {
+      "requires_auth": true,
+      "csrf_protection": true,
+      "rate_limit": {
+        "window_seconds": 60,
+        "max_requests": 10,
+        "scope": "per_user"
+      }
+    },
+    "session": {
+      "clear_access_token": true,
+      "clear_refresh_token": true,
+      "invalidate_server_side": true
+    }
+  },
+  "outcomes": {
+    "not_authenticated": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "session",
+          "source": "session",
+          "operator": "not_exists",
+          "description": "User is not logged in (no valid tokens)"
+        }
+      ],
+      "result": "redirect to /login (no error — graceful handling)"
+    },
+    "successful_logout_current": {
+      "priority": 2,
+      "transaction": true,
+      "given": [
+        {
+          "field": "session",
+          "source": "session",
+          "operator": "exists",
+          "description": "User is authenticated"
+        },
+        {
+          "field": "logout_scope",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "current",
+            null
+          ],
+          "description": "Logout scope is current device (or default)"
+        }
+      ],
+      "then": [
+        {
+          "action": "invalidate",
+          "target": "access_token",
+          "scope": "current_session",
+          "description": "Clear access token cookie"
+        },
+        {
+          "action": "invalidate",
+          "target": "refresh_token",
+          "scope": "current_session",
+          "description": "Clear refresh token cookie and revoke in DB"
+        },
+        {
+          "action": "emit_event",
+          "event": "logout.success",
+          "payload": [
+            "user_id",
+            "session_id",
+            "timestamp",
+            "ip_address"
+          ]
+        }
+      ],
+      "result": "redirect to /login"
+    },
+    "successful_logout_all_devices": {
+      "priority": 3,
+      "transaction": true,
+      "given": [
+        {
+          "field": "session",
+          "source": "session",
+          "operator": "exists",
+          "description": "User is authenticated"
+        },
+        {
+          "field": "logout_scope",
+          "source": "input",
+          "operator": "eq",
+          "value": "all",
+          "description": "User chose to sign out of all devices"
+        }
+      ],
+      "then": [
+        {
+          "action": "invalidate",
+          "target": "refresh_token",
+          "scope": "all_sessions",
+          "description": "Invalidate ALL refresh tokens for this user"
+        },
+        {
+          "action": "invalidate",
+          "target": "access_token",
+          "scope": "current_session",
+          "description": "Clear cookies on current device"
+        },
+        {
+          "action": "emit_event",
+          "event": "logout.all_devices",
+          "payload": [
+            "user_id",
+            "timestamp",
+            "ip_address",
+            "revoked_session_count"
+          ]
+        }
+      ],
+      "result": "redirect to /login"
+    }
+  },
+  "errors": [
+    {
+      "code": "LOGOUT_CSRF_INVALID",
+      "status": 403,
+      "message": "Invalid request. Please try again.",
+      "retry": true
+    },
+    {
+      "code": "LOGOUT_RATE_LIMITED",
+      "status": 429,
+      "message": "Too many requests. Please wait a moment.",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "logout.success",
+      "description": "User logged out from current device",
+      "payload": [
+        "user_id",
+        "session_id",
+        "timestamp",
+        "ip_address"
+      ]
+    },
+    {
+      "name": "logout.all_devices",
+      "description": "User logged out from all devices",
+      "payload": [
+        "user_id",
+        "timestamp",
+        "ip_address",
+        "revoked_session_count"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "login",
+      "type": "required",
+      "reason": "Logout ends what login started"
+    },
+    {
+      "feature": "session-management",
+      "type": "optional",
+      "reason": "View active sessions before choosing which to revoke"
+    }
+  ],
+  "ui_hints": {
+    "trigger": "button",
+    "confirmation": {
+      "show_for": "all_devices_only",
+      "message": "This will sign you out of all devices. Continue?"
+    },
+    "actions": {
+      "primary": {
+        "label": "Sign out",
+        "type": "submit",
+        "method": "POST"
+      }
+    }
+  },
+  "extensions": {
+    "nextjs": {
+      "route": "/api/auth/logout",
+      "method": "POST",
+      "server_action": true,
+      "redirect_after": "/login"
+    },
+    "express": {
+      "route": "/api/auth/logout",
+      "method": "POST",
+      "middleware": [
+        "auth",
+        "csrf"
+      ]
+    },
+    "laravel": {
+      "route": "/logout",
+      "method": "POST",
+      "middleware": [
+        "auth"
+      ]
+    }
+  }
+}

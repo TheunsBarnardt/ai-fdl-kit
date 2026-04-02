@@ -1,0 +1,484 @@
+{
+  "feature": "editor-state",
+  "version": "1.0.0",
+  "description": "Centralized state management with sliced architecture, action dispatching, computed selections, and public API",
+  "category": "data",
+  "tags": [
+    "state-management",
+    "store",
+    "reducer",
+    "editor",
+    "centralized-state"
+  ],
+  "actors": [
+    {
+      "id": "dispatcher",
+      "name": "Action Dispatcher",
+      "type": "system",
+      "description": "Routes actions through the reducer to modify state"
+    },
+    {
+      "id": "store",
+      "name": "State Store",
+      "type": "system",
+      "description": "Single source of truth for all editor state"
+    },
+    {
+      "id": "consumer",
+      "name": "State Consumer",
+      "type": "system",
+      "description": "Any UI component or system that reads from the store"
+    }
+  ],
+  "fields": [
+    {
+      "name": "data",
+      "type": "json",
+      "required": true,
+      "label": "Page Data"
+    },
+    {
+      "name": "ui_state",
+      "type": "json",
+      "required": true,
+      "label": "UI State"
+    },
+    {
+      "name": "selected_item",
+      "type": "json",
+      "required": false,
+      "label": "Selected Item"
+    },
+    {
+      "name": "item_selector",
+      "type": "json",
+      "required": false,
+      "label": "Item Selector"
+    },
+    {
+      "name": "left_sidebar_visible",
+      "type": "boolean",
+      "required": true,
+      "label": "Left Sidebar Visible",
+      "default": true
+    },
+    {
+      "name": "right_sidebar_visible",
+      "type": "boolean",
+      "required": true,
+      "label": "Right Sidebar Visible",
+      "default": true
+    },
+    {
+      "name": "preview_mode",
+      "type": "select",
+      "required": true,
+      "label": "Preview Mode",
+      "options": [
+        {
+          "label": "Edit",
+          "value": "edit"
+        },
+        {
+          "label": "Interactive",
+          "value": "interactive"
+        }
+      ]
+    },
+    {
+      "name": "is_dragging",
+      "type": "boolean",
+      "required": true,
+      "label": "Is Dragging",
+      "default": false
+    },
+    {
+      "name": "field_focus",
+      "type": "text",
+      "required": false,
+      "label": "Focused Field"
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "required": true,
+      "label": "Editor Status",
+      "options": [
+        {
+          "label": "Loading",
+          "value": "LOADING"
+        },
+        {
+          "label": "Mounted",
+          "value": "MOUNTED"
+        },
+        {
+          "label": "Ready",
+          "value": "READY"
+        }
+      ]
+    },
+    {
+      "name": "component_loading_state",
+      "type": "json",
+      "required": false,
+      "label": "Component Loading"
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "value": "LOADING",
+        "initial": true,
+        "description": "Editor initializing, loading data and config"
+      },
+      {
+        "value": "MOUNTED",
+        "description": "Editor DOM mounted, waiting for styles and iframe"
+      },
+      {
+        "value": "READY",
+        "terminal": false,
+        "description": "Editor fully ready for interaction"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "LOADING",
+        "to": "MOUNTED",
+        "actor": "store",
+        "description": "Editor component tree mounted in DOM"
+      },
+      {
+        "from": "MOUNTED",
+        "to": "READY",
+        "actor": "store",
+        "condition": "All stylesheets loaded in iframe (if iframe enabled)",
+        "description": "Styles synchronized, editor interactive"
+      }
+    ]
+  },
+  "rules": {
+    "store_architecture": {
+      "single_store": true,
+      "sliced": true,
+      "immutable_updates": true
+    },
+    "action_types": {
+      "supported": [
+        "insert",
+        "move",
+        "remove",
+        "duplicate",
+        "replace",
+        "replace_root",
+        "reorder",
+        "set",
+        "set_data",
+        "set_ui",
+        "register_zone",
+        "unregister_zone"
+      ]
+    },
+    "dispatch_interceptor": {
+      "history_recording": true,
+      "action_callback": true,
+      "selected_item_sync": true
+    },
+    "slices": {
+      "history_slice": true,
+      "nodes_slice": true,
+      "fields_slice": true,
+      "permissions_slice": true
+    },
+    "computed_state": {
+      "selected_item_from_selector": true,
+      "component_config_from_type": true
+    },
+    "component_loading": {
+      "deferred_loading_timeout": true,
+      "reference_counting": true,
+      "cleanup_on_cancel": true
+    },
+    "public_api": {
+      "read_state": true,
+      "dispatch_actions": true,
+      "access_history": true,
+      "get_permissions": true,
+      "resolve_data_by_id": true,
+      "resolve_data_by_selector": true,
+      "get_item_by_id": true,
+      "get_item_by_selector": true,
+      "get_selector_for_id": true,
+      "get_parent_by_id": true
+    }
+  },
+  "outcomes": {
+    "dispatch_action": {
+      "priority": 1,
+      "given": [
+        "a valid action with a recognized type is dispatched"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "reducer",
+          "description": "Route action to appropriate handler (insert, move, remove, etc.)"
+        },
+        {
+          "action": "set_field",
+          "target": "application_state",
+          "description": "Update state with reducer output"
+        },
+        {
+          "action": "set_field",
+          "target": "selected_item",
+          "description": "Recompute selectedItem from updated itemSelector"
+        },
+        {
+          "action": "call_service",
+          "target": "history",
+          "description": "Record state snapshot to history (if action is history-enabled)"
+        },
+        {
+          "action": "call_service",
+          "target": "on_action_callback",
+          "description": "Call onAction callback with action, new state, and previous state"
+        },
+        {
+          "action": "emit_event",
+          "event": "state.action.dispatched",
+          "payload": [
+            "action_type"
+          ]
+        }
+      ],
+      "result": "State updated, history recorded, callbacks notified"
+    },
+    "select_component": {
+      "priority": 2,
+      "given": [
+        "user clicks on a component in the canvas or outline"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "item_selector",
+          "description": "Set itemSelector to { zone, index } of clicked component"
+        },
+        {
+          "action": "set_field",
+          "target": "selected_item",
+          "description": "Compute selectedItem from the new selector"
+        },
+        {
+          "action": "call_service",
+          "target": "fields_slice",
+          "description": "Resolve and display fields for the selected component"
+        },
+        {
+          "action": "emit_event",
+          "event": "state.selection.changed",
+          "payload": [
+            "component_id",
+            "zone",
+            "index"
+          ]
+        }
+      ],
+      "result": "Component highlighted on canvas, properties panel shows its fields"
+    },
+    "deselect_component": {
+      "priority": 3,
+      "given": [
+        "user clicks on empty canvas area or presses Escape"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "item_selector",
+          "description": "Set itemSelector to null"
+        },
+        {
+          "action": "set_field",
+          "target": "selected_item",
+          "description": "Set selectedItem to null"
+        },
+        {
+          "action": "emit_event",
+          "event": "state.selection.cleared"
+        }
+      ],
+      "result": "No component selected, properties panel empty or shows page settings"
+    },
+    "toggle_preview_mode": {
+      "priority": 4,
+      "given": [
+        "user toggles between edit and interactive preview"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "preview_mode",
+          "description": "Switch between 'edit' (editable canvas) and 'interactive' (clickable preview)"
+        },
+        {
+          "action": "emit_event",
+          "event": "state.preview_mode.changed",
+          "payload": [
+            "mode"
+          ]
+        }
+      ],
+      "result": "Canvas switches between editable and interactive modes"
+    },
+    "set_component_loading": {
+      "priority": 5,
+      "given": [
+        "an async operation starts for a component (data resolution, external fetch)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "component_loading_state",
+          "description": "Increment loading counter for the component ID (with optional defer timeout)"
+        }
+      ],
+      "result": "Component shows loading indicator while async operation is in progress"
+    },
+    "clear_component_loading": {
+      "priority": 6,
+      "given": [
+        "an async operation completes for a component"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "component_loading_state",
+          "description": "Decrement loading counter for the component ID"
+        }
+      ],
+      "result": "Loading indicator removed when counter reaches 0"
+    },
+    "batch_resolve_on_load": {
+      "priority": 7,
+      "given": [
+        "editor loads initial data"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "resolver",
+          "description": "Walk all top-level components and resolve their data with trigger 'load'"
+        },
+        {
+          "action": "set_field",
+          "target": "application_state",
+          "description": "Replace each component's data with resolved version if changed"
+        },
+        {
+          "action": "emit_event",
+          "event": "state.data.batch_resolved",
+          "payload": [
+            "resolved_count",
+            "changed_count"
+          ]
+        }
+      ],
+      "result": "All components have their dynamic data resolved"
+    }
+  },
+  "errors": [
+    {
+      "code": "UNKNOWN_ACTION_TYPE",
+      "status": 400,
+      "message": "Unrecognized action type"
+    },
+    {
+      "code": "INVALID_SELECTOR",
+      "status": 400,
+      "message": "Item selector does not point to a valid component"
+    }
+  ],
+  "events": [
+    {
+      "name": "state.action.dispatched",
+      "description": "An action was processed by the reducer",
+      "payload": [
+        "action_type"
+      ]
+    },
+    {
+      "name": "state.selection.changed",
+      "description": "A different component was selected",
+      "payload": [
+        "component_id",
+        "zone",
+        "index"
+      ]
+    },
+    {
+      "name": "state.selection.cleared",
+      "description": "Component selection was cleared",
+      "payload": []
+    },
+    {
+      "name": "state.preview_mode.changed",
+      "description": "Editor switched between edit and interactive preview",
+      "payload": [
+        "mode"
+      ]
+    },
+    {
+      "name": "state.data.batch_resolved",
+      "description": "Batch data resolution completed on page load",
+      "payload": [
+        "resolved_count",
+        "changed_count"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "content-tree",
+      "type": "required",
+      "reason": "Page data (root, content, zones) is core state"
+    },
+    {
+      "feature": "undo-redo",
+      "type": "required",
+      "reason": "History slice manages undo/redo within the store"
+    },
+    {
+      "feature": "component-registry",
+      "type": "required",
+      "reason": "Component configs inform how state is structured and resolved"
+    },
+    {
+      "feature": "field-transforms",
+      "type": "required",
+      "reason": "Field resolution pipeline reads and writes state"
+    },
+    {
+      "feature": "drag-drop-editor",
+      "type": "recommended",
+      "reason": "Drag state (isDragging, preview) is UI state"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/puckeditor/puck",
+      "project": "Puck Editor",
+      "tech_stack": "TypeScript + React",
+      "files_traced": 15,
+      "entry_points": [
+        "store/index.ts",
+        "store/slices/",
+        "store/default-app-state.ts",
+        "lib/use-puck.ts",
+        "reducer/index.ts"
+      ]
+    }
+  }
+}

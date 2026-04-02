@@ -1,0 +1,506 @@
+{
+  "feature": "login",
+  "version": "1.0.0",
+  "description": "Authenticate a user with email and password",
+  "category": "auth",
+  "tags": [
+    "authentication",
+    "session",
+    "security",
+    "identity",
+    "saas"
+  ],
+  "fields": [
+    {
+      "name": "email",
+      "type": "email",
+      "required": true,
+      "label": "Email Address",
+      "placeholder": "you@example.com",
+      "sensitive": false,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Email is required"
+        },
+        {
+          "type": "email",
+          "message": "Please enter a valid email address"
+        },
+        {
+          "type": "maxLength",
+          "value": 255,
+          "message": "Email is too long"
+        }
+      ]
+    },
+    {
+      "name": "password",
+      "type": "password",
+      "required": true,
+      "label": "Password",
+      "sensitive": true,
+      "validation": [
+        {
+          "type": "required",
+          "message": "Password is required"
+        },
+        {
+          "type": "minLength",
+          "value": 8,
+          "message": "Password must be at least 8 characters"
+        },
+        {
+          "type": "maxLength",
+          "value": 64,
+          "message": "Password must be less than 64 characters"
+        }
+      ]
+    },
+    {
+      "name": "remember_me",
+      "type": "boolean",
+      "required": false,
+      "label": "Remember me",
+      "default": false
+    }
+  ],
+  "rules": {
+    "security": {
+      "max_attempts": 5,
+      "lockout_duration_minutes": 15,
+      "lockout_scope": "per_email",
+      "rate_limit": {
+        "window_seconds": 60,
+        "max_requests": 10,
+        "scope": "per_ip"
+      },
+      "password_comparison": {
+        "constant_time": true
+      },
+      "credential_error_handling": {
+        "generic_message": true
+      }
+    },
+    "session": {
+      "type": "jwt",
+      "access_token": {
+        "expiry_minutes": 15
+      },
+      "refresh_token": {
+        "expiry_days": 7,
+        "rotate_on_use": true
+      },
+      "remember_me_expiry_days": 30,
+      "extend_on_activity": true,
+      "secure_flags": {
+        "http_only": true,
+        "secure": true,
+        "same_site": "strict"
+      }
+    },
+    "email": {
+      "require_verified": true,
+      "case_sensitive": false,
+      "trim_whitespace": true
+    }
+  },
+  "outcomes": {
+    "rate_limited": {
+      "priority": 1,
+      "error": "LOGIN_RATE_LIMITED",
+      "given": [
+        {
+          "field": "request_count",
+          "source": "computed",
+          "operator": "gt",
+          "value": 10,
+          "description": "More than 10 requests in 60 seconds from this IP"
+        }
+      ],
+      "result": "show \"Too many login attempts. Please wait a moment.\""
+    },
+    "account_locked": {
+      "priority": 2,
+      "error": "LOGIN_ACCOUNT_LOCKED",
+      "given": [
+        {
+          "field": "failed_login_attempts",
+          "source": "db",
+          "operator": "gte",
+          "value": 5,
+          "description": "Max attempts exceeded"
+        },
+        {
+          "field": "locked_until",
+          "source": "db",
+          "operator": "gt",
+          "value": "now",
+          "description": "Lockout period has not expired"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "login.locked",
+          "payload": [
+            "email",
+            "user_id",
+            "timestamp",
+            "lockout_until",
+            "attempt_count"
+          ]
+        }
+      ],
+      "result": "show \"Account temporarily locked. Please try again later.\""
+    },
+    "account_disabled": {
+      "priority": 3,
+      "error": "LOGIN_ACCOUNT_DISABLED",
+      "given": [
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "eq",
+          "value": "disabled",
+          "description": "Account deactivated by admin or user"
+        }
+      ],
+      "result": "show \"This account has been disabled. Please contact support.\""
+    },
+    "invalid_credentials": {
+      "priority": 4,
+      "error": "LOGIN_INVALID_CREDENTIALS",
+      "transaction": true,
+      "given": [
+        {
+          "any": [
+            {
+              "field": "user",
+              "source": "db",
+              "operator": "not_exists",
+              "description": "User not found in database"
+            },
+            {
+              "field": "password",
+              "source": "input",
+              "operator": "neq",
+              "value": "stored_hash",
+              "description": "Password does not match (constant-time comparison)"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "failed_login_attempts",
+          "value": "increment",
+          "description": "Increment failed attempt counter"
+        },
+        {
+          "action": "emit_event",
+          "event": "login.failed",
+          "payload": [
+            "email",
+            "timestamp",
+            "ip_address",
+            "user_agent",
+            "attempt_count",
+            "reason"
+          ]
+        },
+        {
+          "action": "set_field",
+          "target": "locked_until",
+          "value": "now + 15m",
+          "description": "Lock account if attempts reach 5",
+          "when": "failed_login_attempts >= 5"
+        },
+        {
+          "action": "emit_event",
+          "event": "login.locked",
+          "payload": [
+            "email",
+            "user_id",
+            "timestamp",
+            "lockout_until",
+            "attempt_count"
+          ],
+          "when": "failed_login_attempts >= 5"
+        }
+      ],
+      "result": "show \"Invalid email or password\" (SAME message for both cases — enumeration prevention)"
+    },
+    "email_not_verified": {
+      "priority": 5,
+      "error": "LOGIN_EMAIL_NOT_VERIFIED",
+      "given": [
+        {
+          "field": "email_verified",
+          "source": "db",
+          "operator": "eq",
+          "value": false,
+          "description": "User exists, password correct, but email not verified"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "login.unverified",
+          "payload": [
+            "user_id",
+            "email",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "redirect to /verify-email with message \"Please verify your email before logging in\""
+    },
+    "successful_login": {
+      "priority": 10,
+      "transaction": true,
+      "given": [
+        {
+          "field": "email",
+          "source": "input",
+          "operator": "matches",
+          "value": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+          "description": "Email is valid format"
+        },
+        {
+          "field": "user",
+          "source": "db",
+          "operator": "exists",
+          "description": "User found in database (after lowercase + trim normalization)"
+        },
+        {
+          "field": "password",
+          "source": "input",
+          "operator": "eq",
+          "value": "stored_hash",
+          "description": "Password matches stored hash (constant-time via bcrypt)"
+        },
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "neq",
+          "value": "disabled"
+        },
+        {
+          "field": "email_verified",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "failed_login_attempts",
+          "value": 0,
+          "description": "Reset attempt counter on success"
+        },
+        {
+          "action": "create_record",
+          "target": "session",
+          "description": "Create JWT access token (15-min) + refresh token (7-day, or 30-day if remember_me)"
+        },
+        {
+          "action": "emit_event",
+          "event": "login.success",
+          "payload": [
+            "user_id",
+            "email",
+            "timestamp",
+            "ip_address",
+            "user_agent",
+            "session_id"
+          ]
+        }
+      ],
+      "result": "redirect to /dashboard"
+    }
+  },
+  "errors": [
+    {
+      "code": "LOGIN_INVALID_CREDENTIALS",
+      "status": 401,
+      "message": "Invalid email or password",
+      "retry": true
+    },
+    {
+      "code": "LOGIN_ACCOUNT_LOCKED",
+      "status": 423,
+      "message": "Account temporarily locked. Please try again later.",
+      "retry": false
+    },
+    {
+      "code": "LOGIN_EMAIL_NOT_VERIFIED",
+      "status": 403,
+      "message": "Please verify your email address to continue",
+      "retry": false,
+      "redirect": "email-verification"
+    },
+    {
+      "code": "LOGIN_ACCOUNT_DISABLED",
+      "status": 403,
+      "message": "This account has been disabled. Please contact support.",
+      "retry": false
+    },
+    {
+      "code": "LOGIN_RATE_LIMITED",
+      "status": 429,
+      "message": "Too many login attempts. Please wait a moment.",
+      "retry": true
+    },
+    {
+      "code": "LOGIN_VALIDATION_ERROR",
+      "status": 422,
+      "message": "Please check your input and try again",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "login.success",
+      "description": "User successfully authenticated",
+      "payload": [
+        "user_id",
+        "email",
+        "timestamp",
+        "ip_address",
+        "user_agent",
+        "session_id"
+      ]
+    },
+    {
+      "name": "login.failed",
+      "description": "Authentication attempt failed",
+      "payload": [
+        "email",
+        "timestamp",
+        "ip_address",
+        "user_agent",
+        "attempt_count",
+        "reason"
+      ]
+    },
+    {
+      "name": "login.locked",
+      "description": "Account locked due to too many failures",
+      "payload": [
+        "email",
+        "user_id",
+        "timestamp",
+        "lockout_until",
+        "attempt_count"
+      ]
+    },
+    {
+      "name": "login.unverified",
+      "description": "Login blocked — email not verified",
+      "payload": [
+        "user_id",
+        "email",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "signup",
+      "type": "required",
+      "reason": "User must exist before they can log in",
+      "ui_link": "Don't have an account? Sign up",
+      "ui_link_position": "below_form"
+    },
+    {
+      "feature": "password-reset",
+      "type": "recommended",
+      "reason": "Users will forget passwords",
+      "ui_link": "Forgot password?",
+      "ui_link_position": "below_password_field"
+    },
+    {
+      "feature": "email-verification",
+      "type": "recommended",
+      "reason": "Required when rules.email.require_verified is true"
+    },
+    {
+      "feature": "logout",
+      "type": "required",
+      "reason": "Every login needs a logout"
+    },
+    {
+      "feature": "biometric-auth",
+      "type": "optional",
+      "reason": "Palm vein scan as an alternative to password login",
+      "ui_link": "Log in with palm vein"
+    }
+  ],
+  "ui_hints": {
+    "layout": "single_column_centered",
+    "max_width": "420px",
+    "show_logo": true,
+    "fields_order": [
+      "email",
+      "password",
+      "remember_me"
+    ],
+    "actions": {
+      "primary": {
+        "label": "Sign in",
+        "type": "submit",
+        "full_width": true
+      }
+    },
+    "links": [
+      {
+        "label": "Forgot password?",
+        "target": "password-reset",
+        "position": "below_password_field"
+      },
+      {
+        "label": "Don't have an account? Sign up",
+        "target": "signup",
+        "position": "below_form"
+      }
+    ],
+    "accessibility": {
+      "autofocus": "email",
+      "autocomplete": {
+        "email": "username",
+        "password": "current-password"
+      },
+      "aria_live_region": true
+    },
+    "loading": {
+      "disable_button": true,
+      "show_spinner": true,
+      "prevent_double_submit": true
+    }
+  },
+  "extensions": {
+    "nextjs": {
+      "route": "/login",
+      "layout": "(auth)",
+      "server_action": true,
+      "middleware_redirect": "/dashboard"
+    },
+    "express": {
+      "route": "/api/auth/login",
+      "middleware": [
+        "rate-limit",
+        "cors"
+      ]
+    },
+    "laravel": {
+      "guard": "web",
+      "middleware": [
+        "guest"
+      ],
+      "throttle": "5,1"
+    }
+  }
+}
