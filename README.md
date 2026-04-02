@@ -37,6 +37,7 @@ There are three ways to create a blueprint:
 |--------|---------------|---------|
 | **Create from scratch** | You know what feature you want | `/fdl-create checkout payment` |
 | **Extract from a document** | You have a BRD, policy doc, or SOP | `/fdl-extract docs/policy.pdf` |
+| **Extract from a website** | API docs, developer portal, integration guide | `/fdl-extract-web https://docs.example.com/api` |
 | **Write YAML directly** | You're technical and want full control | Create a `.blueprint.yaml` file |
 
 Once you have a blueprint, generate code for any language or framework:
@@ -104,7 +105,7 @@ This checks that all blueprint files are well-formed and that relationships betw
 
 ---
 
-## The Three Commands
+## The Four Commands
 
 ### `/fdl-create` — Create a blueprint from a conversation
 
@@ -145,6 +146,38 @@ Have a business requirements document, company policy, SOP, or process diagram? 
 5. You confirm, and it generates the blueprint
 
 Every extracted rule includes a reference back to the source document (page number, section) so you can trace it.
+
+### `/fdl-extract-web` — Extract rules from a documentation website
+
+Have an API you need to integrate with? Point Claude at the documentation site and it crawls every page, extracts all API operations, rules, fields, and requirements into a blueprint.
+
+```
+/fdl-extract-web https://docs.electrumsoftware.com/epc/public/epc-overview epc-payments integration
+/fdl-extract-web https://developer.stripe.com/docs/payments checkout payment
+/fdl-extract-web https://docs.example.com/api
+```
+
+**Works with JS-rendered docs sites** (Docusaurus, ReadMe, Redocly, Swagger UI, etc.) — uses the Chrome browser to read fully-rendered content that standard HTTP fetching can't access.
+
+**What happens:**
+1. Claude opens the site in Chrome and maps **all navigation tabs** (Documentation, API Reference, Security, etc.) — not just the sidebar of the landing page
+2. It searches for OpenAPI/Swagger specs, Postman collections, and other machine-readable API definitions for maximum technical detail
+3. It crawls each page across all tabs, extracting API operations, request/response fields, error codes, authentication methods, security architecture, and integration flows
+4. It shows you a plain-English summary of everything found across all pages
+5. It flags unclear areas and asks you to clarify
+6. It generates one or more blueprints with source URL traceability
+
+**Captures both directions:**
+- **Inbound** — webhooks and callbacks the API sends TO you
+- **Outbound** — API calls you send TO the service
+
+**Discovers technical resources automatically:**
+- OpenAPI/Swagger specifications (JSON/YAML)
+- Postman collections
+- SDK/client library links
+- Webhook event catalogs with payload schemas
+
+**Prerequisite:** Chrome must be open with the Claude extension connected.
 
 ### `/fdl-generate` — Generate code from a blueprint
 
@@ -256,6 +289,18 @@ FDL comes with a starter set of blueprints you can use, modify, or learn from:
 | `logout` | End session (single device or all devices), CSRF-protected |
 | `email-verification` | Confirm email ownership via one-time token, with resend flow |
 
+### Integration Pack
+
+| Blueprint | Description |
+|-----------|-------------|
+| `palm-vein` | PVD300/PVM310 palm vein scanner SDK integration — initialization, device management, feature extraction, template registration, 1:N matching |
+| `biometric-auth` | Palm vein as alternative login method — enrollment of up to 2 palms per user, rate limiting, template auto-update, password fallback |
+| `chp-inbound-payments` | Electrum CHP inbound RTC/PayShap/EFT payments — credit transfer authorisation, proxy resolution, completion, direct debits |
+| `chp-outbound-payments` | Electrum CHP outbound payments — credit transfers, bulk transfers, direct debits, payment returns, cancellations across 6 schemes |
+| `chp-request-to-pay` | Electrum CHP PayShap Request-To-Pay — outbound/inbound RTP, cancellation, refunds, expiry handling |
+| `chp-eft` | Electrum CHP Electronic Funds Transfer — inbound/outbound credits and debits, returns, on-us debits, System Error Correction |
+| `chp-account-management` | Electrum CHP account and proxy management — account mirroring, PayShap proxy resolution, AVS-R verification, CDV validation |
+
 ### Workflow Example
 
 | Blueprint | Description |
@@ -312,7 +357,23 @@ Your company has an expense approval policy in a PDF. It says:
 ```
 > Now you have a working expense approval system with the exact rules from the PDF.
 
-### Example 3: Build a complete auth system
+### Example 3: Extract an API integration from a documentation website
+
+You need to integrate with a payment platform. The API docs are at a URL:
+
+```
+/fdl-extract-web https://docs.electrumsoftware.com/epc/public/epc-overview epc-payments integration
+```
+> Claude opens Chrome, maps all 12 sidebar pages, crawls each one.
+> It extracts: 6 inbound webhooks, 4 outbound API calls, JWT security requirements, CDV account validation, PayShap proxy resolution, and transaction lifecycle states.
+> You confirm, and it creates a blueprint with every API operation as an outcome.
+
+```
+/fdl-generate epc-payments express
+```
+> Now you have a complete integration layer with webhook handlers, API client, JWT signing, and error handling.
+
+### Example 4: Build a complete auth system
 
 ```
 /fdl-create login auth
@@ -336,12 +397,14 @@ claude-fdl/
   blueprints/
     auth/                      # Authentication blueprints
     data/                      # Data and workflow blueprints
+    integration/               # External service and hardware integration blueprints
   scripts/
     validate.js                # Validates blueprints are well-formed
   .claude/
     skills/
       fdl-create/              # Create blueprints from conversation
       fdl-extract/             # Extract blueprints from documents
+      fdl-extract-web/         # Extract blueprints from documentation websites
       fdl-generate/            # Generate code from blueprints
 ```
 
@@ -387,6 +450,9 @@ Yes. Blueprints support actors (who does what), state machines (status lifecycle
 
 **Can I extract rules from existing documents?**
 Yes. `/fdl-extract` reads PDFs, Word docs, text files, and even images of flowcharts. It extracts the rules and creates a blueprint, with references back to the source document.
+
+**Can I extract from a website or API docs?**
+Yes. `/fdl-extract-web` crawls documentation websites (even JS-rendered ones like Docusaurus, ReadMe, or Redocly) using Chrome. It discovers all navigation tabs (Documentation, API Reference, Security, etc.), searches for OpenAPI specs and Postman collections, reads every page, and extracts API operations, fields, rules, security architecture, and error codes into blueprints with source URL traceability.
 
 **How is this different from just asking AI to "build login"?**
 Without FDL, the AI guesses what "login" means. With FDL, there's a complete specification: 5 failed attempts = lockout, 15-minute duration, constant-time password comparison, generic error messages to prevent user enumeration, JWT with 15-minute access tokens. Nothing is left to chance. Every AI tool gets the same spec and produces consistent results.
