@@ -1,0 +1,499 @@
+{
+  "feature": "openclaw-session-management",
+  "version": "1.0.0",
+  "description": "Persistent conversation storage with automatic disk budgeting, transcript rotation, and session lifecycle tracking across messaging channels",
+  "category": "data",
+  "tags": [
+    "persistence",
+    "conversation",
+    "storage",
+    "lifecycle",
+    "maintenance"
+  ],
+  "actors": [
+    {
+      "id": "agent",
+      "name": "AI Agent",
+      "type": "system"
+    },
+    {
+      "id": "gateway",
+      "name": "OpenClaw Gateway",
+      "type": "system"
+    },
+    {
+      "id": "user",
+      "name": "End User",
+      "type": "human"
+    },
+    {
+      "id": "storage_engine",
+      "name": "File Storage System",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "session_id",
+      "type": "text",
+      "required": true,
+      "label": "Session ID"
+    },
+    {
+      "name": "session_key",
+      "type": "text",
+      "required": true,
+      "label": "Session Key"
+    },
+    {
+      "name": "agent_id",
+      "type": "text",
+      "required": true,
+      "label": "Agent ID"
+    },
+    {
+      "name": "channel",
+      "type": "text",
+      "required": false,
+      "label": "Channel"
+    },
+    {
+      "name": "account_id",
+      "type": "text",
+      "required": false,
+      "label": "Account ID"
+    },
+    {
+      "name": "created_at",
+      "type": "datetime",
+      "required": true,
+      "label": "Created At"
+    },
+    {
+      "name": "updated_at",
+      "type": "datetime",
+      "required": true,
+      "label": "Updated At"
+    },
+    {
+      "name": "last_activity",
+      "type": "datetime",
+      "required": false,
+      "label": "Last Activity"
+    },
+    {
+      "name": "idle_minutes",
+      "type": "number",
+      "required": false,
+      "label": "Idle Timeout Minutes"
+    },
+    {
+      "name": "message_count",
+      "type": "number",
+      "required": true,
+      "label": "Message Count"
+    },
+    {
+      "name": "transcript_bytes",
+      "type": "number",
+      "required": true,
+      "label": "Transcript Size (bytes)"
+    },
+    {
+      "name": "model_override",
+      "type": "text",
+      "required": false,
+      "label": "Model Override"
+    },
+    {
+      "name": "provider_override",
+      "type": "text",
+      "required": false,
+      "label": "Provider Override"
+    },
+    {
+      "name": "thinking_level",
+      "type": "select",
+      "required": false,
+      "label": "Thinking Level",
+      "options": [
+        {
+          "value": "off",
+          "label": "Off"
+        },
+        {
+          "value": "minimal",
+          "label": "Minimal (5-10K tokens)"
+        },
+        {
+          "value": "low",
+          "label": "Low (10-50K tokens)"
+        },
+        {
+          "value": "medium",
+          "label": "Medium (50-200K tokens)"
+        },
+        {
+          "value": "high",
+          "label": "High (200K+ tokens)"
+        },
+        {
+          "value": "xhigh",
+          "label": "XHigh (max available)"
+        },
+        {
+          "value": "adaptive",
+          "label": "Adaptive"
+        }
+      ]
+    },
+    {
+      "name": "input_tokens",
+      "type": "number",
+      "required": false,
+      "label": "Input Tokens"
+    },
+    {
+      "name": "output_tokens",
+      "type": "number",
+      "required": false,
+      "label": "Output Tokens"
+    },
+    {
+      "name": "last_channel",
+      "type": "text",
+      "required": false,
+      "label": "Last Delivery Channel"
+    },
+    {
+      "name": "last_to",
+      "type": "text",
+      "required": false,
+      "label": "Last Delivery Target"
+    },
+    {
+      "name": "transcript_file",
+      "type": "text",
+      "required": true,
+      "label": "Transcript File Path"
+    }
+  ],
+  "rules": {
+    "session_lifecycle": {
+      "creation": "Sessions created implicitly on first inbound message.\nsessionKey derived from: agent_id + channel + account_id + peer.\nInitial entry written with createdAt, updatedAt, sessionId, empty transcript.\n",
+      "updates": "Every agent response updates session:\n- Append messages to transcript\n- Increment updatedAt\n- Update last_activity, token counts\n- Record model/provider overrides\nAtomic write with file lock (acquireSessionWriteLock).\nMax concurrent writers per session: 1.\nLock timeout: 30 seconds.\n",
+      "archival_on_reset": "When reset trigger matches:\n- Rotate transcript: <key>.json → <key>.reset.<timestamp>.json\n- Start new transcript: <key>.json = []\n- Retention: configurable (default 30 days)\n",
+      "idle_timeout": "If idleMinutes > 0:\n- Check: now - last_activity > idleMinutes * 60000\n- If true: trigger session.reset (rotate, clear context)\n"
+    },
+    "transcript_management": {
+      "message_append": "Messages appended as objects to transcript[]:\n{\n  id: string; role: \"user\"|\"assistant\"; content: string;\n  createdAt: ISO8601; tokens?: { input, output };\n  metadata?: { channel, threadId, ... };\n}\n",
+      "message_size_limits": "Individual messages capped at 128KB.\nOversized: replaced with \"[chat.history omitted: message too large]\".\nTotal history display limit: 12K chars.\n",
+      "transcript_rotation": "Reset triggers: cron-based or manual /reset command.\nOld transcript archived to reset_archives.\nStorage: sessions.json (index) + per-session files.\n"
+    },
+    "disk_budget_enforcement": {
+      "budget_limits": "maxDiskBytes: total allowed storage (default 5GB).\nhighWaterBytes: cleanup threshold (default 80% of max).\nEnforcement: check on every write.\nExceeds max: pruneStaleEntries() removes oldest archives (FIFO).\n",
+      "pruning_strategy": "When totalBytes > maxDiskBytes:\n1. Sort sessions by updatedAt (oldest first)\n2. Delete oldest reset_archives per session\n3. If still over budget: delete oldest sessions\nEntries capped at max (default 500).\n",
+      "cache_invalidation": "After disk budget enforcement:\n- Clear memory cache\n- Reload from disk on next access\n"
+    },
+    "concurrent_access": {
+      "write_locking": "File-based locking via acquireSessionWriteLock():\n- One writer per sessionKey at a time\n- Queued writes wait (timeout: 30s)\n- Automatic release on completion\nRelease: on write completion or timeout.\n",
+      "read_caching": "Recent entries cached in memory.\nCache valid until session updated.\nOn write: clear cache for that sessionKey.\n",
+      "deadlock_prevention": "Lock timeout: 30 seconds.\nStale lock detection: >1 minute assumed crashed.\nAutomatic cleanup: remove stale lock, retry.\n"
+    }
+  },
+  "states": {
+    "session_state": {
+      "field": "lifecycle_state",
+      "values": [
+        {
+          "name": "new",
+          "initial": true
+        },
+        {
+          "name": "active"
+        },
+        {
+          "name": "idle"
+        },
+        {
+          "name": "reset"
+        },
+        {
+          "name": "archived"
+        },
+        {
+          "name": "deleted",
+          "terminal": true
+        }
+      ]
+    }
+  },
+  "outcomes": {
+    "message_appended": {
+      "priority": 1,
+      "given": [
+        "session exists or will be created",
+        {
+          "field": "session_key",
+          "source": "input",
+          "operator": "exists"
+        },
+        "new message content provided"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "message_count",
+          "value": "existing + 1"
+        },
+        {
+          "action": "set_field",
+          "target": "updated_at",
+          "value": "now"
+        },
+        {
+          "action": "set_field",
+          "target": "transcript_bytes",
+          "value": "serialized size"
+        },
+        {
+          "action": "emit_event",
+          "event": "session.updated",
+          "payload": [
+            "session_id",
+            "message_count",
+            "transcript_bytes"
+          ]
+        }
+      ],
+      "result": "Message persisted, session metadata updated",
+      "transaction": true
+    },
+    "transcript_rotated": {
+      "priority": 2,
+      "given": [
+        "reset trigger matched OR /reset command",
+        "session has messages"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "reset_archives",
+          "value": "archive entry with path, counts, bytes"
+        },
+        {
+          "action": "set_field",
+          "target": "message_count",
+          "value": "0"
+        },
+        {
+          "action": "transition_state",
+          "field": "lifecycle_state",
+          "from": "active",
+          "to": "reset"
+        },
+        {
+          "action": "emit_event",
+          "event": "session.reset",
+          "payload": [
+            "session_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Old transcript archived, new session started",
+      "transaction": true
+    },
+    "disk_budget_enforced": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "total_bytes_used",
+          "source": "computed",
+          "operator": "gt",
+          "value": "max_disk_bytes"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "service": "pruneStaleEntries",
+          "params": [
+            "maxDiskBytes",
+            "highWaterBytes"
+          ]
+        },
+        {
+          "action": "delete_record",
+          "target": "oldest reset_archives (FIFO)"
+        },
+        {
+          "action": "emit_event",
+          "event": "disk_budget.exceeded",
+          "payload": [
+            "total_bytes_used",
+            "sessions_pruned"
+          ]
+        }
+      ],
+      "result": "Old transcripts deleted, disk budget enforced",
+      "error": "DISK_CLEANUP_FAILED",
+      "transaction": true
+    },
+    "idle_session_reset": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "idle_minutes",
+          "source": "config",
+          "operator": "gt",
+          "value": 0
+        },
+        {
+          "field": "elapsed_time",
+          "source": "computed",
+          "operator": "gt",
+          "value": "idle_minutes minutes"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "lifecycle_state",
+          "from": "active",
+          "to": "idle"
+        },
+        {
+          "action": "emit_event",
+          "event": "session.reset",
+          "payload": [
+            "session_id",
+            {
+              "reason": "idle_timeout"
+            }
+          ]
+        }
+      ],
+      "result": "Session marked idle, awaiting reset"
+    }
+  },
+  "events": [
+    {
+      "name": "session.created",
+      "payload": [
+        "session_id",
+        "session_key",
+        "agent_id",
+        "channel",
+        "created_at"
+      ]
+    },
+    {
+      "name": "session.updated",
+      "payload": [
+        "session_id",
+        "message_count",
+        "transcript_bytes",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "session.reset",
+      "payload": [
+        "session_id",
+        "reason",
+        "previous_message_count"
+      ]
+    },
+    {
+      "name": "session.archived",
+      "payload": [
+        "session_id",
+        "archived_reset_count"
+      ]
+    },
+    {
+      "name": "session.deleted",
+      "payload": [
+        "session_id",
+        "reclaimed_bytes",
+        "reason"
+      ]
+    },
+    {
+      "name": "disk_budget.exceeded",
+      "payload": [
+        "total_bytes_used",
+        "max_bytes",
+        "sessions_pruned",
+        "bytes_freed"
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": "SESSION_NOT_FOUND",
+      "status": 404,
+      "message": "Session does not exist"
+    },
+    {
+      "code": "DISK_QUOTA_EXCEEDED",
+      "status": 500,
+      "message": "Insufficient storage for new message"
+    },
+    {
+      "code": "WRITE_LOCK_TIMEOUT",
+      "status": 503,
+      "message": "Session write lock timeout"
+    },
+    {
+      "code": "TRANSCRIPT_CORRUPTION",
+      "status": 500,
+      "message": "Session transcript corrupted"
+    },
+    {
+      "code": "INVALID_SESSION_KEY",
+      "status": 400,
+      "message": "Invalid session key format"
+    }
+  ],
+  "related": [
+    {
+      "feature": "openclaw-message-routing",
+      "type": "required",
+      "reason": "Route resolution provides session_key"
+    },
+    {
+      "feature": "openclaw-gateway-authentication",
+      "type": "required",
+      "reason": "User auth determines session isolation scope"
+    },
+    {
+      "feature": "openclaw-llm-provider",
+      "type": "required",
+      "reason": "Agent writes messages and token counts to session"
+    }
+  ],
+  "sla": {
+    "write_latency": {
+      "max_duration": "500ms"
+    },
+    "disk_budget_check": {
+      "max_duration": "1s"
+    },
+    "concurrent_writers": {
+      "max": 1
+    }
+  },
+  "extensions": {
+    "tech_stack": {
+      "language": "TypeScript",
+      "storage": "JSON5 file-based with atomic writes",
+      "patterns": [
+        "File-based session isolation",
+        "Write-lock queuing",
+        "Disk budget LRU cleanup"
+      ]
+    }
+  }
+}

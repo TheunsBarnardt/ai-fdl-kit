@@ -1,0 +1,489 @@
+{
+  "feature": "message-queue",
+  "version": "1.0.0",
+  "description": "Process asynchronous jobs and events through a provider-agnostic message queue supporting publish, subscribe, acknowledge, retry with backoff, and dead-letter queues",
+  "category": "infrastructure",
+  "tags": [
+    "queue",
+    "messaging",
+    "async",
+    "events",
+    "jobs",
+    "pubsub"
+  ],
+  "fields": [
+    {
+      "name": "queue_name",
+      "type": "text",
+      "required": true,
+      "label": "Queue or topic name",
+      "validation": [
+        {
+          "type": "pattern",
+          "value": "^[a-zA-Z0-9_.-]{1,256}$",
+          "message": "Queue name must be alphanumeric with dots, hyphens, or underscores (max 256 chars)"
+        }
+      ]
+    },
+    {
+      "name": "message_id",
+      "type": "text",
+      "required": false,
+      "label": "Unique message identifier assigned by the queue"
+    },
+    {
+      "name": "payload",
+      "type": "json",
+      "required": true,
+      "label": "Message payload (serialized as JSON)"
+    },
+    {
+      "name": "priority",
+      "type": "number",
+      "required": false,
+      "label": "Message priority (higher value = higher priority)",
+      "validation": [
+        {
+          "type": "min",
+          "value": 0,
+          "message": "Priority must be at least 0"
+        },
+        {
+          "type": "max",
+          "value": 10,
+          "message": "Priority must not exceed 10"
+        }
+      ]
+    },
+    {
+      "name": "delay_seconds",
+      "type": "number",
+      "required": false,
+      "label": "Delay before message becomes visible to consumers",
+      "validation": [
+        {
+          "type": "min",
+          "value": 0,
+          "message": "Delay must be at least 0 seconds"
+        },
+        {
+          "type": "max",
+          "value": 900,
+          "message": "Delay must not exceed 900 seconds"
+        }
+      ]
+    },
+    {
+      "name": "retry_count",
+      "type": "number",
+      "required": false,
+      "label": "Number of times this message has been retried"
+    },
+    {
+      "name": "max_retries",
+      "type": "number",
+      "required": false,
+      "label": "Maximum retry attempts before dead-lettering",
+      "validation": [
+        {
+          "type": "min",
+          "value": 0,
+          "message": "Max retries must be at least 0"
+        },
+        {
+          "type": "max",
+          "value": 100,
+          "message": "Max retries must not exceed 100"
+        }
+      ]
+    },
+    {
+      "name": "dead_letter_queue",
+      "type": "text",
+      "required": false,
+      "label": "Dead-letter queue name for failed messages"
+    },
+    {
+      "name": "visibility_timeout",
+      "type": "number",
+      "required": false,
+      "label": "Seconds a message is hidden after being consumed (processing window)",
+      "validation": [
+        {
+          "type": "min",
+          "value": 1,
+          "message": "Visibility timeout must be at least 1 second"
+        },
+        {
+          "type": "max",
+          "value": 43200,
+          "message": "Visibility timeout must not exceed 43200 seconds (12 hours)"
+        }
+      ]
+    },
+    {
+      "name": "group_id",
+      "type": "text",
+      "required": false,
+      "label": "Message group for FIFO ordering guarantee"
+    },
+    {
+      "name": "deduplication_id",
+      "type": "text",
+      "required": false,
+      "label": "Deduplication ID for exactly-once within dedup window"
+    },
+    {
+      "name": "processing_status",
+      "type": "select",
+      "required": false,
+      "label": "Current message processing status",
+      "options": [
+        {
+          "value": "pending",
+          "label": "Pending"
+        },
+        {
+          "value": "processing",
+          "label": "Processing"
+        },
+        {
+          "value": "completed",
+          "label": "Completed"
+        },
+        {
+          "value": "failed",
+          "label": "Failed"
+        },
+        {
+          "value": "dead_lettered",
+          "label": "Dead Lettered"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "delivery": [
+      "At-least-once delivery guarantee by default; consumers must be idempotent",
+      "FIFO ordering available when group_id is set; messages in same group processed in order",
+      "Exactly-once delivery available with deduplication_id (5-minute dedup window)"
+    ],
+    "message_size": [
+      "Maximum message payload size is 256KB",
+      "For larger payloads, store data in cloud storage and pass a reference in the message"
+    ],
+    "retry": [
+      "Failed messages are retried with exponential backoff: delay = base_delay * 2^retry_count",
+      "Default max_retries is 3; configurable per queue",
+      "Messages exceeding max_retries are moved to the dead-letter queue",
+      "Dead-letter queue messages retain original payload and all retry metadata"
+    ],
+    "visibility": [
+      "Visibility timeout must exceed expected processing time",
+      "If processing exceeds visibility timeout, message becomes visible to other consumers",
+      "Consumers must explicitly acknowledge (ack) successful processing",
+      "Negative acknowledgment (nack) returns message to queue immediately for retry"
+    ],
+    "ordering": [
+      "Standard queues provide best-effort ordering (no strict guarantee)",
+      "FIFO queues guarantee order within a message group_id",
+      "FIFO queues have lower throughput than standard queues"
+    ]
+  },
+  "outcomes": {
+    "message_published": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "queue_name",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "payload",
+          "source": "input",
+          "operator": "exists"
+        },
+        "Queue exists and publisher has write permission"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "queue_message",
+          "fields": [
+            "queue_name",
+            "message_id",
+            "payload",
+            "priority",
+            "delay_seconds"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "queue.message_published",
+          "payload": [
+            "queue_name",
+            "message_id"
+          ]
+        }
+      ],
+      "result": "Message accepted by queue; message_id returned for tracking"
+    },
+    "message_consumed": {
+      "priority": 2,
+      "given": [
+        "Consumer polls queue and message is available",
+        {
+          "field": "visibility_timeout",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "processing_status",
+          "value": "processing"
+        },
+        {
+          "action": "emit_event",
+          "event": "queue.message_consumed",
+          "payload": [
+            "queue_name",
+            "message_id",
+            "consumer_id"
+          ]
+        }
+      ],
+      "result": "Message delivered to consumer; hidden from other consumers for visibility_timeout duration"
+    },
+    "message_acknowledged": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "processing_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "processing"
+        },
+        "Consumer sends explicit acknowledgment"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "processing_status",
+          "value": "completed"
+        },
+        {
+          "action": "delete_record",
+          "type": "queue_message",
+          "fields": [
+            "queue_name",
+            "message_id"
+          ]
+        }
+      ],
+      "result": "Message permanently removed from queue; processing complete"
+    },
+    "message_retried": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "processing_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "processing"
+        },
+        "Consumer sends negative acknowledgment or visibility timeout expires",
+        {
+          "field": "retry_count",
+          "source": "db",
+          "operator": "lt",
+          "value": "max_retries"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "retry_count",
+          "value": "retry_count + 1"
+        },
+        {
+          "action": "set_field",
+          "target": "processing_status",
+          "value": "pending"
+        }
+      ],
+      "result": "Message returned to queue with incremented retry count; exponential backoff delay applied"
+    },
+    "message_dead_lettered": {
+      "priority": 5,
+      "given": [
+        {
+          "field": "retry_count",
+          "source": "db",
+          "operator": "gte",
+          "value": "max_retries"
+        },
+        {
+          "field": "dead_letter_queue",
+          "source": "db",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "processing_status",
+          "value": "dead_lettered"
+        },
+        {
+          "action": "emit_event",
+          "event": "queue.message_dead_lettered",
+          "payload": [
+            "queue_name",
+            "message_id",
+            "retry_count",
+            "dead_letter_queue"
+          ]
+        }
+      ],
+      "result": "Message moved to dead-letter queue with full retry history for investigation"
+    },
+    "queue_empty": {
+      "priority": 6,
+      "given": [
+        "Consumer polls queue but no messages are available"
+      ],
+      "then": [],
+      "result": "Empty response returned; consumer should back off with polling interval"
+    },
+    "message_too_large": {
+      "priority": 7,
+      "error": "MESSAGE_SIZE_EXCEEDED",
+      "given": [
+        "Serialized payload exceeds 256KB"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "queue.publish_failed",
+          "payload": [
+            "queue_name",
+            "payload_size"
+          ]
+        }
+      ],
+      "result": "Publish rejected; store large payloads externally and pass a reference"
+    },
+    "queue_not_found": {
+      "priority": 8,
+      "error": "QUEUE_NOT_FOUND",
+      "given": [
+        "Specified queue_name does not exist"
+      ],
+      "then": [],
+      "result": "Operation rejected; queue must be created before publishing or consuming"
+    },
+    "duplicate_message": {
+      "priority": 9,
+      "given": [
+        {
+          "field": "deduplication_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        "Message with same deduplication_id published within dedup window"
+      ],
+      "then": [],
+      "result": "Duplicate detected; message not re-queued; original message_id returned"
+    }
+  },
+  "errors": [
+    {
+      "code": "MESSAGE_SIZE_EXCEEDED",
+      "status": 413,
+      "message": "Message payload exceeds 256KB limit. Store large data externally and pass a reference."
+    },
+    {
+      "code": "QUEUE_NOT_FOUND",
+      "status": 404,
+      "message": "Queue does not exist. Create the queue before publishing or consuming messages."
+    },
+    {
+      "code": "QUEUE_PERMISSION_DENIED",
+      "status": 403,
+      "message": "Caller does not have permission to publish to or consume from this queue."
+    },
+    {
+      "code": "VISIBILITY_TIMEOUT_EXPIRED",
+      "status": 400,
+      "message": "Message processing exceeded visibility timeout. Message returned to queue."
+    },
+    {
+      "code": "DEAD_LETTER_QUEUE_FULL",
+      "status": 500,
+      "message": "Dead-letter queue has reached its retention limit. Investigate and drain failed messages."
+    }
+  ],
+  "events": [
+    {
+      "name": "queue.message_published",
+      "payload": [
+        "queue_name",
+        "message_id",
+        "priority"
+      ]
+    },
+    {
+      "name": "queue.message_consumed",
+      "payload": [
+        "queue_name",
+        "message_id",
+        "consumer_id"
+      ]
+    },
+    {
+      "name": "queue.message_acknowledged",
+      "payload": [
+        "queue_name",
+        "message_id"
+      ]
+    },
+    {
+      "name": "queue.message_dead_lettered",
+      "payload": [
+        "queue_name",
+        "message_id",
+        "retry_count",
+        "dead_letter_queue"
+      ]
+    },
+    {
+      "name": "queue.publish_failed",
+      "payload": [
+        "queue_name",
+        "error_code",
+        "error_reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "webhook-ingestion",
+      "type": "optional",
+      "reason": "Incoming webhooks can be queued for async processing"
+    },
+    {
+      "feature": "email-service",
+      "type": "optional",
+      "reason": "Email sends can be queued for reliable delivery"
+    },
+    {
+      "feature": "cloud-storage",
+      "type": "optional",
+      "reason": "Large message payloads stored in cloud storage with queue reference"
+    }
+  ]
+}

@@ -13,17 +13,18 @@ CRUD, storage, versioning, and data management blueprints.
 
 | Blueprint | Description | Version |
 |-----------|-------------|----------|
-| [Audit Trail]({{ site.baseurl }}/blueprints/data/audit-trail/) | Immutable field-level change tracking for any record with automatic capture on every write, configurable per-model opt-in, and sensitive field exclusion | 1.0.0 |
 | [Bank Reconciliation]({{ site.baseurl }}/blueprints/data/bank-reconciliation/) | Bank reconciliation with statement import, auto/manual matching, reconciliation models, partial/full tracking, and write-off management.  | 1.0.0 |
-| [Caching]({{ site.baseurl }}/blueprints/data/caching/) | Multi-tier caching with read-through, write-through, write-behind, and cache-aside strategies, stampede protection, and configurable invalidation | 1.0.0 |
 | [Comments Annotations]({{ site.baseurl }}/blueprints/data/comments-annotations/) | Threaded comments on any entity (polymorphic) with rich text, @mentions, reactions, edit windows, and rate limiting | 1.0.0 |
 | [Content Tree]({{ site.baseurl }}/blueprints/data/content-tree/) | Hierarchical content tree with zone-based storage, tree walking, flattening, indexed lookups, and schema migration | 1.0.0 |
+| [Customer Supplier Management]({{ site.baseurl }}/blueprints/data/customer-supplier-management/) | Customer and supplier master data management with credit limits, territory and group hierarchies, portal access, lead conversion, internal parties, and supplier hold/block controls.  | 1.0.0 |
 | [Data Import Export]({{ site.baseurl }}/blueprints/data/data-import-export/) | Bulk data import and export supporting CSV, Excel, and JSON formats with column mapping, row validation, background processing, and configurable error handling | 1.0.0 |
 | [Document Management]({{ site.baseurl }}/blueprints/data/document-management/) | Store, retrieve, manage, and generate documents with metadata, permissions, version control, and dynamic PDF generation | 1.0.0 |
 | [Editor State]({{ site.baseurl }}/blueprints/data/editor-state/) | Centralized state management with sliced architecture, action dispatching, computed selections, and public API | 1.0.0 |
 | [Expense Approval]({{ site.baseurl }}/blueprints/data/expense-approval/) | Submit and approve employee expense reports with receipt validation | 1.0.0 |
 | [Field Transforms]({{ site.baseurl }}/blueprints/data/field-transforms/) | Per-field-type transformation pipeline with read-only path resolution, async tracking, and trigger-based caching | 1.0.0 |
 | [File Storage]({{ site.baseurl }}/blueprints/data/file-storage/) | Cloud storage abstraction with signed URLs, virus scanning, content type validation, checksum deduplication, and multi-provider support | 1.0.0 |
+| [General Ledger]({{ site.baseurl }}/blueprints/data/general-ledger/) | Manage hierarchical chart of accounts and post double-entry general ledger entries with period controls, cost center tracking, and party-level accounting | 1.0.0 |
+| [Openclaw Session Management]({{ site.baseurl }}/blueprints/data/openclaw-session-management/) | Persistent conversation storage with automatic disk budgeting, transcript rotation, and session lifecycle tracking across messaging channels | 1.0.0 |
 | [Pagination]({{ site.baseurl }}/blueprints/data/pagination/) | Cursor-based and offset-based pagination with configurable page sizes, stable sorting, and Link header support for REST APIs | 1.0.0 |
 | [Payload Collections]({{ site.baseurl }}/blueprints/data/payload-collections/) | Full CRUD operations for document collections with pagination, filtering, hooks, bulk operations, and field selection | 1.0.0 |
 | [Payload Document Locking]({{ site.baseurl }}/blueprints/data/payload-document-locking/) | Automatic document locking to prevent concurrent editing with configurable lock duration and override capability | 1.0.0 |

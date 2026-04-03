@@ -1,0 +1,412 @@
+{
+  "feature": "openclaw-plugin-system",
+  "version": "1.0.0",
+  "description": "Plugin registration, lifecycle management, and capability-based permissions system for extending OpenClaw functionality",
+  "category": "integration",
+  "tags": [
+    "plugins",
+    "extensibility",
+    "capabilities",
+    "configuration",
+    "modular"
+  ],
+  "actors": [
+    {
+      "id": "plugin_developer",
+      "name": "Plugin Developer",
+      "type": "external"
+    },
+    {
+      "id": "plugin_registry",
+      "name": "Plugin Registry",
+      "type": "system"
+    },
+    {
+      "id": "gateway",
+      "name": "OpenClaw Gateway",
+      "type": "system"
+    },
+    {
+      "id": "plugin_instance",
+      "name": "Plugin Instance",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "plugin_id",
+      "type": "text",
+      "required": true,
+      "label": "Plugin ID"
+    },
+    {
+      "name": "plugin_name",
+      "type": "text",
+      "required": true,
+      "label": "Plugin Name"
+    },
+    {
+      "name": "plugin_version",
+      "type": "text",
+      "required": true,
+      "label": "Plugin Version"
+    },
+    {
+      "name": "enabled",
+      "type": "boolean",
+      "required": true,
+      "label": "Enabled"
+    },
+    {
+      "name": "config",
+      "type": "json",
+      "required": false,
+      "label": "Configuration"
+    },
+    {
+      "name": "declared_capabilities",
+      "type": "json",
+      "required": true,
+      "label": "Declared Capabilities"
+    },
+    {
+      "name": "initialized",
+      "type": "boolean",
+      "required": false,
+      "label": "Initialized"
+    },
+    {
+      "name": "manifest_hash",
+      "type": "text",
+      "required": false,
+      "label": "Manifest Hash"
+    },
+    {
+      "name": "plugin_scope",
+      "type": "select",
+      "required": false,
+      "label": "Execution Scope",
+      "options": [
+        {
+          "value": "isolated",
+          "label": "Isolated Process"
+        },
+        {
+          "value": "sandbox",
+          "label": "Sandboxed"
+        },
+        {
+          "value": "trusted",
+          "label": "Trusted (In-Process)"
+        }
+      ]
+    },
+    {
+      "name": "hooks_enabled",
+      "type": "json",
+      "required": false,
+      "label": "Hooks Configuration"
+    }
+  ],
+  "rules": {
+    "plugin_loading": {
+      "discovery_paths": "Plugins loaded from:\n1. Bundled plugins (node_modules/openclaw*/index.ts)\n2. Configured load paths (plugins.load.paths[])\n3. Node modules with @openclaw namespace\nPlugin must export: definePluginEntry() or defineChannelPluginEntry().\n",
+      "lazy_loading": "Plugins loaded on-demand (not at startup by default).\nTrigger: First use or explicit /plugin load command.\nExceptions: Critical plugins pre-loaded (auth, memory, context-engine).\nBenefit: Faster startup, reduced memory footprint.\n",
+      "manifest_validation": "Every plugin provides manifest:\n{ id, name, description, version, authors, capabilities }\nValidation: required fields + format checks.\nError: plugin rejected if manifest invalid.\n"
+    },
+    "plugin_lifecycle": {
+      "initialization_sequence": "1. Load module (require/import)\n2. Validate manifest (id, version, capabilities)\n3. Merge with config (from plugins.entries)\n4. Initialize config schema (Zod/JSON Schema)\n5. Call onEnable() hook (if defined)\n6. Register capabilities with gateway\n7. Mark initialized=true\nFailure at any step: plugin disabled, error logged.\n",
+      "enable_disable": "Enable: Set enabled=true, call onEnable(), expose capabilities.\nDisable: Set enabled=false, call onDisable(), hide capabilities.\nRequired plugin disabled: warning logged, may prevent execution.\nDynamic enable/disable available via CLI.\n",
+      "reload_strategy": "On config change:\n1. Compare manifest_hash\n2. If unchanged: skip reload\n3. If changed: unload, reinitialize, reload\nPreserve auth profiles across reload.\n"
+    },
+    "plugin_configuration": {
+      "config_schema_validation": "Plugin defines configSchema (Zod or JSON Schema).\nconfig object validated against schema on load.\nErrors: detailed path reporting (e.g., \"config.deeplink.port\").\nInvalid config: plugin disabled, error shown.\n",
+      "ui_hints": "Config schema includes UI hints:\n{ field, type, sensitive, description, ui_type }\nRespected by: CLI wizard, web config UI, mobile app.\n",
+      "nested_configuration": "Plugins can have deeply nested config with recursive validation.\nPath-based access: config.integrations.discord.token.\n",
+      "environment_variable_substitution": "Config values can reference env vars:\n\"apiKey\": \"${MY_API_KEY}\" or \"${API_URL:-https://default.com}\"\nSubstitution: performed during load.\nSecrets detection: _KEY, _TOKEN, _PASSWORD, _SECRET redacted in logs.\n"
+    },
+    "capability_model": {
+      "capability_declaration": "Plugins declare capabilities:\n[\"chat.send\", \"context.read\", \"tool.custom\", \"event.listen\"]\nCapabilities are strings (provider/type/name format).\n",
+      "capability_gating": "Tools/features check plugin.capabilities before invocation.\nMissing capability: tool call rejected with permission error.\nPrevents plugins from exceeding declared scope.\n",
+      "capability_categories": "System: memory, context-engine, rag, tool.index\nChat: chat.send, chat.receive, chat.edit\nTools: tool.* (custom namespaces)\nContext: context.read, context.inject\nEvents: event.listen, event.emit\n"
+    },
+    "slot_based_plugins": {
+      "memory_slot": "plugins.slots.memory: single plugin controls conversation memory.\nOnly one memory plugin enabled at a time.\nAlternatives: default (file-based), vector DB, custom.\nSwitching: update config, restart gateway.\n",
+      "context_engine_slot": "plugins.slots.contextEngine: single plugin provides context building.\nBuilds prompt context from conversation history.\nAlternatives: default (transcript), RAG, custom.\n"
+    },
+    "plugin_allowlist_denylist": {
+      "allowlist_behavior": "plugins.allow: string[] of allowed plugin IDs.\nIf set: ONLY these plugins can load (whitelist mode).\nOthers: rejected during load.\n",
+      "denylist_behavior": "plugins.deny: string[] of blocked plugin IDs.\nIf set: these plugins cannot load.\nDeny takes precedence over allow (safer default).\n"
+    }
+  },
+  "events": [
+    {
+      "name": "plugin.loaded",
+      "payload": [
+        "plugin_id",
+        "plugin_version"
+      ]
+    },
+    {
+      "name": "plugin.enabled",
+      "payload": [
+        "plugin_id",
+        "declared_capabilities"
+      ]
+    },
+    {
+      "name": "plugin.disabled",
+      "payload": [
+        "plugin_id"
+      ]
+    },
+    {
+      "name": "plugin.config_changed",
+      "payload": [
+        "plugin_id",
+        "config_hash"
+      ]
+    },
+    {
+      "name": "plugin.error",
+      "payload": [
+        "plugin_id",
+        "error_code",
+        "error_message"
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": "PLUGIN_NOT_FOUND",
+      "status": 404,
+      "message": "Plugin not found"
+    },
+    {
+      "code": "PLUGIN_INITIALIZATION_FAILED",
+      "status": 500,
+      "message": "Plugin failed to initialize"
+    },
+    {
+      "code": "INVALID_PLUGIN_CONFIG",
+      "status": 400,
+      "message": "Plugin configuration invalid"
+    },
+    {
+      "code": "CAPABILITY_DENIED",
+      "status": 403,
+      "message": "Plugin capability not declared"
+    },
+    {
+      "code": "AUTH_PROFILE_NOT_FOUND",
+      "status": 404,
+      "message": "Auth profile not found"
+    },
+    {
+      "code": "PLUGIN_CONFLICT",
+      "status": 409,
+      "message": "Plugin conflict"
+    }
+  ],
+  "states": {
+    "plugin_state": {
+      "field": "initialization",
+      "values": [
+        {
+          "name": "unloaded",
+          "initial": true
+        },
+        {
+          "name": "loading"
+        },
+        {
+          "name": "initializing"
+        },
+        {
+          "name": "enabled"
+        },
+        {
+          "name": "disabled"
+        },
+        {
+          "name": "failed",
+          "terminal": true
+        }
+      ]
+    }
+  },
+  "outcomes": {
+    "plugin_loaded": {
+      "priority": 1,
+      "given": [
+        "plugin_id provided",
+        {
+          "field": "plugin_id",
+          "source": "config",
+          "operator": "exists"
+        },
+        "plugin module found in search paths"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "initialized",
+          "value": "false"
+        },
+        {
+          "action": "set_field",
+          "target": "manifest_hash",
+          "value": "hash(manifest)"
+        },
+        {
+          "action": "transition_state",
+          "field": "plugin_state",
+          "from": "unloaded",
+          "to": "loading"
+        }
+      ],
+      "result": "Plugin module loaded, manifest validated"
+    },
+    "plugin_initialized": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "plugin_state",
+          "source": "db",
+          "operator": "eq",
+          "value": "loading"
+        },
+        "configSchema validated against config",
+        "onEnable() hook completed without error"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "initialized",
+          "value": "true"
+        },
+        {
+          "action": "set_field",
+          "target": "enabled",
+          "value": "true"
+        },
+        {
+          "action": "emit_event",
+          "event": "plugin.enabled",
+          "payload": [
+            "plugin_id",
+            "declared_capabilities"
+          ]
+        },
+        {
+          "action": "transition_state",
+          "field": "plugin_state",
+          "from": "loading",
+          "to": "enabled"
+        }
+      ],
+      "result": "Plugin enabled, capabilities exposed to gateway"
+    },
+    "capability_check": {
+      "priority": 3,
+      "given": [
+        "plugin attempting tool use",
+        {
+          "field": "required_capability",
+          "source": "input",
+          "operator": "in",
+          "value": "declared_capabilities"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "capability_allowed",
+          "value": "true"
+        }
+      ],
+      "result": "Capability check passed, tool use allowed"
+    },
+    "capability_denied": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "required_capability",
+          "source": "input",
+          "operator": "not_in",
+          "value": "declared_capabilities"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "capability_allowed",
+          "value": "false"
+        }
+      ],
+      "result": "Capability check failed, tool use denied",
+      "error": "CAPABILITY_DENIED"
+    },
+    "plugin_disabled": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "enabled",
+          "source": "config",
+          "operator": "eq",
+          "value": "false"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "service": "onDisable"
+        },
+        {
+          "action": "transition_state",
+          "field": "plugin_state",
+          "from": "enabled",
+          "to": "disabled"
+        },
+        {
+          "action": "emit_event",
+          "event": "plugin.disabled",
+          "payload": [
+            "plugin_id"
+          ]
+        }
+      ],
+      "result": "Plugin disabled, no longer accessible"
+    }
+  },
+  "related": [
+    {
+      "feature": "openclaw-gateway-authentication",
+      "type": "optional",
+      "reason": "Some plugins manage authentication"
+    },
+    {
+      "feature": "openclaw-llm-provider",
+      "type": "optional",
+      "reason": "Plugins can provide LLM models"
+    }
+  ],
+  "sla": {
+    "plugin_load_time": {
+      "max_duration": "1s"
+    },
+    "capability_check": {
+      "max_duration": "1ms"
+    }
+  },
+  "extensions": {
+    "tech_stack": {
+      "language": "TypeScript",
+      "patterns": [
+        "Dynamic module loading",
+        "Capability-based permissions",
+        "Configuration schema validation"
+      ]
+    }
+  }
+}

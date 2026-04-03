@@ -1,0 +1,437 @@
+{
+  "feature": "openclaw-gateway-authentication",
+  "version": "1.0.0",
+  "description": "Multi-mode gateway authentication with rate limiting, device tokens, and Tailscale VPN integration",
+  "category": "access",
+  "tags": [
+    "authentication",
+    "authorization",
+    "security",
+    "rate-limiting",
+    "gateway"
+  ],
+  "actors": [
+    {
+      "id": "client",
+      "name": "Client",
+      "type": "external"
+    },
+    {
+      "id": "gateway",
+      "name": "OpenClaw Gateway",
+      "type": "system"
+    },
+    {
+      "id": "tailscale",
+      "name": "Tailscale VPN",
+      "type": "external"
+    },
+    {
+      "id": "trusted_proxy",
+      "name": "Reverse Proxy",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "auth_mode",
+      "type": "select",
+      "required": true,
+      "label": "Authentication Mode",
+      "options": [
+        {
+          "value": "none",
+          "label": "None (no auth)"
+        },
+        {
+          "value": "token",
+          "label": "Bearer Token"
+        },
+        {
+          "value": "password",
+          "label": "Static Password"
+        },
+        {
+          "value": "trusted-proxy",
+          "label": "Trusted Proxy"
+        },
+        {
+          "value": "tailscale",
+          "label": "Tailscale VPN"
+        },
+        {
+          "value": "device-token",
+          "label": "Device Token"
+        },
+        {
+          "value": "bootstrap-token",
+          "label": "Bootstrap Token (pairing)"
+        }
+      ]
+    },
+    {
+      "name": "token",
+      "type": "token",
+      "required": false,
+      "label": "Bearer Token"
+    },
+    {
+      "name": "password",
+      "type": "password",
+      "required": false,
+      "label": "Password"
+    },
+    {
+      "name": "device_token",
+      "type": "token",
+      "required": false,
+      "label": "Device Token"
+    },
+    {
+      "name": "bootstrap_token",
+      "type": "token",
+      "required": false,
+      "label": "Bootstrap Token"
+    },
+    {
+      "name": "client_ip",
+      "type": "text",
+      "required": true,
+      "label": "Client IP"
+    },
+    {
+      "name": "authenticated",
+      "type": "boolean",
+      "required": true,
+      "label": "Authenticated"
+    },
+    {
+      "name": "auth_method",
+      "type": "select",
+      "required": false,
+      "label": "Auth Method Used",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "token",
+          "label": "Token"
+        },
+        {
+          "value": "password",
+          "label": "Password"
+        },
+        {
+          "value": "tailscale",
+          "label": "Tailscale"
+        },
+        {
+          "value": "device-token",
+          "label": "Device Token"
+        },
+        {
+          "value": "bootstrap-token",
+          "label": "Bootstrap Token"
+        },
+        {
+          "value": "trusted-proxy",
+          "label": "Trusted Proxy"
+        }
+      ]
+    },
+    {
+      "name": "authenticated_user",
+      "type": "text",
+      "required": false,
+      "label": "Authenticated User"
+    },
+    {
+      "name": "rate_limited",
+      "type": "boolean",
+      "required": false,
+      "label": "Rate Limited"
+    },
+    {
+      "name": "remaining_attempts",
+      "type": "number",
+      "required": false,
+      "label": "Remaining Attempts"
+    },
+    {
+      "name": "retry_after_ms",
+      "type": "number",
+      "required": false,
+      "label": "Retry After (ms)"
+    },
+    {
+      "name": "is_loopback",
+      "type": "boolean",
+      "required": false,
+      "label": "Is Loopback"
+    }
+  ],
+  "rules": {
+    "auth_mode_selection": {
+      "mode_priority": "Selection order:\n1. Check override (e.g., --auth override mode)\n2. Check config.auth.mode\n3. Check credentials provided (password/token)\n4. Default: \"none\" (only if explicitly enabled)\nAll modes except \"none\" must be explicitly enabled.\n",
+      "mode_availability": "\"none\" — No auth (ONLY if config allows)\n\"token\" — Bearer token (require token in config)\n\"password\" — Static password (require password in config)\n\"trusted-proxy\" — X-Forwarded-For headers (require proxy config)\n\"tailscale\" — Tailscale VPN membership (require Tailscale access)\n\"device-token\" — Paired device token (require prior pairing)\n\"bootstrap-token\" — One-time pairing token\n"
+    },
+    "rate_limiting": {
+      "rate_limit_config": "maxAttempts: 10 (default, configurable)\nwindowMs: 60000 (1 minute sliding window)\nlockoutMs: 300000 (5 minute lockout)\nexemptLoopback: true (localhost always passes)\npruneIntervalMs: 60000 (cleanup stale entries)\n",
+      "sliding_window_logic": "Track failed attempt timestamps within windowMs.\nOn failure: append timestamp to attempts[].\nWhen attempts.length >= maxAttempts: set lockedUntil = now + lockoutMs.\nOn check: if now < lockedUntil, return allowed=false.\n",
+      "loopback_bypass": "Clients from 127.0.0.1 or ::1:\n- Always pass rate limit checks (if exemptLoopback=true, default)\n- Useful for local development\n- Can be disabled (not recommended)\n"
+    },
+    "token_authentication": {
+      "token_validation": "Format: \"Authorization: Bearer <token>\"\nComparison: constant-time (safeEqualSecret) prevents timing attacks\nConstraints:\n- Length: >= 16 characters\n- Characters: [a-zA-Z0-9_.-]+\n- Stored in: config.auth.token (plaintext)\n- Rotation: manual (no auto-expiry)\n",
+      "rate_limit_scope": "Scope: \"shared-secret\" (all token failures in same bucket)\n"
+    },
+    "password_authentication": {
+      "password_validation": "Sent via: POST body { password: \"...\" }\nComparison: constant-time (safeEqualSecret)\nConstraints:\n- Length: >= 8 characters\n- Stored in: config.auth.password (plaintext)\n",
+      "rate_limit_scope": "Scope: \"shared-secret\" (same bucket as token)\n"
+    },
+    "tailscale_authentication": {
+      "tailscale_flow": "1. Client connects from Tailscale VPN\n2. Gateway reads TLS client certificate\n3. Extract identity: loginName, displayName, profilePic\n4. Verify VPN membership via Tailscale whois lookup\n5. Allow if verified\nOnly if allowTailscale=true.\n",
+      "tailscale_ip_matching": "Tailscale CIDR: 100.64.0.0/10 (WireGuard)\nDetect: client_ip in Tailscale range\nVerify: call tailscale whois API\n"
+    },
+    "device_token_authentication": {
+      "pairing_prerequisites": "Device must be paired first:\n1. Device initiates: POST /gateway/pair { deviceId, deviceName }\n2. Gateway generates: deviceToken (32 bytes random)\n3. User confirms pairing (code or biometric)\n4. Device stores securely: deviceId + deviceToken\n5. On next request: \"Authorization: Bearer <deviceId>:<deviceToken>\"\n",
+      "device_token_validation": "Format: \"<deviceId>:<deviceTokenSecret>\"\nLookup: config/device-tokens.json\nComparison: constant-time secret comparison\nRefresh: one-time POST /gateway/device/<deviceId>/refresh\nRevocation: manual or automatic (>1 year inactivity)\n",
+      "rate_limit_scope": "Scope: \"device-token\" (per-device buckets)\n"
+    },
+    "trusted_proxy_authentication": {
+      "proxy_flow": "Reverse proxy (nginx, caddy, etc.) forwards to gateway:\n1. Client → Proxy (authenticated by proxy)\n2. Proxy → Gateway with X-Forwarded-For: <client_ip>\n3. Gateway checks: proxy_ip in trustedProxies list\n4. Extract client_ip from header\n5. Allow request (no further auth)\n",
+      "proxy_allowlist": "trustedProxies: string[] (CIDR ranges or IPs)\nStrict matching: client_ip in CIDR range\nInvalid: log warning, deny all requests\n",
+      "header_precedence": "1. X-Forwarded-For (preferred, rightmost = original client)\n2. X-Real-IP (Nginx/Caddy fallback)\n3. Direct connection IP\n"
+    },
+    "ip_resolution": {
+      "resolution_order": "1. Check is_loopback (::1 or 127.0.0.1) → bypass auth\n2. Check trusted proxy → extract from headers\n3. Use client socket IP → direct connection\n4. Fallback to X-Real-IP (if allowRealIpFallback=true)\n"
+    }
+  },
+  "states": {
+    "auth_state": {
+      "field": "authenticated",
+      "values": [
+        {
+          "name": "unauthenticated",
+          "initial": true
+        },
+        {
+          "name": "rate_limited"
+        },
+        {
+          "name": "invalid_credentials"
+        },
+        {
+          "name": "authenticated",
+          "terminal": true
+        }
+      ]
+    }
+  },
+  "outcomes": {
+    "token_authenticated": {
+      "priority": 1,
+      "given": [
+        "Authorization header present",
+        {
+          "field": "auth_mode",
+          "source": "config",
+          "operator": "eq",
+          "value": "token"
+        },
+        "token header matches config.auth.token"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "authenticated",
+          "value": "true"
+        },
+        {
+          "action": "set_field",
+          "target": "auth_method",
+          "value": "token"
+        }
+      ],
+      "result": "Request allowed, token authenticated"
+    },
+    "password_authenticated": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "auth_mode",
+          "source": "config",
+          "operator": "eq",
+          "value": "password"
+        },
+        "password POST body matches config.auth.password"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "authenticated",
+          "value": "true"
+        },
+        {
+          "action": "set_field",
+          "target": "auth_method",
+          "value": "password"
+        }
+      ],
+      "result": "Request allowed, password authenticated"
+    },
+    "device_authenticated": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "auth_mode",
+          "source": "config",
+          "operator": "eq",
+          "value": "device-token"
+        },
+        "deviceId:deviceToken valid in config/device-tokens.json"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "authenticated",
+          "value": "true"
+        },
+        {
+          "action": "set_field",
+          "target": "auth_method",
+          "value": "device-token"
+        }
+      ],
+      "result": "Paired device allowed"
+    },
+    "rate_limit_exceeded": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "failed_attempts_in_window",
+          "source": "computed",
+          "operator": "gte",
+          "value": "max_attempts"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "rate_limited",
+          "value": "true"
+        },
+        {
+          "action": "set_field",
+          "target": "authenticated",
+          "value": "false"
+        },
+        {
+          "action": "set_field",
+          "target": "retry_after_ms",
+          "value": "calculated backoff"
+        }
+      ],
+      "result": "Request blocked by rate limiter, retry after delay",
+      "error": "AUTH_RATE_LIMITED"
+    },
+    "loopback_bypass": {
+      "priority": 0,
+      "given": [
+        {
+          "field": "is_loopback",
+          "source": "computed",
+          "operator": "eq",
+          "value": "true"
+        },
+        {
+          "field": "exempt_loopback",
+          "source": "config",
+          "operator": "eq",
+          "value": "true"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "authenticated",
+          "value": "true"
+        },
+        {
+          "action": "set_field",
+          "target": "auth_method",
+          "value": "none"
+        }
+      ],
+      "result": "Localhost allowed (if exemptLoopback=true)"
+    }
+  },
+  "errors": [
+    {
+      "code": "AUTH_RATE_LIMITED",
+      "status": 429,
+      "message": "Too many failed authentication attempts"
+    },
+    {
+      "code": "INVALID_CREDENTIALS",
+      "status": 401,
+      "message": "Authentication failed"
+    },
+    {
+      "code": "AUTH_MODE_NOT_CONFIGURED",
+      "status": 401,
+      "message": "Authentication required but not configured"
+    },
+    {
+      "code": "TAILSCALE_VERIFICATION_FAILED",
+      "status": 401,
+      "message": "Tailscale VPN verification failed"
+    },
+    {
+      "code": "INVALID_DEVICE_TOKEN",
+      "status": 401,
+      "message": "Device token invalid or expired"
+    },
+    {
+      "code": "TRUSTED_PROXY_NOT_ALLOWED",
+      "status": 403,
+      "message": "Request source not in trusted proxies"
+    },
+    {
+      "code": "ORIGIN_MISMATCH",
+      "status": 403,
+      "message": "Origin not allowed"
+    }
+  ],
+  "related": [
+    {
+      "feature": "openclaw-session-management",
+      "type": "recommended",
+      "reason": "Auth determines session isolation scope"
+    },
+    {
+      "feature": "openclaw-message-routing",
+      "type": "required",
+      "reason": "Auth must precede message routing"
+    }
+  ],
+  "sla": {
+    "auth_latency": {
+      "max_duration": "50ms"
+    },
+    "rate_limit_check": {
+      "max_duration": "10ms"
+    }
+  },
+  "extensions": {
+    "tech_stack": {
+      "language": "TypeScript",
+      "patterns": [
+        "Constant-time string comparison",
+        "Sliding window rate limiting",
+        "IP-based rate limit buckets"
+      ]
+    }
+  }
+}

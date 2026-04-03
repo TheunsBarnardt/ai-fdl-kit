@@ -1,0 +1,879 @@
+{
+  "feature": "market-data-feeds",
+  "version": "1.0.0",
+  "description": "Consume and distribute real-time and delayed market data including pricing, indices, commodities, forex, and trade feeds from multiple providers",
+  "category": "trading",
+  "tags": [
+    "market-data",
+    "feeds",
+    "real-time",
+    "pricing",
+    "indices",
+    "commodities",
+    "watchlist"
+  ],
+  "actors": [
+    {
+      "id": "market_participant",
+      "name": "Market Data Consumer",
+      "type": "human",
+      "description": "Client accessing market prices, indices, and research data"
+    },
+    {
+      "id": "financial_advisor",
+      "name": "Advisor",
+      "type": "human",
+      "description": "Advisor building watchlists and monitoring market data"
+    },
+    {
+      "id": "market_data_provider",
+      "name": "Market Data Provider",
+      "type": "external",
+      "description": "Market data provider systems offering quotes, indices, commodities, forex"
+    },
+    {
+      "id": "trade_feed_system",
+      "name": "Trade Feed System",
+      "type": "external",
+      "description": "Asynchronous trade feed providing trade confirmations and updates"
+    }
+  ],
+  "fields": [
+    {
+      "name": "instrument_code",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "instrument_name",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "current_price",
+      "type": "number",
+      "required": true
+    },
+    {
+      "name": "previous_close_price",
+      "type": "number",
+      "required": true
+    },
+    {
+      "name": "price_movement",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "price_movement_percentage",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "bid_price",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "ask_price",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "last_trade_price",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "last_trade_time",
+      "type": "datetime",
+      "required": false
+    },
+    {
+      "name": "volume",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "volume_weighted_average_price",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "quote_date",
+      "type": "date",
+      "required": true
+    },
+    {
+      "name": "quote_time",
+      "type": "datetime",
+      "required": false
+    },
+    {
+      "name": "is_live_data",
+      "type": "boolean",
+      "required": true
+    },
+    {
+      "name": "data_source",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "index_level",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "index_change",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "commodity_price",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "commodity_unit",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "forex_rate",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "forex_pair",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "watchlist_id",
+      "type": "number",
+      "required": true
+    },
+    {
+      "name": "watchlist_name",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "watchlist_owner_id",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "created_date",
+      "type": "datetime",
+      "required": true
+    },
+    {
+      "name": "watchlist_description",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "trade_id",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "trade_date",
+      "type": "date",
+      "required": true
+    },
+    {
+      "name": "trade_time",
+      "type": "datetime",
+      "required": true
+    },
+    {
+      "name": "instrument_code_traded",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "trade_quantity",
+      "type": "number",
+      "required": true
+    },
+    {
+      "name": "trade_price",
+      "type": "number",
+      "required": true
+    },
+    {
+      "name": "trade_type",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "trade_status",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "settlement_date",
+      "type": "date",
+      "required": true
+    },
+    {
+      "name": "trade_fees",
+      "type": "number",
+      "required": false
+    }
+  ],
+  "states": {
+    "field": "data_state",
+    "values": [
+      {
+        "name": "real_time",
+        "initial": true,
+        "description": "Data is current (within 1 minute)"
+      },
+      {
+        "name": "delayed",
+        "description": "Data is delayed (15+ minutes)"
+      },
+      {
+        "name": "stale",
+        "description": "Data is more than 24 hours old"
+      },
+      {
+        "name": "unavailable",
+        "initial": false,
+        "description": "No data available for this symbol"
+      }
+    ]
+  },
+  "rules": {
+    "security": {
+      "authentication": [
+        "Watchlist operations require authentication",
+        "Market data endpoints are mostly public (caching allowed)",
+        "User watchlists only accessible to owner"
+      ]
+    },
+    "access": [
+      "Users can create personal watchlists",
+      "Users can only modify/delete their own watchlists",
+      "Market data is freely accessible (public)"
+    ],
+    "business": [
+      "Price movement = current_price - previous_close_price",
+      "Movement percentage = (price_movement / previous_close_price) * 100",
+      "Real-time data = quote within 1 minute of trade",
+      "Delayed data = quote 15+ minutes old",
+      "If instrument has no trades today, use previous close price",
+      "Volume = 0 if no trades occurred",
+      "Trade settlement = trade_date + settlement_period (typically 3 business days)",
+      "Market data caching prevents duplicate data provider calls"
+    ]
+  },
+  "sla": {
+    "quote_freshness": {
+      "metric": "Quote freshness",
+      "max_duration": "1m",
+      "reason": "Real-time quotes should be within 1 minute of latest trade"
+    },
+    "data_provider_latency": {
+      "metric": "Data provider latency",
+      "max_duration": "2s",
+      "reason": "Calls to market data providers should complete within 2 seconds"
+    },
+    "watchlist_responsiveness": {
+      "metric": "Watchlist responsiveness",
+      "max_duration": "5s",
+      "reason": "Watchlist creation/retrieval should be instant"
+    },
+    "trade_feed_ingestion": {
+      "metric": "Trade feed ingestion",
+      "max_duration": "15s",
+      "reason": "TradeCIS trades should be processed within 15 seconds of receipt"
+    }
+  },
+  "outcomes": {
+    "commodities_retrieved": {
+      "priority": 1,
+      "given": [
+        "user requests commodity prices"
+      ],
+      "then": [
+        {
+          "action": "fetch_record",
+          "source": "market_data_provider",
+          "query": "all commodities with latest prices",
+          "fields": [
+            "commodity_code",
+            "commodity_name",
+            "commodity_price",
+            "commodity_unit",
+            "quote_date",
+            "price_movement"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "market.commodities_fetched",
+          "payload": [
+            "quote_date",
+            "commodity_count",
+            "data_source"
+          ]
+        }
+      ],
+      "result": "List of commodities with current prices and movements",
+      "when": "cache_expired('market:commodities', 1m)"
+    },
+    "forex_retrieved": {
+      "priority": 2,
+      "given": [
+        "user requests exchange rates"
+      ],
+      "then": [
+        {
+          "action": "fetch_record",
+          "source": "market_data_provider",
+          "query": "forex rates (major pairs)",
+          "fields": [
+            "forex_pair",
+            "forex_rate",
+            "bid_price",
+            "ask_price",
+            "quote_date",
+            "price_movement"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "market.forex_fetched",
+          "payload": [
+            "quote_date",
+            "pair_count",
+            "data_source"
+          ]
+        }
+      ],
+      "result": "Exchange rates for major currency pairs",
+      "when": "cache_expired('market:forex', 1m)"
+    },
+    "indices_retrieved": {
+      "priority": 3,
+      "given": [
+        "user requests index data",
+        "quote_date is provided"
+      ],
+      "then": [
+        {
+          "action": "fetch_record",
+          "source": "market_data_provider",
+          "query": "indices for date",
+          "fields": [
+            "index_code",
+            "index_name",
+            "index_level",
+            "price_movement",
+            "quote_date"
+          ]
+        },
+        {
+          "action": "compute_field",
+          "field": "price_movement_percentage",
+          "formula": "(price_movement / previous_close_price) * 100"
+        },
+        {
+          "action": "emit_event",
+          "event": "market.indices_fetched",
+          "payload": [
+            "quote_date",
+            "index_count"
+          ]
+        }
+      ],
+      "result": "Index levels and movements for the requested date"
+    },
+    "instrument_detail_retrieved": {
+      "priority": 4,
+      "given": [
+        "instrument_code is provided",
+        "quote_date is provided"
+      ],
+      "then": [
+        {
+          "action": "fetch_record",
+          "source": "market_data_provider",
+          "query": "instrument detail with full quote",
+          "fields": [
+            "current_price",
+            "bid_price",
+            "ask_price",
+            "volume",
+            "last_trade_time",
+            "is_live_data"
+          ]
+        },
+        {
+          "action": "set_field",
+          "target": "data_source",
+          "value": "source of data"
+        }
+      ],
+      "result": "Detailed instrument quote including bid/ask spread and volume"
+    },
+    "instrument_history_retrieved": {
+      "priority": 5,
+      "given": [
+        "instrument_code is provided",
+        "start_date is provided",
+        "end_date is provided",
+        "date_range <= 5 years"
+      ],
+      "then": [
+        {
+          "action": "fetch_record",
+          "source": "market_data_provider",
+          "query": "historical prices for date range",
+          "fields": [
+            "quote_date",
+            "close_price",
+            "open_price",
+            "high_price",
+            "low_price",
+            "volume"
+          ]
+        },
+        {
+          "action": "sort_data",
+          "by": "quote_date",
+          "order": "ascending"
+        }
+      ],
+      "result": "Time series of historical prices for analysis/charting"
+    },
+    "instrument_lookup_completed": {
+      "priority": 6,
+      "given": [
+        "lookup string is provided (partial name/code)"
+      ],
+      "then": [
+        {
+          "action": "search_data",
+          "source": "market_data_provider",
+          "field": "instrument_name",
+          "operator": "matches",
+          "value": "lookup string"
+        },
+        {
+          "action": "limit_results",
+          "count": 20
+        }
+      ],
+      "result": "Dropdown list of matching instruments",
+      "when": "cache_expired('market:lookup:' + lookup_string, 1440m)"
+    },
+    "intraday_trades_retrieved": {
+      "priority": 7,
+      "given": [
+        "instrument_code is provided",
+        "quote_date is provided"
+      ],
+      "then": [
+        {
+          "action": "fetch_record",
+          "source": "market_data_provider",
+          "query": "all trades for instrument on date (real-time)",
+          "fields": [
+            "trade_time",
+            "last_trade_price",
+            "volume",
+            "last_trade_time"
+          ]
+        }
+      ],
+      "result": "Tick-by-tick trades for the day"
+    },
+    "ticker_retrieved": {
+      "priority": 8,
+      "given": [
+        "user requests top movers"
+      ],
+      "then": [
+        {
+          "action": "fetch_record",
+          "source": "market_data_provider",
+          "query": "top 40 index components with latest prices",
+          "fields": [
+            "instrument_code",
+            "current_price",
+            "price_movement_percentage",
+            "volume"
+          ]
+        },
+        {
+          "action": "sort_data",
+          "by": "price_movement_percentage",
+          "order": "descending"
+        },
+        {
+          "action": "limit_results",
+          "count": 40
+        }
+      ],
+      "result": "Top 40 index components sorted by movement"
+    },
+    "watchlist_created": {
+      "priority": 9,
+      "given": [
+        "user is authenticated",
+        "watchlist_name is provided",
+        "watchlist_owner_id is current user"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "watchlist",
+          "fields": [
+            "watchlist_name",
+            "watchlist_owner_id",
+            "created_date",
+            "description"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "market.watchlist_created",
+          "payload": [
+            "watchlist_id",
+            "watchlist_owner_id",
+            "created_date"
+          ]
+        }
+      ],
+      "result": "Watchlist created and ready for instruments to be added"
+    },
+    "watchlist_instrument_added": {
+      "priority": 10,
+      "given": [
+        "watchlist_id is provided",
+        "instrument_code is provided",
+        "user owns watchlist",
+        "instrument already not in watchlist"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "watchlist_member",
+          "fields": [
+            "watchlist_id",
+            "instrument_code",
+            "added_date"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "market.watchlist_instrument_added",
+          "payload": [
+            "watchlist_id",
+            "instrument_code"
+          ]
+        }
+      ],
+      "result": "Instrument added to watchlist"
+    },
+    "watchlist_data_retrieved": {
+      "priority": 11,
+      "given": [
+        "watchlist_id is provided",
+        "quote_date is provided (optional, defaults to today)"
+      ],
+      "then": [
+        {
+          "action": "fetch_record",
+          "source": "db",
+          "query": "instruments in watchlist",
+          "fields": [
+            "instrument_code"
+          ]
+        },
+        {
+          "action": "fetch_record",
+          "source": "market_data_provider",
+          "query": "prices for watchlist instruments",
+          "fields": [
+            "instrument_code",
+            "current_price",
+            "price_movement",
+            "is_live_data",
+            "quote_date"
+          ]
+        }
+      ],
+      "result": "Watchlist with current prices for all instruments"
+    },
+    "watchlist_removed": {
+      "priority": 12,
+      "given": [
+        "watchlist_id is provided",
+        "user owns watchlist"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "watchlist",
+          "id": "watchlist_id"
+        },
+        {
+          "action": "emit_event",
+          "event": "market.watchlist_deleted",
+          "payload": [
+            "watchlist_id",
+            "watchlist_owner_id"
+          ]
+        }
+      ],
+      "result": "Watchlist deleted"
+    },
+    "trade_received_and_processed": {
+      "priority": 13,
+      "given": [
+        "TradeCIS sends async trade message",
+        "trade_id is unique"
+      ],
+      "then": [
+        {
+          "action": "parse_data",
+          "format": "JSON",
+          "source": "raw_trade_message"
+        },
+        {
+          "action": "validate_data",
+          "rules": [
+            "trade_date_valid",
+            "instrument_exists",
+            "quantity_positive",
+            "trade_price_positive"
+          ]
+        },
+        {
+          "action": "create_record",
+          "type": "trade",
+          "fields": [
+            "trade_id",
+            "trade_date",
+            "instrument_code_traded",
+            "trade_quantity",
+            "trade_price",
+            "trade_type",
+            "trade_status",
+            "settlement_date"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "market.trade_executed",
+          "payload": [
+            "trade_id",
+            "instrument_code_traded",
+            "trade_quantity",
+            "trade_price",
+            "settlement_date"
+          ]
+        }
+      ],
+      "result": "Trade recorded and distributed to relevant systems",
+      "transaction": true
+    },
+    "instrument_not_found": {
+      "priority": 1,
+      "error": "MARKET_INSTRUMENT_NOT_FOUND",
+      "given": [
+        {
+          "field": "instrument_code",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "result": "404 Not Found - instrument not found"
+    },
+    "invalid_quote_date": {
+      "priority": 2,
+      "error": "MARKET_INVALID_DATE",
+      "given": [
+        {
+          "field": "quote_date",
+          "source": "input",
+          "operator": "gt",
+          "value": "today"
+        }
+      ],
+      "result": "400 Bad Request - quote date cannot be in the future"
+    },
+    "watchlist_unauthorized_access": {
+      "priority": 3,
+      "error": "MARKET_WATCHLIST_UNAUTHORIZED",
+      "given": [
+        {
+          "field": "user_id",
+          "source": "session",
+          "operator": "neq",
+          "value": "watchlist_owner_id"
+        }
+      ],
+      "result": "403 Forbidden - you do not have permission to modify this watchlist"
+    },
+    "trade_parse_failure": {
+      "priority": 4,
+      "error": "MARKET_TRADE_INVALID_FORMAT",
+      "given": [
+        "TradeCIS message cannot be parsed as JSON"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "market.trade_failed",
+          "payload": [
+            "raw_message",
+            "error_details",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Trade rejected and logged for manual review"
+    }
+  },
+  "errors": [
+    {
+      "code": "MARKET_INSTRUMENT_NOT_FOUND",
+      "status": 404,
+      "message": "The requested instrument could not be found. Please verify the instrument code."
+    },
+    {
+      "code": "MARKET_INVALID_DATE",
+      "status": 400,
+      "message": "The requested date is invalid. Please provide a current or past date."
+    },
+    {
+      "code": "MARKET_WATCHLIST_UNAUTHORIZED",
+      "status": 403,
+      "message": "You do not have permission to modify this watchlist."
+    },
+    {
+      "code": "MARKET_WATCHLIST_NOT_FOUND",
+      "status": 404,
+      "message": "The requested watchlist could not be found."
+    },
+    {
+      "code": "MARKET_TRADE_INVALID_FORMAT",
+      "status": 400,
+      "message": "The trade message format is invalid. Please verify the message structure."
+    },
+    {
+      "code": "MARKET_DATA_UNAVAILABLE",
+      "status": 503,
+      "message": "Market data is temporarily unavailable. Please try again later."
+    }
+  ],
+  "events": [
+    {
+      "name": "market.commodities_fetched",
+      "description": "Commodity prices retrieved",
+      "payload": [
+        "quote_date",
+        "commodity_count",
+        "data_source"
+      ]
+    },
+    {
+      "name": "market.forex_fetched",
+      "description": "Forex rates retrieved",
+      "payload": [
+        "quote_date",
+        "pair_count"
+      ]
+    },
+    {
+      "name": "market.indices_fetched",
+      "description": "Index data retrieved",
+      "payload": [
+        "quote_date",
+        "index_count"
+      ]
+    },
+    {
+      "name": "market.watchlist_created",
+      "description": "User created new watchlist",
+      "payload": [
+        "watchlist_id",
+        "watchlist_owner_id",
+        "created_date"
+      ]
+    },
+    {
+      "name": "market.watchlist_instrument_added",
+      "description": "Instrument added to watchlist",
+      "payload": [
+        "watchlist_id",
+        "instrument_code"
+      ]
+    },
+    {
+      "name": "market.watchlist_deleted",
+      "description": "Watchlist deleted",
+      "payload": [
+        "watchlist_id",
+        "watchlist_owner_id"
+      ]
+    },
+    {
+      "name": "market.trade_executed",
+      "description": "Trade received and processed from feed",
+      "payload": [
+        "trade_id",
+        "instrument_code_traded",
+        "trade_quantity",
+        "trade_price",
+        "settlement_date"
+      ]
+    },
+    {
+      "name": "market.trade_failed",
+      "description": "Trade failed to process",
+      "payload": [
+        "raw_message",
+        "error_details",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "portfolio-management",
+      "type": "required",
+      "reason": "Provides pricing data for portfolio valuations"
+    },
+    {
+      "feature": "reference-data-lookup",
+      "type": "recommended",
+      "reason": "Instrument classifications and corporate actions"
+    }
+  ],
+  "extensions": {
+    "tech_stack": {
+      "language": "C#",
+      "framework": "ASP.NET Core 5+",
+      "database": "SQL Server (Iress, Marble schemas)",
+      "cache": "In-memory caching with configurable TTL (1min-1440min)"
+    },
+    "source": {
+      "repo": "C:\\Work\\Sasfin.Wealth.Api",
+      "project": "Sasfin Wealth Management Platform",
+      "entry_points": [
+        "Wealth.Api/Controllers/MarketController.cs",
+        "Wealth.Api/Controllers/FeedController.cs",
+        "Sasfin.Wealth.Framework/Entities/MarketDataResult.cs"
+      ]
+    }
+  }
+}

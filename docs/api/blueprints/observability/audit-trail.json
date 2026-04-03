@@ -1,0 +1,278 @@
+{
+  "feature": "audit-trail",
+  "version": "1.0.0",
+  "description": "Immutable field-level change tracking for any record with automatic capture on every write, configurable per-model opt-in, and sensitive field exclusion",
+  "category": "observability",
+  "tags": [
+    "audit-trail",
+    "change-log",
+    "history",
+    "field-tracking",
+    "immutable",
+    "compliance"
+  ],
+  "fields": [
+    {
+      "name": "audit_id",
+      "type": "text",
+      "required": true,
+      "label": "Audit Entry ID"
+    },
+    {
+      "name": "entity_type",
+      "type": "text",
+      "required": true,
+      "label": "Entity Type"
+    },
+    {
+      "name": "entity_id",
+      "type": "text",
+      "required": true,
+      "label": "Entity ID"
+    },
+    {
+      "name": "field_name",
+      "type": "text",
+      "required": false,
+      "label": "Field Name"
+    },
+    {
+      "name": "old_value",
+      "type": "json",
+      "required": false,
+      "label": "Old Value"
+    },
+    {
+      "name": "new_value",
+      "type": "json",
+      "required": false,
+      "label": "New Value"
+    },
+    {
+      "name": "changed_by",
+      "type": "text",
+      "required": true,
+      "label": "Changed By"
+    },
+    {
+      "name": "changed_at",
+      "type": "datetime",
+      "required": true,
+      "label": "Changed At"
+    },
+    {
+      "name": "change_type",
+      "type": "select",
+      "required": true,
+      "label": "Change Type",
+      "options": [
+        {
+          "value": "create",
+          "label": "Create"
+        },
+        {
+          "value": "update",
+          "label": "Update"
+        },
+        {
+          "value": "delete",
+          "label": "Delete"
+        }
+      ]
+    },
+    {
+      "name": "change_source",
+      "type": "text",
+      "required": false,
+      "label": "Change Source"
+    },
+    {
+      "name": "request_id",
+      "type": "text",
+      "required": false,
+      "label": "Request ID"
+    }
+  ],
+  "rules": {
+    "capture": {
+      "automatic": true,
+      "no_manual_entries": true,
+      "trigger": "on_write",
+      "per_field": true
+    },
+    "immutability": {
+      "append_only": true,
+      "no_update": true,
+      "no_delete": true,
+      "tamper_detection": "optional"
+    },
+    "configuration": {
+      "opt_in_per_model": true,
+      "exclude_fields": "configurable",
+      "excluded_field_placeholder": "[REDACTED]"
+    },
+    "storage": {
+      "retention_days": "configurable",
+      "partition_by": "entity_type",
+      "index_fields": [
+        "entity_type",
+        "entity_id",
+        "changed_at",
+        "changed_by"
+      ]
+    },
+    "querying": {
+      "filter_by_entity": true,
+      "filter_by_field": true,
+      "filter_by_user": true,
+      "filter_by_date_range": true,
+      "sort_order": "changed_at_desc",
+      "paginated": true
+    }
+  },
+  "outcomes": {
+    "change_recorded": {
+      "priority": 1,
+      "given": [
+        "a write operation (create, update, or delete) occurs on an audited model",
+        "the changed fields are not in the exclusion list"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "audit_entry",
+          "target": "audit_entry",
+          "description": "Create immutable audit entry with entity, field, old/new values, user, and timestamp"
+        },
+        {
+          "action": "emit_event",
+          "event": "audit_trail.recorded",
+          "payload": [
+            "audit_id",
+            "entity_type",
+            "entity_id",
+            "change_type",
+            "changed_by"
+          ]
+        }
+      ],
+      "result": "Field-level change recorded in the audit trail"
+    },
+    "change_recorded_with_exclusion": {
+      "priority": 2,
+      "given": [
+        "a write operation occurs on an audited model",
+        "some changed fields are in the exclusion list"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "audit_entry",
+          "target": "audit_entry",
+          "description": "Create audit entry with excluded field values replaced by [REDACTED]"
+        },
+        {
+          "action": "emit_event",
+          "event": "audit_trail.recorded",
+          "payload": [
+            "audit_id",
+            "entity_type",
+            "entity_id",
+            "change_type",
+            "changed_by"
+          ]
+        }
+      ],
+      "result": "Change recorded with sensitive field values redacted"
+    },
+    "history_retrieved": {
+      "priority": 3,
+      "given": [
+        "a user requests the audit history for an entity",
+        "the user has permission to view audit records"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "audit_trail.queried",
+          "payload": [
+            "entity_type",
+            "entity_id",
+            "queried_by",
+            "result_count"
+          ]
+        }
+      ],
+      "result": "Paginated audit history returned for the requested entity"
+    },
+    "history_empty": {
+      "priority": 4,
+      "given": [
+        "a user requests audit history for an entity",
+        "no audit entries exist for the entity"
+      ],
+      "result": "Empty result set returned indicating no changes have been recorded"
+    },
+    "audit_access_denied": {
+      "priority": 10,
+      "error": "AUDIT_ACCESS_DENIED",
+      "given": [
+        "a user requests audit history",
+        "the user does not have permission to view audit records"
+      ],
+      "result": "Error returned indicating insufficient permissions"
+    }
+  },
+  "errors": [
+    {
+      "code": "AUDIT_ACCESS_DENIED",
+      "status": 403,
+      "message": "You do not have permission to view audit records"
+    },
+    {
+      "code": "AUDIT_ENTITY_NOT_TRACKED",
+      "status": 404,
+      "message": "Audit trail is not enabled for this entity type"
+    }
+  ],
+  "events": [
+    {
+      "name": "audit_trail.recorded",
+      "description": "A change was recorded in the audit trail",
+      "payload": [
+        "audit_id",
+        "entity_type",
+        "entity_id",
+        "change_type",
+        "changed_by"
+      ]
+    },
+    {
+      "name": "audit_trail.queried",
+      "description": "Audit history was queried by a user",
+      "payload": [
+        "entity_type",
+        "entity_id",
+        "queried_by",
+        "result_count"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "soft-delete",
+      "type": "recommended",
+      "reason": "Deletion events should be captured in the audit trail"
+    },
+    {
+      "feature": "pagination",
+      "type": "required",
+      "reason": "Audit history queries must be paginated for performance"
+    },
+    {
+      "feature": "search-and-filtering",
+      "type": "optional",
+      "reason": "Audit entries can be searched and filtered by entity, user, and date"
+    }
+  ]
+}
