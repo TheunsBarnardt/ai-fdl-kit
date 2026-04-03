@@ -1,0 +1,321 @@
+# ============================================================
+# FIX Message Building & Parsing — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/quickfix/quickfix
+# Tech stack: C++ | FIX Protocol Engine
+# Files analyzed: Message.h, Message.cpp, FieldMap.h,
+#                 FieldMap.cpp, Field.h, Group.h, Parser.h,
+#                 Fields.h, FieldTypes.h, Values.h
+# ============================================================
+
+feature: fix-message-building
+version: "1.0.0"
+description: Constructs, parses, and serializes FIX protocol messages with header, body, and trailer sections; supports repeating field groups and multi-version validation
+category: trading
+tags: [fix-protocol, message-parsing, financial-messaging, field-map, repeating-groups]
+
+actors:
+  - id: session_layer
+    name: Session Layer
+    type: system
+    description: Sends serialized message strings over the wire and receives raw byte streams
+  - id: application_layer
+    name: Application Layer
+    type: system
+    description: Constructs outgoing messages and processes incoming parsed messages
+  - id: data_dictionary
+    name: Data Dictionary
+    type: system
+    description: Validates field presence, types, and allowed values per FIX version
+
+fields:
+  # Source: spec/FIX42.xml — standard header fields required in every FIX message
+  # FIX version identifier (tag 8); must be the first field in every message (e.g. "FIX.4.2")
+  - name: begin_string
+    type: text
+    required: true
+
+  # Length of the message body in bytes (tag 9); auto-calculated on serialization
+  - name: body_length
+    type: number
+    required: true
+
+  # Message type code (tag 35); single or two-char code identifying message category (e.g. "D" for NewOrderSingle)
+  - name: msg_type
+    type: text
+    required: true
+
+  # Originator of the message (tag 49)
+  - name: sender_comp_id
+    type: text
+    required: true
+
+  # Intended recipient of the message (tag 56)
+  - name: target_comp_id
+    type: text
+    required: true
+
+  # Message sequence number (tag 34); monotonically increasing per session
+  - name: msg_seq_num
+    type: number
+    required: true
+
+  # UTC timestamp when message was sent (tag 52)
+  - name: sending_time
+    type: datetime
+    required: true
+
+  # Original sending time for resent messages (tag 122)
+  - name: orig_sending_time
+    type: datetime
+    required: false
+
+  # Indicates if message is a duplicate resend (tag 43)
+  - name: poss_dup_flag
+    type: boolean
+    required: false
+
+  # Indicates if message may be a retransmission (tag 97)
+  - name: poss_resend
+    type: boolean
+    required: false
+
+  # Three-digit sum of all byte values modulo 256 (tag 10); must be last field in trailer
+  # Source: Message.cpp — checksum computed and appended on toString()
+  - name: checksum
+    type: text
+    required: true
+
+  # Application version for FIXT.1.1 messages (tag 1128); decouples transport from app version
+  - name: appl_ver_id
+    type: text
+    required: false
+
+rules:
+  message_structure:
+    # Source: Message.h — Header/Body/Trailer FieldMap separation
+    - Every FIX message has three sections: Header (BeginString, BodyLength, MsgType), Body (message-specific fields), and Trailer (Checksum)
+    - Fields must appear in the correct section; body fields placed in header are rejected when ValidateFieldsOutOfOrder=Y
+    - Groups (repeating sets of fields) are introduced by a count field and a delimiter field defined in the DataDictionary
+
+  framing:
+    # Source: Parser.h — raw stream parsing with SOH delimiter
+    - Fields are separated by the SOH character (0x01)
+    - BeginString (tag 8) must be the first tag; BodyLength (tag 9) must be the second; CheckSum (tag 10) must be the last
+    - BodyLength must exactly equal the byte count between tag 9 and tag 10
+    - CheckSum must equal the modulo-256 sum of all bytes before it
+
+  serialization:
+    # Source: Message.cpp — toString() computes length and checksum
+    - Serialization automatically recalculates BodyLength and CheckSum; manual assignment is ignored
+    - Fields within each section are written in the order defined by the DataDictionary (or insertion order if dictionary absent)
+    - PreserveMessageFieldsOrder setting keeps original order for pass-through scenarios
+
+  groups:
+    # Source: Group.h, FieldMap.cpp — repeating group handling
+    - Repeating groups begin with a count field (e.g. NoAllocs tag 78)
+    - The first field of each group instance is the delimiter; fields are assigned to the correct instance based on it
+    - Groups may be nested; the outer group count field determines how many inner group iterations exist
+
+  message_identification:
+    # Source: Message.h — isAdmin() / isApp()
+    - Admin messages (Logon, Logout, Heartbeat, etc.) are handled by the session layer before application delivery
+    - Application messages (NewOrderSingle, ExecutionReport, etc.) are delivered to the application via fromApp()
+
+outcomes:
+  invalid_framing:
+    priority: 1
+    given:
+      - "raw string received from socket"
+      - "BeginString, BodyLength, or CheckSum is missing or invalid"
+    then:
+      - action: emit_event
+        event: fix.message.parse_error
+        payload: [raw_message, error_detail]
+    result: Message discarded; session-level Reject may be sent
+    error: MESSAGE_PARSE_ERROR
+
+  checksum_mismatch:
+    priority: 2
+    given:
+      - "message parsed from wire"
+      - "ValidateLengthAndChecksum is enabled"
+      - "computed checksum does not match tag 10 value"
+    then:
+      - action: emit_event
+        event: fix.message.rejected
+        payload: [msg_seq_num, reject_reason]
+    result: Message rejected; session Reject sent with reason
+    error: INVALID_CHECKSUM
+
+  field_out_of_order:
+    priority: 3
+    given:
+      - "message parsed"
+      - "ValidateFieldsOutOfOrder is enabled"
+      - "a body field appears in the header, or header field in body"
+    then:
+      - action: emit_event
+        event: fix.message.rejected
+        payload: [msg_seq_num, field_tag, reject_reason]
+    result: Message rejected with TagOutOfOrder error
+    error: FIELD_OUT_OF_ORDER
+
+  group_count_mismatch:
+    priority: 4
+    given:
+      - "message contains a repeating group"
+      - "actual number of group instances does not match count field value"
+    then:
+      - action: emit_event
+        event: fix.message.rejected
+        payload: [msg_seq_num, group_count_tag, reject_reason]
+    result: Message rejected with RepeatingGroupCountMismatch error
+    error: GROUP_COUNT_MISMATCH
+
+  field_not_found:
+    priority: 5
+    given:
+      - "application requests a field from a message"
+      - "field tag is not present in the message"
+    then: []
+    result: FieldNotFound exception thrown to the application
+    error: FIELD_NOT_FOUND
+
+  admin_message_received:
+    priority: 8
+    given:
+      - "parsed message has an admin MsgType (0,1,2,3,4,5,A)"
+    then:
+      - action: emit_event
+        event: fix.message.admin_received
+        payload: [session_id, msg_type, msg_seq_num]
+    result: Message routed to session layer for protocol processing via fromAdmin() callback
+
+  app_message_built:
+    priority: 9
+    given:
+      - "application creates a new message with a valid MsgType"
+      - "all required fields are set"
+    then:
+      - action: set_field
+        target: msg_seq_num
+        value: next_sender_seq_num
+      - action: set_field
+        target: sending_time
+        value: current_utc_time
+      - action: emit_event
+        event: fix.message.sent
+        payload: [session_id, msg_type, msg_seq_num]
+    result: Message is serialized, persisted, and sent over the session connection
+
+  app_message_parsed:
+    priority: 10
+    given:
+      - "raw FIX string received from wire"
+      - "framing, checksum, and field structure are valid"
+    then:
+      - action: emit_event
+        event: fix.message.app_received
+        payload: [session_id, msg_type, msg_seq_num]
+    result: Structured Message object delivered to application via fromApp() callback
+
+errors:
+  # Raw string does not conform to FIX framing rules
+  - code: MESSAGE_PARSE_ERROR
+    status: 400
+    message: Could not parse message
+  # Computed checksum does not match the value in tag 10
+  - code: INVALID_CHECKSUM
+    status: 400
+    message: Checksum validation failed
+  # Computed body length does not match the value in tag 9
+  - code: INVALID_BODY_LENGTH
+    status: 400
+    message: Body length validation failed
+  # A field appears in the wrong section of the message
+  - code: FIELD_OUT_OF_ORDER
+    status: 400
+    message: Tag specified out of required order
+  # Number of group instances does not match the count field
+  - code: GROUP_COUNT_MISMATCH
+    status: 400
+    message: Repeating group count mismatch
+  # Application requested a field that is not present
+  - code: FIELD_NOT_FOUND
+    status: 400
+    message: Field not found in message
+  # Field value cannot be parsed as the expected native type
+  - code: FIELD_CONVERT_ERROR
+    status: 400
+    message: Could not convert field value
+  # The same tag appears twice outside of a repeating group
+  - code: DUPLICATE_FIELD
+    status: 400
+    message: Duplicate field number
+  # MsgType value is not a recognized FIX message type
+  - code: INVALID_MESSAGE_TYPE
+    status: 400
+    message: Invalid message type
+
+events:
+  - name: fix.message.sent
+    description: Application message successfully serialized and queued for transmission
+    payload: [session_id, msg_type, msg_seq_num, sending_time]
+  - name: fix.message.admin_received
+    description: Administrative message received and routed to session layer
+    payload: [session_id, msg_type, msg_seq_num]
+  - name: fix.message.app_received
+    description: Application message parsed and delivered to application layer
+    payload: [session_id, msg_type, msg_seq_num]
+  - name: fix.message.rejected
+    description: Message rejected due to structural or validation failure
+    payload: [session_id, msg_seq_num, reject_reason, ref_tag_id]
+  - name: fix.message.parse_error
+    description: Raw message could not be parsed at all
+    payload: [raw_message, error_detail]
+
+related:
+  # Session layer controls when messages are sent/received and maintains sequence numbers
+  - feature: fix-session-management
+    type: required
+    reason: Session layer controls when messages are sent/received and maintains sequence numbers
+  # DataDictionary validates field types, required fields, and value ranges on parsed messages
+  - feature: fix-protocol-validation
+    type: recommended
+    reason: DataDictionary validates field types, required fields, and value ranges on parsed messages
+  # Outgoing messages are persisted before transmission for recovery purposes
+  - feature: fix-message-persistence
+    type: required
+    reason: Outgoing messages are persisted before transmission for recovery purposes
+
+extensions:
+  tech_stack:
+    language: C++
+    framework: FIX Protocol Engine
+    protocol: FIX 4.0–5.0 SP2 / FIXT 1.1
+  field_types:
+    - STRING (text)
+    - CHAR (single character)
+    - PRICE (decimal number)
+    - INT (integer)
+    - AMT (monetary amount)
+    - QTY (quantity)
+    - CURRENCY (3-letter currency code)
+    - EXCHANGE (exchange identifier)
+    - UTCTIMESTAMP (UTC datetime)
+    - BOOLEAN (Y/N)
+    - LOCALMKTDATE (local date)
+    - DATA (raw binary data)
+    - FLOAT (floating point)
+    - LENGTH (positive integer)
+    - SEQNUM (sequence number integer)
+    - NUMINGROUP (repeating group count)
+    - PERCENTAGE (percentage value)
+    - COUNTRY (2-char country code)
+    - MONTHYEAR (month/year value)
+    - DAYOFMONTH (day value)
+    - UTCDATE, UTCTIMEONLY (date/time components)
+    - XMLDATA (XML content)
+    - LANGUAGE (language code)

@@ -54,6 +54,19 @@ Sources queued for blueprint extraction via `/fdl-extract-web` or `/fdl-extract-
 |---|--------|------|-----|--------|
 | 22 | Grafana | Code | https://github.com/grafana/grafana | Pending |
 | 23 | OpenTelemetry Collector | Code | https://github.com/open-telemetry/opentelemetry-collector | Pending |
+| 24 | Elasticsearch (ELK Stack) | Code | https://github.com/elastic/elasticsearch | Pending |
+| 25 | Grafana Loki | Code | https://github.com/grafana/loki | Pending |
+| 26 | Fluentd | Code | https://github.com/fluent/fluentd | Pending |
+| 27 | Vector | Code | https://github.com/vectordotdev/vector | Pending |
+
+## Edge Computing / CDN → `infrastructure`
+
+| # | Source | Type | URL | Status |
+|---|--------|------|-----|--------|
+| 28 | Envoy Proxy | Code | https://github.com/envoyproxy/envoy | Pending |
+| 29 | Varnish Cache | Code | https://github.com/varnishcache/varnish-cache | Pending |
+| 30 | OpenResty | Code | https://github.com/openresty/openresty | Pending |
+| 31 | Caddy | Code | https://github.com/caddyserver/caddy | Pending |
 
 ---
 

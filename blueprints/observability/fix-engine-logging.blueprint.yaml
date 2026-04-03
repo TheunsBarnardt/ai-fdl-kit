@@ -1,0 +1,233 @@
+# ============================================================
+# FIX Engine Logging — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/quickfix/quickfix
+# Tech stack: C++ | FIX Protocol Engine
+# Files analyzed: Log.h, Log.cpp, FileLog.cpp,
+#                 SessionSettings.h (log config constants)
+# ============================================================
+
+feature: fix-engine-logging
+version: "1.0.0"
+description: Provides per-session and global logging of all incoming messages, outgoing messages, and session lifecycle events with pluggable backends including screen, file, and database outputs
+category: observability
+tags: [fix-protocol, logging, observability, financial-messaging, audit-trail]
+
+actors:
+  - id: session_layer
+    name: FIX Session Layer
+    type: system
+    description: Emits log events for every received/sent message and session state change
+  - id: screen_log
+    name: Screen Logger
+    type: system
+    description: Writes log entries to stdout with UTC timestamps; useful for development and debugging
+  - id: file_log
+    name: File Logger
+    type: system
+    description: Writes log entries to per-session files on disk; suitable for production audit trails
+  - id: database_log
+    name: Database Logger
+    type: system
+    description: Writes log entries to MySQL, PostgreSQL, or ODBC database tables; enables log querying and analytics
+
+fields:
+  # Source: SessionSettings.h — logging configuration
+  # Directory path where file logs are written; one file per stream per session
+  # Source: SessionSettings.h:FILE_LOG_PATH
+  - name: file_log_path
+    type: text
+    required: false
+
+  # Directory path for log backups when backup() is called (e.g. on session reset)
+  # Source: SessionSettings.h:FILE_LOG_BACKUP_PATH
+  - name: file_log_backup_path
+    type: text
+    required: false
+
+  # Show incoming FIX messages on stdout
+  # Source: SessionSettings.h:SCREEN_LOG_SHOW_INCOMING
+  - name: screen_log_show_incoming
+    type: boolean
+    required: false
+
+  # Show outgoing FIX messages on stdout
+  # Source: SessionSettings.h:SCREEN_LOG_SHOW_OUTGOING
+  - name: screen_log_show_outgoing
+    type: boolean
+    required: false
+
+  # Show session lifecycle events (logon, logout, errors) on stdout
+  # Source: SessionSettings.h:SCREEN_LOG_SHOW_EVENTS
+  - name: screen_log_show_events
+    type: boolean
+    required: false
+
+  # Hostname of the database server for database-backed logging
+  - name: db_host
+    type: text
+    required: false
+
+  # Port of the database server
+  - name: db_port
+    type: number
+    required: false
+
+  # Database name containing log tables
+  - name: db_name
+    type: text
+    required: false
+
+  # Database user with write access to log tables
+  - name: db_user
+    type: text
+    required: false
+
+  # Password for the database log user
+  - name: db_password
+    type: password
+    required: false
+
+  # Enable connection pooling for the database log backend
+  # Source: SessionSettings.h:MYSQL_LOG_USECONNECTIONPOOL
+  - name: db_connection_pool
+    type: boolean
+    required: false
+
+  # Table name for incoming message logs (default varies by backend)
+  # Source: SessionSettings.h:MYSQL_LOG_INCOMING_TABLE
+  - name: db_incoming_table
+    type: text
+    required: false
+
+  # Table name for outgoing message logs
+  # Source: SessionSettings.h:MYSQL_LOG_OUTGOING_TABLE
+  - name: db_outgoing_table
+    type: text
+    required: false
+
+  # Table name for session event logs
+  # Source: SessionSettings.h:MYSQL_LOG_EVENT_TABLE
+  - name: db_event_table
+    type: text
+    required: false
+
+rules:
+  three_log_streams:
+    # Source: Log.h — onIncoming, onOutgoing, onEvent
+    - Incoming: every FIX message received from the counterparty (raw wire format)
+    - Outgoing: every FIX message sent to the counterparty (raw wire format)
+    - Event: session lifecycle events (created, logon, logout, errors, heartbeat actions)
+    - Each stream can be independently enabled or disabled via configuration
+
+  thread_safety:
+    # Source: Log.h — ScreenLog uses static Mutex s_mutex
+    - All log writes are protected by a mutex to prevent interleaved output from concurrent sessions
+    - FileLog uses per-instance file handles; ScreenLog uses a global mutex for stdout coherence
+
+  session_scoped_logging:
+    # Source: LogFactory — create() vs create(SessionID)
+    - A separate log instance is created for each session, named by its SessionID
+    - A global log instance (no SessionID) captures engine-level events not tied to a specific session
+    - Log factories implement create(SessionID) for per-session logs and create() for global logs
+
+  log_rotation:
+    # Source: Log.h — backup()
+    - backup() is called on session reset, moving current log to the backup path
+    - clear() truncates the current log (called on session reset before replay)
+    - File-based log consumers should monitor for file rotation to avoid reading stale data
+
+  message_format:
+    # Source: ScreenLog.cpp — replaceSOHWithPipe for readability
+    - Raw FIX messages use SOH (0x01) as field separator; logs replace SOH with "|" for human readability
+    - Each log line includes a UTC timestamp, session ID prefix, and message direction
+
+outcomes:
+  log_write_failed:
+    priority: 1
+    given:
+      - "log backend encounters an error (disk full, DB connection lost)"
+    then:
+      - action: emit_event
+        event: fix.log.error
+        payload: [session_id, log_stream, error_detail]
+    result: Log write silently fails; session continues operating (logging is non-critical path)
+    error: LOG_WRITE_FAILED
+
+  incoming_message_logged:
+    priority: 9
+    given:
+      - "a FIX message is received from the counterparty"
+    then:
+      - action: emit_event
+        event: fix.log.incoming
+        payload: [session_id, timestamp, raw_message]
+    result: Raw message written to the incoming log stream with UTC timestamp
+
+  outgoing_message_logged:
+    priority: 10
+    given:
+      - "a FIX message is sent to the counterparty"
+    then:
+      - action: emit_event
+        event: fix.log.outgoing
+        payload: [session_id, timestamp, raw_message]
+    result: Raw message written to the outgoing log stream with UTC timestamp
+
+  session_event_logged:
+    priority: 11
+    given:
+      - "a session lifecycle event occurs (logon, logout, error, heartbeat, etc.)"
+    then:
+      - action: emit_event
+        event: fix.log.event
+        payload: [session_id, timestamp, event_description]
+    result: Event description written to the event log stream with UTC timestamp
+
+errors:
+  # Disk, database, or I/O error prevented log entry from being written
+  - code: LOG_WRITE_FAILED
+    status: 500
+    message: Failed to write to log backend
+
+events:
+  - name: fix.log.incoming
+    description: Incoming FIX message logged
+    payload: [session_id, timestamp, raw_message]
+  - name: fix.log.outgoing
+    description: Outgoing FIX message logged
+    payload: [session_id, timestamp, raw_message]
+  - name: fix.log.event
+    description: Session lifecycle event logged
+    payload: [session_id, timestamp, event_description]
+  - name: fix.log.error
+    description: Log backend encountered an error
+    payload: [session_id, log_stream, error_detail]
+
+related:
+  # Session layer calls the log on every sent/received message and state change
+  - feature: fix-session-management
+    type: required
+    reason: Session layer calls the log on every sent/received message and state change
+  # Log output uses the serialized message strings produced by the message builder
+  - feature: fix-message-building
+    type: recommended
+    reason: Log output uses the serialized message strings produced by the message builder
+
+extensions:
+  tech_stack:
+    language: C++
+    framework: FIX Protocol Engine
+    protocol: FIX 4.0–5.0 SP2 / FIXT 1.1
+  log_backends:
+    - ScreenLog: stdout output with timestamps (development/debugging)
+    - FileLog: disk file per session (production audit trail)
+    - MySQLLog: MySQL database tables for log querying
+    - PostgreSQLLog: PostgreSQL database tables
+    - OdbcLog: ODBC-compatible databases
+    - NullLog: discards all log output (testing)
+  file_naming:
+    - "Incoming: {FileLogPath}/{BeginString}-{SenderCompID}-{TargetCompID}.messages.incoming.current"
+    - "Outgoing: {FileLogPath}/{BeginString}-{SenderCompID}-{TargetCompID}.messages.outgoing.current"
+    - "Events:   {FileLogPath}/{BeginString}-{SenderCompID}-{TargetCompID}.event.current"

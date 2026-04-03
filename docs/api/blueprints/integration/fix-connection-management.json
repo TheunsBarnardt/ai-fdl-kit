@@ -1,0 +1,483 @@
+{
+  "feature": "fix-connection-management",
+  "version": "1.0.0",
+  "description": "Manages TCP connections for FIX protocol engines including server-side acceptors, client-side initiators, SSL/TLS encryption, automatic reconnection, and socket configuration",
+  "category": "integration",
+  "tags": [
+    "fix-protocol",
+    "tcp",
+    "acceptor",
+    "initiator",
+    "ssl",
+    "reconnection",
+    "financial-messaging"
+  ],
+  "actors": [
+    {
+      "id": "socket_acceptor",
+      "name": "Socket Acceptor",
+      "type": "system",
+      "description": "Server-side component that binds to a port and accepts incoming TCP connections from trading counterparties"
+    },
+    {
+      "id": "socket_initiator",
+      "name": "Socket Initiator",
+      "type": "system",
+      "description": "Client-side component that establishes outbound TCP connections to remote FIX servers"
+    },
+    {
+      "id": "ssl_layer",
+      "name": "SSL/TLS Layer",
+      "type": "system",
+      "description": "Optional TLS termination layer wrapping plain socket connections for encrypted FIX messaging"
+    },
+    {
+      "id": "application",
+      "name": "Application Layer",
+      "type": "system",
+      "description": "Business application that receives connection lifecycle events"
+    }
+  ],
+  "fields": [
+    {
+      "name": "connection_type",
+      "type": "select",
+      "required": true,
+      "options": [
+        {
+          "value": "initiator",
+          "label": "Initiator"
+        },
+        {
+          "value": "acceptor",
+          "label": "Acceptor"
+        }
+      ]
+    },
+    {
+      "name": "socket_accept_port",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "socket_connect_host",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "socket_connect_port",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "socket_connect_source_host",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "socket_connect_source_port",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "reconnect_interval",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "socket_nodelay",
+      "type": "boolean",
+      "required": false
+    },
+    {
+      "name": "socket_send_buffer_size",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "socket_receive_buffer_size",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "socket_reuse_address",
+      "type": "boolean",
+      "required": false
+    },
+    {
+      "name": "host_selection_policy",
+      "type": "select",
+      "required": false,
+      "options": [
+        {
+          "value": "first_in_list",
+          "label": "First in List"
+        },
+        {
+          "value": "round_robin",
+          "label": "Round Robin"
+        },
+        {
+          "value": "priority_with_failover",
+          "label": "Priority with Failover"
+        }
+      ]
+    },
+    {
+      "name": "ssl_certificate",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "ssl_private_key",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "ssl_ca_certificate",
+      "type": "text",
+      "required": false
+    }
+  ],
+  "states": {
+    "field": "connection_state",
+    "values": [
+      {
+        "name": "stopped",
+        "description": "Connection layer is not running; no sockets open",
+        "initial": true
+      },
+      {
+        "name": "pending",
+        "description": "Initiator is attempting to establish TCP connection to target"
+      },
+      {
+        "name": "connected",
+        "description": "TCP connection established; sessions can begin logon",
+        "terminal": false
+      },
+      {
+        "name": "disconnected",
+        "description": "Connection was established but has dropped; reconnect will be attempted"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "stopped",
+        "to": "pending",
+        "actor": "socket_initiator",
+        "description": "start() called on initiator; begins outbound connection attempt"
+      },
+      {
+        "from": "stopped",
+        "to": "connected",
+        "actor": "socket_acceptor",
+        "description": "Acceptor receives incoming TCP connection"
+      },
+      {
+        "from": "pending",
+        "to": "connected",
+        "actor": "socket_initiator",
+        "description": "TCP handshake completed; connection ready for FIX logon"
+      },
+      {
+        "from": "pending",
+        "to": "disconnected",
+        "actor": "socket_initiator",
+        "description": "Connection attempt timed out or refused"
+      },
+      {
+        "from": "connected",
+        "to": "disconnected",
+        "actor": "system",
+        "description": "Network error or remote peer closed connection"
+      },
+      {
+        "from": "disconnected",
+        "to": "pending",
+        "actor": "socket_initiator",
+        "description": "Reconnect interval elapsed; initiator attempts reconnection"
+      }
+    ]
+  },
+  "rules": {
+    "acceptor_binding": [
+      "Acceptor binds to SocketAcceptPort and listens for incoming connections",
+      "Each accepted connection is mapped to a session based on SenderCompID/TargetCompID in the Logon message",
+      "SocketReuseAddress=Y allows the acceptor to restart without waiting for OS port release"
+    ],
+    "initiator_reconnection": [
+      "On connection loss, initiator waits ReconnectInterval seconds before reattempting",
+      "Multiple target hosts can be configured (SocketConnectHost1, SocketConnectHost2, etc.) for failover",
+      "HostSelectionPolicy controls which host is tried first and how priority-based failover works"
+    ],
+    "ssl_security": [
+      "SSL sessions use the same configuration as plain sessions but wrap the socket in TLS",
+      "Certificate and private key paths must be configured before starting",
+      "CA certificate path enables mutual TLS (mTLS) peer verification",
+      "SSL and non-SSL sessions cannot mix on the same port"
+    ],
+    "socket_tuning": [
+      "TCP_NODELAY disables Nagle's algorithm for sub-millisecond message delivery; recommended for low-latency trading",
+      "Buffer sizes should be tuned based on expected message throughput; larger buffers reduce system calls"
+    ],
+    "threading": [
+      "Each connection runs I/O on a dedicated thread pool; session callbacks are invoked from I/O threads",
+      "Applications sharing state across sessions must synchronize access or use SynchronizedApplication wrapper"
+    ]
+  },
+  "sla": {
+    "reconnect_interval": "30s",
+    "connection_timeout": "10s"
+  },
+  "outcomes": {
+    "port_bind_failed": {
+      "priority": 1,
+      "given": [
+        "acceptor is starting",
+        "configured SocketAcceptPort is already in use"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "fix.connection.error",
+          "payload": [
+            "port",
+            "error_detail"
+          ]
+        }
+      ],
+      "result": "Acceptor startup fails with ConfigError; application is notified",
+      "error": "PORT_BIND_FAILED"
+    },
+    "ssl_handshake_failed": {
+      "priority": 2,
+      "given": [
+        "TCP connection established",
+        "SSL/TLS is enabled",
+        "certificate verification or cipher negotiation fails"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "connection_state",
+          "from": "pending",
+          "to": "disconnected"
+        },
+        {
+          "action": "emit_event",
+          "event": "fix.connection.error",
+          "payload": [
+            "remote_host",
+            "error_detail"
+          ]
+        }
+      ],
+      "result": "Connection dropped; initiator will retry after reconnect interval",
+      "error": "SSL_HANDSHAKE_FAILED"
+    },
+    "connection_refused": {
+      "priority": 3,
+      "given": [
+        "initiator is attempting to connect",
+        "target host refuses the connection or is unreachable"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "connection_state",
+          "from": "pending",
+          "to": "disconnected"
+        },
+        {
+          "action": "emit_event",
+          "event": "fix.connection.failed",
+          "payload": [
+            "remote_host",
+            "remote_port",
+            "error_detail"
+          ]
+        }
+      ],
+      "result": "Connection attempt fails; initiator waits ReconnectInterval before retrying",
+      "error": "CONNECTION_REFUSED"
+    },
+    "connection_lost": {
+      "priority": 4,
+      "given": [
+        "session is in connected or logged_on state",
+        "TCP socket receives error or zero-byte read (peer closed connection)"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "connection_state",
+          "from": "connected",
+          "to": "disconnected"
+        },
+        {
+          "action": "emit_event",
+          "event": "fix.connection.lost",
+          "payload": [
+            "session_id",
+            "remote_host"
+          ]
+        }
+      ],
+      "result": "Session is disconnected; initiator begins reconnect cycle",
+      "error": "CONNECTION_LOST"
+    },
+    "connection_established": {
+      "priority": 9,
+      "given": [
+        "initiator completes TCP handshake OR acceptor accepts incoming connection",
+        "SSL handshake succeeds (if SSL is enabled)"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "connection_state",
+          "from": "pending",
+          "to": "connected"
+        },
+        {
+          "action": "emit_event",
+          "event": "fix.connection.established",
+          "payload": [
+            "remote_host",
+            "remote_port",
+            "session_id"
+          ]
+        }
+      ],
+      "result": "TCP connection ready; FIX session logon can begin"
+    },
+    "graceful_stop": {
+      "priority": 10,
+      "given": [
+        "application calls stop() on acceptor or initiator"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "fix.connection.stopped",
+          "payload": [
+            "connection_type"
+          ]
+        }
+      ],
+      "result": "All sessions are logged out and sockets closed cleanly"
+    }
+  },
+  "errors": [
+    {
+      "code": "PORT_BIND_FAILED",
+      "status": 500,
+      "message": "Failed to bind to configured port"
+    },
+    {
+      "code": "SSL_HANDSHAKE_FAILED",
+      "status": 500,
+      "message": "SSL/TLS handshake failed"
+    },
+    {
+      "code": "CONNECTION_REFUSED",
+      "status": 503,
+      "message": "Connection refused by remote host"
+    },
+    {
+      "code": "CONNECTION_LOST",
+      "status": 503,
+      "message": "Connection lost unexpectedly"
+    },
+    {
+      "code": "CONFIG_ERROR",
+      "status": 500,
+      "message": "Connection configuration is invalid"
+    }
+  ],
+  "events": [
+    {
+      "name": "fix.connection.established",
+      "description": "TCP connection (and optional TLS) successfully established",
+      "payload": [
+        "remote_host",
+        "remote_port",
+        "session_id",
+        "is_ssl"
+      ]
+    },
+    {
+      "name": "fix.connection.lost",
+      "description": "Active connection dropped unexpectedly",
+      "payload": [
+        "session_id",
+        "remote_host",
+        "error_detail"
+      ]
+    },
+    {
+      "name": "fix.connection.failed",
+      "description": "Outbound connection attempt failed",
+      "payload": [
+        "remote_host",
+        "remote_port",
+        "error_detail"
+      ]
+    },
+    {
+      "name": "fix.connection.stopped",
+      "description": "Connection layer stopped cleanly",
+      "payload": [
+        "connection_type"
+      ]
+    },
+    {
+      "name": "fix.connection.error",
+      "description": "Non-fatal connection-level error",
+      "payload": [
+        "remote_host",
+        "error_detail"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "fix-session-management",
+      "type": "required",
+      "reason": "FIX sessions are established on top of connections managed here"
+    },
+    {
+      "feature": "fix-message-persistence",
+      "type": "recommended",
+      "reason": "Message store maintains sequences across connection drops and recoveries"
+    }
+  ],
+  "extensions": {
+    "tech_stack": {
+      "language": "C++",
+      "framework": "FIX Protocol Engine",
+      "protocol": "TCP/IP with optional TLS 1.2+"
+    },
+    "implementations": [
+      {
+        "SocketAcceptor": "plain TCP server"
+      },
+      {
+        "SocketInitiator": "plain TCP client"
+      },
+      {
+        "SSLSocketAcceptor": "TLS server using OpenSSL"
+      },
+      {
+        "SSLSocketInitiator": "TLS client using OpenSSL"
+      },
+      {
+        "ThreadedSocketAcceptor": "multi-threaded variant for high-connection-count scenarios"
+      },
+      {
+        "ThreadedSocketInitiator": "multi-threaded outbound variant"
+      }
+    ]
+  }
+}
