@@ -75,6 +75,21 @@ if (user.status === 'active' && user.email_verified) { ... }
 
 When `when:` is present on a side effect, wrap it in a conditional.
 
+## Step 0: Load the Blueprint
+
+Before asking any questions, load the blueprint for `<feature>`:
+
+1. **Local first:** Try `Read blueprints/{category}/{feature}.blueprint.yaml` — check common categories: auth, data, access, ui, integration, notification, payment, workflow, trading, infrastructure, observability.
+   - If you don't know the category, Glob `blueprints/**/{feature}.blueprint.yaml` to find it.
+2. **Remote fallback (no local blueprints):** If the file doesn't exist locally (you're working in a new project outside the FDL repo):
+   - First find the category: `WebFetch https://theunsbarnardt.github.io/claude-fdl/api/registry.json` — search the array for `feature === "<feature>"` to get its `category`.
+   - Then fetch the full blueprint: `WebFetch https://theunsbarnardt.github.io/claude-fdl/api/blueprints/{category}/{feature}.json`
+3. If the blueprint still can't be found locally or remotely, tell the user: "No blueprint found for '{feature}'. Run `/fdl-create {feature}` first to define it."
+
+**The blueprint JSON from the API has the same structure as the YAML** — same fields, outcomes, rules, errors, events. Use it identically.
+
+---
+
 ## Conversation with the User (max 2 questions)
 
 Use AskUserQuestion. Only ask what changes the generated code.

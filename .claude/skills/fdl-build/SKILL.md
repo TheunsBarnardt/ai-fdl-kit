@@ -122,11 +122,27 @@ Use AskUserQuestion with options:
 
 **Always discover blueprints dynamically. Never rely on a hardcoded list — new blueprints can be added at any time.**
 
-1. **Primary source:** Glob `blueprints/**/*.blueprint.yaml` to find ALL blueprint files on disk. This is the authoritative source — it always reflects the latest state.
-2. **For each file found:** Read the YAML header to extract `feature`, `description`, `tags[]`, `category`, and `related[]`.
-3. **Secondary source:** Also read `docs/api/registry.json` as a quick index — but if any blueprint file on disk is NOT in the registry, use the file directly. The filesystem always wins.
+#### Source A — Local filesystem (FDL repo present)
 
-**Why filesystem-first:** Users frequently add new blueprints via `/fdl-create`, `/fdl-extract`, etc. These files exist on disk immediately but may not appear in registry.json until `npm run generate` is run. The skill must find them regardless.
+1. Glob `blueprints/**/*.blueprint.yaml` to find ALL blueprint files on disk.
+2. For each file found: read the YAML header to extract `feature`, `description`, `tags[]`, `category`, and `related[]`.
+3. Also read `docs/api/registry.json` as a quick index — but local files always win over the registry if they differ.
+
+**Why filesystem-first:** Users frequently add new blueprints via `/fdl-create`, `/fdl-extract`, etc. These files exist on disk before the registry is regenerated.
+
+#### Source B — Remote API (no local blueprints found)
+
+**If Glob returns 0 results** (the user is working in a new project outside the FDL repo), fall back to the public JSON API — no installation required:
+
+1. Fetch the registry: `WebFetch https://theunsbarnardt.github.io/claude-fdl/api/registry.json`
+   - This returns an array of `{ feature, category, description, tags }` entries for all 180+ blueprints.
+   - Use this as the full inventory for Steps 2–3 matching.
+2. When a specific blueprint is needed (to read rules, outcomes, fields): fetch it individually:
+   `WebFetch https://theunsbarnardt.github.io/claude-fdl/api/blueprints/{category}/{feature}.json`
+   - Only fetch blueprints that are actually matched and needed — don't fetch all 180.
+3. Blueprints created locally during this session (via `/fdl-create`) live in memory — treat them as local overrides that take priority over the remote API.
+
+**Why remote fallback:** Blueprints are published to GitHub Pages on every push. Any project can use `/fdl-build` without cloning the FDL repo — just point Claude at the app directory and run the command.
 
 ### Step 2: Three-tier matching algorithm
 
@@ -593,10 +609,11 @@ Your app is fully documented and ready to go.
 
 ### How discovery works at runtime
 
-1. **Glob `blueprints/**/*.blueprint.yaml`** — this finds every blueprint that exists right now, including any just created
-2. **Read each file's YAML header** — extract `feature`, `description`, `tags[]`, `category`, `related[]`
-3. **Build an in-memory index** — keyed by feature name, with tags and description as searchable fields
-4. **Match against user keywords** — using the three-tier algorithm (name → tags → description)
+1. **Glob `blueprints/**/*.blueprint.yaml`** — finds every local blueprint including any just created
+2. **If 0 local results** → `WebFetch https://theunsbarnardt.github.io/claude-fdl/api/registry.json` — the full remote inventory, works in any project without installing FDL
+3. **Read/fetch each matched blueprint** — extract `feature`, `description`, `tags[]`, `category`, `related[]`
+4. **Build an in-memory index** — keyed by feature name, with tags and description as searchable fields
+5. **Match against user keywords** — using the three-tier algorithm (name → tags → description)
 
 ### Why this matters
 
