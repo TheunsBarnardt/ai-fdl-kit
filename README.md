@@ -34,6 +34,7 @@ No code. No YAML knowledge needed. Seven CLI commands handle everything through 
 | **Extract from code** | Existing codebase or git repo | `/fdl-extract-code ./src/auth login auth` |
 | **Extract features selectively** | Large repo, pick only what you want | `/fdl-extract-code-feature https://github.com/org/repo` |
 | **Generate code** | You have a blueprint, want code | `/fdl-generate login nextjs` |
+| **Install for other AI tools** | Use FDL in Cursor, Windsurf, Copilot, etc. | `/fdl-install cursor` |
 
 ---
 

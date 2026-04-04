@@ -88,6 +88,10 @@ Before asking any questions, load the blueprint for `<feature>`:
 
 **The blueprint JSON from the API has the same structure as the YAML** — same fields, outcomes, rules, errors, events. Use it identically.
 
+**After loading the blueprint**, also check for project config:
+- `Read fdl.config.yaml` if it exists — use `stack.*` and `conventions.*` to drive all code generation decisions (framework, database ORM, import style, test framework, etc.)
+- Config values answer the "How should I handle the database?" question automatically — skip that question if the answer is in the config.
+
 ---
 
 ## Conversation with the User (max 2 questions)
@@ -329,6 +333,29 @@ src/errors/{category}.rs
 
 ### Any Other Framework
 Follow that framework's conventions. The blueprint gives you WHAT to build — you decide the file structure, naming patterns, and idioms that are standard for the target.
+
+## RFC 2119 Rule Strength — MUST / SHOULD / MAY
+
+Rules in blueprints may be prefixed with RFC 2119 strength keywords. Enforce them accordingly:
+
+| Prefix | Meaning | Code generation behaviour |
+|--------|---------|--------------------------|
+| `MUST:` or `SHALL:` | Absolute requirement | Always implement. Never omit. Fail the generation if you can't satisfy it. |
+| `SHOULD:` | Strongly recommended | Implement by default. If skipping, add a `// TODO: [SHOULD] reason` comment. |
+| `MAY:` | Optional enhancement | Implement only if the user explicitly asked for it or it's trivially free. |
+| *(no prefix)* | Treat as `SHOULD:` | Implement by default. |
+
+**Examples:**
+```yaml
+rules:
+  security:
+    - "MUST: Passwords must be hashed with bcrypt (min cost 12)"
+    - "MUST: Rate limit login to 5 attempts per 15 minutes per IP"
+    - "SHOULD: Log failed login attempts with IP and timestamp"
+    - "MAY: Send login notification email to user"
+```
+
+Generated code **must** implement both MUST rules above. It **should** implement the SHOULD rule. It **may** skip the MAY rule unless requested.
 
 ## Non-Negotiable Rules
 

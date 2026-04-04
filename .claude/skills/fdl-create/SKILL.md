@@ -97,6 +97,7 @@ Want me to adjust anything, or should I create it?
    - `feature`, `version`, `description`, `category`, `tags`
    - `fields` — with name, type, required, label, placeholder, validation
    - `rules` — business logic, security, rate limiting
+   - Use RFC 2119 prefixes: `MUST:` for non-negotiable (security, data integrity), `SHOULD:` for best practice, `MAY:` for optional enhancements
    - `outcomes` — given/then/result for each scenario (preferred over flows for AI code gen)
    - `flows` — step-by-step procedures ONLY if the feature involves human actors or business processes
    - `errors` — UPPER_SNAKE_CASE codes with user-safe messages
@@ -182,6 +183,12 @@ For pure technical features (login, checkout, CRUD), `outcomes` alone is suffici
 - [ ] Sensitive fields marked `sensitive: true`
 - [ ] Error messages don't leak internal state
 - [ ] Auth requirements specified in rules
+
+### Rule Strength (RFC 2119)
+- [ ] Security-critical rules are prefixed `MUST:` (hashing, auth checks, input validation)
+- [ ] Best-practice rules are prefixed `SHOULD:` (logging, rate limiting, audit trails)
+- [ ] Optional enhancements are prefixed `MAY:` (notifications, analytics, caching)
+- [ ] Rules without a prefix are treated as `SHOULD:` by code generators
 
 ### Completeness
 - [ ] Every success scenario has an outcome

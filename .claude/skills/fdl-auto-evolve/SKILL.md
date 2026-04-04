@@ -31,6 +31,19 @@ Run this skill after:
 
 ## What It Does
 
+### Step 0: Clean Up Proposed Files
+
+Before validating, check for any pending `.proposed.blueprint.yaml` files left over from extract-code delta reviews:
+
+```bash
+# Find any proposed blueprints awaiting merge decision
+find blueprints/ -name "*.proposed.blueprint.yaml" 2>/dev/null
+```
+
+- If any exist: warn the user — "These proposed blueprint updates haven't been reviewed yet: [list]. Run `/fdl-extract-code` again to review them, or delete them to dismiss."
+- Do NOT delete them automatically — they represent unreviewed changes.
+- Proceed with the rest of auto-evolve (validate/generate/commit) on the main blueprint files only.
+
 ### Step 1: Validate
 ```bash
 node scripts/validate.js

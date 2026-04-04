@@ -116,6 +116,22 @@ Use AskUserQuestion with options:
 
 ---
 
+## Phase 1.5: Load Project Config (fdl.config.yaml)
+
+Before searching blueprints, check for a project config file. This eliminates the need to ask about tech stack on every run.
+
+1. Try to `Read fdl.config.yaml` in the current working directory
+2. If found, extract:
+   - `stack.*` — framework, language, database, db_engine, ui, auth, api_style
+   - `conventions.*` — import_style, test_framework, css_approach, error_handling
+   - `project.name` and `project.description`
+3. **Inject this into every subsequent code generation step** — skip any questions whose answers are already in the config
+4. If `fdl.config.yaml` is missing, proceed normally (ask stack questions when needed)
+
+**The config is additive.** If the user specifies something different in their request ("use MongoDB instead"), that overrides the config for this run.
+
+---
+
 ## Phase 2: Blueprint Search & Match
 
 ### Step 1: Load the COMPLETE blueprint inventory (dynamic — never hardcoded)

@@ -293,13 +293,40 @@ Wait for user confirmation before proceeding.
 
 ### Step 5: Check Existing Blueprints
 
-1. Glob for `blueprints/**/*.blueprint.yaml`
-2. Parse all existing blueprints
-3. Check if this feature name already exists (warn if so — offer to merge or create new)
-4. Identify relationships:
-   - Does any existing blueprint reference this feature?
-   - Should this blueprint reference existing ones?
-5. Show the dependency graph
+1. Glob `blueprints/**/*.blueprint.yaml`
+2. Check if any of the feature names you're about to create already exist
+
+**If a blueprint already exists for a feature:**
+
+Do NOT silently overwrite it. Instead:
+
+1. Read the existing blueprint
+2. Compare it with what you extracted — identify what changed:
+   - **ADDED**: new outcomes, rules, fields, errors, or events not in the existing version
+   - **MODIFIED**: outcomes/rules/fields that exist but have changed
+   - **REMOVED**: things in the existing blueprint not found in the new extraction
+3. Present a plain-English diff to the user:
+   ```
+   ⚠️  auth/login already exists. Here's what changed:
+
+   ADDED:
+     + 2 new outcomes: oauth_login_success, oauth_login_failed
+     + 1 new rule: MUST: validate OAuth state parameter to prevent CSRF
+
+   MODIFIED:
+     ~ rate_limit rule: max_attempts changed from 5 → 10
+     ~ login_failed outcome: added IP-based lockout after 3 failures
+
+   REMOVED:
+     - legacy_session_login outcome (not found in new codebase)
+   ```
+4. Ask: **"Merge changes into existing blueprint, replace it entirely, or skip this feature?"**
+   - "Merge" → apply only ADDED and MODIFIED, preserve existing content not in the diff
+   - "Replace" → overwrite with the freshly extracted version
+   - "Skip" → leave the existing blueprint untouched
+
+**If the blueprint does NOT exist:**
+Create it directly — no confirmation needed.
 
 ### Step 6: Generate the Blueprint(s)
 
