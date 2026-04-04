@@ -13,6 +13,7 @@ Permissions, roles, and access control blueprints.
 
 | Blueprint | Description | Version |
 |-----------|-------------|----------|
+| [Admin Panel]({{ site.baseurl }}/blueprints/access/admin-panel/) | Administrative dashboard for user management, account linking, notification broadcasting, and system configuration | 1.0.0 |
 | [Data Privacy Compliance]({{ site.baseurl }}/blueprints/access/data-privacy-compliance/) | GDPR/CCPA compliance with consent management, data export, right to erasure, and cookie consent | 1.0.0 |
 | [Fine Grained Authorization]({{ site.baseurl }}/blueprints/access/fine-grained-authorization/) | Resource-based and policy-based authorization | 1.0.0 |
 | [Openclaw Gateway Authentication]({{ site.baseurl }}/blueprints/access/openclaw-gateway-authentication/) | Multi-mode gateway authentication with rate limiting, device tokens, and Tailscale VPN integration | 1.0.0 |

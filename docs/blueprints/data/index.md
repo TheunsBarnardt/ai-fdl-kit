@@ -15,6 +15,7 @@ CRUD, storage, versioning, and data management blueprints.
 |-----------|-------------|----------|
 | [Bank Reconciliation]({{ site.baseurl }}/blueprints/data/bank-reconciliation/) | Bank reconciliation with statement import, auto/manual matching, reconciliation models, partial/full tracking, and write-off management.  | 1.0.0 |
 | [Comments Annotations]({{ site.baseurl }}/blueprints/data/comments-annotations/) | Threaded comments on any entity (polymorphic) with rich text, @mentions, reactions, edit windows, and rate limiting | 1.0.0 |
+| [Content Articles]({{ site.baseurl }}/blueprints/data/content-articles/) | Blog and news article system for advisors and portfolio managers to publish market insights, product updates, and investment articles to clients | 1.0.0 |
 | [Content Tree]({{ site.baseurl }}/blueprints/data/content-tree/) | Hierarchical content tree with zone-based storage, tree walking, flattening, indexed lookups, and schema migration | 1.0.0 |
 | [Customer Supplier Management]({{ site.baseurl }}/blueprints/data/customer-supplier-management/) | Customer and supplier master data management with credit limits, territory and group hierarchies, portal access, lead conversion, internal parties, and supplier hold/block controls.  | 1.0.0 |
 | [Data Import Export]({{ site.baseurl }}/blueprints/data/data-import-export/) | Bulk data import and export supporting CSV, Excel, and JSON formats with column mapping, row validation, background processing, and configurable error handling | 1.0.0 |

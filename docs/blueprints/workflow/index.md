@@ -13,12 +13,14 @@ Business process, job queue, automation, and pipeline blueprints.
 
 | Blueprint | Description | Version |
 |-----------|-------------|----------|
+| [Account Opening]({{ site.baseurl }}/blueprints/workflow/account-opening/) | Investment account opening workflow with product selection, risk profiling, terms acceptance, funding instructions, and compliance review | 1.0.0 |
 | [Advisor Onboarding]({{ site.baseurl }}/blueprints/workflow/advisor-onboarding/) | Registration and onboarding process for independent financial advisors with CID approval and mandate signing | 1.0.0 |
 | [Approval Chain]({{ site.baseurl }}/blueprints/workflow/approval-chain/) | Multi-level approval workflow with sequential/parallel approvers, delegation, auto-approve rules, timeout escalation, and audit history.  | 1.0.0 |
 | [Automation Rules]({{ site.baseurl }}/blueprints/workflow/automation-rules/) | Event-driven automation engine that triggers actions based on record lifecycle events, field changes, time-based schedules, incoming messages, and external webhooks with condition filtering.  | 1.0.0 |
 | [Bulk Operations]({{ site.baseurl }}/blueprints/workflow/bulk-operations/) | Batch update, delete, and export operations for large record sets with progress tracking, atomic or best-effort execution, and error logging.  | 1.0.0 |
 | [Client Onboarding]({{ site.baseurl }}/blueprints/workflow/client-onboarding/) | Multi-step process for new clients to complete personal, contact, address, and employment details before account opening | 1.0.0 |
 | [Expense Approval]({{ site.baseurl }}/blueprints/workflow/expense-approval/) | Employee expense submission and approval workflow with multi-level authorization, reimbursement tracking, accounting journal entry generation, and payment processing.  | 1.0.0 |
+| [Ifa Portal]({{ site.baseurl }}/blueprints/workflow/ifa-portal/) | Independent Financial Advisor portal for client management, onboarding assistance, client-view impersonation, messaging, product suggestions, and lead referral handling | 1.0.0 |
 | [Lua Scripting]({{ site.baseurl }}/blueprints/workflow/lua-scripting/) | Server-side Lua script execution providing atomic operations, programmatic logic, and access to all Redis commands within a single round-trip | 1.0.0 |
 | [Multi Exec Transactions]({{ site.baseurl }}/blueprints/workflow/multi-exec-transactions/) | Atomic multi-command execution with optional optimistic locking via WATCH; commands queued and executed sequentially without interruption | 1.0.0 |
 | [Payload Job Queue]({{ site.baseurl }}/blueprints/workflow/payload-job-queue/) | Built-in job queue with tasks, workflows, cron scheduling, retry with backoff, concurrency control, and sub-task orchestration | 1.0.0 |
