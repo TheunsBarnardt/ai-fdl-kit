@@ -80,6 +80,25 @@ async function validate() {
 }
 
 /**
+ * Step 1b: Completeness check (semantic gate)
+ *
+ * Borrowed discipline from Superpowers writing-plans: no placeholders,
+ * no TBD, no empty outcomes. validate.js catches structural errors;
+ * this catches "looks like a spec but isn't finished yet" blueprints.
+ */
+async function completenessCheck() {
+  const cmd = `node "${path.join(SCRIPTS_DIR, 'completeness-check.js')}"`;
+  try {
+    const output = execSync(cmd, { encoding: 'utf-8', cwd: PROJECT_ROOT });
+    const match = output.match(/(\d+) clean/);
+    const clean = match ? match[1] : '0';
+    return `${clean} blueprints clean (no placeholders or empty sections)`;
+  } catch (error) {
+    throw new Error(`Completeness check failed:\n${error.stdout || error.message}`);
+  }
+}
+
+/**
  * Step 2: Generate documentation and API
  */
 async function generateDocs() {
@@ -266,6 +285,10 @@ async function main() {
     // Step 1: Validate
     const validateResult = await step('Step 1: Validate blueprints', validate);
     log(`✓ ${validateResult}`, 'green');
+
+    // Step 1b: Completeness check (semantic gate)
+    const completenessResult = await step('Step 1b: Completeness check', completenessCheck);
+    log(`✓ ${completenessResult}`, 'green');
 
     // Step 2: Generate
     const docsResult = await step('Step 2: Generate documentation', generateDocs);

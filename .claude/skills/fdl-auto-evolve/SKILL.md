@@ -53,6 +53,19 @@ node scripts/validate.js
 - Reports warnings for missing features
 - Fails fast if any blueprint is invalid
 
+### Step 1b: Completeness Check (semantic gate)
+```bash
+node scripts/completeness-check.js
+```
+- Catches blueprints that pass the schema but are semantically incomplete
+- Rejects placeholder tokens (TODO, TBD, FIXME, XXX, "add description here", ...)
+- Rejects empty `outcomes` / `flows` sections
+- Rejects outcomes whose `error:` reference points to a non-existent error code
+- Warns when a blueprint has no outcome that looks like a failure path (every blueprint must model errors)
+- Fails fast if any blueprint is incomplete — no docs generation, no commit
+
+This is the **blueprint-as-spec discipline**: the terminal state of every `/fdl-*` skill must be a blueprint that passes BOTH validation layers. Structural correctness is not enough — the blueprint must actually say something.
+
 ### Step 2: Generate Docs
 ```bash
 npm run generate

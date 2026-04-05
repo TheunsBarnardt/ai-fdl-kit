@@ -418,9 +418,10 @@ rules:
 ### Step 7: Validate and Summarize
 
 1. Write the file(s) to `blueprints/{category}/{feature}.blueprint.yaml`
-2. Run `node scripts/validate.js blueprints/{category}/{feature}.blueprint.yaml`
-3. If validation fails, fix the issues and re-validate
-4. If cross-reference warnings appear, note them in the output
+2. Run `node scripts/validate.js blueprints/{category}/{feature}.blueprint.yaml` (schema gate)
+3. Run `node scripts/completeness-check.js blueprints/{category}/{feature}.blueprint.yaml` (semantic gate — rejects placeholders, empty outcomes, dangling error refs)
+4. If either check fails, fix the issues and re-run both. The terminal state of this skill is a blueprint that passes BOTH gates.
+5. If cross-reference warnings appear, note them in the output
 
 Output a clean summary:
 

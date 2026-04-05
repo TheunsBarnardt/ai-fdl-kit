@@ -36,6 +36,44 @@ Create a new FDL blueprint by having a conversation with the user. The user does
 
 ## Workflow
 
+### Phase 0: Socratic Elicitation (only when the input is vague)
+
+**When to use:** The user gave you a feature name with no context, or said something like "help me think through X", or a previous skill (`/fdl-brainstorm`) handed off to you with an open-ended idea.
+
+**When to SKIP:** The user gave a clear, specific feature name with known domain (e.g., `/fdl-create checkout payment` — you already know what checkout does). Skipping is correct 90% of the time. Do NOT interrogate users who already know what they want.
+
+**Borrowed from the Superpowers `brainstorming` skill, re-bound to produce a blueprint (not a markdown design doc). The terminal state is always a validated `.blueprint.yaml` file.**
+
+Run these steps in order, **one question at a time**, never in a batch:
+
+1. **Explore context first** — Glob `blueprints/**/*.blueprint.yaml` to see what already exists. If a similar blueprint exists, tell the user: "There's already a `{existing}` blueprint that covers X — should this be a variant, or something distinct?"
+
+2. **Purpose question** — "What problem does this feature solve for the user?" Listen for the core outcome, not the mechanism.
+
+3. **Constraints question** — "What must be true for this to be considered done?" This surfaces success criteria that become `outcomes[].given` and `outcomes[].result`.
+
+4. **Failure-mode question** — "What should happen when things go wrong? (Invalid input, rate limit, permissions, external service down, ...)" Every blueprint MUST model failure paths — the completeness checker will reject blueprints with no failure outcomes.
+
+5. **Propose 2-3 approaches with trade-offs** — Don't jump to a single design. Example:
+   > "There are a few ways to model this:
+   >  - **A. Simple CRUD** — one outcome per operation, no state machine. Good if lifecycle is trivial.
+   >  - **B. State machine** — add `states:` with transitions and actors. Good if there's a meaningful lifecycle (draft → submitted → approved).
+   >  - **C. Workflow** — add `actors:` and `flows:` for human-driven steps. Good if approvals are involved.
+   >
+   > My recommendation is **B** because you mentioned approvals. Which fits your mental model?"
+
+6. **Present the blueprint design as sections, iteratively** — Not one giant dump. Walk through:
+   - Data (what becomes `fields:`)
+   - Success outcomes (what becomes `outcomes.success_*`)
+   - Failure outcomes (what becomes `outcomes.failure_*` with bound `error:` codes)
+   - Security rules (what becomes `rules.security`)
+   - Related blueprints (what becomes `related:`)
+   Wait for acknowledgment after each section before moving on.
+
+7. **HARD GATE — no YAML written until user approves the full design.** This is non-negotiable. If the user wants to change something, loop back to step 6 for that section only.
+
+8. **Generate the blueprint YAML silently** (see Phase 3 below). Output is a validated `.blueprint.yaml` file, not a markdown design doc.
+
 ### Phase 1: Understand the Feature (1-2 questions max)
 
 If the user gave a clear feature name (e.g., `/fdl-create checkout payment`), use domain knowledge to fill in most details. Only ask what you genuinely don't know.
@@ -92,6 +130,8 @@ Want me to adjust anything, or should I create it?
 
 ### Phase 3: Generate Silently
 
+**Terminal state rule (non-negotiable):** The only acceptable output of this skill is a validated `.blueprint.yaml` file. Not a markdown spec. Not a task list. Not a design doc. If you cannot produce a blueprint that passes BOTH `node scripts/validate.js` AND `node scripts/completeness-check.js`, the skill has failed — ask the user for more information rather than writing a placeholder blueprint.
+
 1. **Check existing blueprints** — Glob for `blueprints/**/*.blueprint.yaml`, ensure no duplicate
 2. **Generate the blueprint YAML** with ALL sections:
    - `feature`, `version`, `description`, `category`, `tags`
@@ -108,8 +148,9 @@ Want me to adjust anything, or should I create it?
    - `related` — connections to existing blueprints
    - `ui_hints` — layout, field order, accessibility
 3. **Write the file** to `blueprints/{category}/{feature}.blueprint.yaml`
-4. **Validate** — run `node scripts/validate.js` on the file
-5. **Fix any validation errors** silently and re-validate
+4. **Validate structure** — run `node scripts/validate.js blueprints/{category}/{feature}.blueprint.yaml`
+5. **Validate completeness** — run `node scripts/completeness-check.js blueprints/{category}/{feature}.blueprint.yaml` (catches placeholders, empty outcomes, dangling error refs)
+6. **Fix any errors** silently and re-run both checks. Do NOT consider the skill complete until both pass with zero errors.
 
 ### Phase 4: Show Summary
 
