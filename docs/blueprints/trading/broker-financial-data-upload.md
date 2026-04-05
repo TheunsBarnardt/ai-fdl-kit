@@ -1,0 +1,174 @@
+---
+title: "Broker Financial Data Upload Blueprint"
+layout: default
+parent: "Trading"
+grand_parent: Blueprint Catalog
+description: "Broker financial data upload to central back-office via fixed-width layouts - cash book receipts, cash book payments, and general journal records with FTP, onli"
+---
+
+# Broker Financial Data Upload Blueprint
+
+> Broker financial data upload to central back-office via fixed-width layouts - cash book receipts, cash book payments, and general journal records with FTP, online and batch submission modes
+
+| | |
+|---|---|
+| **Feature** | `broker-financial-data-upload` |
+| **Category** | Trading |
+| **Version** | 1.0.0 |
+| **Tags** | back-office, broker, upload, financial-data, cash-book, journal, gl, fixed-width |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/broker-financial-data-upload.blueprint.yaml) |
+| **JSON API** | [broker-financial-data-upload.json]({{ site.baseurl }}/api/blueprints/trading/broker-financial-data-upload.json) |
+
+## Actors
+
+| ID | Name | Type | Description |
+|----|------|------|-------------|
+| `participating_broker` | Participating Broker | external |  |
+| `back_office_system` | Back Office System | system |  |
+| `broker_finance_user` | Broker Finance User | human |  |
+
+## Fields
+
+| Name | Type | Required | Label | Description |
+|------|------|----------|-------|-------------|
+| `layout_number` | text | Yes |  |  |
+| `broker_code` | text | Yes |  |  |
+| `upload_date` | date | Yes |  |  |
+| `record_count` | number | No |  |  |
+| `receipt_reference` | text | No |  |  |
+| `receipt_date` | date | No |  |  |
+| `receipt_account` | text | No |  |  |
+| `receipt_amount` | number | No |  |  |
+| `receipt_description` | text | No |  |  |
+| `receipt_bank_account` | text | No |  |  |
+| `receipt_currency` | text | No |  |  |
+| `payment_reference` | text | No |  |  |
+| `payment_date` | date | No |  |  |
+| `payment_account` | text | No |  |  |
+| `payment_amount` | number | No |  |  |
+| `payment_description` | text | No |  |  |
+| `payment_bank_account` | text | No |  |  |
+| `payment_currency` | text | No |  |  |
+| `journal_reference` | text | No |  |  |
+| `journal_date` | date | No |  |  |
+| `journal_debit_account` | text | No |  |  |
+| `journal_credit_account` | text | No |  |  |
+| `journal_amount` | number | No |  |  |
+| `journal_description` | text | No |  |  |
+| `journal_vat_code` | text | No |  |  |
+
+## Rules
+
+- **submission:** MUST: Support FTP automated submission, MUST: Support online automated upload, MUST: Support online manual upload, MUST: Support batch upload mode, MUST: Configure email address before allowing upload
+- **validation:** MUST: Report errors via COMPR and PCOMPR error reporting, MUST: Generate response dataset with per-record status, MUST: Allow editing of uploaded data before processing completion
+- **format:** MUST: Use fixed-width layout format, MUST: Start with Header Record (Layout 000), MUST: End with Trailer Record (Layout 999), MUST: Use Layout 063 for cash book receipts, MUST: Use Layout 064 for cash book payments, MUST: Use Layout 065 for general journal entries
+- **balancing:** MUST: Ensure journal debits equal credits for each journal entry, MUST: Balance cash book entries against bank account movements
+
+## Outcomes
+
+### Automated_ftp_upload (Priority: 1)
+
+**Given:**
+- `upload_method` (input) eq `ftp`
+- `email_configured` (db) eq `true`
+
+**Then:**
+- **create_record**
+- **emit_event** event: `fin_upload.received`
+
+### Manual_online_upload (Priority: 2)
+
+**Given:**
+- `upload_method` (input) eq `online_manual`
+
+**Then:**
+- **create_record**
+- **emit_event** event: `fin_upload.manual_received`
+
+### Validate_journal_balance (Priority: 3)
+
+**Given:**
+- `layout_number` (input) eq `065`
+
+**Then:**
+- **call_service** target: `journal_validator`
+- **emit_event** event: `fin_upload.journal.validated`
+
+### Unbalanced_journal (Priority: 4) — Error: `FIN_UPLOAD_UNBALANCED_JOURNAL`
+
+**Given:**
+- `debit_credit_diff` (computed) neq `0`
+
+**Then:**
+- **emit_event** event: `fin_upload.journal.unbalanced`
+
+### Generate_response_dataset (Priority: 5)
+
+**Given:**
+- upload processing complete
+
+**Then:**
+- **create_record**
+- **notify**
+- **emit_event** event: `fin_upload.response.delivered`
+
+## Errors
+
+| Code | Status | Message | Retry |
+|------|--------|---------|-------|
+| `FIN_UPLOAD_INVALID_LAYOUT` | 400 | Financial data upload file has invalid layout structure | No |
+| `FIN_UPLOAD_UNBALANCED_JOURNAL` | 422 | Journal entry debits do not equal credits | No |
+| `FIN_UPLOAD_INVALID_ACCOUNT` | 422 | Referenced account does not exist | No |
+| `FIN_UPLOAD_DUPLICATE_REFERENCE` | 409 | Transaction reference already exists | No |
+| `FIN_UPLOAD_PROCESSING_FAILED` | 500 | Financial upload processing failed | No |
+
+## Related Blueprints
+
+| Feature | Relationship | Reason |
+|---------|-------------|--------|
+| broker-back-office-dissemination | recommended |  |
+| broker-client-data-upload | optional |  |
+
+<details>
+<summary><strong>Extensions (framework-specific hints)</strong></summary>
+
+```yaml
+layouts:
+  "999":
+    name: Trailer Record
+  "000":
+    name: Header Record
+  "063":
+    name: Cash Book Receipts
+  "064":
+    name: Cash Book Payments
+  "065":
+    name: Journal Record
+submission_methods:
+  - Automated FTP upload
+  - Online automated upload
+  - Online manual upload
+  - Batch upload
+workflow:
+  - 1. Email address setup
+  - 2. File submission
+  - 3. Error reporting via COMPR/PCOMPR
+  - 4. Response dataset
+  - 5. Edit opportunity before final processing
+```
+
+</details>
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareSourceCode",
+  "name": "Broker Financial Data Upload Blueprint",
+  "description": "Broker financial data upload to central back-office via fixed-width layouts - cash book receipts, cash book payments, and general journal records with FTP, onli",
+  "programmingLanguage": "YAML",
+  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "license": "https://opensource.org/licenses/MIT",
+  "keywords": "back-office, broker, upload, financial-data, cash-book, journal, gl, fixed-width"
+}
+</script>

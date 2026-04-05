@@ -1,0 +1,252 @@
+# ============================================================
+# Broker Financial Data Upload — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: Financial Data Upload Specification v0.7
+# Fixed-width upload of broker financial transactions
+# (cash book receipts, payments, journals) to central
+# back-office administration system
+# ============================================================
+
+feature: broker-financial-data-upload
+version: "1.0.0"
+description: "Broker financial data upload to central back-office via fixed-width layouts - cash book receipts, cash book payments, and general journal records with FTP, online and batch submission modes"
+category: trading
+tags: [back-office, broker, upload, financial-data, cash-book, journal, gl, fixed-width]
+
+actors:
+  - id: participating_broker
+    name: "Participating Broker"
+    type: external
+  - id: back_office_system
+    name: "Back Office System"
+    type: system
+  - id: broker_finance_user
+    name: "Broker Finance User"
+    type: human
+
+fields:
+  # ── Header/Trailer (Layout 000/999) ──
+  - name: layout_number
+    type: text
+    required: true
+  - name: broker_code
+    type: text
+    required: true
+  - name: upload_date
+    type: date
+    required: true
+  - name: record_count
+    type: number
+    required: false
+
+  # ── Cash Book Receipts (Layout 063) ──
+  - name: receipt_reference
+    type: text
+    required: false
+  - name: receipt_date
+    type: date
+    required: false
+  - name: receipt_account
+    type: text
+    required: false
+  - name: receipt_amount
+    type: number
+    required: false
+  - name: receipt_description
+    type: text
+    required: false
+  - name: receipt_bank_account
+    type: text
+    required: false
+  - name: receipt_currency
+    type: text
+    required: false
+
+  # ── Cash Book Payments (Layout 064) ──
+  - name: payment_reference
+    type: text
+    required: false
+  - name: payment_date
+    type: date
+    required: false
+  - name: payment_account
+    type: text
+    required: false
+  - name: payment_amount
+    type: number
+    required: false
+  - name: payment_description
+    type: text
+    required: false
+  - name: payment_bank_account
+    type: text
+    required: false
+  - name: payment_currency
+    type: text
+    required: false
+
+  # ── Journal Record (Layout 065) ──
+  - name: journal_reference
+    type: text
+    required: false
+  - name: journal_date
+    type: date
+    required: false
+  - name: journal_debit_account
+    type: text
+    required: false
+  - name: journal_credit_account
+    type: text
+    required: false
+  - name: journal_amount
+    type: number
+    required: false
+  - name: journal_description
+    type: text
+    required: false
+  - name: journal_vat_code
+    type: text
+    required: false
+
+rules:
+  submission:
+    - "MUST: Support FTP automated submission"
+    - "MUST: Support online automated upload"
+    - "MUST: Support online manual upload"
+    - "MUST: Support batch upload mode"
+    - "MUST: Configure email address before allowing upload"
+  validation:
+    - "MUST: Report errors via COMPR and PCOMPR error reporting"
+    - "MUST: Generate response dataset with per-record status"
+    - "MUST: Allow editing of uploaded data before processing completion"
+  format:
+    - "MUST: Use fixed-width layout format"
+    - "MUST: Start with Header Record (Layout 000)"
+    - "MUST: End with Trailer Record (Layout 999)"
+    - "MUST: Use Layout 063 for cash book receipts"
+    - "MUST: Use Layout 064 for cash book payments"
+    - "MUST: Use Layout 065 for general journal entries"
+  balancing:
+    - "MUST: Ensure journal debits equal credits for each journal entry"
+    - "MUST: Balance cash book entries against bank account movements"
+
+errors:
+  - code: FIN_UPLOAD_INVALID_LAYOUT
+    status: 400
+    message: "Financial data upload file has invalid layout structure"
+  - code: FIN_UPLOAD_UNBALANCED_JOURNAL
+    status: 422
+    message: "Journal entry debits do not equal credits"
+  - code: FIN_UPLOAD_INVALID_ACCOUNT
+    status: 422
+    message: "Referenced account does not exist"
+  - code: FIN_UPLOAD_DUPLICATE_REFERENCE
+    status: 409
+    message: "Transaction reference already exists"
+  - code: FIN_UPLOAD_PROCESSING_FAILED
+    status: 500
+    message: "Financial upload processing failed"
+
+outcomes:
+  automated_ftp_upload:
+    priority: 1
+    description: "Broker submits financial data via FTP"
+    given:
+      - field: upload_method
+        source: input
+        operator: eq
+        value: "ftp"
+      - field: email_configured
+        source: db
+        operator: eq
+        value: true
+    then:
+      - action: create_record
+        type: financial_upload
+        fields: [broker_code, file_name, submission_timestamp, layout_types]
+      - action: emit_event
+        event: fin_upload.received
+
+  manual_online_upload:
+    priority: 2
+    description: "Broker uploads financial data via online manual interface"
+    given:
+      - field: upload_method
+        source: input
+        operator: eq
+        value: "online_manual"
+    then:
+      - action: create_record
+        type: financial_upload_manual
+      - action: emit_event
+        event: fin_upload.manual_received
+
+  validate_journal_balance:
+    priority: 3
+    description: "Validate journal debits equal credits"
+    given:
+      - field: layout_number
+        source: input
+        operator: eq
+        value: "065"
+    then:
+      - action: call_service
+        target: journal_validator
+      - action: emit_event
+        event: fin_upload.journal.validated
+
+  unbalanced_journal:
+    priority: 4
+    error: FIN_UPLOAD_UNBALANCED_JOURNAL
+    given:
+      - field: debit_credit_diff
+        source: computed
+        operator: neq
+        value: 0
+    then:
+      - action: emit_event
+        event: fin_upload.journal.unbalanced
+
+  generate_response_dataset:
+    priority: 5
+    description: "Generate response dataset for financial upload"
+    given:
+      - "upload processing complete"
+    then:
+      - action: create_record
+        type: financial_response_dataset
+      - action: notify
+        channel: email
+      - action: emit_event
+        event: fin_upload.response.delivered
+
+extensions:
+  layouts:
+    "000":
+      name: "Header Record"
+    "063":
+      name: "Cash Book Receipts"
+    "064":
+      name: "Cash Book Payments"
+    "065":
+      name: "Journal Record"
+    "999":
+      name: "Trailer Record"
+  submission_methods:
+    - "Automated FTP upload"
+    - "Online automated upload"
+    - "Online manual upload"
+    - "Batch upload"
+  workflow:
+    - "1. Email address setup"
+    - "2. File submission"
+    - "3. Error reporting via COMPR/PCOMPR"
+    - "4. Response dataset"
+    - "5. Edit opportunity before final processing"
+
+related:
+  - feature: broker-back-office-dissemination
+    type: recommended
+  - feature: broker-client-data-upload
+    type: optional

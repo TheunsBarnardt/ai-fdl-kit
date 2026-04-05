@@ -1,0 +1,288 @@
+---
+title: "Broker Back Office Dissemination Blueprint"
+layout: default
+parent: "Trading"
+grand_parent: Blueprint Catalog
+description: "Back-office data dissemination from central broker administration to member firms via fixed-width card code records (accounts, balances, deals, scrip, GL, SLB, "
+---
+
+# Broker Back Office Dissemination Blueprint
+
+> Back-office data dissemination from central broker administration to member firms via fixed-width card code records (accounts, balances, deals, scrip, GL, SLB, elective events)
+
+| | |
+|---|---|
+| **Feature** | `broker-back-office-dissemination` |
+| **Category** | Trading |
+| **Version** | 1.0.0 |
+| **Tags** | back-office, broker, dissemination, fixed-width, card-codes, accounts, deals, scrip, gl, sbl, elective-events, corporate-actions |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/broker-back-office-dissemination.blueprint.yaml) |
+| **JSON API** | [broker-back-office-dissemination.json]({{ site.baseurl }}/api/blueprints/trading/broker-back-office-dissemination.json) |
+
+## Actors
+
+| ID | Name | Type | Description |
+|----|------|------|-------------|
+| `participating_broker` | Participating Broker | external | Equity member firm that schedules and consumes dissemination data |
+| `service_provider` | Service Provider | external | Third party authorized by broker to receive disseminated data |
+| `back_office_system` | Back Office System | system | Central equity back-office administration platform |
+| `broker_user` | Broker User | human | Firm user who schedules downloads via online request process function |
+
+## Fields
+
+| Name | Type | Required | Label | Description |
+|------|------|----------|-------|-------------|
+| `card_code` | text | Yes |  |  |
+| `layout_number` | text | Yes |  |  |
+| `broker_code` | text | Yes |  |  |
+| `dissemination_date` | date | Yes |  |  |
+| `record_count` | number | No |  |  |
+| `account_number` | text | Yes |  |  |
+| `account_name` | text | Yes |  |  |
+| `branch_code` | text | No |  |  |
+| `partner_code` | text | No |  |  |
+| `portfolio_indicator` | select | No |  |  |
+| `date_deactivated` | date | No |  |  |
+| `dividend_advice_note_indicator` | select | No |  |  |
+| `it3b_exclusion` | select | No |  |  |
+| `it3c_exclusion` | select | No |  |  |
+| `fatca_status` | text | No |  |  |
+| `ret_exempt_code` | text | No |  |  |
+| `wti_exempt_code` | text | No |  |  |
+| `undocumented_reason_code` | text | No |  |  |
+| `general_compliance_reason_code` | text | No |  |  |
+| `tax_identification_type_code` | text | No |  |  |
+| `balance_amount` | number | No |  |  |
+| `available_balance` | number | No |  |  |
+| `gl_account_code` | text | No |  |  |
+| `gl_balance` | number | No |  |  |
+| `gl_designation_code` | text | No |  |  |
+| `transaction_reference` | text | No |  |  |
+| `transaction_date` | date | No |  |  |
+| `transaction_amount` | number | No |  |  |
+| `transaction_origin_user` | text | No |  |  |
+| `reason_code` | text | No |  |  |
+| `time_stamp` | datetime | No |  |  |
+| `instrument_code` | text | No |  |  |
+| `isin` | text | No |  |  |
+| `quantity` | number | No |  |  |
+| `portfolio_cost` | number | No |  |  |
+| `charge_structure_code` | text | No |  |  |
+| `instrument_name` | text | No |  |  |
+| `icb_sector_code` | text | No |  |  |
+| `instrument_type` | text | No |  |  |
+| `bee_instrument_code` | text | No |  |  |
+| `bee_effective_date` | date | No |  |  |
+| `slb_trade_date` | date | No |  |  |
+| `slb_loan_reference` | text | No |  |  |
+| `collateral_reference` | text | No |  |  |
+| `freed_indicator` | select | No |  |  |
+| `dividend_declaration_date` | date | No |  |  |
+| `ex_dividend_date` | date | No |  |  |
+| `dividend_amount` | number | No |  |  |
+| `withholding_tax_amount` | number | No |  |  |
+| `communication_by_issuer` | text | No |  |  |
+| `event_reference` | text | No |  |  |
+| `event_type_code` | text | No |  |  |
+| `event_effective_date` | date | No |  |  |
+
+## Rules
+
+- **scheduling:** MUST: Allow broker users to schedule dissemination via online request process function, MUST: Support multiple scheduled requests per day per broker, MUST: Allow filtering by branch code, partner code, portfolio indicator, and FATCA flags, MUST: Support download of full daily data set or changes-only (delta) mode depending on data type
+- **grouping:** MUST: Group related data into distinct Card Codes to isolate business domains, MUST: Allocate General Ledger data to separate dataset from other disseminated data, MUST: Allow end users to select which card codes to download per dataset
+- **format:** MUST: Use fixed-width card code record format, MUST: Start every dissemination file with Header record (Card Code 000), MUST: End every dissemination file with Trailer record (Card Code 999), MUST: Include layout version number in each record
+- **access_control:** MUST: Verify user has relevant access before scheduling dissemination, MUST: Allow dissemination to member firms and authorized service providers
+- **frozen_file:** MUST: Support frozen elective event file download via online request process, MUST: Require email address setup before frozen file access, MUST: Provide Header (000), Event Detail (071), Account Detail (072), and Trailer (999) records in frozen file
+
+## Outcomes
+
+### Schedule_dissemination_request (Priority: 1)
+
+**Given:**
+- `user_has_access` (db) eq `true`
+- `schedule_parameters` (input) exists
+
+**Then:**
+- **create_record**
+- **emit_event** event: `broker_dissem.schedule.created`
+
+### Generate_eod_dissemination_file (Priority: 2)
+
+**Given:**
+- EOD batch process triggered
+- scheduled dissemination request exists
+
+**Then:**
+- **create_record**
+- **call_service** target: `ftp_or_online_delivery`
+- **emit_event** event: `broker_dissem.file.generated`
+
+### Download_full_vs_changes (Priority: 3)
+
+**Given:**
+- `download_mode` (input) in `full,changes`
+
+**Then:**
+- **set_field** target: `delta_mode` value: `changes`
+- **emit_event** event: `broker_dissem.mode.selected`
+
+### Download_elective_frozen_file (Priority: 4)
+
+**Given:**
+- `email_configured` (db) eq `true`
+- `dataset_access` (db) eq `true`
+
+**Then:**
+- **create_record**
+- **emit_event** event: `broker_dissem.frozen_file.delivered`
+
+### Scheduling_access_denied (Priority: 5) — Error: `DISSEM_ACCESS_DENIED`
+
+**Given:**
+- `user_has_access` (db) eq `false`
+
+**Then:**
+- **emit_event** event: `broker_dissem.access_denied`
+
+### File_generation_failure (Priority: 6) — Error: `DISSEM_FILE_GENERATION_FAILED`
+
+**Given:**
+- `generation_status` (system) eq `failed`
+
+**Then:**
+- **notify**
+- **emit_event** event: `broker_dissem.generation.failed`
+
+## Errors
+
+| Code | Status | Message | Retry |
+|------|--------|---------|-------|
+| `DISSEM_ACCESS_DENIED` | 403 | User does not have access to schedule dissemination | No |
+| `DISSEM_INVALID_SCHEDULE` | 400 | Invalid dissemination schedule parameters | No |
+| `DISSEM_DATASET_NOT_FOUND` | 404 | Requested dataset is not available or not configured | No |
+| `DISSEM_FROZEN_FILE_UNAVAILABLE` | 404 | Elective event frozen file not available for requested date | No |
+| `DISSEM_FILE_GENERATION_FAILED` | 500 | Failed to generate dissemination file | No |
+
+## Related Blueprints
+
+| Feature | Relationship | Reason |
+|---------|-------------|--------|
+| broker-client-data-upload | recommended |  |
+| broker-financial-data-upload | recommended |  |
+| broker-deal-management-upload | recommended |  |
+| broker-dematerialisation-upload | optional |  |
+| broker-securities-lending-borrowing-upload | recommended |  |
+
+<details>
+<summary><strong>Extensions (framework-specific hints)</strong></summary>
+
+```yaml
+card_code_groups:
+  account_details:
+    - 80
+    - 85
+    - 86
+    - 77
+    - 78
+    - 79
+    - 98
+  account_address_maintenance:
+    - 50
+    - 51
+    - 52
+    - 53
+    - 58
+    - 59
+  legal_and_tax_maintenance:
+    - 54
+    - 55
+    - 56
+    - 57
+  supplementary_names_addresses:
+    - 44
+    - 45
+    - 46
+    - 47
+  account_relationships:
+    - 48
+  bee_instrument_account:
+    - 70
+  balance_details:
+    - 90
+    - 91
+    - 95
+    - 75
+  daily_financial_movements:
+    - 87
+  scrip_records:
+    - 88
+    - 89
+  gl_records:
+    - 76
+  cash_transactions:
+    - 97
+  daily_deals:
+    - 81
+    - 82
+    - 83
+    - 84
+    - 99
+  instruments:
+    - 92
+  bank_records:
+    - 69
+  equity_entitlements:
+    - 93
+    - 94
+    - 74
+    - 67
+    - 68
+    - 62
+    - 73
+  slb_collateral:
+    - 60
+    - 61
+  portfolio_holdings:
+    - 96
+  elective_events_frozen_file:
+    - 0
+    - 71
+    - 72
+    - 999
+data_use_cases:
+  - Import client holdings and cash balances into trading systems for pre-trade
+    risk management
+  - Create IT3(b) and IT3(c) tax files for revenue authority
+  - Reconcile general ledger transactions and balances with in-house systems
+  - Reconcile sub-ledger holdings, open positions, and cash balances
+  - Reconcile securities lending and borrowing transactions with external systems
+scheduling_parameters:
+  - BRANCH/PARTNER CODES (blank = all)
+  - PF IND portfolio indicator (Y/N/blank)
+  - FATCA flag (Y/N)
+  - FUPD updated FATCA records only flag
+  - AC7 account type 7 flag
+record_structure:
+  header: Card Code 000 — broker_code, date, file metadata
+  trailer: Card Code 999 — record count, freed indicator
+delivery_channels:
+  - FTP (scheduled batch)
+  - Online request process function
+naming_convention: "{broker_code}_{dataset}_{CCYYMMDD}.dat"
+```
+
+</details>
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareSourceCode",
+  "name": "Broker Back Office Dissemination Blueprint",
+  "description": "Back-office data dissemination from central broker administration to member firms via fixed-width card code records (accounts, balances, deals, scrip, GL, SLB, ",
+  "programmingLanguage": "YAML",
+  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "license": "https://opensource.org/licenses/MIT",
+  "keywords": "back-office, broker, dissemination, fixed-width, card-codes, accounts, deals, scrip, gl, sbl, elective-events, corporate-actions"
+}
+</script>

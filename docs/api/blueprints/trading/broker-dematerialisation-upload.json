@@ -1,0 +1,330 @@
+{
+  "feature": "broker-dematerialisation-upload",
+  "version": "1.0.0",
+  "description": "Broker dematerialisation (DEMAT) position upload to central back-office via fixed-width card code file with automated submission, error reporting, and response codes",
+  "category": "trading",
+  "tags": [
+    "back-office",
+    "broker",
+    "upload",
+    "demat",
+    "dematerialisation",
+    "positions",
+    "card-codes",
+    "fixed-width"
+  ],
+  "actors": [
+    {
+      "id": "participating_broker",
+      "name": "Participating Broker",
+      "type": "external"
+    },
+    {
+      "id": "back_office_system",
+      "name": "Back Office System",
+      "type": "system"
+    },
+    {
+      "id": "csdp",
+      "name": "Central Security Depository Participant",
+      "type": "external",
+      "description": "CSDP holding dematerialised positions"
+    }
+  ],
+  "fields": [
+    {
+      "name": "card_code",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "broker_code",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "upload_date",
+      "type": "date",
+      "required": true
+    },
+    {
+      "name": "account_number",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "instrument_code",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "isin",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "demat_quantity",
+      "type": "number",
+      "required": true
+    },
+    {
+      "name": "csdp_account_number",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "csdp_code",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "effective_date",
+      "type": "date",
+      "required": false
+    },
+    {
+      "name": "reference_number",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "cost_value",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "market_value",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "position_type",
+      "type": "select",
+      "required": false
+    },
+    {
+      "name": "pledge_indicator",
+      "type": "select",
+      "required": false
+    },
+    {
+      "name": "restriction_indicator",
+      "type": "select",
+      "required": false
+    },
+    {
+      "name": "record_count",
+      "type": "number",
+      "required": false
+    }
+  ],
+  "rules": {
+    "subscription": [
+      "MUST: Require broker subscription to DEMAT upload service before use"
+    ],
+    "processing": [
+      "MUST: Apply defined processing rules to every uploaded record",
+      "MUST: Validate CSDP account and code references",
+      "MUST: Reject records with invalid instrument or account references"
+    ],
+    "submission": [
+      "MUST: Support automated upload submission via FTP",
+      "MUST: Configure email addresses for response notifications",
+      "MUST: Provide error reporting via COMPR and PCOMPR functions",
+      "MUST: Generate response dataset with per-record status and response codes",
+      "MUST: Archive processed upload files"
+    ],
+    "format": [
+      "MUST: Use fixed-width card code record format",
+      "MUST: Start file with Header Record (Card Code 000)",
+      "MUST: End file with Trailer Record (Card Code 999)",
+      "MUST: Use Card Code 030 for demat share position records"
+    ]
+  },
+  "errors": [
+    {
+      "code": "DEMAT_UPLOAD_NOT_SUBSCRIBED",
+      "status": 403,
+      "message": "Broker not subscribed to DEMAT upload service"
+    },
+    {
+      "code": "DEMAT_UPLOAD_INVALID_CSDP",
+      "status": 422,
+      "message": "CSDP account or code is invalid"
+    },
+    {
+      "code": "DEMAT_UPLOAD_INSTRUMENT_NOT_FOUND",
+      "status": 422,
+      "message": "Referenced instrument does not exist"
+    },
+    {
+      "code": "DEMAT_UPLOAD_ACCOUNT_NOT_FOUND",
+      "status": 422,
+      "message": "Referenced client account does not exist"
+    },
+    {
+      "code": "DEMAT_UPLOAD_PROCESSING_FAILED",
+      "status": 500,
+      "message": "DEMAT upload processing failed"
+    }
+  ],
+  "outcomes": {
+    "automated_demat_upload": {
+      "priority": 1,
+      "description": "Broker uploads DEMAT positions via automated FTP",
+      "given": [
+        {
+          "field": "broker_subscribed",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        },
+        {
+          "field": "email_configured",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "demat_upload",
+          "fields": [
+            "broker_code",
+            "file_name",
+            "record_count",
+            "submission_timestamp"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "demat_upload.received"
+        }
+      ]
+    },
+    "not_subscribed": {
+      "priority": 2,
+      "error": "DEMAT_UPLOAD_NOT_SUBSCRIBED",
+      "given": [
+        {
+          "field": "broker_subscribed",
+          "source": "db",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "demat_upload.not_subscribed"
+        }
+      ]
+    },
+    "validate_csdp_reference": {
+      "priority": 3,
+      "description": "Validate CSDP account and code on Card Code 030",
+      "given": [
+        {
+          "field": "card_code",
+          "source": "input",
+          "operator": "eq",
+          "value": "030"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "csdp_validator"
+        },
+        {
+          "action": "emit_event",
+          "event": "demat_upload.csdp.validated"
+        }
+      ]
+    },
+    "generate_response_dataset": {
+      "priority": 4,
+      "description": "Generate response dataset with per-record response codes",
+      "given": [
+        "upload processing complete"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "demat_response_dataset"
+        },
+        {
+          "action": "notify",
+          "channel": "email"
+        },
+        {
+          "action": "emit_event",
+          "event": "demat_upload.response.delivered"
+        }
+      ]
+    },
+    "archive_upload": {
+      "priority": 5,
+      "description": "Archive processed DEMAT upload",
+      "given": [
+        {
+          "field": "processing_status",
+          "source": "system",
+          "operator": "eq",
+          "value": "completed"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "archive_storage"
+        },
+        {
+          "action": "emit_event",
+          "event": "demat_upload.archived"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "card_codes": {
+      "999": {
+        "name": "Trailer Record"
+      },
+      "000": {
+        "name": "Header Record"
+      },
+      "030": {
+        "name": "Demat Share Upload",
+        "purpose": "Dematerialised share position records"
+      }
+    },
+    "workflow": [
+      "1. Broker subscription to DEMAT upload service",
+      "2. Email address set-up",
+      "3. Upload file creation per Card Code 030",
+      "4. FTP submission",
+      "5. Processing with validation rules",
+      "6. Response dataset with response codes",
+      "7. Archiving"
+    ],
+    "submission_methods": [
+      "Automated FTP upload"
+    ]
+  },
+  "related": [
+    {
+      "feature": "broker-back-office-dissemination",
+      "type": "recommended"
+    },
+    {
+      "feature": "broker-client-data-upload",
+      "type": "recommended"
+    },
+    {
+      "feature": "broker-deal-management-upload",
+      "type": "optional"
+    }
+  ]
+}
