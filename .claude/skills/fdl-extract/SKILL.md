@@ -73,6 +73,24 @@ Systematically scan the document for each FDL construct. For each item found, no
 - **Flag ambiguity** — if a requirement is vague ("should be fast", "must be secure"), add it to the ambiguous items list.
 - **Map to FDL types** — convert document language to FDL constructs (e.g., "the employee fills in their name" → field: `name`, type: text, required: true).
 
+#### Technical specification handling (fixed-width files, wire protocols, record layouts):
+
+When the document contains **field position tables** (START POS / LENGTH / END POS), **record type definitions**, or **wire format specifications**:
+
+1. **Capture exact positions** — Every field MUST include `START`, `LENGTH`, and `END` in the YAML comment. Never approximate, summarise, or round these values. Copy them exactly from the spec table.
+
+2. **Preserve ALL fields** — If the spec defines 20 fields in a record type, extract all 20 — including sign indicators, fillers, and secondary variants (e.g. "Value Traded" and "Value Traded 2 (With Decimals)" are separate fields with different positions and lengths).
+
+3. **Use `extensions.record_layouts`** — Put the complete record layout maps in `extensions.record_layouts.{RECORD_TYPE}`. Each entry must list ALL fields with `{ name, start, length, type, end }` objects. This is the machine-readable source of truth for parsing.
+
+4. **Map record type codes** — If the spec uses codes (e.g. "DE" = Daily Equity, "DS" = Daily Sector, "CA" = Corporate Action), include a `record_type_map` in extensions that decodes every code to its full meaning.
+
+5. **Map delivery files** — If the spec defines file names and delivery schedules (e.g. "E.Zip at 20:30"), include a `delivery_products` map in extensions listing every file, its frequency, delivery time, and delivery channel.
+
+6. **Don't collapse distinct fields** — If a spec defines two fields with the same logical meaning but different positions or lengths (e.g. value without decimals at pos 49/len 11 AND value with decimals at pos 145/len 13), create BOTH fields. Never merge them into one with an incorrect length.
+
+7. **Include sign fields** — Financial specs often have separate sign indicator fields (N/P for negative/positive). These MUST be captured as separate fields, not omitted.
+
 ### Step 3: Present Extraction Summary
 
 Before generating, show the user what was found **in plain language** (no YAML jargon):

@@ -264,6 +264,18 @@ Systematically scan ALL extracted page content for each FDL construct. For each 
 - **Map API operations to outcomes** — each API endpoint becomes an outcome with given (preconditions), then (the API call + side effects), and result (the response)
 - **Capture both directions** — inbound API calls (webhooks the system sends TO you) AND outbound API calls (requests you send TO the system)
 
+#### Technical specification handling (fixed-width files, wire protocols, record layouts):
+
+When the documentation contains **field position tables** (START POS / LENGTH / END POS), **record type definitions**, or **wire format specifications**:
+
+1. **Capture exact positions** — Every field MUST include `START`, `LENGTH`, and `END` in the YAML comment. Never approximate or round.
+2. **Preserve ALL fields** — Including sign indicators, fillers, and secondary variants (e.g. "Value" and "Value With Decimals" are separate fields).
+3. **Use `extensions.record_layouts`** — Put complete record layout maps with `{ name, start, length, type, end }` objects as the machine-readable source of truth.
+4. **Map record type codes** — Include a `record_type_map` decoding every code to its full meaning.
+5. **Map delivery files** — Include `delivery_products` listing every file, frequency, delivery time, and channel.
+6. **Don't collapse distinct fields** — Two fields with same meaning but different positions/lengths = two separate fields.
+7. **Include sign fields** — Financial specs often have separate sign indicator fields (N/P). These MUST be captured.
+
 ### Step 4: Present Extraction Summary
 
 Before generating, show the user what was found **in plain language** (no YAML jargon):
