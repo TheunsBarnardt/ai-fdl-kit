@@ -1,0 +1,251 @@
+# ============================================================
+# Bond ETP End-of-Day Data Delivery — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: Bond ETP Non-Live Market Data Products
+# Specifications v1.0 (8 pages)
+# Fixed-width and CSV dissemination of end-of-day bond
+# electronic trading platform data via FTP
+# ============================================================
+
+feature: bond-etp-eod-data-delivery
+version: "1.0.0"
+description: "End-of-day bond electronic trading platform data delivery via FTP — fixed-width and CSV formats covering daily trade details"
+category: trading
+tags: [market-data, eod, bond-etp, bonds, ftp, dissemination, fixed-width, csv, non-live]
+
+actors:
+  - id: data_subscriber
+    name: "Data Subscriber"
+    type: human
+    description: "Licensed recipient who receives end-of-day bond ETP data files"
+
+  - id: exchange_operations
+    name: "Exchange Operations"
+    type: system
+    description: "Exchange dissemination system that generates and delivers EOD files"
+
+  - id: account_manager
+    name: "Account Manager"
+    type: human
+    description: "Market Data team member who manages subscriber onboarding and data agreements"
+
+fields:
+  # ── Header Layout (first 36 chars of fixed-width record) ──────────────────
+  # Source: Section 7.1 — Header Layout
+
+  - name: record_type
+    type: text
+    required: true
+    # START 1, LENGTH 4, END 4 — type of information being disseminated
+
+  - name: record_sub_type
+    type: text
+    required: true
+    # START 5, LENGTH 4, END 8 — sub type related to particular record
+
+  - name: run_date
+    type: date
+    required: true
+    # START 9, LENGTH 8, END 16 — dissemination date (CCYYMMDD)
+
+  - name: filler_header
+    type: text
+    required: false
+    # START 17, LENGTH 20, END 36 — reserved for future expansion
+
+  # ── BET Sub Type 01 — Bond ETP Trade Detail ──────────────────────────────
+  # Source: Section 7.2
+
+  - name: trade_date
+    type: date
+    required: true
+    # START 37, LENGTH 8, END 44 — date trade was executed (CCYYMMDD)
+
+  - name: trade_time
+    type: text
+    required: true
+    # START 45, LENGTH 8, END 52 — time matching criteria satisfied (e.g. 16:26)
+
+  - name: instrument
+    type: text
+    required: true
+    # START 53, LENGTH 8, END 60 — bond code (e.g. R186)
+
+  - name: yield
+    type: number
+    required: true
+    # START 61, LENGTH 27, END 87 — traded yield (21.5 format)
+
+  - name: nominal
+    type: number
+    required: true
+    # START 88, LENGTH 21, END 108 — nominal value of the trade (integer)
+
+  - name: consideration
+    type: number
+    required: true
+    # START 109, LENGTH 24, END 132 — cash value based on price and nominal (21.2)
+
+  - name: trade_type
+    type: text
+    required: true
+    # START 133, LENGTH 40, END 172 — e.g. "Normal"
+
+  - name: settlement
+    type: date
+    required: true
+    # START 173, LENGTH 8, END 180 — settlement date, typically T+3 (CCYYMMDD)
+
+rules:
+  data_format:
+    format: "fixed_width_flat_file and CSV"
+    encoding: ASCII
+    # Source: Section 6.2 — Field Formats
+    field_types:
+      A: "Alpha only"
+      N: "Numeric only (integer shown as N(I))"
+      AN: "Alphanumeric"
+      D: "8-byte date CCYYMMDD"
+      B: "Boolean — T for True, F for False"
+    padding:
+      alpha: "space (ASCII 32) right-padded"
+      numeric: "decimal point consumes 1 byte, fixed position"
+
+  delivery:
+    channel: FTP
+    # Source: Section 3 — via Information Delivery Portal (IDP)
+    frequency: daily
+
+  subscription:
+    # Source: Section 4 — prospective subscribers must contact Market Data team
+    requires_written_request: true
+    requires_data_agreement: true
+    # Existing JDA signatories only need additional JDA schedules
+
+  instrument_identification:
+    # Source: Section 6.1 — each instrument has a unique number across all markets
+    unique_instrument_number: true
+
+  csv_format:
+    # Source: Section 8.1
+    delimiter: ","
+    columns: 8
+    header_rows: 4
+    # Row 1: Report Date (dd/mm/yyyy)
+    # Row 2: Report Title
+    # Row 4: Column headings
+
+outcomes:
+  successful_fixed_width_delivery:
+    given:
+      - "subscriber is licensed and provisioned with IDP credentials"
+      - "trading day has completed on bond electronic trading platform"
+    then:
+      - "exchange operations generates BET 01 fixed-width records"
+      - "file compressed as ddap.sprd.{alphacode}.BETP.zip and delivered via FTP"
+      - action: emit_event
+        event: data.delivery.completed
+        payload: [run_date, format, file_name]
+    result: "subscriber receives fixed-width bond ETP trade detail data"
+
+  successful_csv_delivery:
+    given:
+      - "subscriber is licensed and provisioned with IDP credentials"
+      - "trading day has completed on bond electronic trading platform"
+    then:
+      - "exchange operations generates CSV report BondETP_DailyTradeDetail_{yyyymmdd}"
+      - "file placed in ddap.sprd.{alphacode} folder via FTP"
+      - action: emit_event
+        event: data.delivery.completed
+        payload: [run_date, format, file_name]
+    result: "subscriber receives CSV bond ETP trade detail data"
+
+  subscriber_provisioned:
+    given:
+      - "prospective subscriber has contacted Market Data team in writing"
+      - "data agreement (JDA) obligations are met"
+    then:
+      - "Account Manager confirms format preference and intended use"
+      - "Customer Services provides IDP credentials"
+      - "subscriber tests access"
+    result: "subscriber has working FTP access to bond ETP data files"
+
+errors:
+  - code: DELIVERY_FAILED
+    message: "End-of-day bond ETP data file delivery failed"
+    status: 500
+
+  - code: INVALID_CREDENTIALS
+    message: "IDP authentication failed — contact Customer Services"
+    status: 500
+
+  - code: DATASET_NOT_PROVISIONED
+    message: "Requested dataset has not been provisioned for this subscriber"
+    status: 500
+
+events:
+  - name: data.delivery.completed
+    description: "Bond ETP trade detail data delivered for the day"
+    payload:
+      - run_date
+      - format
+      - file_name
+
+related:
+  - feature: equities-eod-data-delivery
+    type: optional
+    reason: "Equities EOD data uses same FTP delivery infrastructure"
+
+  - feature: bonds-eod-data-delivery
+    type: recommended
+    reason: "Full bonds market data provides broader bond market coverage"
+
+extensions:
+  record_layouts:
+    HEADER:
+      - { name: record_type, start: 1, length: 4, type: "A", end: 4 }
+      - { name: record_sub_type, start: 5, length: 4, type: "AN", end: 8 }
+      - { name: run_date, start: 9, length: 8, type: "D", end: 16 }
+      - { name: filler, start: 17, length: 20, type: "AN", end: 36 }
+
+    BET_01:
+      - { name: trade_date, start: 37, length: 8, type: "D", end: 44 }
+      - { name: trade_time, start: 45, length: 8, type: "D", end: 52 }
+      - { name: instrument, start: 53, length: 8, type: "AN", end: 60 }
+      - { name: yield, start: 61, length: 27, type: "N", end: 87 }
+      - { name: nominal, start: 88, length: 21, type: "N", end: 108 }
+      - { name: consideration, start: 109, length: 24, type: "N", end: 132 }
+      - { name: trade_type, start: 133, length: 40, type: "A", end: 172 }
+      - { name: settlement, start: 173, length: 8, type: "D", end: 180 }
+
+  record_type_map:
+    BET: "Bond ETP Daily Trade Detail"
+
+  delivery_products:
+    BETP_zip:
+      filename_pattern: "ddap.sprd.{alphacode}.BETP.zip"
+      frequency: daily
+      channel: FTP
+      format: fixed_width
+      description: "Bond ETP fixed-width trade detail records"
+
+    BETP_csv:
+      filename_pattern: "BondETP_DailyTradeDetail_{yyyymmdd}"
+      frequency: daily
+      channel: FTP
+      format: CSV
+      location: "ddap.sprd.{alphacode}/"
+      description: "Bond ETP CSV trade detail report"
+      csv_columns:
+        - trade_date
+        - trade_time
+        - instrument
+        - yield
+        - nominal
+        - consideration
+        - trade_type
+        - settlement
+
+  file_prefix_map:
+    BETP: "Bond Electronic Trading Platform"

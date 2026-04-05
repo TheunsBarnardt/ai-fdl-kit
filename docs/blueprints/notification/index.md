@@ -17,5 +17,6 @@ Notification blueprints.
 | [In App Notifications]({{ site.baseurl }}/blueprints/notification/in-app-notifications/) | Real-time in-app notification center with read state, grouping, deep links, and persistent storage | 1.0.0 |
 | [Notification Preferences]({{ site.baseurl }}/blueprints/notification/notification-preferences/) | Manage per-user notification preferences across channels and categories with quiet hours and frequency caps | 1.0.0 |
 | [Push Notifications]({{ site.baseurl }}/blueprints/notification/push-notifications/) | Deliver mobile and web push notifications with device management, topic subscriptions, and rich media | 1.0.0 |
+| [Sens Eod Data Delivery]({{ site.baseurl }}/blueprints/notification/sens-eod-data-delivery/) | End-of-day SENS announcements delivery via NewsML-G2 XML — text and PDF variants disseminated as end-of-day compressed packages covering company, exchange, and regulatory institution announcements | 1.0.0 |
 | [Sms Notifications]({{ site.baseurl }}/blueprints/notification/sms-notifications/) | Send SMS messages for OTP codes, alerts, and marketing with provider abstraction and compliance | 1.0.0 |
 | [Webhook Outbound]({{ site.baseurl }}/blueprints/notification/webhook-outbound/) | Deliver outbound webhooks to external systems with signing, retries, and endpoint health monitoring | 1.0.0 |
