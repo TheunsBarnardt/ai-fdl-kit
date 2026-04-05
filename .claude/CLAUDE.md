@@ -201,7 +201,7 @@ When adding fields to the schema, you must update **both** `schema/blueprint.sch
 
 ## Documentation Site (GitHub Pages)
 
-The `docs/` folder powers a Jekyll GitHub Pages site at `https://theunsbarnardt.github.io/claude-fdl/`.
+The `docs/` folder powers a Jekyll GitHub Pages site at `https://theunsbarnardt.github.io/ai-fdl-kit/`.
 
 ### Auto-generated files (NEVER edit manually)
 - `docs/blueprints/**/*.md` — per-blueprint detail pages

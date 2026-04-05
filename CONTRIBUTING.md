@@ -46,7 +46,7 @@ The validator (`scripts/validate.js`) and expression parser (`scripts/expression
 ## Development Setup
 
 ```bash
-git clone https://github.com/TheunsBarnardt/claude-fdl.git
+git clone https://github.com/TheunsBarnardt/ai-fdl-kit.git
 cd claude-fdl
 npm install
 
@@ -94,4 +94,4 @@ Be kind. Be constructive. Help others learn. We're all building something togeth
 
 ## Questions?
 
-Open a [GitHub Issue](https://github.com/TheunsBarnardt/claude-fdl/issues) or start a [Discussion](https://github.com/TheunsBarnardt/claude-fdl/discussions).
+Open a [GitHub Issue](https://github.com/TheunsBarnardt/ai-fdl-kit/issues) or start a [Discussion](https://github.com/TheunsBarnardt/ai-fdl-kit/discussions).

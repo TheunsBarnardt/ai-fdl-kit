@@ -365,7 +365,7 @@ async function main() {
       const pageTitle = `${titleCase(bp.feature)} Blueprint`;
       const seoDesc = generateSeoDescription(bp);
       const tags = (bp.tags || []).join(', ');
-      const yamlUrl = `https://github.com/TheunsBarnardt/claude-fdl/blob/master/${file.replace(/\\/g, '/')}`;
+      const yamlUrl = `https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/${file.replace(/\\/g, '/')}`;
       const apiUrl = `{{ site.baseurl }}/api/blueprints/${category}/${bp.feature}.json`;
 
       let md = `---\ntitle: "${pageTitle}"\nlayout: default\nparent: "${label}"\ngrand_parent: Blueprint Catalog\ndescription: "${escMd(seoDesc)}"\n---\n\n`;
@@ -405,7 +405,7 @@ async function main() {
           name: pageTitle,
           description: seoDesc,
           programmingLanguage: 'YAML',
-          codeRepository: 'https://github.com/TheunsBarnardt/claude-fdl',
+          codeRepository: 'https://github.com/TheunsBarnardt/ai-fdl-kit',
           license: 'https://opensource.org/licenses/MIT',
           keywords: tags,
         },

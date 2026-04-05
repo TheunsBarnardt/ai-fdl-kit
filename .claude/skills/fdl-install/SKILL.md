@@ -66,7 +66,7 @@ Which AI coding tool(s) should I install FDL for?
 Check whether this project has local blueprints:
 - Glob `blueprints/**/*.blueprint.yaml` — if results found, this is the FDL repo itself or a project with local blueprints
 - If local blueprints exist: instructions will reference local blueprints
-- If no local blueprints: instructions will reference the remote API at `https://theunsbarnardt.github.io/claude-fdl/api/`
+- If no local blueprints: instructions will reference the remote API at `https://theunsbarnardt.github.io/ai-fdl-kit/api/`
 
 ### Step 3: Generate FDL Compact Instructions
 
@@ -136,7 +136,7 @@ FILES WRITTEN:
   .cursor/rules/fdl.mdc
   .windsurf/rules/fdl.md
 
-BLUEPRINT SOURCE: remote API (https://theunsbarnardt.github.io/claude-fdl/api/)
+BLUEPRINT SOURCE: remote API (https://theunsbarnardt.github.io/ai-fdl-kit/api/)
 
 Your AI tool will now:
   - Read blueprints via the FDL remote API
@@ -153,7 +153,7 @@ or run /fdl-create to build your own.
 
 Use this template as the content to write into each tool's file. Replace {BLUEPRINT_SOURCE} with either:
 - `Local blueprints in the blueprints/ directory of this project`
-- `Remote API at https://theunsbarnardt.github.io/claude-fdl/api/`
+- `Remote API at https://theunsbarnardt.github.io/ai-fdl-kit/api/`
 
 ```
 # FDL — Feature Definition Language
@@ -170,9 +170,9 @@ You have access to FDL (Feature Definition Language) blueprints. These are YAML 
 Categories: auth, data, access, ui, integration, notification, payment, workflow, inventory, manufacturing, crm, asset, project, quality, procurement, ai, trading, infrastructure, observability
 
 **Remote fallback (no local blueprints):**
-1. Fetch registry: GET https://theunsbarnardt.github.io/claude-fdl/api/registry.json
+1. Fetch registry: GET https://theunsbarnardt.github.io/ai-fdl-kit/api/registry.json
 2. Find the feature entry to get its category
-3. Fetch blueprint: GET https://theunsbarnardt.github.io/claude-fdl/api/blueprints/{category}/{feature}.json
+3. Fetch blueprint: GET https://theunsbarnardt.github.io/ai-fdl-kit/api/blueprints/{category}/{feature}.json
 
 ## How to Generate Code from a Blueprint
 

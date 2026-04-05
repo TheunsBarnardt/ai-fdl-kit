@@ -54,7 +54,7 @@ There are six ways to work with blueprints:
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/TheunsBarnardt/claude-fdl.git
+git clone https://github.com/TheunsBarnardt/ai-fdl-kit.git
 cd claude-fdl
 npm install
 ```

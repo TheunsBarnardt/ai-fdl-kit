@@ -24,12 +24,12 @@ async function main() {
   console.log(`Found ${files.length} blueprints for API generation`);
 
   const registry = {
-    $schema: 'https://theunsbarnardt.github.io/claude-fdl/api/registry.json',
+    $schema: 'https://theunsbarnardt.github.io/ai-fdl-kit/api/registry.json',
     name: 'Feature Definition Language (FDL) Blueprint Registry',
     version: '1.0.0',
     generated: new Date().toISOString(),
     total: files.length,
-    base_url: 'https://theunsbarnardt.github.io/claude-fdl/api/blueprints',
+    base_url: 'https://theunsbarnardt.github.io/ai-fdl-kit/api/blueprints',
     categories: {},
   };
 
@@ -55,7 +55,7 @@ async function main() {
       description: bp.description,
       tags: bp.tags || [],
       api_url: `${registry.base_url}/${category}/${feature}.json`,
-      yaml_url: `https://raw.githubusercontent.com/TheunsBarnardt/claude-fdl/master/${file.replace(/\\/g, '/')}`,
+      yaml_url: `https://raw.githubusercontent.com/TheunsBarnardt/ai-fdl-kit/master/${file.replace(/\\/g, '/')}`,
     });
   }
 

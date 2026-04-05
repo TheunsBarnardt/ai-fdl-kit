@@ -150,11 +150,11 @@ Before searching blueprints, check for a project config file. This eliminates th
 
 **If Glob returns 0 results** (the user is working in a new project outside the FDL repo), fall back to the public JSON API — no installation required:
 
-1. Fetch the registry: `WebFetch https://theunsbarnardt.github.io/claude-fdl/api/registry.json`
+1. Fetch the registry: `WebFetch https://theunsbarnardt.github.io/ai-fdl-kit/api/registry.json`
    - This returns an array of `{ feature, category, description, tags }` entries for all 180+ blueprints.
    - Use this as the full inventory for Steps 2–3 matching.
 2. When a specific blueprint is needed (to read rules, outcomes, fields): fetch it individually:
-   `WebFetch https://theunsbarnardt.github.io/claude-fdl/api/blueprints/{category}/{feature}.json`
+   `WebFetch https://theunsbarnardt.github.io/ai-fdl-kit/api/blueprints/{category}/{feature}.json`
    - Only fetch blueprints that are actually matched and needed — don't fetch all 180.
 3. Blueprints created locally during this session (via `/fdl-create`) live in memory — treat them as local overrides that take priority over the remote API.
 
@@ -626,7 +626,7 @@ Your app is fully documented and ready to go.
 ### How discovery works at runtime
 
 1. **Glob `blueprints/**/*.blueprint.yaml`** — finds every local blueprint including any just created
-2. **If 0 local results** → `WebFetch https://theunsbarnardt.github.io/claude-fdl/api/registry.json` — the full remote inventory, works in any project without installing FDL
+2. **If 0 local results** → `WebFetch https://theunsbarnardt.github.io/ai-fdl-kit/api/registry.json` — the full remote inventory, works in any project without installing FDL
 3. **Read/fetch each matched blueprint** — extract `feature`, `description`, `tags[]`, `category`, `related[]`
 4. **Build an in-memory index** — keyed by feature name, with tags and description as searchable fields
 5. **Match against user keywords** — using the three-tier algorithm (name → tags → description)

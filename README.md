@@ -1,15 +1,39 @@
-# Feature Definition Language (FDL)
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="ai-fdl-kit — The AI Feature Definition Kit" width="720">
+</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Blueprints](https://img.shields.io/badge/blueprints-185-blue)](blueprints/)
-[![AI Tools](https://img.shields.io/badge/AI_Tools-Claude_|_ChatGPT_|_Copilot-purple.svg)](https://theunsbarnardt.github.io/claude-fdl/using-with-other-ai/)
-[![Docs](https://img.shields.io/badge/Docs-GitHub_Pages-green.svg)](https://theunsbarnardt.github.io/claude-fdl/)
+<h1 align="center">ai-fdl-kit</h1>
+<p align="center"><strong>The AI Feature Definition Language</strong> — portable YAML blueprints for software features, consumable by any AI coding tool.</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/ai-fdl-kit"><img src="https://img.shields.io/npm/v/ai-fdl-kit.svg?color=cb3837&label=npm" alt="npm"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="MIT"></a>
+  <a href="blueprints/"><img src="https://img.shields.io/badge/blueprints-185-blue" alt="Blueprints"></a>
+  <a href="https://theunsbarnardt.github.io/ai-fdl-kit/using-with-other-ai/"><img src="https://img.shields.io/badge/AI_Tools-Claude_|_ChatGPT_|_Copilot_|_Cursor-purple.svg" alt="AI Tools"></a>
+  <a href="https://theunsbarnardt.github.io/ai-fdl-kit/"><img src="https://img.shields.io/badge/docs-github_pages-green.svg" alt="Docs"></a>
+</p>
+
+---
+
+## One command, any project, no clone
+
+```bash
+npx ai-fdl-kit init --tool cursor
+```
+
+Bootstraps FDL into your existing project — schema, config, AI tool instructions — without cloning anything. Your project gets ~3 small files. The ~200 community blueprints stay remote and are pulled on demand.
+
+```bash
+npx ai-fdl-kit list              # browse the remote catalog
+npx ai-fdl-kit pull auth/login   # copy a blueprint locally
+npx ai-fdl-kit check             # validate + completeness gate
+```
 
 **Define features as YAML blueprints. Generate complete implementations for any framework. Extract architectural patterns from any codebase, API docs, or business document.**
 
-FDL is an open-source system for writing "blueprints" — YAML specifications that describe software features completely. You define the *what* (fields, rules, outcomes, errors, events). Any AI tool — Claude, ChatGPT, Copilot, Gemini — reads the blueprint and generates a correct, complete implementation for your chosen language and framework.
+ai-fdl-kit is an open-source system for writing "blueprints" — YAML specifications that describe software features completely. You define the *what* (fields, rules, outcomes, errors, events). Any AI tool — Claude, ChatGPT, Copilot, Cursor, Gemini — reads the blueprint and generates a correct, complete implementation for your chosen language and framework.
 
-No code. No YAML knowledge needed. Seven CLI commands handle everything through plain-language conversation.
+No code. No YAML knowledge needed. The CLI + conversational skills handle everything in plain English.
 
 ---
 
@@ -40,18 +64,37 @@ No code. No YAML knowledge needed. Seven CLI commands handle everything through 
 
 ## Getting Started
 
+### Option 1 — No clone, use the CLI in any project ✨ recommended
+
 ```bash
-git clone https://github.com/TheunsBarnardt/claude-fdl.git
-cd claude-fdl
+cd your-existing-project
+npx ai-fdl-kit init --tool cursor    # or windsurf, copilot, gemini, cline, ...
+```
+
+That's it. The CLI writes:
+- `blueprints/` — where your feature specs live
+- `schema/blueprint.schema.yaml` — for IDE autocomplete
+- `fdl.config.yaml` — project config
+- `.cursor/rules/fdl.mdc` (or equivalent for your AI tool) — tells the AI how to read blueprints
+
+Then ask your AI tool: *"Build login using the auth/login blueprint"* — it fetches the blueprint over HTTP from the remote registry and generates code for your stack.
+
+### Option 2 — Clone the full repo (for contributors and blueprint authors)
+
+```bash
+git clone https://github.com/TheunsBarnardt/ai-fdl-kit.git
+cd ai-fdl-kit
 npm install
 ```
 
-Open Claude Code and type:
+Then open Claude Code and use the conversational skills:
 
 ```
 /fdl-build "nextjs app with login and POS"   # Build a full app (recommended)
-/fdl-create login auth                        # Or create one blueprint at a time
+/fdl-brainstorm                              # Socratic elicitation if the idea is vague
+/fdl-create login auth                        # Create a single blueprint
 /fdl-generate login nextjs                    # Generate code from a blueprint
+/fdl-extract-code ./src auth                 # Reverse-engineer features from existing code
 ```
 
 ---
@@ -65,9 +108,9 @@ GET /api/registry.json              — index of all 45 blueprints
 GET /api/blueprints/auth/login.json — complete blueprint as JSON
 ```
 
-Paste into ChatGPT: `https://theunsbarnardt.github.io/claude-fdl/api/blueprints/auth/login.json`
+Paste into ChatGPT: `https://theunsbarnardt.github.io/ai-fdl-kit/api/blueprints/auth/login.json`
 
-[Browse the API registry](https://theunsbarnardt.github.io/claude-fdl/api/registry.json)
+[Browse the API registry](https://theunsbarnardt.github.io/ai-fdl-kit/api/registry.json)
 
 ---
 
@@ -89,15 +132,15 @@ Blueprints aren't just templates — they encode transferable architectural patt
 
 ## Documentation
 
-Full documentation at **[theunsbarnardt.github.io/claude-fdl](https://theunsbarnardt.github.io/claude-fdl/)**:
+Full documentation at **[theunsbarnardt.github.io/ai-fdl-kit](https://theunsbarnardt.github.io/ai-fdl-kit/)**:
 
-- [The Seven Commands](https://theunsbarnardt.github.io/claude-fdl/commands/) — detailed reference
-- [Blueprint Format](https://theunsbarnardt.github.io/claude-fdl/blueprint-format/) — what's inside a blueprint
-- [Blueprint Catalog](https://theunsbarnardt.github.io/claude-fdl/catalog/) — browse all 51 blueprints
-- [Combining Blueprints](https://theunsbarnardt.github.io/claude-fdl/combining/) — build complex systems
-- [Real-World Examples](https://theunsbarnardt.github.io/claude-fdl/examples/) — 8 walkthroughs
-- [Using with ChatGPT & Others](https://theunsbarnardt.github.io/claude-fdl/using-with-other-ai/) — no Claude required
-- [FAQ](https://theunsbarnardt.github.io/claude-fdl/faq/)
+- [The Seven Commands](https://theunsbarnardt.github.io/ai-fdl-kit/commands/) — detailed reference
+- [Blueprint Format](https://theunsbarnardt.github.io/ai-fdl-kit/blueprint-format/) — what's inside a blueprint
+- [Blueprint Catalog](https://theunsbarnardt.github.io/ai-fdl-kit/catalog/) — browse all 51 blueprints
+- [Combining Blueprints](https://theunsbarnardt.github.io/ai-fdl-kit/combining/) — build complex systems
+- [Real-World Examples](https://theunsbarnardt.github.io/ai-fdl-kit/examples/) — 8 walkthroughs
+- [Using with ChatGPT & Others](https://theunsbarnardt.github.io/ai-fdl-kit/using-with-other-ai/) — no Claude required
+- [FAQ](https://theunsbarnardt.github.io/ai-fdl-kit/faq/)
 
 ---
 
