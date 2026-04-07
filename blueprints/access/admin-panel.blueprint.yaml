@@ -1,0 +1,556 @@
+feature: admin-panel
+version: "1.0.0"
+description: Administrative dashboard for user management, account linking, notification broadcasting, and system configuration
+category: access
+tags:
+  - admin
+  - user-management
+  - account-linking
+  - notification-broadcast
+  - system-administration
+  - wealth-management
+
+actors:
+  - id: super_admin
+    name: Super Administrator
+    type: human
+    role: Super Admin
+    description: Full system access, manages all users and accounts
+
+  - id: admin
+    name: Administrator
+    type: human
+    role: Admin
+    description: Manages users, links accounts, sends notifications
+
+  - id: system
+    name: System
+    type: system
+    role: System
+    description: Automated processes and scheduled tasks
+
+fields:
+  - name: user_id
+    type: text
+    required: true
+    validation:
+      - type: required
+        message: User ID is required
+
+  - name: email
+    type: email
+    required: true
+    validation:
+      - type: required
+        message: Email is required
+      - type: email
+        message: Email must be valid
+
+  - name: full_name
+    type: text
+    required: true
+    validation:
+      - type: required
+        message: Full name is required
+
+  - name: user_status
+    type: select
+    required: true
+    options:
+      - value: active
+        label: Active
+      - value: suspended
+        label: Suspended
+      - value: pending_verification
+        label: Pending Verification
+      - value: deactivated
+        label: Deactivated
+
+  - name: linked_accounts
+    type: json
+    required: false
+    label: Linked Investment Accounts
+
+  - name: assigned_roles
+    type: json
+    required: true
+    label: Assigned Roles
+
+  - name: notification_target
+    type: select
+    required: true
+    label: Notification Target
+    options:
+      - value: all_users
+        label: All Users
+      - value: single_user
+        label: Single User
+      - value: product_holders
+        label: Users with Specific Product
+      - value: role_group
+        label: Users with Specific Role
+
+  - name: notification_title
+    type: text
+    required: true
+    validation:
+      - type: required
+        message: Notification title is required
+      - type: maxLength
+        value: 200
+        message: Title must not exceed 200 characters
+
+  - name: notification_body
+    type: rich_text
+    required: true
+    validation:
+      - type: required
+        message: Notification body is required
+
+  - name: notification_channel
+    type: multiselect
+    required: true
+    label: Delivery Channels
+    options:
+      - value: in_app
+        label: In-App
+      - value: email
+        label: Email
+      - value: push
+        label: Push Notification
+
+  - name: target_product_id
+    type: text
+    required: false
+    label: Target Product
+
+  - name: target_user_id
+    type: text
+    required: false
+    label: Target User
+
+rules:
+  permissions:
+    - "Only super_admin and admin roles can access the admin panel"
+    - "super_admin can manage all users including other admins"
+    - "admin can manage regular users but cannot modify admin accounts"
+    - "All admin actions must be audit-logged"
+
+  user_management:
+    - "Cannot deactivate own account"
+    - "Cannot remove own admin role"
+    - "Suspended users cannot log in until reactivated"
+    - "User search supports email, name, and account number"
+
+  account_linking:
+    - "An investment account can be linked to exactly one user"
+    - "Linking an account transfers all associated portfolios and holdings"
+    - "Unlinking requires confirmation and creates an audit entry"
+    - "Account data is fetched from CRM (Dynamics) for linking"
+
+  notifications:
+    - "Broadcast notifications are queued and processed asynchronously"
+    - "Product-specific notifications require a valid product ID"
+    - "Notification history is retained for 90 days"
+    - "Admin can preview notification before sending"
+
+outcomes:
+  unauthorized_access:
+    priority: 1
+    error: ADMIN_ACCESS_DENIED
+    given:
+      - field: user.role
+        source: session
+        operator: not_in
+        value: [super_admin, admin]
+    then:
+      - action: emit_event
+        event: admin.access_denied
+        payload: [user_id, attempted_action, ip_address, timestamp]
+    result: Deny access to admin panel
+
+  list_users:
+    priority: 10
+    given:
+      - field: user.role
+        source: session
+        operator: in
+        value: [super_admin, admin]
+    then:
+      - action: emit_event
+        event: admin.users_listed
+        payload: [admin_user_id, filters, timestamp]
+    result: Return paginated list of users with status, roles, and linked accounts
+
+  search_users:
+    priority: 11
+    given:
+      - field: search_query
+        source: input
+        operator: exists
+      - field: user.role
+        source: session
+        operator: in
+        value: [super_admin, admin]
+    then:
+      - action: emit_event
+        event: admin.users_searched
+        payload: [admin_user_id, search_query, result_count, timestamp]
+    result: Return filtered user list matching search query
+
+  view_user_detail:
+    priority: 12
+    given:
+      - field: target_user_id
+        source: input
+        operator: exists
+      - field: user.role
+        source: session
+        operator: in
+        value: [super_admin, admin]
+    then:
+      - action: emit_event
+        event: admin.user_viewed
+        payload: [admin_user_id, target_user_id, timestamp]
+    result: Return full user profile with linked accounts, roles, activity log
+
+  update_user_status:
+    priority: 20
+    given:
+      - field: target_user_id
+        source: input
+        operator: exists
+      - field: user_status
+        source: input
+        operator: in
+        value: [active, suspended, deactivated]
+      - field: user.role
+        source: session
+        operator: in
+        value: [super_admin, admin]
+      - field: target_user_id
+        source: input
+        operator: neq
+        value: current_user_id
+        description: Cannot modify own status
+    then:
+      - action: set_field
+        target: user_status
+        value: from_input
+      - action: emit_event
+        event: admin.user_status_changed
+        payload: [admin_user_id, target_user_id, old_status, new_status, timestamp]
+    result: User status updated
+
+  self_modification_blocked:
+    priority: 2
+    error: SELF_MODIFICATION_BLOCKED
+    given:
+      - field: target_user_id
+        source: input
+        operator: eq
+        value: current_user_id
+      - any:
+          - field: action_type
+            source: input
+            operator: eq
+            value: deactivate
+          - field: action_type
+            source: input
+            operator: eq
+            value: remove_admin_role
+    result: Cannot deactivate own account or remove own admin role
+
+  link_account:
+    priority: 30
+    given:
+      - field: target_user_id
+        source: input
+        operator: exists
+      - field: account_id
+        source: input
+        operator: exists
+      - field: account_id
+        source: db
+        operator: not_exists
+        description: Account not already linked to another user
+      - field: user.role
+        source: session
+        operator: in
+        value: [super_admin, admin]
+    then:
+      - action: create_record
+        type: account_link
+        target: linked_accounts
+      - action: emit_event
+        event: admin.account_linked
+        payload: [admin_user_id, target_user_id, account_id, timestamp]
+    result: Investment account linked to user
+
+  account_already_linked:
+    priority: 3
+    error: ACCOUNT_ALREADY_LINKED
+    given:
+      - field: account_id
+        source: db
+        operator: exists
+        description: Account is already linked to a user
+    result: Account is already linked to another user
+
+  unlink_account:
+    priority: 31
+    given:
+      - field: target_user_id
+        source: input
+        operator: exists
+      - field: account_id
+        source: input
+        operator: exists
+      - field: user.role
+        source: session
+        operator: in
+        value: [super_admin, admin]
+    then:
+      - action: delete_record
+        type: account_link
+        target: linked_accounts
+      - action: emit_event
+        event: admin.account_unlinked
+        payload: [admin_user_id, target_user_id, account_id, timestamp]
+    result: Investment account unlinked from user
+
+  send_notification_all:
+    priority: 40
+    given:
+      - field: notification_target
+        source: input
+        operator: eq
+        value: all_users
+      - field: notification_title
+        source: input
+        operator: exists
+      - field: notification_body
+        source: input
+        operator: exists
+      - field: user.role
+        source: session
+        operator: in
+        value: [super_admin, admin]
+    then:
+      - action: emit_event
+        event: admin.notification_broadcast
+        payload: [admin_user_id, notification_target, channel, user_count, timestamp]
+    result: Notification queued for delivery to all users
+
+  send_notification_single:
+    priority: 41
+    given:
+      - field: notification_target
+        source: input
+        operator: eq
+        value: single_user
+      - field: target_user_id
+        source: input
+        operator: exists
+      - field: notification_title
+        source: input
+        operator: exists
+      - field: user.role
+        source: session
+        operator: in
+        value: [super_admin, admin]
+    then:
+      - action: emit_event
+        event: admin.notification_sent
+        payload: [admin_user_id, target_user_id, channel, timestamp]
+    result: Notification sent to specific user
+
+  send_notification_product:
+    priority: 42
+    given:
+      - field: notification_target
+        source: input
+        operator: eq
+        value: product_holders
+      - field: target_product_id
+        source: input
+        operator: exists
+      - field: notification_title
+        source: input
+        operator: exists
+      - field: user.role
+        source: session
+        operator: in
+        value: [super_admin, admin]
+    then:
+      - action: emit_event
+        event: admin.notification_product_broadcast
+        payload: [admin_user_id, target_product_id, channel, user_count, timestamp]
+    result: Notification queued for all users holding the specified product
+
+  assign_role:
+    priority: 50
+    given:
+      - field: target_user_id
+        source: input
+        operator: exists
+      - field: role_id
+        source: input
+        operator: exists
+      - field: user.role
+        source: session
+        operator: in
+        value: [super_admin, admin]
+    then:
+      - action: create_record
+        type: role_assignment
+        target: assigned_roles
+      - action: emit_event
+        event: admin.role_assigned
+        payload: [admin_user_id, target_user_id, role_id, timestamp]
+    result: Role assigned to user
+
+  view_system_stats:
+    priority: 60
+    given:
+      - field: user.role
+        source: session
+        operator: in
+        value: [super_admin, admin]
+    then:
+      - action: emit_event
+        event: admin.stats_viewed
+        payload: [admin_user_id, timestamp]
+    result: Return system statistics (total users, active sessions, recent signups, notifications sent)
+
+errors:
+  - code: ADMIN_ACCESS_DENIED
+    status: 403
+    message: You do not have permission to access the admin panel
+    retry: false
+
+  - code: SELF_MODIFICATION_BLOCKED
+    status: 403
+    message: You cannot modify your own admin status
+    retry: false
+
+  - code: ACCOUNT_ALREADY_LINKED
+    status: 409
+    message: This account is already linked to another user
+    retry: false
+
+  - code: USER_NOT_FOUND
+    status: 404
+    message: The specified user was not found
+    retry: false
+
+  - code: ACCOUNT_NOT_FOUND
+    status: 404
+    message: The specified investment account was not found
+    retry: false
+
+  - code: INVALID_NOTIFICATION_TARGET
+    status: 400
+    message: Invalid notification target configuration
+    retry: false
+
+  - code: PRODUCT_NOT_FOUND
+    status: 404
+    message: The specified product was not found
+    retry: false
+
+events:
+  - name: admin.access_denied
+    description: Unauthorized access attempt to admin panel
+    payload: [user_id, attempted_action, ip_address, timestamp]
+
+  - name: admin.users_listed
+    description: Admin viewed user list
+    payload: [admin_user_id, filters, timestamp]
+
+  - name: admin.users_searched
+    description: Admin searched for users
+    payload: [admin_user_id, search_query, result_count, timestamp]
+
+  - name: admin.user_viewed
+    description: Admin viewed user detail
+    payload: [admin_user_id, target_user_id, timestamp]
+
+  - name: admin.user_status_changed
+    description: Admin changed a user status
+    payload: [admin_user_id, target_user_id, old_status, new_status, timestamp]
+
+  - name: admin.account_linked
+    description: Investment account linked to user
+    payload: [admin_user_id, target_user_id, account_id, timestamp]
+
+  - name: admin.account_unlinked
+    description: Investment account unlinked from user
+    payload: [admin_user_id, target_user_id, account_id, timestamp]
+
+  - name: admin.notification_broadcast
+    description: Notification broadcast to all users
+    payload: [admin_user_id, notification_target, channel, user_count, timestamp]
+
+  - name: admin.notification_sent
+    description: Notification sent to single user
+    payload: [admin_user_id, target_user_id, channel, timestamp]
+
+  - name: admin.notification_product_broadcast
+    description: Notification sent to product holders
+    payload: [admin_user_id, target_product_id, channel, user_count, timestamp]
+
+  - name: admin.role_assigned
+    description: Role assigned to user by admin
+    payload: [admin_user_id, target_user_id, role_id, timestamp]
+
+  - name: admin.stats_viewed
+    description: Admin viewed system statistics
+    payload: [admin_user_id, timestamp]
+
+related:
+  - feature: role-based-access
+    type: required
+    reason: Admin panel requires RBAC to determine admin vs super_admin capabilities
+
+  - feature: login
+    type: required
+    reason: Admins must authenticate before accessing the panel
+
+  - feature: in-app-notifications
+    type: required
+    reason: Notification broadcasting depends on the notification delivery system
+
+  - feature: email-notifications
+    type: recommended
+    reason: Email is a key notification channel for admin broadcasts
+
+  - feature: push-notifications
+    type: recommended
+    reason: Push notifications extend admin broadcast reach to mobile devices
+
+  - feature: audit-logging
+    type: required
+    reason: All admin actions must be audit-logged for compliance
+
+  - feature: dataverse-client
+    type: recommended
+    reason: Account data may be fetched from CRM for linking
+
+  - feature: notification-preferences
+    type: recommended
+    reason: Respect user notification preferences when broadcasting
+
+ui_hints:
+  layout: sidebar_with_content
+  primary_nav:
+    - label: Dashboard
+      icon: layout-dashboard
+    - label: Users
+      icon: users
+    - label: Accounts
+      icon: link
+    - label: Notifications
+      icon: bell
+    - label: System
+      icon: settings

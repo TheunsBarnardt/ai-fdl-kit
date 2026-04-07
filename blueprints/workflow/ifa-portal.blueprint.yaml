@@ -1,0 +1,707 @@
+feature: ifa-portal
+version: "1.0.0"
+description: Independent Financial Advisor portal for client management, onboarding assistance, client-view impersonation, messaging, product suggestions, and lead referral handling
+category: workflow
+tags:
+  - ifa
+  - advisor
+  - client-management
+  - financial-services
+  - wealth-management
+  - lead-referral
+  - messaging
+
+actors:
+  - id: ifa
+    name: Independent Financial Advisor
+    type: human
+    role: IFA
+    description: Financial advisor who manages clients, assists with onboarding, and generates business
+
+  - id: client
+    name: Client
+    type: human
+    role: Client
+    description: Investment client managed by the IFA
+
+  - id: admin
+    name: Administrator
+    type: human
+    role: Admin
+    description: System administrator managing IFA assignments
+
+  - id: system
+    name: System
+    type: system
+    role: System
+
+fields:
+  - name: ifa_id
+    type: text
+    required: true
+    validation:
+      - type: required
+        message: IFA ID is required
+
+  - name: client_id
+    type: text
+    required: true
+    validation:
+      - type: required
+        message: Client ID is required
+
+  - name: ifa_status
+    type: select
+    required: true
+    options:
+      - value: active
+        label: Active
+      - value: suspended
+        label: Suspended
+      - value: pending_approval
+        label: Pending Approval
+      - value: deactivated
+        label: Deactivated
+
+  - name: assigned_clients
+    type: json
+    required: false
+    label: Assigned Client IDs
+
+  - name: message_id
+    type: text
+    required: false
+
+  - name: message_subject
+    type: text
+    required: false
+    validation:
+      - type: maxLength
+        value: 200
+        message: Subject must not exceed 200 characters
+
+  - name: message_body
+    type: rich_text
+    required: false
+
+  - name: message_type
+    type: select
+    required: false
+    options:
+      - value: general
+        label: General Communication
+      - value: product_suggestion
+        label: Product Suggestion
+      - value: onboarding_assistance
+        label: Onboarding Assistance
+      - value: portfolio_review
+        label: Portfolio Review
+
+  - name: suggested_product_ids
+    type: json
+    required: false
+    label: Suggested Products
+
+  - name: suggestion_reason
+    type: rich_text
+    required: false
+    label: Reason for Product Suggestion
+
+  - name: lead_id
+    type: text
+    required: false
+
+  - name: lead_name
+    type: text
+    required: false
+    validation:
+      - type: maxLength
+        value: 200
+        message: Lead name must not exceed 200 characters
+
+  - name: lead_email
+    type: email
+    required: false
+
+  - name: lead_phone
+    type: phone
+    required: false
+
+  - name: lead_source
+    type: select
+    required: false
+    options:
+      - value: client_referral
+        label: Client Referral
+      - value: direct
+        label: Direct Contact
+      - value: event
+        label: Event / Seminar
+      - value: website
+        label: Website Inquiry
+
+  - name: lead_notes
+    type: rich_text
+    required: false
+
+  - name: lead_status
+    type: select
+    required: false
+    options:
+      - value: new
+        label: New
+      - value: contacted
+        label: Contacted
+      - value: qualified
+        label: Qualified
+      - value: converted
+        label: Converted to Client
+      - value: lost
+        label: Lost
+
+  - name: impersonation_active
+    type: boolean
+    required: false
+    label: Client View Active
+
+rules:
+  permissions:
+    - "IFA can only view and manage their assigned clients"
+    - "IFA cannot modify client financial data directly"
+    - "IFA can impersonate client view (read-only) for troubleshooting"
+    - "Impersonation sessions are audit-logged with IFA and client IDs"
+    - "IFA can initiate onboarding on behalf of a client"
+    - "IFA can suggest products but client must accept"
+
+  messaging:
+    - "Messages between IFA and client are stored and retrievable"
+    - "Product suggestion messages include product details and personalized reason"
+    - "Client receives notification when IFA sends a message"
+    - "IFA receives notification when client responds"
+
+  leads:
+    - "IFA can submit leads received from existing clients"
+    - "Leads are tracked through qualification pipeline"
+    - "Converted leads become new clients assigned to the referring IFA"
+    - "Lead referral source tracks which client provided the referral"
+    - "Commission tracking linked to converted lead accounts"
+
+  client_view:
+    - "Client view shows exactly what the client sees: dashboard, portfolios, holdings, documents"
+    - "Client view is strictly read-only for the IFA"
+    - "Client view session expires after 30 minutes"
+    - "All client view sessions create audit trail entries"
+
+outcomes:
+  ifa_login:
+    priority: 1
+    given:
+      - field: user.role
+        source: session
+        operator: eq
+        value: IFA
+      - field: ifa_status
+        source: db
+        operator: eq
+        value: active
+    then:
+      - action: emit_event
+        event: ifa.logged_in
+        payload: [ifa_id, timestamp]
+    result: IFA accesses their portal dashboard with client overview
+
+  ifa_suspended:
+    priority: 0
+    error: IFA_SUSPENDED
+    given:
+      - field: user.role
+        source: session
+        operator: eq
+        value: IFA
+      - field: ifa_status
+        source: db
+        operator: in
+        value: [suspended, deactivated]
+    then:
+      - action: emit_event
+        event: ifa.access_denied
+        payload: [ifa_id, ifa_status, timestamp]
+    result: IFA access denied due to suspended or deactivated status
+
+  list_clients:
+    priority: 10
+    given:
+      - field: user.role
+        source: session
+        operator: eq
+        value: IFA
+      - field: ifa_status
+        source: db
+        operator: eq
+        value: active
+    then:
+      - action: emit_event
+        event: ifa.clients_listed
+        payload: [ifa_id, client_count, timestamp]
+    result: Return paginated list of assigned clients with status, portfolios, and recent activity
+
+  view_client_detail:
+    priority: 11
+    given:
+      - field: client_id
+        source: input
+        operator: exists
+      - field: client_id
+        source: db
+        operator: in
+        value: assigned_clients
+      - field: user.role
+        source: session
+        operator: eq
+        value: IFA
+    then:
+      - action: emit_event
+        event: ifa.client_viewed
+        payload: [ifa_id, client_id, timestamp]
+    result: Return full client profile including portfolios, holdings, onboarding status, and documents
+
+  unauthorized_client_access:
+    priority: 2
+    error: CLIENT_NOT_ASSIGNED
+    given:
+      - field: client_id
+        source: input
+        operator: exists
+      - field: client_id
+        source: db
+        operator: not_in
+        value: assigned_clients
+      - field: user.role
+        source: session
+        operator: eq
+        value: IFA
+    result: IFA cannot access clients not assigned to them
+
+  start_client_view:
+    priority: 20
+    given:
+      - field: client_id
+        source: input
+        operator: exists
+      - field: client_id
+        source: db
+        operator: in
+        value: assigned_clients
+      - field: user.role
+        source: session
+        operator: eq
+        value: IFA
+    then:
+      - action: set_field
+        target: impersonation_active
+        value: true
+      - action: emit_event
+        event: ifa.client_view_started
+        payload: [ifa_id, client_id, timestamp]
+    result: IFA sees exactly what the client sees (read-only dashboard, portfolios, holdings)
+
+  end_client_view:
+    priority: 21
+    given:
+      - field: impersonation_active
+        source: session
+        operator: eq
+        value: true
+      - field: user.role
+        source: session
+        operator: eq
+        value: IFA
+    then:
+      - action: set_field
+        target: impersonation_active
+        value: false
+      - action: emit_event
+        event: ifa.client_view_ended
+        payload: [ifa_id, client_id, duration_minutes, timestamp]
+    result: Client view session ended, IFA returns to their portal
+
+  assist_onboarding:
+    priority: 30
+    given:
+      - field: client_id
+        source: input
+        operator: exists
+      - field: client_id
+        source: db
+        operator: in
+        value: assigned_clients
+      - field: user.role
+        source: session
+        operator: eq
+        value: IFA
+    then:
+      - action: emit_event
+        event: ifa.onboarding_assisted
+        payload: [ifa_id, client_id, onboarding_id, timestamp]
+    result: IFA can view and guide client through onboarding steps
+
+  initiate_onboarding_for_client:
+    priority: 31
+    given:
+      - field: client_id
+        source: input
+        operator: exists
+      - field: user.role
+        source: session
+        operator: eq
+        value: IFA
+    then:
+      - action: create_record
+        type: onboarding
+        target: onboardings
+      - action: emit_event
+        event: ifa.onboarding_initiated
+        payload: [ifa_id, client_id, onboarding_id, timestamp]
+      - action: notify
+        channel: [email, in_app]
+        target: client
+        template: onboarding_initiated_by_ifa
+    result: Onboarding initiated on behalf of client, client notified to continue
+
+  send_message:
+    priority: 40
+    given:
+      - field: client_id
+        source: input
+        operator: exists
+      - field: message_body
+        source: input
+        operator: exists
+      - field: client_id
+        source: db
+        operator: in
+        value: assigned_clients
+      - field: user.role
+        source: session
+        operator: eq
+        value: IFA
+    then:
+      - action: create_record
+        type: message
+        target: messages
+      - action: emit_event
+        event: ifa.message_sent
+        payload: [ifa_id, client_id, message_type, timestamp]
+      - action: notify
+        channel: [in_app, email]
+        target: client
+        template: new_message_from_advisor
+    result: Message sent to client with notification
+
+  suggest_product:
+    priority: 41
+    given:
+      - field: client_id
+        source: input
+        operator: exists
+      - field: suggested_product_ids
+        source: input
+        operator: exists
+      - field: suggestion_reason
+        source: input
+        operator: exists
+      - field: client_id
+        source: db
+        operator: in
+        value: assigned_clients
+      - field: user.role
+        source: session
+        operator: eq
+        value: IFA
+    then:
+      - action: create_record
+        type: product_suggestion
+        target: product_suggestions
+      - action: emit_event
+        event: ifa.product_suggested
+        payload: [ifa_id, client_id, suggested_product_ids, timestamp]
+      - action: notify
+        channel: [in_app, email]
+        target: client
+        template: product_suggestion
+    result: Product suggestion sent to client with personalized reason and product details
+
+  submit_lead:
+    priority: 50
+    given:
+      - field: lead_name
+        source: input
+        operator: exists
+      - field: lead_source
+        source: input
+        operator: exists
+      - field: user.role
+        source: session
+        operator: eq
+        value: IFA
+    then:
+      - action: create_record
+        type: lead
+        target: leads
+      - action: set_field
+        target: lead_status
+        value: new
+      - action: emit_event
+        event: ifa.lead_submitted
+        payload: [ifa_id, lead_id, lead_source, referring_client_id, timestamp]
+    result: Lead submitted and tracked in pipeline
+
+  update_lead_status:
+    priority: 51
+    given:
+      - field: lead_id
+        source: input
+        operator: exists
+      - field: lead_status
+        source: input
+        operator: exists
+      - field: user.role
+        source: session
+        operator: eq
+        value: IFA
+    then:
+      - action: set_field
+        target: lead_status
+        value: from_input
+      - action: emit_event
+        event: ifa.lead_updated
+        payload: [ifa_id, lead_id, old_status, new_status, timestamp]
+    result: Lead status updated
+
+  convert_lead_to_client:
+    priority: 52
+    given:
+      - field: lead_id
+        source: input
+        operator: exists
+      - field: lead_status
+        source: db
+        operator: eq
+        value: qualified
+      - field: user.role
+        source: session
+        operator: eq
+        value: IFA
+    then:
+      - action: set_field
+        target: lead_status
+        value: converted
+      - action: create_record
+        type: client
+        target: clients
+      - action: emit_event
+        event: ifa.lead_converted
+        payload: [ifa_id, lead_id, new_client_id, timestamp]
+      - action: notify
+        channel: [email]
+        target: new_client
+        template: welcome_new_client
+    result: Lead converted to client, assigned to IFA, welcome email sent
+
+  view_message_history:
+    priority: 42
+    given:
+      - field: client_id
+        source: input
+        operator: exists
+      - field: client_id
+        source: db
+        operator: in
+        value: assigned_clients
+      - field: user.role
+        source: session
+        operator: eq
+        value: IFA
+    then:
+      - action: emit_event
+        event: ifa.messages_viewed
+        payload: [ifa_id, client_id, timestamp]
+    result: Return paginated message history between IFA and client
+
+  get_ifa_dashboard:
+    priority: 5
+    given:
+      - field: user.role
+        source: session
+        operator: eq
+        value: IFA
+      - field: ifa_status
+        source: db
+        operator: eq
+        value: active
+    then:
+      - action: emit_event
+        event: ifa.dashboard_viewed
+        payload: [ifa_id, timestamp]
+    result: Return IFA dashboard with client count, pending onboardings, recent messages, lead pipeline, AUM summary
+
+errors:
+  - code: IFA_SUSPENDED
+    status: 403
+    message: Your advisor account is currently suspended
+    retry: false
+
+  - code: CLIENT_NOT_ASSIGNED
+    status: 403
+    message: You do not have access to this client
+    retry: false
+
+  - code: IFA_NOT_FOUND
+    status: 404
+    message: Advisor account not found
+    retry: false
+
+  - code: CLIENT_NOT_FOUND
+    status: 404
+    message: Client not found
+    retry: false
+
+  - code: LEAD_NOT_FOUND
+    status: 404
+    message: Lead not found
+    retry: false
+
+  - code: INVALID_LEAD_STATUS
+    status: 400
+    message: Invalid lead status transition
+    retry: false
+
+  - code: MESSAGE_SEND_FAILED
+    status: 500
+    message: Failed to send message. Please try again
+    retry: true
+
+  - code: IMPERSONATION_EXPIRED
+    status: 401
+    message: Client view session has expired
+    retry: false
+
+events:
+  - name: ifa.logged_in
+    description: IFA logged into portal
+    payload: [ifa_id, timestamp]
+
+  - name: ifa.access_denied
+    description: IFA access denied
+    payload: [ifa_id, ifa_status, timestamp]
+
+  - name: ifa.clients_listed
+    description: IFA viewed client list
+    payload: [ifa_id, client_count, timestamp]
+
+  - name: ifa.client_viewed
+    description: IFA viewed client detail
+    payload: [ifa_id, client_id, timestamp]
+
+  - name: ifa.client_view_started
+    description: IFA started client view impersonation
+    payload: [ifa_id, client_id, timestamp]
+
+  - name: ifa.client_view_ended
+    description: IFA ended client view session
+    payload: [ifa_id, client_id, duration_minutes, timestamp]
+
+  - name: ifa.onboarding_assisted
+    description: IFA assisted with client onboarding
+    payload: [ifa_id, client_id, onboarding_id, timestamp]
+
+  - name: ifa.onboarding_initiated
+    description: IFA initiated onboarding for client
+    payload: [ifa_id, client_id, onboarding_id, timestamp]
+
+  - name: ifa.message_sent
+    description: IFA sent message to client
+    payload: [ifa_id, client_id, message_type, timestamp]
+
+  - name: ifa.product_suggested
+    description: IFA suggested products to client
+    payload: [ifa_id, client_id, suggested_product_ids, timestamp]
+
+  - name: ifa.lead_submitted
+    description: IFA submitted a new lead
+    payload: [ifa_id, lead_id, lead_source, referring_client_id, timestamp]
+
+  - name: ifa.lead_updated
+    description: IFA updated lead status
+    payload: [ifa_id, lead_id, old_status, new_status, timestamp]
+
+  - name: ifa.lead_converted
+    description: Lead converted to client
+    payload: [ifa_id, lead_id, new_client_id, timestamp]
+
+  - name: ifa.messages_viewed
+    description: IFA viewed message history with client
+    payload: [ifa_id, client_id, timestamp]
+
+  - name: ifa.dashboard_viewed
+    description: IFA viewed portal dashboard
+    payload: [ifa_id, timestamp]
+
+related:
+  - feature: client-onboarding
+    type: required
+    reason: IFA assists clients through the onboarding process
+
+  - feature: account-opening
+    type: required
+    reason: IFA guides clients through account opening and product selection
+
+  - feature: portfolio-management
+    type: required
+    reason: IFA views client portfolios and holdings
+
+  - feature: login
+    type: required
+    reason: IFA must authenticate to access the portal
+
+  - feature: role-based-access
+    type: required
+    reason: IFA role permissions control what advisors can access
+
+  - feature: in-app-notifications
+    type: recommended
+    reason: IFA receives notifications about client activity and messages
+
+  - feature: email-notifications
+    type: recommended
+    reason: Email notifications for lead conversions and client messages
+
+  - feature: lead-opportunity-pipeline
+    type: recommended
+    reason: Leads submitted by IFA feed into the deal pipeline
+
+  - feature: product-configurator
+    type: recommended
+    reason: IFA needs product catalog to make suggestions
+
+  - feature: audit-trail
+    type: required
+    reason: Client view impersonation and all IFA actions must be audit-logged
+
+  - feature: document-management
+    type: recommended
+    reason: IFA views client documents during assistance
+
+ui_hints:
+  layout: sidebar_with_content
+  primary_nav:
+    - label: Dashboard
+      icon: layout-dashboard
+    - label: My Clients
+      icon: users
+    - label: Messages
+      icon: message-square
+    - label: Leads
+      icon: user-plus
+    - label: Products
+      icon: package
