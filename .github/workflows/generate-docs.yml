@@ -1,16 +1,17 @@
-name: Generate Docs & API
+name: Generate Docs & Deploy Pages
 
 on:
   push:
     branches: [master]
-    paths:
-      - 'blueprints/**'
-      - 'scripts/generate-docs.js'
-      - 'scripts/generate-api.js'
-      - 'docs/_config.yml'
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   generate:
@@ -37,3 +38,35 @@ jobs:
             git commit -m "Auto-generate docs and API from blueprints"
             git push
           fi
+
+  deploy:
+    needs: generate
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Pull latest (including generated files)
+        run: git pull origin master
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./docs
+          destination: ./_site
+
+      - name: Verify API files in build
+        run: |
+          echo "Checking _site/api/registry.json..."
+          ls -la _site/api/registry.json || echo "WARNING: registry.json missing from build!"
+          ls _site/api/blueprints/ | head -5 || echo "WARNING: blueprint JSONs missing!"
+
+      - uses: actions/upload-pages-artifact@v3
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
