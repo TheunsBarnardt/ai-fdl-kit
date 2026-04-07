@@ -16,7 +16,7 @@ description: "Full CRUD operations for document collections with pagination, fil
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | cms, headless, crud, collections, pagination, filtering, hooks, bulk-operations, payload |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/payload-collections.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/payload-collections.blueprint.yaml) |
 | **JSON API** | [payload-collections.json]({{ site.baseurl }}/api/blueprints/data/payload-collections.json) |
 
 ## Actors
@@ -343,7 +343,7 @@ field_types:
   "name": "Payload Collections Blueprint",
   "description": "Full CRUD operations for document collections with pagination, filtering, hooks, bulk operations, and field selection. 4 fields. 14 outcomes. 5 error codes. rul",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "cms, headless, crud, collections, pagination, filtering, hooks, bulk-operations, payload"
 }

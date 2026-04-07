@@ -17,7 +17,7 @@ description: "Supplier performance scorecard system with weighted criteria, form
 | **Category** | Procurement |
 | **Version** | 1.0.0 |
 | **Tags** | supplier-evaluation, procurement, performance-scoring, vendor-management, transaction-blocking |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/procurement/supplier-scorecard.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/procurement/supplier-scorecard.blueprint.yaml) |
 | **JSON API** | [supplier-scorecard.json]({{ site.baseurl }}/api/blueprints/procurement/supplier-scorecard.json) |
 
 ## Actors
@@ -241,7 +241,7 @@ source: https://github.com/frappe/erpnext
   "name": "Supplier Scorecard Blueprint",
   "description": "Supplier performance scorecard system with weighted criteria, formula-based scoring, standing thresholds, automatic transaction blocking, and periodic score rec",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "supplier-evaluation, procurement, performance-scoring, vendor-management, transaction-blocking"
 }

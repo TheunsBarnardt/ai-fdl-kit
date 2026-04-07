@@ -17,7 +17,7 @@ description: "Point-of-sale system managing sales sessions, product orders, paym
 | **Category** | Payment |
 | **Version** | 1.0.0 |
 | **Tags** | point-of-sale, retail, cash-register, receipt, session-management |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/pos-core.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/payment/pos-core.blueprint.yaml) |
 | **JSON API** | [pos-core.json]({{ site.baseurl }}/api/blueprints/payment/pos-core.json) |
 
 ## Actors
@@ -286,7 +286,7 @@ source:
   "name": "Pos Core Blueprint",
   "description": "Point-of-sale system managing sales sessions, product orders, payment processing, cash register operations, receipt generation, and accounting integration.\n. 24",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "point-of-sale, retail, cash-register, receipt, session-management"
 }

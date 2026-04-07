@@ -16,7 +16,7 @@ description: "File upload system with image resizing, focal-point cropping, MIME
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | cms, uploads, files, images, sharp, resize, crop, focal-point, storage, payload |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/payload-uploads.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/payload-uploads.blueprint.yaml) |
 | **JSON API** | [payload-uploads.json]({{ site.baseurl }}/api/blueprints/data/payload-uploads.json) |
 
 ## Actors
@@ -217,7 +217,7 @@ storage_adapters:
   "name": "Payload Uploads Blueprint",
   "description": "File upload system with image resizing, focal-point cropping, MIME validation, cloud storage adapters, and range request support. 9 fields. 7 outcomes. 6 error ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "cms, uploads, files, images, sharp, resize, crop, focal-point, storage, payload"
 }

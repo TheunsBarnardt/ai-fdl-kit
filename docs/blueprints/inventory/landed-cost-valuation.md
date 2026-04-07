@@ -17,7 +17,7 @@ description: "Landed cost allocation, stock reconciliation, and valuation repost
 | **Category** | Inventory |
 | **Version** | 1.0.0 |
 | **Tags** | landed-cost, valuation, stock-reconciliation, repost-valuation, cost-allocation, inventory-adjustment |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/inventory/landed-cost-valuation.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/inventory/landed-cost-valuation.blueprint.yaml) |
 | **JSON API** | [landed-cost-valuation.json]({{ site.baseurl }}/api/blueprints/inventory/landed-cost-valuation.json) |
 
 ## Fields
@@ -201,7 +201,7 @@ source:
   "name": "Landed Cost Valuation Blueprint",
   "description": "Landed cost allocation, stock reconciliation, and valuation reposting. Distributes charges across receipt items, adjusts stock quantities/valuations, and recalc",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "landed-cost, valuation, stock-reconciliation, repost-valuation, cost-allocation, inventory-adjustment"
 }

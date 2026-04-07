@@ -16,7 +16,7 @@ description: "Extensible plugin architecture with 12 UI override points, wrappin
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | plugin, override, extensibility, customization, editor-plugins |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/plugin-overrides.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/plugin-overrides.blueprint.yaml) |
 | **JSON API** | [plugin-overrides.json]({{ site.baseurl }}/api/blueprints/integration/plugin-overrides.json) |
 
 ## Actors
@@ -191,7 +191,7 @@ source:
   "name": "Plugin Overrides Blueprint",
   "description": "Extensible plugin architecture with 12 UI override points, wrapping composition, field type customization, and sidebar panels. 6 fields. 6 outcomes. 3 error cod",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "plugin, override, extensibility, customization, editor-plugins"
 }

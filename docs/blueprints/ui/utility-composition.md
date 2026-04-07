@@ -16,7 +16,7 @@ description: "Build user interfaces by composing utility classes with variants a
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | utilities, variants, responsive, state-modifiers |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/utility-composition.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/utility-composition.blueprint.yaml) |
 | **JSON API** | [utility-composition.json]({{ site.baseurl }}/api/blueprints/ui/utility-composition.json) |
 
 ## Actors
@@ -200,7 +200,7 @@ performance_notes: Candidate parsing cached; invalid candidates tracked to preve
   "name": "Utility Composition Blueprint",
   "description": "Build user interfaces by composing utility classes with variants and modifiers to generate CSS rules. 9 fields. 8 outcomes. 3 error codes. rules: parsing, varia",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "utilities, variants, responsive, state-modifiers"
 }

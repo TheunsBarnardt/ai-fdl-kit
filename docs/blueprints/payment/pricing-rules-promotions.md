@@ -16,7 +16,7 @@ description: "Define and apply pricing rules, discount schemes, and promotional 
 | **Category** | Payment |
 | **Version** | 1.0.0 |
 | **Tags** | pricing, discounts, promotions, coupons, erp, sales, purchase |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/pricing-rules-promotions.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/payment/pricing-rules-promotions.blueprint.yaml) |
 | **JSON API** | [pricing-rules-promotions.json]({{ site.baseurl }}/api/blueprints/payment/pricing-rules-promotions.json) |
 
 ## Fields
@@ -170,7 +170,7 @@ source:
   "name": "Pricing Rules Promotions Blueprint",
   "description": "Define and apply pricing rules, discount schemes, and promotional offers with priority-based conflict resolution, cumulative tracking, and free item support. 21",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "pricing, discounts, promotions, coupons, erp, sales, purchase"
 }

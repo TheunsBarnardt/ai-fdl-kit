@@ -16,7 +16,7 @@ description: "Stablecoin wallet infrastructure API — multi-chain wallets, addr
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | blockchain, stablecoin, crypto, wallet, api, payments, defi, fintech |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/blockradar-api.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/blockradar-api.blueprint.yaml) |
 | **JSON API** | [stablecoin-wallet-api.json]({{ site.baseurl }}/api/blueprints/integration/stablecoin-wallet-api.json) |
 
 ## Actors
@@ -536,7 +536,7 @@ security:
   "name": "Stablecoin Wallet Api Blueprint",
   "description": "Stablecoin wallet infrastructure API — multi-chain wallets, addresses, deposits, withdrawals, swaps, gateway, checkout, and fiat offramp. 34 fields. 22 outcomes",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "blockchain, stablecoin, crypto, wallet, api, payments, defi, fintech"
 }

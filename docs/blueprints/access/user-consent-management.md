@@ -16,7 +16,7 @@ description: "OAuth/OIDC consent tracking and enforcement. 2 fields. 1 outcomes.
 | **Category** | Access Control |
 | **Version** | 1.0.0 |
 | **Tags** | consent, oauth2 |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/access/user-consent-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/access/user-consent-management.blueprint.yaml) |
 | **JSON API** | [user-consent-management.json]({{ site.baseurl }}/api/blueprints/access/user-consent-management.json) |
 
 ## Fields
@@ -74,7 +74,7 @@ source:
   "name": "User Consent Management Blueprint",
   "description": "OAuth/OIDC consent tracking and enforcement. 2 fields. 1 outcomes. 1 error codes. rules: core",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "consent, oauth2"
 }

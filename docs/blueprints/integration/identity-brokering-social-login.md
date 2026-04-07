@@ -16,7 +16,7 @@ description: "External identity provider integration and social login. 2 fields.
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | identity-brokering, social-login |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/identity-brokering-social-login.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/identity-brokering-social-login.blueprint.yaml) |
 | **JSON API** | [identity-brokering-social-login.json]({{ site.baseurl }}/api/blueprints/integration/identity-brokering-social-login.json) |
 
 ## Fields
@@ -74,7 +74,7 @@ source:
   "name": "Identity Brokering Social Login Blueprint",
   "description": "External identity provider integration and social login. 2 fields. 1 outcomes. 1 error codes. rules: core",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "identity-brokering, social-login"
 }

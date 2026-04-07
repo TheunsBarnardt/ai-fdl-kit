@@ -16,7 +16,7 @@ description: "Built-in job queue with tasks, workflows, cron scheduling, retry w
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | cms, jobs, queue, tasks, workflows, cron, retry, concurrency, scheduling, payload |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/payload-job-queue.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/payload-job-queue.blueprint.yaml) |
 | **JSON API** | [payload-job-queue.json]({{ site.baseurl }}/api/blueprints/workflow/payload-job-queue.json) |
 
 ## Actors
@@ -286,7 +286,7 @@ auto_created_entities:
   "name": "Payload Job Queue Blueprint",
   "description": "Built-in job queue with tasks, workflows, cron scheduling, retry with backoff, concurrency control, and sub-task orchestration. 13 fields. 10 outcomes. 4 error ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "cms, jobs, queue, tasks, workflows, cron, retry, concurrency, scheduling, payload"
 }

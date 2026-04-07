@@ -17,7 +17,7 @@ description: "Asset maintenance scheduling and repair management with preventive
 | **Category** | Asset |
 | **Version** | 1.0.0 |
 | **Tags** | asset-maintenance, preventive-maintenance, corrective-maintenance, repair, maintenance-log, asset-lifecycle |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/asset/asset-maintenance-repairs.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/asset/asset-maintenance-repairs.blueprint.yaml) |
 | **JSON API** | [asset-maintenance-repairs.json]({{ site.baseurl }}/api/blueprints/asset/asset-maintenance-repairs.json) |
 
 ## Fields
@@ -178,7 +178,7 @@ source:
   "name": "Asset Maintenance Repairs Blueprint",
   "description": "Asset maintenance scheduling and repair management with preventive and corrective tasks, repair cost capitalization, and stock consumption tracking for parts us",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "asset-maintenance, preventive-maintenance, corrective-maintenance, repair, maintenance-log, asset-lifecycle"
 }

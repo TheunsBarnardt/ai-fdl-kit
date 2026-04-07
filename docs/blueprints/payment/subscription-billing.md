@@ -16,7 +16,7 @@ description: "Recurring subscription lifecycle with plan tiers, billing cycles, 
 | **Category** | Payment |
 | **Version** | 1.0.0 |
 | **Tags** | subscriptions, recurring-billing, plans, trials, dunning, proration, saas |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/subscription-billing.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/payment/subscription-billing.blueprint.yaml) |
 | **JSON API** | [subscription-billing.json]({{ site.baseurl }}/api/blueprints/payment/subscription-billing.json) |
 
 ## Fields
@@ -268,7 +268,7 @@ description: "Recurring subscription lifecycle with plan tiers, billing cycles, 
   "name": "Subscription Billing Blueprint",
   "description": "Recurring subscription lifecycle with plan tiers, billing cycles, trials, proration, dunning retries, and cancellation handling.. 11 fields. 11 outcomes. 5 erro",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "subscriptions, recurring-billing, plans, trials, dunning, proration, saas"
 }

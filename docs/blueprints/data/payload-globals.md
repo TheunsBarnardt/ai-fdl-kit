@@ -16,7 +16,7 @@ description: "Singleton document management for site-wide settings, navigation, 
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | cms, globals, singleton, settings, configuration, site-wide, payload |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/payload-globals.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/payload-globals.blueprint.yaml) |
 | **JSON API** | [payload-globals.json]({{ site.baseurl }}/api/blueprints/data/payload-globals.json) |
 
 ## Actors
@@ -167,7 +167,7 @@ rest_endpoints:
   "name": "Payload Globals Blueprint",
   "description": "Singleton document management for site-wide settings, navigation, headers, and footers with versioning and access control. 3 fields. 5 outcomes. 3 error codes. ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "cms, globals, singleton, settings, configuration, site-wide, payload"
 }

@@ -16,7 +16,7 @@ description: "Constructs, parses, and serializes FIX protocol messages with head
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | fix-protocol, message-parsing, financial-messaging, field-map, repeating-groups |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/fix-message-building.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/fix-message-building.blueprint.yaml) |
 | **JSON API** | [fix-message-building.json]({{ site.baseurl }}/api/blueprints/trading/fix-message-building.json) |
 
 ## Actors
@@ -218,7 +218,7 @@ field_types:
   "name": "Fix Message Building Blueprint",
   "description": "Constructs, parses, and serializes FIX protocol messages with header, body, and trailer sections; supports repeating field groups and multi-version validation. ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "fix-protocol, message-parsing, financial-messaging, field-map, repeating-groups"
 }

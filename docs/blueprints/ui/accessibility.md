@@ -17,7 +17,7 @@ description: "WCAG 2.1 AA compliance with keyboard navigation, focus management,
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | accessibility, wcag, aria, keyboard-navigation, screen-reader, focus-management |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/accessibility.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/accessibility.blueprint.yaml) |
 | **JSON API** | [accessibility.json]({{ site.baseurl }}/api/blueprints/ui/accessibility.json) |
 
 ## Fields
@@ -192,7 +192,7 @@ description: "WCAG 2.1 AA compliance with keyboard navigation, focus management,
   "name": "Accessibility Blueprint",
   "description": "WCAG 2.1 AA compliance with keyboard navigation, focus management, ARIA attributes, skip links, screen reader support, contrast enforcement, and reduced motion ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "accessibility, wcag, aria, keyboard-navigation, screen-reader, focus-management"
 }

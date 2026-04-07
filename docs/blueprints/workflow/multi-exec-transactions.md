@@ -16,7 +16,7 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | transactions, atomic-operations, optimistic-locking, rollback, isolation |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/multi-exec-transactions.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/multi-exec-transactions.blueprint.yaml) |
 | **JSON API** | [multi-exec-transactions.json]({{ site.baseurl }}/api/blueprints/workflow/multi-exec-transactions.json) |
 
 ## Actors
@@ -321,7 +321,7 @@ source:
   "name": "Multi Exec Transactions Blueprint",
   "description": "Atomic multi-command execution with optional optimistic locking via WATCH; commands queued and executed sequentially without interruption. 5 fields. 18 outcomes",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "transactions, atomic-operations, optimistic-locking, rollback, isolation"
 }

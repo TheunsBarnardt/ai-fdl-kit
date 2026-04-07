@@ -16,7 +16,7 @@ description: "One-way data synchronization from master to replicas; full or part
 | **Category** | Infrastructure |
 | **Version** | 1.0.0 |
 | **Tags** | replication, high-availability, read-scaling, data-synchronization, partial-resync |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/infrastructure/master-replica-replication.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/infrastructure/master-replica-replication.blueprint.yaml) |
 | **JSON API** | [master-replica-replication.json]({{ site.baseurl }}/api/blueprints/infrastructure/master-replica-replication.json) |
 
 ## Actors
@@ -321,7 +321,7 @@ source:
   "name": "Master Replica Replication Blueprint",
   "description": "One-way data synchronization from master to replicas; full or partial resync with command streaming and replication backlog. 6 fields. 18 outcomes. 2 error code",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "replication, high-availability, read-scaling, data-synchronization, partial-resync"
 }

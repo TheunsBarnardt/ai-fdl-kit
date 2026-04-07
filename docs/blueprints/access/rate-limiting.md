@@ -16,7 +16,7 @@ description: "Configurable request throttling with multiple scopes and algorithm
 | **Category** | Access Control |
 | **Version** | 1.0.0 |
 | **Tags** | rate-limiting, throttling, api-protection, security, ddos, abuse-prevention, middleware |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/access/rate-limiting.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/access/rate-limiting.blueprint.yaml) |
 | **JSON API** | [rate-limiting.json]({{ site.baseurl }}/api/blueprints/access/rate-limiting.json) |
 
 ## Fields
@@ -173,7 +173,7 @@ accessibility:
   "name": "Rate Limiting Blueprint",
   "description": "Configurable request throttling with multiple scopes and algorithms to protect APIs from abuse. 11 fields. 4 outcomes. 3 error codes. rules: algorithms, headers",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "rate-limiting, throttling, api-protection, security, ddos, abuse-prevention, middleware"
 }

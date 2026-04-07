@@ -16,7 +16,7 @@ description: "Hierarchical groups with role inheritance. 2 fields. 1 outcomes. 1
 | **Category** | Access Control |
 | **Version** | 1.0.0 |
 | **Tags** | groups, organizations |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/access/user-groups-organizations.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/access/user-groups-organizations.blueprint.yaml) |
 | **JSON API** | [user-groups-organizations.json]({{ site.baseurl }}/api/blueprints/access/user-groups-organizations.json) |
 
 ## Fields
@@ -74,7 +74,7 @@ source:
   "name": "User Groups Organizations Blueprint",
   "description": "Hierarchical groups with role inheritance. 2 fields. 1 outcomes. 1 error codes. rules: core",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "groups, organizations"
 }

@@ -16,7 +16,7 @@ description: "MFA with OTP, WebAuthn, and recovery codes. 2 fields. 1 outcomes. 
 | **Category** | Auth |
 | **Version** | 1.0.0 |
 | **Tags** | mfa, credentials |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/multi-factor-authentication.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/auth/multi-factor-authentication.blueprint.yaml) |
 | **JSON API** | [multi-factor-authentication.json]({{ site.baseurl }}/api/blueprints/auth/multi-factor-authentication.json) |
 
 ## Fields
@@ -74,7 +74,7 @@ source:
   "name": "Multi Factor Authentication Blueprint",
   "description": "MFA with OTP, WebAuthn, and recovery codes. 2 fields. 1 outcomes. 1 error codes. rules: core",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "mfa, credentials"
 }

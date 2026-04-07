@@ -16,7 +16,7 @@ description: "Function-based access control with collection-level, field-level, 
 | **Category** | Access Control |
 | **Version** | 1.0.0 |
 | **Tags** | cms, access-control, permissions, rbac, field-level, document-level, where-clause, payload |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/access/payload-access-control.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/access/payload-access-control.blueprint.yaml) |
 | **JSON API** | [payload-access-control.json]({{ site.baseurl }}/api/blueprints/access/payload-access-control.json) |
 
 ## Actors
@@ -176,7 +176,7 @@ access_patterns:
   "name": "Payload Access Control Blueprint",
   "description": "Function-based access control with collection-level, field-level, and document-level permissions supporting boolean and WHERE clause results. 2 fields. 7 outcom",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "cms, access-control, permissions, rbac, field-level, document-level, where-clause, payload"
 }

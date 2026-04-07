@@ -16,7 +16,7 @@ description: "CLI tools for schema validation, formatting, generation, and datab
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | cli, schema-tools, developer-tools, prisma, introspection |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/prisma-cli.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/prisma-cli.blueprint.yaml) |
 | **JSON API** | [prisma-cli.json]({{ site.baseurl }}/api/blueprints/integration/prisma-cli.json) |
 
 ## Actors
@@ -189,7 +189,7 @@ tech_stack:
   "name": "Prisma Cli Blueprint",
   "description": "CLI tools for schema validation, formatting, generation, and database introspection. 4 fields. 8 outcomes. 4 error codes. rules: format, validate, generate",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "cli, schema-tools, developer-tools, prisma, introspection"
 }

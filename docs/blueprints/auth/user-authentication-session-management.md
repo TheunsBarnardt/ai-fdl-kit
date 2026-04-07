@@ -16,7 +16,7 @@ description: "Authentication flows, session management, brute-force protection. 
 | **Category** | Auth |
 | **Version** | 1.0.0 |
 | **Tags** | authentication, sessions |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/user-authentication-session-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/auth/user-authentication-session-management.blueprint.yaml) |
 | **JSON API** | [user-authentication-session-management.json]({{ site.baseurl }}/api/blueprints/auth/user-authentication-session-management.json) |
 
 ## Fields
@@ -74,7 +74,7 @@ source:
   "name": "User Authentication Session Management Blueprint",
   "description": "Authentication flows, session management, brute-force protection. 2 fields. 1 outcomes. 1 error codes. rules: core",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "authentication, sessions"
 }

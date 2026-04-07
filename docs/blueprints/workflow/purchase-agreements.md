@@ -17,7 +17,7 @@ description: "Purchase agreement management supporting blanket orders and calls 
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | procurement, blanket-order, call-for-tender, vendor-management, purchasing |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/purchase-agreements.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/purchase-agreements.blueprint.yaml) |
 | **JSON API** | [purchase-agreements.json]({{ site.baseurl }}/api/blueprints/workflow/purchase-agreements.json) |
 
 ## Actors
@@ -218,7 +218,7 @@ source:
   "name": "Purchase Agreements Blueprint",
   "description": "Purchase agreement management supporting blanket orders and calls for tender with vendor selection, purchase order generation, and supplier catalog synchronizat",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "procurement, blanket-order, call-for-tender, vendor-management, purchasing"
 }

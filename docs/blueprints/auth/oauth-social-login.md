@@ -16,7 +16,7 @@ description: "Social sign-in via OAuth2/OIDC with account linking and profile sy
 | **Category** | Auth |
 | **Version** | 1.0.0 |
 | **Tags** | authentication, oauth, oidc, social-login, identity, federation |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/oauth-social-login.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/auth/oauth-social-login.blueprint.yaml) |
 | **JSON API** | [oauth-social-login.json]({{ site.baseurl }}/api/blueprints/auth/oauth-social-login.json) |
 
 ## Fields
@@ -256,7 +256,7 @@ loading:
   "name": "Oauth Social Login Blueprint",
   "description": "Social sign-in via OAuth2/OIDC with account linking and profile sync. 11 fields. 8 outcomes. 7 error codes. rules: security, account_linking, profile_sync",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "authentication, oauth, oidc, social-login, identity, federation"
 }

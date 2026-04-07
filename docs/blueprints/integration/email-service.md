@@ -16,7 +16,7 @@ description: "Send transactional and marketing emails through a provider-agnosti
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | email, transactional, smtp, templates, notifications |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/email-service.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/email-service.blueprint.yaml) |
 | **JSON API** | [email-service.json]({{ site.baseurl }}/api/blueprints/integration/email-service.json) |
 
 ## Fields
@@ -185,7 +185,7 @@ description: "Send transactional and marketing emails through a provider-agnosti
   "name": "Email Service Blueprint",
   "description": "Send transactional and marketing emails through a provider-agnostic abstraction supporting templates, attachments, delivery tracking, and batch sends. 14 fields",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "email, transactional, smtp, templates, notifications"
 }

@@ -16,7 +16,7 @@ description: "Multi-step form and process wizard with progress indicator, step v
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | wizard, stepper, multi-step, progress, form-wizard, onboarding, workflow |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/wizard-stepper.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/wizard-stepper.blueprint.yaml) |
 | **JSON API** | [wizard-stepper.json]({{ site.baseurl }}/api/blueprints/ui/wizard-stepper.json) |
 
 ## Fields
@@ -177,7 +177,7 @@ description: "Multi-step form and process wizard with progress indicator, step v
   "name": "Wizard Stepper Blueprint",
   "description": "Multi-step form and process wizard with progress indicator, step validation, skip optional steps, save progress, and resume later. 7 fields. 7 outcomes. 4 error",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "wizard, stepper, multi-step, progress, form-wizard, onboarding, workflow"
 }

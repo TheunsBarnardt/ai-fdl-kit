@@ -16,7 +16,7 @@ description: "Request-To-Pay (RTP) and refunds for clearing house payments — o
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | rtp, request-to-pay, refund, payments, clearing-house |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/chp-request-to-pay.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/chp-request-to-pay.blueprint.yaml) |
 | **JSON API** | [clearing-house-request-to-pay.json]({{ site.baseurl }}/api/blueprints/integration/clearing-house-request-to-pay.json) |
 
 ## Actors
@@ -327,7 +327,7 @@ api:
   "name": "Clearing House Request To Pay Blueprint",
   "description": "Request-To-Pay (RTP) and refunds for clearing house payments — outbound/inbound RTP initiation, cancellation, and refund processing. 14 fields. 9 outcomes. 8 er",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "rtp, request-to-pay, refund, payments, clearing-house"
 }

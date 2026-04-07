@@ -17,7 +17,7 @@ description: "Hierarchical bill of materials defining raw materials, operations,
 | **Category** | Manufacturing |
 | **Version** | 1.0.0 |
 | **Tags** | bom, manufacturing, raw-materials, cost-estimation, production |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/manufacturing/bill-of-materials.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/manufacturing/bill-of-materials.blueprint.yaml) |
 | **JSON API** | [bill-of-materials.json]({{ site.baseurl }}/api/blueprints/manufacturing/bill-of-materials.json) |
 
 ## Fields
@@ -230,7 +230,7 @@ source: https://github.com/frappe/erpnext
   "name": "Bill Of Materials Blueprint",
   "description": "Hierarchical bill of materials defining raw materials, operations, and costs required to manufacture a finished good, with multi-level explosion and cost propag",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "bom, manufacturing, raw-materials, cost-estimation, production"
 }

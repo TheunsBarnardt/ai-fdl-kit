@@ -16,7 +16,7 @@ description: "Manages TCP connections for FIX protocol engines including server-
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | fix-protocol, tcp, acceptor, initiator, ssl, reconnection, financial-messaging |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/fix-connection-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/fix-connection-management.blueprint.yaml) |
 | **JSON API** | [fix-connection-management.json]({{ site.baseurl }}/api/blueprints/integration/fix-connection-management.json) |
 
 ## Actors
@@ -213,7 +213,7 @@ implementations:
   "name": "Fix Connection Management Blueprint",
   "description": "Manages TCP connections for FIX protocol engines including server-side acceptors, client-side initiators, SSL/TLS encryption, automatic reconnection, and socket",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "fix-protocol, tcp, acceptor, initiator, ssl, reconnection, financial-messaging"
 }

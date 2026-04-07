@@ -17,7 +17,7 @@ description: "Production planning tool that consolidates demand from sales order
 | **Category** | Manufacturing |
 | **Version** | 1.0.0 |
 | **Tags** | production-planning, mrp, demand-planning, manufacturing, material-requirements |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/manufacturing/production-planning.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/manufacturing/production-planning.blueprint.yaml) |
 | **JSON API** | [production-planning.json]({{ site.baseurl }}/api/blueprints/manufacturing/production-planning.json) |
 
 ## Fields
@@ -220,7 +220,7 @@ source: https://github.com/frappe/erpnext
   "name": "Production Planning Blueprint",
   "description": "Production planning tool that consolidates demand from sales orders and material requests, explodes multi-level BOMs, and generates work orders and procurement ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "production-planning, mrp, demand-planning, manufacturing, material-requirements"
 }

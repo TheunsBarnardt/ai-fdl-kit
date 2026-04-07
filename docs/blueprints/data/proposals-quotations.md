@@ -16,7 +16,7 @@ description: "Creation, management, and approval workflow for investment proposa
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | proposals, quotations, document-generation, client-communication |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/proposals-quotations.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/proposals-quotations.blueprint.yaml) |
 | **JSON API** | [proposals-quotations.json]({{ site.baseurl }}/api/blueprints/data/proposals-quotations.json) |
 
 ## Actors
@@ -367,7 +367,7 @@ pdf-generation: PDF generation
   "name": "Proposals Quotations Blueprint",
   "description": "Creation, management, and approval workflow for investment proposals and quotations delivered to clients. 21 fields. 18 outcomes. 11 error codes. rules: validat",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "proposals, quotations, document-generation, client-communication"
 }

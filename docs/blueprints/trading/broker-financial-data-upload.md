@@ -16,7 +16,7 @@ description: "Broker financial data upload to central back-office via fixed-widt
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | back-office, broker, upload, financial-data, cash-book, journal, gl, fixed-width |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/broker-financial-data-upload.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/broker-financial-data-upload.blueprint.yaml) |
 | **JSON API** | [broker-financial-data-upload.json]({{ site.baseurl }}/api/blueprints/trading/broker-financial-data-upload.json) |
 
 ## Actors
@@ -167,7 +167,7 @@ workflow:
   "name": "Broker Financial Data Upload Blueprint",
   "description": "Broker financial data upload to central back-office via fixed-width layouts - cash book receipts, cash book payments, and general journal records with FTP, onli",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "back-office, broker, upload, financial-data, cash-book, journal, gl, fixed-width"
 }

@@ -16,7 +16,7 @@ description: "Manage hierarchical chart of accounts and post double-entry genera
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | accounting, general-ledger, chart-of-accounts, double-entry, erp, cost-center |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/general-ledger.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/general-ledger.blueprint.yaml) |
 | **JSON API** | [general-ledger.json]({{ site.baseurl }}/api/blueprints/data/general-ledger.json) |
 
 ## Fields
@@ -179,7 +179,7 @@ source:
   "name": "General Ledger Blueprint",
   "description": "Manage hierarchical chart of accounts and post double-entry general ledger entries with period controls, cost center tracking, and party-level accounting. 18 fi",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "accounting, general-ledger, chart-of-accounts, double-entry, erp, cost-center"
 }

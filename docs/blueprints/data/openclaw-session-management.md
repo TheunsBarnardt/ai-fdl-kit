@@ -16,7 +16,7 @@ description: "Persistent conversation storage with automatic disk budgeting, tra
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | persistence, conversation, storage, lifecycle, maintenance |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/openclaw-session-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/openclaw-session-management.blueprint.yaml) |
 | **JSON API** | [openclaw-session-management.json]({{ site.baseurl }}/api/blueprints/data/openclaw-session-management.json) |
 
 ## Actors
@@ -244,7 +244,7 @@ tech_stack:
   "name": "Openclaw Session Management Blueprint",
   "description": "Persistent conversation storage with automatic disk budgeting, transcript rotation, and session lifecycle tracking across messaging channels. 19 fields. 4 outco",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "persistence, conversation, storage, lifecycle, maintenance"
 }

@@ -17,7 +17,7 @@ description: "Maintenance scheduling and visit management with auto-generated vi
 | **Category** | Quality |
 | **Version** | 1.0.0 |
 | **Tags** | maintenance-schedule, maintenance-visit, preventive-maintenance, warranty, calendar-events, field-service |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/quality/maintenance-scheduling.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/quality/maintenance-scheduling.blueprint.yaml) |
 | **JSON API** | [maintenance-scheduling.json]({{ site.baseurl }}/api/blueprints/quality/maintenance-scheduling.json) |
 
 ## Fields
@@ -205,7 +205,7 @@ source:
   "name": "Maintenance Scheduling Blueprint",
   "description": "Maintenance scheduling and visit management with auto-generated visit dates, holiday avoidance, calendar events, and warranty status tracking for customer equip",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "maintenance-schedule, maintenance-visit, preventive-maintenance, warranty, calendar-events, field-service"
 }

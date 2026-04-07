@@ -16,7 +16,7 @@ description: "OAuth 2.0 and OpenID Connect identity provider with token issuance
 | **Category** | Auth |
 | **Version** | 1.0.0 |
 | **Tags** | oauth2, oidc |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/openid-connect-server.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/auth/openid-connect-server.blueprint.yaml) |
 | **JSON API** | [openid-connect-server.json]({{ site.baseurl }}/api/blueprints/auth/openid-connect-server.json) |
 
 ## Fields
@@ -86,7 +86,7 @@ source:
   "name": "Openid Connect Server Blueprint",
   "description": "OAuth 2.0 and OpenID Connect identity provider with token issuance. 3 fields. 2 outcomes. 1 error codes. rules: core",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "oauth2, oidc"
 }

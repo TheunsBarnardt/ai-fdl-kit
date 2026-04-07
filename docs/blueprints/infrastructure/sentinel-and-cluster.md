@@ -16,7 +16,7 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 | **Category** | Infrastructure |
 | **Version** | 1.0.0 |
 | **Tags** | sentinel, cluster, failover, sharding, high-availability, auto-recovery, distributed |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/infrastructure/sentinel-and-cluster.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/infrastructure/sentinel-and-cluster.blueprint.yaml) |
 | **JSON API** | [sentinel-and-cluster.json]({{ site.baseurl }}/api/blueprints/infrastructure/sentinel-and-cluster.json) |
 
 ## Actors
@@ -343,7 +343,7 @@ source:
   "name": "Sentinel And Cluster Blueprint",
   "description": "Sentinel: automatic failover and monitoring; Cluster: distributed sharding across multiple nodes with gossip protocol. 6 fields. 19 outcomes. 3 error codes. rul",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "sentinel, cluster, failover, sharding, high-availability, auto-recovery, distributed"
 }

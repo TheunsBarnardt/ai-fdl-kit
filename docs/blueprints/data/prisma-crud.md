@@ -16,7 +16,7 @@ description: "Execute type-safe database CRUD operations with Prisma Client quer
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | crud, database, orm, prisma, query-builder |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/prisma-crud.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/prisma-crud.blueprint.yaml) |
 | **JSON API** | [prisma-crud.json]({{ site.baseurl }}/api/blueprints/data/prisma-crud.json) |
 
 ## Actors
@@ -179,7 +179,7 @@ tech_stack:
   "name": "Prisma Crud Blueprint",
   "description": "Execute type-safe database CRUD operations with Prisma Client query builder. 5 fields. 9 outcomes. 4 error codes. rules: read_operations, write_operations, cons",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "crud, database, orm, prisma, query-builder"
 }

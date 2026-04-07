@@ -17,7 +17,7 @@ description: "Loyalty and promotion engine supporting points, coupons, gift card
 | **Category** | Payment |
 | **Version** | 1.0.0 |
 | **Tags** | loyalty, coupons, gift-cards, promotions, rewards, discounts |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/loyalty-coupons.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/payment/loyalty-coupons.blueprint.yaml) |
 | **JSON API** | [loyalty-coupons.json]({{ site.baseurl }}/api/blueprints/payment/loyalty-coupons.json) |
 
 ## Actors
@@ -235,7 +235,7 @@ source:
   "name": "Loyalty Coupons Blueprint",
   "description": "Loyalty and promotion engine supporting points, coupons, gift cards, discount codes, buy-X-get-Y offers, e-wallets, and next-order rewards.\n. 20 fields. 8 outco",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "loyalty, coupons, gift-cards, promotions, rewards, discounts"
 }

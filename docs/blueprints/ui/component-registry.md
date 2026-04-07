@@ -16,7 +16,7 @@ description: "Pluggable component registration system with config-driven fields,
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | component-system, registry, plugin, visual-editor, configuration |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/component-registry.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/component-registry.blueprint.yaml) |
 | **JSON API** | [component-registry.json]({{ site.baseurl }}/api/blueprints/ui/component-registry.json) |
 
 ## Actors
@@ -233,7 +233,7 @@ source:
   "name": "Component Registry Blueprint",
   "description": "Pluggable component registration system with config-driven fields, slots, lifecycle hooks, and permissions. 10 fields. 8 outcomes. 4 error codes. rules: registr",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "component-system, registry, plugin, visual-editor, configuration"
 }

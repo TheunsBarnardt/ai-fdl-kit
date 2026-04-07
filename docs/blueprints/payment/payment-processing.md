@@ -16,7 +16,7 @@ description: "Process incoming, outgoing, and internal transfer payments with mu
 | **Category** | Payment |
 | **Version** | 1.0.0 |
 | **Tags** | accounting, payments, reconciliation, multi-currency, erp |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/payment-processing.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/payment/payment-processing.blueprint.yaml) |
 | **JSON API** | [payment-processing.json]({{ site.baseurl }}/api/blueprints/payment/payment-processing.json) |
 
 ## Actors
@@ -174,7 +174,7 @@ source:
   "name": "Payment Processing Blueprint",
   "description": "Process incoming, outgoing, and internal transfer payments with multi-currency support, reference allocation, and automatic reconciliation. 12 fields. 3 outcome",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "accounting, payments, reconciliation, multi-currency, erp"
 }

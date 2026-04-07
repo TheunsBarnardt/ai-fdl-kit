@@ -16,7 +16,7 @@ description: "Multi-mode gateway authentication with rate limiting, device token
 | **Category** | Access Control |
 | **Version** | 1.0.0 |
 | **Tags** | authentication, authorization, security, rate-limiting, gateway |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/access/openclaw-gateway-authentication.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/access/openclaw-gateway-authentication.blueprint.yaml) |
 | **JSON API** | [openclaw-gateway-authentication.json]({{ site.baseurl }}/api/blueprints/access/openclaw-gateway-authentication.json) |
 
 ## Actors
@@ -267,7 +267,7 @@ tech_stack:
   "name": "Openclaw Gateway Authentication Blueprint",
   "description": "Multi-mode gateway authentication with rate limiting, device tokens, and Tailscale VPN integration. 13 fields. 5 outcomes. 7 error codes. rules: auth_mode_selec",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "authentication, authorization, security, rate-limiting, gateway"
 }

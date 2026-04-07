@@ -16,7 +16,7 @@ description: "Refund processing and return merchandise management with reason co
 | **Category** | Payment |
 | **Version** | 1.0.0 |
 | **Tags** | refunds, returns, rma, store-credit, restocking, e-commerce |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/refunds-returns.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/payment/refunds-returns.blueprint.yaml) |
 | **JSON API** | [refunds-returns.json]({{ site.baseurl }}/api/blueprints/payment/refunds-returns.json) |
 
 ## Fields
@@ -238,7 +238,7 @@ description: "Refund processing and return merchandise management with reason co
   "name": "Refunds Returns Blueprint",
   "description": "Refund processing and return merchandise management with reason codes, approval workflow, partial/full refunds, and restocking.. 13 fields. 9 outcomes. 5 error ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "refunds, returns, rma, store-credit, restocking, e-commerce"
 }

@@ -16,7 +16,7 @@ description: "Immutable, append-only audit trail with tamper detection and compl
 | **Category** | Observability |
 | **Version** | 1.0.0 |
 | **Tags** | audit, logging, compliance, security, immutable, trail, monitoring, forensics |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/observability/audit-logging.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/observability/audit-logging.blueprint.yaml) |
 | **JSON API** | [audit-logging.json]({{ site.baseurl }}/api/blueprints/observability/audit-logging.json) |
 
 ## Fields
@@ -175,7 +175,7 @@ accessibility:
   "name": "Audit Logging Blueprint",
   "description": "Immutable, append-only audit trail with tamper detection and compliance-ready querying. 13 fields. 5 outcomes. 4 error codes. rules: immutability, tamper_detect",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "audit, logging, compliance, security, immutable, trail, monitoring, forensics"
 }

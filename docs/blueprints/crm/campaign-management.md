@@ -17,7 +17,7 @@ description: "Marketing campaign definition and email drip campaign execution wi
 | **Category** | Crm |
 | **Version** | 1.0.0 |
 | **Tags** | campaign, email-marketing, drip-sequence, marketing, automation |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/crm/campaign-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/crm/campaign-management.blueprint.yaml) |
 | **JSON API** | [campaign-management.json]({{ site.baseurl }}/api/blueprints/crm/campaign-management.json) |
 
 ## Actors
@@ -254,7 +254,7 @@ source:
   "name": "Campaign Management Blueprint",
   "description": "Marketing campaign definition and email drip campaign execution with scheduled delivery, recipient tracking, and unsubscribe management.\n. 10 fields. 10 outcome",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "campaign, email-marketing, drip-sequence, marketing, automation"
 }

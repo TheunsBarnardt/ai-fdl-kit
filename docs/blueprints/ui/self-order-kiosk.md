@@ -17,7 +17,7 @@ description: "Customer self-ordering system supporting kiosk terminals and mobil
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | self-service, kiosk, qr-code, mobile-ordering, restaurant |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/self-order-kiosk.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/self-order-kiosk.blueprint.yaml) |
 | **JSON API** | [self-order-kiosk.json]({{ site.baseurl }}/api/blueprints/ui/self-order-kiosk.json) |
 
 ## Actors
@@ -244,7 +244,7 @@ source:
   "name": "Self Order Kiosk Blueprint",
   "description": "Customer self-ordering system supporting kiosk terminals and mobile QR-code ordering, with menu browsing, cart management, payment processing, and real-time ord",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "self-service, kiosk, qr-code, mobile-ordering, restaurant"
 }

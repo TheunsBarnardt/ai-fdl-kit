@@ -16,7 +16,7 @@ description: "Submit and approve employee expense reports with receipt validatio
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | expense, approval, workflow, finance, reimbursement |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/expense-approval.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/expense-approval.blueprint.yaml) |
 | **JSON API** | [expense-approval.json]({{ site.baseurl }}/api/blueprints/data/expense-approval.json) |
 
 ## Actors
@@ -399,7 +399,7 @@ loading:
   "name": "Expense Approval Blueprint",
   "description": "Submit and approve employee expense reports with receipt validation. 11 fields. 8 outcomes. 9 error codes. rules: approval, receipt, submission",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "expense, approval, workflow, finance, reimbursement"
 }

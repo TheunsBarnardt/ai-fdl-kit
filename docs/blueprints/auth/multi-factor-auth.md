@@ -16,7 +16,7 @@ description: "Second-factor authentication via TOTP, SMS OTP, or backup codes. 7
 | **Category** | Auth |
 | **Version** | 1.0.0 |
 | **Tags** | authentication, mfa, totp, otp, security, 2fa, backup-codes |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/multi-factor-auth.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/auth/multi-factor-auth.blueprint.yaml) |
 | **JSON API** | [multi-factor-auth.json]({{ site.baseurl }}/api/blueprints/auth/multi-factor-auth.json) |
 
 ## Fields
@@ -255,7 +255,7 @@ loading:
   "name": "Multi Factor Auth Blueprint",
   "description": "Second-factor authentication via TOTP, SMS OTP, or backup codes. 7 fields. 9 outcomes. 8 error codes. rules: security, setup",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "authentication, mfa, totp, otp, security, 2fa, backup-codes"
 }

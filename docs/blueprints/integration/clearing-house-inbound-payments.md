@@ -16,7 +16,7 @@ description: "Clearing house inbound payment processing — receiving credit tra
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | payments, clearing-house, inbound, credit-transfer, direct-debit, real-time, api |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/chp-inbound-payments.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/chp-inbound-payments.blueprint.yaml) |
 | **JSON API** | [clearing-house-inbound-payments.json]({{ site.baseurl }}/api/blueprints/integration/clearing-house-inbound-payments.json) |
 
 ## Actors
@@ -303,7 +303,7 @@ api:
   "name": "Clearing House Inbound Payments Blueprint",
   "description": "Clearing house inbound payment processing — receiving credit transfers and direct debits from the national payment system. 18 fields. 9 outcomes. 9 error codes.",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "payments, clearing-house, inbound, credit-transfer, direct-debit, real-time, api"
 }

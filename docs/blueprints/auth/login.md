@@ -16,7 +16,7 @@ description: "Authenticate a user with email and password. 3 fields. 6 outcomes.
 | **Category** | Auth |
 | **Version** | 1.0.0 |
 | **Tags** | authentication, session, security, identity, saas |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/login.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/auth/login.blueprint.yaml) |
 | **JSON API** | [login.json]({{ site.baseurl }}/api/blueprints/auth/login.json) |
 
 ## Fields
@@ -223,7 +223,7 @@ laravel:
   "name": "Login Blueprint",
   "description": "Authenticate a user with email and password. 3 fields. 6 outcomes. 6 error codes. rules: security, session, email",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "authentication, session, security, identity, saas"
 }

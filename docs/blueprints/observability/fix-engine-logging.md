@@ -16,7 +16,7 @@ description: "Provides per-session and global logging of all incoming messages, 
 | **Category** | Observability |
 | **Version** | 1.0.0 |
 | **Tags** | fix-protocol, logging, observability, financial-messaging, audit-trail |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/observability/fix-engine-logging.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/observability/fix-engine-logging.blueprint.yaml) |
 | **JSON API** | [fix-engine-logging.json]({{ site.baseurl }}/api/blueprints/observability/fix-engine-logging.json) |
 
 ## Actors
@@ -155,7 +155,7 @@ file_naming:
   "name": "Fix Engine Logging Blueprint",
   "description": "Provides per-session and global logging of all incoming messages, outgoing messages, and session lifecycle events with pluggable backends including screen, file",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "fix-protocol, logging, observability, financial-messaging, audit-trail"
 }

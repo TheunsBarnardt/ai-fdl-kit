@@ -16,7 +16,7 @@ description: "Multi-viewport responsive preview with auto-zoom, manual zoom cont
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | viewport, responsive, preview, zoom, iframe, responsive-design |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/responsive-viewport.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/responsive-viewport.blueprint.yaml) |
 | **JSON API** | [responsive-viewport.json]({{ site.baseurl }}/api/blueprints/ui/responsive-viewport.json) |
 
 ## Actors
@@ -203,7 +203,7 @@ source:
   "name": "Responsive Viewport Blueprint",
   "description": "Multi-viewport responsive preview with auto-zoom, manual zoom controls, and iframe-based isolated rendering. 10 fields. 7 outcomes. 3 error codes. rules: defaul",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "viewport, responsive, preview, zoom, iframe, responsive-design"
 }

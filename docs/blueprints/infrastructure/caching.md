@@ -16,7 +16,7 @@ description: "Multi-tier caching with read-through, write-through, write-behind,
 | **Category** | Infrastructure |
 | **Version** | 1.0.0 |
 | **Tags** | caching, performance, redis, cdn, invalidation, ttl, stampede-protection |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/infrastructure/caching.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/infrastructure/caching.blueprint.yaml) |
 | **JSON API** | [caching.json]({{ site.baseurl }}/api/blueprints/infrastructure/caching.json) |
 
 ## Fields
@@ -154,7 +154,7 @@ description: "Multi-tier caching with read-through, write-through, write-behind,
   "name": "Caching Blueprint",
   "description": "Multi-tier caching with read-through, write-through, write-behind, and cache-aside strategies, stampede protection, and configurable invalidation. 7 fields. 5 o",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "caching, performance, redis, cdn, invalidation, ttl, stampede-protection"
 }

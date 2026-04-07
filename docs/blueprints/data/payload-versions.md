@@ -16,7 +16,7 @@ description: "Document versioning with draft/publish workflow, autosave, version
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | cms, versioning, drafts, publish, autosave, restore, scheduled-publish, localization, payload |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/payload-versions.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/payload-versions.blueprint.yaml) |
 | **JSON API** | [payload-versions.json]({{ site.baseurl }}/api/blueprints/data/payload-versions.json) |
 
 ## Actors
@@ -236,7 +236,7 @@ database_structure:
   "name": "Payload Versions Blueprint",
   "description": "Document versioning with draft/publish workflow, autosave, version history, restore, scheduled publishing, and locale-specific status. 7 fields. 8 outcomes. 2 e",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "cms, versioning, drafts, publish, autosave, restore, scheduled-publish, localization, payload"
 }

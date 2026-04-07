@@ -16,7 +16,7 @@ description: "Threaded comments on any entity (polymorphic) with rich text, @men
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | comments, annotations, threading, mentions, reactions, polymorphic, collaboration |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/comments-annotations.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/comments-annotations.blueprint.yaml) |
 | **JSON API** | [comments-annotations.json]({{ site.baseurl }}/api/blueprints/data/comments-annotations.json) |
 
 ## Fields
@@ -193,7 +193,7 @@ description: "Threaded comments on any entity (polymorphic) with rich text, @men
   "name": "Comments Annotations Blueprint",
   "description": "Threaded comments on any entity (polymorphic) with rich text, @mentions, reactions, edit windows, and rate limiting. 11 fields. 8 outcomes. 5 error codes. rules",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "comments, annotations, threading, mentions, reactions, polymorphic, collaboration"
 }

@@ -17,7 +17,7 @@ description: "Purchase order lifecycle from draft through receipt and billing to
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | purchasing, procurement, order-management, goods-receipt, billing, material-request |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/purchase-order-lifecycle.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/purchase-order-lifecycle.blueprint.yaml) |
 | **JSON API** | [purchase-order-lifecycle.json]({{ site.baseurl }}/api/blueprints/workflow/purchase-order-lifecycle.json) |
 
 ## Actors
@@ -280,7 +280,7 @@ source: https://github.com/frappe/erpnext
   "name": "Purchase Order Lifecycle Blueprint",
   "description": "Purchase order lifecycle from draft through receipt and billing to completion, with supplier validation, material request tracking, warehouse bin updates, and o",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "purchasing, procurement, order-management, goods-receipt, billing, material-request"
 }

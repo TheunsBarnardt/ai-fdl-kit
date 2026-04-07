@@ -16,7 +16,7 @@ description: "Define application data models with fields, types, relationships, 
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | schema, models, orm, data-modeling, prisma |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/prisma-schema.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/prisma-schema.blueprint.yaml) |
 | **JSON API** | [prisma-schema.json]({{ site.baseurl }}/api/blueprints/data/prisma-schema.json) |
 
 ## Actors
@@ -130,7 +130,7 @@ tech_stack:
   "name": "Prisma Schema Blueprint",
   "description": "Define application data models with fields, types, relationships, and validation rules in Prisma schema. 7 fields. 3 outcomes. 3 error codes. rules: naming, val",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "schema, models, orm, data-modeling, prisma"
 }

@@ -16,7 +16,7 @@ description: "End-of-day interest rate derivatives data delivery via FTP — fix
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | market-data, eod, interest-rates, derivatives, ftp, dissemination, fixed-width, non-live |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/interest-rates-derivatives-eod-data-delivery.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/interest-rates-derivatives-eod-data-delivery.blueprint.yaml) |
 | **JSON API** | [interest-rates-derivatives-eod-data-delivery.json]({{ site.baseurl }}/api/blueprints/trading/interest-rates-derivatives-eod-data-delivery.json) |
 
 ## Actors
@@ -597,7 +597,7 @@ file_prefix_map:
   "name": "Interest Rates Derivatives Eod Data Delivery Blueprint",
   "description": "End-of-day interest rate derivatives data delivery via FTP — fixed-width flat files covering daily statistics, mark-to-market, and reference rates. 31 fields. 2",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "market-data, eod, interest-rates, derivatives, ftp, dissemination, fixed-width, non-live"
 }

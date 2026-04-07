@@ -17,7 +17,7 @@ description: "Event-driven automation engine that triggers actions based on reco
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | automation, triggers, event-driven, scheduled-actions, webhooks, workflow-engine |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/automation-rules.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/automation-rules.blueprint.yaml) |
 | **JSON API** | [automation-rules.json]({{ site.baseurl }}/api/blueprints/workflow/automation-rules.json) |
 
 ## Actors
@@ -222,7 +222,7 @@ source:
   "name": "Automation Rules Blueprint",
   "description": "Event-driven automation engine that triggers actions based on record lifecycle events, field changes, time-based schedules, incoming messages, and external webh",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "automation, triggers, event-driven, scheduled-actions, webhooks, workflow-engine"
 }

@@ -16,7 +16,7 @@ description: "Cursor-based and offset-based pagination with configurable page si
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | pagination, cursor, offset, paging, rest-api, list |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/pagination.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/pagination.blueprint.yaml) |
 | **JSON API** | [pagination.json]({{ site.baseurl }}/api/blueprints/data/pagination.json) |
 
 ## Fields
@@ -129,7 +129,7 @@ description: "Cursor-based and offset-based pagination with configurable page si
   "name": "Pagination Blueprint",
   "description": "Cursor-based and offset-based pagination with configurable page sizes, stable sorting, and Link header support for REST APIs. 8 fields. 5 outcomes. 3 error code",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "pagination, cursor, offset, paging, rest-api, list"
 }

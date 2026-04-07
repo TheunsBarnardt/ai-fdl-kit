@@ -16,7 +16,7 @@ description: "Define and customize design tokens (colors, spacing, typography, b
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | design-system, theming, customization, tokens |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/theme-configuration.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/theme-configuration.blueprint.yaml) |
 | **JSON API** | [theme-configuration.json]({{ site.baseurl }}/api/blueprints/ui/theme-configuration.json) |
 
 ## Actors
@@ -173,7 +173,7 @@ source_location: packages/tailwindcss/src
   "name": "Theme Configuration Blueprint",
   "description": "Define and customize design tokens (colors, spacing, typography, breakpoints) that power a CSS framework. 9 fields. 6 outcomes. 3 error codes. rules: naming, in",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "design-system, theming, customization, tokens"
 }

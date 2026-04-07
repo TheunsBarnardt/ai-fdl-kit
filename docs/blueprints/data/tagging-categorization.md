@@ -16,7 +16,7 @@ description: "Tags, labels, and hierarchical categories for organizing entities 
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | tagging, categorization, labels, taxonomy, hierarchy, organization |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/tagging-categorization.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/tagging-categorization.blueprint.yaml) |
 | **JSON API** | [tagging-categorization.json]({{ site.baseurl }}/api/blueprints/data/tagging-categorization.json) |
 
 ## Fields
@@ -166,7 +166,7 @@ description: "Tags, labels, and hierarchical categories for organizing entities 
   "name": "Tagging Categorization Blueprint",
   "description": "Tags, labels, and hierarchical categories for organizing entities with tag groups, colors, slug auto-generation, and category depth limits. 11 fields. 7 outcome",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "tagging, categorization, labels, taxonomy, hierarchy, organization"
 }

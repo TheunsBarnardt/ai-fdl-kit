@@ -16,7 +16,7 @@ description: "Shipping rate calculation with zone-based pricing, dimensional wei
 | **Category** | Payment |
 | **Version** | 1.0.0 |
 | **Tags** | shipping, rates, carriers, delivery, zones, logistics, e-commerce |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/shipping-calculation.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/payment/shipping-calculation.blueprint.yaml) |
 | **JSON API** | [shipping-calculation.json]({{ site.baseurl }}/api/blueprints/payment/shipping-calculation.json) |
 
 ## Fields
@@ -194,7 +194,7 @@ description: "Shipping rate calculation with zone-based pricing, dimensional wei
   "name": "Shipping Calculation Blueprint",
   "description": "Shipping rate calculation with zone-based pricing, dimensional weight, free shipping thresholds, carrier quotes, and delivery estimation.. 14 fields. 8 outcomes",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "shipping, rates, carriers, delivery, zones, logistics, e-commerce"
 }

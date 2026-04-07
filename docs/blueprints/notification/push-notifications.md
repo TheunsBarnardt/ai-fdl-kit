@@ -16,7 +16,7 @@ description: "Deliver mobile and web push notifications with device management, 
 | **Category** | Notification |
 | **Version** | 1.0.0 |
 | **Tags** | push, mobile, web-push, fcm, apns, notifications, real-time, device-tokens |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/notification/push-notifications.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/notification/push-notifications.blueprint.yaml) |
 | **JSON API** | [push-notifications.json]({{ site.baseurl }}/api/blueprints/notification/push-notifications.json) |
 
 ## Fields
@@ -220,7 +220,7 @@ accessibility:
   "name": "Push Notifications Blueprint",
   "description": "Deliver mobile and web push notifications with device management, topic subscriptions, and rich media. 12 fields. 7 outcomes. 6 error codes. rules: delivery, de",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "push, mobile, web-push, fcm, apns, notifications, real-time, device-tokens"
 }

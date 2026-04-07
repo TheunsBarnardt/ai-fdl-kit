@@ -16,7 +16,7 @@ description: "End-of-day SENS announcements delivery via NewsML-G2 XML — text 
 | **Category** | Notification |
 | **Version** | 1.0.0 |
 | **Tags** | market-data, eod, sens, announcements, newsml, xml, news, regulatory, price-sensitive, non-live |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/sens-eod-data-delivery.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/sens-eod-data-delivery.blueprint.yaml) |
 | **JSON API** | [sens-eod-data-delivery.json]({{ site.baseurl }}/api/blueprints/notification/sens-eod-data-delivery.json) |
 
 ## Actors
@@ -330,7 +330,7 @@ icb_subsector_change:
   "name": "Sens Eod Data Delivery Blueprint",
   "description": "End-of-day SENS announcements delivery via NewsML-G2 XML — text and PDF variants disseminated as end-of-day compressed packages covering company, exchange, and ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "market-data, eod, sens, announcements, newsml, xml, news, regulatory, price-sensitive, non-live"
 }

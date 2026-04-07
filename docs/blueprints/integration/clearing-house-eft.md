@@ -16,7 +16,7 @@ description: "Electronic Funds Transfer operations via clearing house platform â
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | eft, payments, clearing-house, credits, debits, returns, system-error-correction |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/chp-eft.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/chp-eft.blueprint.yaml) |
 | **JSON API** | [clearing-house-eft.json]({{ site.baseurl }}/api/blueprints/integration/clearing-house-eft.json) |
 
 ## Actors
@@ -347,7 +347,7 @@ esm:
   "name": "Clearing House Eft Blueprint",
   "description": "Electronic Funds Transfer operations via clearing house platform â€” inbound/outbound credits, debits, returns, on-us debits, payment cancellation, and system err",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "eft, payments, clearing-house, credits, debits, returns, system-error-correction"
 }

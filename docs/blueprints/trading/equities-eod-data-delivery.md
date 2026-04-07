@@ -16,7 +16,7 @@ description: "End-of-day equity market data delivery via FTP file dissemination 
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | market-data, eod, equities, ftp, dissemination, fixed-width, non-live, corporate-actions |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/equities-eod-data-delivery.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/equities-eod-data-delivery.blueprint.yaml) |
 | **JSON API** | [equities-eod-data-delivery.json]({{ site.baseurl }}/api/blueprints/trading/equities-eod-data-delivery.json) |
 
 ## Actors
@@ -1710,7 +1710,7 @@ record_layouts:
   "name": "Equities Eod Data Delivery Blueprint",
   "description": "End-of-day equity market data delivery via FTP file dissemination — fixed-width flat files covering daily, weekly, and monthly statistics and corporate actions ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "market-data, eod, equities, ftp, dissemination, fixed-width, non-live, corporate-actions"
 }

@@ -16,7 +16,7 @@ description: "Persists all sent and received FIX messages with sequence numbers 
 | **Category** | Infrastructure |
 | **Version** | 1.0.0 |
 | **Tags** | fix-protocol, message-store, sequence-numbers, recovery, persistence, financial-messaging |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/infrastructure/fix-message-persistence.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/infrastructure/fix-message-persistence.blueprint.yaml) |
 | **JSON API** | [fix-message-persistence.json]({{ site.baseurl }}/api/blueprints/infrastructure/fix-message-persistence.json) |
 
 ## Actors
@@ -168,7 +168,7 @@ db_schema_tables:
   "name": "Fix Message Persistence Blueprint",
   "description": "Persists all sent and received FIX messages with sequence numbers for gap-fill recovery on reconnect; supports in-memory, file-based, and database-backed storag",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "fix-protocol, message-store, sequence-numbers, recovery, persistence, financial-messaging"
 }

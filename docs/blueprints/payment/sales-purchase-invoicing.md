@@ -16,7 +16,7 @@ description: "Create, submit, and manage sales and purchase invoices with double
 | **Category** | Payment |
 | **Version** | 1.0.0 |
 | **Tags** | accounting, invoicing, sales, purchase, erp, double-entry, returns, credit-limit |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/sales-purchase-invoicing.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/payment/sales-purchase-invoicing.blueprint.yaml) |
 | **JSON API** | [sales-purchase-invoicing.json]({{ site.baseurl }}/api/blueprints/payment/sales-purchase-invoicing.json) |
 
 ## Actors
@@ -221,7 +221,7 @@ source:
   "name": "Sales Purchase Invoicing Blueprint",
   "description": "Create, submit, and manage sales and purchase invoices with double-entry accounting, tax calculation, returns, and credit limit enforcement. 13 fields. 5 outcom",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "accounting, invoicing, sales, purchase, erp, double-entry, returns, credit-limit"
 }

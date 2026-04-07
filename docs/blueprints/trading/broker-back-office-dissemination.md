@@ -16,7 +16,7 @@ description: "Back-office data dissemination from central broker administration 
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | back-office, broker, dissemination, fixed-width, card-codes, accounts, deals, scrip, gl, sbl, elective-events, corporate-actions |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/broker-back-office-dissemination.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/broker-back-office-dissemination.blueprint.yaml) |
 | **JSON API** | [broker-back-office-dissemination.json]({{ site.baseurl }}/api/blueprints/trading/broker-back-office-dissemination.json) |
 
 ## Actors
@@ -281,7 +281,7 @@ naming_convention: "{broker_code}_{dataset}_{CCYYMMDD}.dat"
   "name": "Broker Back Office Dissemination Blueprint",
   "description": "Back-office data dissemination from central broker administration to member firms via fixed-width card code records (accounts, balances, deals, scrip, GL, SLB, ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "back-office, broker, dissemination, fixed-width, card-codes, accounts, deals, scrip, gl, sbl, elective-events, corporate-actions"
 }

@@ -16,7 +16,7 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | pub-sub, real-time-messaging, broadcast, pattern-matching, no-persistence |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/pub-sub-messaging.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/pub-sub-messaging.blueprint.yaml) |
 | **JSON API** | [pub-sub-messaging.json]({{ site.baseurl }}/api/blueprints/integration/pub-sub-messaging.json) |
 
 ## Actors
@@ -308,7 +308,7 @@ source:
   "name": "Pub Sub Messaging Blueprint",
   "description": "Real-time fire-and-forget message broadcasting with direct channel subscriptions and pattern-based subscriptions; sharded variant for cluster deployments. 5 fie",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "pub-sub, real-time-messaging, broadcast, pattern-matching, no-persistence"
 }

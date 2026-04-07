@@ -16,7 +16,7 @@ description: "Investment account opening workflow with product selection, risk p
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | account-opening, investment, product-selection, risk-profiling, wealth-management, financial-services, kyc |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/account-opening.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/account-opening.blueprint.yaml) |
 | **JSON API** | [account-opening.json]({{ site.baseurl }}/api/blueprints/workflow/account-opening.json) |
 
 ## Actors
@@ -354,7 +354,7 @@ steps:
   "name": "Account Opening Blueprint",
   "description": "Investment account opening workflow with product selection, risk profiling, terms acceptance, funding instructions, and compliance review. 20 fields. 12 outcome",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "account-opening, investment, product-selection, risk-profiling, wealth-management, financial-services, kyc"
 }

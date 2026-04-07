@@ -16,7 +16,7 @@ description: "Route, authenticate, rate-limit, and transform API requests throug
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | api, gateway, routing, rate-limiting, circuit-breaker, cors |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/api-gateway.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/api-gateway.blueprint.yaml) |
 | **JSON API** | [api-gateway.json]({{ site.baseurl }}/api/blueprints/integration/api-gateway.json) |
 
 ## Fields
@@ -170,7 +170,7 @@ description: "Route, authenticate, rate-limit, and transform API requests throug
   "name": "Api Gateway Blueprint",
   "description": "Route, authenticate, rate-limit, and transform API requests through a centralized gateway with versioning, circuit breaking, and CORS support. 12 fields. 8 outc",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "api, gateway, routing, rate-limiting, circuit-breaker, cors"
 }

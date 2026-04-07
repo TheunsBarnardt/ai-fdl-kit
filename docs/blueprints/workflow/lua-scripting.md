@@ -16,7 +16,7 @@ description: "Server-side Lua script execution providing atomic operations, prog
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | lua-scripting, server-side-execution, atomic-operations, stored-procedures |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/lua-scripting.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/lua-scripting.blueprint.yaml) |
 | **JSON API** | [lua-scripting.json]({{ site.baseurl }}/api/blueprints/workflow/lua-scripting.json) |
 
 ## Actors
@@ -355,7 +355,7 @@ source:
   "name": "Lua Scripting Blueprint",
   "description": "Server-side Lua script execution providing atomic operations, programmatic logic, and access to all Redis commands within a single round-trip. 7 fields. 21 outc",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "lua-scripting, server-side-execution, atomic-operations, stored-procedures"
 }

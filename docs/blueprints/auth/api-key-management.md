@@ -16,7 +16,7 @@ description: "Create, rotate, revoke, and scope API keys for programmatic access
 | **Category** | Auth |
 | **Version** | 1.0.0 |
 | **Tags** | authentication, api-key, security, programmatic-access, developer |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/api-key-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/auth/api-key-management.blueprint.yaml) |
 | **JSON API** | [api-key-management.json]({{ site.baseurl }}/api/blueprints/auth/api-key-management.json) |
 
 ## Fields
@@ -247,7 +247,7 @@ loading:
   "name": "Api Key Management Blueprint",
   "description": "Create, rotate, revoke, and scope API keys for programmatic access. 12 fields. 8 outcomes. 8 error codes. rules: security, rotation, expiration",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "authentication, api-key, security, programmatic-access, developer"
 }

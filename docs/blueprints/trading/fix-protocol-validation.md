@@ -16,7 +16,7 @@ description: "Validates FIX messages against version-specific DataDictionary spe
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | fix-protocol, validation, data-dictionary, field-validation, financial-messaging |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/fix-protocol-validation.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/fix-protocol-validation.blueprint.yaml) |
 | **JSON API** | [fix-protocol-validation.json]({{ site.baseurl }}/api/blueprints/trading/fix-protocol-validation.json) |
 
 ## Actors
@@ -215,7 +215,7 @@ supported_fix_versions:
   "name": "Fix Protocol Validation Blueprint",
   "description": "Validates FIX messages against version-specific DataDictionary specifications; enforces field presence, type correctness, value ranges, repeating group structur",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "fix-protocol, validation, data-dictionary, field-validation, financial-messaging"
 }

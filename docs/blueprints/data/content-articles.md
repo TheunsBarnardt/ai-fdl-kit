@@ -16,7 +16,7 @@ description: "Blog and news article system for advisors and portfolio managers t
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | blog, articles, content, news, market-insights, wealth-management |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/content-articles.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/content-articles.blueprint.yaml) |
 | **JSON API** | [content-articles.json]({{ site.baseurl }}/api/blueprints/data/content-articles.json) |
 
 ## Actors
@@ -176,7 +176,7 @@ list_view: blog_feed
   "name": "Content Articles Blueprint",
   "description": "Blog and news article system for advisors and portfolio managers to publish market insights, product updates, and investment articles to clients. 16 fields. 6 o",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "blog, articles, content, news, market-insights, wealth-management"
 }

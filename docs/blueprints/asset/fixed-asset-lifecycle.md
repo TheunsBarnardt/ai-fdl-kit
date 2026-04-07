@@ -17,7 +17,7 @@ description: "Fixed asset lifecycle management covering registration, multi-book
 | **Category** | Asset |
 | **Version** | 1.0.0 |
 | **Tags** | fixed-asset, depreciation, asset-movement, capitalization, finance-books, general-ledger |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/asset/fixed-asset-lifecycle.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/asset/fixed-asset-lifecycle.blueprint.yaml) |
 | **JSON API** | [fixed-asset-lifecycle.json]({{ site.baseurl }}/api/blueprints/asset/fixed-asset-lifecycle.json) |
 
 ## Fields
@@ -245,7 +245,7 @@ source:
   "name": "Fixed Asset Lifecycle Blueprint",
   "description": "Fixed asset lifecycle management covering registration, multi-book depreciation, asset movements, value adjustments, disposal, and capitalization with automatic",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "fixed-asset, depreciation, asset-movement, capitalization, finance-books, general-ledger"
 }

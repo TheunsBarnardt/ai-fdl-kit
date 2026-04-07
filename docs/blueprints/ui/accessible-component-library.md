@@ -16,7 +16,7 @@ description: "Accessible, composable UI component library built on accessible co
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | components, design-system, accessible-primitives, tailwind, accessibility, react |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/shadcn-components.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/shadcn-components.blueprint.yaml) |
 | **JSON API** | [accessible-component-library.json]({{ site.baseurl }}/api/blueprints/ui/accessible-component-library.json) |
 
 ## Actors
@@ -346,7 +346,7 @@ component_bases:
   "name": "Accessible Component Library Blueprint",
   "description": "Accessible, composable UI component library built on accessible component primitives with variant system, Tailwind CSS styling, and a multi-style design system.",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "components, design-system, accessible-primitives, tailwind, accessibility, react"
 }

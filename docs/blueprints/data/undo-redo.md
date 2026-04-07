@@ -16,7 +16,7 @@ description: "Linear history stack with debounced recording, forward-branch dest
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | undo, redo, history, state-management, editor |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/undo-redo.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/undo-redo.blueprint.yaml) |
 | **JSON API** | [undo-redo.json]({{ site.baseurl }}/api/blueprints/data/undo-redo.json) |
 
 ## Actors
@@ -185,7 +185,7 @@ source:
   "name": "Undo Redo Blueprint",
   "description": "Linear history stack with debounced recording, forward-branch destruction, and keyboard shortcut navigation. 4 fields. 7 outcomes. 2 error codes. rules: recordi",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "undo, redo, history, state-management, editor"
 }

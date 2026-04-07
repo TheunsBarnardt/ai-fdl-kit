@@ -17,7 +17,7 @@ description: "Pick list and shipping system with warehouse picking, delivery not
 | **Category** | Inventory |
 | **Version** | 1.0.0 |
 | **Tags** | pick-list, shipping, delivery-note, shipment, delivery-trip, logistics, inventory |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/inventory/pick-list-shipping.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/inventory/pick-list-shipping.blueprint.yaml) |
 | **JSON API** | [pick-list-shipping.json]({{ site.baseurl }}/api/blueprints/inventory/pick-list-shipping.json) |
 
 ## Fields
@@ -280,7 +280,7 @@ source:
   "name": "Pick List Shipping Blueprint",
   "description": "Pick list and shipping system with warehouse picking, delivery notes, shipment tracking, and delivery trip planning.\n. 28 fields. 10 outcomes. 5 error codes. ru",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "pick-list, shipping, delivery-note, shipment, delivery-trip, logistics, inventory"
 }

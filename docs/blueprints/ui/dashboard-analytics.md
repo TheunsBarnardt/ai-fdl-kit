@@ -16,7 +16,7 @@ description: "Configurable analytics dashboard with widget grid system, KPI card
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | dashboard, analytics, widgets, kpi, charts, grid-layout, data-visualization, reporting |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/dashboard-analytics.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/dashboard-analytics.blueprint.yaml) |
 | **JSON API** | [dashboard-analytics.json]({{ site.baseurl }}/api/blueprints/ui/dashboard-analytics.json) |
 
 ## Fields
@@ -172,7 +172,7 @@ description: "Configurable analytics dashboard with widget grid system, KPI card
   "name": "Dashboard Analytics Blueprint",
   "description": "Configurable analytics dashboard with widget grid system, KPI cards, charts, date range selection, auto-refresh, and drill-down capabilities. 7 fields. 7 outcom",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "dashboard, analytics, widgets, kpi, charts, grid-layout, data-visualization, reporting"
 }

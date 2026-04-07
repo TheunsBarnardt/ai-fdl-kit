@@ -17,7 +17,7 @@ description: "Warehouse hierarchy and bin management with nested trees, quantity
 | **Category** | Inventory |
 | **Version** | 1.0.0 |
 | **Tags** | warehouse, bin-management, putaway, inventory, stock-balance, projected-qty |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/inventory/warehouse-bin-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/inventory/warehouse-bin-management.blueprint.yaml) |
 | **JSON API** | [warehouse-bin-management.json]({{ site.baseurl }}/api/blueprints/inventory/warehouse-bin-management.json) |
 
 ## Fields
@@ -205,7 +205,7 @@ source:
   "name": "Warehouse Bin Management Blueprint",
   "description": "Warehouse hierarchy and bin management with nested trees, quantity tracking, putaway rules, and perpetual inventory GL integration.\n. 24 fields. 7 outcomes. 5 e",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "warehouse, bin-management, putaway, inventory, stock-balance, projected-qty"
 }

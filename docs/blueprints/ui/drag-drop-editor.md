@@ -16,7 +16,7 @@ description: "Drag-and-drop page composition system with nested zones, collision
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | drag-and-drop, editor, composition, visual-builder, page-builder |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/drag-drop-editor.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/drag-drop-editor.blueprint.yaml) |
 | **JSON API** | [drag-drop-editor.json]({{ site.baseurl }}/api/blueprints/ui/drag-drop-editor.json) |
 
 ## Actors
@@ -249,7 +249,7 @@ source:
   "name": "Drag Drop Editor Blueprint",
   "description": "Drag-and-drop page composition system with nested zones, collision detection, and component reordering. 9 fields. 8 outcomes. 3 error codes. rules: drag_activat",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "drag-and-drop, editor, composition, visual-builder, page-builder"
 }

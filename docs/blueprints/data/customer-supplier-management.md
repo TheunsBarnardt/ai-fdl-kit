@@ -17,7 +17,7 @@ description: "Customer and supplier master data management with credit limits, t
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | customer, supplier, master-data, credit-limit, territory, customer-group, portal-access, lead-conversion |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/customer-supplier-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/customer-supplier-management.blueprint.yaml) |
 | **JSON API** | [customer-supplier-management.json]({{ site.baseurl }}/api/blueprints/data/customer-supplier-management.json) |
 
 ## Actors
@@ -292,7 +292,7 @@ source: https://github.com/frappe/erpnext
   "name": "Customer Supplier Management Blueprint",
   "description": "Customer and supplier master data management with credit limits, territory and group hierarchies, portal access, lead conversion, internal parties, and supplier",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "customer, supplier, master-data, credit-limit, territory, customer-group, portal-access, lead-conversion"
 }

@@ -16,7 +16,7 @@ description: "LDAP, Kerberos, and AD directory integration. 2 fields. 1 outcomes
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | federation, ldap |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/user-federation-ldap-kerberos.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/user-federation-ldap-kerberos.blueprint.yaml) |
 | **JSON API** | [user-federation-ldap-kerberos.json]({{ site.baseurl }}/api/blueprints/integration/user-federation-ldap-kerberos.json) |
 
 ## Fields
@@ -74,7 +74,7 @@ source:
   "name": "User Federation Ldap Kerberos Blueprint",
   "description": "LDAP, Kerberos, and AD directory integration. 2 fields. 1 outcomes. 1 error codes. rules: core",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "federation, ldap"
 }

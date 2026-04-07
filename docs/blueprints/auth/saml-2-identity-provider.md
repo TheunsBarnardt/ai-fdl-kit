@@ -16,7 +16,7 @@ description: "SAML 2.0 identity provider with assertions and metadata. 2 fields.
 | **Category** | Auth |
 | **Version** | 1.0.0 |
 | **Tags** | saml2, identity-provider |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/saml-2-identity-provider.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/auth/saml-2-identity-provider.blueprint.yaml) |
 | **JSON API** | [saml-2-identity-provider.json]({{ site.baseurl }}/api/blueprints/auth/saml-2-identity-provider.json) |
 
 ## Fields
@@ -74,7 +74,7 @@ source:
   "name": "Saml 2 Identity Provider Blueprint",
   "description": "SAML 2.0 identity provider with assertions and metadata. 2 fields. 1 outcomes. 1 error codes. rules: core",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "saml2, identity-provider"
 }

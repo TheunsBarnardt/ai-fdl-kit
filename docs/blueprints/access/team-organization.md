@@ -16,7 +16,7 @@ description: "Multi-tenant organization and team management with member invitati
 | **Category** | Access Control |
 | **Version** | 1.0.0 |
 | **Tags** | multi-tenancy, organizations, teams, workspaces, invitations, collaboration, saas |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/access/team-organization.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/access/team-organization.blueprint.yaml) |
 | **JSON API** | [team-organization.json]({{ site.baseurl }}/api/blueprints/access/team-organization.json) |
 
 ## Fields
@@ -238,7 +238,7 @@ accessibility:
   "name": "Team Organization Blueprint",
   "description": "Multi-tenant organization and team management with member invitations and data isolation. 12 fields. 9 outcomes. 7 error codes. rules: data_isolation, slugs, in",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "multi-tenancy, organizations, teams, workspaces, invitations, collaboration, saas"
 }

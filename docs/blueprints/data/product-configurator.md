@@ -17,7 +17,7 @@ description: "Product configuration with attributes, variant generation, exclusi
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | product-configuration, variants, attributes, pricing, matrix-ordering |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/product-configurator.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/product-configurator.blueprint.yaml) |
 | **JSON API** | [product-configurator.json]({{ site.baseurl }}/api/blueprints/data/product-configurator.json) |
 
 ## Actors
@@ -222,7 +222,7 @@ source:
   "name": "Product Configurator Blueprint",
   "description": "Product configuration with attributes, variant generation, exclusion rules, dynamic pricing, visual pickers, custom inputs, and matrix bulk ordering.\n. 8 fields",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "product-configuration, variants, attributes, pricing, matrix-ordering"
 }

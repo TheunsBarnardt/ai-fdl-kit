@@ -16,7 +16,7 @@ description: "Broker dematerialisation (DEMAT) position upload to central back-o
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | back-office, broker, upload, demat, dematerialisation, positions, card-codes, fixed-width |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/broker-dematerialisation-upload.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/broker-dematerialisation-upload.blueprint.yaml) |
 | **JSON API** | [broker-dematerialisation-upload.json]({{ site.baseurl }}/api/blueprints/trading/broker-dematerialisation-upload.json) |
 
 ## Actors
@@ -156,7 +156,7 @@ submission_methods:
   "name": "Broker Dematerialisation Upload Blueprint",
   "description": "Broker dematerialisation (DEMAT) position upload to central back-office via fixed-width card code file with automated submission, error reporting, and response ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "back-office, broker, upload, demat, dematerialisation, positions, card-codes, fixed-width"
 }

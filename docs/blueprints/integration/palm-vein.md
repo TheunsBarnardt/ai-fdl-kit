@@ -16,7 +16,7 @@ description: "Biometric scanning hardware integration for palm vein pattern regi
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | biometric, vein-pattern, hardware, sdk, authentication |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/palm-vein.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/palm-vein.blueprint.yaml) |
 | **JSON API** | [palm-vein.json]({{ site.baseurl }}/api/blueprints/integration/palm-vein.json) |
 
 ## Actors
@@ -357,7 +357,7 @@ sdk:
   "name": "Palm Vein Blueprint",
   "description": "Biometric scanning hardware integration for palm vein pattern registration, feature extraction, and 1:N template matching. 16 fields. 13 outcomes. 13 error code",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "biometric, vein-pattern, hardware, sdk, authentication"
 }

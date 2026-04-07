@@ -16,7 +16,7 @@ description: "Deliver outbound webhooks to external systems with signing, retrie
 | **Category** | Notification |
 | **Version** | 1.0.0 |
 | **Tags** | webhook, outbound, integration, hmac, retry, delivery-logs, event-subscriptions, api |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/notification/webhook-outbound.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/notification/webhook-outbound.blueprint.yaml) |
 | **JSON API** | [webhook-outbound.json]({{ site.baseurl }}/api/blueprints/notification/webhook-outbound.json) |
 
 ## Fields
@@ -260,7 +260,7 @@ accessibility:
   "name": "Webhook Outbound Blueprint",
   "description": "Deliver outbound webhooks to external systems with signing, retries, and endpoint health monitoring. 9 fields. 8 outcomes. 7 error codes. rules: delivery, signi",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "webhook, outbound, integration, hmac, retry, delivery-logs, event-subscriptions, api"
 }

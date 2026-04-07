@@ -16,7 +16,7 @@ description: "Integrate CSS framework with build tools (PostCSS, CLI, Webpack, V
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | build-tools, bundling, optimization, postcss, cli |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/build-integration.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/build-integration.blueprint.yaml) |
 | **JSON API** | [build-integration.json]({{ site.baseurl }}/api/blueprints/integration/build-integration.json) |
 
 ## Actors
@@ -263,7 +263,7 @@ best_practices:
   "name": "Build Integration Blueprint",
   "description": "Integrate CSS framework with build tools (PostCSS, CLI, Webpack, Vite, Next.js) to process templates and generate optimized CSS. 9 fields. 11 outcomes. 4 error ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "build-tools, bundling, optimization, postcss, cli"
 }

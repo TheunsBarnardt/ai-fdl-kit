@@ -16,7 +16,7 @@ description: "CLI tool for initializing projects, adding UI components from regi
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | cli, component-registry, code-generation, developer-tools, mcp |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/shadcn-cli.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/shadcn-cli.blueprint.yaml) |
 | **JSON API** | [component-registry-cli.json]({{ site.baseurl }}/api/blueprints/ui/component-registry-cli.json) |
 
 ## Actors
@@ -367,7 +367,7 @@ supported_frameworks:
   "name": "Component Registry Cli Blueprint",
   "description": "CLI tool for initializing projects, adding UI components from registries, managing migrations, and providing MCP server integration for AI assistants. 14 fields",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "cli, component-registry, code-generation, developer-tools, mcp"
 }

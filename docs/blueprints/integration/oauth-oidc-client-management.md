@@ -16,7 +16,7 @@ description: "Client registration, configuration, and protocol mappers. 2 fields
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | oauth2, oidc, client-registration |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/oauth-oidc-client-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/oauth-oidc-client-management.blueprint.yaml) |
 | **JSON API** | [oauth-oidc-client-management.json]({{ site.baseurl }}/api/blueprints/integration/oauth-oidc-client-management.json) |
 
 ## Fields
@@ -74,7 +74,7 @@ source:
   "name": "Oauth Oidc Client Management Blueprint",
   "description": "Client registration, configuration, and protocol mappers. 2 fields. 1 outcomes. 1 error codes. rules: core",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "oauth2, oidc, client-registration"
 }

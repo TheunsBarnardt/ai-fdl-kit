@@ -17,7 +17,7 @@ description: "Contract lifecycle management with signing workflow, date-driven s
 | **Category** | Crm |
 | **Version** | 1.0.0 |
 | **Tags** | contract, agreement, fulfilment, signing, compliance |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/crm/contract-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/crm/contract-management.blueprint.yaml) |
 | **JSON API** | [contract-management.json]({{ site.baseurl }}/api/blueprints/crm/contract-management.json) |
 
 ## Actors
@@ -255,7 +255,7 @@ source:
   "name": "Contract Management Blueprint",
   "description": "Contract lifecycle management with signing workflow, date-driven status transitions, fulfilment tracking, and template-based term generation.\n. 18 fields. 8 out",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "contract, agreement, fulfilment, signing, compliance"
 }

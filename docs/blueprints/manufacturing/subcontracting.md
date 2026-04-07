@@ -17,7 +17,7 @@ description: "Subcontracting workflow for outsourcing manufacturing to suppliers
 | **Category** | Manufacturing |
 | **Version** | 1.0.0 |
 | **Tags** | subcontracting, outsourced-manufacturing, supplier, contract-manufacturing, procurement |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/manufacturing/subcontracting.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/manufacturing/subcontracting.blueprint.yaml) |
 | **JSON API** | [subcontracting.json]({{ site.baseurl }}/api/blueprints/manufacturing/subcontracting.json) |
 
 ## Fields
@@ -229,7 +229,7 @@ source: https://github.com/frappe/erpnext
   "name": "Subcontracting Blueprint",
   "description": "Subcontracting workflow for outsourcing manufacturing to suppliers, including raw material dispatch, finished goods receipt, quality inspection, rejection handl",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "subcontracting, outsourced-manufacturing, supplier, contract-manufacturing, procurement"
 }

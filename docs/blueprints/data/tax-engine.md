@@ -17,7 +17,7 @@ description: "Tax engine with percentage, fixed, division, group, and formula-ba
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | tax-computation, vat, sales-tax, fiscal-position, cash-basis |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/tax-engine.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/tax-engine.blueprint.yaml) |
 | **JSON API** | [tax-engine.json]({{ site.baseurl }}/api/blueprints/data/tax-engine.json) |
 
 ## Actors
@@ -217,7 +217,7 @@ source:
   "name": "Tax Engine Blueprint",
   "description": "Tax engine with percentage, fixed, division, group, and formula-based tax types, repartition, cash-basis accounting, and fiscal position mapping.\n. 14 fields. 8",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "tax-computation, vat, sales-tax, fiscal-position, cash-basis"
 }

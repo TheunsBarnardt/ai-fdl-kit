@@ -16,7 +16,7 @@ description: "Palm vein biometric authentication — alternative to password log
 | **Category** | Auth |
 | **Version** | 1.0.0 |
 | **Tags** | biometric, palm-vein, authentication, passwordless, enrollment |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/biometric-auth.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/auth/biometric-auth.blueprint.yaml) |
 | **JSON API** | [biometric-auth.json]({{ site.baseurl }}/api/blueprints/auth/biometric-auth.json) |
 
 ## Actors
@@ -282,7 +282,7 @@ enrollment:
   "name": "Biometric Auth Blueprint",
   "description": "Palm vein biometric authentication — alternative to password login with enrollment of up to 2 palms per user. 8 fields. 11 outcomes. 6 error codes. rules: enrol",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "biometric, palm-vein, authentication, passwordless, enrollment"
 }

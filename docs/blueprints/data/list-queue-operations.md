@@ -16,7 +16,7 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | lists, queues, stacks, blocking-operations, ordered-collections |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/list-queue-operations.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/list-queue-operations.blueprint.yaml) |
 | **JSON API** | [list-queue-operations.json]({{ site.baseurl }}/api/blueprints/data/list-queue-operations.json) |
 
 ## Actors
@@ -386,7 +386,7 @@ source:
   "name": "List Queue Operations Blueprint",
   "description": "Ordered collection with efficient head/tail insertion, removal, and range queries; supports blocking operations and atomic moves between lists. 7 fields. 23 out",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "lists, queues, stacks, blocking-operations, ordered-collections"
 }

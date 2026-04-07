@@ -16,7 +16,7 @@ description: "Create and register plugins to extend CSS framework with custom ut
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | extensibility, plugins, custom-utilities, theme-extension |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/plugin-development.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/plugin-development.blueprint.yaml) |
 | **JSON API** | [plugin-development.json]({{ site.baseurl }}/api/blueprints/integration/plugin-development.json) |
 
 ## Actors
@@ -218,7 +218,7 @@ plugin_patterns:
   "name": "Plugin Development Blueprint",
   "description": "Create and register plugins to extend CSS framework with custom utilities, variants, and theme values. 9 fields. 9 outcomes. 3 error codes. rules: plugin_format",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "extensibility, plugins, custom-utilities, theme-extension"
 }

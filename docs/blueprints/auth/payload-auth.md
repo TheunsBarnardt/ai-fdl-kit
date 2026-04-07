@@ -16,7 +16,7 @@ description: "Full authentication system with JWT sessions, API keys, account lo
 | **Category** | Auth |
 | **Version** | 1.0.0 |
 | **Tags** | cms, headless, jwt, sessions, api-key, pbkdf2, account-locking, email-verification, payload |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/payload-auth.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/auth/payload-auth.blueprint.yaml) |
 | **JSON API** | [payload-auth.json]({{ site.baseurl }}/api/blueprints/auth/payload-auth.json) |
 
 ## Actors
@@ -310,7 +310,7 @@ auth_strategies:
   "name": "Payload Auth Blueprint",
   "description": "Full authentication system with JWT sessions, API keys, account locking, email verification, and custom strategies. 15 fields. 14 outcomes. 6 error codes. rules",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "cms, headless, jwt, sessions, api-key, pbkdf2, account-locking, email-verification, payload"
 }

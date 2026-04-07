@@ -16,7 +16,7 @@ description: "Per-user preferences storage for admin UI state including collapse
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | cms, preferences, user-settings, ui-state, personalization, admin-panel, payload |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/payload-preferences.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/payload-preferences.blueprint.yaml) |
 | **JSON API** | [payload-preferences.json]({{ site.baseurl }}/api/blueprints/data/payload-preferences.json) |
 
 ## Actors
@@ -155,7 +155,7 @@ auto_created_entities:
   "name": "Payload Preferences Blueprint",
   "description": "Per-user preferences storage for admin UI state including collapsed fields, tab positions, column visibility, sort order, and list view settings. 3 fields. 4 ou",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "cms, preferences, user-settings, ui-state, personalization, admin-panel, payload"
 }

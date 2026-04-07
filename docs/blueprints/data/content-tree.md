@@ -16,7 +16,7 @@ description: "Hierarchical content tree with zone-based storage, tree walking, f
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | content-tree, data-model, serialization, tree-operations, page-data |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/content-tree.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/content-tree.blueprint.yaml) |
 | **JSON API** | [content-tree.json]({{ site.baseurl }}/api/blueprints/data/content-tree.json) |
 
 ## Actors
@@ -251,7 +251,7 @@ source:
   "name": "Content Tree Blueprint",
   "description": "Hierarchical content tree with zone-based storage, tree walking, flattening, indexed lookups, and schema migration. 5 fields. 10 outcomes. 4 error codes. rules:",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "content-tree, data-model, serialization, tree-operations, page-data"
 }

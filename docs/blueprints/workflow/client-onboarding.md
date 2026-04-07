@@ -16,7 +16,7 @@ description: "Multi-step process for new clients to complete personal, contact, 
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | onboarding, client-acquisition, financial-services |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/client-onboarding.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/client-onboarding.blueprint.yaml) |
 | **JSON API** | [client-onboarding.json]({{ site.baseurl }}/api/blueprints/workflow/client-onboarding.json) |
 
 ## Actors
@@ -293,7 +293,7 @@ progress_tracking: true
   "name": "Client Onboarding Blueprint",
   "description": "Multi-step process for new clients to complete personal, contact, address, and employment details before account opening. 18 fields. 13 outcomes. 7 error codes.",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "onboarding, client-acquisition, financial-services"
 }

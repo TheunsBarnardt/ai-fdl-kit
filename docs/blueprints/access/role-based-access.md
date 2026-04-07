@@ -16,7 +16,7 @@ description: "Role-based access control with hierarchical permission inheritance
 | **Category** | Access Control |
 | **Version** | 1.0.0 |
 | **Tags** | rbac, permissions, roles, authorization, hierarchy, security, access-control |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/access/role-based-access.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/access/role-based-access.blueprint.yaml) |
 | **JSON API** | [role-based-access.json]({{ site.baseurl }}/api/blueprints/access/role-based-access.json) |
 
 ## Fields
@@ -183,7 +183,7 @@ accessibility:
   "name": "Role Based Access Blueprint",
   "description": "Role-based access control with hierarchical permission inheritance. 7 fields. 8 outcomes. 5 error codes. rules: hierarchy, system_roles, permissions",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "rbac, permissions, roles, authorization, hierarchy, security, access-control"
 }

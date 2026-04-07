@@ -16,7 +16,7 @@ description: "Plugin registration, lifecycle management, and capability-based pe
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | plugins, extensibility, capabilities, configuration, modular |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/openclaw-plugin-system.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/openclaw-plugin-system.blueprint.yaml) |
 | **JSON API** | [openclaw-plugin-system.json]({{ site.baseurl }}/api/blueprints/integration/openclaw-plugin-system.json) |
 
 ## Actors
@@ -261,7 +261,7 @@ tech_stack:
   "name": "Openclaw Plugin System Blueprint",
   "description": "Plugin registration, lifecycle management, and capability-based permissions system for extending OpenClaw functionality. 10 fields. 5 outcomes. 6 error codes. r",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "plugins, extensibility, capabilities, configuration, modular"
 }

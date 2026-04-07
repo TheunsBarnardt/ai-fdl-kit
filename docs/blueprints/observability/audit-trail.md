@@ -16,7 +16,7 @@ description: "Immutable field-level change tracking for any record with automati
 | **Category** | Observability |
 | **Version** | 1.0.0 |
 | **Tags** | audit-trail, change-log, history, field-tracking, immutable, compliance |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/observability/audit-trail.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/observability/audit-trail.blueprint.yaml) |
 | **JSON API** | [audit-trail.json]({{ site.baseurl }}/api/blueprints/observability/audit-trail.json) |
 
 ## Fields
@@ -146,7 +146,7 @@ description: "Immutable field-level change tracking for any record with automati
   "name": "Audit Trail Blueprint",
   "description": "Immutable field-level change tracking for any record with automatic capture on every write, configurable per-model opt-in, and sensitive field exclusion. 11 fie",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "audit-trail, change-log, history, field-tracking, immutable, compliance"
 }

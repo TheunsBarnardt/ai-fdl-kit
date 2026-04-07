@@ -16,7 +16,7 @@ description: "Trash/archive/restore pattern with soft deletion, configurable ret
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | soft-delete, trash, archive, restore, purge, retention, data-lifecycle |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/soft-delete.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/soft-delete.blueprint.yaml) |
 | **JSON API** | [soft-delete.json]({{ site.baseurl }}/api/blueprints/data/soft-delete.json) |
 
 ## Fields
@@ -152,7 +152,7 @@ description: "Trash/archive/restore pattern with soft deletion, configurable ret
   "name": "Soft Delete Blueprint",
   "description": "Trash/archive/restore pattern with soft deletion, configurable retention periods, automatic purging, and cascade rules for related records. 5 fields. 6 outcomes",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "soft-delete, trash, archive, restore, purge, retention, data-lifecycle"
 }

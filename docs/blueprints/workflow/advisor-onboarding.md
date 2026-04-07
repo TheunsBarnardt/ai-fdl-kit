@@ -16,7 +16,7 @@ description: "Registration and onboarding process for independent financial advi
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | advisor-registration, approval-workflow, financial-services |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/advisor-onboarding.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/advisor-onboarding.blueprint.yaml) |
 | **JSON API** | [advisor-onboarding.json]({{ site.baseurl }}/api/blueprints/workflow/advisor-onboarding.json) |
 
 ## Actors
@@ -267,7 +267,7 @@ status_badge: true
   "name": "Advisor Onboarding Blueprint",
   "description": "Registration and onboarding process for independent financial advisors with CID approval and mandate signing. 11 fields. 11 outcomes. 10 error codes. rules: val",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "advisor-registration, approval-workflow, financial-services"
 }

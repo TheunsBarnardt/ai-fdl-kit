@@ -16,7 +16,7 @@ description: "End-of-day bonds market data delivery via FTP — CSV/XLS formats 
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | market-data, eod, bonds, csv, xls, excel, yield-curve, mtm, zero-curve, non-live, ftp |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/bonds-eod-data-delivery.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/bonds-eod-data-delivery.blueprint.yaml) |
 | **JSON API** | [bonds-eod-data-delivery.json]({{ site.baseurl }}/api/blueprints/trading/bonds-eod-data-delivery.json) |
 
 ## Actors
@@ -345,7 +345,7 @@ delivery_channel: IDP FTP (Information Delivery Portal)
   "name": "Bonds Eod Data Delivery Blueprint",
   "description": "End-of-day bonds market data delivery via FTP — CSV/XLS formats covering zero curves, MTM valuations, trade detail, instrument statistics, member/client positio",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "market-data, eod, bonds, csv, xls, excel, yield-curve, mtm, zero-curve, non-live, ftp"
 }

@@ -16,7 +16,7 @@ description: "Send transactional and system emails with template rendering, deli
 | **Category** | Notification |
 | **Version** | 1.0.0 |
 | **Tags** | email, transactional, templates, delivery-tracking, bounce-handling, unsubscribe, notification |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/notification/email-notifications.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/notification/email-notifications.blueprint.yaml) |
 | **JSON API** | [email-notifications.json]({{ site.baseurl }}/api/blueprints/notification/email-notifications.json) |
 
 ## Fields
@@ -212,7 +212,7 @@ accessibility:
   "name": "Email Notifications Blueprint",
   "description": "Send transactional and system emails with template rendering, delivery tracking, and bounce handling. 10 fields. 7 outcomes. 6 error codes. rules: delivery, tem",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "email, transactional, templates, delivery-tracking, bounce-handling, unsubscribe, notification"
 }

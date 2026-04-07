@@ -17,7 +17,7 @@ description: "Stock entry and material movement system supporting issue, receipt
 | **Category** | Inventory |
 | **Version** | 1.0.0 |
 | **Tags** | stock-entry, material-movement, stock-ledger, valuation, manufacturing, inventory |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/inventory/stock-entry-movements.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/inventory/stock-entry-movements.blueprint.yaml) |
 | **JSON API** | [stock-entry-movements.json]({{ site.baseurl }}/api/blueprints/inventory/stock-entry-movements.json) |
 
 ## Fields
@@ -223,7 +223,7 @@ source:
   "name": "Stock Entry Movements Blueprint",
   "description": "Stock entry and material movement system supporting issue, receipt, transfer, manufacture, repack, and subcontracting with stock ledger and GL entries.\n. 13 fie",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "stock-entry, material-movement, stock-ledger, valuation, manufacturing, inventory"
 }

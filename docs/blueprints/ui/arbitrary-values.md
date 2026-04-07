@@ -16,7 +16,7 @@ description: "Use one-off custom values in utilities without defining them in th
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | arbitrary, dynamic, custom-values, escape-hatch |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/arbitrary-values.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/arbitrary-values.blueprint.yaml) |
 | **JSON API** | [arbitrary-values.json]({{ site.baseurl }}/api/blueprints/ui/arbitrary-values.json) |
 
 ## Actors
@@ -226,7 +226,7 @@ best_practices:
   "name": "Arbitrary Values Blueprint",
   "description": "Use one-off custom values in utilities without defining them in theme, enabling flexible styling beyond framework constraints. 5 fields. 10 outcomes. 3 error co",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "arbitrary, dynamic, custom-values, escape-hatch"
 }

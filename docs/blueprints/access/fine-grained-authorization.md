@@ -16,7 +16,7 @@ description: "Resource-based and policy-based authorization. 2 fields. 1 outcome
 | **Category** | Access Control |
 | **Version** | 1.0.0 |
 | **Tags** | authorization, rbac |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/access/fine-grained-authorization.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/access/fine-grained-authorization.blueprint.yaml) |
 | **JSON API** | [fine-grained-authorization.json]({{ site.baseurl }}/api/blueprints/access/fine-grained-authorization.json) |
 
 ## Fields
@@ -74,7 +74,7 @@ source:
   "name": "Fine Grained Authorization Blueprint",
   "description": "Resource-based and policy-based authorization. 2 fields. 1 outcomes. 1 error codes. rules: core",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "authorization, rbac"
 }

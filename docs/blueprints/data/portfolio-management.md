@@ -16,7 +16,7 @@ description: "Retrieve, manage, and report on investment portfolio holdings, pos
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | portfolio, holdings, valuations, wealth-management, positions |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/portfolio-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/portfolio-management.blueprint.yaml) |
 | **JSON API** | [portfolio-management.json]({{ site.baseurl }}/api/blueprints/data/portfolio-management.json) |
 
 ## Actors
@@ -272,7 +272,7 @@ source:
   "name": "Portfolio Management Blueprint",
   "description": "Retrieve, manage, and report on investment portfolio holdings, positions, valuations, and transaction history. 35 fields. 11 outcomes. 6 error codes. rules: sec",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "portfolio, holdings, valuations, wealth-management, positions"
 }

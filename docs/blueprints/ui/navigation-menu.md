@@ -16,7 +16,7 @@ description: "Hierarchical navigation with sidebar, breadcrumb, mega menu, and m
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | navigation, sidebar, breadcrumb, menu, responsive, accessibility, ui |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/navigation-menu.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/navigation-menu.blueprint.yaml) |
 | **JSON API** | [navigation-menu.json]({{ site.baseurl }}/api/blueprints/ui/navigation-menu.json) |
 
 ## Fields
@@ -158,7 +158,7 @@ description: "Hierarchical navigation with sidebar, breadcrumb, mega menu, and m
   "name": "Navigation Menu Blueprint",
   "description": "Hierarchical navigation with sidebar, breadcrumb, mega menu, and mobile support. 10 fields. 7 outcomes. 3 error codes. rules: hierarchy, active_state, permissio",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "navigation, sidebar, breadcrumb, menu, responsive, accessibility, ui"
 }

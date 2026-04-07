@@ -16,7 +16,7 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | sorted-sets, hashes, nested-kv, scoring, field-expiration, ranking |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/sorted-set-and-hash-operations.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/sorted-set-and-hash-operations.blueprint.yaml) |
 | **JSON API** | [sorted-set-and-hash-operations.json]({{ site.baseurl }}/api/blueprints/data/sorted-set-and-hash-operations.json) |
 
 ## Actors
@@ -421,7 +421,7 @@ source:
   "name": "Sorted Set And Hash Operations Blueprint",
   "description": "Sorted collections with ranking and scoring; nested key-value maps with field-level operations and optional TTL per field. 5 fields. 27 outcomes. 3 error codes.",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "sorted-sets, hashes, nested-kv, scoring, field-expiration, ranking"
 }

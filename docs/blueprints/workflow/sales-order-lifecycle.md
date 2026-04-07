@@ -17,7 +17,7 @@ description: "Sales order lifecycle from draft through delivery and billing to c
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | sales, order-management, delivery, billing, credit-limit, stock-reservation |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/sales-order-lifecycle.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/sales-order-lifecycle.blueprint.yaml) |
 | **JSON API** | [sales-order-lifecycle.json]({{ site.baseurl }}/api/blueprints/workflow/sales-order-lifecycle.json) |
 
 ## Actors
@@ -270,7 +270,7 @@ source: https://github.com/frappe/erpnext
   "name": "Sales Order Lifecycle Blueprint",
   "description": "Sales order lifecycle from draft through delivery and billing to completion, with credit limits, blanket orders, stock reservation, and auto-status.\n. 13 fields",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "sales, order-management, delivery, billing, credit-limit, stock-reservation"
 }

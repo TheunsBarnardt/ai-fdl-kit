@@ -16,7 +16,7 @@ description: "Allow users to reset their password via email verification. 4 fiel
 | **Category** | Auth |
 | **Version** | 1.0.0 |
 | **Tags** | password, reset, recovery, security, email |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/password-reset.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/auth/password-reset.blueprint.yaml) |
 | **JSON API** | [password-reset.json]({{ site.baseurl }}/api/blueprints/auth/password-reset.json) |
 
 ## Fields
@@ -332,7 +332,7 @@ express:
   "name": "Password Reset Blueprint",
   "description": "Allow users to reset their password via email verification. 4 fields. 7 outcomes. 7 error codes. rules: security, email, password_comparison",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "password, reset, recovery, security, email"
 }

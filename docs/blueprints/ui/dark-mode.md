@@ -17,7 +17,7 @@ description: "Theme toggle supporting light, dark, and system-preference modes w
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | dark-mode, theming, css-custom-properties, prefers-color-scheme, user-preferences, color-scheme |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/dark-mode.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/dark-mode.blueprint.yaml) |
 | **JSON API** | [dark-mode.json]({{ site.baseurl }}/api/blueprints/ui/dark-mode.json) |
 
 ## Fields
@@ -162,7 +162,7 @@ description: "Theme toggle supporting light, dark, and system-preference modes w
   "name": "Dark Mode Blueprint",
   "description": "Theme toggle supporting light, dark, and system-preference modes with CSS custom properties, user preference persistence, smooth transitions, and flash-of-wrong",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "dark-mode, theming, css-custom-properties, prefers-color-scheme, user-preferences, color-scheme"
 }

@@ -16,7 +16,7 @@ description: "Manages stateful FIX protocol sessions including logon/logout life
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | fix-protocol, session, heartbeat, sequence-numbers, financial-messaging |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/fix-session-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/fix-session-management.blueprint.yaml) |
 | **JSON API** | [fix-session-management.json]({{ site.baseurl }}/api/blueprints/trading/fix-session-management.json) |
 
 ## Actors
@@ -273,7 +273,7 @@ admin_message_types:
   "name": "Fix Session Management Blueprint",
   "description": "Manages stateful FIX protocol sessions including logon/logout lifecycle, heartbeat monitoring, sequence number integrity, and time-window enforcement. 11 fields",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "fix-protocol, session, heartbeat, sequence-numbers, financial-messaging"
 }

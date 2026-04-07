@@ -17,7 +17,7 @@ description: "Generic state machine engine with named states, guarded transition
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | state-machine, finite-automaton, workflow-engine, lifecycle-management, transitions, event-driven |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/state-machine.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/state-machine.blueprint.yaml) |
 | **JSON API** | [state-machine.json]({{ site.baseurl }}/api/blueprints/workflow/state-machine.json) |
 
 ## Actors
@@ -199,7 +199,7 @@ description: "Generic state machine engine with named states, guarded transition
   "name": "State Machine Blueprint",
   "description": "Generic state machine engine with named states, guarded transitions, entry/exit actions, history tracking, and lifecycle validation rules.\n. 8 fields. 8 outcome",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "state-machine, finite-automaton, workflow-engine, lifecycle-management, transitions, event-driven"
 }

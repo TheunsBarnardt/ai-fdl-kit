@@ -16,7 +16,7 @@ description: "Verify user email ownership via a one-time token link. 2 fields. 7
 | **Category** | Auth |
 | **Version** | 1.0.0 |
 | **Tags** | email, verification, security, identity, onboarding |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/email-verification.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/auth/email-verification.blueprint.yaml) |
 | **JSON API** | [email-verification.json]({{ site.baseurl }}/api/blueprints/auth/email-verification.json) |
 
 ## Fields
@@ -223,7 +223,7 @@ laravel:
   "name": "Email Verification Blueprint",
   "description": "Verify user email ownership via a one-time token link. 2 fields. 7 outcomes. 4 error codes. rules: security, email",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "email, verification, security, identity, onboarding"
 }

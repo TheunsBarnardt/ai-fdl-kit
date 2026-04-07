@@ -17,7 +17,7 @@ description: "Invoicing and payment lifecycle: customer invoices, vendor bills, 
 | **Category** | Payment |
 | **Version** | 1.0.0 |
 | **Tags** | invoicing, payments, billing, credit-notes, multi-currency, accounting |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/invoicing-payments.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/payment/invoicing-payments.blueprint.yaml) |
 | **JSON API** | [invoicing-payments.json]({{ site.baseurl }}/api/blueprints/payment/invoicing-payments.json) |
 
 ## Actors
@@ -219,7 +219,7 @@ source:
   "name": "Invoicing Payments Blueprint",
   "description": "Invoicing and payment lifecycle: customer invoices, vendor bills, credit notes, receipts, payment registration, multi-currency, and follow-up.\n. 18 fields. 6 ou",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "invoicing, payments, billing, credit-notes, multi-currency, accounting"
 }

@@ -16,7 +16,7 @@ description: "Transient toast/snackbar notifications with auto-dismiss, stacking
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | toast, snackbar, notification, feedback, ui, accessibility |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/toast-notifications.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/toast-notifications.blueprint.yaml) |
 | **JSON API** | [toast-notifications.json]({{ site.baseurl }}/api/blueprints/ui/toast-notifications.json) |
 
 ## Fields
@@ -168,7 +168,7 @@ description: "Transient toast/snackbar notifications with auto-dismiss, stacking
   "name": "Toast Notifications Blueprint",
   "description": "Transient toast/snackbar notifications with auto-dismiss, stacking, and accessibility. 7 fields. 8 outcomes. 3 error codes. rules: stacking, auto_dismiss, acces",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "toast, snackbar, notification, feedback, ui, accessibility"
 }

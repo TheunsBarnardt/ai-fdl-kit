@@ -16,7 +16,7 @@ description: "Automatic document locking to prevent concurrent editing with conf
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | cms, locking, concurrent-editing, document-lock, pessimistic-locking, payload |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/payload-document-locking.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/payload-document-locking.blueprint.yaml) |
 | **JSON API** | [payload-document-locking.json]({{ site.baseurl }}/api/blueprints/data/payload-document-locking.json) |
 
 ## Actors
@@ -171,7 +171,7 @@ auto_created_entities:
   "name": "Payload Document Locking Blueprint",
   "description": "Automatic document locking to prevent concurrent editing with configurable lock duration and override capability. 3 fields. 7 outcomes. 1 error codes. rules: lo",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "cms, locking, concurrent-editing, document-lock, pessimistic-locking, payload"
 }

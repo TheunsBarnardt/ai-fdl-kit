@@ -16,7 +16,7 @@ description: "Enterprise service client for connecting to Microsoft Dataverse, m
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | crm, cloud, dataverse, enterprise, entity-management, async-first, sdk |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/dataverse-client.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/dataverse-client.blueprint.yaml) |
 | **JSON API** | [dataverse-client.json]({{ site.baseurl }}/api/blueprints/integration/dataverse-client.json) |
 
 ## Actors
@@ -406,7 +406,7 @@ deployment_targets:
   "name": "Dataverse Client Blueprint",
   "description": "Enterprise service client for connecting to Microsoft Dataverse, managing authentication, executing CRUD operations on entities, batch processing, and discovery",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "crm, cloud, dataverse, enterprise, entity-management, async-first, sdk"
 }

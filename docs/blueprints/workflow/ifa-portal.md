@@ -16,7 +16,7 @@ description: "Independent Financial Advisor portal for client management, onboar
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | ifa, advisor, client-management, financial-services, wealth-management, lead-referral, messaging |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/ifa-portal.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/ifa-portal.blueprint.yaml) |
 | **JSON API** | [ifa-portal.json]({{ site.baseurl }}/api/blueprints/workflow/ifa-portal.json) |
 
 ## Actors
@@ -337,7 +337,7 @@ primary_nav:
   "name": "Ifa Portal Blueprint",
   "description": "Independent Financial Advisor portal for client management, onboarding assistance, client-view impersonation, messaging, product suggestions, and lead referral ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "ifa, advisor, client-management, financial-services, wealth-management, lead-referral, messaging"
 }

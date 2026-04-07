@@ -16,7 +16,7 @@ description: "Cloud storage abstraction with signed URLs, virus scanning, conten
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | file-storage, upload, download, s3, cloud-storage, signed-urls, virus-scanning |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/file-storage.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/file-storage.blueprint.yaml) |
 | **JSON API** | [file-storage.json]({{ site.baseurl }}/api/blueprints/data/file-storage.json) |
 
 ## Fields
@@ -194,7 +194,7 @@ description: "Cloud storage abstraction with signed URLs, virus scanning, conten
   "name": "File Storage Blueprint",
   "description": "Cloud storage abstraction with signed URLs, virus scanning, content type validation, checksum deduplication, and multi-provider support. 13 fields. 8 outcomes. ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "file-storage, upload, download, s3, cloud-storage, signed-urls, virus-scanning"
 }

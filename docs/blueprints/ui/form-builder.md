@@ -16,7 +16,7 @@ description: "Dynamic form creation and rendering with drag-and-drop field place
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | forms, builder, drag-and-drop, validation, dynamic-forms, multi-step, conditional-logic |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/form-builder.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/form-builder.blueprint.yaml) |
 | **JSON API** | [form-builder.json]({{ site.baseurl }}/api/blueprints/ui/form-builder.json) |
 
 ## Fields
@@ -207,7 +207,7 @@ description: "Dynamic form creation and rendering with drag-and-drop field place
   "name": "Form Builder Blueprint",
   "description": "Dynamic form creation and rendering with drag-and-drop field placement, conditional visibility, multi-step forms, validation rules, and versioning. 8 fields. 8 ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "forms, builder, drag-and-drop, validation, dynamic-forms, multi-step, conditional-logic"
 }

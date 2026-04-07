@@ -16,7 +16,7 @@ description: "End-of-day bond electronic trading platform data delivery via FTP 
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | market-data, eod, bond-etp, bonds, ftp, dissemination, fixed-width, csv, non-live |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/bond-etp-eod-data-delivery.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/bond-etp-eod-data-delivery.blueprint.yaml) |
 | **JSON API** | [bond-etp-eod-data-delivery.json]({{ site.baseurl }}/api/blueprints/trading/bond-etp-eod-data-delivery.json) |
 
 ## Actors
@@ -239,7 +239,7 @@ file_prefix_map:
   "name": "Bond Etp Eod Data Delivery Blueprint",
   "description": "End-of-day bond electronic trading platform data delivery via FTP — fixed-width and CSV formats covering daily trade details. 12 fields. 3 outcomes. 3 error cod",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "market-data, eod, bond-etp, bonds, ftp, dissemination, fixed-width, csv, non-live"
 }

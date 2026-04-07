@@ -17,7 +17,7 @@ description: "Serial number and batch tracking with lifecycle management, batch-
 | **Category** | Inventory |
 | **Version** | 1.0.0 |
 | **Tags** | serial-number, batch-tracking, traceability, expiry, inventory, valuation |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/inventory/serial-batch-tracking.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/inventory/serial-batch-tracking.blueprint.yaml) |
 | **JSON API** | [serial-batch-tracking.json]({{ site.baseurl }}/api/blueprints/inventory/serial-batch-tracking.json) |
 
 ## Fields
@@ -250,7 +250,7 @@ source:
   "name": "Serial Batch Tracking Blueprint",
   "description": "Serial number and batch tracking with lifecycle management, batch-wise valuation, expiry tracking, and serial/batch bundles.\n. 24 fields. 9 outcomes. 6 error co",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "serial-number, batch-tracking, traceability, expiry, inventory, valuation"
 }

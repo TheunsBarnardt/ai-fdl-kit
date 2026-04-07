@@ -16,7 +16,7 @@ description: "Manage per-user notification preferences across channels and categ
 | **Category** | Notification |
 | **Version** | 1.0.0 |
 | **Tags** | preferences, opt-in, opt-out, quiet-hours, digest, do-not-disturb, notification, settings |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/notification/notification-preferences.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/notification/notification-preferences.blueprint.yaml) |
 | **JSON API** | [notification-preferences.json]({{ site.baseurl }}/api/blueprints/notification/notification-preferences.json) |
 
 ## Fields
@@ -253,7 +253,7 @@ accessibility:
   "name": "Notification Preferences Blueprint",
   "description": "Manage per-user notification preferences across channels and categories with quiet hours and frequency caps. 12 fields. 7 outcomes. 5 error codes. rules: defaul",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "preferences, opt-in, opt-out, quiet-hours, digest, do-not-disturb, notification, settings"
 }

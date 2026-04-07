@@ -16,7 +16,7 @@ description: "Convert amounts between currencies using live or cached exchange r
 | **Category** | Payment |
 | **Version** | 1.0.0 |
 | **Tags** | currency, exchange-rate, multi-currency, localization, payment, finance |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/currency-conversion.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/payment/currency-conversion.blueprint.yaml) |
 | **JSON API** | [currency-conversion.json]({{ site.baseurl }}/api/blueprints/payment/currency-conversion.json) |
 
 ## Fields
@@ -141,7 +141,7 @@ description: "Convert amounts between currencies using live or cached exchange r
   "name": "Currency Conversion Blueprint",
   "description": "Convert amounts between currencies using live or cached exchange rates. 7 fields. 5 outcomes. 5 error codes. rules: rate_cache, supported_currencies, rounding",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "currency, exchange-rate, multi-currency, localization, payment, finance"
 }

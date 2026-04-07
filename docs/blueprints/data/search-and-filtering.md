@@ -16,7 +16,7 @@ description: "Full-text search with faceted filters, sorting, relevance scoring,
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | search, filtering, full-text, facets, sorting, relevance, fuzzy-matching |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/search-and-filtering.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/search-and-filtering.blueprint.yaml) |
 | **JSON API** | [search-and-filtering.json]({{ site.baseurl }}/api/blueprints/data/search-and-filtering.json) |
 
 ## Fields
@@ -148,7 +148,7 @@ description: "Full-text search with faceted filters, sorting, relevance scoring,
   "name": "Search And Filtering Blueprint",
   "description": "Full-text search with faceted filters, sorting, relevance scoring, fuzzy matching, and saved searches. 12 fields. 5 outcomes. 4 error codes. rules: search_index",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "search, filtering, full-text, facets, sorting, relevance, fuzzy-matching"
 }

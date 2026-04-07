@@ -16,7 +16,7 @@ description: "Internationalization with locale switching, translation keys, plur
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | i18n, localization, translation, rtl, locale, internationalization, ui |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/internationalization.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/internationalization.blueprint.yaml) |
 | **JSON API** | [internationalization.json]({{ site.baseurl }}/api/blueprints/ui/internationalization.json) |
 
 ## Fields
@@ -178,7 +178,7 @@ description: "Internationalization with locale switching, translation keys, plur
   "name": "Internationalization Blueprint",
   "description": "Internationalization with locale switching, translation keys, pluralization, and RTL support. 5 fields. 7 outcomes. 4 error codes. rules: fallback, message_form",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "i18n, localization, translation, rtl, locale, internationalization, ui"
 }

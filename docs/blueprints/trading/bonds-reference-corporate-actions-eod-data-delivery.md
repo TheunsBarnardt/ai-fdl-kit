@@ -16,7 +16,7 @@ description: "Bonds reference data and corporate actions delivery via FTP — CS
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | market-data, reference-data, corporate-actions, bonds, debt-securities, csv, xls, isin, non-live |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/bonds-reference-corporate-actions-eod-data-delivery.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/bonds-reference-corporate-actions-eod-data-delivery.blueprint.yaml) |
 | **JSON API** | [bonds-reference-corporate-actions-eod-data-delivery.json]({{ site.baseurl }}/api/blueprints/trading/bonds-reference-corporate-actions-eod-data-delivery.json) |
 
 ## Actors
@@ -380,7 +380,7 @@ delivery_channel: IDP FTP (Information Delivery Portal)
   "name": "Bonds Reference Corporate Actions Eod Data Delivery Blueprint",
   "description": "Bonds reference data and corporate actions delivery via FTP — CSV/XLS dissemination of debt security master data, new listings, coupon schedules, callable event",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "market-data, reference-data, corporate-actions, bonds, debt-securities, csv, xls, isin, non-live"
 }

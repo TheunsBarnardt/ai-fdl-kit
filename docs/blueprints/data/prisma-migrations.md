@@ -16,7 +16,7 @@ description: "Manage database schema versioning and evolution with safe migratio
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | migrations, database, schema-evolution, deployment, versioning |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/prisma-migrations.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/prisma-migrations.blueprint.yaml) |
 | **JSON API** | [prisma-migrations.json]({{ site.baseurl }}/api/blueprints/data/prisma-migrations.json) |
 
 ## Actors
@@ -155,7 +155,7 @@ tech_stack:
   "name": "Prisma Migrations Blueprint",
   "description": "Manage database schema versioning and evolution with safe migrations. 4 fields. 5 outcomes. 4 error codes. rules: development, production, safety",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "migrations, database, schema-evolution, deployment, versioning"
 }

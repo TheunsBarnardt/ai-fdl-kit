@@ -16,7 +16,7 @@ description: "Administrative dashboard for user management, account linking, not
 | **Category** | Access Control |
 | **Version** | 1.0.0 |
 | **Tags** | admin, user-management, account-linking, notification-broadcast, system-administration, wealth-management |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/access/admin-panel.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/access/admin-panel.blueprint.yaml) |
 | **JSON API** | [admin-panel.json]({{ site.baseurl }}/api/blueprints/access/admin-panel.json) |
 
 ## Actors
@@ -283,7 +283,7 @@ primary_nav:
   "name": "Admin Panel Blueprint",
   "description": "Administrative dashboard for user management, account linking, notification broadcasting, and system configuration. 12 fields. 14 outcomes. 7 error codes. rules",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "admin, user-management, account-linking, notification-broadcast, system-administration, wealth-management"
 }

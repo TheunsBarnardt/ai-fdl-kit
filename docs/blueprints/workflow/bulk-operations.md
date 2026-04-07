@@ -17,7 +17,7 @@ description: "Batch update, delete, and export operations for large record sets 
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | bulk, batch-processing, mass-update, mass-delete, data-export, background-jobs, progress-tracking |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/bulk-operations.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/bulk-operations.blueprint.yaml) |
 | **JSON API** | [bulk-operations.json]({{ site.baseurl }}/api/blueprints/workflow/bulk-operations.json) |
 
 ## Actors
@@ -215,7 +215,7 @@ description: "Batch update, delete, and export operations for large record sets 
   "name": "Bulk Operations Blueprint",
   "description": "Batch update, delete, and export operations for large record sets with progress tracking, atomic or best-effort execution, and error logging.\n. 16 fields. 8 out",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "bulk, batch-processing, mass-update, mass-delete, data-export, background-jobs, progress-tracking"
 }

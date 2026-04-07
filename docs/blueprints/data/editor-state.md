@@ -16,7 +16,7 @@ description: "Centralized state management with sliced architecture, action disp
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | state-management, store, reducer, editor, centralized-state |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/editor-state.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/editor-state.blueprint.yaml) |
 | **JSON API** | [editor-state.json]({{ site.baseurl }}/api/blueprints/data/editor-state.json) |
 
 ## Actors
@@ -237,7 +237,7 @@ source:
   "name": "Editor State Blueprint",
   "description": "Centralized state management with sliced architecture, action dispatching, computed selections, and public API. 11 fields. 7 outcomes. 2 error codes. rules: sto",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "state-management, store, reducer, editor, centralized-state"
 }

@@ -17,7 +17,7 @@ description: "Lead capture, qualification, and opportunity pipeline management w
 | **Category** | Crm |
 | **Version** | 1.0.0 |
 | **Tags** | lead, opportunity, pipeline, sales, qualification, conversion |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/crm/lead-opportunity-pipeline.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/crm/lead-opportunity-pipeline.blueprint.yaml) |
 | **JSON API** | [lead-opportunity-pipeline.json]({{ site.baseurl }}/api/blueprints/crm/lead-opportunity-pipeline.json) |
 
 ## Actors
@@ -294,7 +294,7 @@ source:
   "name": "Lead Opportunity Pipeline Blueprint",
   "description": "Lead capture, qualification, and opportunity pipeline management with conversion tracking from initial contact through to customer creation.\n. 31 fields. 10 out",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "lead, opportunity, pipeline, sales, qualification, conversion"
 }

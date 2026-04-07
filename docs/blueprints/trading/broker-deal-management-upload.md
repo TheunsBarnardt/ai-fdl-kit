@@ -16,7 +16,7 @@ description: "Broker deal management upload to central back-office - deal alloca
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | back-office, broker, upload, deal-allocation, t+3, trades, fixed-width |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/broker-deal-management-upload.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/broker-deal-management-upload.blueprint.yaml) |
 | **JSON API** | [broker-deal-management-upload.json]({{ site.baseurl }}/api/blueprints/trading/broker-deal-management-upload.json) |
 
 ## Actors
@@ -185,7 +185,7 @@ settlement_cycles:
   "name": "Broker Deal Management Upload Blueprint",
   "description": "Broker deal management upload to central back-office - deal allocations, same-day allocations, and deals uploads with manual and automated FTP submission modes,",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "back-office, broker, upload, deal-allocation, t+3, trades, fixed-width"
 }

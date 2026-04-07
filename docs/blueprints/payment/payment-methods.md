@@ -16,7 +16,7 @@ description: "Saved payment methods with card tokenization, add/remove/set defau
 | **Category** | Payment |
 | **Version** | 1.0.0 |
 | **Tags** | payment-methods, tokenization, pci-dss, cards, wallets, apple-pay, google-pay |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/payment-methods.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/payment/payment-methods.blueprint.yaml) |
 | **JSON API** | [payment-methods.json]({{ site.baseurl }}/api/blueprints/payment/payment-methods.json) |
 
 ## Fields
@@ -203,7 +203,7 @@ description: "Saved payment methods with card tokenization, add/remove/set defau
   "name": "Payment Methods Blueprint",
   "description": "Saved payment methods with card tokenization, add/remove/set default, Luhn validation, expiry monitoring, and digital wallet support.. 13 fields. 8 outcomes. 6 ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "payment-methods, tokenization, pci-dss, cards, wallets, apple-pay, google-pay"
 }

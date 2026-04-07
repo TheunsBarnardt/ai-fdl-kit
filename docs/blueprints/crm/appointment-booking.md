@@ -17,7 +17,7 @@ description: "Self-service appointment scheduling with availability slot managem
 | **Category** | Crm |
 | **Version** | 1.0.0 |
 | **Tags** | appointment, scheduling, booking, calendar, self-service |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/crm/appointment-booking.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/crm/appointment-booking.blueprint.yaml) |
 | **JSON API** | [appointment-booking.json]({{ site.baseurl }}/api/blueprints/crm/appointment-booking.json) |
 
 ## Actors
@@ -272,7 +272,7 @@ source:
   "name": "Appointment Booking Blueprint",
   "description": "Self-service appointment scheduling with availability slot management, email verification, agent assignment, and calendar event integration.\n. 18 fields. 11 out",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "appointment, scheduling, booking, calendar, self-service"
 }

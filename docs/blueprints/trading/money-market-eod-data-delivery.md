@@ -16,7 +16,7 @@ description: "End-of-day money market instrument reference data delivery via FTP
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | market-data, eod, money-market, isin, reference-data, ftp, dissemination, fixed-width, non-live |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/money-market-eod-data-delivery.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/money-market-eod-data-delivery.blueprint.yaml) |
 | **JSON API** | [money-market-eod-data-delivery.json]({{ site.baseurl }}/api/blueprints/trading/money-market-eod-data-delivery.json) |
 
 ## Actors
@@ -564,7 +564,7 @@ interval_frequency_codes:
   "name": "Money Market Eod Data Delivery Blueprint",
   "description": "End-of-day money market instrument reference data delivery via FTP — ISIN reference, coupon resets, payment dates, and intraday priority updates. 36 fields. 3 o",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "market-data, eod, money-market, isin, reference-data, ftp, dissemination, fixed-width, non-live"
 }

@@ -16,7 +16,7 @@ description: "Active session listing, device tracking, and session revocation. 1
 | **Category** | Auth |
 | **Version** | 1.0.0 |
 | **Tags** | authentication, session, security, device-tracking, identity |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/session-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/auth/session-management.blueprint.yaml) |
 | **JSON API** | [session-management.json]({{ site.baseurl }}/api/blueprints/auth/session-management.json) |
 
 ## Fields
@@ -223,7 +223,7 @@ loading:
   "name": "Session Management Blueprint",
   "description": "Active session listing, device tracking, and session revocation. 13 fields. 8 outcomes. 6 error codes. rules: security, device_tracking",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "authentication, session, security, device-tracking, identity"
 }

@@ -16,7 +16,7 @@ description: "Passwordless email login via single-use magic links. 6 fields. 8 o
 | **Category** | Auth |
 | **Version** | 1.0.0 |
 | **Tags** | authentication, passwordless, magic-link, email, security, identity |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/magic-link-auth.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/auth/magic-link-auth.blueprint.yaml) |
 | **JSON API** | [magic-link-auth.json]({{ site.baseurl }}/api/blueprints/auth/magic-link-auth.json) |
 
 ## Fields
@@ -225,7 +225,7 @@ loading:
   "name": "Magic Link Auth Blueprint",
   "description": "Passwordless email login via single-use magic links. 6 fields. 8 outcomes. 6 error codes. rules: security, email",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "authentication, passwordless, magic-link, email, security, identity"
 }

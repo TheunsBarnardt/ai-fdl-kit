@@ -16,7 +16,7 @@ description: "Bulk data import and export supporting CSV, Excel, and JSON format
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | import, export, csv, excel, json, bulk-data, etl, background-processing |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/data-import-export.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/data-import-export.blueprint.yaml) |
 | **JSON API** | [data-import-export.json]({{ site.baseurl }}/api/blueprints/data/data-import-export.json) |
 
 ## Fields
@@ -153,7 +153,7 @@ description: "Bulk data import and export supporting CSV, Excel, and JSON format
   "name": "Data Import Export Blueprint",
   "description": "Bulk data import and export supporting CSV, Excel, and JSON formats with column mapping, row validation, background processing, and configurable error handling.",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "import, export, csv, excel, json, bulk-data, etl, background-processing"
 }

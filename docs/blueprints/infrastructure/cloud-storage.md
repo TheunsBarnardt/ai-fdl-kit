@@ -16,7 +16,7 @@ description: "Manage object storage across cloud providers with upload, download
 | **Category** | Infrastructure |
 | **Version** | 1.0.0 |
 | **Tags** | storage, cloud, s3, blob, file-upload, object-storage |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/infrastructure/cloud-storage.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/infrastructure/cloud-storage.blueprint.yaml) |
 | **JSON API** | [cloud-storage.json]({{ site.baseurl }}/api/blueprints/infrastructure/cloud-storage.json) |
 
 ## Fields
@@ -179,7 +179,7 @@ description: "Manage object storage across cloud providers with upload, download
   "name": "Cloud Storage Blueprint",
   "description": "Manage object storage across cloud providers with upload, download, delete, presigned URLs, multipart upload, and lifecycle policy support. 13 fields. 9 outcome",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "storage, cloud, s3, blob, file-upload, object-storage"
 }

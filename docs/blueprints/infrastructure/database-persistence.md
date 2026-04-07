@@ -16,7 +16,7 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 | **Category** | Infrastructure |
 | **Version** | 1.0.0 |
 | **Tags** | persistence, durability, rdb-snapshots, aof-journal, crash-recovery, backup |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/infrastructure/database-persistence.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/infrastructure/database-persistence.blueprint.yaml) |
 | **JSON API** | [database-persistence.json]({{ site.baseurl }}/api/blueprints/infrastructure/database-persistence.json) |
 
 ## Actors
@@ -341,7 +341,7 @@ source:
   "name": "Database Persistence Blueprint",
   "description": "Data durability via RDB snapshots and/or AOF journaling; recover to point-in-time or exact command sequence after crash. 6 fields. 20 outcomes. 3 error codes. r",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "persistence, durability, rdb-snapshots, aof-journal, crash-recovery, backup"
 }

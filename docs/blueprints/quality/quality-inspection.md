@@ -17,7 +17,7 @@ description: "Quality inspection for incoming, outgoing, and in-process material
 | **Category** | Quality |
 | **Version** | 1.0.0 |
 | **Tags** | quality-inspection, incoming-inspection, outgoing-inspection, quality-control, acceptance-criteria, manufacturing |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/quality/quality-inspection.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/quality/quality-inspection.blueprint.yaml) |
 | **JSON API** | [quality-inspection.json]({{ site.baseurl }}/api/blueprints/quality/quality-inspection.json) |
 
 ## Fields
@@ -170,7 +170,7 @@ source:
   "name": "Quality Inspection Blueprint",
   "description": "Quality inspection for incoming, outgoing, and in-process materials with numeric range checks, formula-based acceptance criteria, and template-driven reading pa",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "quality-inspection, incoming-inspection, outgoing-inspection, quality-control, acceptance-criteria, manufacturing"
 }

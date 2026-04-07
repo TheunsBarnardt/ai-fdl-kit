@@ -16,7 +16,7 @@ description: "Clearing house outbound payment operations including credit transf
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | payments, clearing-house, outbound, credit-transfer, direct-debit |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/chp-outbound-payments.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/chp-outbound-payments.blueprint.yaml) |
 | **JSON API** | [clearing-house-outbound-payments.json]({{ site.baseurl }}/api/blueprints/integration/clearing-house-outbound-payments.json) |
 
 ## Actors
@@ -315,7 +315,7 @@ api:
   "name": "Clearing House Outbound Payments Blueprint",
   "description": "Clearing house outbound payment operations including credit transfers, bulk payments, direct debits, returns, and cancellations. 17 fields. 10 outcomes. 10 erro",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "payments, clearing-house, outbound, credit-transfer, direct-debit"
 }

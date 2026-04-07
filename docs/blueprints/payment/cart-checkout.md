@@ -16,7 +16,7 @@ description: "Shopping cart and checkout flow with stock reservation, guest cart
 | **Category** | Payment |
 | **Version** | 1.0.0 |
 | **Tags** | cart, checkout, e-commerce, orders, stock-reservation, promo-codes |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/cart-checkout.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/payment/cart-checkout.blueprint.yaml) |
 | **JSON API** | [cart-checkout.json]({{ site.baseurl }}/api/blueprints/payment/cart-checkout.json) |
 
 ## Fields
@@ -257,7 +257,7 @@ description: "Shopping cart and checkout flow with stock reservation, guest cart
   "name": "Cart Checkout Blueprint",
   "description": "Shopping cart and checkout flow with stock reservation, guest cart merge, multi-step checkout, tax, promo codes, and order placement.. 15 fields. 10 outcomes. 6",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "cart, checkout, e-commerce, orders, stock-reservation, promo-codes"
 }

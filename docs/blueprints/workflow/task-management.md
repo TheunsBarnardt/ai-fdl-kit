@@ -17,7 +17,7 @@ description: "Task lifecycle management with kanban board, subtask hierarchies, 
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | tasks, kanban, project-management, subtasks, dependencies, workload |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/task-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/task-management.blueprint.yaml) |
 | **JSON API** | [task-management.json]({{ site.baseurl }}/api/blueprints/workflow/task-management.json) |
 
 ## Actors
@@ -230,7 +230,7 @@ description: "Task lifecycle management with kanban board, subtask hierarchies, 
   "name": "Task Management Blueprint",
   "description": "Task lifecycle management with kanban board, subtask hierarchies, dependency tracking, priority-based scheduling, and workload balancing across assignees.\n. 13 ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "tasks, kanban, project-management, subtasks, dependencies, workload"
 }

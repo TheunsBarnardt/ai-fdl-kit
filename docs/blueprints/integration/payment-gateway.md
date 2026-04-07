@@ -16,7 +16,7 @@ description: "Process payments through a provider-agnostic gateway abstraction s
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | payments, gateway, transactions, pci, financial |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/payment-gateway.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/payment-gateway.blueprint.yaml) |
 | **JSON API** | [payment-gateway.json]({{ site.baseurl }}/api/blueprints/integration/payment-gateway.json) |
 
 ## Fields
@@ -183,7 +183,7 @@ description: "Process payments through a provider-agnostic gateway abstraction s
   "name": "Payment Gateway Blueprint",
   "description": "Process payments through a provider-agnostic gateway abstraction supporting authorization, capture, void, refund, and webhook-driven status updates. 12 fields. ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "payments, gateway, transactions, pci, financial"
 }

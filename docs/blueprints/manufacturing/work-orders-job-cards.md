@@ -17,7 +17,7 @@ description: "Work order execution and job card tracking for manufacturing opera
 | **Category** | Manufacturing |
 | **Version** | 1.0.0 |
 | **Tags** | work-order, job-card, production, manufacturing, shop-floor, time-tracking |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/manufacturing/work-orders-job-cards.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/manufacturing/work-orders-job-cards.blueprint.yaml) |
 | **JSON API** | [work-orders-job-cards.json]({{ site.baseurl }}/api/blueprints/manufacturing/work-orders-job-cards.json) |
 
 ## Fields
@@ -248,7 +248,7 @@ source: https://github.com/frappe/erpnext
   "name": "Work Orders Job Cards Blueprint",
   "description": "Work order execution and job card tracking for manufacturing operations, including material transfers, time logging, sequential operation control, and productio",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "work-order, job-card, production, manufacturing, shop-floor, time-tracking"
 }

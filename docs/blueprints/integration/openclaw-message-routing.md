@@ -16,7 +16,7 @@ description: "Central message router resolving inbound messages to agents via bi
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | gateway, routing, messaging, multi-tenant, binding-resolution |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/openclaw-message-routing.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/openclaw-message-routing.blueprint.yaml) |
 | **JSON API** | [openclaw-message-routing.json]({{ site.baseurl }}/api/blueprints/integration/openclaw-message-routing.json) |
 
 ## Actors
@@ -188,7 +188,7 @@ tech_stack:
   "name": "Openclaw Message Routing Blueprint",
   "description": "Central message router resolving inbound messages to agents via binding precedence, role-based routing, and guild/channel/peer matching. 12 fields. 2 outcomes. ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "gateway, routing, messaging, multi-tenant, binding-resolution"
 }

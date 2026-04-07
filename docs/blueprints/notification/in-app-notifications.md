@@ -16,7 +16,7 @@ description: "Real-time in-app notification center with read state, grouping, de
 | **Category** | Notification |
 | **Version** | 1.0.0 |
 | **Tags** | in-app, notification-center, real-time, websocket, sse, bell-icon, deep-links, grouping |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/notification/in-app-notifications.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/notification/in-app-notifications.blueprint.yaml) |
 | **JSON API** | [in-app-notifications.json]({{ site.baseurl }}/api/blueprints/notification/in-app-notifications.json) |
 
 ## Fields
@@ -231,7 +231,7 @@ accessibility:
   "name": "In App Notifications Blueprint",
   "description": "Real-time in-app notification center with read state, grouping, deep links, and persistent storage. 12 fields. 7 outcomes. 5 error codes. rules: delivery, persi",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "in-app, notification-center, real-time, websocket, sse, bell-icon, deep-links, grouping"
 }

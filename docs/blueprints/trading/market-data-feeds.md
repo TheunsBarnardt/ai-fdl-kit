@@ -16,7 +16,7 @@ description: "Consume and distribute real-time and delayed market data including
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | market-data, feeds, real-time, pricing, indices, commodities, watchlist |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/market-data-feeds.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/market-data-feeds.blueprint.yaml) |
 | **JSON API** | [market-data-feeds.json]({{ site.baseurl }}/api/blueprints/trading/market-data-feeds.json) |
 
 ## Actors
@@ -351,7 +351,7 @@ source:
   "name": "Market Data Feeds Blueprint",
   "description": "Consume and distribute real-time and delayed market data including pricing, indices, commodities, forex, and trade feeds from multiple providers. 37 fields. 17 ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "market-data, feeds, real-time, pricing, indices, commodities, watchlist"
 }

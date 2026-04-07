@@ -17,7 +17,7 @@ description: "Calendar event management with bookings, availability tracking, re
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | calendar, scheduling, events, bookings, availability, recurring, timezone |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/scheduling-calendar.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/scheduling-calendar.blueprint.yaml) |
 | **JSON API** | [scheduling-calendar.json]({{ site.baseurl }}/api/blueprints/workflow/scheduling-calendar.json) |
 
 ## Actors
@@ -198,7 +198,7 @@ description: "Calendar event management with bookings, availability tracking, re
   "name": "Scheduling Calendar Blueprint",
   "description": "Calendar event management with bookings, availability tracking, recurring events (RRULE), conflict detection, timezone-aware storage, and configurable time slot",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "calendar, scheduling, events, bookings, availability, recurring, timezone"
 }

@@ -16,7 +16,7 @@ description: "Design responsive layouts using breakpoint variants to apply diffe
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | responsive, breakpoints, mobile-first, media-queries |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/responsive-layout.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/responsive-layout.blueprint.yaml) |
 | **JSON API** | [responsive-layout.json]({{ site.baseurl }}/api/blueprints/ui/responsive-layout.json) |
 
 ## Actors
@@ -205,7 +205,7 @@ best_practices:
   "name": "Responsive Layout Blueprint",
   "description": "Design responsive layouts using breakpoint variants to apply different styles at different screen sizes. 6 fields. 8 outcomes. 2 error codes. rules: mobile_firs",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "responsive, breakpoints, mobile-first, media-queries"
 }

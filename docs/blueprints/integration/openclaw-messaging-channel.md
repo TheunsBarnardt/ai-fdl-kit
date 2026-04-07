@@ -16,7 +16,7 @@ description: "Platform-agnostic messaging channel integration supporting Discord
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | messaging, channels, discord, telegram, multi-platform |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/openclaw-messaging-channel.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/openclaw-messaging-channel.blueprint.yaml) |
 | **JSON API** | [openclaw-messaging-channel.json]({{ site.baseurl }}/api/blueprints/integration/openclaw-messaging-channel.json) |
 
 ## Actors
@@ -272,7 +272,7 @@ tech_stack:
   "name": "Openclaw Messaging Channel Blueprint",
   "description": "Platform-agnostic messaging channel integration supporting Discord, Telegram, Slack, and 85+ platforms with unified message routing and delivery. 15 fields. 3 o",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "messaging, channels, discord, telegram, multi-platform"
 }

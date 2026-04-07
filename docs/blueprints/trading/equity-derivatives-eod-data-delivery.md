@@ -16,7 +16,7 @@ description: "End-of-day equity derivatives data delivery via FTP — fixed-widt
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | market-data, eod, equity-derivatives, ftp, dissemination, fixed-width, non-live, mtm, risk-parameters |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/equity-derivatives-eod-data-delivery.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/equity-derivatives-eod-data-delivery.blueprint.yaml) |
 | **JSON API** | [equity-derivatives-eod-data-delivery.json]({{ site.baseurl }}/api/blueprints/trading/equity-derivatives-eod-data-delivery.json) |
 
 ## Actors
@@ -1017,7 +1017,7 @@ file_prefix_map:
   "name": "Equity Derivatives Eod Data Delivery Blueprint",
   "description": "End-of-day equity derivatives data delivery via FTP — fixed-width flat files covering daily/weekly/monthly statistics, MTM, rates, and risk parameters. 51 field",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "market-data, eod, equity-derivatives, ftp, dissemination, fixed-width, non-live, mtm, risk-parameters"
 }

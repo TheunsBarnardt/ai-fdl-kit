@@ -16,7 +16,7 @@ description: "End-of-day FTSE-JSE indices market data delivery via FTP — fixed
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | market-data, eod, indices, ftse, index-data, constituents, valuations, tracker, fixed-width, non-live, ftp |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/indices-eod-data-delivery.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/indices-eod-data-delivery.blueprint.yaml) |
 | **JSON API** | [indices-eod-data-delivery.json]({{ site.baseurl }}/api/blueprints/trading/indices-eod-data-delivery.json) |
 
 ## Actors
@@ -418,7 +418,7 @@ notes:
   "name": "Indices Eod Data Delivery Blueprint",
   "description": "End-of-day FTSE-JSE indices market data delivery via FTP — fixed-width flat files covering 30+ index families with valuations data, constituents data, index-lev",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "market-data, eod, indices, ftse, index-data, constituents, valuations, tracker, fixed-width, non-live, ftp"
 }

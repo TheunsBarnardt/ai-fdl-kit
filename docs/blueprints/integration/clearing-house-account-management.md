@@ -16,7 +16,7 @@ description: "Account management services for payment clearing houses — accoun
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | clearing-house, proxy, account-verification, cdv, account-mirror, payments |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/chp-account-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/chp-account-management.blueprint.yaml) |
 | **JSON API** | [clearing-house-account-management.json]({{ site.baseurl }}/api/blueprints/integration/clearing-house-account-management.json) |
 
 ## Actors
@@ -304,7 +304,7 @@ avsr:
   "name": "Clearing House Account Management Blueprint",
   "description": "Account management services for payment clearing houses — account mirroring, proxy management, real-time account verification, and check digit verification. 18 ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "clearing-house, proxy, account-verification, cdv, account-mirror, payments"
 }

@@ -17,7 +17,7 @@ description: "Multi-level approval workflow with sequential/parallel approvers, 
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | approval, workflow, multi-level, delegation, escalation, audit-trail |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/approval-chain.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/approval-chain.blueprint.yaml) |
 | **JSON API** | [approval-chain.json]({{ site.baseurl }}/api/blueprints/workflow/approval-chain.json) |
 
 ## Actors
@@ -265,7 +265,7 @@ description: "Multi-level approval workflow with sequential/parallel approvers, 
   "name": "Approval Chain Blueprint",
   "description": "Multi-level approval workflow with sequential/parallel approvers, delegation, auto-approve rules, timeout escalation, and audit history.\n. 11 fields. 10 outcome",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "approval, workflow, multi-level, delegation, escalation, audit-trail"
 }

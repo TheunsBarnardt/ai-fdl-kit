@@ -16,7 +16,7 @@ description: "Send SMS messages for OTP codes, alerts, and marketing with provid
 | **Category** | Notification |
 | **Version** | 1.0.0 |
 | **Tags** | sms, otp, alerts, marketing, tcpa, gdpr, notification, messaging |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/notification/sms-notifications.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/notification/sms-notifications.blueprint.yaml) |
 | **JSON API** | [sms-notifications.json]({{ site.baseurl }}/api/blueprints/notification/sms-notifications.json) |
 
 ## Fields
@@ -219,7 +219,7 @@ accessibility:
   "name": "Sms Notifications Blueprint",
   "description": "Send SMS messages for OTP codes, alerts, and marketing with provider abstraction and compliance. 6 fields. 8 outcomes. 7 error codes. rules: delivery, phone_val",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "sms, otp, alerts, marketing, tcpa, gdpr, notification, messaging"
 }

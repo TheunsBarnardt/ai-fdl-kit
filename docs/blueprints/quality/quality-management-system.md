@@ -17,7 +17,7 @@ description: "Quality management with goals, periodic reviews, hierarchical proc
 | **Category** | Quality |
 | **Version** | 1.0.0 |
 | **Tags** | quality-management, quality-goals, quality-review, quality-procedures, corrective-action, preventive-action, feedback, continuous-improvement |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/quality/quality-management-system.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/quality/quality-management-system.blueprint.yaml) |
 | **JSON API** | [quality-management-system.json]({{ site.baseurl }}/api/blueprints/quality/quality-management-system.json) |
 
 ## Fields
@@ -191,7 +191,7 @@ source:
   "name": "Quality Management System Blueprint",
   "description": "Quality management with goals, periodic reviews, hierarchical procedures, feedback collection, and corrective/preventive action tracking for continuous improvem",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "quality-management, quality-goals, quality-review, quality-procedures, corrective-action, preventive-action, feedback, continuous-improvement"
 }

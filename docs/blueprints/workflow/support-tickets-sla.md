@@ -17,7 +17,7 @@ description: "Support ticket management with SLA tracking, priority-based respon
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | support, tickets, sla, issue-tracking, warranty, customer-service, helpdesk |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/support-tickets-sla.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/support-tickets-sla.blueprint.yaml) |
 | **JSON API** | [support-tickets-sla.json]({{ site.baseurl }}/api/blueprints/workflow/support-tickets-sla.json) |
 
 ## Fields
@@ -246,7 +246,7 @@ source:
   "name": "Support Tickets Sla Blueprint",
   "description": "Support ticket management with SLA tracking, priority-based response/resolution deadlines, working hours calculation with holiday exclusions, and warranty claim",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "support, tickets, sla, issue-tracking, warranty, customer-service, helpdesk"
 }

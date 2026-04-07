@@ -17,7 +17,7 @@ description: "Full online storefront with product catalog, category browsing, at
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | ecommerce, online-store, shopping-cart, checkout, wishlist, product-comparison |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/ecommerce-store.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/ecommerce-store.blueprint.yaml) |
 | **JSON API** | [ecommerce-store.json]({{ site.baseurl }}/api/blueprints/ui/ecommerce-store.json) |
 
 ## Actors
@@ -241,7 +241,7 @@ source:
   "name": "Ecommerce Store Blueprint",
   "description": "Full online storefront with product catalog, category browsing, attribute filtering, shopping cart, multi-step checkout, payment integration, wishlist, and pric",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "ecommerce, online-store, shopping-cart, checkout, wishlist, product-comparison"
 }

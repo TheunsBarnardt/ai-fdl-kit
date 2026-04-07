@@ -16,7 +16,7 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | strings, key-value, atomic-operations, numeric-operations |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/string-key-value.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/string-key-value.blueprint.yaml) |
 | **JSON API** | [string-key-value.json]({{ site.baseurl }}/api/blueprints/data/string-key-value.json) |
 
 ## Actors
@@ -354,7 +354,7 @@ source:
   "name": "String Key Value Blueprint",
   "description": "Store and retrieve arbitrary-length string values with atomic increment, decrement, append, and range operations. 6 fields. 22 outcomes. 6 error codes. rules: 0",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "strings, key-value, atomic-operations, numeric-operations"
 }

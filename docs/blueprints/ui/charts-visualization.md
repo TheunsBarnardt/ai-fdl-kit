@@ -16,7 +16,7 @@ description: "Chart rendering system with bar, line, pie, donut, area, scatter, 
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | charts, visualization, graphs, data-viz, responsive, real-time, analytics |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/charts-visualization.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/charts-visualization.blueprint.yaml) |
 | **JSON API** | [charts-visualization.json]({{ site.baseurl }}/api/blueprints/ui/charts-visualization.json) |
 
 ## Fields
@@ -161,7 +161,7 @@ description: "Chart rendering system with bar, line, pie, donut, area, scatter, 
   "name": "Charts Visualization Blueprint",
   "description": "Chart rendering system with bar, line, pie, donut, area, scatter, time-series, and heatmap types, responsive sizing, tooltips, legends, and real-time updates. 1",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "charts, visualization, graphs, data-viz, responsive, real-time, analytics"
 }

@@ -17,7 +17,7 @@ description: "Bank reconciliation with statement import, auto/manual matching, r
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | bank-reconciliation, statement-import, matching, accounting, write-off |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/bank-reconciliation.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/bank-reconciliation.blueprint.yaml) |
 | **JSON API** | [bank-reconciliation.json]({{ site.baseurl }}/api/blueprints/data/bank-reconciliation.json) |
 
 ## Actors
@@ -223,7 +223,7 @@ source:
   "name": "Bank Reconciliation Blueprint",
   "description": "Bank reconciliation with statement import, auto/manual matching, reconciliation models, partial/full tracking, and write-off management.\n. 21 fields. 8 outcomes",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "bank-reconciliation, statement-import, matching, accounting, write-off"
 }

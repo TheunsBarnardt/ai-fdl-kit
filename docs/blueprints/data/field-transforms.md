@@ -16,7 +16,7 @@ description: "Per-field-type transformation pipeline with read-only path resolut
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | field-transforms, data-resolution, computed-properties, pipeline, editor |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/field-transforms.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/field-transforms.blueprint.yaml) |
 | **JSON API** | [field-transforms.json]({{ site.baseurl }}/api/blueprints/data/field-transforms.json) |
 
 ## Actors
@@ -203,7 +203,7 @@ source:
   "name": "Field Transforms Blueprint",
   "description": "Per-field-type transformation pipeline with read-only path resolution, async tracking, and trigger-based caching. 6 fields. 7 outcomes. 3 error codes. rules: tr",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "field-transforms, data-resolution, computed-properties, pipeline, editor"
 }

@@ -16,7 +16,7 @@ description: "Broker securities lending and borrowing (SLB) upload to central ba
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | back-office, broker, upload, slb, securities-lending, borrowing, collateral, fixed-width, card-codes |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/broker-securities-lending-borrowing-upload.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/broker-securities-lending-borrowing-upload.blueprint.yaml) |
 | **JSON API** | [broker-securities-lending-borrowing-upload.json]({{ site.baseurl }}/api/blueprints/trading/broker-securities-lending-borrowing-upload.json) |
 
 ## Actors
@@ -205,7 +205,7 @@ workflow:
   "name": "Broker Securities Lending Borrowing Upload Blueprint",
   "description": "Broker securities lending and borrowing (SLB) upload to central back-office via fixed-width records for loan, collateral, loan confirmation/return, and collater",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "back-office, broker, upload, slb, securities-lending, borrowing, collateral, fixed-width, card-codes"
 }

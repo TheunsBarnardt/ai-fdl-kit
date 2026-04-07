@@ -16,7 +16,7 @@ description: "Manage exchange rates, perform multi-currency transactions, and re
 | **Category** | Payment |
 | **Version** | 1.0.0 |
 | **Tags** | multi-currency, exchange-rates, revaluation, forex, erp, accounting |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/payment/multi-currency-exchange.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/payment/multi-currency-exchange.blueprint.yaml) |
 | **JSON API** | [multi-currency-exchange.json]({{ site.baseurl }}/api/blueprints/payment/multi-currency-exchange.json) |
 
 ## Fields
@@ -151,7 +151,7 @@ source:
   "name": "Multi Currency Exchange Blueprint",
   "description": "Manage exchange rates, perform multi-currency transactions, and revalue accounts for unrealized foreign exchange gains and losses. 12 fields. 3 outcomes. 3 erro",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "multi-currency, exchange-rates, revaluation, forex, erp, accounting"
 }

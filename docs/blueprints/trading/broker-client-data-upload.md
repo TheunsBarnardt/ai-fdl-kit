@@ -16,7 +16,7 @@ description: "Client account data upload from broker firms to central back-offic
 | **Category** | Trading |
 | **Version** | 1.0.0 |
 | **Tags** | back-office, broker, upload, client-data, fatca, kyc, card-codes, fixed-width, csdp |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/trading/broker-client-data-upload.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/trading/broker-client-data-upload.blueprint.yaml) |
 | **JSON API** | [broker-client-data-upload.json]({{ site.baseurl }}/api/blueprints/trading/broker-client-data-upload.json) |
 
 ## Actors
@@ -237,7 +237,7 @@ compliance_standards:
   "name": "Broker Client Data Upload Blueprint",
   "description": "Client account data upload from broker firms to central back-office via fixed-width card code files covering account, CSDP, addresses, FATCA/IT3 tax, and portfo",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "back-office, broker, upload, client-data, fatca, kyc, card-codes, fixed-width, csdp"
 }

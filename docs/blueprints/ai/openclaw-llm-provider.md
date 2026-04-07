@@ -16,7 +16,7 @@ description: "Multi-provider AI model integration with fallback chains, cost tra
 | **Category** | Ai |
 | **Version** | 1.0.0 |
 | **Tags** | ai, models, providers, streaming, llm |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ai/openclaw-llm-provider.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ai/openclaw-llm-provider.blueprint.yaml) |
 | **JSON API** | [openclaw-llm-provider.json]({{ site.baseurl }}/api/blueprints/ai/openclaw-llm-provider.json) |
 
 ## Actors
@@ -295,7 +295,7 @@ tech_stack:
   "name": "Openclaw Llm Provider Blueprint",
   "description": "Multi-provider AI model integration with fallback chains, cost tracking, streaming, and extended thinking support. 27 fields. 5 outcomes. 7 error codes. rules: ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "ai, models, providers, streaming, llm"
 }

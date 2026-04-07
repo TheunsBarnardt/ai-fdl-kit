@@ -16,7 +16,7 @@ description: "OAuth 2.0 authorization server for issuing tokens to third-party a
 | **Category** | Integration |
 | **Version** | 1.0.0 |
 | **Tags** | oauth, authorization, tokens, api, security, third-party, integration |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/integration/oauth-provider.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/oauth-provider.blueprint.yaml) |
 | **JSON API** | [oauth-provider.json]({{ site.baseurl }}/api/blueprints/integration/oauth-provider.json) |
 
 ## Fields
@@ -214,7 +214,7 @@ description: "OAuth 2.0 authorization server for issuing tokens to third-party a
   "name": "Oauth Provider Blueprint",
   "description": "OAuth 2.0 authorization server for issuing tokens to third-party applications. 7 fields. 10 outcomes. 8 error codes. rules: authorization_code, tokens, client_r",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "oauth, authorization, tokens, api, security, third-party, integration"
 }

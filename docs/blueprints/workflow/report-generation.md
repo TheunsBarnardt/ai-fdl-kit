@@ -17,7 +17,7 @@ description: "Scheduled and on-demand report generation with PDF, Excel, and CSV
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | reports, pdf, excel, csv, scheduled-jobs, data-export, background-processing |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/report-generation.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/report-generation.blueprint.yaml) |
 | **JSON API** | [report-generation.json]({{ site.baseurl }}/api/blueprints/workflow/report-generation.json) |
 
 ## Actors
@@ -183,7 +183,7 @@ description: "Scheduled and on-demand report generation with PDF, Excel, and CSV
   "name": "Report Generation Blueprint",
   "description": "Scheduled and on-demand report generation with PDF, Excel, and CSV output, background processing, caching, email delivery, and cron scheduling.\n. 13 fields. 6 o",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "reports, pdf, excel, csv, scheduled-jobs, data-export, background-processing"
 }

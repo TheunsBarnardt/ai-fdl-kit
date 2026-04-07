@@ -16,7 +16,7 @@ description: "Store, retrieve, manage, and generate documents with metadata, per
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | documents, file-management, pdf-generation, document-repository, metadata, permissions |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/document-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/document-management.blueprint.yaml) |
 | **JSON API** | [document-management.json]({{ site.baseurl }}/api/blueprints/data/document-management.json) |
 
 ## Actors
@@ -370,7 +370,7 @@ source:
   "name": "Document Management Blueprint",
   "description": "Store, retrieve, manage, and generate documents with metadata, permissions, version control, and dynamic PDF generation. 33 fields. 17 outcomes. 8 error codes. ",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "documents, file-management, pdf-generation, document-repository, metadata, permissions"
 }

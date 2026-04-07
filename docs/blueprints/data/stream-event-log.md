@@ -16,7 +16,7 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | streams, event-log, consumer-groups, message-queue, ack-tracking, ordering |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/stream-event-log.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/stream-event-log.blueprint.yaml) |
 | **JSON API** | [stream-event-log.json]({{ site.baseurl }}/api/blueprints/data/stream-event-log.json) |
 
 ## Actors
@@ -398,7 +398,7 @@ source:
   "name": "Stream Event Log Blueprint",
   "description": "Append-only event log with monotonically increasing IDs, consumer groups for distributed processing, and automatic acknowledgment tracking. 6 fields. 24 outcome",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "streams, event-log, consumer-groups, message-queue, ack-tracking, ordering"
 }

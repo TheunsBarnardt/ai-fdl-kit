@@ -17,7 +17,7 @@ description: "Employee expense submission and approval workflow with multi-level
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | expenses, approval-workflow, reimbursement, employee-expenses, accounting-integration |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/odoo-expense-approval.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/odoo-expense-approval.blueprint.yaml) |
 | **JSON API** | [expense-approval.json]({{ site.baseurl }}/api/blueprints/workflow/expense-approval.json) |
 
 ## Actors
@@ -233,7 +233,7 @@ source:
   "name": "Expense Approval Blueprint",
   "description": "Employee expense submission and approval workflow with multi-level authorization, reimbursement tracking, accounting journal entry generation, and payment proce",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "expenses, approval-workflow, reimbursement, employee-expenses, accounting-integration"
 }

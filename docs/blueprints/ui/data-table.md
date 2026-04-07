@@ -16,7 +16,7 @@ description: "Sortable, filterable, paginated data table with column management,
 | **Category** | UI |
 | **Version** | 1.0.0 |
 | **Tags** | table, data-grid, sorting, filtering, pagination, inline-editing, bulk-actions, export |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/ui/data-table.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ui/data-table.blueprint.yaml) |
 | **JSON API** | [data-table.json]({{ site.baseurl }}/api/blueprints/ui/data-table.json) |
 
 ## Fields
@@ -208,7 +208,7 @@ description: "Sortable, filterable, paginated data table with column management,
   "name": "Data Table Blueprint",
   "description": "Sortable, filterable, paginated data table with column management, row selection, inline editing, bulk actions, and CSV export. 9 fields. 9 outcomes. 4 error co",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "table, data-grid, sorting, filtering, pagination, inline-editing, bulk-actions, export"
 }

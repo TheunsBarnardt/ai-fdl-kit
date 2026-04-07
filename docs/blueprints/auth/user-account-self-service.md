@@ -16,7 +16,7 @@ description: "User self-service account and credential management. 2 fields. 1 o
 | **Category** | Auth |
 | **Version** | 1.0.0 |
 | **Tags** | account-management |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/auth/user-account-self-service.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/auth/user-account-self-service.blueprint.yaml) |
 | **JSON API** | [user-account-self-service.json]({{ site.baseurl }}/api/blueprints/auth/user-account-self-service.json) |
 
 ## Fields
@@ -74,7 +74,7 @@ source:
   "name": "User Account Self Service Blueprint",
   "description": "User self-service account and credential management. 2 fields. 1 outcomes. 1 error codes. rules: core",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "account-management"
 }

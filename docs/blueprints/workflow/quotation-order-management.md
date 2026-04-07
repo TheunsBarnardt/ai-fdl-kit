@@ -17,7 +17,7 @@ description: "Sales quotation-to-order lifecycle including quote creation, PDF g
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | sales, quotation, order-management, invoicing, pdf-builder |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/workflow/quotation-order-management.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/quotation-order-management.blueprint.yaml) |
 | **JSON API** | [quotation-order-management.json]({{ site.baseurl }}/api/blueprints/workflow/quotation-order-management.json) |
 
 ## Actors
@@ -232,7 +232,7 @@ source:
   "name": "Quotation Order Management Blueprint",
   "description": "Sales quotation-to-order lifecycle including quote creation, PDF generation, portal sharing, digital signature, prepayment, order confirmation, and invoicing.\n.",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "sales, quotation, order-management, invoicing, pdf-builder"
 }

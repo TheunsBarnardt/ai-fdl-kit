@@ -16,7 +16,7 @@ description: "Unordered collection of unique elements with set algebra operation
 | **Category** | Data |
 | **Version** | 1.0.0 |
 | **Tags** | sets, unordered-collections, set-algebra, cardinality |
-| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/claude-fdl/blob/master/blueprints/data/set-operations.blueprint.yaml) |
+| **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/data/set-operations.blueprint.yaml) |
 | **JSON API** | [set-operations.json]({{ site.baseurl }}/api/blueprints/data/set-operations.json) |
 
 ## Actors
@@ -308,7 +308,7 @@ source:
   "name": "Set Operations Blueprint",
   "description": "Unordered collection of unique elements with set algebra operations (union, intersection, difference) and cardinality counting. 4 fields. 17 outcomes. 1 error c",
   "programmingLanguage": "YAML",
-  "codeRepository": "https://github.com/TheunsBarnardt/claude-fdl",
+  "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "sets, unordered-collections, set-algebra, cardinality"
 }
