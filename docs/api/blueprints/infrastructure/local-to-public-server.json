@@ -1,0 +1,1660 @@
+{
+  "feature": "local-to-public-server",
+  "version": "1.0.0",
+  "description": "Transform a local Ubuntu PC into a fully functional, hardened, publicly accessible server with web hosting, database, email, SSL, monitoring, and automated backups",
+  "category": "infrastructure",
+  "tags": [
+    "server",
+    "ubuntu",
+    "linux",
+    "self-hosted",
+    "networking",
+    "dns",
+    "ssl",
+    "security",
+    "monitoring",
+    "backup",
+    "web-server",
+    "database",
+    "email",
+    "firewall"
+  ],
+  "actors": [
+    {
+      "id": "setup_automation",
+      "name": "Setup Automation",
+      "type": "system",
+      "description": "Automated provisioning scripts that configure the entire server stack"
+    },
+    {
+      "id": "server",
+      "name": "Ubuntu Server",
+      "type": "system",
+      "description": "The local Ubuntu PC being converted to a public server"
+    },
+    {
+      "id": "dns_provider",
+      "name": "DNS Provider",
+      "type": "external",
+      "description": "Domain registrar or DNS service (Cloudflare, Route53, Namecheap)"
+    },
+    {
+      "id": "certificate_authority",
+      "name": "Certificate Authority",
+      "type": "external",
+      "description": "Let's Encrypt — free automated SSL certificate issuance and renewal"
+    },
+    {
+      "id": "monitoring_agent",
+      "name": "Monitoring Agent",
+      "type": "system",
+      "description": "Collects metrics, logs, and health status — alerts on problems"
+    },
+    {
+      "id": "backup_agent",
+      "name": "Backup Agent",
+      "type": "system",
+      "description": "Automated backup system — local snapshots + offsite replication"
+    },
+    {
+      "id": "admin",
+      "name": "Server Administrator",
+      "type": "human",
+      "description": "Owner who manages the server — receives alerts, performs maintenance"
+    },
+    {
+      "id": "visitor",
+      "name": "Public Visitor",
+      "type": "external",
+      "description": "Anyone accessing the server's public services (web, API, email)"
+    }
+  ],
+  "fields": [
+    {
+      "name": "public_ip",
+      "type": "text",
+      "required": true,
+      "label": "Public IP Address",
+      "placeholder": "Auto-detected from external service",
+      "validation": [
+        {
+          "type": "pattern",
+          "value": "^(\\d{1,3}\\.){3}\\d{1,3}$",
+          "message": "Must be a valid IPv4 address"
+        }
+      ]
+    },
+    {
+      "name": "domain_name",
+      "type": "text",
+      "required": true,
+      "label": "Domain Name",
+      "placeholder": "example.com",
+      "validation": [
+        {
+          "type": "required",
+          "message": "A domain name is required for SSL and public access"
+        },
+        {
+          "type": "pattern",
+          "value": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\\.[a-z]{2,}$",
+          "message": "Must be a valid domain name"
+        }
+      ]
+    },
+    {
+      "name": "subdomains",
+      "type": "json",
+      "required": false,
+      "label": "Subdomains"
+    },
+    {
+      "name": "ddns_enabled",
+      "type": "boolean",
+      "required": true,
+      "label": "Dynamic DNS Enabled",
+      "default": true
+    },
+    {
+      "name": "ddns_provider",
+      "type": "select",
+      "required": false,
+      "label": "DDNS Provider",
+      "options": [
+        {
+          "value": "cloudflare",
+          "label": "Cloudflare API"
+        },
+        {
+          "value": "duckdns",
+          "label": "DuckDNS"
+        },
+        {
+          "value": "noip",
+          "label": "No-IP"
+        },
+        {
+          "value": "custom",
+          "label": "Custom DDNS script"
+        }
+      ]
+    },
+    {
+      "name": "router_port_forwarding",
+      "type": "json",
+      "required": true,
+      "label": "Port Forwarding Rules"
+    },
+    {
+      "name": "ipv6_enabled",
+      "type": "boolean",
+      "required": false,
+      "label": "IPv6 Enabled",
+      "default": true
+    },
+    {
+      "name": "ssl_email",
+      "type": "email",
+      "required": true,
+      "label": "SSL Certificate Email",
+      "validation": [
+        {
+          "type": "email",
+          "message": "Valid email required for Let's Encrypt registration"
+        }
+      ]
+    },
+    {
+      "name": "ssl_provider",
+      "type": "select",
+      "required": true,
+      "label": "SSL Provider",
+      "default": "letsencrypt",
+      "options": [
+        {
+          "value": "letsencrypt",
+          "label": "Let's Encrypt (free, auto-renewing)"
+        },
+        {
+          "value": "self_signed",
+          "label": "Self-Signed (development only)"
+        }
+      ]
+    },
+    {
+      "name": "ssl_auto_renew",
+      "type": "boolean",
+      "required": true,
+      "label": "Auto-Renew SSL",
+      "default": true
+    },
+    {
+      "name": "web_server",
+      "type": "select",
+      "required": true,
+      "label": "Web Server",
+      "options": [
+        {
+          "value": "nginx",
+          "label": "Nginx (recommended — lightweight, high performance)"
+        },
+        {
+          "value": "caddy",
+          "label": "Caddy (automatic HTTPS, simpler config)"
+        },
+        {
+          "value": "apache",
+          "label": "Apache (traditional, .htaccess support)"
+        }
+      ]
+    },
+    {
+      "name": "web_root",
+      "type": "text",
+      "required": true,
+      "label": "Web Root Directory",
+      "default": "/var/www"
+    },
+    {
+      "name": "reverse_proxy_targets",
+      "type": "json",
+      "required": false,
+      "label": "Reverse Proxy Targets"
+    },
+    {
+      "name": "database_engine",
+      "type": "select",
+      "required": true,
+      "label": "Database Engine",
+      "options": [
+        {
+          "value": "postgresql",
+          "label": "PostgreSQL (recommended — full-featured relational)"
+        },
+        {
+          "value": "mysql",
+          "label": "MySQL/MariaDB"
+        },
+        {
+          "value": "sqlite",
+          "label": "SQLite (lightweight, no server process)"
+        },
+        {
+          "value": "none",
+          "label": "No database"
+        }
+      ]
+    },
+    {
+      "name": "database_name",
+      "type": "text",
+      "required": false,
+      "label": "Default Database Name",
+      "placeholder": "app_production"
+    },
+    {
+      "name": "database_remote_access",
+      "type": "boolean",
+      "required": false,
+      "label": "Allow Remote Database Access",
+      "default": false
+    },
+    {
+      "name": "email_server_enabled",
+      "type": "boolean",
+      "required": false,
+      "label": "Email Server Enabled",
+      "default": true
+    },
+    {
+      "name": "email_server_type",
+      "type": "select",
+      "required": false,
+      "label": "Email Server",
+      "options": [
+        {
+          "value": "postfix_dovecot",
+          "label": "Postfix + Dovecot (full send/receive)"
+        },
+        {
+          "value": "postfix_only",
+          "label": "Postfix only (send only — relay via external SMTP)"
+        },
+        {
+          "value": "none",
+          "label": "No email server"
+        }
+      ]
+    },
+    {
+      "name": "ssh_port",
+      "type": "number",
+      "required": true,
+      "label": "SSH Port",
+      "default": 2222,
+      "validation": [
+        {
+          "type": "min",
+          "value": 1024,
+          "message": "Use a non-standard port above 1024"
+        },
+        {
+          "type": "max",
+          "value": 65535,
+          "message": "Port must be under 65535"
+        }
+      ]
+    },
+    {
+      "name": "ssh_key_only",
+      "type": "boolean",
+      "required": true,
+      "label": "SSH Key-Only Authentication",
+      "default": true
+    },
+    {
+      "name": "fail2ban_enabled",
+      "type": "boolean",
+      "required": true,
+      "label": "Fail2Ban Enabled",
+      "default": true
+    },
+    {
+      "name": "ufw_enabled",
+      "type": "boolean",
+      "required": true,
+      "label": "UFW Firewall Enabled",
+      "default": true
+    },
+    {
+      "name": "unattended_upgrades",
+      "type": "boolean",
+      "required": true,
+      "label": "Unattended Security Upgrades",
+      "default": true
+    },
+    {
+      "name": "monitoring_enabled",
+      "type": "boolean",
+      "required": true,
+      "label": "Monitoring Enabled",
+      "default": true
+    },
+    {
+      "name": "monitoring_stack",
+      "type": "select",
+      "required": false,
+      "label": "Monitoring Stack",
+      "options": [
+        {
+          "value": "netdata",
+          "label": "Netdata (lightweight, real-time, web dashboard)"
+        },
+        {
+          "value": "prometheus_grafana",
+          "label": "Prometheus + Grafana (full metrics stack)"
+        },
+        {
+          "value": "basic",
+          "label": "Basic (systemd journal + logrotate + cron health checks)"
+        }
+      ]
+    },
+    {
+      "name": "alert_email",
+      "type": "email",
+      "required": true,
+      "label": "Alert Email",
+      "validation": [
+        {
+          "type": "email",
+          "message": "Valid email required for server alerts"
+        }
+      ]
+    },
+    {
+      "name": "backup_enabled",
+      "type": "boolean",
+      "required": true,
+      "label": "Automated Backups Enabled",
+      "default": true
+    },
+    {
+      "name": "backup_schedule",
+      "type": "text",
+      "required": false,
+      "label": "Backup Schedule (cron)",
+      "default": "0 3 * * *"
+    },
+    {
+      "name": "backup_retention_days",
+      "type": "number",
+      "required": false,
+      "label": "Backup Retention (days)",
+      "default": 30
+    },
+    {
+      "name": "backup_offsite",
+      "type": "boolean",
+      "required": false,
+      "label": "Offsite Backup Enabled",
+      "default": true
+    },
+    {
+      "name": "backup_offsite_target",
+      "type": "select",
+      "required": false,
+      "label": "Offsite Backup Target",
+      "options": [
+        {
+          "value": "s3",
+          "label": "S3-compatible storage (AWS, Backblaze B2, MinIO)"
+        },
+        {
+          "value": "rsync_remote",
+          "label": "Rsync to remote server"
+        },
+        {
+          "value": "rclone",
+          "label": "Rclone (Google Drive, Dropbox, OneDrive)"
+        }
+      ]
+    },
+    {
+      "name": "setup_status",
+      "type": "select",
+      "required": true,
+      "label": "Setup Status",
+      "options": [
+        {
+          "value": "not_started",
+          "label": "Not Started"
+        },
+        {
+          "value": "system_updated",
+          "label": "System Updated"
+        },
+        {
+          "value": "security_hardened",
+          "label": "Security Hardened"
+        },
+        {
+          "value": "services_installed",
+          "label": "Services Installed"
+        },
+        {
+          "value": "ssl_configured",
+          "label": "SSL Configured"
+        },
+        {
+          "value": "dns_configured",
+          "label": "DNS Configured"
+        },
+        {
+          "value": "monitoring_active",
+          "label": "Monitoring Active"
+        },
+        {
+          "value": "backups_configured",
+          "label": "Backups Configured"
+        },
+        {
+          "value": "fully_operational",
+          "label": "Fully Operational"
+        },
+        {
+          "value": "degraded",
+          "label": "Degraded"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "system_setup": [
+      "MUST: Start with Ubuntu 22.04 LTS or 24.04 LTS — no other versions",
+      "MUST: Run full system update (apt update && apt upgrade) before any configuration",
+      "MUST: Set timezone to UTC for consistent logging",
+      "MUST: Configure NTP time synchronization via systemd-timesyncd or chrony",
+      "MUST: Create non-root admin user with sudo privileges",
+      "MUST: Disable root SSH login",
+      "SHOULD: Remove unnecessary packages (snap, cloud-init on desktop installs)",
+      "SHOULD: Configure swap file if RAM is under 4GB (set to 2x RAM, max 4GB)",
+      "MAY: Install performance tuning (sysctl tweaks for network, file descriptors)"
+    ],
+    "networking": [
+      "MUST: Detect public IP automatically via external service (ifconfig.me, ipinfo.io)",
+      "MUST: Configure port forwarding on router for ports 80 (HTTP), 443 (HTTPS), and custom SSH port",
+      "MUST: Set up Dynamic DNS if ISP assigns dynamic IP — update DNS record on IP change",
+      "MUST: DDNS update check runs every 5 minutes via cron or systemd timer",
+      "MUST: Configure DNS A record pointing domain to public IP",
+      "MUST: Configure DNS AAAA record if IPv6 is available",
+      "SHOULD: Set up wildcard DNS for subdomains (*.example.com)",
+      "SHOULD: Test port accessibility from external network before proceeding",
+      "MAY: Set up WireGuard VPN for secure remote management"
+    ],
+    "firewall": [
+      "MUST: Enable UFW (Uncomplicated Firewall) with default deny incoming",
+      "MUST: Allow only required ports: HTTP (80), HTTPS (443), SSH (custom port)",
+      "MUST: Allow email ports only if email server is enabled: SMTP (25), SMTPS (465), IMAP (993)",
+      "MUST: Rate limit SSH connections (max 6 attempts per 30 seconds)",
+      "MUST: Log all denied connections",
+      "SHOULD: Enable UFW logging at medium level",
+      "SHOULD: Block known malicious IP ranges via ipset or fail2ban",
+      "MAY: Set up port knocking for SSH as additional security layer"
+    ],
+    "ssh": [
+      "MUST: Change SSH port from default 22 to custom port (1024-65535)",
+      "MUST: Disable password authentication — key-only access",
+      "MUST: Disable root login via SSH",
+      "MUST: Use Ed25519 or RSA 4096-bit keys minimum",
+      "MUST: Set SSH idle timeout to 15 minutes",
+      "MUST: Limit SSH access to specific user accounts via AllowUsers directive",
+      "SHOULD: Enable SSH two-factor authentication via google-authenticator-libpam",
+      "SHOULD: Set MaxAuthTries to 3"
+    ],
+    "fail2ban": [
+      "MUST: Install and enable Fail2Ban",
+      "MUST: Configure SSH jail: ban after 5 failed attempts for 1 hour",
+      "MUST: Configure web server jail: ban after 20 failed requests for 30 minutes",
+      "SHOULD: Configure email jail if email server is enabled",
+      "SHOULD: Enable persistent bans across reboots",
+      "SHOULD: Configure ban notification emails to admin",
+      "MAY: Configure recidive jail: ban repeat offenders for 1 week"
+    ],
+    "web_server": [
+      "MUST: Install and configure chosen web server (Nginx recommended)",
+      "MUST: Enable gzip/brotli compression for text, CSS, JS, JSON, XML",
+      "MUST: Set proper security headers: X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Strict-Transport-Security, Content-Security-Policy, Referrer-Policy, Permissions-Policy",
+      "MUST: Redirect all HTTP to HTTPS (301 redirect)",
+      "MUST: Disable server version disclosure (server_tokens off)",
+      "MUST: Configure proper file permissions (web root owned by www-data, 755 dirs, 644 files)",
+      "MUST: Set up reverse proxy for application backends with proper headers (X-Real-IP, X-Forwarded-For, X-Forwarded-Proto)",
+      "SHOULD: Enable HTTP/2 and HTTP/3 (QUIC)",
+      "SHOULD: Configure rate limiting per IP (10 req/s burst 20)",
+      "SHOULD: Set up virtual hosts for each subdomain",
+      "SHOULD: Configure proper logging (access + error logs with rotation)",
+      "MAY: Set up page caching for static sites"
+    ],
+    "ssl": [
+      "MUST: Obtain SSL certificate from Let's Encrypt using Certbot",
+      "MUST: Configure auto-renewal via systemd timer (check twice daily)",
+      "MUST: Use TLS 1.2+ only — disable TLS 1.0 and 1.1",
+      "MUST: Configure strong cipher suites (ECDHE+AESGCM preferred)",
+      "MUST: Enable OCSP stapling for faster SSL handshakes",
+      "MUST: Generate 4096-bit DH parameters for key exchange",
+      "SHOULD: Configure HSTS with 1-year max-age and includeSubDomains",
+      "SHOULD: Score A+ on SSL Labs test (ssllabs.com/ssltest)",
+      "MAY: Set up certificate transparency monitoring"
+    ],
+    "database": [
+      "MUST: Install chosen database engine and configure for production use",
+      "MUST: Bind database to localhost only (no remote access by default)",
+      "MUST: Create application-specific database user with minimal privileges",
+      "MUST: Set strong random password for database root/admin user",
+      "MUST: Enable database logging (slow queries, errors)",
+      "MUST: Include database in backup schedule",
+      "SHOULD: Configure connection pooling (PgBouncer for PostgreSQL)",
+      "SHOULD: Set appropriate memory limits based on available RAM",
+      "SHOULD: Enable SSL for database connections",
+      "MAY: Set up read replica for read-heavy workloads"
+    ],
+    "email": [
+      "MUST: Configure SPF record in DNS (v=spf1 mx a ~all)",
+      "MUST: Configure DKIM signing for outbound email",
+      "MUST: Configure DMARC record in DNS",
+      "MUST: Set up reverse DNS (PTR record) — contact ISP if needed",
+      "MUST: Configure TLS for all email connections",
+      "SHOULD: Set up spam filtering (SpamAssassin or rspamd)",
+      "SHOULD: Configure email quotas per mailbox",
+      "SHOULD: Set up webmail interface (Roundcube) if full email server",
+      "MAY: Set up email forwarding and aliases"
+    ],
+    "monitoring": [
+      "MUST: Monitor: CPU, memory, disk, network, and service health",
+      "MUST: Alert via email when: CPU > 90% for 5 min, disk > 85%, RAM > 90%, any service down",
+      "MUST: Log rotation configured for all services (7 days compressed retention)",
+      "MUST: Health check endpoint accessible at /health (returns 200 + system stats)",
+      "SHOULD: Install Netdata for real-time web dashboard (lightweight, auto-discovers services)",
+      "SHOULD: Monitor SSL certificate expiry — alert 14 days before",
+      "SHOULD: Monitor for security updates — alert when critical updates available",
+      "SHOULD: Track uptime percentage and response times",
+      "MAY: External uptime monitoring via free tier services (UptimeRobot, Hetrix)"
+    ],
+    "backups": [
+      "MUST: Automated daily backups of: web root, database dumps, configuration files, SSL certs",
+      "MUST: Backup retention: 7 daily, 4 weekly, 3 monthly",
+      "MUST: Backup integrity verification — test restore weekly",
+      "MUST: Offsite backup replication (never rely on local backups alone)",
+      "MUST: Backup encryption at rest (GPG or age)",
+      "SHOULD: Incremental backups to minimize storage and transfer",
+      "SHOULD: Backup notification email on success and failure",
+      "SHOULD: Database point-in-time recovery enabled (WAL archiving for PostgreSQL)",
+      "MAY: Snapshot-based backups if running on LVM"
+    ],
+    "security": [
+      "MUST: Run CIS Ubuntu benchmark hardening (level 1 minimum)",
+      "MUST: Disable unused network services and protocols",
+      "MUST: Configure AppArmor profiles for all internet-facing services",
+      "MUST: Set proper file system permissions (no world-writable files)",
+      "MUST: Configure audit logging (auditd) for security events",
+      "MUST: Install and configure rootkit detection (rkhunter or chkrootkit) — weekly scan",
+      "MUST: Disable USB storage mounting (prevent physical USB attacks)",
+      "SHOULD: Install and configure intrusion detection (AIDE or OSSEC)",
+      "SHOULD: Enable automatic security updates (unattended-upgrades for security patches only)",
+      "SHOULD: Configure process accounting",
+      "MAY: Set up centralized logging to external service"
+    ],
+    "maintenance": [
+      "MUST: Create server runbook documenting all services, ports, credentials locations, and recovery procedures",
+      "MUST: Automated system health report emailed weekly to admin",
+      "SHOULD: Scheduled maintenance window weekly (Sunday 3-5 AM) for updates",
+      "SHOULD: Log all administrative actions for audit trail",
+      "MAY: Ansible/shell playbook for reproducible server setup from scratch"
+    ]
+  },
+  "states": {
+    "field": "setup_status",
+    "values": [
+      {
+        "name": "not_started",
+        "description": "Fresh Ubuntu install — no configuration done",
+        "initial": true
+      },
+      {
+        "name": "system_updated",
+        "description": "OS updated, base packages installed, admin user created"
+      },
+      {
+        "name": "security_hardened",
+        "description": "Firewall, SSH, Fail2Ban configured"
+      },
+      {
+        "name": "services_installed",
+        "description": "Web server, database, email installed and running"
+      },
+      {
+        "name": "ssl_configured",
+        "description": "SSL certificates obtained and auto-renewal active"
+      },
+      {
+        "name": "dns_configured",
+        "description": "DNS records pointing to server, DDNS active if needed"
+      },
+      {
+        "name": "monitoring_active",
+        "description": "Monitoring, alerting, and logging operational"
+      },
+      {
+        "name": "backups_configured",
+        "description": "Automated backups running with offsite replication"
+      },
+      {
+        "name": "fully_operational",
+        "description": "All services running, monitored, backed up, and publicly accessible"
+      },
+      {
+        "name": "degraded",
+        "description": "One or more services down or underperforming"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "not_started",
+        "to": "system_updated",
+        "actor": "setup_automation",
+        "condition": "System update and base configuration complete"
+      },
+      {
+        "from": "system_updated",
+        "to": "security_hardened",
+        "actor": "setup_automation",
+        "condition": "Firewall, SSH hardening, and Fail2Ban configured"
+      },
+      {
+        "from": "security_hardened",
+        "to": "services_installed",
+        "actor": "setup_automation",
+        "condition": "Web server, database, and email server installed and tested"
+      },
+      {
+        "from": "services_installed",
+        "to": "ssl_configured",
+        "actor": "setup_automation",
+        "condition": "SSL certificates obtained and HTTPS working"
+      },
+      {
+        "from": "ssl_configured",
+        "to": "dns_configured",
+        "actor": "setup_automation",
+        "condition": "DNS records configured and resolving correctly"
+      },
+      {
+        "from": "dns_configured",
+        "to": "monitoring_active",
+        "actor": "setup_automation",
+        "condition": "Monitoring stack installed, dashboards accessible, alerts configured"
+      },
+      {
+        "from": "monitoring_active",
+        "to": "backups_configured",
+        "actor": "setup_automation",
+        "condition": "Backup schedule active, offsite replication verified"
+      },
+      {
+        "from": "backups_configured",
+        "to": "fully_operational",
+        "actor": "setup_automation",
+        "condition": "All health checks pass, external accessibility verified, runbook generated"
+      },
+      {
+        "from": "fully_operational",
+        "to": "degraded",
+        "actor": "monitoring_agent",
+        "condition": "Any monitored service fails health check"
+      },
+      {
+        "from": "degraded",
+        "to": "fully_operational",
+        "actor": "setup_automation",
+        "condition": "All services restored and health checks pass"
+      }
+    ]
+  },
+  "outcomes": {
+    "system_updated": {
+      "priority": 1,
+      "given": [
+        "Ubuntu 22.04 LTS or 24.04 LTS is installed",
+        "system has internet connectivity"
+      ],
+      "then": [
+        "run apt update && apt full-upgrade -y",
+        "set timezone to UTC",
+        "configure NTP time sync",
+        "create admin user with sudo privileges",
+        "disable root account direct login",
+        "install essential packages: curl, wget, git, ufw, fail2ban, certbot, unzip, htop, tmux, vim",
+        "remove unnecessary packages (snap, cloud-init if desktop install)",
+        "configure swap if RAM < 4GB",
+        {
+          "action": "transition_state",
+          "field": "setup_status",
+          "from": "not_started",
+          "to": "system_updated"
+        },
+        {
+          "action": "emit_event",
+          "event": "setup.system_updated",
+          "payload": [
+            "hostname",
+            "os_version",
+            "kernel_version",
+            "ram_mb",
+            "disk_gb"
+          ]
+        }
+      ],
+      "result": "System up to date with base packages installed and admin user ready"
+    },
+    "security_hardened": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "setup_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "system_updated"
+        }
+      ],
+      "then": [
+        "configure UFW: default deny incoming, allow outgoing, allow HTTP (80), HTTPS (443), custom SSH port",
+        "enable UFW with logging",
+        "change SSH port to custom port",
+        "disable SSH password authentication — key-only",
+        "disable SSH root login",
+        "set SSH MaxAuthTries to 3 and idle timeout to 15 minutes",
+        "install and configure Fail2Ban: SSH jail (5 attempts = 1 hour ban), web jail",
+        "enable AppArmor for internet-facing services",
+        "install rkhunter and configure weekly rootkit scan",
+        "configure auditd for security event logging",
+        "enable unattended-upgrades for security patches",
+        "disable USB storage mounting",
+        {
+          "action": "transition_state",
+          "field": "setup_status",
+          "from": "system_updated",
+          "to": "security_hardened"
+        },
+        {
+          "action": "emit_event",
+          "event": "setup.security_hardened",
+          "payload": [
+            "ssh_port",
+            "firewall_rules",
+            "fail2ban_jails"
+          ]
+        }
+      ],
+      "result": "Server hardened: firewall active, SSH secured, intrusion detection running"
+    },
+    "services_installed": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "setup_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "security_hardened"
+        }
+      ],
+      "then": [
+        "install and configure web server (Nginx recommended)",
+        "configure security headers, gzip compression, and server_tokens off",
+        "set up default virtual host with placeholder page",
+        "configure reverse proxy for application backends",
+        "install chosen database engine",
+        "secure database: set root password, remove test databases, restrict to localhost",
+        "create application database and user with minimal privileges",
+        "install email server if enabled (Postfix + Dovecot)",
+        "configure SPF, DKIM, and DMARC DNS records for email",
+        {
+          "action": "transition_state",
+          "field": "setup_status",
+          "from": "security_hardened",
+          "to": "services_installed"
+        },
+        {
+          "action": "emit_event",
+          "event": "setup.services_installed",
+          "payload": [
+            "web_server",
+            "database_engine",
+            "email_server_type",
+            "services_running"
+          ]
+        }
+      ],
+      "result": "Web server, database, and email server installed and running on localhost"
+    },
+    "ssl_configured": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "setup_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "services_installed"
+        },
+        {
+          "field": "domain_name",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        "obtain SSL certificate from Let's Encrypt using Certbot",
+        "configure web server for HTTPS with strong TLS settings",
+        "redirect all HTTP to HTTPS",
+        "enable HSTS with 1-year max-age",
+        "generate 4096-bit DH parameters",
+        "enable OCSP stapling",
+        "configure auto-renewal via systemd timer (twice daily check)",
+        "test SSL configuration (target: A+ on SSL Labs)",
+        {
+          "action": "transition_state",
+          "field": "setup_status",
+          "from": "services_installed",
+          "to": "ssl_configured"
+        },
+        {
+          "action": "emit_event",
+          "event": "setup.ssl_configured",
+          "payload": [
+            "domain_name",
+            "ssl_provider",
+            "cert_expiry",
+            "ssl_grade"
+          ]
+        }
+      ],
+      "result": "HTTPS working with A+ SSL rating, auto-renewal active"
+    },
+    "dns_configured": {
+      "priority": 5,
+      "given": [
+        {
+          "field": "setup_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "ssl_configured"
+        },
+        {
+          "field": "public_ip",
+          "source": "computed",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        "detect public IP automatically",
+        "configure DNS A record: domain → public IP",
+        "configure DNS AAAA record if IPv6 available",
+        "configure wildcard DNS record for subdomains",
+        "set up Dynamic DNS updater if ISP assigns dynamic IP",
+        "configure DDNS cron job (every 5 minutes)",
+        "configure DNS MX record if email server enabled",
+        "configure DNS TXT records for SPF, DKIM, DMARC",
+        "verify DNS propagation and test external access",
+        {
+          "action": "transition_state",
+          "field": "setup_status",
+          "from": "ssl_configured",
+          "to": "dns_configured"
+        },
+        {
+          "action": "emit_event",
+          "event": "setup.dns_configured",
+          "payload": [
+            "domain_name",
+            "public_ip",
+            "ddns_enabled",
+            "dns_records_configured"
+          ]
+        }
+      ],
+      "result": "Domain resolves to server, publicly accessible via HTTPS"
+    },
+    "monitoring_active": {
+      "priority": 6,
+      "given": [
+        {
+          "field": "setup_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "dns_configured"
+        }
+      ],
+      "then": [
+        "install monitoring stack (Netdata recommended — lightweight, auto-discovers services)",
+        "configure monitoring dashboard accessible via subdomain (monitor.example.com)",
+        "set up alert rules: CPU > 90%, disk > 85%, RAM > 90%, service down",
+        "configure email alerts to admin",
+        "set up log rotation for all services (7 days compressed)",
+        "create /health endpoint returning system stats",
+        "configure SSL certificate expiry monitoring (alert 14 days before)",
+        "configure security update monitoring",
+        {
+          "action": "transition_state",
+          "field": "setup_status",
+          "from": "dns_configured",
+          "to": "monitoring_active"
+        },
+        {
+          "action": "emit_event",
+          "event": "setup.monitoring_active",
+          "payload": [
+            "monitoring_stack",
+            "alert_rules",
+            "dashboard_url"
+          ]
+        }
+      ],
+      "result": "Monitoring dashboard live, alerts configured, logging operational"
+    },
+    "backups_configured": {
+      "priority": 7,
+      "given": [
+        {
+          "field": "setup_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "monitoring_active"
+        }
+      ],
+      "then": [
+        "create backup script: web root, database dumps, config files, SSL certs",
+        "configure backup schedule via systemd timer (daily at 3 AM)",
+        "configure retention: 7 daily, 4 weekly, 3 monthly",
+        "encrypt backups with GPG",
+        "configure offsite replication to chosen target",
+        "set up backup integrity verification (weekly test restore)",
+        "configure backup notification emails (success and failure)",
+        "enable database WAL archiving for point-in-time recovery (PostgreSQL)",
+        {
+          "action": "transition_state",
+          "field": "setup_status",
+          "from": "monitoring_active",
+          "to": "backups_configured"
+        },
+        {
+          "action": "emit_event",
+          "event": "setup.backups_configured",
+          "payload": [
+            "backup_schedule",
+            "retention_policy",
+            "offsite_target",
+            "encryption_method"
+          ]
+        }
+      ],
+      "result": "Automated encrypted backups running daily with offsite replication"
+    },
+    "fully_operational": {
+      "priority": 8,
+      "given": [
+        {
+          "field": "setup_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "backups_configured"
+        }
+      ],
+      "then": [
+        "run full health check: all services responding, SSL valid, DNS resolving, backups verified",
+        "test external access from outside network (HTTP, HTTPS, email if configured)",
+        "verify firewall blocks all non-allowed ports",
+        "run security scan (Lynis audit)",
+        "generate server runbook with: all services, ports, credential locations, recovery procedures",
+        "send setup completion email to admin with dashboard URL and runbook",
+        {
+          "action": "transition_state",
+          "field": "setup_status",
+          "from": "backups_configured",
+          "to": "fully_operational"
+        },
+        {
+          "action": "emit_event",
+          "event": "setup.complete",
+          "payload": [
+            "domain_name",
+            "public_ip",
+            "services_running",
+            "ssl_grade",
+            "lynis_score"
+          ]
+        },
+        {
+          "action": "notify",
+          "channel": "email",
+          "template": "server_ready",
+          "to": "admin"
+        }
+      ],
+      "result": "Server fully operational — publicly accessible, monitored, backed up, and hardened",
+      "transaction": true
+    },
+    "service_degraded": {
+      "priority": 9,
+      "error": "SERVICE_DEGRADED",
+      "given": [
+        {
+          "field": "setup_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "fully_operational"
+        },
+        "any monitored service fails health check"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "setup_status",
+          "from": "fully_operational",
+          "to": "degraded"
+        },
+        {
+          "action": "notify",
+          "channel": "email",
+          "template": "service_alert",
+          "to": "admin"
+        },
+        {
+          "action": "emit_event",
+          "event": "server.degraded",
+          "payload": [
+            "failed_service",
+            "error_details",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Admin alerted — automatic recovery attempted for known failure patterns"
+    },
+    "service_auto_recovered": {
+      "priority": 10,
+      "given": [
+        {
+          "field": "setup_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "degraded"
+        },
+        "automatic restart of failed service succeeds",
+        "all health checks pass after restart"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "setup_status",
+          "from": "degraded",
+          "to": "fully_operational"
+        },
+        {
+          "action": "notify",
+          "channel": "email",
+          "template": "service_recovered",
+          "to": "admin"
+        },
+        {
+          "action": "emit_event",
+          "event": "server.recovered",
+          "payload": [
+            "recovered_service",
+            "downtime_seconds",
+            "recovery_method"
+          ]
+        }
+      ],
+      "result": "Service auto-recovered — admin notified of incident and resolution"
+    },
+    "ssl_renewal_succeeded": {
+      "priority": 11,
+      "given": [
+        "SSL certificate renewal cron runs",
+        "certificate is within 30 days of expiry"
+      ],
+      "then": [
+        "renew certificate via Certbot",
+        "reload web server to use new certificate",
+        {
+          "action": "emit_event",
+          "event": "ssl.renewed",
+          "payload": [
+            "domain_name",
+            "new_expiry",
+            "old_expiry"
+          ]
+        }
+      ],
+      "result": "SSL certificate renewed and web server reloaded — zero downtime"
+    },
+    "ssl_renewal_failed": {
+      "priority": 12,
+      "error": "SSL_RENEWAL_FAILED",
+      "given": [
+        "SSL certificate renewal attempt fails",
+        "certificate expires in less than 14 days"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "email",
+          "template": "ssl_urgent",
+          "to": "admin"
+        },
+        {
+          "action": "emit_event",
+          "event": "ssl.renewal_failed",
+          "payload": [
+            "domain_name",
+            "expiry_date",
+            "error_details"
+          ]
+        }
+      ],
+      "result": "Admin urgently notified — manual intervention required before certificate expires"
+    },
+    "ddns_updated": {
+      "priority": 13,
+      "given": [
+        {
+          "field": "ddns_enabled",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        },
+        "public IP has changed since last check"
+      ],
+      "then": [
+        "update DNS A record with new IP via DDNS provider API",
+        {
+          "action": "emit_event",
+          "event": "dns.ip_changed",
+          "payload": [
+            "old_ip",
+            "new_ip",
+            "updated_at"
+          ]
+        }
+      ],
+      "result": "DNS updated with new IP — public access restored within DNS TTL"
+    },
+    "backup_completed": {
+      "priority": 14,
+      "given": [
+        "scheduled backup cron triggers"
+      ],
+      "then": [
+        "create encrypted backup of web root, database, configs, and SSL certs",
+        "verify backup integrity via checksum",
+        "replicate to offsite storage",
+        "prune old backups per retention policy",
+        {
+          "action": "emit_event",
+          "event": "backup.completed",
+          "payload": [
+            "backup_size_mb",
+            "files_backed_up",
+            "offsite_replicated",
+            "retention_pruned"
+          ]
+        }
+      ],
+      "result": "Backup completed, verified, and replicated offsite"
+    },
+    "backup_failed": {
+      "priority": 15,
+      "error": "BACKUP_FAILED",
+      "given": [
+        "backup process encounters error"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "email",
+          "template": "backup_alert",
+          "to": "admin"
+        },
+        {
+          "action": "emit_event",
+          "event": "backup.failed",
+          "payload": [
+            "error_details",
+            "last_successful_backup"
+          ]
+        }
+      ],
+      "result": "Admin alerted of backup failure — manual investigation required"
+    },
+    "disk_space_critical": {
+      "priority": 16,
+      "error": "DISK_SPACE_CRITICAL",
+      "given": [
+        "disk usage exceeds 85%"
+      ],
+      "then": [
+        "automatically clean: apt cache, old logs, old backups beyond retention",
+        {
+          "action": "notify",
+          "channel": "email",
+          "template": "disk_alert",
+          "to": "admin"
+        },
+        {
+          "action": "emit_event",
+          "event": "server.disk_critical",
+          "payload": [
+            "disk_usage_percent",
+            "largest_directories",
+            "auto_cleaned_mb"
+          ]
+        }
+      ],
+      "result": "Auto-cleanup attempted — admin notified if still above threshold"
+    },
+    "security_update_available": {
+      "priority": 17,
+      "given": [
+        "security update check detects critical updates available"
+      ],
+      "then": [
+        "apply security patches automatically via unattended-upgrades",
+        {
+          "action": "emit_event",
+          "event": "security.updates_applied",
+          "payload": [
+            "packages_updated",
+            "reboot_required"
+          ]
+        },
+        {
+          "action": "notify",
+          "channel": "email",
+          "template": "security_update",
+          "to": "admin",
+          "description": "Notify admin if reboot is required after kernel update"
+        }
+      ],
+      "result": "Security patches applied — admin notified if reboot needed"
+    },
+    "intrusion_detected": {
+      "priority": 18,
+      "error": "INTRUSION_DETECTED",
+      "given": [
+        "Fail2Ban, rkhunter, or audit log detects suspicious activity"
+      ],
+      "then": [
+        "block offending IP if applicable",
+        {
+          "action": "notify",
+          "channel": "email",
+          "template": "intrusion_alert",
+          "to": "admin"
+        },
+        {
+          "action": "emit_event",
+          "event": "security.intrusion_detected",
+          "payload": [
+            "detection_source",
+            "threat_type",
+            "source_ip",
+            "action_taken"
+          ]
+        }
+      ],
+      "result": "Threat mitigated — admin alerted with full details"
+    },
+    "port_scan_blocked": {
+      "priority": 19,
+      "given": [
+        "UFW logs show port scanning from single IP"
+      ],
+      "then": [
+        "add IP to Fail2Ban ban list",
+        {
+          "action": "emit_event",
+          "event": "security.port_scan",
+          "payload": [
+            "source_ip",
+            "ports_scanned",
+            "banned_duration"
+          ]
+        }
+      ],
+      "result": "Scanner IP banned — logged for security audit"
+    }
+  },
+  "events": [
+    {
+      "name": "setup.system_updated",
+      "payload": [
+        "hostname",
+        "os_version",
+        "kernel_version",
+        "ram_mb",
+        "disk_gb"
+      ],
+      "description": "Phase 1 complete — system updated and base packages installed"
+    },
+    {
+      "name": "setup.security_hardened",
+      "payload": [
+        "ssh_port",
+        "firewall_rules",
+        "fail2ban_jails"
+      ],
+      "description": "Phase 2 complete — security hardening applied"
+    },
+    {
+      "name": "setup.services_installed",
+      "payload": [
+        "web_server",
+        "database_engine",
+        "email_server_type",
+        "services_running"
+      ],
+      "description": "Phase 3 complete — all services installed and running"
+    },
+    {
+      "name": "setup.ssl_configured",
+      "payload": [
+        "domain_name",
+        "ssl_provider",
+        "cert_expiry",
+        "ssl_grade"
+      ],
+      "description": "Phase 4 complete — SSL certificates active"
+    },
+    {
+      "name": "setup.dns_configured",
+      "payload": [
+        "domain_name",
+        "public_ip",
+        "ddns_enabled",
+        "dns_records_configured"
+      ],
+      "description": "Phase 5 complete — DNS resolving to server"
+    },
+    {
+      "name": "setup.monitoring_active",
+      "payload": [
+        "monitoring_stack",
+        "alert_rules",
+        "dashboard_url"
+      ],
+      "description": "Phase 6 complete — monitoring and alerting operational"
+    },
+    {
+      "name": "setup.backups_configured",
+      "payload": [
+        "backup_schedule",
+        "retention_policy",
+        "offsite_target",
+        "encryption_method"
+      ],
+      "description": "Phase 7 complete — automated backups active"
+    },
+    {
+      "name": "setup.complete",
+      "payload": [
+        "domain_name",
+        "public_ip",
+        "services_running",
+        "ssl_grade",
+        "lynis_score"
+      ],
+      "description": "All phases complete — server fully operational"
+    },
+    {
+      "name": "server.degraded",
+      "payload": [
+        "failed_service",
+        "error_details",
+        "timestamp"
+      ],
+      "description": "Service failure detected — auto-recovery in progress"
+    },
+    {
+      "name": "server.recovered",
+      "payload": [
+        "recovered_service",
+        "downtime_seconds",
+        "recovery_method"
+      ],
+      "description": "Failed service auto-recovered"
+    },
+    {
+      "name": "server.disk_critical",
+      "payload": [
+        "disk_usage_percent",
+        "largest_directories",
+        "auto_cleaned_mb"
+      ],
+      "description": "Disk usage exceeded threshold"
+    },
+    {
+      "name": "ssl.renewed",
+      "payload": [
+        "domain_name",
+        "new_expiry",
+        "old_expiry"
+      ],
+      "description": "SSL certificate auto-renewed"
+    },
+    {
+      "name": "ssl.renewal_failed",
+      "payload": [
+        "domain_name",
+        "expiry_date",
+        "error_details"
+      ],
+      "description": "SSL renewal failed — urgent action needed"
+    },
+    {
+      "name": "dns.ip_changed",
+      "payload": [
+        "old_ip",
+        "new_ip",
+        "updated_at"
+      ],
+      "description": "Public IP changed — DDNS updated"
+    },
+    {
+      "name": "backup.completed",
+      "payload": [
+        "backup_size_mb",
+        "files_backed_up",
+        "offsite_replicated",
+        "retention_pruned"
+      ],
+      "description": "Scheduled backup completed successfully"
+    },
+    {
+      "name": "backup.failed",
+      "payload": [
+        "error_details",
+        "last_successful_backup"
+      ],
+      "description": "Backup failed — manual intervention needed"
+    },
+    {
+      "name": "security.updates_applied",
+      "payload": [
+        "packages_updated",
+        "reboot_required"
+      ],
+      "description": "Security patches auto-applied"
+    },
+    {
+      "name": "security.intrusion_detected",
+      "payload": [
+        "detection_source",
+        "threat_type",
+        "source_ip",
+        "action_taken"
+      ],
+      "description": "Suspicious activity detected and mitigated"
+    },
+    {
+      "name": "security.port_scan",
+      "payload": [
+        "source_ip",
+        "ports_scanned",
+        "banned_duration"
+      ],
+      "description": "Port scan detected and blocked"
+    }
+  ],
+  "errors": [
+    {
+      "code": "SERVICE_DEGRADED",
+      "status": 503,
+      "message": "Service temporarily unavailable. Automatic recovery in progress.",
+      "retry": true
+    },
+    {
+      "code": "SSL_RENEWAL_FAILED",
+      "status": 500,
+      "message": "SSL certificate renewal failed. Service remains available with current certificate.",
+      "retry": true
+    },
+    {
+      "code": "BACKUP_FAILED",
+      "status": 500,
+      "message": "Automated backup failed. Previous backups remain available.",
+      "retry": true
+    },
+    {
+      "code": "DISK_SPACE_CRITICAL",
+      "status": 503,
+      "message": "Server disk space critically low. Some operations may be affected.",
+      "retry": true
+    },
+    {
+      "code": "INTRUSION_DETECTED",
+      "status": 403,
+      "message": "Suspicious activity detected and blocked.",
+      "retry": false
+    },
+    {
+      "code": "DNS_UPDATE_FAILED",
+      "status": 503,
+      "message": "DNS update failed. Server may be temporarily unreachable via domain name.",
+      "retry": true
+    },
+    {
+      "code": "PORT_FORWARDING_FAILED",
+      "status": 503,
+      "message": "Required ports are not accessible from the public internet.",
+      "retry": true
+    },
+    {
+      "code": "DATABASE_CONNECTION_FAILED",
+      "status": 500,
+      "message": "Database connection failed. Automatic restart attempted.",
+      "retry": true
+    }
+  ],
+  "sla": {
+    "web_response": {
+      "max_duration": "500ms",
+      "description": "Web server responds within 500ms for static content (p95)"
+    },
+    "uptime": {
+      "max_duration": "99.9%",
+      "description": "99.9% uptime target — max 8.7 hours downtime per year"
+    },
+    "ssl_renewal": {
+      "max_duration": "30d",
+      "description": "SSL certificates renewed at least 30 days before expiry",
+      "escalation": [
+        {
+          "after": "14d",
+          "action": "alert_admin",
+          "description": "Urgent alert if certificate expiring within 14 days"
+        }
+      ]
+    },
+    "backup_completion": {
+      "max_duration": "4h",
+      "description": "Daily backup completes within 4 hours"
+    },
+    "incident_response": {
+      "max_duration": "5m",
+      "description": "Automated recovery attempts within 5 minutes of service failure"
+    },
+    "ddns_update": {
+      "max_duration": "10m",
+      "description": "DNS updated within 10 minutes of IP address change"
+    }
+  },
+  "related": [
+    {
+      "feature": "caching",
+      "type": "recommended",
+      "reason": "Redis or Memcached for application-level caching"
+    },
+    {
+      "feature": "database-persistence",
+      "type": "required",
+      "reason": "PostgreSQL or MySQL setup and configuration"
+    },
+    {
+      "feature": "cloud-storage",
+      "type": "recommended",
+      "reason": "Offsite backup storage target"
+    },
+    {
+      "feature": "message-queue",
+      "type": "optional",
+      "reason": "Redis or RabbitMQ for background job processing"
+    },
+    {
+      "feature": "ai-solo-business-automation",
+      "type": "recommended",
+      "reason": "AI-to-AI service platform that runs on this server infrastructure"
+    }
+  ],
+  "ui_hints": {
+    "layout": "wizard",
+    "sections": [
+      {
+        "name": "Network Setup",
+        "description": "Domain, IP detection, port forwarding, DDNS configuration"
+      },
+      {
+        "name": "Security",
+        "description": "Firewall rules, SSH config, Fail2Ban settings"
+      },
+      {
+        "name": "Services",
+        "description": "Web server, database, and email server selection and configuration"
+      },
+      {
+        "name": "SSL & DNS",
+        "description": "Certificate provisioning, DNS records, DDNS setup"
+      },
+      {
+        "name": "Monitoring",
+        "description": "Monitoring stack selection, alert rules, dashboard access"
+      },
+      {
+        "name": "Backups",
+        "description": "Backup schedule, retention, offsite target, encryption"
+      },
+      {
+        "name": "Status Dashboard",
+        "description": "Real-time server health: CPU, RAM, disk, services, uptime, recent alerts"
+      }
+    ]
+  }
+}
