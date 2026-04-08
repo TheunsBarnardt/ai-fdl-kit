@@ -363,6 +363,18 @@ After the user makes their selection, check if any NEWLY selected blueprints hav
 
 ---
 
+### Ultraplan checkpoint (optional)
+
+For complex builds (10+ features selected, or when the user explicitly asks), offer to refine the plan with ultraplan before resolving gaps:
+
+> "This is a large build with {N} features and {M} gaps. Would you like to review the full feature list with ultraplan on Claude Code on the web? You can comment on individual features, flag concerns, and adjust selections visually — then return here to continue."
+
+If the user accepts, launch `/ultraplan` with the confirmed checklist, gap list, and dependency relationships. When the user approves in the browser and sends the plan back to the terminal, resume at Phase 5 with any adjustments applied.
+
+If the user declines or the build is small, proceed normally.
+
+---
+
 ## Phase 5: Resolve Gaps
 
 For each feature that has NO matching blueprint (shown as GAPS in the checklist), present resolution options.
@@ -427,6 +439,7 @@ Ready to generate? Or adjust the order/selection?
 Use AskUserQuestion:
 - "Generate all" (proceed)
 - "I want to adjust" (ask what to change)
+- "Refine with ultraplan" (send the full generation plan to Claude Code on the web for browser-based review — see Ultraplan Integration below)
 
 ### Step 3: Generate shared infrastructure
 
@@ -806,3 +819,70 @@ Every generated file includes trace comments back to the blueprint:
 10. **Generate working code.** The output should run after `npm install && npm run dev` (or equivalent). Include all imports, config files, and integration glue.
 11. **Add FDL trace comments.** Every generated file has `// FDL: {feature}/{outcome}` comments for traceability.
 12. **Outcomes over flows.** When a blueprint has both outcomes and flows, generate code from outcomes. Flows are for human documentation.
+
+---
+
+## Ultraplan Integration
+
+[Ultraplan](https://code.claude.com/docs/en/ultraplan) hands a planning task from the CLI to Claude Code on the web for browser-based review. The user gets inline comments, emoji reactions, and an outline sidebar — a richer review surface than the terminal.
+
+### When to offer ultraplan
+
+- **Automatically** when the build has **10+ selected features** or **3+ gaps** — the checklist is complex enough that inline browser review adds real value
+- **Always** when the user explicitly asks (e.g., "ultraplan this", "let me review in the browser")
+- **Never force it** — ultraplan is always an option alongside the standard CLI flow
+
+### Two integration points in `/fdl-build`
+
+1. **After Phase 4 checklist confirmation** — send the confirmed feature list, gap list, and dependency relationships to ultraplan. The user reviews feature selections visually, comments on individual items ("Why is tax-engine required?"), and adjusts. When approved, resume at Phase 5 with any changes applied.
+
+2. **At Phase 6 Step 2 generation plan** — send the dependency graph, build order, and integration notes to ultraplan. The user reviews sequencing, flags integration concerns, and adjusts order. When approved, resume at Phase 6 Step 3 for code generation.
+
+### What gets sent to ultraplan
+
+Structure the plan as a markdown document with clear sections:
+
+```markdown
+# Build Plan: {app description}
+
+## Tech Stack
+- Framework: {framework}
+- Database: {database}
+- UI Library: {ui library}
+
+## Selected Features ({N} total)
+
+### Core Features
+- [ ] auth/login — Email/password authentication
+- [ ] auth/signup — User registration
+...
+
+### Required Dependencies
+- [ ] data/tax-engine — Required by pos-core for order totals
+...
+
+### Recommended Additions
+- [ ] notification/email-notifications — Recommended for signup confirmation
+...
+
+### Gaps (no blueprint exists)
+- [ ] otp-login — Needs creation or extraction
+...
+
+## Dependency Graph
+1. auth/signup (no deps)
+2. auth/login → signup
+3. payment/pos-core → tax-engine
+...
+
+## Integration Notes
+- Login middleware protects all /api routes
+- POS shares the tax-engine with invoicing
+```
+
+### How to resume after ultraplan
+
+When the plan returns from the browser (either via "Approve plan and teleport back to terminal" or by the user choosing to implement locally):
+1. Parse any adjustments — features added/removed, gaps resolved, order changes
+2. Update the internal feature list and dependency graph
+3. Resume at the appropriate phase (Phase 5 if gaps remain, Phase 6 if ready to generate)

@@ -52,6 +52,8 @@ Refer to the `/fdl-build` skill for the full details of each phase. The interact
 
 Once the user has confirmed their final blueprint selection, ask how they want the export delivered. Different AI systems have different context limits.
 
+**Ultraplan option:** For complex builds (10+ blueprints or 3+ gaps), mention that the user can review the full blueprint selection and export plan with [ultraplan](https://code.claude.com/docs/en/ultraplan) on Claude Code on the web before choosing an export format. The export mode comparison (Full vs Chunked vs Compact with token estimates) renders well in ultraplan's inline-comment review surface — the user can ask questions about specific blueprints ("Will this fit in ChatGPT's context?") and get answers in-thread. If the user accepts, send the blueprint list with size estimates for each mode. When approved, resume here with the chosen format.
+
 ### Present export options
 
 Use AskUserQuestion:

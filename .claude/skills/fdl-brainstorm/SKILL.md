@@ -91,6 +91,8 @@ Walk through each section. **Do not dump the whole design at once.** After each 
 
 No invocation of `/fdl-create` until the user says "yes, that's what I want" to the complete picture. If they hesitate, loop back to the specific section that feels wrong.
 
+**Ultraplan option:** Before asking for final approval, offer the user the choice to review the full design with [ultraplan](https://code.claude.com/docs/en/ultraplan) on Claude Code on the web. This is especially useful when the design has 3+ failure paths or involves a state machine — the browser's inline comments let the user flag specific fields, outcomes, or security rules rather than describing concerns in chat. If the user accepts, send the complete design (data fields, success/failure outcomes, security rules, related features) as a structured plan. When the user approves in the browser, resume at Step 8. If the user prefers to stay in the terminal, proceed with the standard approval flow.
+
 ### Step 8 — Self-review the design against completeness rules
 
 Before handoff, internally check:
