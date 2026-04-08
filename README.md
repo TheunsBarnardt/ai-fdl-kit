@@ -52,13 +52,16 @@ No code. No YAML knowledge needed. The CLI + conversational skills handle everyt
 | Method | When to use it | Command |
 |--------|---------------|---------|
 | **Build a full app** | Describe your app in plain English | `/fdl-build "nextjs POS with OTP login"` |
+| **Brainstorm a feature** | You have a problem, not a solution | `/fdl-brainstorm` |
 | **Create from scratch** | You know what feature you want | `/fdl-create checkout payment` |
 | **Extract from a document** | You have a BRD, policy doc, or SOP | `/fdl-extract docs/policy.pdf` |
 | **Extract from a website** | API docs, developer portal | `/fdl-extract-web https://docs.example.com/api` |
 | **Extract from code** | Existing codebase or git repo | `/fdl-extract-code ./src/auth login auth` |
 | **Extract features selectively** | Large repo, pick only what you want | `/fdl-extract-code-feature https://github.com/org/repo` |
 | **Generate code** | You have a blueprint, want code | `/fdl-generate login nextjs` |
-| **Install for other AI tools** | Use FDL in Cursor, Windsurf, Copilot, etc. | `/fdl-install cursor` |
+| **Export for other AI tools** | Use blueprints with ChatGPT, Gemini, etc. | `/fdl-build-yaml "my app description"` |
+| **Install for AI tools** | Set up Cursor, Windsurf, Copilot, etc. | `/fdl-install cursor` |
+| **Auto-evolve** | Validate, regenerate docs, and commit | `/fdl-auto-evolve` |
 
 ---
 
@@ -134,7 +137,7 @@ Blueprints aren't just templates — they encode transferable architectural patt
 
 Full documentation at **[theunsbarnardt.github.io/ai-fdl-kit](https://theunsbarnardt.github.io/ai-fdl-kit/)**:
 
-- [The Seven Commands](https://theunsbarnardt.github.io/ai-fdl-kit/commands/) — detailed reference
+- [All Eleven Commands](https://theunsbarnardt.github.io/ai-fdl-kit/commands/) — detailed reference
 - [Blueprint Format](https://theunsbarnardt.github.io/ai-fdl-kit/blueprint-format/) — what's inside a blueprint
 - [Blueprint Catalog](https://theunsbarnardt.github.io/ai-fdl-kit/catalog/) — browse all 51 blueprints
 - [Combining Blueprints](https://theunsbarnardt.github.io/ai-fdl-kit/combining/) — build complex systems
