@@ -133,9 +133,24 @@ Blueprints aren't just templates — they encode transferable architectural patt
 
 ---
 
+## Data Protection & POPIA Compliance
+
+FDL enforces **zero-tolerance for leaked secrets and private data** at every layer:
+
+| Layer | Protection |
+|-------|-----------|
+| **Policy** | CLAUDE.md rules — refuse to process secrets even if pasted in chat |
+| **Validator** | `scripts/validate.js` scans all blueprint strings for API keys, JWTs, connection strings, private keys, SA ID numbers |
+| **Completeness Check** | `scripts/completeness-check.js` provides secondary secret detection |
+| **Skills** | All `/fdl-extract-*` skills scan source material and redact secrets before generating blueprints |
+
+Detected patterns include: OpenAI/Stripe keys (`sk-`), AWS keys (`AKIA`), GitHub tokens (`ghp_`), JWT tokens, connection strings with credentials, private keys, and South African ID numbers. Any blueprint containing secrets **fails validation** — no exceptions.
+
+---
+
 ## AGI-Readiness Layer
 
-Blueprints can include an optional `agi` section that makes them consumable by autonomous AI agents:
+All 203 blueprints include an `agi` section that makes them consumable by autonomous AI agents:
 
 | Sub-section | Purpose | Example |
 |------------|---------|---------|
@@ -144,8 +159,12 @@ Blueprints can include an optional `agi` section that makes them consumable by a
 | **Verification** | Invariants, acceptance tests, monitoring thresholds | Self-verifying specs agents can validate |
 | **Composability** | Declared capabilities, boundaries, and tradeoffs | `"prefer security over performance"` |
 | **Evolution** | Adaptive triggers and deprecation schedules | `"if error_rate > 1%, add circuit breaker"` |
+| **Coordination** | Multi-agent collaboration protocols | `protocol: pub_sub`, `exposes`, `consumes` with fallback |
+| **Safety** | Per-action granular permissions | `autonomous`, `supervised`, `human_required` with cooldowns |
+| **Explainability** | Decision logging and audit trails | `log_decisions: true`, `audit_events` with required fields |
+| **Learning** | Feedback loops and adaptive behavior | Signals, experiments, rollback conditions |
 
-The AGI section is entirely optional — existing blueprints work unchanged. See [`blueprints/auth/login.blueprint.yaml`](blueprints/auth/login.blueprint.yaml) for a complete example.
+Run `/fdl-propagate-agi` to auto-generate AGI sections for new blueprints, or `/fdl-research` to research the latest AI patterns and improve FDL.
 
 ---
 
