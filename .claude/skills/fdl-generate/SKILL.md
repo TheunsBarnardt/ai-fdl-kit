@@ -113,6 +113,67 @@ Use AskUserQuestion. Only ask what changes the generated code.
 
 Skip if frontend-only. Don't ask more questions — use smart defaults.
 
+## AGI-Readiness Integration (automatic when `agi` section exists)
+
+After loading the blueprint, check if it has an `agi` section. If it does, **automatically** ask the user plain-English questions using AskUserQuestion. **NEVER use technical terms like autonomy, invariants, acceptance tests, deprecation, tradeoffs, AGI, or monitoring.** Translate everything into simple, human language.
+
+**CRITICAL: The user knows NOTHING about AGI, YAML, or blueprints. Write questions like you're talking to a business owner, not a developer.**
+
+### Step 1: Control question (from `agi.autonomy`)
+
+Read `agi.autonomy` and ask in plain English:
+
+"How much control do you want over this feature?"
+- "Handle everything automatically" 
+- "Let it run but I want to review important actions like: {rewrite human_checkpoints in plain English}"
+- "I want to approve every step"
+
+Example: if `human_checkpoints` says "before disabling an account permanently", the option reads: "Let it run but I want to review things like disabling accounts"
+
+### Step 2: Priority question (from `agi.tradeoffs`)
+
+Combine all tradeoffs into ONE plain-English question. Don't mention "tradeoffs":
+
+"What matters more for your app?"
+- For each tradeoff entry, create a plain option. Example:
+  - If `prefer: security, over: performance, reason: "constant-time comparison prevents timing attacks"` → option: "Maximum security even if it's slightly slower (recommended)"
+  - The other side: "Fastest possible speed, standard security"
+
+### Step 3: Testing question (from `agi.verification`)
+
+Don't say "acceptance tests" or "invariants". Say:
+
+"This feature comes with {N} built-in quality checks. Want me to generate test code to make sure everything works correctly?"
+- "Yes — include the tests"
+- "No — just build the feature"
+
+### Step 4: Modernization question (from `agi.evolution.deprecation`)
+
+Don't say "deprecation" or "migration". Translate to plain English:
+
+"The '{field}' option is being phased out. The newer approach is: {rewrite migration in plain English}. Want me to use the newer approach?"
+- "Yes — use the newer way"
+- "No — keep it as is for now"
+
+Example: if `field: remember_me, migration: "use refresh token rotation with configurable TTL instead"` → "The 'remember me' checkbox is being replaced with a smarter system that keeps you logged in automatically. Want me to use the newer approach?"
+
+### How answers shape the code (internal — don't explain this to the user)
+
+- **Control** → Generates approval screens or automated flows based on choice
+- **Priority** → Shapes code decisions (e.g., security-first → constant-time everything)
+- **Testing** → If yes, generates test files from `acceptance_tests` (each → test case) and `invariants` (each → assertion)
+- **Modernization** → Uses new patterns or keeps old ones
+- **Additionally, always silently apply:**
+  - `agi.verification.monitoring` → generate health-check endpoints
+  - `agi.boundaries` → enforce execution order in generated code
+  - `agi.capabilities` → document dependencies in code comments
+  - `agi.goals` → add goal comments: `// GOAL: {description} — target: {metric} {target}`
+  - `agi.evolution.triggers` → add TODO comments: `// TODO: if {condition}, consider {action}`
+
+**If the blueprint has NO `agi` section, skip all of this silently.**
+
+---
+
 ## Code Generation: Outcome-Driven Approach
 
 For each outcome in the blueprint, your generated code must:

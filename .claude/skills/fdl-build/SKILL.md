@@ -441,6 +441,56 @@ Use AskUserQuestion:
 - "I want to adjust" (ask what to change)
 - "Refine with ultraplan" (send the full generation plan to Claude Code on the web for browser-based review — see Ultraplan Integration below)
 
+### Step 2.5: Smart Questions (automatic when any blueprint has `agi` section)
+
+After presenting the generation plan, scan all selected blueprints for `agi` sections. If ANY blueprint has one, automatically ask plain-English questions before generating code.
+
+**CRITICAL: The user knows NOTHING about AGI, YAML, schemas, or blueprints. NEVER use technical terms like autonomy, invariants, acceptance tests, deprecation, tradeoffs, monitoring, or AGI. Write questions like you're talking to a business owner.**
+
+**Collect data across all selected blueprints:**
+- Gather all `agi.autonomy` entries
+- Gather all `agi.tradeoffs` entries  
+- Count total `agi.verification.acceptance_tests` and `agi.verification.invariants`
+- Gather all `agi.evolution.deprecation` entries
+
+**Ask these questions using AskUserQuestion (skip any that don't apply):**
+
+**Question 1 — Control** (if any blueprint has `agi.autonomy`):
+"How much control do you want over the system?"
+- "Handle everything automatically"
+- "Let it run but I want to review important actions like: {rewrite human_checkpoints in plain English}"
+- "I want to approve every step"
+
+Example: if human_checkpoints says "before disabling an account permanently" → "Let it run but I want to review things like disabling accounts"
+
+**Question 2 — What matters most** (if any blueprint has `agi.tradeoffs`):
+"What matters more for your app?"
+- Translate each tradeoff into a plain-English option. Example:
+  - `prefer: security, over: performance` → "Maximum security even if slightly slower (recommended)"
+  - The other side → "Fastest possible speed, standard security"
+- Don't say "tradeoff" — just present the choices naturally
+
+**Question 3 — Quality checks** (if any blueprint has `agi.verification`):
+"Your features come with {N} built-in quality checks. Want me to generate test code to make sure everything works correctly?"
+- "Yes — include the tests"
+- "No — just build the features"
+
+**Question 4 — Newer alternatives** (if any blueprint has `agi.evolution.deprecation`):
+Translate each deprecation into plain English and ask:
+"Some options have newer replacements available:"
+- For each: "'{field}' → {rewrite migration in plain English}. Use the newer way?"
+
+Example: `field: remember_me, migration: "use refresh token rotation"` → "The 'remember me' checkbox is being replaced with a smarter system that keeps you logged in automatically. Want me to use the newer approach?"
+
+**How answers shape generation (internal — don't explain to user):**
+- Control → generates approval screens or fully automated flows
+- Priority → shapes code decisions (security-first, speed-first, etc.)
+- Quality checks → if yes, generates test files from acceptance_tests and invariants
+- Newer alternatives → uses modern patterns or keeps old ones
+- **Always silently apply:** monitoring → health checks, boundaries → execution order, goals → code comments, evolution triggers → TODO comments
+
+**If NO selected blueprint has an `agi` section, skip all of this silently.**
+
 ### Step 3: Generate shared infrastructure
 
 Before generating individual features, create the project scaffolding:
