@@ -3,7 +3,7 @@ title: "Prisma Migrations Blueprint"
 layout: default
 parent: "Data"
 grand_parent: Blueprint Catalog
-description: "Manage database schema versioning and evolution with safe migrations. 4 fields. 5 outcomes. 4 error codes. rules: development, production, safety"
+description: "Manage database schema versioning and evolution with safe migrations. 4 fields. 5 outcomes. 4 error codes. rules: development, production, safety. AGI: supervis"
 ---
 
 # Prisma Migrations Blueprint
@@ -135,6 +135,64 @@ description: "Manage database schema versioning and evolution with safe migratio
 | prisma-schema | required | Schema changes drive migrations |
 | prisma-crud | required | Migrations create tables for CRUD operations |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Prisma Migrations
+
+Manage database schema versioning and evolution with safe migrations
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `prisma_schema` | prisma-schema | degrade |
+| `prisma_crud` | prisma-crud | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| migration_created | `supervised` | - | - |
+| migration_applied | `autonomous` | - | - |
+| client_regenerated | `autonomous` | - | - |
+| migration_conflict | `autonomous` | - | - |
+| data_loss_warning | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -153,7 +211,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Prisma Migrations Blueprint",
-  "description": "Manage database schema versioning and evolution with safe migrations. 4 fields. 5 outcomes. 4 error codes. rules: development, production, safety",
+  "description": "Manage database schema versioning and evolution with safe migrations. 4 fields. 5 outcomes. 4 error codes. rules: development, production, safety. AGI: supervis",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

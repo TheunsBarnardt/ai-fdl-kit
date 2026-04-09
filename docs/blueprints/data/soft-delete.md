@@ -144,6 +144,60 @@ description: "Trash/archive/restore pattern with soft deletion, configurable ret
 | audit-trail | required | All delete, restore, and purge operations must be tracked in the audit trail |
 | search-and-filtering | recommended | Search must respect soft-delete scoping to exclude trashed records by default |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Soft Delete
+
+Trash/archive/restore pattern with soft deletion, configurable retention periods, automatic purging, and cascade rules for related records
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `audit_trail` | audit-trail | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| record_soft_deleted | `human_required` | - | - |
+| record_restored | `autonomous` | - | - |
+| record_permanently_purged | `human_required` | - | - |
+| delete_already_deleted | `human_required` | - | - |
+| restore_expired | `autonomous` | - | - |
+| permanent_delete_not_soft_deleted | `human_required` | - | - |
+
 
 <script type="application/ld+json">
 {

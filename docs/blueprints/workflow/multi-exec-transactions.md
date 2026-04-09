@@ -298,6 +298,66 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 | string-key-value | optional | Often used to atomically update multiple keys |
 | lua-scripting | optional | Both provide atomicity; scripting more powerful for complex logic |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Multi Exec Transactions
+
+Atomic multi-command execution with optional optimistic locking via WATCH; commands queued and executed sequentially without interruption
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| multi_start | `autonomous` | - | - |
+| nested_multi_error | `autonomous` | - | - |
+| queue_command | `autonomous` | - | - |
+| queue_syntax_error | `autonomous` | - | - |
+| exec_transaction | `autonomous` | - | - |
+| exec_abort_syntax | `autonomous` | - | - |
+| exec_watch_violation | `autonomous` | - | - |
+| discard_transaction | `autonomous` | - | - |
+| discard_without_transaction | `autonomous` | - | - |
+| watch_keys | `autonomous` | - | - |
+| unwatch_keys | `autonomous` | - | - |
+| watch_violation_detected | `autonomous` | - | - |
+| optimistic_lock_read | `autonomous` | - | - |
+| optimistic_lock_compute | `autonomous` | - | - |
+| optimistic_lock_execute | `autonomous` | - | - |
+| optimistic_lock_retry | `autonomous` | - | - |
+| command_runtime_error | `autonomous` | - | - |
+| partial_execution | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

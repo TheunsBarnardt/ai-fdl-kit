@@ -140,6 +140,59 @@ description: "Full-text search with faceted filters, sorting, relevance scoring,
 | caching | recommended | Frequently executed searches benefit from result caching |
 | audit-trail | optional | Search activity can be recorded for analytics and compliance |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Search And Filtering
+
+Full-text search with faceted filters, sorting, relevance scoring, fuzzy matching, and saved searches
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `pagination` | pagination | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| results_found | `autonomous` | - | - |
+| no_results | `autonomous` | - | - |
+| search_saved | `autonomous` | - | - |
+| search_error | `autonomous` | - | - |
+| search_timeout | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

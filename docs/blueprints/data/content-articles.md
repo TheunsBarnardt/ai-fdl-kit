@@ -158,6 +158,54 @@ description: "Blog and news article system for advisors and portfolio managers t
 | ifa-portal | recommended | IFAs publish articles through their portal |
 | portfolio-management | optional | Articles may reference portfolio strategies |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Content Articles
+
+Blog and news article system for advisors and portfolio managers to publish market insights, product updates, and investment articles to clients
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_article | `supervised` | - | - |
+| publish_article | `autonomous` | - | - |
+| list_articles_client | `autonomous` | - | - |
+| list_articles_author | `autonomous` | - | - |
+| update_article | `supervised` | - | - |
+| archive_article | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

@@ -226,6 +226,52 @@ description: "Support ticket management with SLA tracking, priority-based respon
 | customer-supplier-management | recommended | Customer data used for SLA entity matching |
 | serial-batch-tracking | optional | Serial numbers used for warranty claim validation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Support Tickets Sla
+
+Support ticket management with SLA tracking, priority-based response/resolution deadlines, working hours calculation with holiday exclusions, and warranty claim handling.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_issue | `supervised` | - | - |
+| assign_sla | `autonomous` | - | - |
+| track_response_time | `autonomous` | - | - |
+| resolve_issue | `autonomous` | - | - |
+| close_issue | `autonomous` | - | - |
+| escalate_issue | `autonomous` | - | - |
+| create_warranty_claim | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

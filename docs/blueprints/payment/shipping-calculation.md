@@ -186,6 +186,73 @@ description: "Shipping rate calculation with zone-based pricing, dimensional wei
 | currency-conversion | optional | Shipping rates may need currency conversion for international orders |
 | refunds-returns | optional | Return shipping label generation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Shipping Calculation
+
+Shipping rate calculation with zone-based pricing, dimensional weight, free shipping thresholds, carrier quotes, and delivery estimation.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `cart_checkout` | cart-checkout | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| rate_calculated | `autonomous` | - | - |
+| free_shipping_applied | `autonomous` | - | - |
+| carrier_rate_fetched | `autonomous` | - | - |
+| carrier_rate_fallback | `autonomous` | - | - |
+| shipping_label_created | `supervised` | - | - |
+| tracking_updated | `supervised` | - | - |
+| restricted_destination | `autonomous` | - | - |
+| package_exceeds_limits | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

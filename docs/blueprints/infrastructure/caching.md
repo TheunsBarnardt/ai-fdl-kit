@@ -146,6 +146,56 @@ description: "Multi-tier caching with read-through, write-through, write-behind,
 | search-and-filtering | optional | Search results benefit from caching for repeated queries |
 | pagination | optional | Paginated results can be cached by page key |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Caching
+
+Multi-tier caching with read-through, write-through, write-behind, and cache-aside strategies, stampede protection, and configurable invalidation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| availability | cost | infrastructure downtime impacts all dependent services |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| cache_hit | `autonomous` | - | - |
+| cache_miss | `autonomous` | - | - |
+| cache_invalidated | `autonomous` | - | - |
+| cache_warmed | `autonomous` | - | - |
+| cache_write_failed | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

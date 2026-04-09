@@ -168,6 +168,57 @@ description: "Send transactional and system emails with template rendering, deli
 | signup | optional | Welcome emails triggered on signup |
 | webhook-outbound | optional | Bounce and delivery webhooks from providers use outbound webhook patterns |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Email Notifications
+
+Send transactional and system emails with template rendering, delivery tracking, and bounce handling
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| delivery_reliability | speed | notifications must reach recipients even if delayed |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `notification_preferences` | notification-preferences | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| rate_limited | `autonomous` | - | - |
+| invalid_template | `autonomous` | - | - |
+| missing_variables | `autonomous` | - | - |
+| recipient_suppressed | `autonomous` | - | - |
+| email_sent | `autonomous` | - | - |
+| email_bounced | `autonomous` | - | - |
+| email_opened | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

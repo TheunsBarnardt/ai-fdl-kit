@@ -206,6 +206,63 @@ description: "Pluggable component registration system with config-driven fields,
 | field-transforms | recommended | Field transforms enable dynamic field rendering and computed properties |
 | plugin-overrides | optional | Override system can customize how components and fields are rendered |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Component Registry
+
+Pluggable component registration system with config-driven fields, slots, lifecycle hooks, and permissions
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `drag_drop_editor` | drag-drop-editor | degrade |
+| `content_tree` | content-tree | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| register_component | `autonomous` | - | - |
+| insert_component_instance | `autonomous` | - | - |
+| edit_component_props | `autonomous` | - | - |
+| duplicate_component | `autonomous` | - | - |
+| remove_component | `human_required` | - | - |
+| resolve_data_on_context_change | `supervised` | - | - |
+| slot_accepts_component | `autonomous` | - | - |
+| slot_rejects_component | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

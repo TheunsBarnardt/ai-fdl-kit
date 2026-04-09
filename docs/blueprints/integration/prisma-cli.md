@@ -3,7 +3,7 @@ title: "Prisma Cli Blueprint"
 layout: default
 parent: "Integration"
 grand_parent: Blueprint Catalog
-description: "CLI tools for schema validation, formatting, generation, and database introspection. 4 fields. 8 outcomes. 4 error codes. rules: format, validate, generate"
+description: "CLI tools for schema validation, formatting, generation, and database introspection. 4 fields. 8 outcomes. 4 error codes. rules: format, validate, generate. AGI"
 ---
 
 # Prisma Cli Blueprint
@@ -169,6 +169,75 @@ description: "CLI tools for schema validation, formatting, generation, and datab
 | prisma-migrations | recommended | CLI tools support migration workflow |
 | prisma-crud | recommended | CLI generates types for CRUD operations |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Prisma Cli
+
+CLI tools for schema validation, formatting, generation, and database introspection
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `prisma_schema` | prisma-schema | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| schema_formatted | `autonomous` | - | - |
+| schema_validated | `autonomous` | - | - |
+| client_generated | `autonomous` | - | - |
+| project_initialized | `autonomous` | - | - |
+| schema_introspected | `autonomous` | - | - |
+| studio_launched | `autonomous` | - | - |
+| schema_syntax_error | `autonomous` | - | - |
+| database_unreachable | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -187,7 +256,7 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Prisma Cli Blueprint",
-  "description": "CLI tools for schema validation, formatting, generation, and database introspection. 4 fields. 8 outcomes. 4 error codes. rules: format, validate, generate",
+  "description": "CLI tools for schema validation, formatting, generation, and database introspection. 4 fields. 8 outcomes. 4 error codes. rules: format, validate, generate. AGI",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

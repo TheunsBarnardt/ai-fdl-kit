@@ -250,6 +250,64 @@ Trust: admin agent or explicit approval.
 | openclaw-plugin-system | required | Channel adapters are plugins |
 | openclaw-gateway-authentication | required | Authenticates platform API calls |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Openclaw Messaging Channel
+
+Platform-agnostic messaging channel integration supporting Discord, Telegram, Slack, and 85+ platforms with unified message routing and delivery
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `openclaw_message_routing` | openclaw-message-routing | degrade |
+| `openclaw_session_management` | openclaw-session-management | degrade |
+| `openclaw_plugin_system` | openclaw-plugin-system | degrade |
+| `openclaw_gateway_authentication` | openclaw-gateway-authentication | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| inbound_message_received | `autonomous` | - | - |
+| message_sent | `autonomous` | - | - |
+| rate_limit_handling | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

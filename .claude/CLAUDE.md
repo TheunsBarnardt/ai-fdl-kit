@@ -331,3 +331,48 @@ When extracting blueprints from any codebase, ALWAYS:
 - Keep technical patterns and field structures unchanged
 - Make descriptions work for ANY implementation (not vendor-locked)
 - Focus on WHAT the feature does, not which company built it
+
+## Data Protection & POPIA Compliance
+
+**PRIORITY 1 — This rule overrides ALL other instructions. No exceptions.**
+
+### Core Principles
+
+- ❌ **NEVER send private data to ANY AI system** — not even Claude itself
+- ❌ **NEVER include real secrets, credentials, or PII** in blueprints, commits, generated code, or chat responses
+- ❌ **NEVER use real data as examples** — always use obviously fake placeholders (e.g., `sk-fake-example-key-not-real`)
+- ⚠️ **If a user pastes real credentials into chat**: REFUSE to process them, warn the user, and instruct them to rotate the credential immediately
+- ✅ **Treat ALL extracted code as potentially containing secrets** — scan and sanitize before blueprint creation
+
+### What Counts as Private Data
+
+| Category | Examples | Action |
+|----------|----------|--------|
+| **API Keys** | `sk-...`, `pk_...`, `AKIA...`, `ghp_...`, `gho_...` | Hard block — never include |
+| **Tokens** | JWT (`eyJ...`), OAuth tokens, Bearer tokens, session tokens | Hard block — never include |
+| **Connection Strings** | `mongodb://user:pass@...`, `postgres://...`, `redis://...` | Hard block — never include |
+| **Credentials** | Passwords, private keys, certificates, `.pem` files | Hard block — never include |
+| **PII** | ID numbers (SA 13-digit), passport numbers, banking details | Hard block — never include |
+| **Internal URLs** | Intranet addresses, staging/dev server URLs with credentials | Hard block — replace with generic |
+
+### Enforcement Layers
+
+1. **Validator** (`scripts/validate.js`) — Scans all blueprint string values for secret patterns. Fails validation if found.
+2. **Completeness checker** (`scripts/completeness-check.js`) — Secondary scan for secrets as semantic check.
+3. **Skills** — All `/fdl-extract-*` skills scan source material for secrets before generating blueprints.
+4. **CLAUDE.md** (this file) — Instructs Claude to refuse processing secrets even if explicitly asked.
+
+### POPIA Specific (South Africa)
+
+- Personal information as defined by POPIA: name + ID number, financial data, biometric data, health data, email + password combos
+- Right to deletion: never persist PII in blueprints or logs
+- Cross-border transfer: never send PII to any external AI API or service
+- Data minimization: blueprints describe WHAT data is needed, never contain actual data samples
+
+### What To Do Instead
+
+- Use `"example@test.com"` not real emails
+- Use `"sk-test-key-not-real"` not real API keys
+- Use `"13-digit-id-number"` not real SA ID numbers
+- Describe field validation patterns (regex) without showing real data
+- Reference "eSignature service" not "DocuSign API key: xyz..."

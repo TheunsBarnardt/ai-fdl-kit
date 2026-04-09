@@ -248,6 +248,56 @@ description: "Self-service appointment scheduling with availability slot managem
 | lead-opportunity-pipeline | recommended | Verified appointments auto-create leads for unknown visitors |
 | customer-supplier-management | optional | Appointments may be linked to existing customer records |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Appointment Booking
+
+Self-service appointment scheduling with availability slot management, email verification, agent assignment, and calendar event integration.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_quality | volume | CRM data quality directly impacts customer relationship decisions |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_appointment | `supervised` | - | - |
+| verify_email | `autonomous` | - | - |
+| assign_agent | `autonomous` | - | - |
+| create_calendar_event | `supervised` | - | - |
+| book_slot | `autonomous` | - | - |
+| cancel_appointment | `supervised` | - | - |
+| slot_unavailable | `autonomous` | - | - |
+| verification_failed | `autonomous` | - | - |
+| slot_duration_invalid | `autonomous` | - | - |
+| slot_time_invalid | `autonomous` | - | - |
+| send_reminder | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

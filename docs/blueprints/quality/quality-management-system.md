@@ -171,6 +171,52 @@ description: "Quality management with goals, periodic reviews, hierarchical proc
 |---------|-------------|--------|
 | quality-inspection | recommended | Inspections feed into quality goals and trigger corrective actions |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Quality Management System
+
+Quality management with goals, periodic reviews, hierarchical procedures, feedback collection, and corrective/preventive action tracking for continuous improvement.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| thoroughness | speed | quality checks must be comprehensive to catch defects early |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_quality_goal | `supervised` | - | - |
+| auto_create_review | `supervised` | - | - |
+| evaluate_review | `autonomous` | - | - |
+| create_procedure_hierarchy | `supervised` | - | - |
+| collect_feedback | `autonomous` | - | - |
+| create_corrective_action | `supervised` | - | - |
+| create_preventive_action | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

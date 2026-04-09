@@ -3,7 +3,7 @@ title: "Role Based Access Blueprint"
 layout: default
 parent: "Access Control"
 grand_parent: Blueprint Catalog
-description: "Role-based access control with hierarchical permission inheritance. 7 fields. 8 outcomes. 5 error codes. rules: hierarchy, system_roles, permissions"
+description: "Role-based access control with hierarchical permission inheritance. 7 fields. 8 outcomes. 5 error codes. rules: hierarchy, system_roles, permissions. AGI: super"
 ---
 
 # Role Based Access Blueprint
@@ -156,6 +156,73 @@ description: "Role-based access control with hierarchical permission inheritance
 | audit-logging | recommended | Access grants and denials should be logged for compliance |
 | team-organization | optional | Roles can be scoped per organization or team |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Role Based Access
+
+Role-based access control with hierarchical permission inheritance
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | usability | access control must enforce least-privilege principle |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `login` | login | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| permission_denied_no_role | `autonomous` | - | - |
+| permission_denied | `autonomous` | - | - |
+| permission_granted | `autonomous` | - | - |
+| role_assigned | `autonomous` | - | - |
+| role_not_found | `autonomous` | - | - |
+| role_revoked | `human_required` | - | - |
+| system_role_delete_blocked | `human_required` | - | - |
+| permission_invalid | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 
@@ -181,7 +248,7 @@ accessibility:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Role Based Access Blueprint",
-  "description": "Role-based access control with hierarchical permission inheritance. 7 fields. 8 outcomes. 5 error codes. rules: hierarchy, system_roles, permissions",
+  "description": "Role-based access control with hierarchical permission inheritance. 7 fields. 8 outcomes. 5 error codes. rules: hierarchy, system_roles, permissions. AGI: super",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

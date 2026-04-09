@@ -285,6 +285,66 @@ description: "Unordered collection of unique elements with set algebra operation
 | string-key-value | optional | Elements are strings or numeric values |
 | sorted-set-operations | optional | Sorted sets extend sets with scoring |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Set Operations
+
+Unordered collection of unique elements with set algebra operations (union, intersection, difference) and cardinality counting
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| add_members | `autonomous` | - | - |
+| remove_members | `human_required` | - | - |
+| get_all_members | `autonomous` | - | - |
+| check_membership | `autonomous` | - | - |
+| check_multiple_membership | `autonomous` | - | - |
+| get_cardinality | `autonomous` | - | - |
+| random_members | `autonomous` | - | - |
+| pop_random | `autonomous` | - | - |
+| move_between_sets | `autonomous` | - | - |
+| intersection | `autonomous` | - | - |
+| intersection_store | `autonomous` | - | - |
+| intersection_cardinality | `autonomous` | - | - |
+| union | `autonomous` | - | - |
+| union_store | `autonomous` | - | - |
+| difference | `autonomous` | - | - |
+| difference_store | `autonomous` | - | - |
+| scan_members | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

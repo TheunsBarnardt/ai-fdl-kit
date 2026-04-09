@@ -275,6 +275,71 @@ description: "Multi-step process for new clients to complete personal, contact, 
 | proposals-quotations | recommended |  |
 | user-auth | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Client Onboarding
+
+Multi-step process for new clients to complete personal, contact, address, and employment details before account opening
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `user_auth` | user-auth | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| get_personal_details | `autonomous` | - | - |
+| update_personal_details | `supervised` | - | - |
+| get_contact_details | `autonomous` | - | - |
+| update_contact_details | `supervised` | - | - |
+| get_address_details | `autonomous` | - | - |
+| update_address_details | `supervised` | - | - |
+| get_employment_details | `autonomous` | - | - |
+| update_employment_details | `supervised` | - | - |
+| start_onboarding | `autonomous` | - | - |
+| complete_client_onboarding | `autonomous` | - | - |
+| update_onboarding_progress | `supervised` | - | - |
+| notify_client_onboarding_ready | `autonomous` | - | - |
+| get_onboarding_metadata | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

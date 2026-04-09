@@ -194,6 +194,65 @@ description: "Purchase agreement management supporting blanket orders and calls 
 | invoicing-payments | required | Generated POs lead to vendor bills in accounting |
 | automation-rules | optional | Automate PO generation when stock falls below reorder point |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Purchase Agreements
+
+Purchase agreement management supporting blanket orders and calls for tender with vendor selection, purchase order generation, and supplier catalog synchronization.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `invoicing_payments` | invoicing-payments | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| agreement_confirmed | `autonomous` | - | - |
+| purchase_order_generated | `autonomous` | - | - |
+| agreement_closed | `autonomous` | - | - |
+| agreement_cancelled | `supervised` | - | - |
+| close_blocked_pending_pos | `human_required` | - | - |
+| confirm_invalid_lines | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

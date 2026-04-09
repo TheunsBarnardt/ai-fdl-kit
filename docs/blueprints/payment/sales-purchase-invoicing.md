@@ -201,6 +201,73 @@ description: "Create, submit, and manage sales and purchase invoices with double
 | tax-engine | required | Tax calculation is applied to invoice line items |
 | sales-order-lifecycle | recommended | Sales invoices are often created from sales orders |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Sales Purchase Invoicing
+
+Create, submit, and manage sales and purchase invoices with double-entry accounting, tax calculation, returns, and credit limit enforcement
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `payment_processing` | payment-processing | fail |
+| `general_ledger` | general-ledger | fail |
+| `tax_engine` | tax-engine | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| submit_invoice | `autonomous` | - | - |
+| receive_payment | `autonomous` | - | - |
+| create_return | `supervised` | - | - |
+| cancel_invoice | `supervised` | - | - |
+| credit_limit_exceeded | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -260,6 +260,77 @@ description: "Point-of-sale system managing sales sessions, product orders, paym
 | invoicing-payments | required | POS session closing posts journal entries to the accounting system |
 | tax-engine | required | Tax computation applied to every order line |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Pos Core
+
+Point-of-sale system managing sales sessions, product orders, payment processing, cash register operations, receipt generation, and accounting integration.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `invoicing_payments` | invoicing-payments | fail |
+| `tax_engine` | tax-engine | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| session_opened | `autonomous` | - | - |
+| order_completed | `autonomous` | - | - |
+| order_invoiced | `autonomous` | - | - |
+| refund_processed | `autonomous` | - | - |
+| session_closed | `autonomous` | - | - |
+| session_close_blocked_draft_orders | `human_required` | - | - |
+| payment_insufficient | `autonomous` | - | - |
+| no_active_session | `autonomous` | - | - |
+| order_cancelled | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -254,6 +254,62 @@ description: "Pick list and shipping system with warehouse picking, delivery not
 | serial-batch-tracking | recommended | Serial and batch numbers validated during picking and delivery |
 | sales-order-lifecycle | recommended | Delivery notes fulfill sales orders and update billing status |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Pick List Shipping
+
+Pick list and shipping system with warehouse picking, delivery notes, shipment tracking, and delivery trip planning.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | inventory counts must be precise to prevent stockouts and overstock |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `stock_entry_movements` | stock-entry-movements | degrade |
+| `warehouse_bin_management` | warehouse-bin-management | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_pick_list | `supervised` | - | - |
+| auto_pick_locations | `autonomous` | - | - |
+| submit_delivery_note | `autonomous` | - | - |
+| create_shipment | `supervised` | - | - |
+| plan_delivery_trip | `autonomous` | - | - |
+| mark_stop_visited | `autonomous` | - | - |
+| return_delivery | `autonomous` | - | - |
+| pick_insufficient_stock | `autonomous` | - | - |
+| pick_batch_expired | `autonomous` | - | - |
+| delivery_return_exceeded | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

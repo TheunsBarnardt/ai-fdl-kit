@@ -454,6 +454,76 @@ description: "Stablecoin wallet infrastructure API — multi-chain wallets, addr
 | `salvage.success` | Asset recovery completed | `wallet_id`, `amount`, `blockchain` |
 | `salvage.failed` | Asset recovery failed | `wallet_id`, `error_code` |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Stablecoin Wallet Api
+
+Stablecoin wallet infrastructure API — multi-chain wallets, addresses, deposits, withdrawals, swaps, gateway, checkout, and fiat offramp
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| wallet_created | `supervised` | - | - |
+| deposit_received | `autonomous` | - | - |
+| deposit_sweep_success | `autonomous` | - | - |
+| deposit_sweep_failed | `autonomous` | - | - |
+| address_created | `supervised` | - | - |
+| address_whitelisted | `autonomous` | - | - |
+| withdrawal_success | `autonomous` | - | - |
+| withdrawal_failed | `autonomous` | - | - |
+| batch_withdrawal | `autonomous` | - | - |
+| fiat_withdrawal_success | `autonomous` | - | - |
+| fiat_withdrawal_failed | `autonomous` | - | - |
+| gateway_deposit_success | `autonomous` | - | - |
+| gateway_withdraw_success | `autonomous` | - | - |
+| payment_link_created | `supervised` | - | - |
+| auto_settlement_executed | `autonomous` | - | - |
+| swap_success | `autonomous` | - | - |
+| message_signed | `autonomous` | - | - |
+| transaction_broadcast | `autonomous` | - | - |
+| asset_recovered | `autonomous` | - | - |
+| deposit_rescanned | `autonomous` | - | - |
+| webhook_verified | `autonomous` | - | - |
+| webhook_signature_invalid | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

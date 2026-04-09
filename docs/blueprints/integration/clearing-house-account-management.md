@@ -273,6 +273,66 @@ description: "Account management services for payment clearing houses — accoun
 | chp-request-to-pay | recommended | Proxy resolution for request-to-pay addressing |
 | chp-eft | recommended | Account validation for EFT transactions |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Clearing House Account Management
+
+Account management services for payment clearing houses — account mirroring, proxy management, real-time account verification, and check digit verification
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `chp_inbound_payments` | chp-inbound-payments | degrade |
+| `chp_outbound_payments` | chp-outbound-payments | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| proxy_resolved | `autonomous` | - | - |
+| proxy_not_found | `autonomous` | - | - |
+| proxy_registered | `autonomous` | - | - |
+| proxy_already_registered | `autonomous` | - | - |
+| proxy_deregistered | `autonomous` | - | - |
+| account_mirror_updated | `supervised` | - | - |
+| account_mirror_deleted | `human_required` | - | - |
+| avsr_verification_success | `autonomous` | - | - |
+| avsr_verification_failed | `autonomous` | - | - |
+| cdv_validation_passed | `autonomous` | - | - |
+| cdv_validation_failed | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -199,6 +199,48 @@ description: "Dynamic form creation and rendering with drag-and-drop field place
 | accessibility | recommended | Form fields must meet WCAG 2.1 AA accessibility requirements |
 | internationalization | optional | Form labels and validation messages may need translation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Form Builder
+
+Dynamic form creation and rendering with drag-and-drop field placement, conditional visibility, multi-step forms, validation rules, and versioning
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| form_created | `supervised` | - | - |
+| field_added | `autonomous` | - | - |
+| field_removed | `human_required` | - | - |
+| conditional_visibility_applied | `autonomous` | - | - |
+| form_published | `autonomous` | - | - |
+| form_submitted | `autonomous` | - | - |
+| form_submission_invalid | `autonomous` | - | - |
+| max_fields_exceeded | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

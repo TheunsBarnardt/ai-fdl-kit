@@ -138,6 +138,55 @@ description: "Immutable field-level change tracking for any record with automati
 | pagination | required | Audit history queries must be paginated for performance |
 | search-and-filtering | optional | Audit entries can be searched and filtered by entity, user, and date |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Audit Trail
+
+Immutable field-level change tracking for any record with automatic capture on every write, configurable per-model opt-in, and sensitive field exclusion
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| completeness | performance | observability gaps hide production issues |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `pagination` | pagination | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| change_recorded | `supervised` | - | - |
+| change_recorded_with_exclusion | `supervised` | - | - |
+| history_retrieved | `autonomous` | - | - |
+| history_empty | `autonomous` | - | - |
+| audit_access_denied | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

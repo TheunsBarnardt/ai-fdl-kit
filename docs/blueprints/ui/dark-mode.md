@@ -154,6 +154,57 @@ description: "Theme toggle supporting light, dark, and system-preference modes w
 | accessibility | recommended | Both light and dark themes must independently meet WCAG AA contrast ratios |
 | responsive-layout | optional | Theme toggle UI may need responsive positioning across breakpoints |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Dark Mode
+
+Theme toggle supporting light, dark, and system-preference modes with CSS custom properties, user preference persistence, smooth transitions, and flash-of-wrong-theme prevention.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `theme_configuration` | theme-configuration | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| user_selects_theme | `autonomous` | - | - |
+| system_preference_applied | `autonomous` | - | - |
+| system_preference_changes_live | `supervised` | - | - |
+| page_loads_without_flash | `autonomous` | - | - |
+| component_overrides_theme | `supervised` | - | - |
+| no_persisted_preference | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

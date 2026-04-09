@@ -3,7 +3,7 @@ title: "Fine Grained Authorization Blueprint"
 layout: default
 parent: "Access Control"
 grand_parent: Blueprint Catalog
-description: "Resource-based and policy-based authorization. 2 fields. 1 outcomes. 1 error codes. rules: core"
+description: "Resource-based and policy-based authorization. 2 fields. 1 outcomes. 1 error codes. rules: core. AGI: supervised"
 ---
 
 # Fine Grained Authorization Blueprint
@@ -54,6 +54,56 @@ description: "Resource-based and policy-based authorization. 2 fields. 1 outcome
 |-------|-------------|----------|
 | `authz.granted` | Authorization granted | `resource_id` |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fine Grained Authorization
+
+Resource-based and policy-based authorization
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | usability | access control must enforce least-privilege principle |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| access_granted | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -72,7 +122,7 @@ source:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Fine Grained Authorization Blueprint",
-  "description": "Resource-based and policy-based authorization. 2 fields. 1 outcomes. 1 error codes. rules: core",
+  "description": "Resource-based and policy-based authorization. 2 fields. 1 outcomes. 1 error codes. rules: core. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

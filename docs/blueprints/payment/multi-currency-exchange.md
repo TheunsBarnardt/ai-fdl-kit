@@ -131,6 +131,68 @@ description: "Manage exchange rates, perform multi-currency transactions, and re
 | general-ledger | required | Revaluation posts journal entries to the general ledger |
 | sales-purchase-invoicing | recommended | Multi-currency invoices require exchange rate conversion |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Multi Currency Exchange
+
+Manage exchange rates, perform multi-currency transactions, and revalue accounts for unrealized foreign exchange gains and losses
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `general_ledger` | general-ledger | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| fetch_exchange_rate | `supervised` | - | - |
+| revalue_accounts | `autonomous` | - | - |
+| create_gain_loss_journal | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

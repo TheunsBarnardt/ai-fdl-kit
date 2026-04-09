@@ -119,6 +119,66 @@ description: "Provides per-session and global logging of all incoming messages, 
 | fix-session-management | required | Session layer calls the log on every sent/received message and state change |
 | fix-message-building | recommended | Log output uses the serialized message strings produced by the message builder |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fix Engine Logging
+
+Provides per-session and global logging of all incoming messages, outgoing messages, and session lifecycle events with pluggable backends including screen, file, and database outputs
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+**Constraints:**
+
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| completeness | performance | observability gaps hide production issues |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fix_session_management` | fix-session-management | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| log_write_failed | `autonomous` | - | - |
+| incoming_message_logged | `autonomous` | - | - |
+| outgoing_message_logged | `autonomous` | - | - |
+| session_event_logged | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

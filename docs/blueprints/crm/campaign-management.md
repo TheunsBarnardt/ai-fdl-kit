@@ -230,6 +230,55 @@ description: "Marketing campaign definition and email drip campaign execution wi
 | lead-opportunity-pipeline | recommended | Campaigns target leads and track attribution via UTM fields |
 | customer-supplier-management | optional | Campaigns may target existing customers via contact records |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Campaign Management
+
+Marketing campaign definition and email drip campaign execution with scheduled delivery, recipient tracking, and unsubscribe management.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_quality | volume | CRM data quality directly impacts customer relationship decisions |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_campaign | `supervised` | - | - |
+| launch_email_campaign | `autonomous` | - | - |
+| send_scheduled_email | `autonomous` | - | - |
+| unsubscribe_recipient | `autonomous` | - | - |
+| complete_campaign | `autonomous` | - | - |
+| start_date_past_rejected | `supervised` | - | - |
+| no_schedule_entries | `autonomous` | - | - |
+| lead_no_email_rejected | `supervised` | - | - |
+| duplicate_active_rejected | `supervised` | - | - |
+| send_failed | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -279,6 +279,64 @@ description: "Clearing house outbound payment operations including credit transf
 | chp-eft | recommended | EFT-specific payment operations |
 | chp-account-management | recommended | Account verification and management for CHP participants |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Clearing House Outbound Payments
+
+Clearing house outbound payment operations including credit transfers, bulk payments, direct debits, returns, and cancellations
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| credit_transfer_initiated | `autonomous` | - | - |
+| credit_transfer_success | `autonomous` | - | - |
+| credit_transfer_rejected | `supervised` | - | - |
+| bulk_credit_transfer_initiated | `autonomous` | - | - |
+| direct_debit_initiated | `autonomous` | - | - |
+| payment_return_initiated | `autonomous` | - | - |
+| payment_cancellation_initiated | `supervised` | - | - |
+| status_query_sent | `autonomous` | - | - |
+| outbound_technical_error | `autonomous` | - | - |
+| outbound_duplicate_request | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

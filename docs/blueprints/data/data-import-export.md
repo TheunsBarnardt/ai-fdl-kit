@@ -145,6 +145,59 @@ description: "Bulk data import and export supporting CSV, Excel, and JSON format
 | pagination | optional | Export may paginate through large datasets during generation |
 | audit-trail | recommended | Import and export operations should be recorded for compliance |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Data Import Export
+
+Bulk data import and export supporting CSV, Excel, and JSON formats with column mapping, row validation, background processing, and configurable error handling
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `file_storage` | file-storage | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| import_completed | `autonomous` | - | - |
+| import_partial | `autonomous` | - | - |
+| import_failed | `autonomous` | - | - |
+| export_completed | `autonomous` | - | - |
+| import_file_too_large | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

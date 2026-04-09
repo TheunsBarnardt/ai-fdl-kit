@@ -257,6 +257,85 @@ description: "Multi-level approval workflow with sequential/parallel approvers, 
 | email-notifications | recommended | Notify approvers and requesters of status changes |
 | role-based-access | recommended | Approver roles and delegation permissions require access control |
 
+## AGI Readiness
+
+### Goals
+
+#### Efficient Approval
+
+Process approval requests quickly while maintaining compliance and audit integrity
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| approval_cycle_time | < 24h for standard requests | Time from submission to final decision |
+| escalation_rate | < 10% | Percentage of requests that hit timeout escalation |
+| audit_completeness | 100% | All decisions have recorded approver, timestamp, and reason |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): Approval history must be immutable — no retroactive changes to decisions
+- **security** (non-negotiable): Approvers can only act on requests within their authorized scope
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before overriding a rejection at any level
+- before changing approval chain configuration
+- before delegating approval authority across departments
+
+**Escalation Triggers:**
+
+- `pending_duration_hours > 48`
+- `rejection_override_count > 3`
+
+### Verification
+
+**Invariants:**
+
+- every approval decision has an identified approver and timestamp
+- rejected requests cannot proceed without explicit override
+- delegation chains cannot create circular approval loops
+- auto-approve rules only apply within configured thresholds
+
+**Acceptance Tests:**
+
+| Scenario | Given | When | Expect |
+|----------|-------|------|--------|
+| sequential approval | a request requiring 3 levels of approval | all 3 approvers approve in sequence | request status transitions to approved after final approval |
+| timeout escalation | a request pending for longer than SLA | timeout threshold is reached | request escalated to next-level approver with notification |
+| delegation | an approver delegates to a substitute | the substitute approves the request | audit trail records both original approver and delegate |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Exposes:**
+
+| Capability | Contract |
+|------------|----------|
+| `approval_decision` | accepts {request_id, request_type, metadata}, returns {decision, approver, timestamp} |
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `email_notification` | email-notifications | queue |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| auto_approve | `autonomous` | - | 5 |
+| escalate_request | `autonomous` | - | - |
+| override_rejection | `human_required` | - | - |
+| modify_approval_chain | `human_required` | - | - |
+| delegate_authority | `supervised` | - | - |
+
 
 <script type="application/ld+json">
 {

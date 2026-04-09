@@ -253,6 +253,69 @@ description: "Sales order lifecycle from draft through delivery and billing to c
 | customer-supplier-management | recommended | Customer master data, credit limits, and territory management |
 | pricing-rules-promotions | optional | Pricing rules and discount schemes applied to order items |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Sales Order Lifecycle
+
+Sales order lifecycle from draft through delivery and billing to completion, with credit limits, blanket orders, stock reservation, and auto-status.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `sales_purchase_invoicing` | sales-purchase-invoicing | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_sales_order | `supervised` | - | - |
+| submit_order | `autonomous` | - | - |
+| create_delivery_note | `supervised` | - | - |
+| create_sales_invoice | `supervised` | - | - |
+| close_order | `autonomous` | - | - |
+| cancel_order | `supervised` | - | - |
+| credit_limit_exceeded | `autonomous` | - | - |
+| warehouse_required | `autonomous` | - | - |
+| blanket_order_violation | `autonomous` | - | - |
+| overallocation_prevented | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

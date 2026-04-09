@@ -197,6 +197,60 @@ description: "Deliver outbound webhooks to external systems with signing, retrie
 | push-notifications | optional | Push delivery callbacks from providers |
 | in-app-notifications | optional | Trigger in-app notification when outbound webhook fails |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Webhook Outbound
+
+Deliver outbound webhooks to external systems with signing, retries, and endpoint health monitoring
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+**Constraints:**
+
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| delivery_reliability | speed | notifications must reach recipients even if delayed |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| invalid_endpoint | `autonomous` | - | - |
+| endpoint_disabled | `human_required` | - | - |
+| ssrf_blocked | `human_required` | - | - |
+| rate_limited | `autonomous` | - | - |
+| webhook_delivered | `autonomous` | - | - |
+| webhook_failed | `autonomous` | - | - |
+| webhook_auto_disabled | `human_required` | - | - |
+| secret_rotated | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

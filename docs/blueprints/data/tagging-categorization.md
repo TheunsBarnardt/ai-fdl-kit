@@ -158,6 +158,61 @@ description: "Tags, labels, and hierarchical categories for organizing entities 
 | search-and-filtering | required | Tags and categories are primary facets for filtering and searching entities |
 | audit-trail | optional | Tag and category changes can be tracked for compliance |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Tagging Categorization
+
+Tags, labels, and hierarchical categories for organizing entities with tag groups, colors, slug auto-generation, and category depth limits
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `search_and_filtering` | search-and-filtering | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| tag_applied | `autonomous` | - | - |
+| tag_removed | `human_required` | - | - |
+| category_assigned | `autonomous` | - | - |
+| category_created | `supervised` | - | - |
+| tag_limit_exceeded | `autonomous` | - | - |
+| category_depth_exceeded | `autonomous` | - | - |
+| duplicate_tag | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

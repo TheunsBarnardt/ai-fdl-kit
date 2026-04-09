@@ -185,6 +185,75 @@ description: "Validates FIX messages against version-specific DataDictionary spe
 | fix-message-building | required | Message structures that are built and parsed are validated by this feature |
 | fix-session-management | required | Session layer invokes validation on every incoming message before application delivery |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fix Protocol Validation
+
+Validates FIX messages against version-specific DataDictionary specifications; enforces field presence, type correctness, value ranges, repeating group structure, and message completeness
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fix_message_building` | fix-message-building | fail |
+| `fix_session_management` | fix-session-management | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| dictionary_not_found | `autonomous` | - | - |
+| invalid_message_type | `autonomous` | - | - |
+| required_tag_missing | `autonomous` | - | - |
+| tag_not_defined_for_message | `autonomous` | - | - |
+| incorrect_data_format | `autonomous` | - | - |
+| incorrect_tag_value | `autonomous` | - | - |
+| no_tag_value | `autonomous` | - | - |
+| group_count_mismatch | `autonomous` | - | - |
+| message_valid | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

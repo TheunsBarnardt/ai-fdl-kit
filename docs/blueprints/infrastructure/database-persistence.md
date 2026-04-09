@@ -317,6 +317,72 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 | master-replica-replication | optional | Replicas can hold backup snapshots |
 | key-expiration | optional | Expired keys may or may not be persisted |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Database Persistence
+
+Data durability via RDB snapshots and/or AOF journaling; recover to point-in-time or exact command sequence after crash
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| availability | cost | infrastructure downtime impacts all dependent services |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| rdb_save_sync | `autonomous` | - | - |
+| rdb_bgsave | `autonomous` | - | - |
+| rdb_save_complete | `autonomous` | - | - |
+| rdb_save_failed | `autonomous` | - | - |
+| rdb_lastsave | `autonomous` | - | - |
+| aof_write_command | `autonomous` | - | - |
+| aof_fsync_always | `autonomous` | - | - |
+| aof_fsync_everysec | `autonomous` | - | - |
+| aof_fsync_no | `autonomous` | - | - |
+| aof_rewrite | `autonomous` | - | - |
+| aof_rewrite_complete | `autonomous` | - | - |
+| aof_rewrite_failed | `autonomous` | - | - |
+| recovery_rdb_only | `autonomous` | - | - |
+| recovery_aof_only | `autonomous` | - | - |
+| recovery_rdb_and_aof | `autonomous` | - | - |
+| recovery_aof_truncated | `autonomous` | - | - |
+| recovery_aof_corruption | `autonomous` | - | - |
+| backup_via_rdb | `autonomous` | - | - |
+| backup_via_replication | `autonomous` | - | - |
+| backup_hybrid | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

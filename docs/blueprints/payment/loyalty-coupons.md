@@ -209,6 +209,64 @@ description: "Loyalty and promotion engine supporting points, coupons, gift card
 | quotation-order-management | optional | Loyalty rewards applied to online/portal sales orders |
 | ecommerce-store | optional | Promo codes and loyalty applied during online checkout |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Loyalty Coupons
+
+Loyalty and promotion engine supporting points, coupons, gift cards, discount codes, buy-X-get-Y offers, e-wallets, and next-order rewards.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| points_earned | `autonomous` | - | - |
+| reward_redeemed_discount | `autonomous` | - | - |
+| reward_redeemed_product | `autonomous` | - | - |
+| coupon_applied | `autonomous` | - | - |
+| gift_card_redeemed | `autonomous` | - | - |
+| insufficient_points | `autonomous` | - | - |
+| invalid_promo_code | `autonomous` | - | - |
+| minimum_not_met | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

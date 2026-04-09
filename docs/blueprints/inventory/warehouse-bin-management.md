@@ -179,6 +179,58 @@ description: "Warehouse hierarchy and bin management with nested trees, quantity
 | stock-entry-movements | required | Stock entries are the primary source of bin quantity changes |
 | serial-batch-tracking | recommended | Serial and batch tracking integrates with warehouse stock positions |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Warehouse Bin Management
+
+Warehouse hierarchy and bin management with nested trees, quantity tracking, putaway rules, and perpetual inventory GL integration.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | inventory counts must be precise to prevent stockouts and overstock |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `stock_entry_movements` | stock-entry-movements | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_warehouse | `supervised` | - | - |
+| update_bin_quantities | `supervised` | - | - |
+| apply_putaway_rule | `autonomous` | - | - |
+| delete_warehouse | `human_required` | - | - |
+| warehouse_has_stock | `autonomous` | - | - |
+| warehouse_has_children | `autonomous` | - | - |
+| disable_warehouse | `human_required` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

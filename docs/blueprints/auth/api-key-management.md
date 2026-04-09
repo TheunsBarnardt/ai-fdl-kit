@@ -3,7 +3,7 @@ title: "Api Key Management Blueprint"
 layout: default
 parent: "Auth"
 grand_parent: Blueprint Catalog
-description: "Create, rotate, revoke, and scope API keys for programmatic access. 12 fields. 8 outcomes. 8 error codes. rules: security, rotation, expiration"
+description: "Create, rotate, revoke, and scope API keys for programmatic access. 12 fields. 8 outcomes. 8 error codes. rules: security, rotation, expiration. AGI: supervised"
 ---
 
 # Api Key Management Blueprint
@@ -192,6 +192,76 @@ description: "Create, rotate, revoke, and scope API keys for programmatic access
 | session-management | recommended | API key management requires an active session |
 | multi-factor-auth | recommended | MFA should be required before creating live API keys |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Api Key Management
+
+Create, rotate, revoke, and scope API keys for programmatic access
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `login` | login | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| rate_limited | `autonomous` | - | - |
+| max_keys_exceeded | `autonomous` | - | - |
+| create_key | `supervised` | - | - |
+| rotate_key | `autonomous` | - | - |
+| revoke_key | `human_required` | - | - |
+| authenticate_with_key | `autonomous` | - | - |
+| key_expired | `autonomous` | - | - |
+| invalid_key | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 
@@ -245,7 +315,7 @@ loading:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Api Key Management Blueprint",
-  "description": "Create, rotate, revoke, and scope API keys for programmatic access. 12 fields. 8 outcomes. 8 error codes. rules: security, rotation, expiration",
+  "description": "Create, rotate, revoke, and scope API keys for programmatic access. 12 fields. 8 outcomes. 8 error codes. rules: security, rotation, expiration. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

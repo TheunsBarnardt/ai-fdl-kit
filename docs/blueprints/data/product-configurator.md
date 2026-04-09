@@ -196,6 +196,66 @@ description: "Product configuration with attributes, variant generation, exclusi
 | ecommerce-store | optional | Product configurator displayed on website product pages |
 | pos-core | optional | Product variants selected at POS terminal |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Product Configurator
+
+Product configuration with attributes, variant generation, exclusion rules, dynamic pricing, visual pickers, custom inputs, and matrix bulk ordering.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `quotation_order_management` | quotation-order-management | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| product_configured_via_picker | `autonomous` | - | - |
+| variant_selected_always_mode | `autonomous` | - | - |
+| variant_created_dynamic_mode | `supervised` | - | - |
+| no_variant_attributes_applied | `autonomous` | - | - |
+| matrix_bulk_order | `autonomous` | - | - |
+| custom_value_entered | `autonomous` | - | - |
+| excluded_combination_blocked | `human_required` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

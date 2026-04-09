@@ -259,6 +259,72 @@ description: "Full CRUD operations for document collections with pagination, fil
 | payload-uploads | optional | Collections can be upload-enabled for file management |
 | payload-document-locking | optional | Collections support document locking to prevent concurrent edits |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Payload Collections
+
+Full CRUD operations for document collections with pagination, filtering, hooks, bulk operations, and field selection
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `payload_access_control` | payload-access-control | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_document | `supervised` | - | - |
+| find_documents | `autonomous` | - | - |
+| find_by_id | `autonomous` | - | - |
+| find_by_id_not_found | `autonomous` | - | - |
+| update_by_id | `supervised` | - | - |
+| bulk_update | `supervised` | - | - |
+| delete_by_id | `human_required` | - | - |
+| bulk_delete | `human_required` | - | - |
+| duplicate_document | `autonomous` | - | - |
+| count_documents | `autonomous` | - | - |
+| find_distinct | `autonomous` | - | - |
+| restore_version | `autonomous` | - | - |
+| doc_access_check | `autonomous` | - | - |
+| access_denied | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

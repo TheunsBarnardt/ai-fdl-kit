@@ -174,6 +174,62 @@ description: "Design responsive layouts using breakpoint variants to apply diffe
 | utility-composition | required | Responsive variants (md:, lg:) apply utilities at breakpoints |
 | theme-configuration | recommended | Breakpoints defined in theme.screens config |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Responsive Layout
+
+Design responsive layouts using breakpoint variants to apply different styles at different screen sizes
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `utility_composition` | utility-composition | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| define_mobile_layout | `autonomous` | - | - |
+| add_tablet_layout | `autonomous` | - | - |
+| override_at_desktop | `supervised` | - | - |
+| hide_element_on_mobile | `autonomous` | - | - |
+| custom_breakpoint | `autonomous` | - | - |
+| responsive_spacing | `autonomous` | - | - |
+| container_query_responsive | `autonomous` | - | - |
+| invalid_breakpoint_order | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

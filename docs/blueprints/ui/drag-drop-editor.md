@@ -222,6 +222,64 @@ description: "Drag-and-drop page composition system with nested zones, collision
 | editor-state | required | Drag state, selection, and preview state managed by the central store |
 | undo-redo | recommended | All drag operations should be undoable |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Drag Drop Editor
+
+Drag-and-drop page composition system with nested zones, collision detection, and component reordering
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `component_registry` | component-registry | degrade |
+| `content_tree` | content-tree | degrade |
+| `editor_state` | editor-state | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| insert_new_component | `autonomous` | - | - |
+| move_existing_component | `autonomous` | - | - |
+| reorder_within_zone | `autonomous` | - | - |
+| drop_on_self | `autonomous` | - | - |
+| drop_on_descendant | `autonomous` | - | - |
+| drop_type_not_allowed | `autonomous` | - | - |
+| drag_cancelled | `supervised` | - | - |
+| preview_updates_during_drag | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

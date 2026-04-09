@@ -164,6 +164,65 @@ description: "Extensible plugin architecture with 12 UI override points, wrappin
 | field-transforms | recommended | Plugins can provide custom field transform functions |
 | editor-state | required | Plugin state and loaded overrides stored in the central store |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Plugin Overrides
+
+Extensible plugin architecture with 12 UI override points, wrapping composition, field type customization, and sidebar panels
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `component_registry` | component-registry | degrade |
+| `editor_state` | editor-state | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| load_plugins | `autonomous` | - | - |
+| render_with_override | `supervised` | - | - |
+| render_custom_field_type | `autonomous` | - | - |
+| render_plugin_panel | `autonomous` | - | - |
+| apply_field_transforms | `autonomous` | - | - |
+| override_passthrough | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

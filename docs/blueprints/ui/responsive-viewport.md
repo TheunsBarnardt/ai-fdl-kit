@@ -177,6 +177,61 @@ description: "Multi-viewport responsive preview with auto-zoom, manual zoom cont
 | editor-state | required | Viewport state and zoom config stored in centralized state |
 | plugin-overrides | optional | The iframe override point allows plugins to customize the preview frame |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Responsive Viewport
+
+Multi-viewport responsive preview with auto-zoom, manual zoom controls, and iframe-based isolated rendering
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `editor_state` | editor-state | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| switch_viewport | `autonomous` | - | - |
+| change_zoom | `supervised` | - | - |
+| auto_zoom_recalculate | `autonomous` | - | - |
+| first_load_viewport_selection | `autonomous` | - | - |
+| render_in_iframe | `autonomous` | - | - |
+| render_without_iframe | `autonomous` | - | - |
+| style_sync_update | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

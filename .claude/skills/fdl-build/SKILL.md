@@ -482,12 +482,30 @@ Translate each deprecation into plain English and ask:
 
 Example: `field: remember_me, migration: "use refresh token rotation"` → "The 'remember me' checkbox is being replaced with a smarter system that keeps you logged in automatically. Want me to use the newer approach?"
 
+**Question 5 — Safety** (if any blueprint has `agi.safety.action_permissions`):
+Collect all action_permissions across selected blueprints and present a summary:
+
+"Some actions have special permission levels:"
+- For each action: describe in plain English (e.g., "Adjusting prices — runs automatically, at most once every 6 hours")
+- Then ask: "Does this look right?"
+  - "Looks good"
+  - "I want more control" (upgrade all permission levels one step)
+  - "I want less control" (downgrade all permission levels one step)
+
+**Question 6 — Logging** (if any blueprint has `agi.explainability`):
+"Your features can keep a detailed log of every decision they make. Want to turn on decision logging?"
+- "Yes — log everything"
+- "Just the important ones" (use only `audit_events`)
+- "No logging needed"
+
 **How answers shape generation (internal — don't explain to user):**
 - Control → generates approval screens or fully automated flows
 - Priority → shapes code decisions (security-first, speed-first, etc.)
 - Quality checks → if yes, generates test files from acceptance_tests and invariants
 - Newer alternatives → uses modern patterns or keeps old ones
-- **Always silently apply:** monitoring → health checks, boundaries → execution order, goals → code comments, evolution triggers → TODO comments
+- Safety → generates permission checks, approval gates, and cooldown enforcement per action
+- Logging → generates audit middleware or decision logging based on audit_events
+- **Always silently apply:** monitoring → health checks, boundaries → execution order, goals → code comments, evolution triggers → TODO comments, coordination exposes/consumes → interface/dependency comments, learning signals → monitoring comments, learning adaptations → experiment TODO comments
 
 **If NO selected blueprint has an `agi` section, skip all of this silently.**
 

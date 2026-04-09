@@ -179,6 +179,62 @@ description: "Build user interfaces by composing utility classes with variants a
 | responsive-layout | recommended | Responsive variants (md:, lg:) enable layout breakpoints |
 | arbitrary-values | optional | Arbitrary values provide escape hatch for custom values |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Utility Composition
+
+Build user interfaces by composing utility classes with variants and modifiers to generate CSS rules
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `theme_configuration` | theme-configuration | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| simple_utility | `autonomous` | - | - |
+| utility_with_value | `autonomous` | - | - |
+| responsive_utility | `autonomous` | - | - |
+| hover_state_styling | `autonomous` | - | - |
+| multiple_variants | `autonomous` | - | - |
+| important_modifier | `supervised` | - | - |
+| modifier_opacity | `supervised` | - | - |
+| unknown_utility | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

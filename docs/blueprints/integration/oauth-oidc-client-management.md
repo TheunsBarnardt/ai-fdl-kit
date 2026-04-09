@@ -3,7 +3,7 @@ title: "Oauth Oidc Client Management Blueprint"
 layout: default
 parent: "Integration"
 grand_parent: Blueprint Catalog
-description: "Client registration, configuration, and protocol mappers. 2 fields. 1 outcomes. 1 error codes. rules: core"
+description: "Client registration, configuration, and protocol mappers. 2 fields. 1 outcomes. 1 error codes. rules: core. AGI: supervised"
 ---
 
 # Oauth Oidc Client Management Blueprint
@@ -54,6 +54,45 @@ description: "Client registration, configuration, and protocol mappers. 2 fields
 |-------|-------------|----------|
 | `client.registered` | Client registered | `client_id` |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Oauth Oidc Client Management
+
+Client registration, configuration, and protocol mappers
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| client_registered | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -72,7 +111,7 @@ source:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Oauth Oidc Client Management Blueprint",
-  "description": "Client registration, configuration, and protocol mappers. 2 fields. 1 outcomes. 1 error codes. rules: core",
+  "description": "Client registration, configuration, and protocol mappers. 2 fields. 1 outcomes. 1 error codes. rules: core. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

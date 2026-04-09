@@ -231,6 +231,71 @@ description: "Work order execution and job card tracking for manufacturing opera
 | production-planning | recommended | Production planning auto-creates work orders from planned items |
 | quality-inspection | optional | Quality inspections validate manufactured goods before completion |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Work Orders Job Cards
+
+Work order execution and job card tracking for manufacturing operations, including material transfers, time logging, sequential operation control, and production completion.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| safety | throughput | manufacturing processes must prioritize worker and product safety |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `bill_of_materials` | bill-of-materials | fail |
+| `stock_entry_movements` | stock-entry-movements | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_work_order | `supervised` | - | - |
+| submit_work_order | `autonomous` | - | - |
+| create_job_card | `supervised` | - | - |
+| log_time | `autonomous` | - | - |
+| transfer_material | `autonomous` | - | - |
+| complete_manufacturing | `autonomous` | - | - |
+| stop_production | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

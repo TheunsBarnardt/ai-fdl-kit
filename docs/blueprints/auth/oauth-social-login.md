@@ -3,7 +3,7 @@ title: "Oauth Social Login Blueprint"
 layout: default
 parent: "Auth"
 grand_parent: Blueprint Catalog
-description: "Social sign-in via OAuth2/OIDC with account linking and profile sync. 11 fields. 8 outcomes. 7 error codes. rules: security, account_linking, profile_sync"
+description: "Social sign-in via OAuth2/OIDC with account linking and profile sync. 11 fields. 8 outcomes. 7 error codes. rules: security, account_linking, profile_sync. AGI:"
 ---
 
 # Oauth Social Login Blueprint
@@ -209,6 +209,66 @@ description: "Social sign-in via OAuth2/OIDC with account linking and profile sy
 | session-management | recommended | Sessions created via OAuth need tracking and revocation |
 | multi-factor-auth | optional | MFA can be required even after social authentication |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Oauth Social Login
+
+Social sign-in via OAuth2/OIDC with account linking and profile sync
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| rate_limited | `autonomous` | - | - |
+| invalid_state | `autonomous` | - | - |
+| invalid_provider | `autonomous` | - | - |
+| token_exchange_failed | `supervised` | - | - |
+| account_link_existing | `autonomous` | - | - |
+| new_user_registration | `autonomous` | - | - |
+| returning_user_login | `autonomous` | - | - |
+| unlink_provider | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 
@@ -254,7 +314,7 @@ loading:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Oauth Social Login Blueprint",
-  "description": "Social sign-in via OAuth2/OIDC with account linking and profile sync. 11 fields. 8 outcomes. 7 error codes. rules: security, account_linking, profile_sync",
+  "description": "Social sign-in via OAuth2/OIDC with account linking and profile sync. 11 fields. 8 outcomes. 7 error codes. rules: security, account_linking, profile_sync. AGI:",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

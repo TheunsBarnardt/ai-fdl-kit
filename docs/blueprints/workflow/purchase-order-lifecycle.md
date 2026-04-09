@@ -263,6 +263,71 @@ description: "Purchase order lifecycle from draft through receipt and billing to
 | customer-supplier-management | required | Supplier master data, hold status, and payment terms |
 | subcontracting | optional | Subcontracting workflow for outsourced manufacturing |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Purchase Order Lifecycle
+
+Purchase order lifecycle from draft through receipt and billing to completion, with supplier validation, material request tracking, warehouse bin updates, and over-receipt tolerance enforcement.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `sales_purchase_invoicing` | sales-purchase-invoicing | degrade |
+| `customer_supplier_management` | customer-supplier-management | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_purchase_order | `supervised` | - | - |
+| submit_order | `autonomous` | - | - |
+| create_purchase_receipt | `supervised` | - | - |
+| create_purchase_invoice | `supervised` | - | - |
+| close_order | `autonomous` | - | - |
+| cancel_order | `supervised` | - | - |
+| supplier_on_hold_blocked | `human_required` | - | - |
+| supplier_closed_blocked | `human_required` | - | - |
+| qty_mismatch_blocked | `human_required` | - | - |
+| posting_date_invalid | `autonomous` | - | - |
+| material_request_invalid | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

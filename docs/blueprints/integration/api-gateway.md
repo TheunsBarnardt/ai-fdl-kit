@@ -162,6 +162,52 @@ description: "Route, authenticate, rate-limit, and transform API requests throug
 | webhook-ingestion | optional | Incoming webhooks routed through gateway for authentication |
 | payment-gateway | optional | Payment API requests routed through gateway with rate limiting |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Api Gateway
+
+Route, authenticate, rate-limit, and transform API requests through a centralized gateway with versioning, circuit breaking, and CORS support
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| request_routed | `autonomous` | - | - |
+| request_rejected_auth | `supervised` | - | - |
+| request_rate_limited | `autonomous` | - | - |
+| upstream_timeout | `autonomous` | - | - |
+| circuit_open | `autonomous` | - | - |
+| circuit_half_open_success | `autonomous` | - | - |
+| request_body_too_large | `autonomous` | - | - |
+| route_not_found | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

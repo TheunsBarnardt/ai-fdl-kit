@@ -197,6 +197,58 @@ description: "Stock entry and material movement system supporting issue, receipt
 | serial-batch-tracking | recommended | Serial and batch numbers validated during stock transactions |
 | work-orders-job-cards | recommended | Manufacture entries linked to work orders and BOM |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Stock Entry Movements
+
+Stock entry and material movement system supporting issue, receipt, transfer, manufacture, repack, and subcontracting with stock ledger and GL entries.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | inventory counts must be precise to prevent stockouts and overstock |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `warehouse_bin_management` | warehouse-bin-management | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| submit_stock_entry | `autonomous` | - | - |
+| cancel_stock_entry | `supervised` | - | - |
+| transfer_material | `autonomous` | - | - |
+| manufacture_finished_goods | `autonomous` | - | - |
+| negative_stock_detected | `autonomous` | - | - |
+| stock_freeze_violated | `autonomous` | - | - |
+| valuation_changed | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -259,6 +259,82 @@ description: "Palm vein biometric authentication — alternative to password log
 | palm-vein | required | Requires the biometric scanner SDK integration for scanner operations |
 | signup | recommended | Users may enroll palms during or after account creation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Biometric Auth
+
+Palm vein biometric authentication — alternative to password login with enrollment of up to 2 palms per user
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before transitioning to a terminal state
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `palm_vein` | palm-vein | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| rate_limited | `autonomous` | - | - |
+| scanner_unavailable | `autonomous` | - | - |
+| no_palms_enrolled | `autonomous` | - | - |
+| biometric_login_success | `autonomous` | - | - |
+| biometric_login_failed | `autonomous` | - | - |
+| enrollment_success | `autonomous` | - | - |
+| enrollment_replaces_existing | `autonomous` | - | - |
+| enrollment_failed | `autonomous` | - | - |
+| max_palms_reached | `autonomous` | - | - |
+| palm_removed | `human_required` | - | - |
+| user_not_found | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

@@ -157,18 +157,50 @@ Don't say "deprecation" or "migration". Translate to plain English:
 
 Example: if `field: remember_me, migration: "use refresh token rotation with configurable TTL instead"` → "The 'remember me' checkbox is being replaced with a smarter system that keeps you logged in automatically. Want me to use the newer approach?"
 
+### Step 5: Safety question (from `agi.safety`)
+
+If the blueprint has `agi.safety.action_permissions`, present a summary and ask:
+
+"Some actions in this feature have special permission levels:"
+- For each action_permission, describe it in plain English:
+  - If `autonomous`: "{action} — runs automatically"
+  - If `supervised`: "{action} — runs but you'll see a log entry"
+  - If `human_required`: "{action} — needs your approval every time"
+- If there's a cooldown: add "(at most once every {cooldown})"
+- If there's max_auto_decisions: add "(auto-approved up to {N} times, then asks you)"
+
+Then ask: "Does this look right?"
+- "Looks good" (keep as-is)
+- "I want more control" (upgrade all `autonomous` → `supervised`, `supervised` → `human_required`)
+- "I want less control" (downgrade all `human_required` → `supervised`, `supervised` → `autonomous`)
+
+### Step 6: Logging question (from `agi.explainability`)
+
+If the blueprint has `agi.explainability`, ask:
+
+"This feature can keep a detailed log of every decision it makes. Want to turn on decision logging?"
+- "Yes — log everything" (set `log_decisions: true`, `reasoning_depth: full`)
+- "Just the important ones" (use only `audit_events` — generate logging only for those specific decisions)
+- "No logging needed" (skip all explainability code)
+
 ### How answers shape the code (internal — don't explain this to the user)
 
 - **Control** → Generates approval screens or automated flows based on choice
 - **Priority** → Shapes code decisions (e.g., security-first → constant-time everything)
 - **Testing** → If yes, generates test files from `acceptance_tests` (each → test case) and `invariants` (each → assertion)
 - **Modernization** → Uses new patterns or keeps old ones
+- **Safety** → Generates permission checks, approval gates, and cooldown enforcement per action
+- **Logging** → Generates audit middleware or decision logging based on `audit_events` schema
 - **Additionally, always silently apply:**
   - `agi.verification.monitoring` → generate health-check endpoints
   - `agi.boundaries` → enforce execution order in generated code
   - `agi.capabilities` → document dependencies in code comments
   - `agi.goals` → add goal comments: `// GOAL: {description} — target: {metric} {target}`
   - `agi.evolution.triggers` → add TODO comments: `// TODO: if {condition}, consider {action}`
+  - `agi.coordination.exposes` → add interface comments: `// EXPOSES: {capability} — {contract}`
+  - `agi.coordination.consumes` → add dependency comments: `// CONSUMES: {capability} from {from} — fallback: {fallback}`
+  - `agi.learning.signals` → add monitoring comments: `// MONITOR: {metric} (window: {window}, baseline: {baseline})`
+  - `agi.learning.adaptations` → add TODO comments: `// TODO: experiment "{experiment}" when {when}`
 
 **If the blueprint has NO `agi` section, skip all of this silently.**
 

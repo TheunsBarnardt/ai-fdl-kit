@@ -3,7 +3,7 @@ title: "Expense Approval Blueprint"
 layout: default
 parent: "Data"
 grand_parent: Blueprint Catalog
-description: "Submit and approve employee expense reports with receipt validation. 11 fields. 8 outcomes. 9 error codes. rules: approval, receipt, submission"
+description: "Submit and approve employee expense reports with receipt validation. 11 fields. 8 outcomes. 9 error codes. rules: approval, receipt, submission. AGI: supervised"
 ---
 
 # Expense Approval Blueprint
@@ -319,6 +319,68 @@ Payment processing failed
 | file-upload | required | Receipt upload functionality |
 | audit-log | recommended | All transitions logged for compliance |
 
+## AGI Readiness
+
+### Goals
+
+#### Compliant Expense Processing
+
+Process expense reports accurately while enforcing company policy and maintaining full audit trails
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 48h from submission to reimbursement | Time from employee submission to payment execution |
+| policy_violation_rate | 0% | Expenses approved that violate company policy |
+| duplicate_detection_rate | >= 99% | Percentage of duplicate expenses caught before approval |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All expenses above threshold require receipts and multi-level approval
+- **cost** (negotiable): Processing cost per expense report must not exceed 2% of average expense amount
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before approving expenses above the finance threshold
+- before overriding a policy violation flag
+- before processing reimbursement to a new bank account
+
+**Escalation Triggers:**
+
+- `pending_approvals > 50`
+- `duplicate_expense_flags > 5`
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| auto_approve_under_limit | `autonomous` | - | 10 |
+| approve_over_limit | `human_required` | - | - |
+| flag_duplicate | `autonomous` | - | - |
+| process_reimbursement | `supervised` | - | - |
+| override_policy_violation | `human_required` | - | - |
+| modify_approval_thresholds | `human_required` | - | - |
+
+### Explainability
+
+**Log Decisions:** Yes
+
+**Reasoning Depth:** `full`
+
+**Audit Events:**
+
+| Decision | Must Log |
+|----------|----------|
+| expense_approved | `expense_id`, `amount`, `category`, `approver`, `policy_rule`, `timestamp` |
+| expense_rejected | `expense_id`, `amount`, `reason`, `reviewer`, `timestamp` |
+| policy_override | `expense_id`, `original_decision`, `override_reason`, `authorizer`, `timestamp` |
+| duplicate_flagged | `expense_id`, `matched_expense_id`, `similarity_score`, `timestamp` |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 
@@ -397,7 +459,7 @@ loading:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Expense Approval Blueprint",
-  "description": "Submit and approve employee expense reports with receipt validation. 11 fields. 8 outcomes. 9 error codes. rules: approval, receipt, submission",
+  "description": "Submit and approve employee expense reports with receipt validation. 11 fields. 8 outcomes. 9 error codes. rules: approval, receipt, submission. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

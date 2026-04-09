@@ -150,6 +150,59 @@ description: "Define and apply pricing rules, discount schemes, and promotional 
 | sales-purchase-invoicing | recommended | Pricing rules are applied to invoice line items |
 | sales-order-lifecycle | recommended | Pricing rules are applied during order creation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Pricing Rules Promotions
+
+Define and apply pricing rules, discount schemes, and promotional offers with priority-based conflict resolution, cumulative tracking, and free item support
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| apply_price_discount | `autonomous` | - | - |
+| apply_product_discount | `autonomous` | - | - |
+| apply_margin | `autonomous` | - | - |
+| resolve_conflicts | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

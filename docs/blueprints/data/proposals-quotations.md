@@ -336,6 +336,77 @@ description: "Creation, management, and approval workflow for investment proposa
 | advisor-onboarding | optional |  |
 | user-auth | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Proposals Quotations
+
+Creation, management, and approval workflow for investment proposals and quotations delivered to clients
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `client_onboarding` | client-onboarding | degrade |
+| `user_auth` | user-auth | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| get_current_proposal | `autonomous` | - | - |
+| get_client_proposals | `autonomous` | - | - |
+| get_proposals_for_review | `autonomous` | - | - |
+| get_proposal_with_document | `autonomous` | - | - |
+| accept_proposal | `autonomous` | - | - |
+| decline_proposal | `autonomous` | - | - |
+| get_proposal_document | `autonomous` | - | - |
+| generate_mandate_pdf | `autonomous` | - | - |
+| complete_onboarding_workflow | `autonomous` | - | - |
+| handle_mandate_signed | `autonomous` | - | - |
+| create_proposal | `supervised` | - | - |
+| create_proposal_success | `supervised` | - | - |
+| get_pm_proposals | `autonomous` | - | - |
+| get_proposal_by_id | `autonomous` | - | - |
+| update_proposal | `supervised` | - | - |
+| create_direct_onboarding | `supervised` | - | - |
+| start_onboarding_for_proposal | `autonomous` | - | - |
+| get_pm_onboardings | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

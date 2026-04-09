@@ -222,6 +222,57 @@ description: "Task lifecycle management with kanban board, subtask hierarchies, 
 | email-notifications | recommended | Notify assignees and reporters of task changes via email |
 | role-based-access | recommended | Control who can create, assign, and transition tasks |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Task Management
+
+Task lifecycle management with kanban board, subtask hierarchies, dependency tracking, priority-based scheduling, and workload balancing across assignees.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| task_created | `supervised` | - | - |
+| task_assigned | `autonomous` | - | - |
+| task_status_changed | `supervised` | - | - |
+| task_completed | `autonomous` | - | - |
+| task_overdue_detected | `autonomous` | - | - |
+| task_blocked_by_dependency | `human_required` | - | - |
+| invalid_transition | `autonomous` | - | - |
+| circular_dependency_rejected | `supervised` | - | - |
+
 
 <script type="application/ld+json">
 {

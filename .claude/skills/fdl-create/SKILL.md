@@ -147,6 +147,13 @@ Want me to adjust anything, or should I create it?
    - `sla` — only if there are time constraints
    - `related` — connections to existing blueprints
    - `ui_hints` — layout, field order, accessibility
+   - `agi` — **consider adding** an AGI-readiness section for blueprints in these categories:
+     - `ai` — always include (autonomous agents need goals, safety, coordination)
+     - `workflow` — include if the feature involves autonomous execution, approvals, or escalation
+     - `integration` — include if the feature processes untrusted external input (webhooks, APIs)
+     - `data` — include if the feature involves financial transactions or compliance-sensitive operations
+     - For other categories, only include `agi` if the feature has significant autonomous behavior or safety implications
+     - When including `agi`, add at minimum: `goals` (with success_metrics), `autonomy` (with level and human_checkpoints), and `safety` (with action_permissions). Add other sub-sections as relevant.
 3. **Write the file** to `blueprints/{category}/{feature}.blueprint.yaml`
 4. **Validate structure** — run `node scripts/validate.js blueprints/{category}/{feature}.blueprint.yaml`
 5. **Validate completeness** — run `node scripts/completeness-check.js blueprints/{category}/{feature}.blueprint.yaml` (catches placeholders, empty outcomes, dangling error refs)
@@ -219,11 +226,15 @@ For pure technical features (login, checkout, CRUD), `outcomes` alone is suffici
 
 ## Quality Checklist (internal — don't show to user)
 
-### Security
+### Security & Data Protection (POPIA)
 - [ ] Public features have rate limiting
 - [ ] Sensitive fields marked `sensitive: true`
 - [ ] Error messages don't leak internal state
 - [ ] Auth requirements specified in rules
+- [ ] **NO real API keys, tokens, passwords, or PII in field examples, descriptions, rules, or anywhere**
+- [ ] **NO real connection strings, URLs with credentials, or private keys**
+- [ ] Use fake placeholders: `"example@test.com"`, `"sk-test-key-not-real"`, `"<api-key>"`
+- [ ] Field validation patterns described WITHOUT real data samples
 
 ### Rule Strength (RFC 2119)
 - [ ] Security-critical rules are prefixed `MUST:` (hashing, auth checks, input validation)

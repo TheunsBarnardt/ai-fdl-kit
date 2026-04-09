@@ -3,7 +3,7 @@ title: "Openid Connect Server Blueprint"
 layout: default
 parent: "Auth"
 grand_parent: Blueprint Catalog
-description: "OAuth 2.0 and OpenID Connect identity provider with token issuance. 3 fields. 2 outcomes. 1 error codes. rules: core"
+description: "OAuth 2.0 and OpenID Connect identity provider with token issuance. 3 fields. 2 outcomes. 1 error codes. rules: core. AGI: supervised"
 ---
 
 # Openid Connect Server Blueprint
@@ -66,6 +66,57 @@ description: "OAuth 2.0 and OpenID Connect identity provider with token issuance
 | `oidc.authorized` | OIDC authorization success | `client_id` |
 | `oidc.invalid_client` | Invalid client error | `client_id` |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Openid Connect Server
+
+OAuth 2.0 and OpenID Connect identity provider with token issuance
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| authorization_success | `autonomous` | - | - |
+| invalid_client | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -84,7 +135,7 @@ source:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Openid Connect Server Blueprint",
-  "description": "OAuth 2.0 and OpenID Connect identity provider with token issuance. 3 fields. 2 outcomes. 1 error codes. rules: core",
+  "description": "OAuth 2.0 and OpenID Connect identity provider with token issuance. 3 fields. 2 outcomes. 1 error codes. rules: core. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

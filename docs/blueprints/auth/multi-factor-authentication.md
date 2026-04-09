@@ -3,7 +3,7 @@ title: "Multi Factor Authentication Blueprint"
 layout: default
 parent: "Auth"
 grand_parent: Blueprint Catalog
-description: "MFA with OTP, WebAuthn, and recovery codes. 2 fields. 1 outcomes. 1 error codes. rules: core"
+description: "MFA with OTP, WebAuthn, and recovery codes. 2 fields. 1 outcomes. 1 error codes. rules: core. AGI: supervised"
 ---
 
 # Multi Factor Authentication Blueprint
@@ -54,6 +54,56 @@ description: "MFA with OTP, WebAuthn, and recovery codes. 2 fields. 1 outcomes. 
 |-------|-------------|----------|
 | `mfa.verified` | MFA verification successful | `user_id` |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Multi Factor Authentication
+
+MFA with OTP, WebAuthn, and recovery codes
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| mfa_verified | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -72,7 +122,7 @@ source:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Multi Factor Authentication Blueprint",
-  "description": "MFA with OTP, WebAuthn, and recovery codes. 2 fields. 1 outcomes. 1 error codes. rules: core",
+  "description": "MFA with OTP, WebAuthn, and recovery codes. 2 fields. 1 outcomes. 1 error codes. rules: core. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

@@ -245,6 +245,73 @@ Invalid: log warning, deny all requests
 | openclaw-session-management | recommended | Auth determines session isolation scope |
 | openclaw-message-routing | required | Auth must precede message routing |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Openclaw Gateway Authentication
+
+Multi-mode gateway authentication with rate limiting, device tokens, and Tailscale VPN integration
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | usability | access control must enforce least-privilege principle |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `openclaw_message_routing` | openclaw-message-routing | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| token_authenticated | `autonomous` | - | - |
+| password_authenticated | `autonomous` | - | - |
+| device_authenticated | `autonomous` | - | - |
+| rate_limit_exceeded | `autonomous` | - | - |
+| loopback_bypass | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

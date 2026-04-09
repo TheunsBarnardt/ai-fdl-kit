@@ -186,6 +186,60 @@ description: "Manages TCP connections for FIX protocol engines including server-
 | fix-session-management | required | FIX sessions are established on top of connections managed here |
 | fix-message-persistence | recommended | Message store maintains sequences across connection drops and recoveries |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fix Connection Management
+
+Manages TCP connections for FIX protocol engines including server-side acceptors, client-side initiators, SSL/TLS encryption, automatic reconnection, and socket configuration
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fix_session_management` | fix-session-management | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| port_bind_failed | `autonomous` | - | - |
+| ssl_handshake_failed | `autonomous` | - | - |
+| connection_refused | `autonomous` | - | - |
+| connection_lost | `autonomous` | - | - |
+| connection_established | `autonomous` | - | - |
+| graceful_stop | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -330,6 +330,69 @@ description: "Server-side Lua script execution providing atomic operations, prog
 | multi-exec-transactions | optional | Both provide atomicity; scripting is more powerful for complex logic |
 | string-key-value | optional | Scripts often operate on string keys |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Lua Scripting
+
+Server-side Lua script execution providing atomic operations, programmatic logic, and access to all Redis commands within a single round-trip
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| eval_inline_script | `autonomous` | - | - |
+| evalsha_cached | `autonomous` | - | - |
+| evalsha_not_found | `autonomous` | - | - |
+| script_result_string | `autonomous` | - | - |
+| script_result_number | `autonomous` | - | - |
+| script_result_array | `autonomous` | - | - |
+| script_result_error | `autonomous` | - | - |
+| script_runtime_error | `autonomous` | - | - |
+| script_redis_error | `autonomous` | - | - |
+| script_redis_error_handled | `autonomous` | - | - |
+| script_call_redis_command | `autonomous` | - | - |
+| script_load | `autonomous` | - | - |
+| script_exists | `autonomous` | - | - |
+| script_flush | `autonomous` | - | - |
+| script_kill | `autonomous` | - | - |
+| script_call_denied | `autonomous` | - | - |
+| sandbox_no_file_io | `autonomous` | - | - |
+| sandbox_no_network | `autonomous` | - | - |
+| sandbox_allowed_functions | `autonomous` | - | - |
+| script_all_or_nothing | `autonomous` | - | - |
+| script_isolation | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -189,6 +189,66 @@ description: "File upload system with image resizing, focal-point cropping, MIME
 | payload-versions | optional | Upload collections can enable versioning to track file history |
 | payload-access-control | required | File access controlled by collection access functions |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Payload Uploads
+
+File upload system with image resizing, focal-point cropping, MIME validation, cloud storage adapters, and range request support
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `payload_collections` | payload-collections | degrade |
+| `payload_access_control` | payload-access-control | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| upload_success | `autonomous` | - | - |
+| upload_restricted_type | `autonomous` | - | - |
+| upload_invalid_mime | `autonomous` | - | - |
+| file_retrieval | `autonomous` | - | - |
+| image_resize | `autonomous` | - | - |
+| file_deletion | `human_required` | - | - |
+| overwrite_existing | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

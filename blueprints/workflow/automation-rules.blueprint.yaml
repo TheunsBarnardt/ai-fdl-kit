@@ -306,3 +306,78 @@ extensions:
     entry_points:
       - "addons/base_automation/models/base_automation.py"
       - "addons/base_automation/models/ir_actions_server.py"
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  goals:
+    - id: reliable_automation
+      description: "Execute automation rules reliably with predictable outcomes and minimal false triggers"
+      success_metrics:
+        - metric: rule_execution_success_rate
+          target: ">= 99%"
+          measurement: "Successful executions divided by total trigger events"
+        - metric: false_trigger_rate
+          target: "< 0.1%"
+          measurement: "Rules that fire when conditions are not actually met"
+        - metric: execution_latency
+          target: "< 2s for synchronous actions"
+          measurement: "Time from trigger event to action completion"
+      constraints:
+        - type: performance
+          description: "Rule evaluation must not block the main application thread"
+          negotiable: false
+        - type: security
+          description: "Rules cannot execute actions beyond the creator's permission scope"
+          negotiable: false
+
+  autonomy:
+    level: semi_autonomous
+    human_checkpoints:
+      - "before disabling production rules with active triggers"
+      - "before enabling rules that modify financial records"
+      - "before bulk-executing rules across more than 1000 records"
+    escalation_triggers:
+      - "rule_failure_count > 10"
+      - "execution_queue_depth > 500"
+
+  safety:
+    action_permissions:
+      - action: execute_rule
+        permission: autonomous
+        cooldown: 5s
+      - action: create_rule
+        permission: supervised
+      - action: delete_rule
+        permission: human_required
+      - action: enable_rule
+        permission: supervised
+      - action: disable_rule
+        permission: supervised
+      - action: bulk_execute
+        permission: human_required
+
+  learning:
+    signals:
+      - metric: rule_execution_time
+        window: 1h
+        baseline: "500ms"
+      - metric: rule_failure_rate
+        window: 24h
+        baseline: "1%"
+      - metric: trigger_volume
+        window: 1h
+        baseline: "100"
+    adaptations:
+      - when: "rule_failure_rate > 5"
+        experiment: "disable rules with highest failure rate and notify admin"
+        rollback_if: "dependent_workflow_failures > 0"
+        requires_approval: true
+      - when: "trigger_volume > 1000"
+        experiment: "batch trigger evaluations in groups of 50"
+        rollback_if: "execution_latency > 5000"
+        requires_approval: false
+      - when: "rule_execution_time > 2000"
+        experiment: "cache frequently evaluated conditions for 60 seconds"
+        rollback_if: "false_trigger_rate > 1"
+        requires_approval: false

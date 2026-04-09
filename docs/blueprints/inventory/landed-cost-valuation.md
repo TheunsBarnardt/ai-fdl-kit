@@ -181,6 +181,59 @@ description: "Landed cost allocation, stock reconciliation, and valuation repost
 | general-ledger | required | GL entries created for all valuation changes |
 | serial-batch-tracking | optional | Serial numbers validated during stock reconciliation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Landed Cost Valuation
+
+Landed cost allocation, stock reconciliation, and valuation reposting. Distributes charges across receipt items, adjusts stock quantities/valuations, and recalculates historical entries.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | inventory counts must be precise to prevent stockouts and overstock |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `stock_entry_movements` | stock-entry-movements | degrade |
+| `warehouse_bin_management` | warehouse-bin-management | degrade |
+| `general_ledger` | general-ledger | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_landed_cost | `supervised` | - | - |
+| distribute_charges | `autonomous` | - | - |
+| update_item_valuation | `supervised` | - | - |
+| reconcile_stock | `autonomous` | - | - |
+| repost_valuation | `autonomous` | - | - |
+| recalculate_gl_entries | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

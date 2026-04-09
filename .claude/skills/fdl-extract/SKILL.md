@@ -36,6 +36,14 @@ Read a business document (BRD, PRD, SOP, compliance policy, process map, or any 
 
 ## Workflow
 
+### Step 0.5: Security Scan (POPIA Compliance — MANDATORY)
+
+After reading the document, before extracting any content:
+- Scan for real API keys, tokens, passwords, connection strings, PII (SA ID numbers, banking details)
+- If found: WARN the user, list the PAGE/SECTION (not the values), and replace with generic placeholders in the blueprint
+- NEVER include real secrets in generated blueprints — even if the source document contains them
+- Use `<api-key>`, `<token>`, `example@test.com`, `<connection-string>` as placeholders
+
 ### Step 1: Read the Document
 
 1. Use the Read tool to load the file

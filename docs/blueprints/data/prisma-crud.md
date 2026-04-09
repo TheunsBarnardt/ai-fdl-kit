@@ -159,6 +159,64 @@ description: "Execute type-safe database CRUD operations with Prisma Client quer
 | prisma-schema | required | Models must be defined before querying |
 | prisma-migrations | required | Schema must be migrated to create database tables |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Prisma Crud
+
+Execute type-safe database CRUD operations with Prisma Client query builder
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `prisma_schema` | prisma-schema | degrade |
+| `prisma_migrations` | prisma-migrations | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| record_found | `autonomous` | - | - |
+| multiple_records_found | `autonomous` | - | - |
+| record_created | `supervised` | - | - |
+| record_updated | `supervised` | - | - |
+| record_deleted | `human_required` | - | - |
+| record_upserted | `autonomous` | - | - |
+| unique_constraint_violation | `autonomous` | - | - |
+| foreign_key_violation | `autonomous` | - | - |
+| record_not_found | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

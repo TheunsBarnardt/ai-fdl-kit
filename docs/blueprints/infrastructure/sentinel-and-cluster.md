@@ -319,6 +319,81 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 | master-replica-replication | required | Sentinel monitors master-replica setup; Cluster uses replication for fault tolerance |
 | database-persistence | optional | Both use RDB snapshots for recovery |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Sentinel And Cluster
+
+Sentinel: automatic failover and monitoring; Cluster: distributed sharding across multiple nodes with gossip protocol
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| availability | cost | infrastructure downtime impacts all dependent services |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `master_replica_replication` | master-replica-replication | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| sentinel_monitor_master | `autonomous` | - | - |
+| sentinel_health_check | `autonomous` | - | - |
+| sentinel_quorum_agreement | `autonomous` | - | - |
+| sentinel_leader_election | `autonomous` | - | - |
+| sentinel_replica_selection | `autonomous` | - | - |
+| sentinel_promotion | `autonomous` | - | - |
+| sentinel_reconfigure_replicas | `autonomous` | - | - |
+| sentinel_failover_complete | `autonomous` | - | - |
+| cluster_node_join | `autonomous` | - | - |
+| cluster_slot_assignment | `autonomous` | - | - |
+| cluster_key_routing | `autonomous` | - | - |
+| cluster_moved_redirect | `autonomous` | - | - |
+| cluster_ask_redirect | `autonomous` | - | - |
+| cluster_slot_migration | `autonomous` | - | - |
+| cluster_multi_key_restriction | `autonomous` | - | - |
+| cluster_state_ok | `autonomous` | - | - |
+| cluster_state_fail | `autonomous` | - | - |
+| cluster_gossip_update | `supervised` | - | - |
+| cluster_info | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

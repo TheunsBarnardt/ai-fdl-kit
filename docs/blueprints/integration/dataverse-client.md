@@ -366,6 +366,74 @@ description: "Enterprise service client for connecting to Microsoft Dataverse, m
 | plugin-development | optional | Service Client used in Dataverse plugins and custom workflows |
 | webhook-integration | optional | Receive Dataverse events and respond via Service Client |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Dataverse Client
+
+Enterprise service client for connecting to Microsoft Dataverse, managing authentication, executing CRUD operations on entities, batch processing, and discovery of available organizations
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| establish_connection | `autonomous` | - | - |
+| connection_failed | `autonomous` | - | - |
+| discover_organizations | `autonomous` | - | - |
+| create_record | `supervised` | - | - |
+| retrieve_record | `autonomous` | - | - |
+| query_records | `autonomous` | - | - |
+| update_record | `supervised` | - | - |
+| delete_record | `human_required` | - | - |
+| record_not_found | `autonomous` | - | - |
+| insufficient_permissions | `autonomous` | - | - |
+| associate_entities | `autonomous` | - | - |
+| disassociate_entities | `autonomous` | - | - |
+| relationship_not_found | `autonomous` | - | - |
+| execute_batch | `autonomous` | - | - |
+| batch_limit_exceeded | `autonomous` | - | - |
+| execute_organization_request | `autonomous` | - | - |
+| execute_web_request | `autonomous` | - | - |
+| rate_limited | `autonomous` | - | - |
+| retrieve_connection_metadata | `autonomous` | - | - |
+| clone_connection | `autonomous` | - | - |
+| dispose_connection | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

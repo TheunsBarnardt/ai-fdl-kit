@@ -231,6 +231,63 @@ description: "Contract lifecycle management with signing workflow, date-driven s
 | sales-order-lifecycle | optional | Contracts may be linked to sales orders or purchase orders |
 | lead-opportunity-pipeline | optional | Won opportunities may result in contract creation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Contract Management
+
+Contract lifecycle management with signing workflow, date-driven status transitions, fulfilment tracking, and template-based term generation.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_quality | volume | CRM data quality directly impacts customer relationship decisions |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `customer_supplier_management` | customer-supplier-management | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_contract | `supervised` | - | - |
+| sign_contract | `autonomous` | - | - |
+| track_fulfilment | `autonomous` | - | - |
+| cancel_contract | `supervised` | - | - |
+| lapse_contract | `autonomous` | - | - |
+| renew_contract | `autonomous` | - | - |
+| end_before_start_rejected | `supervised` | - | - |
+| already_cancelled_rejected | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

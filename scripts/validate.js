@@ -137,6 +137,10 @@ const blueprintJsonSchema = {
           items: { $ref: "#/$defs/agiTradeoff" },
         },
         evolution: { $ref: "#/$defs/agiEvolution" },
+        coordination: { $ref: "#/$defs/agiCoordination" },
+        safety: { $ref: "#/$defs/agiSafety" },
+        explainability: { $ref: "#/$defs/agiExplainability" },
+        learning: { $ref: "#/$defs/agiLearning" },
       },
     },
   },
@@ -432,6 +436,127 @@ const blueprintJsonSchema = {
               field: { type: "string" },
               remove_after: { type: "string" },
               migration: { type: "string" },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
+      additionalProperties: false,
+    },
+    agiCoordination: {
+      type: "object",
+      required: ["protocol"],
+      properties: {
+        protocol: {
+          type: "string",
+          enum: ["request_response", "pub_sub", "negotiation", "orchestrated"],
+        },
+        exposes: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["capability", "contract"],
+            properties: {
+              capability: { type: "string" },
+              contract: { type: "string" },
+            },
+            additionalProperties: false,
+          },
+        },
+        consumes: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["capability", "from", "fallback"],
+            properties: {
+              capability: { type: "string" },
+              from: { type: "string" },
+              fallback: {
+                type: "string",
+                enum: ["degrade", "queue", "fail"],
+              },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
+      additionalProperties: false,
+    },
+    agiSafety: {
+      type: "object",
+      properties: {
+        action_permissions: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["action", "permission"],
+            properties: {
+              action: { type: "string" },
+              permission: {
+                type: "string",
+                enum: ["autonomous", "supervised", "human_required"],
+              },
+              cooldown: { type: "string" },
+              max_auto_decisions: { type: "number", minimum: 1 },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
+      additionalProperties: false,
+    },
+    agiExplainability: {
+      type: "object",
+      properties: {
+        log_decisions: { type: "boolean" },
+        reasoning_depth: {
+          type: "string",
+          enum: ["full", "summary", "none"],
+        },
+        audit_events: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["decision", "must_log"],
+            properties: {
+              decision: { type: "string" },
+              must_log: {
+                type: "array",
+                items: { type: "string" },
+              },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
+      additionalProperties: false,
+    },
+    agiLearning: {
+      type: "object",
+      properties: {
+        signals: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["metric", "window", "baseline"],
+            properties: {
+              metric: { type: "string" },
+              window: { type: "string" },
+              baseline: { type: "string" },
+            },
+            additionalProperties: false,
+          },
+        },
+        adaptations: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["when", "experiment"],
+            properties: {
+              when: { type: "string" },
+              experiment: { type: "string" },
+              rollback_if: { type: "string" },
+              requires_approval: { type: "boolean" },
             },
             additionalProperties: false,
           },
@@ -815,7 +940,102 @@ function validateFile(filePath) {
         }
       }
     }
+
+    // Validate safety action_permissions — unique action names
+    if (data.agi.safety?.action_permissions) {
+      const actions = data.agi.safety.action_permissions.map((a) => a.action);
+      const dupes = actions.filter((a, i) => actions.indexOf(a) !== i);
+      if (dupes.length > 0) {
+        customErrors.push(
+          `  agi.safety.action_permissions: duplicate action names: ${dupes.join(", ")}`
+        );
+      }
+      // Validate cooldown format (duration like 5s, 10m, 1h, 7d)
+      for (let i = 0; i < data.agi.safety.action_permissions.length; i++) {
+        const perm = data.agi.safety.action_permissions[i];
+        if (perm.cooldown && !/^\d+[smhd]$/.test(perm.cooldown)) {
+          customWarnings.push(
+            `agi.safety.action_permissions[${i}].cooldown: "${perm.cooldown}" may not be a valid duration (expected: 5s, 10m, 1h, 7d)`
+          );
+        }
+      }
+    }
+
+    // Validate explainability audit_events — unique decision names
+    if (data.agi.explainability?.audit_events) {
+      const decisions = data.agi.explainability.audit_events.map((e) => e.decision);
+      const dupes = decisions.filter((d, i) => decisions.indexOf(d) !== i);
+      if (dupes.length > 0) {
+        customErrors.push(
+          `  agi.explainability.audit_events: duplicate decision names: ${dupes.join(", ")}`
+        );
+      }
+    }
+
+    // Validate learning adaptation expressions
+    if (data.agi.learning?.adaptations) {
+      for (let i = 0; i < data.agi.learning.adaptations.length; i++) {
+        const adapt = data.agi.learning.adaptations[i];
+        const whenResult = validateExpression(adapt.when);
+        if (!whenResult.valid) {
+          customWarnings.push(
+            `agi.learning.adaptations[${i}].when: may not be a valid expression — ${whenResult.error}`
+          );
+        }
+        if (adapt.rollback_if) {
+          const rollbackResult = validateExpression(adapt.rollback_if);
+          if (!rollbackResult.valid) {
+            customWarnings.push(
+              `agi.learning.adaptations[${i}].rollback_if: may not be a valid expression — ${rollbackResult.error}`
+            );
+          }
+        }
+      }
+    }
   }
+
+  // ─── POPIA / Secret Detection ──────────────────────────────
+  // Scan all string values in the blueprint for leaked secrets.
+  // This is a hard block — blueprints with secrets NEVER pass validation.
+
+  const SECRET_PATTERNS = [
+    { pattern: /sk-[a-zA-Z0-9]{20,}/, label: "OpenAI/Stripe API key" },
+    { pattern: /pk_(test|live)_[a-zA-Z0-9]{20,}/, label: "Stripe publishable key" },
+    { pattern: /AKIA[A-Z0-9]{16}/, label: "AWS access key" },
+    { pattern: /ghp_[a-zA-Z0-9]{36}/, label: "GitHub personal access token" },
+    { pattern: /gho_[a-zA-Z0-9]{36}/, label: "GitHub OAuth token" },
+    { pattern: /glpat-[a-zA-Z0-9\-_]{20,}/, label: "GitLab personal access token" },
+    { pattern: /eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/, label: "JWT token" },
+    { pattern: /(mongodb|postgres|postgresql|mysql|redis|amqp):\/\/[^\s]+:[^\s]+@/, label: "Connection string with credentials" },
+    { pattern: /BEGIN\s+(RSA|EC|OPENSSH|DSA|PGP)\s+PRIVATE\s+KEY/, label: "Private key" },
+    { pattern: /xox[bpsar]-[a-zA-Z0-9\-]{10,}/, label: "Slack token" },
+    { pattern: /hooks\.slack\.com\/services\/T[A-Z0-9]+\/B[A-Z0-9]+\/[a-zA-Z0-9]+/, label: "Slack webhook URL" },
+    { pattern: /AIza[a-zA-Z0-9_-]{35}/, label: "Google API key" },
+    { pattern: /[0-9]{13}(?<!\d{14})/, label: "Possible SA ID number (13 digits)" },
+  ];
+
+  function scanForSecrets(obj, path) {
+    if (typeof obj === "string") {
+      for (const { pattern, label } of SECRET_PATTERNS) {
+        if (pattern.test(obj)) {
+          // Don't include the actual secret in the error message!
+          customErrors.push(
+            `  SECURITY: ${path} contains what looks like a ${label} — remove it immediately`
+          );
+        }
+      }
+    } else if (Array.isArray(obj)) {
+      for (let i = 0; i < obj.length; i++) {
+        scanForSecrets(obj[i], `${path}[${i}]`);
+      }
+    } else if (obj && typeof obj === "object") {
+      for (const [key, val] of Object.entries(obj)) {
+        scanForSecrets(val, `${path}.${key}`);
+      }
+    }
+  }
+
+  scanForSecrets(data, "blueprint");
 
   if (customErrors.length > 0) {
     return { file: relPath, valid: false, errors: customErrors };
@@ -848,6 +1068,17 @@ function validateRelationships(results) {
         if (rel.type === "required" && !features.has(rel.feature)) {
           warnings.push(
             `${result.feature} requires "${rel.feature}" but no blueprint found for it`
+          );
+        }
+      }
+    }
+
+    // Validate coordination consumes references
+    if (data.agi?.coordination?.consumes) {
+      for (const c of data.agi.coordination.consumes) {
+        if (!features.has(c.from)) {
+          warnings.push(
+            `${result.feature} agi.coordination.consumes: capability "${c.capability}" references blueprint "${c.from}" which was not found`
           );
         }
       }

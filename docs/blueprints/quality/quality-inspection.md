@@ -150,6 +150,50 @@ description: "Quality inspection for incoming, outgoing, and in-process material
 | pick-list-shipping | recommended | Outgoing inspections linked to delivery notes |
 | work-orders-job-cards | optional | In-process inspections linked to job cards |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Quality Inspection
+
+Quality inspection for incoming, outgoing, and in-process materials with numeric range checks, formula-based acceptance criteria, and template-driven reading parameters.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| thoroughness | speed | quality checks must be comprehensive to catch defects early |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_inspection | `supervised` | - | - |
+| populate_from_template | `autonomous` | - | - |
+| evaluate_readings | `autonomous` | - | - |
+| accept_inspection | `autonomous` | - | - |
+| reject_inspection | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

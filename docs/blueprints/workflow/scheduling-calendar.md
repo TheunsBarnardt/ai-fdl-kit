@@ -190,6 +190,57 @@ description: "Calendar event management with bookings, availability tracking, re
 | email-notifications | recommended | Send event invitations and reminders via email |
 | push-notifications | optional | Send real-time reminder notifications before events |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Scheduling Calendar
+
+Calendar event management with bookings, availability tracking, recurring events (RRULE), conflict detection, timezone-aware storage, and configurable time slot granularity.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| event_created | `supervised` | - | - |
+| event_updated | `supervised` | - | - |
+| event_canceled | `supervised` | - | - |
+| booking_requested | `autonomous` | - | - |
+| booking_confirmed | `autonomous` | - | - |
+| conflict_detected | `autonomous` | - | - |
+| invalid_recurrence | `autonomous` | - | - |
+| invalid_time_range | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

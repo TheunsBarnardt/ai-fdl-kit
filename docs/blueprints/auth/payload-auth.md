@@ -282,6 +282,83 @@ description: "Full authentication system with JWT sessions, API keys, account lo
 | payload-collections | required | Auth-enabled collections are standard Payload collections with auth fields added |
 | payload-preferences | optional | Authenticated users can store UI preferences |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Payload Auth
+
+Full authentication system with JWT sessions, API keys, account locking, email verification, and custom strategies
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `payload_access_control` | payload-access-control | fail |
+| `payload_collections` | payload-collections | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| login_success | `autonomous` | - | - |
+| login_invalid_credentials | `autonomous` | - | - |
+| login_account_locked | `autonomous` | - | - |
+| login_unverified_email | `autonomous` | - | - |
+| logout_success | `autonomous` | - | - |
+| forgot_password_sent | `autonomous` | - | - |
+| reset_password_success | `autonomous` | - | - |
+| reset_password_expired | `autonomous` | - | - |
+| verify_email_success | `autonomous` | - | - |
+| refresh_token_success | `autonomous` | - | - |
+| unlock_account | `autonomous` | - | - |
+| register_first_user | `autonomous` | - | - |
+| me_current_user | `autonomous` | - | - |
+| api_key_auth | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

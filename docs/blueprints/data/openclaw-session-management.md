@@ -221,6 +221,64 @@ Automatic cleanup: remove stale lock, retry.
 | openclaw-gateway-authentication | required | User auth determines session isolation scope |
 | openclaw-llm-provider | required | Agent writes messages and token counts to session |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Openclaw Session Management
+
+Persistent conversation storage with automatic disk budgeting, transcript rotation, and session lifecycle tracking across messaging channels
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `openclaw_message_routing` | openclaw-message-routing | degrade |
+| `openclaw_gateway_authentication` | openclaw-gateway-authentication | degrade |
+| `openclaw_llm_provider` | openclaw-llm-provider | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| message_appended | `autonomous` | - | - |
+| transcript_rotated | `autonomous` | - | - |
+| disk_budget_enforced | `autonomous` | - | - |
+| idle_session_reset | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

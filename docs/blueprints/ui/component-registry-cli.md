@@ -322,6 +322,74 @@ description: "CLI tool for initializing projects, adding UI components from regi
 |---------|-------------|--------|
 | shadcn-components | required | The UI component library that this CLI distributes and installs |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Component Registry Cli
+
+CLI tool for initializing projects, adding UI components from registries, managing migrations, and providing MCP server integration for AI assistants
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `shadcn_components` | shadcn-components | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| init_default_project | `autonomous` | - | - |
+| init_with_template | `autonomous` | - | - |
+| init_monorepo | `autonomous` | - | - |
+| init_unsupported_framework | `autonomous` | - | - |
+| add_single_component | `autonomous` | - | - |
+| add_from_url | `autonomous` | - | - |
+| add_from_custom_registry | `autonomous` | - | - |
+| add_missing_config | `autonomous` | - | - |
+| search_registry | `autonomous` | - | - |
+| migrate_icons | `autonomous` | - | - |
+| migrate_radix | `autonomous` | - | - |
+| migrate_rtl | `autonomous` | - | - |
+| mcp_list_items | `autonomous` | - | - |
+| mcp_search_items | `autonomous` | - | - |
+| mcp_view_items | `autonomous` | - | - |
+| mcp_get_add_command | `autonomous` | - | - |
+| registry_not_found | `autonomous` | - | - |
+| registry_unauthorized | `autonomous` | - | - |
+| registry_missing_env_vars | `autonomous` | - | - |
+| registry_parse_error | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

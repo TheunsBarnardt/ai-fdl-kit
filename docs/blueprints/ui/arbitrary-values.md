@@ -196,6 +196,54 @@ description: "Use one-off custom values in utilities without defining them in th
 | utility-composition | recommended | Arbitrary values extend utilities beyond theme-defined values |
 | theme-configuration | optional | Arbitrary values reference theme via theme() function |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Arbitrary Values
+
+Use one-off custom values in utilities without defining them in theme, enabling flexible styling beyond framework constraints
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| simple_arbitrary_width | `autonomous` | - | - |
+| arbitrary_color_value | `autonomous` | - | - |
+| arbitrary_rgba_color | `autonomous` | - | - |
+| arbitrary_with_theme_reference | `autonomous` | - | - |
+| arbitrary_with_css_variable | `autonomous` | - | - |
+| arbitrary_with_modifier | `supervised` | - | - |
+| responsive_arbitrary_value | `autonomous` | - | - |
+| arbitrary_property | `autonomous` | - | - |
+| invalid_arbitrary_syntax | `autonomous` | - | - |
+| invalid_theme_reference | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

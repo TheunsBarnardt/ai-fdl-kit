@@ -295,6 +295,74 @@ Partner initiates a refund for a prior successful transaction
 | chp-outbound-payments | required | RTP responses delivered via outbound callbacks |
 | chp-account-management | recommended | Proxy resolution for PayShap addressing |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Clearing House Request To Pay
+
+Request-To-Pay (RTP) and refunds for clearing house payments — outbound/inbound RTP initiation, cancellation, and refund processing
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `chp_inbound_payments` | chp-inbound-payments | degrade |
+| `chp_outbound_payments` | chp-outbound-payments | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| outbound_rtp_initiated | `autonomous` | - | - |
+| outbound_rtp_paid | `autonomous` | - | - |
+| outbound_rtp_rejected | `supervised` | - | - |
+| outbound_rtp_expired | `autonomous` | - | - |
+| inbound_rtp_received | `autonomous` | - | - |
+| rtp_cancellation_success | `supervised` | - | - |
+| rtp_cancellation_already_paid | `supervised` | - | - |
+| refund_initiated | `autonomous` | - | - |
+| refund_completed | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

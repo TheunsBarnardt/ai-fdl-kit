@@ -258,6 +258,64 @@ description: "Bonds reference data and corporate actions delivery via FTP — CS
 | bond-etp-eod-data-delivery | recommended |  |
 | equities-eod-data-delivery | optional |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Bonds Reference Corporate Actions Eod Data Delivery
+
+Bonds reference data and corporate actions delivery via FTP — CSV/XLS dissemination of debt security master data, new listings, coupon schedules, callable events, corporate action schedules, and co...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| generate_bonds_instrument_reference_daily | `autonomous` | - | - |
+| generate_new_bonds_listing_daily | `autonomous` | - | - |
+| generate_corporate_actions_schedule | `autonomous` | - | - |
+| generate_coupon_rate_update | `supervised` | - | - |
+| instrument_listed_new | `autonomous` | - | - |
+| instrument_delisted_or_matured | `autonomous` | - | - |
+| isin_generation_fails | `autonomous` | - | - |
+| callable_step_up_event_created | `supervised` | - | - |
+| historical_retention_40_days | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

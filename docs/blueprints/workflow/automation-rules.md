@@ -198,6 +198,71 @@ description: "Event-driven automation engine that triggers actions based on reco
 | quotation-order-management | optional | Automate actions on sales orders (e.g., auto-assign team on creation) |
 | odoo-expense-approval | optional | Automate expense workflow steps (e.g., auto-approve under threshold) |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Automation
+
+Execute automation rules reliably with predictable outcomes and minimal false triggers
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| rule_execution_success_rate | >= 99% | Successful executions divided by total trigger events |
+| false_trigger_rate | < 0.1% | Rules that fire when conditions are not actually met |
+| execution_latency | < 2s for synchronous actions | Time from trigger event to action completion |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Rule evaluation must not block the main application thread
+- **security** (non-negotiable): Rules cannot execute actions beyond the creator's permission scope
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before disabling production rules with active triggers
+- before enabling rules that modify financial records
+- before bulk-executing rules across more than 1000 records
+
+**Escalation Triggers:**
+
+- `rule_failure_count > 10`
+- `execution_queue_depth > 500`
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| execute_rule | `autonomous` | 5s | - |
+| create_rule | `supervised` | - | - |
+| delete_rule | `human_required` | - | - |
+| enable_rule | `supervised` | - | - |
+| disable_rule | `supervised` | - | - |
+| bulk_execute | `human_required` | - | - |
+
+### Learning
+
+**Signals:**
+
+| Metric | Window | Baseline |
+|--------|--------|----------|
+| rule_execution_time | 1h | 500ms |
+| rule_failure_rate | 24h | 1% |
+| trigger_volume | 1h | 100 |
+
+**Adaptations:**
+
+| When | Experiment | Rollback If | Approval |
+|------|------------|-------------|----------|
+| `rule_failure_rate > 5` | disable rules with highest failure rate and notify admin | `dependent_workflow_failures > 0` | Required |
+| `trigger_volume > 1000` | batch trigger evaluations in groups of 50 | `execution_latency > 5000` | Auto |
+| `rule_execution_time > 2000` | cache frequently evaluated conditions for 60 seconds | `false_trigger_rate > 1` | Auto |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

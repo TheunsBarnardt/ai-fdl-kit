@@ -45,6 +45,15 @@ Most modern documentation sites are JavaScript-rendered (React, Next.js, Docusau
 
 ## Workflow
 
+### Security Notice (POPIA Compliance — MANDATORY)
+
+When extracting from any website:
+- NEVER include real API keys, tokens, passwords, or credentials found on documentation pages
+- Replace example API keys in docs with `<api-key>` or `"sk-test-key-not-real"`
+- Replace real endpoint URLs that contain credentials with generic versions
+- If the site shows real customer data or PII in examples, replace with fake placeholders
+- WARN the user if the site appears to expose real credentials
+
 ### Step 1: Open and Map the Site
 
 1. Connect to Chrome browser:

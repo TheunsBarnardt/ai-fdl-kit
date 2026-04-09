@@ -224,6 +224,61 @@ description: "Serial number and batch tracking with lifecycle management, batch-
 | stock-entry-movements | required | Stock entries are the primary mechanism for serial/batch movement |
 | warehouse-bin-management | required | Serial and batch quantities are tracked per warehouse bin |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Serial Batch Tracking
+
+Serial number and batch tracking with lifecycle management, batch-wise valuation, expiry tracking, and serial/batch bundles.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | inventory counts must be precise to prevent stockouts and overstock |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `stock_entry_movements` | stock-entry-movements | degrade |
+| `warehouse_bin_management` | warehouse-bin-management | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_serial | `supervised` | - | - |
+| consume_serial | `autonomous` | - | - |
+| deliver_serial | `autonomous` | - | - |
+| create_batch | `supervised` | - | - |
+| track_expiry | `autonomous` | - | - |
+| create_bundle | `supervised` | - | - |
+| serial_duplicate_rejected | `supervised` | - | - |
+| serial_warehouse_mismatch | `autonomous` | - | - |
+| batch_expired_rejection | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

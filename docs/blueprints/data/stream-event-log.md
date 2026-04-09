@@ -374,6 +374,68 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 | list-queue-operations | optional | Streams are persistent event logs; lists are transient queues |
 | key-expiration | optional | Can trim streams by age/count |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Stream Event Log
+
+Append-only event log with monotonically increasing IDs, consumer groups for distributed processing, and automatic acknowledgment tracking
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| xadd_entry | `autonomous` | - | - |
+| xadd_with_trimming | `autonomous` | - | - |
+| xadd_idempotent | `autonomous` | - | - |
+| xread_entries | `autonomous` | - | - |
+| xread_range | `autonomous` | - | - |
+| xread_blocking | `human_required` | - | - |
+| xlen_count | `autonomous` | - | - |
+| xgroup_create | `supervised` | - | - |
+| xgroup_destroy | `human_required` | - | - |
+| xgroup_setid | `autonomous` | - | - |
+| xgroup_createconsumer | `supervised` | - | - |
+| xgroup_delconsumer | `autonomous` | - | - |
+| xreadgroup_entries | `autonomous` | - | - |
+| xreadgroup_blocking | `human_required` | - | - |
+| xack_messages | `autonomous` | - | - |
+| xpending_summary | `autonomous` | - | - |
+| xpending_details | `autonomous` | - | - |
+| xclaim_messages | `autonomous` | - | - |
+| xautoclaim_messages | `autonomous` | - | - |
+| xdel_entries | `autonomous` | - | - |
+| xtrim_entries | `autonomous` | - | - |
+| xinfo_stream | `autonomous` | - | - |
+| xinfo_groups | `autonomous` | - | - |
+| xinfo_consumers | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

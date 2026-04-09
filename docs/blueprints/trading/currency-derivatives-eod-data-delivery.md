@@ -140,6 +140,57 @@ description: "End-of-day currency derivatives data delivery via FTP — fixed-wi
 | equity-derivatives-eod-data-delivery | optional | Equity derivatives uses identical record structure with different prefixes |
 | interest-rates-derivatives-eod-data-delivery | optional | Interest rates derivatives uses similar structure |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Currency Derivatives Eod Data Delivery
+
+End-of-day currency derivatives data delivery via FTP — fixed-width flat files covering daily statistics, MTM, rates, close-out, and risk parameters
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| successful_delivery | `autonomous` | - | - |
+| subscriber_provisioned | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

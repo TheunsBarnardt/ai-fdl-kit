@@ -3,7 +3,7 @@ title: "Session Management Blueprint"
 layout: default
 parent: "Auth"
 grand_parent: Blueprint Catalog
-description: "Active session listing, device tracking, and session revocation. 13 fields. 8 outcomes. 6 error codes. rules: security, device_tracking"
+description: "Active session listing, device tracking, and session revocation. 13 fields. 8 outcomes. 6 error codes. rules: security, device_tracking. AGI: supervised"
 ---
 
 # Session Management Blueprint
@@ -181,6 +181,77 @@ description: "Active session listing, device tracking, and session revocation. 1
 | single-sign-on | optional | SSO sessions need bridging and lifecycle management |
 | oauth-social-login | optional | OAuth sessions need tracking alongside password sessions |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Session Management
+
+Active session listing, device tracking, and session revocation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `login` | login | fail |
+| `logout` | logout | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| rate_limited | `autonomous` | - | - |
+| session_not_found | `autonomous` | - | - |
+| unauthorized_revocation | `autonomous` | - | - |
+| list_active_sessions | `autonomous` | - | - |
+| create_session | `supervised` | - | - |
+| revoke_single_session | `human_required` | - | - |
+| revoke_all_other_sessions | `human_required` | - | - |
+| session_expired | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 
@@ -221,7 +292,7 @@ loading:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Session Management Blueprint",
-  "description": "Active session listing, device tracking, and session revocation. 13 fields. 8 outcomes. 6 error codes. rules: security, device_tracking",
+  "description": "Active session listing, device tracking, and session revocation. 13 fields. 8 outcomes. 6 error codes. rules: security, device_tracking. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

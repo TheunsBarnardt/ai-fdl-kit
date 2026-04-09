@@ -279,3 +279,75 @@ related:
   - feature: api-gateway
     type: optional
     reason: "Route incoming webhooks through gateway for rate limiting"
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  goals:
+    - id: secure_ingestion
+      description: "Process incoming webhooks securely with zero tolerance for forged or replayed events"
+      success_metrics:
+        - metric: signature_verification_rate
+          target: "100%"
+          measurement: "All processed webhooks have valid signatures"
+        - metric: replay_rejection_rate
+          target: "100%"
+          measurement: "All duplicate event_ids within the dedup window are rejected"
+        - metric: processing_latency
+          target: "< 200ms to acknowledge"
+          measurement: "Time from webhook receipt to HTTP 200 response"
+      constraints:
+        - type: security
+          description: "Reject any webhook that fails signature verification — no fallback to unverified processing"
+          negotiable: false
+        - type: performance
+          description: "Acknowledge receipt quickly, process asynchronously"
+          negotiable: true
+
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - "before registering a new webhook source with signing keys"
+      - "before disabling signature verification for any source"
+    escalation_triggers:
+      - "invalid_signature_rate > 5"
+      - "replay_attempt_rate > 10"
+      - "handler_error_rate > 3"
+
+  verification:
+    invariants:
+      - "every processed webhook has a verified signature"
+      - "no event_id is processed more than once within the deduplication window"
+      - "webhook payloads are never modified between receipt and handler delivery"
+      - "signing keys are stored encrypted and never logged"
+    acceptance_tests:
+      - scenario: "valid webhook processing"
+        given: "a webhook with valid HMAC signature and unique event_id"
+        when: "the webhook is received"
+        expect: "HTTP 200 returned and payload dispatched to correct handler"
+      - scenario: "invalid signature rejection"
+        given: "a webhook with tampered signature"
+        when: "the webhook is received"
+        expect: "HTTP 401 returned and event logged as security incident"
+      - scenario: "replay protection"
+        given: "a webhook with an event_id that was already processed"
+        when: "the duplicate webhook is received"
+        expect: "HTTP 200 returned (idempotent) but handler is not invoked again"
+      - scenario: "handler failure retry"
+        given: "a valid webhook whose handler fails with a transient error"
+        when: "the handler returns a 5xx status"
+        expect: "webhook queued for retry with exponential backoff up to max_retries"
+
+  safety:
+    action_permissions:
+      - action: process_webhook
+        permission: autonomous
+      - action: register_source
+        permission: supervised
+      - action: disable_source
+        permission: human_required
+      - action: rotate_signing_keys
+        permission: human_required
+      - action: purge_dedup_cache
+        permission: supervised
+        cooldown: 1h

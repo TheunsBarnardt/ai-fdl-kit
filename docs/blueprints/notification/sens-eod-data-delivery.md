@@ -244,6 +244,56 @@ description: "End-of-day SENS announcements delivery via NewsML-G2 XML — text 
 | equities-eod-data-delivery | recommended |  |
 | bonds-reference-corporate-actions-eod-data-delivery | optional |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Sens Eod Data Delivery
+
+End-of-day SENS announcements delivery via NewsML-G2 XML — text and PDF variants disseminated as end-of-day compressed packages covering company, exchange, and regulatory institution announcements
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| delivery_reliability | speed | notifications must reach recipients even if delayed |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| company_announcement_with_share | `autonomous` | - | - |
+| company_announcement_no_share | `autonomous` | - | - |
+| exchange_announcement | `supervised` | - | - |
+| regulatory_institution_announcement | `autonomous` | - | - |
+| price_sensitive_urgency_1 | `autonomous` | - | - |
+| non_price_sensitive_urgency_4 | `autonomous` | - | - |
+| announcement_cancellation | `supervised` | - | - |
+| announcement_replacement | `autonomous` | - | - |
+| headline_too_long | `autonomous` | - | - |
+| eod_text_too_large | `autonomous` | - | - |
+| eod_pdf_too_large | `autonomous` | - | - |
+| generate_eod_package | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

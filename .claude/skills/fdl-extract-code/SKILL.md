@@ -54,6 +54,32 @@ Analyze an existing codebase (local folder or git repository URL) and reverse-en
 1. Verify the path exists using Glob
 2. If the path points to a specific subdirectory (e.g., `./src/auth`), focus analysis there but still check the project root for config files, package manifests, and shared utilities
 
+### Step 0.5: Security Scan (POPIA Compliance — MANDATORY)
+
+Before analyzing ANY code, scan the source for secrets and sensitive data:
+
+1. **Check for exposed secrets** — Search for common secret patterns in the codebase:
+   - API keys (`sk-`, `AKIA`, `ghp_`, `gho_`, `glpat-`, `AIza`)
+   - Connection strings with credentials (`mongodb://user:pass@`, `postgres://...`)
+   - Private keys (`BEGIN RSA PRIVATE KEY`)
+   - JWT tokens (`eyJ...`)
+   - Environment files with real values (`.env` files — NOT `.env.example`)
+
+2. **If secrets are found:**
+   - ⚠️ WARN the user: "I found what looks like real credentials in this codebase. I will NOT include any of these in the blueprints."
+   - List the FILE PATHS (not the values) where secrets were detected
+   - NEVER include the actual secret values in the warning or anywhere else
+   - Proceed with extraction but actively filter out all secret values from generated blueprints
+
+3. **For all extracted content:**
+   - Replace real API endpoints with generic placeholders (e.g., `https://api.example.com`)
+   - Replace real email addresses with `example@test.com`
+   - Replace connection strings with `<connection-string>`
+   - Use `<api-key>` or `<token>` as placeholders, never real values
+   - Describe field validation patterns WITHOUT showing real data samples
+
+**This step is NON-NEGOTIABLE. Even if the user says "include everything" — secrets are NEVER included.**
+
 ### Step 1: Discover Project Structure
 
 Map the codebase to understand its architecture before diving into details.

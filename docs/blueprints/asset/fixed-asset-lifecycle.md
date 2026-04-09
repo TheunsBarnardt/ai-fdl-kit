@@ -225,6 +225,59 @@ description: "Fixed asset lifecycle management covering registration, multi-book
 | general-ledger | required | Depreciation and disposal entries post to general ledger |
 | sales-purchase-invoicing | recommended | Asset sales create sales invoices; purchases link to purchase invoices |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fixed Asset Lifecycle
+
+Fixed asset lifecycle management covering registration, multi-book depreciation, asset movements, value adjustments, disposal, and capitalization with automatic GL entries.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `general_ledger` | general-ledger | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| register_asset | `autonomous` | - | - |
+| calculate_depreciation | `autonomous` | - | - |
+| post_depreciation_entry | `autonomous` | - | - |
+| move_asset | `autonomous` | - | - |
+| adjust_value | `autonomous` | - | - |
+| sell_asset | `autonomous` | - | - |
+| scrap_asset | `autonomous` | - | - |
+| capitalize_items | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

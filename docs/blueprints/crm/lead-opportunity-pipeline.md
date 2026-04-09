@@ -269,6 +269,55 @@ description: "Lead capture, qualification, and opportunity pipeline management w
 | campaign-management | optional | UTM campaign tracking and email campaigns target leads |
 | contract-management | optional | Won opportunities may result in contract creation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Lead Opportunity Pipeline
+
+Lead capture, qualification, and opportunity pipeline management with conversion tracking from initial contact through to customer creation.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_quality | volume | CRM data quality directly impacts customer relationship decisions |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_lead | `supervised` | - | - |
+| qualify_lead | `autonomous` | - | - |
+| convert_to_opportunity | `autonomous` | - | - |
+| create_quotation | `supervised` | - | - |
+| declare_lost | `autonomous` | - | - |
+| convert_to_customer | `autonomous` | - | - |
+| duplicate_email_rejected | `supervised` | - | - |
+| no_name_or_company | `autonomous` | - | - |
+| owner_is_lead_rejected | `supervised` | - | - |
+| active_quotation_blocks_lost | `human_required` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

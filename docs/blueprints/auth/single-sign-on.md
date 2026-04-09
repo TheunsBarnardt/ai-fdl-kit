@@ -3,7 +3,7 @@ title: "Single Sign On Blueprint"
 layout: default
 parent: "Auth"
 grand_parent: Blueprint Catalog
-description: "Enterprise SSO via SAML 2.0 and OIDC with JIT provisioning. 13 fields. 7 outcomes. 8 error codes. rules: security, jit_provisioning, session"
+description: "Enterprise SSO via SAML 2.0 and OIDC with JIT provisioning. 13 fields. 7 outcomes. 8 error codes. rules: security, jit_provisioning, session. AGI: supervised"
 ---
 
 # Single Sign On Blueprint
@@ -190,6 +190,75 @@ description: "Enterprise SSO via SAML 2.0 and OIDC with JIT provisioning. 13 fie
 | multi-factor-auth | optional | MFA may be enforced at the IdP level or additionally at SP |
 | logout | required | Single logout (SLO) must terminate both SP and IdP sessions |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Single Sign On
+
+Enterprise SSO via SAML 2.0 and OIDC with JIT provisioning
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `logout` | logout | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| rate_limited | `autonomous` | - | - |
+| sso_not_configured | `autonomous` | - | - |
+| invalid_assertion | `autonomous` | - | - |
+| replay_attack_detected | `autonomous` | - | - |
+| domain_not_allowed | `autonomous` | - | - |
+| jit_provision_new_user | `autonomous` | - | - |
+| existing_user_login | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 
@@ -231,7 +300,7 @@ loading:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Single Sign On Blueprint",
-  "description": "Enterprise SSO via SAML 2.0 and OIDC with JIT provisioning. 13 fields. 7 outcomes. 8 error codes. rules: security, jit_provisioning, session",
+  "description": "Enterprise SSO via SAML 2.0 and OIDC with JIT provisioning. 13 fields. 7 outcomes. 8 error codes. rules: security, jit_provisioning, session. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

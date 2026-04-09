@@ -177,6 +177,57 @@ description: "Real-time in-app notification center with read state, grouping, de
 | email-notifications | optional | Email digest of unread in-app notifications |
 | webhook-outbound | optional | Trigger outbound webhooks when notifications are created |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable In App Notifications
+
+Real-time in-app notification center with read state, grouping, deep links, and persistent storage
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| delivery_reliability | speed | notifications must reach recipients even if delayed |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `notification_preferences` | notification-preferences | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| user_not_found | `autonomous` | - | - |
+| storage_limit_reached | `autonomous` | - | - |
+| notification_created | `supervised` | - | - |
+| notification_read | `autonomous` | - | - |
+| mark_all_read | `autonomous` | - | - |
+| notification_dismissed | `autonomous` | - | - |
+| notification_clicked | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

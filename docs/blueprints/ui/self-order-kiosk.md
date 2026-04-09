@@ -219,6 +219,76 @@ description: "Customer self-ordering system supporting kiosk terminals and mobil
 | pos-core | required | Self-orders create POS orders within an active session |
 | loyalty-coupons | optional | Customers can apply loyalty rewards during self-ordering |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Self Order Kiosk
+
+Customer self-ordering system supporting kiosk terminals and mobile QR-code ordering, with menu browsing, cart management, payment processing, and real-time order status updates.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+**Constraints:**
+
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `pos_core` | pos-core | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| mobile_order_placed | `autonomous` | - | - |
+| kiosk_order_with_payment | `autonomous` | - | - |
+| item_unavailable_during_browse | `autonomous` | - | - |
+| order_cancelled_by_customer | `supervised` | - | - |
+| session_closed_during_ordering | `autonomous` | - | - |
+| invalid_access_token | `autonomous` | - | - |
+| payment_failed | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

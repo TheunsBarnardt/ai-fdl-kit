@@ -309,6 +309,79 @@ description: "Independent Financial Advisor portal for client management, onboar
 | audit-trail | required | Client view impersonation and all IFA actions must be audit-logged |
 | document-management | recommended | IFA views client documents during assistance |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Ifa Portal
+
+Independent Financial Advisor portal for client management, onboarding assistance, client-view impersonation, messaging, product suggestions, and lead referral handling
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `client_onboarding` | client-onboarding | degrade |
+| `account_opening` | account-opening | degrade |
+| `portfolio_management` | portfolio-management | degrade |
+| `login` | login | degrade |
+| `role_based_access` | role-based-access | degrade |
+| `audit_trail` | audit-trail | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| ifa_login | `autonomous` | - | - |
+| ifa_suspended | `human_required` | - | - |
+| list_clients | `autonomous` | - | - |
+| view_client_detail | `autonomous` | - | - |
+| unauthorized_client_access | `autonomous` | - | - |
+| start_client_view | `autonomous` | - | - |
+| end_client_view | `autonomous` | - | - |
+| assist_onboarding | `autonomous` | - | - |
+| initiate_onboarding_for_client | `autonomous` | - | - |
+| send_message | `autonomous` | - | - |
+| suggest_product | `autonomous` | - | - |
+| submit_lead | `autonomous` | - | - |
+| update_lead_status | `supervised` | - | - |
+| convert_lead_to_client | `autonomous` | - | - |
+| view_message_history | `autonomous` | - | - |
+| get_ifa_dashboard | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

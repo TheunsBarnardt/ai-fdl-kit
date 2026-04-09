@@ -323,6 +323,72 @@ description: "Investment account opening workflow with product selection, risk p
 | dataverse-client | required | Account creation and product data synced with CRM |
 | audit-trail | recommended | All application changes must be tracked for regulatory compliance |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Account Opening
+
+Investment account opening workflow with product selection, risk profiling, terms acceptance, funding instructions, and compliance review
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `client_onboarding` | client-onboarding | degrade |
+| `product_configurator` | product-configurator | degrade |
+| `dataverse_client` | dataverse-client | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| start_application | `autonomous` | - | - |
+| select_products | `autonomous` | - | - |
+| complete_risk_assessment | `autonomous` | - | - |
+| product_suitability_warning | `autonomous` | - | - |
+| accept_terms | `autonomous` | - | - |
+| provide_funding_details | `autonomous` | - | - |
+| compliance_approve | `supervised` | - | - |
+| compliance_reject | `supervised` | - | - |
+| create_account | `supervised` | - | - |
+| cancel_application | `supervised` | - | - |
+| get_application_status | `autonomous` | - | - |
+| get_available_products | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

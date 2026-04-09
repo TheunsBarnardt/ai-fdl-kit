@@ -185,6 +185,51 @@ description: "Maintenance scheduling and visit management with auto-generated vi
 | customer-supplier-management | recommended | Customer data used for schedule and visit management |
 | support-tickets-sla | optional | Breakdown visits may link to support tickets |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Maintenance Scheduling
+
+Maintenance scheduling and visit management with auto-generated visit dates, holiday avoidance, calendar events, and warranty status tracking for customer equipment.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| thoroughness | speed | quality checks must be comprehensive to catch defects early |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| generate_schedule | `autonomous` | - | - |
+| submit_schedule | `autonomous` | - | - |
+| create_calendar_events | `supervised` | - | - |
+| record_visit | `autonomous` | - | - |
+| complete_visit | `autonomous` | - | - |
+| update_warranty_status | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

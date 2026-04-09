@@ -206,6 +206,73 @@ description: "OAuth 2.0 authorization server for issuing tokens to third-party a
 | api-gateway | recommended | Gateway validates access tokens on API requests |
 | webhook-ingestion | optional | Third-party apps may register webhooks after authorization |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Oauth Provider
+
+OAuth 2.0 authorization server for issuing tokens to third-party applications
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `login` | login | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| rate_limited | `autonomous` | - | - |
+| invalid_client | `autonomous` | - | - |
+| invalid_redirect_uri | `autonomous` | - | - |
+| pkce_required | `autonomous` | - | - |
+| authorization_code_expired | `autonomous` | - | - |
+| refresh_token_reuse_detected | `autonomous` | - | - |
+| client_registered | `autonomous` | - | - |
+| consent_granted | `autonomous` | - | - |
+| token_issued | `autonomous` | - | - |
+| token_revoked | `human_required` | - | - |
+
 
 <script type="application/ld+json">
 {

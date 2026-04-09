@@ -210,6 +210,64 @@ description: "Centralized state management with sliced architecture, action disp
 | field-transforms | required | Field resolution pipeline reads and writes state |
 | drag-drop-editor | recommended | Drag state (isDragging, preview) is UI state |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Editor State
+
+Centralized state management with sliced architecture, action dispatching, computed selections, and public API
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `content_tree` | content-tree | degrade |
+| `undo_redo` | undo-redo | degrade |
+| `component_registry` | component-registry | degrade |
+| `field_transforms` | field-transforms | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| dispatch_action | `autonomous` | - | - |
+| select_component | `autonomous` | - | - |
+| deselect_component | `autonomous` | - | - |
+| toggle_preview_mode | `autonomous` | - | - |
+| set_component_loading | `autonomous` | - | - |
+| clear_component_loading | `autonomous` | - | - |
+| batch_resolve_on_load | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

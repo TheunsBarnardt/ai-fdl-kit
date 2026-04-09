@@ -160,6 +160,48 @@ description: "Transient toast/snackbar notifications with auto-dismiss, stacking
 | theme-configuration | optional | Toast colors and styling adapt to the active theme |
 | internationalization | optional | Toast messages may need translation and RTL support |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Toast Notifications
+
+Transient toast/snackbar notifications with auto-dismiss, stacking, and accessibility
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| empty_message | `autonomous` | - | - |
+| queue_overflow | `autonomous` | - | - |
+| error_toast | `autonomous` | - | - |
+| warning_toast | `autonomous` | - | - |
+| toast_with_action | `autonomous` | - | - |
+| hover_pause | `autonomous` | - | - |
+| default_toast | `autonomous` | - | - |
+| toast_dismissed | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

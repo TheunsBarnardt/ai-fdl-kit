@@ -147,6 +147,74 @@ description: "Function-based access control with collection-level, field-level, 
 | payload-collections | required | Access functions are configured per collection |
 | payload-globals | required | Globals have their own access control configuration |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Payload Access Control
+
+Function-based access control with collection-level, field-level, and document-level permissions supporting boolean and WHERE clause results
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | usability | access control must enforce least-privilege principle |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `payload_auth` | payload-auth | fail |
+| `payload_collections` | payload-collections | fail |
+| `payload_globals` | payload-globals | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| access_granted_boolean | `autonomous` | - | - |
+| access_granted_where | `autonomous` | - | - |
+| access_denied | `autonomous` | - | - |
+| access_denied_silent | `autonomous` | - | - |
+| field_access_denied | `autonomous` | - | - |
+| doc_access_check | `autonomous` | - | - |
+| admin_panel_access | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

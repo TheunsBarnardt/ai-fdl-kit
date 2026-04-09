@@ -245,6 +245,77 @@ Keepalive mechanism to detect dead connections
 | fix-message-persistence | required | All sent and received messages are persisted for sequence number recovery |
 | fix-protocol-validation | recommended | Incoming messages are validated against a DataDictionary before delivery |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fix Session Management
+
+Manages stateful FIX protocol sessions including logon/logout lifecycle, heartbeat monitoring, sequence number integrity, and time-window enforcement
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fix_message_building` | fix-message-building | fail |
+| `fix_connection_management` | fix-connection-management | fail |
+| `fix_message_persistence` | fix-message-persistence | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| session_disabled | `human_required` | - | - |
+| logon_outside_time_window | `autonomous` | - | - |
+| logon_rejected_by_application | `supervised` | - | - |
+| comp_id_mismatch | `autonomous` | - | - |
+| logon_timeout_elapsed | `autonomous` | - | - |
+| heartbeat_timeout | `autonomous` | - | - |
+| sequence_gap_detected | `autonomous` | - | - |
+| logon_successful | `autonomous` | - | - |
+| logout_successful | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

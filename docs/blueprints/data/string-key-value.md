@@ -330,6 +330,80 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 | key-expiration | required | TTL support integrated into string operations |
 | multi-exec-transactions | optional | Multiple string commands often wrapped in transactions |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable String Key Value
+
+Store and retrieve arbitrary-length string values with atomic increment, decrement, append, and range operations
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `key_expiration` | key-expiration | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| read_existing_string | `autonomous` | - | - |
+| read_missing_key | `autonomous` | - | - |
+| read_with_ttl_modification | `supervised` | - | - |
+| set_or_overwrite | `autonomous` | - | - |
+| set_with_conditions | `autonomous` | - | - |
+| set_with_ttl | `autonomous` | - | - |
+| conditional_set_fails | `autonomous` | - | - |
+| append_to_string | `autonomous` | - | - |
+| get_substring | `autonomous` | - | - |
+| set_substring | `autonomous` | - | - |
+| setrange_with_invalid_offset | `autonomous` | - | - |
+| increment_integer | `autonomous` | - | - |
+| increment_non_numeric | `autonomous` | - | - |
+| increment_overflow | `autonomous` | - | - |
+| increment_float | `autonomous` | - | - |
+| increment_float_invalid | `autonomous` | - | - |
+| getset_atomically | `autonomous` | - | - |
+| getdel_atomically | `autonomous` | - | - |
+| mget_multiple_keys | `autonomous` | - | - |
+| mset_multiple_keys | `autonomous` | - | - |
+| msetnx_conditional_bulk | `autonomous` | - | - |
+| msetnx_condition_fails | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

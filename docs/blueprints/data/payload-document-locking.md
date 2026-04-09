@@ -146,6 +146,67 @@ description: "Automatic document locking to prevent concurrent editing with conf
 | payload-auth | required | Lock requires authenticated user to track lock ownership |
 | payload-access-control | required | Lock override requires appropriate permissions |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Payload Document Locking
+
+Automatic document locking to prevent concurrent editing with configurable lock duration and override capability
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `payload_collections` | payload-collections | degrade |
+| `payload_auth` | payload-auth | degrade |
+| `payload_access_control` | payload-access-control | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| lock_acquired | `autonomous` | - | - |
+| lock_conflict | `autonomous` | - | - |
+| lock_override | `supervised` | - | - |
+| lock_expired | `autonomous` | - | - |
+| lock_released | `autonomous` | - | - |
+| lock_on_delete | `human_required` | - | - |
+| lock_status_check | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -160,6 +160,65 @@ description: "Linear history stack with debounced recording, forward-branch dest
 | drag-drop-editor | recommended | Drag operations should be recorded in history for undo support |
 | component-registry | recommended | Component insert/edit/delete operations create history entries |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Undo Redo
+
+Linear history stack with debounced recording, forward-branch destruction, and keyboard shortcut navigation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `editor_state` | editor-state | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| record_action | `autonomous` | - | - |
+| record_after_undo | `autonomous` | - | - |
+| undo | `autonomous` | - | - |
+| redo | `autonomous` | - | - |
+| undo_at_beginning | `autonomous` | - | - |
+| redo_at_end | `autonomous` | - | - |
+| load_history | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

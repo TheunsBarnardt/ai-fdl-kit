@@ -243,6 +243,67 @@ description: "Accessible, composable UI component library built on accessible co
 |---------|-------------|--------|
 | shadcn-cli | required | The CLI tool that installs and manages these components in developer projects |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Accessible Component Library
+
+Accessible, composable UI component library built on accessible component primitives with variant system, Tailwind CSS styling, and a multi-style design system
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `shadcn_cli` | shadcn-cli | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| component_renders_with_variants | `autonomous` | - | - |
+| component_renders_as_child | `autonomous` | - | - |
+| form_field_validates | `autonomous` | - | - |
+| form_submits_successfully | `autonomous` | - | - |
+| dialog_opens_with_focus_trap | `autonomous` | - | - |
+| dialog_closes | `autonomous` | - | - |
+| sidebar_toggles | `autonomous` | - | - |
+| sidebar_mobile_responsive | `autonomous` | - | - |
+| table_renders_with_sorting | `autonomous` | - | - |
+| theme_switches_light_dark | `autonomous` | - | - |
+| style_preset_applied | `autonomous` | - | - |
+| toast_displays | `autonomous` | - | - |
+| component_import_missing | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

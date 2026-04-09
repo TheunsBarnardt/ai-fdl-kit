@@ -206,6 +206,66 @@ description: "Sales quotation-to-order lifecycle including quote creation, PDF g
 | invoicing-payments | required | Confirmed orders generate invoices for payment collection |
 | tax-engine | required | Tax computation on every order line |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Quotation Order Management
+
+Sales quotation-to-order lifecycle including quote creation, PDF generation, portal sharing, digital signature, prepayment, order confirmation, and invoicing.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `invoicing_payments` | invoicing-payments | degrade |
+| `tax_engine` | tax-engine | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| quotation_sent | `autonomous` | - | - |
+| order_confirmed | `autonomous` | - | - |
+| order_cancelled | `supervised` | - | - |
+| order_reset_to_draft | `autonomous` | - | - |
+| cancel_blocked_locked | `human_required` | - | - |
+| confirmation_invalid_lines | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

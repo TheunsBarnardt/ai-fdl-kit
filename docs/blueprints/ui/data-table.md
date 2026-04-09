@@ -200,6 +200,59 @@ description: "Sortable, filterable, paginated data table with column management,
 | accessibility | recommended | Tables must be keyboard navigable and screen reader compatible |
 | internationalization | optional | Column headers, filter labels, and pagination text may need translation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Data Table
+
+Sortable, filterable, paginated data table with column management, row selection, inline editing, bulk actions, and CSV export
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `pagination` | pagination | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| table_rendered | `autonomous` | - | - |
+| column_sorted | `autonomous` | - | - |
+| filter_applied | `autonomous` | - | - |
+| row_selected | `autonomous` | - | - |
+| bulk_action_executed | `autonomous` | - | - |
+| inline_edit_saved | `autonomous` | - | - |
+| inline_edit_invalid | `autonomous` | - | - |
+| export_completed | `autonomous` | - | - |
+| export_too_large | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

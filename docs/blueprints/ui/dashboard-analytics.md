@@ -164,6 +164,57 @@ description: "Configurable analytics dashboard with widget grid system, KPI card
 | accessibility | recommended | Dashboard widgets must be keyboard navigable and screen reader compatible |
 | dark-mode | optional | Dashboard should support light and dark themes |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Dashboard Analytics
+
+Configurable analytics dashboard with widget grid system, KPI cards, charts, date range selection, auto-refresh, and drill-down capabilities
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `charts_visualization` | charts-visualization | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| dashboard_created | `supervised` | - | - |
+| widget_added | `autonomous` | - | - |
+| widget_limit_reached | `autonomous` | - | - |
+| date_range_changed | `supervised` | - | - |
+| auto_refreshed | `autonomous` | - | - |
+| widget_drill_down | `autonomous` | - | - |
+| data_source_error | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

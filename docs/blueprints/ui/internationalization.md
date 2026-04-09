@@ -170,6 +170,47 @@ description: "Internationalization with locale switching, translation keys, plur
 | navigation-menu | optional | Navigation labels need translation and RTL layout support |
 | theme-configuration | optional | Theme may include locale-specific font choices |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Internationalization
+
+Internationalization with locale switching, translation keys, pluralization, and RTL support
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| unsupported_locale | `autonomous` | - | - |
+| missing_translation_key | `autonomous` | - | - |
+| fallback_chain_resolved | `autonomous` | - | - |
+| rtl_locale_detected | `autonomous` | - | - |
+| locale_switched | `autonomous` | - | - |
+| bundle_loaded | `autonomous` | - | - |
+| translate_with_interpolation | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

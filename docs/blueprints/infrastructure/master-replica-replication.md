@@ -298,6 +298,70 @@ description: "One-way data synchronization from master to replicas; full or part
 | database-persistence | optional | Replicas often serve as backup storage |
 | sentinel-failover | optional | Sentinel uses replication topology for failover |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Master Replica Replication
+
+One-way data synchronization from master to replicas; full or partial resync with command streaming and replication backlog
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| availability | cost | infrastructure downtime impacts all dependent services |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| configure_replication | `autonomous` | - | - |
+| stop_replication | `autonomous` | - | - |
+| full_sync_rdb | `autonomous` | - | - |
+| full_sync_complete | `autonomous` | - | - |
+| partial_resync_request | `autonomous` | - | - |
+| partial_resync_accepted | `autonomous` | - | - |
+| partial_resync_rejected | `supervised` | - | - |
+| master_write_command | `autonomous` | - | - |
+| replica_receive_command | `autonomous` | - | - |
+| command_buffer_overflow | `autonomous` | - | - |
+| replica_disconnect | `autonomous` | - | - |
+| replica_reconnect | `autonomous` | - | - |
+| backlog_command_buffered | `autonomous` | - | - |
+| backlog_overwrite | `autonomous` | - | - |
+| backlog_size_configurable | `autonomous` | - | - |
+| info_replication | `autonomous` | - | - |
+| role_command | `autonomous` | - | - |
+| wait_for_replicas | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

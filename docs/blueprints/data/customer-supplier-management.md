@@ -275,6 +275,61 @@ description: "Customer and supplier master data management with credit limits, t
 | purchase-order-lifecycle | recommended | Purchase order lifecycle uses supplier hold status and defaults |
 | lead-opportunity-pipeline | optional | Lead management and conversion to customer records |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Customer Supplier Management
+
+Customer and supplier master data management with credit limits, territory and group hierarchies, portal access, lead conversion, internal parties, and supplier hold/block controls.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_customer | `supervised` | - | - |
+| create_supplier | `supervised` | - | - |
+| convert_lead_to_customer | `autonomous` | - | - |
+| apply_credit_limit | `autonomous` | - | - |
+| manage_portal_access | `autonomous` | - | - |
+| freeze_party | `autonomous` | - | - |
+| put_supplier_on_hold | `autonomous` | - | - |
+| duplicate_name_rejected | `supervised` | - | - |
+| group_assignment_rejected | `supervised` | - | - |
+| credit_exceeded | `autonomous` | - | - |
+| internal_duplicate_rejected | `supervised` | - | - |
+| account_currency_mismatch | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

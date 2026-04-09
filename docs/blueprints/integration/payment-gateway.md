@@ -175,6 +175,72 @@ description: "Process payments through a provider-agnostic gateway abstraction s
 | webhook-ingestion | required | Receive async payment status updates from provider webhooks |
 | api-gateway | recommended | Route payment API requests through gateway with rate limiting |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Payment Gateway
+
+Process payments through a provider-agnostic gateway abstraction supporting authorization, capture, void, refund, and webhook-driven status updates
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `webhook_ingestion` | webhook-ingestion | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| payment_authorized | `autonomous` | - | - |
+| payment_captured | `autonomous` | - | - |
+| payment_voided | `autonomous` | - | - |
+| payment_refunded | `autonomous` | - | - |
+| payment_failed_declined | `autonomous` | - | - |
+| payment_failed_3ds | `autonomous` | - | - |
+| payment_failed_invalid_token | `autonomous` | - | - |
+| duplicate_request | `autonomous` | - | - |
+| refund_exceeds_captured | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

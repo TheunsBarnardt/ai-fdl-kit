@@ -206,6 +206,78 @@ description: "GDPR/CCPA compliance with consent management, data export, right t
 | team-organization | optional | Consent and erasure may need to be scoped per organization |
 | role-based-access | recommended | DPO role needs elevated access to privacy management tools |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Data Privacy Compliance
+
+GDPR/CCPA compliance with consent management, data export, right to erasure, and cookie consent
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | usability | access control must enforce least-privilege principle |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `signup` | signup | fail |
+| `audit_logging` | audit-logging | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| consent_granted | `autonomous` | - | - |
+| consent_revoked | `human_required` | - | - |
+| consent_not_found | `autonomous` | - | - |
+| erasure_requested | `autonomous` | - | - |
+| data_exported | `autonomous` | - | - |
+| data_deleted | `human_required` | - | - |
+| erasure_deadline_approaching | `autonomous` | - | - |
+| erasure_exempt | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

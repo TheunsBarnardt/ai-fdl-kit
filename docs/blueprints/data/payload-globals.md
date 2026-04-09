@@ -128,6 +128,63 @@ description: "Singleton document management for site-wide settings, navigation, 
 | payload-versions | optional | Globals support the same versioning system as collections |
 | payload-document-locking | optional | Globals support document locking |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Payload Globals
+
+Singleton document management for site-wide settings, navigation, headers, and footers with versioning and access control
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `payload_access_control` | payload-access-control | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| find_global | `autonomous` | - | - |
+| update_global | `supervised` | - | - |
+| find_global_versions | `autonomous` | - | - |
+| restore_global_version | `autonomous` | - | - |
+| global_doc_access | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

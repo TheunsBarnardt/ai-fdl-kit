@@ -271,6 +271,63 @@ description: "Clearing house inbound payment processing — receiving credit tra
 | chp-eft | recommended | EFT credit transfers and direct debits share this inbound flow |
 | chp-account-management | recommended | Account mirror and proxy management affect inbound routing |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Clearing House Inbound Payments
+
+Clearing house inbound payment processing — receiving credit transfers and direct debits from the national payment system
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| identifier_determination_received | `autonomous` | - | - |
+| credit_transfer_authorisation_received | `autonomous` | - | - |
+| credit_transfer_authorisation_approved | `supervised` | - | - |
+| credit_transfer_authorisation_rejected | `supervised` | - | - |
+| credit_transfer_completion_received | `autonomous` | - | - |
+| eft_credit_transfer_received | `autonomous` | - | - |
+| eft_direct_debit_received | `autonomous` | - | - |
+| inbound_timeout | `autonomous` | - | - |
+| inbound_technical_error | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

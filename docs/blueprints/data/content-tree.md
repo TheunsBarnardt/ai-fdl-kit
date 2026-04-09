@@ -224,6 +224,66 @@ description: "Hierarchical content tree with zone-based storage, tree walking, f
 | editor-state | required | Tree is part of the centralized editor state |
 | undo-redo | recommended | Tree state snapshots enable undo/redo |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Content Tree
+
+Hierarchical content tree with zone-based storage, tree walking, flattening, indexed lookups, and schema migration
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `component_registry` | component-registry | degrade |
+| `drag_drop_editor` | drag-drop-editor | degrade |
+| `editor_state` | editor-state | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| insert_into_tree | `autonomous` | - | - |
+| move_in_tree | `autonomous` | - | - |
+| duplicate_in_tree | `autonomous` | - | - |
+| remove_from_tree | `human_required` | - | - |
+| reorder_in_zone | `autonomous` | - | - |
+| register_zone | `autonomous` | - | - |
+| unregister_zone | `autonomous` | - | - |
+| lookup_node_by_id | `autonomous` | - | - |
+| walk_tree | `autonomous` | - | - |
+| migrate_data | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

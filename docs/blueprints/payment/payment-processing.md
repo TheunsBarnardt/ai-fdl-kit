@@ -154,6 +154,70 @@ description: "Process incoming, outgoing, and internal transfer payments with mu
 | general-ledger | required | Payment submission creates GL entries |
 | bank-reconciliation | recommended | Bank statements are matched against payment entries |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Payment Processing
+
+Process incoming, outgoing, and internal transfer payments with multi-currency support, reference allocation, and automatic reconciliation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `sales_purchase_invoicing` | sales-purchase-invoicing | fail |
+| `general_ledger` | general-ledger | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| process_payment | `autonomous` | - | - |
+| reconcile_payment | `autonomous` | - | - |
+| cancel_payment | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

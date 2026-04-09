@@ -207,6 +207,78 @@ description: "Multi-tenant organization and team management with member invitati
 | audit-logging | recommended | Organization membership changes should be logged |
 | data-privacy-compliance | optional | Organizations may need GDPR/CCPA data isolation compliance |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Team Organization
+
+Multi-tenant organization and team management with member invitations and data isolation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | usability | access control must enforce least-privilege principle |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `signup` | signup | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| org_created | `supervised` | - | - |
+| slug_taken | `autonomous` | - | - |
+| member_invited | `autonomous` | - | - |
+| member_limit_reached | `autonomous` | - | - |
+| invite_accepted | `autonomous` | - | - |
+| invite_expired | `autonomous` | - | - |
+| invite_declined | `autonomous` | - | - |
+| member_removed | `human_required` | - | - |
+| member_role_changed | `supervised` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

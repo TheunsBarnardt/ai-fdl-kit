@@ -137,6 +137,73 @@ description: "Persists all sent and received FIX messages with sequence numbers 
 | fix-message-building | required | Raw FIX message strings from the message builder are the unit of persistence |
 | database-persistence | optional | Database-backed store variants reuse the same database connection and schema patterns |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fix Message Persistence
+
+Persists all sent and received FIX messages with sequence numbers for gap-fill recovery on reconnect; supports in-memory, file-based, and database-backed storage backends
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+**Constraints:**
+
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| availability | cost | infrastructure downtime impacts all dependent services |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fix_session_management` | fix-session-management | fail |
+| `fix_message_building` | fix-message-building | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| storage_write_failed | `autonomous` | - | - |
+| sequence_restore_failed | `autonomous` | - | - |
+| message_persisted | `autonomous` | - | - |
+| resend_range_retrieved | `autonomous` | - | - |
+| store_reset | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

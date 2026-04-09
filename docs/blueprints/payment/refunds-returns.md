@@ -230,6 +230,76 @@ description: "Refund processing and return merchandise management with reason co
 | invoicing-payments | optional | Credit notes generated for refunded invoices |
 | shipping-calculation | optional | Return shipping label generation and cost calculation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Refunds Returns
+
+Refund processing and return merchandise management with reason codes, approval workflow, partial/full refunds, and restocking.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `cart_checkout` | cart-checkout | fail |
+| `payment_methods` | payment-methods | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| return_requested | `autonomous` | - | - |
+| return_approved | `supervised` | - | - |
+| return_auto_approved | `supervised` | - | - |
+| return_rejected | `supervised` | - | - |
+| return_received | `autonomous` | - | - |
+| return_shipped | `autonomous` | - | - |
+| refund_completed | `autonomous` | - | - |
+| return_outside_window | `autonomous` | - | - |
+| refund_exceeds_order | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

@@ -203,6 +203,71 @@ description: "Production planning tool that consolidates demand from sales order
 | purchase-order-lifecycle | recommended | Purchase orders are created for procurement items and subcontracting |
 | subcontracting | optional | Sub-assemblies can be outsourced via subcontracting orders |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Production Planning
+
+Production planning tool that consolidates demand from sales orders and material requests, explodes multi-level BOMs, and generates work orders and procurement requests for manufacturing.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| safety | throughput | manufacturing processes must prioritize worker and product safety |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `bill_of_materials` | bill-of-materials | fail |
+| `work_orders_job_cards` | work-orders-job-cards | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| fetch_sales_orders | `autonomous` | - | - |
+| fetch_material_requests | `autonomous` | - | - |
+| get_items_to_manufacture | `autonomous` | - | - |
+| get_sub_assembly_items | `autonomous` | - | - |
+| create_work_orders | `supervised` | - | - |
+| create_material_requests | `supervised` | - | - |
+| create_subcontracted_purchase_orders | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

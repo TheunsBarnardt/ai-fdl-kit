@@ -186,6 +186,52 @@ description: "Cloud storage abstraction with signed URLs, virus scanning, conten
 | audit-trail | recommended | File uploads, downloads, and deletions should be tracked |
 | soft-delete | optional | Files can use soft-delete with retention before permanent removal |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable File Storage
+
+Cloud storage abstraction with signed URLs, virus scanning, content type validation, checksum deduplication, and multi-provider support
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| file_uploaded | `autonomous` | - | - |
+| file_downloaded | `autonomous` | - | - |
+| presigned_url_generated | `autonomous` | - | - |
+| file_deleted | `human_required` | - | - |
+| file_scanned_clean | `autonomous` | - | - |
+| file_scanned_infected | `autonomous` | - | - |
+| upload_too_large | `autonomous` | - | - |
+| content_type_not_allowed | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

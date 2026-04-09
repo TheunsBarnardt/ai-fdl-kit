@@ -193,6 +193,74 @@ description: "Invoicing and payment lifecycle: customer invoices, vendor bills, 
 | quotation-order-management | optional | Invoices generated from confirmed sales orders |
 | pos-core | optional | POS session closing generates accounting entries |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Invoicing Payments
+
+Invoicing and payment lifecycle: customer invoices, vendor bills, credit notes, receipts, payment registration, multi-currency, and follow-up.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `tax_engine` | tax-engine | fail |
+| `bank_reconciliation` | bank-reconciliation | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| invoice_posted | `autonomous` | - | - |
+| payment_registered | `autonomous` | - | - |
+| invoice_fully_paid | `autonomous` | - | - |
+| credit_note_created | `supervised` | - | - |
+| payment_link_sent | `autonomous` | - | - |
+| posting_blocked_lock_date | `human_required` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

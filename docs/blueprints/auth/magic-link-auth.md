@@ -3,7 +3,7 @@ title: "Magic Link Auth Blueprint"
 layout: default
 parent: "Auth"
 grand_parent: Blueprint Catalog
-description: "Passwordless email login via single-use magic links. 6 fields. 8 outcomes. 6 error codes. rules: security, email"
+description: "Passwordless email login via single-use magic links. 6 fields. 8 outcomes. 6 error codes. rules: security, email. AGI: supervised"
 ---
 
 # Magic Link Auth Blueprint
@@ -175,6 +175,76 @@ description: "Passwordless email login via single-use magic links. 6 fields. 8 o
 | session-management | recommended | Sessions created via magic link need tracking and revocation |
 | multi-factor-auth | optional | MFA can be required as additional factor after magic link |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Magic Link Auth
+
+Passwordless email login via single-use magic links
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `signup` | signup | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| rate_limited_per_email | `autonomous` | - | - |
+| rate_limited_per_ip | `autonomous` | - | - |
+| send_magic_link | `autonomous` | - | - |
+| send_magic_link_no_account | `autonomous` | - | - |
+| token_expired | `autonomous` | - | - |
+| token_already_used | `autonomous` | - | - |
+| token_invalid | `autonomous` | - | - |
+| verify_magic_link | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 
@@ -223,7 +293,7 @@ loading:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Magic Link Auth Blueprint",
-  "description": "Passwordless email login via single-use magic links. 6 fields. 8 outcomes. 6 error codes. rules: security, email",
+  "description": "Passwordless email login via single-use magic links. 6 fields. 8 outcomes. 6 error codes. rules: security, email. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

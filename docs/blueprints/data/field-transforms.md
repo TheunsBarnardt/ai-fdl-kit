@@ -178,6 +178,63 @@ description: "Per-field-type transformation pipeline with read-only path resolut
 | content-tree | required | Transforms operate on component data stored in the content tree |
 | editor-state | required | Resolution results update the centralized state |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Field Transforms
+
+Per-field-type transformation pipeline with read-only path resolution, async tracking, and trigger-based caching
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `component_registry` | component-registry | degrade |
+| `content_tree` | content-tree | degrade |
+| `editor_state` | editor-state | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| apply_transforms | `autonomous` | - | - |
+| resolve_read_only | `autonomous` | - | - |
+| resolve_component_data | `autonomous` | - | - |
+| resolve_fields_schema | `autonomous` | - | - |
+| resolve_permissions | `autonomous` | - | - |
+| skip_resolution_on_cache_hit | `autonomous` | - | - |
+| recursive_slot_resolution | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

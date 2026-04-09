@@ -3,7 +3,7 @@ title: "User Account Self Service Blueprint"
 layout: default
 parent: "Auth"
 grand_parent: Blueprint Catalog
-description: "User self-service account and credential management. 2 fields. 1 outcomes. 1 error codes. rules: core"
+description: "User self-service account and credential management. 2 fields. 1 outcomes. 1 error codes. rules: core. AGI: supervised"
 ---
 
 # User Account Self Service Blueprint
@@ -54,6 +54,59 @@ description: "User self-service account and credential management. 2 fields. 1 o
 |-------|-------------|----------|
 | `account.updated` | Account updated | `user_id` |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable User Account Self Service
+
+User self-service account and credential management
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| profile_updated | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -72,7 +125,7 @@ source:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "User Account Self Service Blueprint",
-  "description": "User self-service account and credential management. 2 fields. 1 outcomes. 1 error codes. rules: core",
+  "description": "User self-service account and credential management. 2 fields. 1 outcomes. 1 error codes. rules: core. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

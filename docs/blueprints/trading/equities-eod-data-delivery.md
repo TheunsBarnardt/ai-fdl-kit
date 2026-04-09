@@ -243,6 +243,64 @@ description: "End-of-day equity market data delivery via FTP file dissemination 
 | fix-message-persistence | optional | FIX persistence patterns apply to EOD flat-file storage — same append-only, sequence-keyed storage model |
 | data-import-export | recommended | EOD ZIP files require structured import pipeline matching fixed-width record layouts |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Equities Eod Data Delivery
+
+End-of-day equity market data delivery via FTP file dissemination — fixed-width flat files covering daily, weekly, and monthly statistics and corporate actions for listed securities
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| subscriber_provisioned | `autonomous` | - | - |
+| eod_file_delivered | `autonomous` | - | - |
+| file_parsed_successfully | `autonomous` | - | - |
+| instrument_stats_processed | `autonomous` | - | - |
+| corporate_action_processed | `autonomous` | - | - |
+| authentication_failed | `autonomous` | - | - |
+| file_not_available | `autonomous` | - | - |
+| invalid_record_format | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

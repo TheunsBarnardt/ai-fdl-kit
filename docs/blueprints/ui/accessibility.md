@@ -184,6 +184,49 @@ description: "WCAG 2.1 AA compliance with keyboard navigation, focus management,
 | responsive-layout | optional | Responsive layouts should maintain focus order and landmark structure across breakpoints |
 | dark-mode | optional | Dark mode theme must independently meet WCAG contrast requirements |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Accessibility
+
+WCAG 2.1 AA compliance with keyboard navigation, focus management, ARIA attributes, skip links, screen reader support, contrast enforcement, and reduced motion preferences.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| keyboard_navigation_works | `autonomous` | - | - |
+| skip_link_bypasses_navigation | `autonomous` | - | - |
+| modal_focus_trapped | `autonomous` | - | - |
+| screen_reader_announces_updates | `supervised` | - | - |
+| form_error_announced | `autonomous` | - | - |
+| contrast_ratio_enforced | `autonomous` | - | - |
+| reduced_motion_respected | `autonomous` | - | - |
+| image_missing_alt_text | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

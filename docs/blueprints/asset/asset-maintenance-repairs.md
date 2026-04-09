@@ -158,6 +158,56 @@ description: "Asset maintenance scheduling and repair management with preventive
 | fixed-asset-lifecycle | required | Maintenance and repairs operate on registered fixed assets |
 | stock-entry-movements | optional | Stock items consumed during repair create material issue entries |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Asset Maintenance Repairs
+
+Asset maintenance scheduling and repair management with preventive and corrective tasks, repair cost capitalization, and stock consumption tracking for parts used during repairs.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fixed_asset_lifecycle` | fixed-asset-lifecycle | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| schedule_maintenance | `autonomous` | - | - |
+| complete_maintenance_task | `autonomous` | - | - |
+| log_repair | `autonomous` | - | - |
+| capitalize_repair_cost | `autonomous` | - | - |
+| extend_asset_life | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

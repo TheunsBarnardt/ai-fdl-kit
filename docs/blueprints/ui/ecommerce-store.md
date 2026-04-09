@@ -215,6 +215,64 @@ description: "Full online storefront with product catalog, category browsing, at
 | invoicing-payments | required | Payment processing and invoice generation at checkout |
 | tax-engine | required | Product prices and cart totals computed with applicable taxes |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Ecommerce Store
+
+Full online storefront with product catalog, category browsing, attribute filtering, shopping cart, multi-step checkout, payment integration, wishlist, and pricelist support.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `quotation_order_management` | quotation-order-management | degrade |
+| `invoicing_payments` | invoicing-payments | degrade |
+| `tax_engine` | tax-engine | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| product_added_to_cart | `autonomous` | - | - |
+| checkout_completed | `autonomous` | - | - |
+| wishlist_item_added | `autonomous` | - | - |
+| products_compared | `autonomous` | - | - |
+| visitor_tracked | `autonomous` | - | - |
+| cart_empty_checkout_blocked | `human_required` | - | - |
+| payment_failed | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -174,6 +174,70 @@ description: "Send SMS messages for OTP codes, alerts, and marketing with provid
 | login | optional | OTP codes for two-factor authentication during login |
 | webhook-outbound | optional | Delivery receipt callbacks from SMS providers |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Sms Notifications
+
+Send SMS messages for OTP codes, alerts, and marketing with provider abstraction and compliance
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+**Constraints:**
+
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| delivery_reliability | speed | notifications must reach recipients even if delayed |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `notification_preferences` | notification-preferences | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| rate_limited | `autonomous` | - | - |
+| invalid_phone_number | `autonomous` | - | - |
+| recipient_opted_out | `autonomous` | - | - |
+| quiet_hours_blocked | `human_required` | - | - |
+| missing_consent | `autonomous` | - | - |
+| sms_sent | `autonomous` | - | - |
+| sms_delivered | `autonomous` | - | - |
+| sms_failed | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

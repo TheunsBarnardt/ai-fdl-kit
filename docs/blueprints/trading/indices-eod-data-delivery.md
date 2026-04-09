@@ -211,6 +211,64 @@ description: "End-of-day FTSE-JSE indices market data delivery via FTP — fixed
 | equity-derivatives-eod-data-delivery | optional |  |
 | currency-derivatives-eod-data-delivery | optional |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Indices Eod Data Delivery
+
+End-of-day FTSE-JSE indices market data delivery via FTP — fixed-width flat files covering 30+ index families with valuations data, constituents data, index-level tracker data, stock-level weightin...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| generate_valuations_eod | `autonomous` | - | - |
+| generate_constituents_eod | `autonomous` | - | - |
+| generate_tracker_1_index_level | `autonomous` | - | - |
+| generate_tracker_2_weighting_amendments | `autonomous` | - | - |
+| generate_tracker_3_ex_dividend | `autonomous` | - | - |
+| generate_opening_constituents | `autonomous` | - | - |
+| generate_five_day_tracker | `autonomous` | - | - |
+| dissemination_failure | `autonomous` | - | - |
+| subscriber_not_provisioned | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

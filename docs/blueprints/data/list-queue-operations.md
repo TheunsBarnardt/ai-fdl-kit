@@ -362,6 +362,72 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 | string-key-value | optional | Elements are strings or numeric values |
 | multi-exec-transactions | optional | Often used within transactions |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable List Queue Operations
+
+Ordered collection with efficient head/tail insertion, removal, and range queries; supports blocking operations and atomic moves between lists
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| push_to_head | `autonomous` | - | - |
+| push_to_tail | `autonomous` | - | - |
+| push_conditional | `autonomous` | - | - |
+| pop_from_head | `autonomous` | - | - |
+| pop_from_tail | `autonomous` | - | - |
+| pop_empty_list | `autonomous` | - | - |
+| blocking_pop | `human_required` | - | - |
+| blocking_pop_timeout | `human_required` | - | - |
+| get_range | `autonomous` | - | - |
+| get_index | `autonomous` | - | - |
+| get_length | `autonomous` | - | - |
+| set_index | `autonomous` | - | - |
+| set_out_of_range | `autonomous` | - | - |
+| insert_element | `autonomous` | - | - |
+| insert_pivot_not_found | `autonomous` | - | - |
+| trim_range | `autonomous` | - | - |
+| remove_elements | `human_required` | - | - |
+| find_position | `autonomous` | - | - |
+| move_between_lists | `autonomous` | - | - |
+| move_empty_source | `autonomous` | - | - |
+| blocking_move | `human_required` | - | - |
+| mpop_from_multiple_keys | `autonomous` | - | - |
+| blocking_mpop | `human_required` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

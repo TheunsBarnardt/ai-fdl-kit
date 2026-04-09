@@ -177,6 +177,53 @@ description: "Send transactional and marketing emails through a provider-agnosti
 | webhook-ingestion | recommended | Receive delivery status webhooks from email provider |
 | message-queue | optional | Queue emails for async processing and retry |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Email Service
+
+Send transactional and marketing emails through a provider-agnostic abstraction supporting templates, attachments, delivery tracking, and batch sends
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| single_email_sent | `autonomous` | - | - |
+| template_email_sent | `autonomous` | - | - |
+| batch_email_sent | `autonomous` | - | - |
+| email_delivered | `autonomous` | - | - |
+| email_bounced | `autonomous` | - | - |
+| email_complained | `autonomous` | - | - |
+| invalid_sender | `autonomous` | - | - |
+| attachment_too_large | `autonomous` | - | - |
+| rate_limited | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

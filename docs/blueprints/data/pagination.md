@@ -121,6 +121,49 @@ description: "Cursor-based and offset-based pagination with configurable page si
 | search-and-filtering | recommended | Search results are typically paginated |
 | caching | optional | Paginated responses can be cached by page/cursor key |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Pagination
+
+Cursor-based and offset-based pagination with configurable page sizes, stable sorting, and Link header support for REST APIs
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| page_returned | `autonomous` | - | - |
+| empty_page | `autonomous` | - | - |
+| invalid_cursor | `autonomous` | - | - |
+| page_size_exceeded | `autonomous` | - | - |
+| offset_too_deep | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

@@ -260,6 +260,78 @@ description: "Recurring subscription lifecycle with plan tiers, billing cycles, 
 | currency-conversion | optional | Multi-currency subscription pricing |
 | refunds-returns | optional | Prorated refunds on mid-cycle cancellations |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Subscription Billing
+
+Recurring subscription lifecycle with plan tiers, billing cycles, trials, proration, dunning retries, and cancellation handling.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `payment_methods` | payment-methods | fail |
+| `invoicing_payments` | invoicing-payments | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| subscription_created | `supervised` | - | - |
+| trial_converted | `autonomous` | - | - |
+| subscription_upgraded | `autonomous` | - | - |
+| subscription_downgraded | `autonomous` | - | - |
+| subscription_renewed | `autonomous` | - | - |
+| payment_failed | `autonomous` | - | - |
+| dunning_retry_succeeded | `autonomous` | - | - |
+| dunning_exhausted | `autonomous` | - | - |
+| subscription_canceled | `supervised` | - | - |
+| trial_ending_notification | `autonomous` | - | - |
+| no_payment_method | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

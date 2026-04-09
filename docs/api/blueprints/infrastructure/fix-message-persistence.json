@@ -326,6 +326,96 @@
       "reason": "Database-backed store variants reuse the same database connection and schema patterns"
     }
   ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_fix_message_persistence",
+        "description": "Persists all sent and received FIX messages with sequence numbers for gap-fill recovery on reconnect; supports in-memory, file-based, and database-backed storage backends",
+        "success_metrics": [
+          {
+            "metric": "success_rate",
+            "target": ">= 99%",
+            "measurement": "Successful operations divided by total attempts"
+          },
+          {
+            "metric": "error_rate",
+            "target": "< 1%",
+            "measurement": "Failed operations divided by total attempts"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before modifying sensitive data fields"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5",
+        "consecutive_failures > 3"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "storage_write_failed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "sequence_restore_failed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "message_persisted",
+          "permission": "autonomous"
+        },
+        {
+          "action": "resend_range_retrieved",
+          "permission": "autonomous"
+        },
+        {
+          "action": "store_reset",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "availability",
+        "over": "cost",
+        "reason": "infrastructure downtime impacts all dependent services"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details"
+      ]
+    },
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "fix_session_management",
+          "from": "fix-session-management",
+          "fallback": "fail"
+        },
+        {
+          "capability": "fix_message_building",
+          "from": "fix-message-building",
+          "fallback": "fail"
+        }
+      ]
+    }
+  },
   "extensions": {
     "tech_stack": {
       "language": "C++",

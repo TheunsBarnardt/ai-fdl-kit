@@ -3,7 +3,7 @@ title: "Password Reset Blueprint"
 layout: default
 parent: "Auth"
 grand_parent: Blueprint Catalog
-description: "Allow users to reset their password via email verification. 4 fields. 7 outcomes. 7 error codes. rules: security, email, password_comparison"
+description: "Allow users to reset their password via email verification. 4 fields. 7 outcomes. 7 error codes. rules: security, email, password_comparison. AGI: supervised"
 ---
 
 # Password Reset Blueprint
@@ -235,6 +235,75 @@ Too many reset requests
 | signup | recommended | User might not have an account yet |
 | email-verification | optional | Uses similar email token pattern — can share infrastructure |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Password Reset
+
+Allow users to reset their password via email verification
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `login` | login | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| request_rate_limited | `autonomous` | - | - |
+| reset_requested_unknown_email | `autonomous` | - | - |
+| reset_requested | `autonomous` | - | - |
+| token_invalid | `autonomous` | - | - |
+| token_expired | `autonomous` | - | - |
+| password_reused | `autonomous` | - | - |
+| password_reset_success | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 
@@ -330,7 +399,7 @@ express:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Password Reset Blueprint",
-  "description": "Allow users to reset their password via email verification. 4 fields. 7 outcomes. 7 error codes. rules: security, email, password_comparison",
+  "description": "Allow users to reset their password via email verification. 4 fields. 7 outcomes. 7 error codes. rules: security, email, password_comparison. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

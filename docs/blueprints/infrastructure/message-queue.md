@@ -168,6 +168,60 @@ description: "Process asynchronous jobs and events through a provider-agnostic m
 | email-service | optional | Email sends can be queued for reliable delivery |
 | cloud-storage | optional | Large message payloads stored in cloud storage with queue reference |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Message Queue
+
+Process asynchronous jobs and events through a provider-agnostic message queue supporting publish, subscribe, acknowledge, retry with backoff, and dead-letter queues
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| availability | cost | infrastructure downtime impacts all dependent services |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| message_published | `autonomous` | - | - |
+| message_consumed | `autonomous` | - | - |
+| message_acknowledged | `autonomous` | - | - |
+| message_retried | `autonomous` | - | - |
+| message_dead_lettered | `autonomous` | - | - |
+| queue_empty | `autonomous` | - | - |
+| message_too_large | `autonomous` | - | - |
+| queue_not_found | `autonomous` | - | - |
+| duplicate_message | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

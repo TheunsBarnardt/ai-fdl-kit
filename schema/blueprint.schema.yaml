@@ -314,9 +314,11 @@ optional:
 
   agi:
     type: object
-    description: "AGI-readiness layer — goals, autonomy, verification, composability, and evolution hints for autonomous agents"
+    description: "AGI-readiness layer — goals, autonomy, verification, composability, coordination, safety, explainability, learning, and evolution hints for autonomous agents"
     # Enables autonomous AI agents to reason about intent, verify outputs,
-    # understand tradeoffs, and adapt features over time.
+    # understand tradeoffs, coordinate with other agents, enforce granular
+    # safety controls, explain decisions, learn from feedback, and adapt
+    # features over time.
     # All sub-sections are optional — include only what applies.
 
 # ─── TYPE DEFINITIONS ──────────────────────────────────────
@@ -638,6 +640,108 @@ types:
             field: { type: string, description: "Field name being deprecated" }
             remove_after: { type: string, description: "ISO date (YYYY-MM-DD)" }
             migration: { type: string, description: "What to use instead" }
+
+  # --- AGI Coordination ---
+  agi_coordination:
+    required:
+      protocol:
+        type: string
+        description: "Communication pattern between agents"
+        oneOf:
+          - request_response   # Synchronous call-and-return
+          - pub_sub            # Publish events, subscribers react
+          - negotiation        # Agents negotiate terms before acting
+          - orchestrated       # Central orchestrator coordinates agents
+    optional:
+      exposes:
+        type: array
+        description: "Capabilities this feature offers to other agents"
+        items:
+          type: object
+          properties:
+            capability: { type: string, description: "Capability ID being exposed" }
+            contract: { type: string, description: "What this capability accepts and returns" }
+      consumes:
+        type: array
+        description: "Capabilities this feature needs from other agents/features"
+        items:
+          type: object
+          properties:
+            capability: { type: string, description: "Capability ID being consumed" }
+            from: { type: string, description: "Blueprint feature name that provides it" }
+            fallback:
+              type: string
+              description: "Behavior when the consumed capability is unavailable"
+              oneOf: [degrade, queue, fail]
+
+  # --- AGI Safety ---
+  agi_safety:
+    optional:
+      action_permissions:
+        type: array
+        description: "Per-action permission overrides for granular safety control"
+        items:
+          type: object
+          properties:
+            action: { type: string, description: "Action name (e.g., 'delete_account', 'adjust_pricing')" }
+            permission:
+              type: string
+              description: "Required permission level for this action"
+              oneOf:
+                - autonomous       # Agent can act without approval
+                - supervised       # Agent acts, human reviews the log
+                - human_required   # Human must approve before action executes
+            cooldown: { type: string, description: "Minimum time between autonomous executions (e.g., '1h', '5m')" }
+            max_auto_decisions: { type: number, description: "Auto-approve up to N times, then require human review" }
+
+  # --- AGI Explainability ---
+  agi_explainability:
+    optional:
+      log_decisions:
+        type: boolean
+        description: "Whether to log all agent decisions for audit"
+      reasoning_depth:
+        type: string
+        description: "How much reasoning detail to capture"
+        oneOf:
+          - full       # Full chain-of-thought for every decision
+          - summary    # Key decision points only
+          - none       # No reasoning capture
+      audit_events:
+        type: array
+        description: "Specific decisions that must be logged with required fields"
+        items:
+          type: object
+          properties:
+            decision: { type: string, description: "Decision name (e.g., 'account_locked', 'approval_granted')" }
+            must_log:
+              type: array
+              description: "Fields that must be captured when this decision is made"
+              items:
+                type: string
+
+  # --- AGI Learning ---
+  agi_learning:
+    optional:
+      signals:
+        type: array
+        description: "Runtime metrics the agent monitors for adaptive behavior"
+        items:
+          type: object
+          properties:
+            metric: { type: string, description: "What to measure (e.g., 'login_success_rate')" }
+            window: { type: string, description: "Time window for measurement (e.g., '24h', '7d')" }
+            baseline: { type: string, description: "Expected normal value (e.g., '0.95', '< 100ms')" }
+      adaptations:
+        type: array
+        description: "Experiments the agent can run when signals deviate from baseline"
+        items:
+          type: object
+          properties:
+            when: { type: string, description: "Condition that triggers adaptation (expression syntax)" }
+            experiment: { type: string, description: "What to try (e.g., 'relax rate limiting by 10%')" }
+            rollback_if: { type: string, description: "Condition that reverts the experiment (expression syntax)" }
+            requires_approval: { type: boolean, description: "Whether a human must approve the experiment" }
 
 # ─── CONVENTIONS ───────────────────────────────────────────
 

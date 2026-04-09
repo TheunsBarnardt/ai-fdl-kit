@@ -171,6 +171,60 @@ description: "Manage object storage across cloud providers with upload, download
 | api-gateway | optional | Presigned URL generation may be exposed through API gateway |
 | webhook-ingestion | optional | Receive storage event notifications (object created, deleted) |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Cloud Storage
+
+Manage object storage across cloud providers with upload, download, delete, presigned URLs, multipart upload, and lifecycle policy support
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| availability | cost | infrastructure downtime impacts all dependent services |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| object_uploaded | `autonomous` | - | - |
+| multipart_upload_completed | `autonomous` | - | - |
+| object_downloaded | `autonomous` | - | - |
+| presigned_url_generated | `autonomous` | - | - |
+| object_deleted | `human_required` | - | - |
+| object_not_found | `autonomous` | - | - |
+| bucket_access_denied | `autonomous` | - | - |
+| upload_too_large | `autonomous` | - | - |
+| invalid_content_type | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

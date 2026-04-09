@@ -397,6 +397,85 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 | string-key-value | optional | Hash fields and sorted set members are strings |
 | key-expiration | required | Hashes support per-field TTL |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Sorted Set And Hash Operations
+
+Sorted collections with ranking and scoring; nested key-value maps with field-level operations and optional TTL per field
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `key_expiration` | key-expiration | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| zadd_members | `autonomous` | - | - |
+| zadd_incr | `autonomous` | - | - |
+| zadd_conditional | `autonomous` | - | - |
+| zrem_members | `autonomous` | - | - |
+| zrange_by_rank | `autonomous` | - | - |
+| zrange_by_score | `autonomous` | - | - |
+| zrange_by_lex | `autonomous` | - | - |
+| zrank_member | `autonomous` | - | - |
+| zscore_member | `autonomous` | - | - |
+| zinter_sets | `autonomous` | - | - |
+| zunion_sets | `autonomous` | - | - |
+| hset_fields | `autonomous` | - | - |
+| hget_field | `autonomous` | - | - |
+| hmget_fields | `autonomous` | - | - |
+| hgetall_fields | `autonomous` | - | - |
+| hkeys_fields | `autonomous` | - | - |
+| hvals_values | `autonomous` | - | - |
+| hdel_fields | `autonomous` | - | - |
+| hincrby_field | `autonomous` | - | - |
+| hincrbyfloat_field | `autonomous` | - | - |
+| hexists_field | `autonomous` | - | - |
+| hlen_hash | `autonomous` | - | - |
+| hexpire_field | `autonomous` | - | - |
+| hpexpire_field | `autonomous` | - | - |
+| hpersist_field | `autonomous` | - | - |
+| httl_field | `autonomous` | - | - |
+| hscan_fields | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -219,6 +219,52 @@ description: "Project and task management with hierarchical tasks, dependency tr
 | sales-order-lifecycle | optional | Projects can be linked to sales orders for billing |
 | sales-purchase-invoicing | optional | Timesheets can be billed via sales invoices |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Project Task Management
+
+Project and task management with hierarchical tasks, dependency tracking, milestones, templates, and timesheet-based billable time tracking. Progress auto-calculated from tasks.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| visibility | simplicity | project tracking must provide accurate status for stakeholders |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_project | `supervised` | - | - |
+| create_from_template | `supervised` | - | - |
+| create_task | `supervised` | - | - |
+| assign_task | `autonomous` | - | - |
+| log_time | `autonomous` | - | - |
+| complete_task | `autonomous` | - | - |
+| complete_project | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -249,6 +249,78 @@ description: "Shopping cart and checkout flow with stock reservation, guest cart
 | refunds-returns | optional | Post-purchase returns and refunds for placed orders |
 | subscription-billing | optional | Cart may include subscription products |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Cart Checkout
+
+Shopping cart and checkout flow with stock reservation, guest cart merge, multi-step checkout, tax, promo codes, and order placement.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `payment_methods` | payment-methods | fail |
+| `shipping_calculation` | shipping-calculation | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| item_added_to_cart | `autonomous` | - | - |
+| item_removed_from_cart | `human_required` | - | - |
+| item_quantity_updated | `supervised` | - | - |
+| promo_code_applied | `autonomous` | - | - |
+| checkout_started | `autonomous` | - | - |
+| order_placed | `autonomous` | - | - |
+| guest_cart_merged | `autonomous` | - | - |
+| cart_empty | `autonomous` | - | - |
+| item_out_of_stock | `autonomous` | - | - |
+| promo_code_invalid | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

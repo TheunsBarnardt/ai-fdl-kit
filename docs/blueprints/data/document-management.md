@@ -341,6 +341,76 @@ description: "Store, retrieve, manage, and generate documents with metadata, per
 | portfolio-management | recommended | Documents linked to portfolio accounts |
 | authentication | required | User authentication and access control |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Document Management
+
+Store, retrieve, manage, and generate documents with metadata, permissions, version control, and dynamic PDF generation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `authentication` | authentication | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| client_document_retrieved | `autonomous` | - | - |
+| client_documents_listed | `autonomous` | - | - |
+| document_uploaded | `autonomous` | - | - |
+| dynamic_document_generated | `autonomous` | - | - |
+| document_metadata_updated | `supervised` | - | - |
+| document_deleted | `human_required` | - | - |
+| regulatory_announcements_retrieved | `autonomous` | - | - |
+| statement_documents_retrieved | `autonomous` | - | - |
+| infoslips_url_regenerated | `autonomous` | - | - |
+| document_folders_retrieved | `autonomous` | - | - |
+| document_exported | `autonomous` | - | - |
+| access_denied | `autonomous` | - | - |
+| document_not_found | `autonomous` | - | - |
+| document_expired | `autonomous` | - | - |
+| file_size_exceeded | `autonomous` | - | - |
+| invalid_file_type | `autonomous` | - | - |
+| pdf_generation_failed | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

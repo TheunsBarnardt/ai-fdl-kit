@@ -207,6 +207,67 @@ description: "Document versioning with draft/publish workflow, autosave, version
 | payload-job-queue | optional | Scheduled publishing uses the job queue system |
 | payload-access-control | required | readVersions access function controls who can view version history |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Payload Versions
+
+Document versioning with draft/publish workflow, autosave, version history, restore, scheduled publishing, and locale-specific status
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `payload_collections` | payload-collections | degrade |
+| `payload_access_control` | payload-access-control | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| save_draft | `autonomous` | - | - |
+| publish_document | `autonomous` | - | - |
+| unpublish_document | `autonomous` | - | - |
+| autosave_draft | `autonomous` | - | - |
+| find_versions | `autonomous` | - | - |
+| restore_version | `autonomous` | - | - |
+| schedule_publish | `autonomous` | - | - |
+| enforce_max_versions | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

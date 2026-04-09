@@ -139,6 +139,59 @@ description: "Configurable request throttling with multiple scopes and algorithm
 | role-based-access | optional | Rate limit rules can vary by user role or API key tier |
 | audit-logging | optional | Rate limit violations can be recorded in the audit trail |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Rate Limiting
+
+Configurable request throttling with multiple scopes and algorithms to protect APIs from abuse
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | usability | access control must enforce least-privilege principle |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| request_allowed | `autonomous` | - | - |
+| rate_limit_warning | `autonomous` | - | - |
+| rate_limit_exceeded | `autonomous` | - | - |
+| burst_allowed | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

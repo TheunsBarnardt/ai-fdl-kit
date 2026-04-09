@@ -213,6 +213,70 @@ description: "Hierarchical bill of materials defining raw materials, operations,
 | production-planning | recommended | Production planning uses BOMs to calculate material requirements |
 | stock-entry-movements | recommended | Stock entries transfer materials based on BOM quantities |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Bill Of Materials
+
+Hierarchical bill of materials defining raw materials, operations, and costs required to manufacture a finished good, with multi-level explosion and cost propagation.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| safety | throughput | manufacturing processes must prioritize worker and product safety |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `work_orders_job_cards` | work-orders-job-cards | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_bom | `supervised` | - | - |
+| submit_bom | `autonomous` | - | - |
+| calculate_cost | `autonomous` | - | - |
+| explode_items | `autonomous` | - | - |
+| update_cost_propagation | `supervised` | - | - |
+| deactivate_bom | `autonomous` | - | - |
+| replace_bom | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -3,7 +3,7 @@ title: "Logout Blueprint"
 layout: default
 parent: "Auth"
 grand_parent: Blueprint Catalog
-description: "End a user session and clear all authentication tokens. 1 fields. 3 outcomes. 2 error codes. rules: security, session"
+description: "End a user session and clear all authentication tokens. 1 fields. 3 outcomes. 2 error codes. rules: security, session. AGI: supervised"
 ---
 
 # Logout Blueprint
@@ -95,6 +95,68 @@ description: "End a user session and clear all authentication tokens. 1 fields. 
 | login | required | Logout ends what login started |
 | session-management | optional | View active sessions before choosing which to revoke |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Logout
+
+End a user session and clear all authentication tokens
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `login` | login | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| not_authenticated | `autonomous` | - | - |
+| successful_logout_current | `autonomous` | - | - |
+| successful_logout_all_devices | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 
@@ -142,7 +204,7 @@ laravel:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Logout Blueprint",
-  "description": "End a user session and clear all authentication tokens. 1 fields. 3 outcomes. 2 error codes. rules: security, session",
+  "description": "End a user session and clear all authentication tokens. 1 fields. 3 outcomes. 2 error codes. rules: security, session. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

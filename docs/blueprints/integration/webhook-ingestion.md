@@ -165,6 +165,70 @@ description: "Receive and process incoming webhooks from external services with 
 | message-queue | recommended | Queue verified webhooks for async handler processing |
 | api-gateway | optional | Route incoming webhooks through gateway for rate limiting |
 
+## AGI Readiness
+
+### Goals
+
+#### Secure Ingestion
+
+Process incoming webhooks securely with zero tolerance for forged or replayed events
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| signature_verification_rate | 100% | All processed webhooks have valid signatures |
+| replay_rejection_rate | 100% | All duplicate event_ids within the dedup window are rejected |
+| processing_latency | < 200ms to acknowledge | Time from webhook receipt to HTTP 200 response |
+
+**Constraints:**
+
+- **security** (non-negotiable): Reject any webhook that fails signature verification — no fallback to unverified processing
+- **performance** (negotiable): Acknowledge receipt quickly, process asynchronously
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before registering a new webhook source with signing keys
+- before disabling signature verification for any source
+
+**Escalation Triggers:**
+
+- `invalid_signature_rate > 5`
+- `replay_attempt_rate > 10`
+- `handler_error_rate > 3`
+
+### Verification
+
+**Invariants:**
+
+- every processed webhook has a verified signature
+- no event_id is processed more than once within the deduplication window
+- webhook payloads are never modified between receipt and handler delivery
+- signing keys are stored encrypted and never logged
+
+**Acceptance Tests:**
+
+| Scenario | Given | When | Expect |
+|----------|-------|------|--------|
+| valid webhook processing | a webhook with valid HMAC signature and unique event_id | the webhook is received | HTTP 200 returned and payload dispatched to correct handler |
+| invalid signature rejection | a webhook with tampered signature | the webhook is received | HTTP 401 returned and event logged as security incident |
+| replay protection | a webhook with an event_id that was already processed | the duplicate webhook is received | HTTP 200 returned (idempotent) but handler is not invoked again |
+| handler failure retry | a valid webhook whose handler fails with a transient error | the handler returns a 5xx status | webhook queued for retry with exponential backoff up to max_retries |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| process_webhook | `autonomous` | - | - |
+| register_source | `supervised` | - | - |
+| disable_source | `human_required` | - | - |
+| rotate_signing_keys | `human_required` | - | - |
+| purge_dedup_cache | `supervised` | 1h | - |
+
 
 <script type="application/ld+json">
 {

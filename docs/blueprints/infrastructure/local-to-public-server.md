@@ -475,6 +475,81 @@ description: "Transform a local Ubuntu PC into a fully functional, hardened, pub
 | message-queue | optional | Redis or RabbitMQ for background job processing |
 | ai-solo-business-automation | recommended | AI-to-AI service platform that runs on this server infrastructure |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Local To Public Server
+
+Transform a local Ubuntu PC into a fully functional, hardened, publicly accessible server with web hosting, database, email, SSL, monitoring, and automated backups
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| availability | cost | infrastructure downtime impacts all dependent services |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `database_persistence` | database-persistence | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| system_updated | `supervised` | - | - |
+| security_hardened | `autonomous` | - | - |
+| services_installed | `autonomous` | - | - |
+| ssl_configured | `autonomous` | - | - |
+| dns_configured | `autonomous` | - | - |
+| monitoring_active | `autonomous` | - | - |
+| backups_configured | `autonomous` | - | - |
+| fully_operational | `autonomous` | - | - |
+| service_degraded | `autonomous` | - | - |
+| service_auto_recovered | `autonomous` | - | - |
+| ssl_renewal_succeeded | `autonomous` | - | - |
+| ssl_renewal_failed | `autonomous` | - | - |
+| ddns_updated | `supervised` | - | - |
+| backup_completed | `autonomous` | - | - |
+| backup_failed | `autonomous` | - | - |
+| disk_space_critical | `autonomous` | - | - |
+| security_update_available | `supervised` | - | - |
+| intrusion_detected | `autonomous` | - | - |
+| port_scan_blocked | `human_required` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

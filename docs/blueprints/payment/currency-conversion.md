@@ -3,7 +3,7 @@ title: "Currency Conversion Blueprint"
 layout: default
 parent: "Payment"
 grand_parent: Blueprint Catalog
-description: "Convert amounts between currencies using live or cached exchange rates. 7 fields. 5 outcomes. 5 error codes. rules: rate_cache, supported_currencies, rounding"
+description: "Convert amounts between currencies using live or cached exchange rates. 7 fields. 5 outcomes. 5 error codes. rules: rate_cache, supported_currencies, rounding. "
 ---
 
 # Currency Conversion Blueprint
@@ -133,13 +133,67 @@ description: "Convert amounts between currencies using live or cached exchange r
 | invoicing-payments | recommended | Invoices in foreign currencies require conversion for settlement |
 | payment-gateway | optional | Gateway may handle conversion at capture time |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Currency Conversion
+
+Convert amounts between currencies using live or cached exchange rates
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| unsupported_currency | `autonomous` | - | - |
+| same_currency | `autonomous` | - | - |
+| rate_unavailable | `autonomous` | - | - |
+| rate_stale_fallback | `autonomous` | - | - |
+| successful_conversion | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Currency Conversion Blueprint",
-  "description": "Convert amounts between currencies using live or cached exchange rates. 7 fields. 5 outcomes. 5 error codes. rules: rate_cache, supported_currencies, rounding",
+  "description": "Convert amounts between currencies using live or cached exchange rates. 7 fields. 5 outcomes. 5 error codes. rules: rate_cache, supported_currencies, rounding. ",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

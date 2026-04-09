@@ -194,6 +194,57 @@ description: "Create and register plugins to extend CSS framework with custom ut
 | utility-composition | recommended | Custom utilities composed with variants like built-in utilities |
 | build-integration | optional | Plugins loaded and applied during build process |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Plugin Development
+
+Create and register plugins to extend CSS framework with custom utilities, variants, and theme values
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_simple_utility | `supervised` | - | - |
+| extend_theme_with_colors | `autonomous` | - | - |
+| create_custom_variant | `supervised` | - | - |
+| plugin_with_options | `autonomous` | - | - |
+| plugin_adds_base_styles | `autonomous` | - | - |
+| multiple_utilities_single_plugin | `autonomous` | - | - |
+| config_override_by_user | `supervised` | - | - |
+| plugin_load_failure | `autonomous` | - | - |
+| plugin_type_mismatch | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -249,6 +249,69 @@ description: "Registration and onboarding process for independent financial advi
 | proposals-quotations | optional |  |
 | user-auth | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Advisor Onboarding
+
+Registration and onboarding process for independent financial advisors with CID approval and mandate signing
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `user_auth` | user-auth | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_advisor_onboarding | `supervised` | - | - |
+| create_advisor_onboarding_duplicate | `supervised` | - | - |
+| get_advisor_onboarding | `autonomous` | - | - |
+| update_advisor_onboarding | `supervised` | - | - |
+| cancel_advisor_onboarding | `supervised` | - | - |
+| send_to_approval | `supervised` | - | - |
+| cid_approve_onboarding | `supervised` | - | - |
+| complete_onboarding_mandate | `autonomous` | - | - |
+| handle_mandate_signed | `autonomous` | - | - |
+| get_creator_onboardings | `supervised` | - | - |
+| get_cid_onboardings | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

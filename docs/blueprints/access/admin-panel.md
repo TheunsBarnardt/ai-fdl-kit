@@ -255,6 +255,82 @@ description: "Administrative dashboard for user management, account linking, not
 | dataverse-client | recommended | Account data may be fetched from CRM for linking |
 | notification-preferences | recommended | Respect user notification preferences when broadcasting |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Admin Panel
+
+Administrative dashboard for user management, account linking, notification broadcasting, and system configuration
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | usability | access control must enforce least-privilege principle |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `role_based_access` | role-based-access | fail |
+| `login` | login | fail |
+| `in_app_notifications` | in-app-notifications | fail |
+| `audit_logging` | audit-logging | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| unauthorized_access | `autonomous` | - | - |
+| list_users | `autonomous` | - | - |
+| search_users | `autonomous` | - | - |
+| view_user_detail | `autonomous` | - | - |
+| update_user_status | `supervised` | - | - |
+| self_modification_blocked | `human_required` | - | - |
+| link_account | `autonomous` | - | - |
+| account_already_linked | `autonomous` | - | - |
+| unlink_account | `autonomous` | - | - |
+| send_notification_all | `autonomous` | - | - |
+| send_notification_single | `autonomous` | - | - |
+| send_notification_product | `autonomous` | - | - |
+| assign_role | `autonomous` | - | - |
+| view_system_stats | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

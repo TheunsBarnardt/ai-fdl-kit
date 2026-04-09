@@ -160,6 +160,58 @@ description: "End-of-day money market instrument reference data delivery via FTP
 |---------|-------------|--------|
 | bonds-eod-data-delivery | optional | Bonds market data covers related fixed-income instruments |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Money Market Eod Data Delivery
+
+End-of-day money market instrument reference data delivery via FTP — ISIN reference, coupon resets, payment dates, and intraday priority updates
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| successful_eod_delivery | `autonomous` | - | - |
+| successful_intraday_delivery | `autonomous` | - | - |
+| subscriber_provisioned | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

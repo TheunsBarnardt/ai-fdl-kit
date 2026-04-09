@@ -3,7 +3,7 @@ title: "Saml 2 Identity Provider Blueprint"
 layout: default
 parent: "Auth"
 grand_parent: Blueprint Catalog
-description: "SAML 2.0 identity provider with assertions and metadata. 2 fields. 1 outcomes. 1 error codes. rules: core"
+description: "SAML 2.0 identity provider with assertions and metadata. 2 fields. 1 outcomes. 1 error codes. rules: core. AGI: supervised"
 ---
 
 # Saml 2 Identity Provider Blueprint
@@ -54,6 +54,56 @@ description: "SAML 2.0 identity provider with assertions and metadata. 2 fields.
 |-------|-------------|----------|
 | `saml.assertion_created` | SAML assertion created | `assertion_id` |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Saml 2 Identity Provider
+
+SAML 2.0 identity provider with assertions and metadata
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| assertion_issued | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -72,7 +122,7 @@ source:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Saml 2 Identity Provider Blueprint",
-  "description": "SAML 2.0 identity provider with assertions and metadata. 2 fields. 1 outcomes. 1 error codes. rules: core",
+  "description": "SAML 2.0 identity provider with assertions and metadata. 2 fields. 1 outcomes. 1 error codes. rules: core. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

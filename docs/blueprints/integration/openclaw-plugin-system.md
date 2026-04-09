@@ -239,6 +239,49 @@ Deny takes precedence over allow (safer default).
 | openclaw-gateway-authentication | optional | Some plugins manage authentication |
 | openclaw-llm-provider | optional | Plugins can provide LLM models |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Openclaw Plugin System
+
+Plugin registration, lifecycle management, and capability-based permissions system for extending OpenClaw functionality
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| plugin_loaded | `autonomous` | - | - |
+| plugin_initialized | `autonomous` | - | - |
+| capability_check | `autonomous` | - | - |
+| capability_denied | `autonomous` | - | - |
+| plugin_disabled | `human_required` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -430,6 +430,178 @@ description: "Autonomous AI-to-AI service platform — sells intelligence, tools
 | data-import-export | recommended | Allows knowledge base data ingestion from multiple formats |
 | subscription-billing | optional | Alternative to prepaid — some callers may prefer subscription billing |
 
+## AGI Readiness
+
+### Goals
+
+#### Sustainable Revenue
+
+Generate consistent revenue from AI-to-AI service sales while maintaining service quality
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| monthly_revenue_growth | >= 0% | Compare monthly revenue to previous month |
+| service_uptime | 99.9% | Availability monitoring across all service endpoints |
+| caller_retention_rate | >= 80% | Percentage of callers who return within 30 days |
+
+**Constraints:**
+
+- **cost** (non-negotiable): Revenue allocation must follow 5% owner / 50% AI improvement / 30% compute / 15% reserve split
+- **security** (non-negotiable): All API keys and caller credentials must be encrypted at rest and in transit
+- **availability** (negotiable): Service degradation must not exceed 5 minutes without automatic failover
+
+#### Continuous Self Improvement
+
+Autonomously improve service quality, reduce costs, and expand capabilities
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| eval_score_trend | monotonically increasing over 30-day window | Weekly eval benchmark scores |
+| cost_per_request | decreasing quarter-over-quarter | Total compute cost divided by request count |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Self-improvement cycles must not degrade live service latency by more than 10%
+
+### Autonomy
+
+**Level:** `fully_autonomous`
+
+**Human Checkpoints:**
+
+- before allocating more than 80% of reserve fund to a single improvement
+- before removing a service that has active callers
+- before changing the revenue allocation percentages
+
+**Escalation Triggers:**
+
+- `revenue_drop_percent > 50`
+- `error_rate > 10`
+- `reserve_fund_balance < 100`
+
+### Verification
+
+**Invariants:**
+
+- revenue allocation percentages always sum to 100%
+- owner payout percentage never falls below 5%
+- no service deployed without passing eval benchmarks
+- all caller API keys validated before processing requests
+- self-improvement never runs during peak traffic hours
+
+**Acceptance Tests:**
+
+| Scenario | Given | When | Expect |
+|----------|-------|------|--------|
+| new service registration | a valid service definition with schema and pricing | service is registered on the platform | service appears in MCP registry and responds to discovery queries |
+| caller payment processing | a caller with sufficient balance makes an API call | the call completes successfully | caller balance decremented by price_per_call_cents and revenue allocated correctly |
+| self-improvement cycle | improvement fund has sufficient balance and eval baseline exists | improvement cycle triggers | new model version deployed only if eval score exceeds current baseline |
+| service failover | primary provider becomes unavailable | health check fails 3 consecutive times | traffic routed to fallback provider within 30 seconds |
+
+**Monitoring:**
+
+| Metric | Threshold | Action |
+|--------|-----------|--------|
+| request_latency_p95 | < 500ms | scale compute resources and investigate bottleneck |
+| error_rate | < 1% | alert and roll back last deployment if rate increased after deploy |
+| revenue_per_hour | > 0 | investigate service discovery and pricing if revenue drops to zero |
+
+### Composability
+
+**Capabilities:**
+
+- `service_hosting`: Host and serve AI services via MCP and REST endpoints
+- `pricing_engine`: Dynamic pricing based on compute cost, demand, and competition (requires: `service_hosting`)
+- `caller_management`: Register, authenticate, and track AI callers (requires: `service_hosting`)
+- `self_optimization`: Run eval benchmarks, fine-tune models, and deploy improvements (requires: `service_hosting`, `pricing_engine`)
+- `revenue_allocation`: Distribute revenue across owner, improvement, compute, and reserve funds (requires: `pricing_engine`, `caller_management`)
+
+**Boundaries:**
+
+- caller authentication must complete before any service execution
+- pricing lookup must happen before request processing to ensure billing accuracy
+- eval benchmarks must pass before any model deployment
+- revenue allocation must execute atomically — no partial distributions
+- self-improvement must not run during peak traffic (>80% capacity)
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | cost_efficiency | service downtime loses callers permanently — overprovision compute rather than risk outages |
+| security | onboarding_speed | compromised API keys could drain funds — strict validation even if it adds friction |
+| eval_quality | deployment_speed | deploying a worse model loses caller trust — always benchmark before promoting |
+
+### Evolution
+
+**Triggers:**
+
+| Condition | Action |
+|-----------|--------|
+| `request_count > 10000` | add horizontal scaling and load balancing |
+| `unique_callers > 100` | implement tiered pricing with volume discounts |
+| `error_rate > 5` | enable circuit breaker and automatic rollback |
+
+### Coordination
+
+**Protocol:** `pub_sub`
+
+**Exposes:**
+
+| Capability | Contract |
+|------------|----------|
+| `inference` | accepts {model_id, prompt, parameters}, returns {completion, tokens_used, latency_ms} |
+| `tool_execution` | accepts {tool_id, input_schema}, returns {output, execution_time_ms} |
+| `eval_scoring` | accepts {output, rubric}, returns {score, reasoning, confidence} |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| deploy_service_update | `supervised` | 1h | - |
+| adjust_pricing | `autonomous` | 6h | 3 |
+| shutdown_service | `human_required` | - | - |
+| allocate_reserve_funds | `supervised` | - | 5 |
+| onboard_new_caller | `autonomous` | - | - |
+| block_caller | `supervised` | - | - |
+
+### Explainability
+
+**Log Decisions:** Yes
+
+**Reasoning Depth:** `full`
+
+**Audit Events:**
+
+| Decision | Must Log |
+|----------|----------|
+| pricing_change | `service_id`, `old_price`, `new_price`, `reason`, `timestamp` |
+| service_deployment | `service_id`, `version`, `eval_score`, `previous_score`, `timestamp` |
+| caller_blocked | `caller_id`, `reason`, `violation_count`, `timestamp` |
+| reserve_allocation | `amount`, `purpose`, `fund_balance_before`, `fund_balance_after` |
+
+### Learning
+
+**Signals:**
+
+| Metric | Window | Baseline |
+|--------|--------|----------|
+| request_latency_p95 | 1h | 200ms |
+| caller_churn_rate | 7d | 5% |
+| revenue_per_request | 24h | 0.02 |
+
+**Adaptations:**
+
+| When | Experiment | Rollback If | Approval |
+|------|------------|-------------|----------|
+| `request_latency_p95 > 400` | increase compute allocation by 20% | `cost_per_request > 0.05` | Auto |
+| `caller_churn_rate > 10` | reduce pricing by 15% for returning callers | `revenue_per_request < 0.01` | Required |
+| `eval_score < 0.85` | trigger fine-tuning cycle with latest feedback data | `eval_score < 0.80` | Auto |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

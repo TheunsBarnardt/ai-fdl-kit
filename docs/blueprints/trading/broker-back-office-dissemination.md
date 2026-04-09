@@ -173,6 +173,61 @@ description: "Back-office data dissemination from central broker administration 
 | broker-dematerialisation-upload | optional |  |
 | broker-securities-lending-borrowing-upload | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Broker Back Office Dissemination
+
+Back-office data dissemination from central broker administration to member firms via fixed-width card code records (accounts, balances, deals, scrip, GL, SLB, elective events)
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| schedule_dissemination_request | `autonomous` | - | - |
+| generate_eod_dissemination_file | `autonomous` | - | - |
+| download_full_vs_changes | `supervised` | - | - |
+| download_elective_frozen_file | `autonomous` | - | - |
+| scheduling_access_denied | `autonomous` | - | - |
+| file_generation_failure | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

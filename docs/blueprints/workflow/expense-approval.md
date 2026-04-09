@@ -209,6 +209,65 @@ description: "Employee expense submission and approval workflow with multi-level
 | invoicing-payments | required | Expense posting creates journal entries in the accounting system |
 | automation-rules | optional | Automate expense routing (e.g., auto-approve under threshold) |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Expense Approval
+
+Employee expense submission and approval workflow with multi-level authorization, reimbursement tracking, accounting journal entry generation, and payment processing.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `invoicing_payments` | invoicing-payments | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| expense_submitted | `autonomous` | - | - |
+| expense_approved | `supervised` | - | - |
+| expense_refused | `autonomous` | - | - |
+| expense_posted | `autonomous` | - | - |
+| expense_paid | `autonomous` | - | - |
+| self_approval_blocked | `human_required` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -169,6 +169,47 @@ description: "Multi-step form and process wizard with progress indicator, step v
 | toast-notifications | optional | Progress save confirmations and validation errors can use toast notifications |
 | internationalization | optional | Step titles, validation messages, and button labels may need translation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Wizard Stepper
+
+Multi-step form and process wizard with progress indicator, step validation, skip optional steps, save progress, and resume later
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| step_advanced | `autonomous` | - | - |
+| step_back | `autonomous` | - | - |
+| step_skipped | `autonomous` | - | - |
+| step_validation_failed | `autonomous` | - | - |
+| wizard_completed | `autonomous` | - | - |
+| wizard_abandoned | `autonomous` | - | - |
+| wizard_resumed | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

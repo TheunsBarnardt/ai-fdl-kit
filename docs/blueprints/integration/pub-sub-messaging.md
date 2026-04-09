@@ -285,6 +285,61 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 | stream-event-log | optional | Both deliver messages; Pub/Sub is ephemeral, Streams are persistent |
 | message-queue | optional | Pub/Sub is broadcast (no ack), message queues have ack and guaranteed delivery |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Pub Sub Messaging
+
+Real-time fire-and-forget message broadcasting with direct channel subscriptions and pattern-based subscriptions; sharded variant for cluster deployments
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| publish_message | `autonomous` | - | - |
+| publish_no_subscribers | `autonomous` | - | - |
+| sharded_publish | `autonomous` | - | - |
+| subscribe_to_channels | `autonomous` | - | - |
+| subscribe_pattern | `autonomous` | - | - |
+| receive_message | `autonomous` | - | - |
+| receive_pattern_match | `autonomous` | - | - |
+| sharded_subscribe | `autonomous` | - | - |
+| unsubscribe_from_channels | `autonomous` | - | - |
+| unsubscribe_from_patterns | `autonomous` | - | - |
+| exit_subscription_mode | `autonomous` | - | - |
+| sharded_unsubscribe | `autonomous` | - | - |
+| command_in_subscription_mode | `autonomous` | - | - |
+| ping_while_subscribed | `autonomous` | - | - |
+| pubsub_channels | `autonomous` | - | - |
+| pubsub_numsub | `autonomous` | - | - |
+| pubsub_numpat | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

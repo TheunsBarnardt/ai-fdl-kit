@@ -220,6 +220,69 @@ description: "Integrate CSS framework with build tools (PostCSS, CLI, Webpack, V
 | theme-configuration | required | Build tool reads theme config for CSS generation |
 | plugin-development | optional | Build tool loads and applies plugins |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Build Integration
+
+Integrate CSS framework with build tools (PostCSS, CLI, Webpack, Vite, Next.js) to process templates and generate optimized CSS
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `theme_configuration` | theme-configuration | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| postcss_plugin_integration | `autonomous` | - | - |
+| cli_build_command | `autonomous` | - | - |
+| cli_watch_mode | `autonomous` | - | - |
+| vite_plugin_integration | `autonomous` | - | - |
+| webpack_loader_integration | `autonomous` | - | - |
+| next_js_integration | `autonomous` | - | - |
+| content_configuration | `autonomous` | - | - |
+| minified_output | `autonomous` | - | - |
+| missing_config_file | `autonomous` | - | - |
+| invalid_content_paths | `autonomous` | - | - |
+| circular_dependency | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

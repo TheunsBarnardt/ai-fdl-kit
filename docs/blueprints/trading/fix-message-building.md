@@ -174,6 +174,74 @@ description: "Constructs, parses, and serializes FIX protocol messages with head
 | fix-protocol-validation | recommended | DataDictionary validates field types, required fields, and value ranges on parsed messages |
 | fix-message-persistence | required | Outgoing messages are persisted before transmission for recovery purposes |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fix Message Building
+
+Constructs, parses, and serializes FIX protocol messages with header, body, and trailer sections; supports repeating field groups and multi-version validation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fix_session_management` | fix-session-management | fail |
+| `fix_message_persistence` | fix-message-persistence | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| invalid_framing | `autonomous` | - | - |
+| checksum_mismatch | `autonomous` | - | - |
+| field_out_of_order | `autonomous` | - | - |
+| group_count_mismatch | `autonomous` | - | - |
+| field_not_found | `autonomous` | - | - |
+| admin_message_received | `autonomous` | - | - |
+| app_message_built | `autonomous` | - | - |
+| app_message_parsed | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

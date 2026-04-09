@@ -191,6 +191,57 @@ description: "Generic state machine engine with named states, guarded transition
 | task-management | optional | Task lifecycle (open, in progress, done) can be managed by a state machine |
 | bulk-operations | optional | Bulk operations may trigger state transitions on multiple entities simultaneously |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable State Machine
+
+Generic state machine engine with named states, guarded transitions, entry/exit actions, history tracking, and lifecycle validation rules.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| machine_definition_created | `supervised` | - | - |
+| transition_executed | `autonomous` | - | - |
+| transition_guard_blocks | `human_required` | - | - |
+| no_valid_transition | `autonomous` | - | - |
+| transition_from_terminal_rejected | `supervised` | - | - |
+| entity_initialized | `autonomous` | - | - |
+| definition_validation_fails | `autonomous` | - | - |
+| transition_action_fails | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

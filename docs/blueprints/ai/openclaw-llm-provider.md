@@ -272,6 +272,74 @@ Accumulated: in session entry for cost tracking.
 | openclaw-plugin-system | required | Provider implementations are plugins |
 | openclaw-gateway-authentication | required | Authenticates provider API calls |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Openclaw Llm Provider
+
+Multi-provider AI model integration with fallback chains, cost tracking, streaming, and extended thinking support
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+**Constraints:**
+
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `fully_autonomous`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| safety | capability | AI systems must operate within defined safety boundaries |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `openclaw_session_management` | openclaw-session-management | fail |
+| `openclaw_plugin_system` | openclaw-plugin-system | fail |
+| `openclaw_gateway_authentication` | openclaw-gateway-authentication | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| model_loaded | `autonomous` | - | - |
+| api_request_succeeded | `autonomous` | - | - |
+| streaming_response | `autonomous` | - | - |
+| fallback_activated | `autonomous` | - | - |
+| cost_estimation | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

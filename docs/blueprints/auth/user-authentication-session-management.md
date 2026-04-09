@@ -3,7 +3,7 @@ title: "User Authentication Session Management Blueprint"
 layout: default
 parent: "Auth"
 grand_parent: Blueprint Catalog
-description: "Authentication flows, session management, brute-force protection. 2 fields. 1 outcomes. 1 error codes. rules: core"
+description: "Authentication flows, session management, brute-force protection. 2 fields. 1 outcomes. 1 error codes. rules: core. AGI: supervised"
 ---
 
 # User Authentication Session Management Blueprint
@@ -54,6 +54,59 @@ description: "Authentication flows, session management, brute-force protection. 
 |-------|-------------|----------|
 | `auth.success` | Authentication successful | `username` |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable User Authentication Session Management
+
+Authentication flows, session management, brute-force protection
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| auth_success | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
@@ -72,7 +125,7 @@ source:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "User Authentication Session Management Blueprint",
-  "description": "Authentication flows, session management, brute-force protection. 2 fields. 1 outcomes. 1 error codes. rules: core",
+  "description": "Authentication flows, session management, brute-force protection. 2 fields. 1 outcomes. 1 error codes. rules: core. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

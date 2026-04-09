@@ -311,6 +311,67 @@ description: "Biometric scanning hardware integration for palm vein pattern regi
 |---------|-------------|--------|
 | biometric-auth | recommended | Biometric-auth uses the palm vein SDK to provide alternative authentication |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Palm Vein
+
+Biometric scanning hardware integration for palm vein pattern registration, feature extraction, and 1:N template matching
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| sdk_initialized | `autonomous` | - | - |
+| sdk_init_failed | `autonomous` | - | - |
+| device_opened | `autonomous` | - | - |
+| device_not_connected | `autonomous` | - | - |
+| feature_extracted | `autonomous` | - | - |
+| feature_extraction_failed | `autonomous` | - | - |
+| template_registered | `autonomous` | - | - |
+| registration_failed | `autonomous` | - | - |
+| match_succeeded | `autonomous` | - | - |
+| match_failed | `autonomous` | - | - |
+| operation_cancelled | `supervised` | - | - |
+| device_busy | `autonomous` | - | - |
+| operation_timed_out | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

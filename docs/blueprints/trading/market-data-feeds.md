@@ -323,6 +323,84 @@ description: "Consume and distribute real-time and delayed market data including
 | portfolio-management | required | Provides pricing data for portfolio valuations |
 | reference-data-lookup | recommended | Instrument classifications and corporate actions |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Market Data Feeds
+
+Consume and distribute real-time and delayed market data including pricing, indices, commodities, forex, and trade feeds from multiple providers
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `portfolio_management` | portfolio-management | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| commodities_retrieved | `autonomous` | - | - |
+| forex_retrieved | `autonomous` | - | - |
+| indices_retrieved | `autonomous` | - | - |
+| instrument_detail_retrieved | `autonomous` | - | - |
+| instrument_history_retrieved | `autonomous` | - | - |
+| instrument_lookup_completed | `autonomous` | - | - |
+| intraday_trades_retrieved | `autonomous` | - | - |
+| ticker_retrieved | `autonomous` | - | - |
+| watchlist_created | `supervised` | - | - |
+| watchlist_instrument_added | `autonomous` | - | - |
+| watchlist_data_retrieved | `autonomous` | - | - |
+| watchlist_removed | `human_required` | - | - |
+| trade_received_and_processed | `autonomous` | - | - |
+| instrument_not_found | `autonomous` | - | - |
+| invalid_quote_date | `autonomous` | - | - |
+| watchlist_unauthorized_access | `autonomous` | - | - |
+| trade_parse_failure | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

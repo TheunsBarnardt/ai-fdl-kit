@@ -142,6 +142,45 @@ description: "Immutable, append-only audit trail with tamper detection and compl
 | data-privacy-compliance | recommended | GDPR/CCPA compliance requires audit trails for data access |
 | team-organization | optional | Audit entries can be scoped per organization for multi-tenancy |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Audit Logging
+
+Immutable, append-only audit trail with tamper detection and compliance-ready querying
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| completeness | performance | observability gaps hide production issues |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| entry_created | `supervised` | - | - |
+| query_results | `autonomous` | - | - |
+| query_range_exceeded | `autonomous` | - | - |
+| chain_integrity_verified | `autonomous` | - | - |
+| chain_tamper_detected | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

@@ -3,7 +3,7 @@ title: "Email Verification Blueprint"
 layout: default
 parent: "Auth"
 grand_parent: Blueprint Catalog
-description: "Verify user email ownership via a one-time token link. 2 fields. 7 outcomes. 4 error codes. rules: security, email"
+description: "Verify user email ownership via a one-time token link. 2 fields. 7 outcomes. 4 error codes. rules: security, email. AGI: supervised"
 ---
 
 # Email Verification Blueprint
@@ -150,6 +150,76 @@ description: "Verify user email ownership via a one-time token link. 2 fields. 7
 | signup | required | Verification is triggered by signup |
 | login | required | After verification, user logs in |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Email Verification
+
+Verify user email ownership via a one-time token link
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `signup` | signup | fail |
+| `login` | login | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| token_invalid | `autonomous` | - | - |
+| token_expired | `autonomous` | - | - |
+| already_verified | `autonomous` | - | - |
+| email_verified | `autonomous` | - | - |
+| resend_rate_limited | `autonomous` | - | - |
+| resend_unknown_email | `autonomous` | - | - |
+| resend_success | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 
@@ -221,7 +291,7 @@ laravel:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Email Verification Blueprint",
-  "description": "Verify user email ownership via a one-time token link. 2 fields. 7 outcomes. 4 error codes. rules: security, email",
+  "description": "Verify user email ownership via a one-time token link. 2 fields. 7 outcomes. 4 error codes. rules: security, email. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

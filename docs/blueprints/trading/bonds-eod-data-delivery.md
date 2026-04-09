@@ -238,6 +238,68 @@ description: "End-of-day bonds market data delivery via FTP — CSV/XLS formats 
 | bond-etp-eod-data-delivery | recommended |  |
 | equities-eod-data-delivery | optional |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Bonds Eod Data Delivery
+
+End-of-day bonds market data delivery via FTP — CSV/XLS formats covering zero curves, MTM valuations, trade detail, instrument statistics, member/client position, and non-resident trading reports
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | latency | trading operations require precise execution and full audit trails |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| generate_zero_curve_1430 | `autonomous` | - | - |
+| generate_zero_curve_1530 | `autonomous` | - | - |
+| generate_zero_curve_1730 | `autonomous` | - | - |
+| generate_zaronia_zero_curve | `autonomous` | - | - |
+| generate_mtm_detailed_1730 | `autonomous` | - | - |
+| generate_mtm_t1_1730 | `autonomous` | - | - |
+| generate_mtm_value_today_1730 | `autonomous` | - | - |
+| generate_utmtm_reports_1530 | `autonomous` | - | - |
+| generate_trade_detail_eod | `autonomous` | - | - |
+| generate_instrument_detail_eod | `autonomous` | - | - |
+| generate_member_client_position_eod | `autonomous` | - | - |
+| ftp_dissemination_failure | `autonomous` | - | - |
+| subscriber_not_provisioned | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

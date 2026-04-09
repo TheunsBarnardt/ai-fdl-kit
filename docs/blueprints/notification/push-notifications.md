@@ -171,6 +171,69 @@ description: "Deliver mobile and web push notifications with device management, 
 | email-notifications | optional | Fallback to email when push delivery fails or is not available |
 | sms-notifications | optional | Fallback to SMS for critical alerts when push is unavailable |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Push Notifications
+
+Deliver mobile and web push notifications with device management, topic subscriptions, and rich media
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+**Constraints:**
+
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| delivery_reliability | speed | notifications must reach recipients even if delayed |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `notification_preferences` | notification-preferences | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| rate_limited | `autonomous` | - | - |
+| invalid_device_token | `autonomous` | - | - |
+| payload_too_large | `autonomous` | - | - |
+| push_sent | `autonomous` | - | - |
+| push_delivered | `autonomous` | - | - |
+| push_dismissed | `autonomous` | - | - |
+| topic_broadcast | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

@@ -207,6 +207,57 @@ description: "Batch update, delete, and export operations for large record sets 
 | report-generation | optional | Bulk export operations may use report templates for formatted output |
 | automation-rules | optional | Automation rules can trigger bulk operations based on events |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Bulk Operations
+
+Batch update, delete, and export operations for large record sets with progress tracking, atomic or best-effort execution, and error logging.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| bulk_update_executed | `supervised` | - | - |
+| bulk_delete_confirmed | `human_required` | - | - |
+| bulk_delete_executed | `human_required` | - | - |
+| bulk_export_executed | `autonomous` | - | - |
+| operation_completed_with_errors | `autonomous` | - | - |
+| atomic_operation_rolled_back | `autonomous` | - | - |
+| batch_size_exceeded | `autonomous` | - | - |
+| operation_cancelled | `supervised` | - | - |
+
 
 <script type="application/ld+json">
 {

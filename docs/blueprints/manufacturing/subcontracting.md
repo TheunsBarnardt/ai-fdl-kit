@@ -212,6 +212,71 @@ description: "Subcontracting workflow for outsourcing manufacturing to suppliers
 | stock-entry-movements | required | Stock entries handle raw material dispatch and finished goods receipt |
 | quality-inspection | optional | Quality inspection validates received goods before acceptance |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Subcontracting
+
+Subcontracting workflow for outsourcing manufacturing to suppliers, including raw material dispatch, finished goods receipt, quality inspection, rejection handling, and cost tracking.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| safety | throughput | manufacturing processes must prioritize worker and product safety |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `purchase_order_lifecycle` | purchase-order-lifecycle | fail |
+| `bill_of_materials` | bill-of-materials | fail |
+| `stock_entry_movements` | stock-entry-movements | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| create_subcontracting_order | `supervised` | - | - |
+| send_raw_materials | `autonomous` | - | - |
+| receive_finished_goods | `autonomous` | - | - |
+| reject_items | `supervised` | - | - |
+| process_return | `autonomous` | - | - |
+| close_order | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

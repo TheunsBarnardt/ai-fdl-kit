@@ -197,6 +197,67 @@ description: "Bank reconciliation with statement import, auto/manual matching, r
 | invoicing-payments | required | Statement lines reconciled against invoice payment entries |
 | tax-engine | optional | Cash-basis tax entries triggered by payment reconciliation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Bank Reconciliation
+
+Bank reconciliation with statement import, auto/manual matching, reconciliation models, partial/full tracking, and write-off management.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `invoicing_payments` | invoicing-payments | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| statement_imported | `autonomous` | - | - |
+| line_auto_reconciled | `autonomous` | - | - |
+| line_manually_matched | `autonomous` | - | - |
+| full_reconciliation_achieved | `autonomous` | - | - |
+| write_off_created | `supervised` | - | - |
+| exchange_difference_recorded | `supervised` | - | - |
+| reconciliation_undone | `autonomous` | - | - |
+| statement_invalid | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

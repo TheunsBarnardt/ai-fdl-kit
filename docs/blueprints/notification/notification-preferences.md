@@ -191,6 +191,60 @@ description: "Manage per-user notification preferences across channels and categ
 | in-app-notifications | required | In-app channel preferences control in-app delivery |
 | signup | recommended | Initialize default preferences when a new user signs up |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Notification Preferences
+
+Manage per-user notification preferences across channels and categories with quiet hours and frequency caps
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| delivery_reliability | speed | notifications must reach recipients even if delayed |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `email_notifications` | email-notifications | degrade |
+| `sms_notifications` | sms-notifications | degrade |
+| `push_notifications` | push-notifications | degrade |
+| `in_app_notifications` | in-app-notifications | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| user_not_found | `autonomous` | - | - |
+| security_category_locked | `autonomous` | - | - |
+| preferences_updated | `supervised` | - | - |
+| quiet_hours_set | `autonomous` | - | - |
+| dnd_enabled | `autonomous` | - | - |
+| dnd_auto_expired | `autonomous` | - | - |
+| digest_mode_configured | `autonomous` | - | - |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 

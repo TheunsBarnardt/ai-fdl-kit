@@ -151,6 +151,50 @@ description: "Define and customize design tokens (colors, spacing, typography, b
 | utility-composition | recommended | Uses theme values to generate utilities |
 | plugin-development | optional | Plugins can extend theme with custom values |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Theme Configuration
+
+Define and customize design tokens (colors, spacing, typography, breakpoints) that power a CSS framework
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| define_color_palette | `autonomous` | - | - |
+| extend_spacing_scale | `autonomous` | - | - |
+| configure_responsive_breakpoints | `autonomous` | - | - |
+| enable_dark_mode | `autonomous` | - | - |
+| apply_prefix_to_utilities | `autonomous` | - | - |
+| theme_value_not_found | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

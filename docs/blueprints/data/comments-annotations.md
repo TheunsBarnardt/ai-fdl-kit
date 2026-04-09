@@ -185,6 +185,62 @@ description: "Threaded comments on any entity (polymorphic) with rich text, @men
 | search-and-filtering | recommended | Comments should be searchable by content and author |
 | audit-trail | optional | Comment edits and deletions can be tracked for moderation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Comments Annotations
+
+Threaded comments on any entity (polymorphic) with rich text, @mentions, reactions, edit windows, and rate limiting
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `soft_delete` | soft-delete | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| comment_created | `supervised` | - | - |
+| reply_created | `supervised` | - | - |
+| comment_edited | `autonomous` | - | - |
+| comment_deleted | `human_required` | - | - |
+| reaction_added | `autonomous` | - | - |
+| mention_detected | `autonomous` | - | - |
+| edit_window_expired | `autonomous` | - | - |
+| rate_limited | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

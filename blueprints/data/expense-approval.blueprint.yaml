@@ -780,3 +780,66 @@ ui_hints:
     disable_button: true
     show_spinner: true
     prevent_double_submit: true
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  goals:
+    - id: compliant_expense_processing
+      description: "Process expense reports accurately while enforcing company policy and maintaining full audit trails"
+      success_metrics:
+        - metric: processing_time
+          target: "< 48h from submission to reimbursement"
+          measurement: "Time from employee submission to payment execution"
+        - metric: policy_violation_rate
+          target: "0%"
+          measurement: "Expenses approved that violate company policy"
+        - metric: duplicate_detection_rate
+          target: ">= 99%"
+          measurement: "Percentage of duplicate expenses caught before approval"
+      constraints:
+        - type: regulatory
+          description: "All expenses above threshold require receipts and multi-level approval"
+          negotiable: false
+        - type: cost
+          description: "Processing cost per expense report must not exceed 2% of average expense amount"
+          negotiable: true
+
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - "before approving expenses above the finance threshold"
+      - "before overriding a policy violation flag"
+      - "before processing reimbursement to a new bank account"
+    escalation_triggers:
+      - "pending_approvals > 50"
+      - "duplicate_expense_flags > 5"
+
+  safety:
+    action_permissions:
+      - action: auto_approve_under_limit
+        permission: autonomous
+        max_auto_decisions: 10
+      - action: approve_over_limit
+        permission: human_required
+      - action: flag_duplicate
+        permission: autonomous
+      - action: process_reimbursement
+        permission: supervised
+      - action: override_policy_violation
+        permission: human_required
+      - action: modify_approval_thresholds
+        permission: human_required
+
+  explainability:
+    log_decisions: true
+    reasoning_depth: full
+    audit_events:
+      - decision: expense_approved
+        must_log: [expense_id, amount, category, approver, policy_rule, timestamp]
+      - decision: expense_rejected
+        must_log: [expense_id, amount, reason, reviewer, timestamp]
+      - decision: policy_override
+        must_log: [expense_id, original_decision, override_reason, authorizer, timestamp]
+      - decision: duplicate_flagged
+        must_log: [expense_id, matched_expense_id, similarity_score, timestamp]

@@ -192,6 +192,70 @@ description: "Tax engine with percentage, fixed, division, group, and formula-ba
 | quotation-order-management | required | Sales order lines use tax engine for pricing |
 | ecommerce-store | required | Product prices on website include/exclude tax per configuration |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Tax Engine
+
+Tax engine with percentage, fixed, division, group, and formula-based tax types, repartition, cash-basis accounting, and fiscal position mapping.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `invoicing_payments` | invoicing-payments | degrade |
+| `pos_core` | pos-core | degrade |
+| `quotation_order_management` | quotation-order-management | degrade |
+| `ecommerce_store` | ecommerce-store | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| tax_computed_percent | `autonomous` | - | - |
+| tax_computed_fixed | `autonomous` | - | - |
+| tax_computed_group | `autonomous` | - | - |
+| tax_computed_price_inclusive | `autonomous` | - | - |
+| tax_computed_formula | `autonomous` | - | - |
+| fiscal_position_applied | `autonomous` | - | - |
+| cash_basis_deferred | `autonomous` | - | - |
+| invalid_formula | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

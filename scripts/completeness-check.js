@@ -54,6 +54,23 @@ const PLACEHOLDER_TOKENS = [
 const MIN_DESCRIPTION_LENGTH = 15;
 const MIN_RULE_LENGTH = 10;
 
+// ─── Secret patterns (POPIA compliance) ──────────────────
+// Detect leaked credentials, API keys, tokens, PII in blueprint content
+
+const SECRET_PATTERNS = [
+  { pattern: /sk-[a-zA-Z0-9]{20,}/, label: "API key (sk-...)" },
+  { pattern: /pk_(test|live)_[a-zA-Z0-9]{20,}/, label: "Stripe publishable key" },
+  { pattern: /AKIA[A-Z0-9]{16}/, label: "AWS access key" },
+  { pattern: /ghp_[a-zA-Z0-9]{36}/, label: "GitHub personal token" },
+  { pattern: /gho_[a-zA-Z0-9]{36}/, label: "GitHub OAuth token" },
+  { pattern: /glpat-[a-zA-Z0-9\-_]{20,}/, label: "GitLab token" },
+  { pattern: /eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/, label: "JWT token" },
+  { pattern: /(mongodb|postgres|postgresql|mysql|redis|amqp):\/\/[^\s]+:[^\s]+@/, label: "Connection string with credentials" },
+  { pattern: /BEGIN\s+(RSA|EC|OPENSSH|DSA|PGP)\s+PRIVATE\s+KEY/, label: "Private key" },
+  { pattern: /xox[bpsar]-[a-zA-Z0-9\-]{10,}/, label: "Slack token" },
+  { pattern: /AIza[a-zA-Z0-9_-]{35}/, label: "Google API key" },
+];
+
 // ─── Issue collector ──────────────────────────────────────
 
 class Issues {
@@ -322,6 +339,17 @@ function sweepForPlaceholders(bp, issues) {
   });
 }
 
+function checkSecrets(bp, issues) {
+  walkStrings(bp, "", (str, path) => {
+    for (const { pattern, label } of SECRET_PATTERNS) {
+      if (pattern.test(str)) {
+        // NEVER include the actual secret value in the error message
+        issues.error(path, `SECURITY: contains what looks like a ${label} — remove it immediately`);
+      }
+    }
+  });
+}
+
 // ─── Per-blueprint check ──────────────────────────────────
 
 function checkBlueprint(file) {
@@ -344,6 +372,7 @@ function checkBlueprint(file) {
   checkOutcomesOrFlows(bp, issues);
   checkErrors(bp, issues);
   checkFields(bp, issues);
+  checkSecrets(bp, issues);
   sweepForPlaceholders(bp, issues);
 
   return issues;

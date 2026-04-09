@@ -153,6 +153,46 @@ description: "Chart rendering system with bar, line, pie, donut, area, scatter, 
 | accessibility | recommended | Charts need colorblind-safe palettes, ARIA labels, and keyboard navigation |
 | internationalization | optional | Axis labels, tooltips, and number formatting depend on locale |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Charts Visualization
+
+Chart rendering system with bar, line, pie, donut, area, scatter, time-series, and heatmap types, responsive sizing, tooltips, legends, and real-time updates
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| chart_rendered | `autonomous` | - | - |
+| chart_empty_state | `autonomous` | - | - |
+| data_updated | `supervised` | - | - |
+| data_point_clicked | `autonomous` | - | - |
+| series_toggled | `autonomous` | - | - |
+| max_series_exceeded | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

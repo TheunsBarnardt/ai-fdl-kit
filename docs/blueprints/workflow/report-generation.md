@@ -175,6 +175,55 @@ description: "Scheduled and on-demand report generation with PDF, Excel, and CSV
 | task-management | optional | Report generation jobs can be tracked as background tasks |
 | dashboard-analytics | recommended | Dashboard widgets may offer report export functionality |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Report Generation
+
+Scheduled and on-demand report generation with PDF, Excel, and CSV output, background processing, caching, email delivery, and cron scheduling.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| on_demand_report_generated | `autonomous` | - | - |
+| cached_report_returned | `autonomous` | - | - |
+| scheduled_report_triggered | `autonomous` | - | - |
+| report_delivered_to_recipients | `autonomous` | - | - |
+| report_exceeds_size_limit | `autonomous` | - | - |
+| report_generation_fails | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

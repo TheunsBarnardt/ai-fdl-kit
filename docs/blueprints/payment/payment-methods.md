@@ -195,6 +195,78 @@ description: "Saved payment methods with card tokenization, add/remove/set defau
 | refunds-returns | optional | Refunds issued to original payment method |
 | invoicing-payments | optional | Invoice payments may use saved methods |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Payment Methods
+
+Saved payment methods with card tokenization, add/remove/set default, Luhn validation, expiry monitoring, and digital wallet support.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Coordination
+
+**Protocol:** `request_response`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `subscription_billing` | subscription-billing | fail |
+| `cart_checkout` | cart-checkout | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| payment_method_added | `autonomous` | - | - |
+| wallet_added | `autonomous` | - | - |
+| payment_method_removed | `human_required` | - | - |
+| default_changed | `supervised` | - | - |
+| expiring_card_notification | `autonomous` | - | - |
+| card_expired | `autonomous` | - | - |
+| duplicate_card | `autonomous` | - | - |
+| method_limit_reached | `autonomous` | - | - |
+
 
 <script type="application/ld+json">
 {

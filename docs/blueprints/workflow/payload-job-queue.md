@@ -251,6 +251,65 @@ description: "Built-in job queue with tasks, workflows, cron scheduling, retry w
 | payload-access-control | required | Queue, run, and cancel operations are access-controlled |
 | payload-collections | required | Jobs stored in the payload-jobs auto-created collection |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Payload Job Queue
+
+Built-in job queue with tasks, workflows, cron scheduling, retry with backoff, concurrency control, and sub-task orchestration
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `payload_access_control` | payload-access-control | degrade |
+| `payload_collections` | payload-collections | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| queue_job | `autonomous` | - | - |
+| run_jobs | `autonomous` | - | - |
+| run_job_by_id | `autonomous` | - | - |
+| cancel_job | `supervised` | - | - |
+| job_retry | `autonomous` | - | - |
+| job_failed_permanently | `autonomous` | - | - |
+| job_success | `autonomous` | - | - |
+| handle_schedules | `autonomous` | - | - |
+| concurrency_exclusive | `autonomous` | - | - |
+| concurrency_supersedes | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

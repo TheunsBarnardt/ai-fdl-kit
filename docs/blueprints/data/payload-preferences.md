@@ -120,6 +120,63 @@ description: "Per-user preferences storage for admin UI state including collapse
 | payload-auth | required | Preferences are per-user — requires authentication to identify the user |
 | payload-collections | required | Preferences stored in the auto-created payload-preferences collection |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Payload Preferences
+
+Per-user preferences storage for admin UI state including collapsed fields, tab positions, column visibility, sort order, and list view settings
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `payload_auth` | payload-auth | degrade |
+| `payload_collections` | payload-collections | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| get_preference | `autonomous` | - | - |
+| set_preference | `autonomous` | - | - |
+| delete_preference | `human_required` | - | - |
+| preference_isolation | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -224,6 +224,69 @@ description: "Supplier performance scorecard system with weighted criteria, form
 | customer-supplier-management | required | Supplier master data and hold/block status management |
 | purchase-order-lifecycle | recommended | Purchase order lifecycle affected by scorecard blocking rules |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Supplier Scorecard
+
+Supplier performance scorecard system with weighted criteria, formula-based scoring, standing thresholds, automatic transaction blocking, and periodic score recalculation.
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| compliance | speed | procurement must follow approval policies and budget controls |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `customer_supplier_management` | customer-supplier-management | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| calculate_score | `autonomous` | - | - |
+| update_standing | `supervised` | - | - |
+| block_rfq | `human_required` | - | - |
+| block_purchase_order | `human_required` | - | - |
+| warn_on_transaction | `autonomous` | - | - |
+| generate_period_scorecard | `autonomous` | - | - |
+| standing_overlap_rejected | `supervised` | - | - |
+| weights_invalid | `autonomous` | - | - |
+| formula_error | `autonomous` | - | - |
+| coverage_gap_rejected | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

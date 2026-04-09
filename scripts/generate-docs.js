@@ -432,6 +432,84 @@ function renderAgi(agi) {
     }
   }
 
+  // Coordination
+  if (agi.coordination) {
+    md += '### Coordination\n\n';
+    md += `**Protocol:** \`${agi.coordination.protocol}\`\n\n`;
+    if (agi.coordination.exposes?.length > 0) {
+      md += '**Exposes:**\n\n';
+      md += '| Capability | Contract |\n';
+      md += '|------------|----------|\n';
+      for (const e of agi.coordination.exposes) {
+        md += `| \`${escMd(e.capability)}\` | ${escMd(e.contract)} |\n`;
+      }
+      md += '\n';
+    }
+    if (agi.coordination.consumes?.length > 0) {
+      md += '**Consumes:**\n\n';
+      md += '| Capability | From | Fallback |\n';
+      md += '|------------|------|----------|\n';
+      for (const c of agi.coordination.consumes) {
+        md += `| \`${escMd(c.capability)}\` | ${escMd(c.from)} | ${escMd(c.fallback)} |\n`;
+      }
+      md += '\n';
+    }
+  }
+
+  // Safety
+  if (agi.safety?.action_permissions?.length > 0) {
+    md += '### Safety\n\n';
+    md += '| Action | Permission | Cooldown | Max Auto |\n';
+    md += '|--------|------------|----------|----------|\n';
+    for (const p of agi.safety.action_permissions) {
+      md += `| ${escMd(p.action)} | \`${p.permission}\` | ${escMd(p.cooldown || '-')} | ${p.max_auto_decisions ?? '-'} |\n`;
+    }
+    md += '\n';
+  }
+
+  // Explainability
+  if (agi.explainability) {
+    md += '### Explainability\n\n';
+    if (agi.explainability.log_decisions !== undefined) {
+      md += `**Log Decisions:** ${agi.explainability.log_decisions ? 'Yes' : 'No'}\n\n`;
+    }
+    if (agi.explainability.reasoning_depth) {
+      md += `**Reasoning Depth:** \`${agi.explainability.reasoning_depth}\`\n\n`;
+    }
+    if (agi.explainability.audit_events?.length > 0) {
+      md += '**Audit Events:**\n\n';
+      md += '| Decision | Must Log |\n';
+      md += '|----------|----------|\n';
+      for (const e of agi.explainability.audit_events) {
+        md += `| ${escMd(e.decision)} | ${e.must_log.map((f) => `\`${f}\``).join(', ')} |\n`;
+      }
+      md += '\n';
+    }
+  }
+
+  // Learning
+  if (agi.learning) {
+    md += '### Learning\n\n';
+    if (agi.learning.signals?.length > 0) {
+      md += '**Signals:**\n\n';
+      md += '| Metric | Window | Baseline |\n';
+      md += '|--------|--------|----------|\n';
+      for (const s of agi.learning.signals) {
+        md += `| ${escMd(s.metric)} | ${escMd(s.window)} | ${escMd(s.baseline)} |\n`;
+      }
+      md += '\n';
+    }
+    if (agi.learning.adaptations?.length > 0) {
+      md += '**Adaptations:**\n\n';
+      md += '| When | Experiment | Rollback If | Approval |\n';
+      md += '|------|------------|-------------|----------|\n';
+      for (const a of agi.learning.adaptations) {
+        md += `| \`${escMd(a.when)}\` | ${escMd(a.experiment)} | ${a.rollback_if ? `\`${escMd(a.rollback_if)}\`` : '-'} | ${a.requires_approval ? 'Required' : 'Auto'} |\n`;
+      }
+      md += '\n';
+    }
+  }
+
   return md;
 }
 
