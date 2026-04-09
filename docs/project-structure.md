@@ -8,7 +8,7 @@ description: "FDL project structure: schema, blueprints, scripts, skills, and do
 # Project Structure
 
 ```
-claude-fdl/
+ai-fdl-kit/
   schema/
     blueprint.schema.yaml        # The rules that all blueprints must follow
   blueprints/

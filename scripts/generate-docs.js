@@ -306,6 +306,135 @@ function renderExtensions(extensions) {
   return md;
 }
 
+function renderAgi(agi) {
+  if (!agi) return '';
+  let md = '## AGI Readiness\n\n';
+
+  // Goals
+  if (agi.goals?.length > 0) {
+    md += '### Goals\n\n';
+    for (const goal of agi.goals) {
+      md += `#### ${titleCase(goal.id.replace(/_/g, '-'))}\n\n`;
+      md += `${goal.description}\n\n`;
+      if (goal.success_metrics?.length > 0) {
+        md += '**Success Metrics:**\n\n';
+        md += '| Metric | Target | Measurement |\n';
+        md += '|--------|--------|-------------|\n';
+        for (const m of goal.success_metrics) {
+          md += `| ${escMd(m.metric)} | ${escMd(m.target)} | ${escMd(m.measurement || '')} |\n`;
+        }
+        md += '\n';
+      }
+      if (goal.constraints?.length > 0) {
+        md += '**Constraints:**\n\n';
+        for (const c of goal.constraints) {
+          md += `- **${c.type}** ${c.negotiable ? '(negotiable)' : '(non-negotiable)'}: ${c.description}\n`;
+        }
+        md += '\n';
+      }
+    }
+  }
+
+  // Autonomy
+  if (agi.autonomy) {
+    md += '### Autonomy\n\n';
+    md += `**Level:** \`${agi.autonomy.level}\`\n\n`;
+    if (agi.autonomy.human_checkpoints?.length > 0) {
+      md += '**Human Checkpoints:**\n\n';
+      for (const cp of agi.autonomy.human_checkpoints) md += `- ${cp}\n`;
+      md += '\n';
+    }
+    if (agi.autonomy.escalation_triggers?.length > 0) {
+      md += '**Escalation Triggers:**\n\n';
+      for (const t of agi.autonomy.escalation_triggers) md += `- \`${t}\`\n`;
+      md += '\n';
+    }
+  }
+
+  // Verification
+  if (agi.verification) {
+    md += '### Verification\n\n';
+    if (agi.verification.invariants?.length > 0) {
+      md += '**Invariants:**\n\n';
+      for (const inv of agi.verification.invariants) md += `- ${inv}\n`;
+      md += '\n';
+    }
+    if (agi.verification.acceptance_tests?.length > 0) {
+      md += '**Acceptance Tests:**\n\n';
+      md += '| Scenario | Given | When | Expect |\n';
+      md += '|----------|-------|------|--------|\n';
+      for (const test of agi.verification.acceptance_tests) {
+        md += `| ${escMd(test.scenario)} | ${escMd(test.given || '')} | ${escMd(test.when || '')} | ${escMd(test.expect)} |\n`;
+      }
+      md += '\n';
+    }
+    if (agi.verification.monitoring?.length > 0) {
+      md += '**Monitoring:**\n\n';
+      md += '| Metric | Threshold | Action |\n';
+      md += '|--------|-----------|--------|\n';
+      for (const m of agi.verification.monitoring) {
+        md += `| ${escMd(m.metric)} | ${escMd(m.threshold)} | ${escMd(m.action)} |\n`;
+      }
+      md += '\n';
+    }
+  }
+
+  // Capabilities and Boundaries
+  if (agi.capabilities?.length > 0 || agi.boundaries?.length > 0) {
+    md += '### Composability\n\n';
+    if (agi.capabilities?.length > 0) {
+      md += '**Capabilities:**\n\n';
+      for (const cap of agi.capabilities) {
+        md += `- \`${cap.id}\`: ${cap.description}`;
+        if (cap.requires?.length > 0) md += ` (requires: ${cap.requires.map((r) => `\`${r}\``).join(', ')})`;
+        md += '\n';
+      }
+      md += '\n';
+    }
+    if (agi.boundaries?.length > 0) {
+      md += '**Boundaries:**\n\n';
+      for (const b of agi.boundaries) md += `- ${b}\n`;
+      md += '\n';
+    }
+  }
+
+  // Tradeoffs
+  if (agi.tradeoffs?.length > 0) {
+    md += '### Tradeoffs\n\n';
+    md += '| Prefer | Over | Reason |\n';
+    md += '|--------|------|--------|\n';
+    for (const t of agi.tradeoffs) {
+      md += `| ${escMd(t.prefer)} | ${escMd(t.over)} | ${escMd(t.reason || '')} |\n`;
+    }
+    md += '\n';
+  }
+
+  // Evolution
+  if (agi.evolution) {
+    md += '### Evolution\n\n';
+    if (agi.evolution.triggers?.length > 0) {
+      md += '**Triggers:**\n\n';
+      md += '| Condition | Action |\n';
+      md += '|-----------|--------|\n';
+      for (const t of agi.evolution.triggers) {
+        md += `| \`${escMd(t.condition)}\` | ${escMd(t.action)} |\n`;
+      }
+      md += '\n';
+    }
+    if (agi.evolution.deprecation?.length > 0) {
+      md += '**Deprecation:**\n\n';
+      md += '| Field | Remove After | Migration |\n';
+      md += '|-------|-------------|----------|\n';
+      for (const d of agi.evolution.deprecation) {
+        md += `| \`${d.field}\` | ${d.remove_after} | ${escMd(d.migration)} |\n`;
+      }
+      md += '\n';
+    }
+  }
+
+  return md;
+}
+
 // ─── SEO Description Generator ──────────────────────────────
 
 function generateSeoDescription(bp) {
@@ -317,6 +446,7 @@ function generateSeoDescription(bp) {
     const ruleKeys = Object.keys(bp.rules);
     if (ruleKeys.length > 0) parts.push(`rules: ${ruleKeys.slice(0, 3).join(', ')}`);
   }
+  if (bp.agi) parts.push(`AGI: ${bp.agi.autonomy?.level || 'enabled'}`);
   return parts.join('. ').slice(0, 160);
 }
 
@@ -393,6 +523,7 @@ async function main() {
       md += renderErrors(bp.errors);
       md += renderEvents(bp.events);
       md += renderRelated(bp.related, category);
+      if (bp.agi) md += renderAgi(bp.agi);
       if (bp.ui_hints) md += renderUiHints(bp.ui_hints);
       if (bp.extensions) md += renderExtensions(bp.extensions);
 

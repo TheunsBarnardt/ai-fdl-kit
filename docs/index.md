@@ -60,7 +60,7 @@ There are eleven ways to work with blueprints:
 
 ```bash
 git clone https://github.com/TheunsBarnardt/ai-fdl-kit.git
-cd claude-fdl
+cd ai-fdl-kit
 npm install
 ```
 

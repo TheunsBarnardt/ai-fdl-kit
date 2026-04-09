@@ -3,7 +3,7 @@ title: "Login Blueprint"
 layout: default
 parent: "Auth"
 grand_parent: Blueprint Catalog
-description: "Authenticate a user with email and password. 3 fields. 6 outcomes. 6 error codes. rules: security, session, email"
+description: "Authenticate a user with email and password. 3 fields. 6 outcomes. 6 error codes. rules: security, session, email. AGI: supervised"
 ---
 
 # Login Blueprint
@@ -155,6 +155,105 @@ description: "Authenticate a user with email and password. 3 fields. 6 outcomes.
 | logout | required | Every login needs a logout |
 | biometric-auth | optional | Palm vein scan as an alternative to password login |
 
+## AGI Readiness
+
+### Goals
+
+#### Secure Authentication
+
+Authenticate users securely while preventing credential-based attacks
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Successful logins with invalid credentials / total login attempts |
+| legitimate_user_friction | < 2% lockout rate for valid users | Valid users locked out / total valid users attempting login |
+
+**Constraints:**
+
+- **security** (non-negotiable): OWASP ASVS Level 2 compliance required
+- **performance** (negotiable): Login response time under 500ms p95
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before disabling an account permanently
+- before changing lockout policy thresholds
+
+**Escalation Triggers:**
+
+- `failed_login_attempts > 100`
+- `lockout_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- no plaintext passwords stored or logged
+- error messages never reveal whether email exists
+- all password comparisons use constant-time algorithm
+- rate limiting checked before any database lookup
+
+**Acceptance Tests:**
+
+| Scenario | Given | When | Expect |
+|----------|-------|------|--------|
+| brute force prevention | 5 failed login attempts for the same email | 6th attempt is made | account locked for 15 minutes, LOGIN_ACCOUNT_LOCKED returned |
+| credential stuffing defense | 10 requests in 60 seconds from same IP | 11th request arrives | rate limited with 429 status |
+| enumeration prevention | login attempted with non-existent email | response is returned | same error message and similar response time as wrong password |
+| successful login resets counters | user has 3 failed attempts | valid credentials submitted | failed_login_attempts reset to 0, session created |
+
+**Monitoring:**
+
+| Metric | Threshold | Action |
+|--------|-----------|--------|
+| error_rate | < 0.1% | alert and investigate |
+| login_latency_p95 | < 500ms | scale infrastructure |
+| lockout_rate | < 2% | review lockout thresholds |
+
+### Composability
+
+**Capabilities:**
+
+- `credential_auth`: Authenticate via email and password
+- `session_creation`: Create JWT access and refresh tokens (requires: `credential_auth`)
+- `lockout_protection`: Lock accounts after repeated failures
+- `rate_limiting`: Throttle login attempts per IP
+
+**Boundaries:**
+
+- authentication must complete before session creation
+- rate limiting must be checked before any database lookup
+- audit trail of login attempts cannot be disabled
+- password comparison must use constant-time algorithm
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | constant-time comparison adds latency but prevents timing attacks |
+| user_privacy | debugging | generic error messages make debugging harder but prevent enumeration |
+
+### Evolution
+
+**Triggers:**
+
+| Condition | Action |
+|-----------|--------|
+| `failed_login_attempts > 1000` | add CAPTCHA challenge before password check |
+| `login_latency_p95 > 500` | add connection pooling or read replicas |
+| `lockout_rate > 5` | implement progressive delays instead of hard lockout |
+
+**Deprecation:**
+
+| Field | Remove After | Migration |
+|-------|-------------|----------|
+| `remember_me` | 2027-01-01 | use refresh token rotation with configurable TTL instead |
+
 <details>
 <summary><strong>UI Hints</strong></summary>
 
@@ -221,7 +320,7 @@ laravel:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Login Blueprint",
-  "description": "Authenticate a user with email and password. 3 fields. 6 outcomes. 6 error codes. rules: security, session, email",
+  "description": "Authenticate a user with email and password. 3 fields. 6 outcomes. 6 error codes. rules: security, session, email. AGI: supervised",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

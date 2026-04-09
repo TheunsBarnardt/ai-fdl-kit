@@ -133,6 +133,22 @@ Blueprints aren't just templates — they encode transferable architectural patt
 
 ---
 
+## AGI-Readiness Layer
+
+Blueprints can include an optional `agi` section that makes them consumable by autonomous AI agents:
+
+| Sub-section | Purpose | Example |
+|------------|---------|---------|
+| **Goals** | Business objectives with measurable success criteria | `"Authenticate users with < 2% lockout rate"` |
+| **Autonomy** | Human involvement level | `human_in_loop`, `supervised`, `semi_autonomous`, `fully_autonomous` |
+| **Verification** | Invariants, acceptance tests, monitoring thresholds | Self-verifying specs agents can validate |
+| **Composability** | Declared capabilities, boundaries, and tradeoffs | `"prefer security over performance"` |
+| **Evolution** | Adaptive triggers and deprecation schedules | `"if error_rate > 1%, add circuit breaker"` |
+
+The AGI section is entirely optional — existing blueprints work unchanged. See [`blueprints/auth/login.blueprint.yaml`](blueprints/auth/login.blueprint.yaml) for a complete example.
+
+---
+
 ## Documentation
 
 Full documentation at **[theunsbarnardt.github.io/ai-fdl-kit](https://theunsbarnardt.github.io/ai-fdl-kit/)**:

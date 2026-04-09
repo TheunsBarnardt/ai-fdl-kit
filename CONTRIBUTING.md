@@ -47,7 +47,7 @@ The validator (`scripts/validate.js`) and expression parser (`scripts/expression
 
 ```bash
 git clone https://github.com/TheunsBarnardt/ai-fdl-kit.git
-cd claude-fdl
+cd ai-fdl-kit
 npm install
 
 # Validate all blueprints

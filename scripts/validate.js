@@ -113,6 +113,32 @@ const blueprintJsonSchema = {
     sla: { type: "object" },
     ui_hints: { type: "object" },
     extensions: { type: "object" },
+    agi: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        goals: {
+          type: "array",
+          minItems: 1,
+          items: { $ref: "#/$defs/agiGoal" },
+        },
+        autonomy: { $ref: "#/$defs/agiAutonomy" },
+        verification: { $ref: "#/$defs/agiVerification" },
+        capabilities: {
+          type: "array",
+          items: { $ref: "#/$defs/agiCapability" },
+        },
+        boundaries: {
+          type: "array",
+          items: { type: "string" },
+        },
+        tradeoffs: {
+          type: "array",
+          items: { $ref: "#/$defs/agiTradeoff" },
+        },
+        evolution: { $ref: "#/$defs/agiEvolution" },
+      },
+    },
   },
   additionalProperties: false,
   $defs: {
@@ -262,6 +288,154 @@ const blueprintJsonSchema = {
         message: { type: "string" },
         retry: { type: "boolean" },
         redirect: { type: "string" },
+      },
+      additionalProperties: false,
+    },
+    agiGoal: {
+      type: "object",
+      required: ["id", "description"],
+      properties: {
+        id: { type: "string", pattern: "^[a-z][a-z0-9_]*$" },
+        description: { type: "string" },
+        success_metrics: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["metric", "target"],
+            properties: {
+              metric: { type: "string" },
+              target: { type: "string" },
+              measurement: { type: "string" },
+            },
+            additionalProperties: false,
+          },
+        },
+        constraints: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["type", "description"],
+            properties: {
+              type: {
+                type: "string",
+                enum: ["regulatory", "performance", "cost", "security", "availability"],
+              },
+              description: { type: "string" },
+              negotiable: { type: "boolean" },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
+      additionalProperties: false,
+    },
+    agiAutonomy: {
+      type: "object",
+      required: ["level"],
+      properties: {
+        level: {
+          type: "string",
+          enum: ["human_in_loop", "supervised", "semi_autonomous", "fully_autonomous"],
+        },
+        human_checkpoints: {
+          type: "array",
+          items: { type: "string" },
+        },
+        escalation_triggers: {
+          type: "array",
+          items: { type: "string" },
+        },
+      },
+      additionalProperties: false,
+    },
+    agiVerification: {
+      type: "object",
+      properties: {
+        invariants: {
+          type: "array",
+          items: { type: "string" },
+        },
+        acceptance_tests: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["scenario", "expect"],
+            properties: {
+              scenario: { type: "string" },
+              given: { type: "string" },
+              when: { type: "string" },
+              expect: { type: "string" },
+            },
+            additionalProperties: false,
+          },
+        },
+        monitoring: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["metric", "threshold", "action"],
+            properties: {
+              metric: { type: "string" },
+              threshold: { type: "string" },
+              action: { type: "string" },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
+      additionalProperties: false,
+    },
+    agiCapability: {
+      type: "object",
+      required: ["id", "description"],
+      properties: {
+        id: { type: "string", pattern: "^[a-z][a-z0-9_]*$" },
+        description: { type: "string" },
+        requires: {
+          type: "array",
+          items: { type: "string" },
+        },
+      },
+      additionalProperties: false,
+    },
+    agiTradeoff: {
+      type: "object",
+      required: ["prefer", "over"],
+      properties: {
+        prefer: { type: "string" },
+        over: { type: "string" },
+        reason: { type: "string" },
+      },
+      additionalProperties: false,
+    },
+    agiEvolution: {
+      type: "object",
+      properties: {
+        triggers: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["condition", "action"],
+            properties: {
+              condition: { type: "string" },
+              action: { type: "string" },
+            },
+            additionalProperties: false,
+          },
+        },
+        deprecation: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["field", "remove_after", "migration"],
+            properties: {
+              field: { type: "string" },
+              remove_after: { type: "string" },
+              migration: { type: "string" },
+            },
+            additionalProperties: false,
+          },
+        },
       },
       additionalProperties: false,
     },
@@ -542,6 +716,102 @@ function validateFile(filePath) {
       if (Array.isArray(outcome.then)) {
         for (let i = 0; i < outcome.then.length; i++) {
           validateSideEffect(outcome.then[i], `outcomes.${name}.then[${i}]`);
+        }
+      }
+    }
+  }
+
+  // ─── Validate AGI section ──────────────────────────────
+
+  if (data.agi) {
+    // Validate goal IDs are unique
+    if (data.agi.goals) {
+      const goalIds = data.agi.goals.map((g) => g.id);
+      const dupes = goalIds.filter((id, i) => goalIds.indexOf(id) !== i);
+      if (dupes.length > 0) {
+        customErrors.push(`  agi.goals: duplicate goal IDs: ${dupes.join(", ")}`);
+      }
+    }
+
+    // Validate capability IDs are unique
+    if (data.agi.capabilities) {
+      const capIds = data.agi.capabilities.map((c) => c.id);
+      const dupes = capIds.filter((id, i) => capIds.indexOf(id) !== i);
+      if (dupes.length > 0) {
+        customErrors.push(`  agi.capabilities: duplicate capability IDs: ${dupes.join(", ")}`);
+      }
+
+      // Validate capability requires references
+      const capIdSet = new Set(capIds);
+      for (const cap of data.agi.capabilities) {
+        if (cap.requires) {
+          for (const req of cap.requires) {
+            if (!capIdSet.has(req)) {
+              customWarnings.push(
+                `agi.capabilities: "${cap.id}" requires "${req}" which is not defined in this blueprint's capabilities`
+              );
+            }
+          }
+        }
+      }
+    }
+
+    // Validate autonomy level vs actors consistency
+    if (data.agi.autonomy?.level === "human_in_loop") {
+      const hasHumanActor = (data.actors || []).some((a) => a.type === "human");
+      if (!hasHumanActor) {
+        customWarnings.push(
+          'agi.autonomy.level is "human_in_loop" but no human actors are defined'
+        );
+      }
+    }
+
+    // Validate escalation triggers as expressions (warnings only)
+    if (data.agi.autonomy?.escalation_triggers) {
+      for (let i = 0; i < data.agi.autonomy.escalation_triggers.length; i++) {
+        const trigger = data.agi.autonomy.escalation_triggers[i];
+        const exprResult = validateExpression(trigger);
+        if (!exprResult.valid) {
+          customWarnings.push(
+            `agi.autonomy.escalation_triggers[${i}]: may not be a valid expression — ${exprResult.error}`
+          );
+        }
+      }
+    }
+
+    // Validate evolution trigger conditions as expressions (warnings only)
+    if (data.agi.evolution?.triggers) {
+      for (let i = 0; i < data.agi.evolution.triggers.length; i++) {
+        const trigger = data.agi.evolution.triggers[i];
+        const exprResult = validateExpression(trigger.condition);
+        if (!exprResult.valid) {
+          customWarnings.push(
+            `agi.evolution.triggers[${i}].condition: may not be a valid expression — ${exprResult.error}`
+          );
+        }
+      }
+    }
+
+    // Validate deprecation dates are valid
+    if (data.agi.evolution?.deprecation) {
+      for (let i = 0; i < data.agi.evolution.deprecation.length; i++) {
+        const dep = data.agi.evolution.deprecation[i];
+        if (isNaN(Date.parse(dep.remove_after))) {
+          customErrors.push(
+            `  agi.evolution.deprecation[${i}].remove_after: "${dep.remove_after}" is not a valid date`
+          );
+        }
+      }
+    }
+
+    // Validate deprecation field names exist in fields[]
+    if (data.agi.evolution?.deprecation && data.fields) {
+      const fieldNames = new Set(data.fields.map((f) => f.name));
+      for (const dep of data.agi.evolution.deprecation) {
+        if (!fieldNames.has(dep.field)) {
+          customWarnings.push(
+            `agi.evolution.deprecation: "${dep.field}" is not in fields[] — may refer to a computed or external field`
+          );
         }
       }
     }

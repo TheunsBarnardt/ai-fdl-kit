@@ -320,6 +320,111 @@ related:
     reason: "Palm vein scan as an alternative to password login"
     ui_link: "Log in with palm vein"
 
+# ─── AGI READINESS ────────────────────────────────────────
+# Intent, autonomy, verification, composability, and evolution
+# hints for autonomous AI agents operating this feature.
+
+agi:
+  goals:
+    - id: secure_authentication
+      description: "Authenticate users securely while preventing credential-based attacks"
+      success_metrics:
+        - metric: unauthorized_access_rate
+          target: "0%"
+          measurement: "Successful logins with invalid credentials / total login attempts"
+        - metric: legitimate_user_friction
+          target: "< 2% lockout rate for valid users"
+          measurement: "Valid users locked out / total valid users attempting login"
+      constraints:
+        - type: security
+          description: "OWASP ASVS Level 2 compliance required"
+          negotiable: false
+        - type: performance
+          description: "Login response time under 500ms p95"
+          negotiable: true
+
+  autonomy:
+    level: supervised
+    # Agent acts on its own but humans monitor and can intervene
+    human_checkpoints:
+      - "before disabling an account permanently"
+      - "before changing lockout policy thresholds"
+    escalation_triggers:
+      - "failed_login_attempts > 100"
+      - "lockout_rate > 5"
+
+  verification:
+    invariants:
+      - "no plaintext passwords stored or logged"
+      - "error messages never reveal whether email exists"
+      - "all password comparisons use constant-time algorithm"
+      - "rate limiting checked before any database lookup"
+    acceptance_tests:
+      - scenario: "brute force prevention"
+        given: "5 failed login attempts for the same email"
+        when: "6th attempt is made"
+        expect: "account locked for 15 minutes, LOGIN_ACCOUNT_LOCKED returned"
+      - scenario: "credential stuffing defense"
+        given: "10 requests in 60 seconds from same IP"
+        when: "11th request arrives"
+        expect: "rate limited with 429 status"
+      - scenario: "enumeration prevention"
+        given: "login attempted with non-existent email"
+        when: "response is returned"
+        expect: "same error message and similar response time as wrong password"
+      - scenario: "successful login resets counters"
+        given: "user has 3 failed attempts"
+        when: "valid credentials submitted"
+        expect: "failed_login_attempts reset to 0, session created"
+    monitoring:
+      - metric: error_rate
+        threshold: "< 0.1%"
+        action: "alert and investigate"
+      - metric: login_latency_p95
+        threshold: "< 500ms"
+        action: "scale infrastructure"
+      - metric: lockout_rate
+        threshold: "< 2%"
+        action: "review lockout thresholds"
+
+  capabilities:
+    - id: credential_auth
+      description: "Authenticate via email and password"
+    - id: session_creation
+      description: "Create JWT access and refresh tokens"
+      requires: [credential_auth]
+    - id: lockout_protection
+      description: "Lock accounts after repeated failures"
+    - id: rate_limiting
+      description: "Throttle login attempts per IP"
+
+  boundaries:
+    - "authentication must complete before session creation"
+    - "rate limiting must be checked before any database lookup"
+    - "audit trail of login attempts cannot be disabled"
+    - "password comparison must use constant-time algorithm"
+
+  tradeoffs:
+    - prefer: security
+      over: performance
+      reason: "constant-time comparison adds latency but prevents timing attacks"
+    - prefer: user_privacy
+      over: debugging
+      reason: "generic error messages make debugging harder but prevent enumeration"
+
+  evolution:
+    triggers:
+      - condition: "failed_login_attempts > 1000"
+        action: "add CAPTCHA challenge before password check"
+      - condition: "login_latency_p95 > 500"
+        action: "add connection pooling or read replicas"
+      - condition: "lockout_rate > 5"
+        action: "implement progressive delays instead of hard lockout"
+    deprecation:
+      - field: remember_me
+        remove_after: "2027-01-01"
+        migration: "use refresh token rotation with configurable TTL instead"
+
 # ─── UI HINTS ─────────────────────────────────────────────
 
 ui_hints:
