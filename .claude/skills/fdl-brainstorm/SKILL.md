@@ -29,7 +29,7 @@ Help a user go from "I have a vague idea" to "a concrete FDL blueprint" through 
 
 Superpowers' brainstorming skill ends by writing a design doc to `docs/superpowers/specs/`. This skill ends by invoking `/fdl-create` with a specification detailed enough to produce a valid blueprint. **The blueprint is the only acceptable terminal state of the FDL system — no markdown design docs, no task lists, no pseudocode.**
 
-## Workflow (9 steps, executed one at a time)
+## Workflow (11 steps, executed one at a time)
 
 ### Step 1 — Explore existing context
 
@@ -108,11 +108,94 @@ Before handoff, internally check:
 
 If any box is unchecked, loop back and fill the gap with the user.
 
-### Step 9 — Hand off to `/fdl-create`
+### Step 9 — Write the brainstorm design doc (mandatory)
 
-The terminal action of this skill is:
+Before any handoff, **always** write a full markdown design doc capturing the complete brainstorm. This is a non-negotiable output of the skill — the user gets a durable artifact they can review, share, or version-control independently of the blueprint.
 
-> "Great — I have everything I need. Now I'll create the blueprint."
+**Filename:** `{feature-kebab-case}.brainstorm.md` (e.g. `regulatory-complaint.brainstorm.md`).
+
+**Location:** depends on the project decision in Step 10. Until then, hold the contents in memory; do not guess a path.
+
+**Required sections** (in this order):
+
+```markdown
+# {Feature Name} — Brainstorm
+
+- **Feature:** `{kebab-case-name}`
+- **Category:** `{category}`
+- **Status:** Draft — pending `/fdl-create`
+- **Date:** {YYYY-MM-DD}
+- **Project:** {project name, filled in at Step 10}
+
+## 1. Problem
+{User's answer to Step 2 — what problem this solves for the end user.}
+
+## 2. Success criteria
+{User's answer to Step 3 — what has to be true for this to be "working".}
+
+## 3. Failure modes
+{Bulleted list from Step 4 — every failure the user named, each mapped to a tentative error code.}
+
+## 4. Design approach
+{Which of the Step 5 alternatives was chosen (A/B/C), and WHY — the user's reasoning, not yours.}
+
+## 5. Data model
+{Fields with type, required/optional, validation notes — from Step 6.1.}
+
+## 6. Outcomes
+### Success
+{Given / then / result — from Step 6.2.}
+### Failures
+{One block per failure outcome, each with its error code — from Step 6.3.}
+
+## 7. Security rules
+{Auth, rate limits, input validation — from Step 6.4.}
+
+## 8. Related blueprints
+{From Step 6.5 — list as `category/feature` with relationship type.}
+
+## 9. Open questions
+{Anything the user deferred or flagged as "figure out during /fdl-create". If none, write "None".}
+
+## 10. Next step
+Run `/fdl-create {feature-kebab-case}` to materialize this brainstorm into a validated YAML blueprint.
+```
+
+**Do NOT:**
+- Invent content the user didn't confirm. If a section is thin, that means the brainstorm was thin — loop back to the relevant step and fill it before writing the doc.
+- Include real data, credentials, or PII (per `CLAUDE.md` POPIA rules).
+- Write the YAML itself — that's `/fdl-create`'s job.
+
+### Step 10 — Ask about the project; create one if none exists
+
+Before saving the brainstorm doc, ask the user where it belongs.
+
+1. **Check for existing projects.** Look for a `projects/` directory at the repo root. If it exists, list its subdirectories to the user.
+2. **Ask the user one question,** offering these options:
+   - **Use an existing project** — pick one from the list (only if `projects/` has entries).
+   - **Create a new project** — user supplies a kebab-case project name.
+   - **Skip — don't store under a project** — save the doc to `docs/brainstorms/{feature}.brainstorm.md` instead.
+3. **Apply the answer:**
+   - **Existing project:** write to `projects/{project-name}/brainstorms/{feature}.brainstorm.md`. Create the `brainstorms/` subfolder if missing.
+   - **New project:** create the full scaffold before writing:
+     ```
+     projects/{project-name}/
+     ├── README.md              ← one-line description of the project
+     ├── brainstorms/           ← design docs from /fdl-brainstorm
+     └── blueprints/            ← symlink or placeholder; project-scoped blueprints go here
+     ```
+     Then write the brainstorm doc into `projects/{project-name}/brainstorms/`.
+   - **Skip:** write to `docs/brainstorms/{feature}.brainstorm.md` (create the directory if missing). Still a durable artifact, just not project-scoped.
+4. **Fill in the `Project:` field** in the doc's header before writing — with the chosen project name, or `(none)` if skipped.
+5. **Confirm the write** by echoing the final path to the user.
+
+Never overwrite an existing brainstorm doc. If the target filename already exists, suffix with `-v2`, `-v3`, etc. and tell the user what you did.
+
+### Step 11 — Hand off to `/fdl-create`
+
+Only after the brainstorm doc is written and its path confirmed:
+
+> "Brainstorm saved to `{path}`. Now I'll create the blueprint."
 
 Then invoke `/fdl-create` with the feature name, category, and the full specification accumulated through steps 2-6. `/fdl-create` then:
 1. Writes the YAML
@@ -120,17 +203,18 @@ Then invoke `/fdl-create` with the feature name, category, and the full specific
 3. Runs `node scripts/completeness-check.js` (semantic)
 4. Triggers `/fdl-auto-evolve` (auto-commit)
 
-**If the blueprint fails either check, that's a failure of this skill too.** The brainstorm was incomplete. Go back to step 6 and find the missing piece.
+**If the blueprint fails either check, that's a failure of this skill too.** The brainstorm was incomplete. Go back to step 6 and find the missing piece. The brainstorm doc from Step 9 stays on disk regardless — it's the audit trail of the conversation.
 
 ## Explicit non-goals
 
-- ❌ This skill does not write YAML
-- ❌ This skill does not produce a markdown design document
+- ❌ This skill does not write YAML (that's `/fdl-create`)
 - ❌ This skill does not produce a task list
 - ❌ This skill does not generate code
 - ❌ This skill does not commit to git
 
-The ONLY output is a handoff to `/fdl-create` with enough context to produce a clean, validated, complete blueprint.
+**Outputs of this skill:**
+1. A markdown brainstorm doc at `projects/{project}/brainstorms/{feature}.brainstorm.md` (or `docs/brainstorms/` if no project) — written in Step 9-10.
+2. A handoff to `/fdl-create` with enough context to produce a clean, validated, complete blueprint — Step 11.
 
 ## Why this skill exists
 
@@ -172,6 +256,18 @@ Claude: [Step 4] Good. What should happen when:
 
 [... continues through steps 5-8 ...]
 
-Claude: [Step 9] I have everything I need. Invoking /fdl-create regulatory-complaint
-        workflow with the specification we built.
+Claude: [Step 9] Writing the brainstorm doc now.
+
+        [Step 10] I don't see a `projects/` directory yet. Do you want to:
+          1. Create a new project (give me a kebab-case name)
+          2. Skip — save under `docs/brainstorms/` instead
+
+User: New project — call it "ombudsman-portal".
+
+Claude: Created `projects/ombudsman-portal/` with README, brainstorms/, and blueprints/.
+        Saved brainstorm to:
+        projects/ombudsman-portal/brainstorms/regulatory-complaint.brainstorm.md
+
+        [Step 11] Now invoking /fdl-create regulatory-complaint workflow with the
+        specification we built.
 ```
