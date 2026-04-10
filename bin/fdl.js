@@ -364,13 +364,59 @@ function installForTool(toolKey) {
     const existing = fs.readFileSync(dest, "utf-8");
     if (existing.includes("# FDL — AI Feature Definition Language")) {
       print(`  ${yellow("•")} ${tool.name} already has FDL instructions (${dim(tool.path)})`);
-      return;
+    } else {
+      fs.writeFileSync(dest, existing + "\n\n" + content, "utf-8");
+      print(`  ${green("✓")} appended FDL section to ${dim(tool.path)} (${tool.name})`);
     }
-    fs.writeFileSync(dest, existing + "\n\n" + content, "utf-8");
-    print(`  ${green("✓")} appended FDL section to ${dim(tool.path)} (${tool.name})`);
   } else {
     fs.writeFileSync(dest, content, "utf-8");
     print(`  ${green("✓")} wrote ${dim(tool.path)} (${tool.name})`);
+  }
+
+  // Claude Code: also copy the slash-command skills so /fdl-brainstorm etc. work.
+  if (toolKey === "claude") {
+    installClaudeSkills();
+  }
+}
+
+function installClaudeSkills() {
+  const srcSkills = path.join(PKG_ROOT, ".claude", "skills");
+  if (!fs.existsSync(srcSkills)) {
+    print(`  ${yellow("•")} no bundled skills found at ${dim(".claude/skills/")} — skipping`);
+    return;
+  }
+  const destSkills = path.join(CWD, ".claude", "skills");
+  fs.mkdirSync(destSkills, { recursive: true });
+
+  const entries = fs.readdirSync(srcSkills, { withFileTypes: true });
+  let copied = 0;
+  let skipped = 0;
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const srcDir = path.join(srcSkills, entry.name);
+    const destDir = path.join(destSkills, entry.name);
+    if (fs.existsSync(destDir)) {
+      skipped++;
+      continue;
+    }
+    copyDirRecursive(srcDir, destDir);
+    copied++;
+  }
+  if (copied > 0) {
+    print(`  ${green("✓")} installed ${copied} Claude skill${copied === 1 ? "" : "s"} to ${dim(".claude/skills/")}`);
+  }
+  if (skipped > 0) {
+    print(`  ${yellow("•")} ${skipped} skill${skipped === 1 ? "" : "s"} already present (delete to reinstall)`);
+  }
+}
+
+function copyDirRecursive(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const s = path.join(src, entry.name);
+    const d = path.join(dest, entry.name);
+    if (entry.isDirectory()) copyDirRecursive(s, d);
+    else if (entry.isFile()) fs.copyFileSync(s, d);
   }
 }
 
