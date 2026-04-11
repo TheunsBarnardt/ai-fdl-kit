@@ -1,0 +1,326 @@
+# ============================================================
+# dataset-pipeline — tf.data Input Pipeline
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Source: TensorFlow public API (tensorflow.org/api_docs)
+# Tech stack: Python + TensorFlow tf.data + tf.io
+# Reference: tensorflow/python/data/ops/dataset_ops.py
+#            tensorflow/python/data/ops/cache_dataset_ops.py
+#            tensorflow/python/data/experimental/ops/prefetch_op.py
+# ============================================================
+
+feature: dataset-pipeline
+version: "1.0.0"
+description: "Build efficient input data pipelines for ML training and inference using tf.data with batching, shuffling, caching, prefetching, and parallel preprocessing"
+category: ai
+tags:
+  - ai
+  - data-pipeline
+  - preprocessing
+  - tensorflow
+  - etl
+  - performance
+
+actors:
+  - id: data_engineer
+    name: "Data Engineer"
+    type: human
+    description: "Designs and tunes the data pipeline for a given dataset"
+  - id: pipeline_runtime
+    name: "Pipeline Runtime"
+    type: system
+    description: "Executes tf.data graph operations during training or inference"
+  - id: storage_backend
+    name: "Storage Backend"
+    type: system
+    description: "File system, object store, or in-memory tensor source"
+
+fields:
+  - name: source_type
+    type: select
+    required: true
+    label: "Data Source Type"
+    options:
+      - value: "tensor_slices"
+        label: "In-Memory Tensors (from_tensor_slices)"
+      - value: "file_pattern"
+        label: "File Pattern (glob, e.g. data/*.png)"
+      - value: "tfrecord"
+        label: "TFRecord Files (binary, recommended for large datasets)"
+      - value: "csv"
+        label: "CSV Files (experimental.CsvDataset)"
+      - value: "generator"
+        label: "Python Generator (from_generator)"
+
+  - name: source_path
+    type: text
+    required: false
+    label: "Source File Path or Glob Pattern"
+
+  - name: batch_size
+    type: number
+    required: true
+    label: "Batch Size"
+    validation:
+      - type: min
+        value: 1
+        message: "Batch size must be at least 1"
+
+  - name: shuffle_buffer_size
+    type: number
+    required: false
+    label: "Shuffle Buffer Size (use dataset size for perfect shuffle; -1 for AUTOTUNE)"
+
+  - name: prefetch_buffer_size
+    type: number
+    required: false
+    label: "Prefetch Buffer Size (-1 = AUTOTUNE, recommended)"
+
+  - name: num_parallel_calls
+    type: number
+    required: false
+    label: "Parallel map() Calls (-1 = AUTOTUNE)"
+
+  - name: cache_to_memory
+    type: boolean
+    required: false
+    label: "Cache Dataset in RAM After First Epoch"
+
+  - name: cache_file_path
+    type: text
+    required: false
+    label: "Cache to File Path (persists across runs; leave empty for RAM cache)"
+
+  - name: repeat_indefinitely
+    type: boolean
+    required: false
+    label: "Repeat Dataset Indefinitely (use with steps_per_epoch)"
+
+  - name: drop_remainder
+    type: boolean
+    required: false
+    label: "Drop Incomplete Final Batch"
+
+  - name: compression_type
+    type: select
+    required: false
+    label: "Source File Compression"
+    options:
+      - value: "none"
+        label: "None"
+      - value: "gzip"
+        label: "GZIP"
+      - value: "zlib"
+        label: "ZLIB"
+
+  - name: num_shards
+    type: number
+    required: false
+    label: "Number of Shards (for distributed training)"
+
+  - name: shard_index
+    type: number
+    required: false
+    label: "This Worker's Shard Index (0-based)"
+
+rules:
+  pipeline_ordering:
+    operation_order: |
+      The recommended tf.data pipeline operation order:
+      1. Load source  — from_tensor_slices(), TFRecordDataset(), etc.
+      2. shard()      — if distributed; must be before shuffle
+      3. cache()      — before shuffle to avoid redundant disk reads
+      4. shuffle()    — after cache, before map and batch
+      5. map()        — preprocessing with num_parallel_calls=AUTOTUNE
+      6. batch()      — group into batches; drop_remainder for TPU
+      7. prefetch()   — MUST be the LAST step; overlaps I/O with compute
+      # Source: tf.data Performance Guide
+
+  performance:
+    prefetch: |
+      MUST call .prefetch(tf.data.AUTOTUNE) as the last pipeline step.
+      Overlaps data loading with model compute; prevents GPU/TPU stall.
+      Omitting prefetch can reduce throughput by 50–90% on I/O-bound workloads.
+      # Source: tensorflow/python/data/experimental/ops/prefetch_op.py
+
+    autotune: |
+      Use tf.data.AUTOTUNE (value: -1) for:
+      - num_parallel_calls in .map()
+      - buffer_size in .prefetch()
+      The runtime automatically tunes these values based on available
+      hardware resources and observed throughput.
+
+    caching: |
+      SHOULD cache after expensive I/O or parsing operations:
+      - .cache()             — caches entire dataset in RAM after first epoch
+      - .cache(filename)     — caches to local disk, persists across Python sessions
+      Do NOT cache after .shuffle() — this fixes the order and defeats randomness.
+      Do NOT cache datasets that exceed available RAM.
+      # Source: tensorflow/python/data/ops/cache_dataset_ops.py
+
+    parallel_interleave: |
+      For TFRecord or file-based datasets, use .interleave() with
+      num_parallel_calls=AUTOTUNE to read multiple files in parallel
+      instead of sequential file access.
+
+  shuffling:
+    shuffle_correctness: |
+      buffer_size MUST equal dataset size for perfectly uniform shuffling.
+      Smaller buffer (e.g., 1000) gives approximate shuffle but saves memory.
+      MUST shuffle BEFORE .batch() to randomize batch composition.
+      Set reshuffle_each_iteration=True (default) for fresh order each epoch.
+
+  sharding:
+    distributed_sharding: |
+      When using MultiWorkerMirroredStrategy, each worker MUST shard the dataset:
+      dataset.shard(num_replicas_in_sync, worker_index)
+      Sharding must happen BEFORE shuffle and cache for correctness.
+      # Source: tensorflow/python/distribute/input_lib.py
+
+  serialization:
+    tfrecord_format: |
+      TFRecord is the recommended format for datasets larger than RAM:
+      - Binary encoding: faster than CSV/JSON parsing
+      - Supports sharding across multiple files for parallel reads
+      - Features encoded as tf.train.Feature:
+          bytes_list (images, text), float_list, int64_list
+      - MUST define a feature_description dict for tf.io.parse_single_example
+      # Source: tensorflow/python/lib/io/tf_record.py
+
+outcomes:
+  pipeline_ready:
+    priority: 10
+    given:
+      - field: source_type
+        source: input
+        operator: exists
+      - field: batch_size
+        source: input
+        operator: gt
+        value: 0
+      - "data source is accessible and contains at least one record"
+    then:
+      - action: emit_event
+        event: pipeline.created
+        payload:
+          - source_type
+          - batch_size
+          - shuffle_buffer_size
+          - prefetch_buffer_size
+    result: "tf.data.Dataset pipeline built; returns (features, labels) batches on iteration"
+
+  pipeline_failed_source_not_found:
+    priority: 1
+    error: PIPELINE_SOURCE_NOT_FOUND
+    given:
+      - field: source_type
+        source: input
+        operator: in
+        value: ["file_pattern", "tfrecord", "csv"]
+      - "source_path does not exist or glob pattern matches no files"
+    result: "Pipeline not created; verify source_path and storage permissions"
+
+  pipeline_failed_shape_mismatch:
+    priority: 2
+    error: PIPELINE_SHAPE_MISMATCH
+    given:
+      - "dataset elements have inconsistent shapes across records"
+      - "model input layer expects fixed static shape"
+    result: "Pipeline rejected; pad sequences to max_length or use tf.RaggedTensor"
+
+  pipeline_failed_deserialization:
+    priority: 2
+    error: PIPELINE_DESERIALIZATION_ERROR
+    given:
+      - field: source_type
+        source: input
+        operator: in
+        value: ["tfrecord", "csv"]
+      - "record cannot be parsed with the provided feature_description or schema"
+    result: "Record skipped or pipeline failed; verify TFRecord schema matches writer"
+
+  epoch_exhausted:
+    priority: 8
+    given:
+      - field: repeat_indefinitely
+        source: input
+        operator: eq
+        value: false
+      - "iterator has yielded all batches for this epoch"
+    then:
+      - action: emit_event
+        event: pipeline.epoch_exhausted
+        payload:
+          - batches_yielded
+    result: "Iterator exhausted; reinitialize or call .repeat() before next epoch"
+
+  cache_written:
+    priority: 7
+    given:
+      - field: cache_to_memory
+        source: input
+        operator: eq
+        value: true
+      - "first epoch completed"
+    then:
+      - action: emit_event
+        event: pipeline.cache_written
+        payload:
+          - cache_file_path
+          - records_cached
+    result: "Dataset cached; subsequent epochs read from cache without I/O"
+
+errors:
+  - code: PIPELINE_SOURCE_NOT_FOUND
+    status: 404
+    message: "Data source not found. Verify the file path or glob pattern."
+
+  - code: PIPELINE_SHAPE_MISMATCH
+    status: 400
+    message: "Dataset elements have inconsistent shapes. Use padding or ragged tensors."
+
+  - code: PIPELINE_DESERIALIZATION_ERROR
+    status: 400
+    message: "Failed to parse record. Verify TFRecord schema or CSV column definitions."
+
+  - code: PIPELINE_OOM_ERROR
+    status: 500
+    message: "Dataset cache exceeds available memory. Use .cache(filename) to cache to disk."
+    retry: true
+
+events:
+  - name: pipeline.created
+    payload:
+      - source_type
+      - batch_size
+      - shuffle_buffer_size
+      - prefetch_buffer_size
+
+  - name: pipeline.epoch_exhausted
+    payload:
+      - batches_yielded
+
+  - name: pipeline.cache_written
+    payload:
+      - cache_file_path
+      - records_cached
+
+sla:
+  batch_latency:
+    p50: "< model step time (no GPU stall)"
+    p99: "< 100ms with AUTOTUNE prefetch"
+
+related:
+  - feature: model-training
+    type: recommended
+    reason: "Supplies batched training data to model.fit()"
+
+extensions:
+  tech_stack:
+    language: "Python"
+    framework: "TensorFlow tf.data"
+    patterns:
+      - "tf.data.Dataset pipeline composition"
+      - "AUTOTUNE buffer sizing"
+      - "TFRecord binary format for large-scale datasets"
+      - "Dataset sharding for distributed training"

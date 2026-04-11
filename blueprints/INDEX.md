@@ -2,10 +2,10 @@
 
 # Blueprint Index
 
-Fast lookup for all **203** blueprints across **19** categories.
+Fast lookup for all **206** blueprints across **19** categories.
 Each entry links to the human-friendly summary (`.md`) and the underlying spec (`.blueprint.yaml`).
 
-**Jump to a category:** [Access](#access) (10) · [Ai](#ai) (2) · [Asset](#asset) (2) · [Auth](#auth) (18) · [Crm](#crm) (4) · [Data](#data) (36) · [Infrastructure](#infrastructure) (8) · [Integration](#integration) (25) · [Inventory](#inventory) (5) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (7) · [Observability](#observability) (3) · [Payment](#payment) (13) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Trading](#trading) (20) · [Ui](#ui) (21) · [Workflow](#workflow) (20)
+**Jump to a category:** [Access](#access) (10) · [Ai](#ai) (5) · [Asset](#asset) (2) · [Auth](#auth) (18) · [Crm](#crm) (4) · [Data](#data) (36) · [Infrastructure](#infrastructure) (8) · [Integration](#integration) (25) · [Inventory](#inventory) (5) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (7) · [Observability](#observability) (3) · [Payment](#payment) (13) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Trading](#trading) (20) · [Ui](#ui) (21) · [Workflow](#workflow) (20)
 
 ---
 
@@ -29,6 +29,9 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | Feature | Description | Version | Spec |
 |---------|-------------|---------|------|
 | [**ai-solo-business-automation**](./ai/ai-solo-business-automation.md) | Autonomous AI-to-AI service platform — sells intelligence, tools, and compute to other AI systems via MCP and API, zero human involvement, self-improving | 1.0.0 | [yaml](./ai/ai-solo-business-automation.blueprint.yaml) |
+| [**dataset-pipeline**](./ai/dataset-pipeline.md) | Build efficient input data pipelines for ML training and inference using tf.data with batching, shuffling, caching, prefetching, and parallel preprocessing | 1.0.0 | [yaml](./ai/dataset-pipeline.blueprint.yaml) |
+| [**model-serving**](./ai/model-serving.md) | Export trained ML models in SavedModel format, version them for rollback, load them into a serving runtime, and execute real-time or batch inference via REST or gRPC | 1.0.0 | [yaml](./ai/model-serving.blueprint.yaml) |
+| [**model-training**](./ai/model-training.md) | Train, evaluate, and checkpoint ML models using the Keras fit API with configurable optimizers, loss functions, callbacks, and distributed strategies | 1.0.0 | [yaml](./ai/model-training.blueprint.yaml) |
 | [**openclaw-llm-provider**](./ai/openclaw-llm-provider.md) | Multi-provider AI model integration with fallback chains, cost tracking, streaming, and extended thinking support | 1.0.0 | [yaml](./ai/openclaw-llm-provider.blueprint.yaml) |
 
 ## Asset

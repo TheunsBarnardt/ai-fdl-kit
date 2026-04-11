@@ -1,0 +1,562 @@
+{
+  "feature": "model-training",
+  "version": "1.0.0",
+  "description": "Train, evaluate, and checkpoint ML models using the Keras fit API with configurable optimizers, loss functions, callbacks, and distributed strategies",
+  "category": "ai",
+  "tags": [
+    "ai",
+    "machine-learning",
+    "training",
+    "keras",
+    "deep-learning",
+    "tensorflow"
+  ],
+  "actors": [
+    {
+      "id": "ml_engineer",
+      "name": "ML Engineer",
+      "type": "human",
+      "description": "Defines model architecture, hyperparameters, and training strategy"
+    },
+    {
+      "id": "data_engineer",
+      "name": "Data Engineer",
+      "type": "human",
+      "description": "Prepares and validates training datasets"
+    },
+    {
+      "id": "training_runtime",
+      "name": "Training Runtime",
+      "type": "system",
+      "description": "Executes the training loop on CPU, GPU, or TPU hardware"
+    },
+    {
+      "id": "checkpoint_store",
+      "name": "Checkpoint Store",
+      "type": "system",
+      "description": "Persists model weights and optimizer state to disk"
+    }
+  ],
+  "fields": [
+    {
+      "name": "optimizer",
+      "type": "select",
+      "required": true,
+      "label": "Optimizer",
+      "options": [
+        {
+          "value": "adam",
+          "label": "Adam (adaptive learning rate, recommended default)"
+        },
+        {
+          "value": "sgd",
+          "label": "SGD (stochastic gradient descent)"
+        },
+        {
+          "value": "rmsprop",
+          "label": "RMSProp (good for RNNs)"
+        },
+        {
+          "value": "adamw",
+          "label": "AdamW (Adam + weight decay)"
+        },
+        {
+          "value": "adagrad",
+          "label": "Adagrad (per-parameter learning rates)"
+        }
+      ]
+    },
+    {
+      "name": "learning_rate",
+      "type": "number",
+      "required": true,
+      "label": "Learning Rate",
+      "validation": [
+        {
+          "type": "min",
+          "value": 0,
+          "message": "Learning rate must be positive"
+        },
+        {
+          "type": "max",
+          "value": 1,
+          "message": "Learning rate should not exceed 1.0"
+        }
+      ]
+    },
+    {
+      "name": "loss_function",
+      "type": "select",
+      "required": true,
+      "label": "Loss Function",
+      "options": [
+        {
+          "value": "categorical_crossentropy",
+          "label": "Categorical Cross-Entropy (multi-class, one-hot labels)"
+        },
+        {
+          "value": "sparse_categorical_crossentropy",
+          "label": "Sparse Categorical Cross-Entropy (multi-class, integer labels)"
+        },
+        {
+          "value": "binary_crossentropy",
+          "label": "Binary Cross-Entropy (binary classification)"
+        },
+        {
+          "value": "mean_squared_error",
+          "label": "Mean Squared Error (regression)"
+        },
+        {
+          "value": "huber",
+          "label": "Huber Loss (regression, robust to outliers)"
+        },
+        {
+          "value": "mean_absolute_error",
+          "label": "Mean Absolute Error (regression)"
+        }
+      ]
+    },
+    {
+      "name": "epochs",
+      "type": "number",
+      "required": true,
+      "label": "Max Training Epochs",
+      "validation": [
+        {
+          "type": "min",
+          "value": 1,
+          "message": "Must train for at least 1 epoch"
+        }
+      ]
+    },
+    {
+      "name": "batch_size",
+      "type": "number",
+      "required": true,
+      "label": "Batch Size",
+      "validation": [
+        {
+          "type": "min",
+          "value": 1,
+          "message": "Batch size must be at least 1"
+        }
+      ]
+    },
+    {
+      "name": "validation_split",
+      "type": "number",
+      "required": false,
+      "label": "Validation Split (fraction of training data, 0–1)"
+    },
+    {
+      "name": "checkpoint_path",
+      "type": "text",
+      "required": false,
+      "label": "Checkpoint Directory Path"
+    },
+    {
+      "name": "early_stopping_patience",
+      "type": "number",
+      "required": false,
+      "label": "Early Stopping Patience (epochs without improvement)"
+    },
+    {
+      "name": "gradient_clip_norm",
+      "type": "number",
+      "required": false,
+      "label": "Gradient Clip Norm (prevents exploding gradients)"
+    },
+    {
+      "name": "distribute_strategy",
+      "type": "select",
+      "required": false,
+      "label": "Distribution Strategy",
+      "options": [
+        {
+          "value": "default",
+          "label": "Default (single device)"
+        },
+        {
+          "value": "mirrored",
+          "label": "MirroredStrategy (multi-GPU, same machine)"
+        },
+        {
+          "value": "multi_worker",
+          "label": "MultiWorkerMirroredStrategy (multi-node cluster)"
+        },
+        {
+          "value": "tpu",
+          "label": "TPUStrategy (Google Cloud TPU)"
+        }
+      ]
+    },
+    {
+      "name": "training_status",
+      "type": "select",
+      "required": false,
+      "label": "Training Status",
+      "options": [
+        {
+          "value": "idle",
+          "label": "Idle"
+        },
+        {
+          "value": "running",
+          "label": "Running"
+        },
+        {
+          "value": "completed",
+          "label": "Completed"
+        },
+        {
+          "value": "stopped_early",
+          "label": "Stopped Early"
+        },
+        {
+          "value": "failed",
+          "label": "Failed"
+        }
+      ]
+    },
+    {
+      "name": "current_epoch",
+      "type": "number",
+      "required": false,
+      "label": "Current Epoch"
+    },
+    {
+      "name": "best_val_loss",
+      "type": "number",
+      "required": false,
+      "label": "Best Validation Loss"
+    }
+  ],
+  "states": {
+    "run_state": {
+      "field": "training_status",
+      "values": [
+        {
+          "name": "idle",
+          "initial": true
+        },
+        {
+          "name": "running"
+        },
+        {
+          "name": "completed",
+          "terminal": true
+        },
+        {
+          "name": "stopped_early",
+          "terminal": true
+        },
+        {
+          "name": "failed",
+          "terminal": true
+        }
+      ],
+      "transitions": [
+        {
+          "from": "idle",
+          "to": "running",
+          "actor": "ml_engineer",
+          "description": "Training initiated via model.fit()"
+        },
+        {
+          "from": "running",
+          "to": "completed",
+          "actor": "training_runtime",
+          "description": "All epochs completed successfully"
+        },
+        {
+          "from": "running",
+          "to": "stopped_early",
+          "actor": "training_runtime",
+          "description": "EarlyStopping callback triggered — no improvement for patience epochs"
+        },
+        {
+          "from": "running",
+          "to": "failed",
+          "actor": "training_runtime",
+          "description": "Unrecoverable error (OOM, NaN loss, shape mismatch)"
+        }
+      ]
+    }
+  },
+  "rules": {
+    "data_preparation": {
+      "input_validation": "MUST validate input tensor shapes match the model's expected input shape\nbefore calling model.fit(). Mismatched shapes raise InvalidArgumentError.\nData types must match the model's dtype (float32 is the default).\n# Source: tensorflow/python/keras/engine/training.py\n",
+      "normalization": "MUST normalize or standardize feature values before training.\nCommon strategies: (x - mean) / std or MinMaxScaler to [0, 1].\nUnnormalized inputs cause slow convergence, gradient instability,\nand saturated activations (sigmoid/tanh).\n",
+      "shuffle": "MUST shuffle training data before each epoch to prevent the model\nfrom learning the ordering of examples.\nUse tf.data.Dataset.shuffle() with buffer_size >= dataset size for\nfull randomness; partial buffer gives approximate shuffle.\n"
+    },
+    "training_loop": {
+      "gradient_clipping": "SHOULD set gradient_clip_norm (clipnorm parameter in optimizer) to\nprevent exploding gradients, especially in RNNs and transformer models.\nTypical value: clipnorm=1.0.\n# Source: tensorflow/python/training/optimizer.py\n",
+      "learning_rate_scheduling": "SHOULD reduce learning rate on plateau using ReduceLROnPlateau callback\nor use cosine decay schedule to improve convergence in later epochs.\n# Source: tensorflow/python/keras/callbacks.py: ReduceLROnPlateau\n",
+      "reproducibility": "Set tf.random.set_seed(seed) for deterministic weight initialization\nand dropout behavior across runs. Also set numpy.random.seed and\nPython random.seed for full reproducibility.\n"
+    },
+    "checkpointing": {
+      "model_checkpointing": "SHOULD save model checkpoints using ModelCheckpoint callback:\n- save_best_only=True: only persist when monitored metric improves\n- save_weights_only=False: save full SavedModel (graph + weights)\n- monitor='val_loss': use validation loss, not training loss\nCheckpoint format: SavedModel directory (recommended over .h5).\n# Source: tensorflow/python/keras/callbacks.py: ModelCheckpoint\n"
+    },
+    "distributed_training": {
+      "strategy_scope": "MUST create model and optimizer inside strategy.scope() when using\nMirroredStrategy or MultiWorkerMirroredStrategy.\nAll variables created inside scope are mirrored across all replicas.\nEffective batch size = batch_size × number_of_replicas.\n# Source: tensorflow/python/distribute/mirrored_strategy.py\n",
+      "tpu_requirements": "TPUStrategy requires:\n- Connecting to TPU cluster before strategy creation\n- Dynamic shapes NOT supported — use fixed-shape inputs\n- Effective batch size MUST be divisible by number of TPU cores (8 or 128)\n# Source: tensorflow/python/distribute/tpu_strategy.py\n"
+    }
+  },
+  "outcomes": {
+    "training_completed": {
+      "priority": 10,
+      "given": [
+        "model compiled with optimizer, loss, and at least one metric",
+        "training data provided with compatible shapes and dtypes",
+        {
+          "field": "epochs",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        },
+        "no hardware error during training loop"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "training_status",
+          "from": "running",
+          "to": "completed"
+        },
+        {
+          "action": "emit_event",
+          "event": "training.completed",
+          "payload": [
+            "total_epochs",
+            "final_loss",
+            "final_val_loss"
+          ]
+        }
+      ],
+      "result": "Model weights updated to final checkpoint; training history returned",
+      "transaction": true
+    },
+    "early_stopping_triggered": {
+      "priority": 5,
+      "given": [
+        {
+          "field": "early_stopping_patience",
+          "source": "input",
+          "operator": "exists"
+        },
+        "EarlyStopping callback configured with a monitored metric",
+        "monitored metric has not improved for early_stopping_patience epochs"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "training_status",
+          "from": "running",
+          "to": "stopped_early"
+        },
+        {
+          "action": "set_field",
+          "target": "best_val_loss",
+          "value": "best monitored metric value at stopped epoch"
+        },
+        {
+          "action": "emit_event",
+          "event": "training.stopped_early",
+          "payload": [
+            "best_epoch",
+            "best_val_loss"
+          ]
+        }
+      ],
+      "result": "Training halted early; model weights restored to best checkpoint epoch"
+    },
+    "checkpoint_saved": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "checkpoint_path",
+          "source": "input",
+          "operator": "exists"
+        },
+        "training epoch completed",
+        "val_loss improved or save_best_only is false"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "checkpoint.saved",
+          "payload": [
+            "current_epoch",
+            "checkpoint_path",
+            "best_val_loss"
+          ]
+        }
+      ],
+      "result": "Model weights and optimizer state persisted in SavedModel format"
+    },
+    "training_failed_oom": {
+      "priority": 1,
+      "error": "TRAINING_OOM_ERROR",
+      "given": [
+        "GPU or TPU memory allocation failed during forward or backward pass",
+        {
+          "field": "batch_size",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "training_status",
+          "from": "running",
+          "to": "failed"
+        }
+      ],
+      "result": "Training aborted; reduce batch_size or use gradient accumulation"
+    },
+    "training_failed_nan_loss": {
+      "priority": 2,
+      "error": "TRAINING_NAN_LOSS",
+      "given": [
+        "loss value became NaN or Inf during forward or backward pass"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "training_status",
+          "from": "running",
+          "to": "failed"
+        }
+      ],
+      "result": "Training aborted; check learning_rate, input normalization, and gradient_clip_norm"
+    },
+    "training_failed_shape_mismatch": {
+      "priority": 1,
+      "error": "TRAINING_SHAPE_MISMATCH",
+      "given": [
+        "input tensor shape does not match model's expected input_shape"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "training_status",
+          "from": "running",
+          "to": "failed"
+        }
+      ],
+      "result": "Training aborted; reshape input data to match model's expected input_shape"
+    }
+  },
+  "errors": [
+    {
+      "code": "TRAINING_OOM_ERROR",
+      "status": 500,
+      "message": "Out of memory during training. Reduce batch size or use gradient accumulation.",
+      "retry": true
+    },
+    {
+      "code": "TRAINING_NAN_LOSS",
+      "status": 500,
+      "message": "Loss became NaN or Inf. Check learning rate, input normalization, and gradient clipping."
+    },
+    {
+      "code": "TRAINING_SHAPE_MISMATCH",
+      "status": 400,
+      "message": "Input shape does not match the model's expected input shape."
+    },
+    {
+      "code": "MODEL_COMPILE_ERROR",
+      "status": 400,
+      "message": "Failed to compile model. Check optimizer, loss, and metrics configuration."
+    },
+    {
+      "code": "DISTRIBUTE_STRATEGY_ERROR",
+      "status": 400,
+      "message": "Distribution strategy error. Ensure model is created inside strategy.scope()."
+    }
+  ],
+  "events": [
+    {
+      "name": "training.started",
+      "payload": [
+        "optimizer",
+        "learning_rate",
+        "epochs",
+        "batch_size",
+        "distribute_strategy"
+      ]
+    },
+    {
+      "name": "training.epoch_completed",
+      "payload": [
+        "current_epoch",
+        "loss",
+        "val_loss"
+      ]
+    },
+    {
+      "name": "training.completed",
+      "payload": [
+        "total_epochs",
+        "final_loss",
+        "final_val_loss"
+      ]
+    },
+    {
+      "name": "training.stopped_early",
+      "payload": [
+        "best_epoch",
+        "best_val_loss"
+      ]
+    },
+    {
+      "name": "training.failed",
+      "payload": [
+        "error_code",
+        "current_epoch"
+      ]
+    },
+    {
+      "name": "checkpoint.saved",
+      "payload": [
+        "current_epoch",
+        "checkpoint_path",
+        "best_val_loss"
+      ]
+    }
+  ],
+  "sla": {
+    "epoch_throughput": {
+      "p99": "depends on dataset size and hardware"
+    },
+    "checkpoint_write": {
+      "max_duration": "30s"
+    }
+  },
+  "related": [
+    {
+      "feature": "dataset-pipeline",
+      "type": "required",
+      "reason": "Training requires a tf.data.Dataset pipeline to supply batches"
+    },
+    {
+      "feature": "model-serving",
+      "type": "recommended",
+      "reason": "Trained model exported as SavedModel for serving"
+    }
+  ],
+  "extensions": {
+    "tech_stack": {
+      "language": "Python",
+      "framework": "TensorFlow / Keras",
+      "patterns": [
+        "Keras Model.fit() training loop",
+        "ModelCheckpoint + EarlyStopping callbacks",
+        "tf.distribute.Strategy for multi-device training",
+        "tf.random.set_seed for reproducibility"
+      ]
+    }
+  }
+}
