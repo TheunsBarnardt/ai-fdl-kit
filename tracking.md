@@ -31,7 +31,7 @@ Run these in order — each builds on the previous without re-extracting shared 
 
 ---
 
-## 1. Traccar — GPS protocols, live tracking, geofencing, alerts
+## 1. Traccar — GPS protocols, live tracking, geofencing, alerts (Done)
 
 **Repo:** `https://github.com/traccar/traccar`
 **Strength:** 200+ GPS device protocols, mature position pipeline, geofencing, events. The reference implementation for GPS ingestion.
@@ -61,7 +61,7 @@ Features to select:
 
 ---
 
-## 2. Fleetbase — Fleet operations, dispatch, delivery (TMS)
+## 2. Fleetbase — Fleet operations, dispatch, delivery (TMS) (Done)
 
 **Repo:** `https://github.com/fleetbase/fleetbase`
 **Strength:** Full transport management system — orders, dispatch, drivers, customer flow. Everything around the vehicle, not just the vehicle itself.
@@ -91,7 +91,7 @@ Features to select:
 
 ---
 
-## 3. ERPNext (Vehicle module) — Lifecycle, maintenance, ownership
+## 3. ERPNext (Vehicle module) — Lifecycle, maintenance, ownership (Done)
 
 **Repo:** `https://github.com/frappe/erpnext`
 **Scope:** **Vehicle module only** — scope the feature menu carefully.
