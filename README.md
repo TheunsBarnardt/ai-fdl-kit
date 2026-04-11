@@ -117,6 +117,21 @@ Paste into ChatGPT: `https://theunsbarnardt.github.io/ai-fdl-kit/api/blueprints/
 
 ---
 
+## Third-Party Skill Integration
+
+`/fdl-generate` and `/fdl-brainstorm` can compose with Claude skill packs from any community catalog — without crawling or auto-installing:
+
+- **Auto-detected** — popular stacks (shadcn, tailwind, clerk, prisma, drizzle, nextauth) and data sources (google-calendar, stripe, twilio, resend, s3, maps) are matched against a fixed trigger table on every run
+- **User-provided** — one explicit question per run lets you paste install commands or URLs from [skills.sh](https://skills.sh), [anthropics/skills](https://github.com/anthropics/skills), or [awesome-claude-skills](https://github.com/travisvn/awesome-claude-skills). Example:
+
+  ```
+  npx skills add https://github.com/shadcn/ui --skill shadcn
+  ```
+
+Install commands always land in the final summary for you to run yourself — FDL never auto-executes third-party installers. Auto-detected + user-provided skills both flow through the same downstream pipeline, so you only decide once per invocation.
+
+---
+
 ## What Else You Gain
 
 Blueprints aren't just templates — they encode transferable architectural patterns:

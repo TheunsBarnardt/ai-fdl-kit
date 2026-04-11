@@ -104,6 +104,36 @@ Ask ONE question:
 
 **This is the most important question.** Blueprints with no failure outcomes fail the completeness checker. If the user can't name at least 2 failure modes, probe harder — every real feature has them.
 
+### Step 4b — Ask about third-party skills
+
+Before you propose approaches, give the user one explicit opening to plug in Claude skills that Step 1b didn't detect. This step runs ONCE and is non-negotiable — it's the user's chance to tell us about a skill pack we don't know about, so we frame the Step 5 trade-offs against their preferred tooling instead of ours.
+
+Ask ONE question:
+
+> "Before I lay out the options — are there any specific Claude skills or third-party skill packs you want to use?
+>
+> I already noticed: `{list from Step 1b signals, or "(nothing specific)"}`.
+>
+> You can browse more at:
+> - **skills.sh** — https://skills.sh (community catalog)
+> - **anthropics/skills** — https://github.com/anthropics/skills (official)
+> - **awesome-claude-skills** — https://github.com/travisvn/awesome-claude-skills (curated list)
+>
+> Paste install commands or skill URLs if you have specific ones in mind, or just say 'none' to proceed with what I auto-detected.
+>
+> Example: `npx skills add https://github.com/shadcn/ui --skill shadcn`"
+
+**Do NOT search skills.sh yourself.** If the user answers 'none' or gives an empty response, move on with whatever Step 1b surfaced and don't prompt again. If they paste install commands or URLs, parse each line:
+
+- Extract the install command if present (starts with `npx skills add`, `npm i`, `pnpm add`, `npx shadcn`, `uv add`, etc.)
+- Extract the skill URL (skills.sh or github.com link)
+- Extract a short name (from `--skill <name>` or the URL's last path segment)
+- Classify as `data_source` (mentions calendar/payment/email/sms/storage/maps/crm/api keywords) or `stack_companion` (UI/ORM/auth keywords) or `user_skill` (neither)
+
+Store the parsed entries in working memory alongside the Step 1b signals. In Step 5, when you present Axis 2 (delegate vs. own), user-provided skills become first-class "delegate to X" options alongside the auto-detected ones. In Step 9 (brainstorm doc), they get listed under the skill-delegations section. In Step 11 (handoff), they're carried forward to `/fdl-create` as `user-skill:<name>` tags so `/fdl-generate` later wires them idiomatically — same pipeline as auto-detected delegations.
+
+**Never auto-install.** The install commands go into the brainstorm doc so the user can run them themselves when they're ready to generate code.
+
 ### Step 5 — Propose 2-3 approaches with trade-offs
 
 Never jump to a single solution. Lay out alternatives across **two axes** and let the user pick from each:

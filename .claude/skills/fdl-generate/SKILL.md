@@ -132,10 +132,12 @@ When Step 1 starts generating code, reconcile `extracted` with the blueprint:
 
 ### Unknown stack hint
 
-If the prompt mentions a library name that isn't in the table (examples: `chakra`, `mui`, `antd`, `radix` standalone, `emotion`, `styled-components`), do **not** WebFetch skills.sh at runtime — that adds latency, is unreliable, and isn't worth the complexity for a first pass. Instead:
+If the prompt mentions a library name that isn't in the table (examples: `chakra`, `mui`, `antd`, `radix` standalone, `emotion`, `styled-components`), **do NOT WebFetch or WebSearch skills.sh on the user's behalf** — auto-discovery adds latency and can silently pick a wrong skill. The user-facing path is Step 0e: when the skill asks *"any third-party skills you want to wire in?"*, the user can paste an install command for the library. Everything pasted there goes through Step 0e's parser, not through this table.
 
-- Add the hint to a `STACK HINTS (NOT YET INTEGRATED)` block in the summary with one line: *"'{library}' detected but no stack-companion rule exists. Install manually or add it to `.claude/skills/fdl-generate/SKILL.md`'s stack table."*
-- Proceed with generation using the base framework conventions (no library-specific imports).
+For this step specifically:
+
+- Record the unknown library in a `stack_hints[]` working list so Step 0e can pre-fill its question (*"I noticed you mentioned `chakra` — do you want to plug in a Claude skill for it?"*).
+- Proceed with generation using base framework conventions (no library-specific imports) UNLESS Step 0e later adds a user-provided entry for that library.
 
 ### Silent behavior when nothing matches
 
@@ -209,6 +211,71 @@ These files get tagged with `// FDL cross-cutting: multi-feature-app` so they're
 ### Single-feature runs
 
 When `features_to_generate.length === 1`, Step 0d is a no-op and generation proceeds as before — the existing Scope question (if the one blueprint has `related` entries) still fires.
+
+## Step 0e: Ask About Third-Party Skills
+
+**You MUST run this step exactly once per invocation, after Steps 0a–0d have finished and before Step 0 loads the blueprints.** This is the user's only chance to plug in skills that the static tables in Steps 0b/0c don't know about. Do NOT search skills.sh or any other catalog on the user's behalf — ask, then accept whatever they paste.
+
+### What to show the user
+
+Ask ONE `AskUserQuestion` with the question body shaped like this (fill in the bracketed parts from what Steps 0b/0c detected):
+
+> **Third-party skills for this run**
+>
+> I auto-detected: `{list from stack_companions[] and data_sources[], or "(none)"}`.
+>
+> Are there any other Claude skills or skill packs you want me to wire in? You can browse:
+>
+> - **skills.sh** — https://skills.sh (community catalog, largest)
+> - **anthropics/skills** — https://github.com/anthropics/skills (official)
+> - **awesome-claude-skills** — https://github.com/travisvn/awesome-claude-skills (curated list)
+>
+> Paste the install command or skill URL (one per line), or pick "Skip" to use only what I auto-detected.
+>
+> Example: `npx skills add https://github.com/shadcn/ui --skill shadcn`
+
+Offer three options:
+
+| Option | What it does |
+|---|---|
+| **Skip** | Proceed with only what Steps 0b/0c auto-detected. Most common choice. |
+| **Paste install commands** | The user types/pastes one or more install lines. |
+| **Paste skill URLs** | The user pastes bare URLs to skills.sh or GitHub pages; you treat them as stack hints without an install command. |
+
+### Parsing the response
+
+For each non-empty line in the user's paste, extract:
+
+- **Install command** — if the line starts with `npx skills add`, `npx skills install`, `npm i`, `pnpm add`, `npx shadcn`, `uv add`, or similar, take the whole line as `install_cmd`.
+- **Skill URL** — if the line contains `skills.sh/` or `github.com/.../skills` or a bare URL, take it as `skill_url`.
+- **Skill name** — extract from `--skill <name>` if present, or from the last path segment of the URL.
+- **Classification heuristic** — if the URL/command mentions UI/component keywords (`ui`, `shadcn`, `radix`, `tailwind`, `chakra`, `mui`, `antd`, `mantine`), file it under `stack_companions[]`. If it mentions data/integration keywords (`calendar`, `stripe`, `twilio`, `maps`, `s3`, `database`, `api`, `crm`, `email`), file it under `data_sources[]`. Anything else goes in a new `user_skills[]` bucket that behaves like `stack_companions[]` in the summary but doesn't get a `generation_hint` (you don't know enough to compose it automatically).
+
+For each parsed entry, record:
+```
+{ name, skill_url, install_cmd, source: "user", generation_hint: null }
+```
+
+The `generation_hint` is intentionally blank for user-pasted skills — you don't know how that skill's API is shaped, so you can't auto-wire imports the way you do for entries in the static table. The install command still goes into the summary so the user can run it and follow the skill's own documentation for integration.
+
+### Surface in the summary
+
+When parsing produced at least one entry, add a new `USER-PROVIDED SKILLS` block to the summary, immediately after `DATA SOURCES`:
+
+```
+USER-PROVIDED SKILLS:
+  ✓ shadcn (https://github.com/shadcn/ui)
+    Install: npx skills add https://github.com/shadcn/ui --skill shadcn
+    Note: Follow the skill's own documentation for integration — FDL doesn't auto-wire imports for user-provided skills.
+```
+
+When parsing produced no entries (user picked "Skip" or pasted nothing parseable), emit nothing — no empty block.
+
+### What this step is NOT
+
+- **NOT a WebSearch.** You do not `WebSearch site:skills.sh` on behalf of the user. The user tells you what they want; you don't go shopping for them. The original reason for this (latency, catalog reliability, scope creep) still stands — the fix is asking one question, not running a crawl.
+- **NOT an auto-installer.** You never execute `npx skills add` yourself. Surfacing the command in the summary is the correct boundary.
+- **NOT a validator of the user's paste.** If they paste garbage, record it anyway and let them see it echoed in the summary. They'll notice if it's wrong.
 
 ## Handling Structured Outcomes
 
@@ -656,6 +723,11 @@ DATA SOURCES:
     OAuth:     enable Calendar API in Google Cloud Console, download credentials.json
     Env vars:  GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI
 
+USER-PROVIDED SKILLS:
+  ✓ shadcn (https://github.com/shadcn/ui)                    ← pasted in Step 0e
+    Install: npx skills add https://github.com/shadcn/ui --skill shadcn
+    Note:    FDL doesn't auto-wire imports for user-provided skills — follow the skill's own docs.
+
 FILES:
   src/app/(auth)/login/page.tsx          — Login page
   src/app/(auth)/login/actions.ts        — Server action
@@ -695,6 +767,7 @@ DEMO CREDENTIALS (mock data):
 - **`SOURCE` block** — list every blueprint loaded (one line per feature when Step 0d found multiple). If Step 0a extracted external input (Figma, OpenAPI, etc.), add a line for it. If Step 0d had a `missing_feature` that was generated inline, add an `Inline:` line for it.
 - **`STACK COMPANIONS` block** — list every hit from Step 0b. One line for the skill URL, one indented line for the install command. When the user needs to run multiple install steps (e.g., shadcn init + shadcn add primitives), show them on separate lines. **Only include this block when Step 0b produced at least one hit.**
 - **`DATA SOURCES` block** — list every hit from Step 0c. One line for the skill URL, one indented line for install, one for OAuth/setup if applicable, one for required env vars. **Only include this block when Step 0c produced at least one hit.**
+- **`USER-PROVIDED SKILLS` block** — list every entry the user pasted in Step 0e. One line for the name + URL, one indented line for the install command, one indented line noting that FDL doesn't auto-wire imports for these. **Only include this block when Step 0e produced at least one parsed entry.**
 - **`POST-PROCESSING` block** — list Step 5 (tests) and Step 6 (verify loop) only if they ran. When the verify loop stopped at the 3-iteration cap, show it as `⚠ Verify loop   — stopped at 3 iterations, {N} tests still failing` and include the failing test names under `NEEDS YOUR WORK`.
 - **`FILES` block** — tag cross-cutting glue files (middleware, layouts, .env.example) with a short suffix so the user can see which files are feature-owned vs multi-feature glue.
 - **Never show empty blocks.** The absence of a block tells the user the step didn't run — don't emit `STACK COMPANIONS: (none)`.

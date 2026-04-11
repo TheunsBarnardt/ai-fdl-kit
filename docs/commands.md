@@ -149,12 +149,17 @@ Once you have a blueprint, generate a complete implementation for any language a
 ```
 
 **What happens:**
-1. Claude reads the blueprint (all fields, rules, outcomes, errors, events)
-2. Asks about your setup: database, styling, project structure
-3. Generates a complete, working implementation with all rules enforced
-4. Rate limiting, error handling, security, validation — all built in
+1. Claude auto-detects known stack companions (shadcn, tailwind, clerk, prisma, drizzle, nextauth) and data sources (google-calendar, stripe, twilio, resend, s3, maps) from the prompt
+2. Claude reads the blueprint(s) via the deterministic `blueprints/INDEX.md` lookup — no globbing
+3. **Asks once about third-party skills** — you can paste install commands or URLs from [skills.sh](https://skills.sh), [anthropics/skills](https://github.com/anthropics/skills), or [awesome-claude-skills](https://github.com/travisvn/awesome-claude-skills). Example: `npx skills add https://github.com/shadcn/ui --skill shadcn`. Say "skip" to use only what was auto-detected.
+4. Asks about your setup: database, styling, project structure
+5. Generates a complete, working implementation with all blueprint rules enforced
+6. Rate limiting, error handling, security, validation — all built in
+7. The final summary lists every detected stack companion, data source, and user-provided skill with the install commands you need to run
 
 **Supports all languages and frameworks:** Next.js, Express, Laravel, Angular, React, Vue, C#/.NET, Rust, Python/Django, Go, Ruby on Rails, Flutter, Swift, and anything else.
+
+**Third-party skill integration:** FDL never auto-installs or auto-searches skill catalogs. Auto-detection matches a fixed set of popular stacks; everything else comes from one explicit question during the run. Install commands always go into the summary for you to execute — skill installation is a user decision, not an implicit one.
 
 ---
 
@@ -169,14 +174,16 @@ Not sure what feature you need? Describe the problem and Claude walks you throug
 ```
 
 **What happens:**
-1. Claude searches existing blueprints to see if something already fits
-2. Asks "What problem does this solve for the user?" — focuses on the problem, not the solution
-3. Clarifies success criteria: "How would you know this feature is working correctly?"
-4. Surfaces failure modes: invalid input, unauthorized access, rate limits, partial failures
-5. Proposes 2-3 approaches with trade-offs (e.g., simple CRUD vs state machine vs full workflow)
-6. Walks through each design section iteratively — data, success path, failure paths, security, related features
-7. You approve the full design before anything is created
-8. Hands off to `/fdl-create` with the complete specification
+1. Claude reads `blueprints/INDEX.md` and runs the lookup script for candidate features — deterministic, no globbing
+2. Scans your idea for known stack-companion and data-source signals (shadcn, google-calendar, etc.)
+3. Asks "What problem does this solve for the user?" — focuses on the problem, not the solution
+4. Clarifies success criteria: "How would you know this feature is working correctly?"
+5. Surfaces failure modes: invalid input, unauthorized access, rate limits, partial failures
+6. **Asks about third-party skills** — you can paste install commands or URLs from [skills.sh](https://skills.sh) or other skill catalogs (e.g., `npx skills add https://github.com/shadcn/ui --skill shadcn`), or just say "none" to use only what was auto-detected
+7. Proposes 2-3 approaches across two axes: blueprint shape (CRUD / state machine / full workflow) and delegate-vs-own (use a skill pack or build it in-house)
+8. Walks through each design section iteratively — data, success path, failure paths, security, related features
+9. You approve the full design before anything is created
+10. Hands off to `/fdl-create` with the complete specification, carrying forward any chosen skill delegations as tags so `/fdl-generate` wires them idiomatically downstream
 
 **Use this when you have a problem, not a solution** — brainstorm finds the right blueprint shape for you.
 
