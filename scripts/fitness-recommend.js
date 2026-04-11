@@ -530,13 +530,15 @@ function renderMarkdown(recommendations, stats) {
     lines.push("");
 
     if (rec.verdict?.status === "partial") {
+      const prevLabel = rec.verdict.prev_repo ? `\`${repoShortName(rec.verdict.prev_repo)}\`` : "a previous attempt";
       lines.push(
-        `⚠ Previous attempt: \`${repoShortName(rec.verdict.prev_repo)}\` lifted score ${rec.verdict.prev_score} → ${rec.percent} but still below 75. Try next:`
+        `⚠ Previous attempt: ${prevLabel} lifted score ${rec.verdict.prev_score} → ${rec.percent} but still below 75. Try next:`
       );
       lines.push("");
     } else if (rec.verdict?.status === "no_improvement") {
+      const prevLabel = rec.verdict.prev_repo ? `\`${repoShortName(rec.verdict.prev_repo)}\`` : "a previous attempt";
       lines.push(
-        `⚠ \`${repoShortName(rec.verdict.prev_repo)}\` was tried — score went ${rec.verdict.prev_score} → ${rec.percent}. Deprioritized. Try instead:`
+        `⚠ ${prevLabel} was tried — score went ${rec.verdict.prev_score} → ${rec.percent}. Deprioritized. Try instead:`
       );
       lines.push("");
     }
