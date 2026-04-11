@@ -155,7 +155,7 @@ description: "Tax engine with percentage, fixed, division, group, and formula-ba
 
 **Result:** Tax lines reflect the customer's jurisdiction-specific rates
 
-### Cash_basis_deferred (Priority: 7)
+### Cash_basis_deferred (Priority: 7) — Error: `TAX_CASH_BASIS_NO_ACCOUNT`
 
 **Given:**
 - `tax_exigibility` (db) eq `on_payment`

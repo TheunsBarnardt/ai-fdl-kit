@@ -31,57 +31,57 @@ description: "End-of-day equity derivatives data delivery via FTP — fixed-widt
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `market_number` | number | Yes |  |  |
-| `contract_type` | text | Yes |  |  |
-| `instrument_type` | text | Yes |  |  |
-| `record_type` | text | Yes |  |  |
-| `record_sub_type` | text | Yes |  |  |
-| `run_date` | date | Yes |  |  |
-| `filler_header` | text | No |  |  |
-| `instrument` | text | No |  |  |
-| `date` | date | No |  |  |
-| `strike_price` | number | No |  |  |
-| `option_type` | text | No |  |  |
-| `spot_price` | number | No |  |  |
-| `closing_bid` | number | No |  |  |
-| `closing_offer` | number | No |  |  |
-| `mtm` | number | No |  |  |
-| `first_price` | number | No |  |  |
-| `last_price` | number | No |  |  |
-| `high_price` | number | No |  |  |
-| `low_price` | number | No |  |  |
-| `number_of_deals` | number | No |  |  |
-| `volume_traded` | number | No |  |  |
-| `value_traded` | number | No |  |  |
-| `open_interest` | number | No |  |  |
-| `volatility` | number | No |  |  |
-| `isin` | text | No |  |  |
-| `instrument_id` | number | No |  |  |
-| `derivatives_instrument_type` | text | No |  |  |
-| `contract_code` | text | No |  |  |
-| `call_put_future` | text | No |  |  |
-| `deals` | number | No |  |  |
-| `contracts_traded` | number | No |  |  |
-| `nominal_value` | number | No |  |  |
-| `delta_value` | number | No |  |  |
-| `delta_value_sign` | text | No |  |  |
-| `premium_value` | number | No |  |  |
-| `ded05_contract_code` | text | No |  |  |
-| `ded05_open_interest` | number | No |  |  |
-| `ded05_contract_traded` | number | No |  |  |
-| `total_contracts` | number | No |  |  |
-| `total_deals` | number | No |  |  |
-| `total_value` | number | No |  |  |
-| `total_open_interest` | number | No |  |  |
-| `total_margin_on_deposit` | number | No |  |  |
-| `interest_on_initial_margin` | number | No |  |  |
-| `jibar_one_month_yield` | number | No |  |  |
-| `jibar_three_month_yield` | number | No |  |  |
-| `jibar_six_month_yield` | number | No |  |  |
-| `jibar_nine_month_yield` | number | No |  |  |
-| `jibar_twelve_month_yield` | number | No |  |  |
-| `prime_rate` | number | No |  |  |
-| `cpi` | number | No |  |  |
+| `market_number` | number | Yes | Market Number |  |
+| `contract_type` | text | Yes | Contract Type |  |
+| `instrument_type` | text | Yes | Instrument Type |  |
+| `record_type` | text | Yes | Record Type |  |
+| `record_sub_type` | text | Yes | Record Sub Type |  |
+| `run_date` | date | Yes | Run Date |  |
+| `filler_header` | text | No | Filler Header |  |
+| `instrument` | text | No | Instrument |  |
+| `date` | date | No | Date |  |
+| `strike_price` | number | No | Strike Price |  |
+| `option_type` | text | No | Option Type |  |
+| `spot_price` | number | No | Spot Price |  |
+| `closing_bid` | number | No | Closing Bid |  |
+| `closing_offer` | number | No | Closing Offer |  |
+| `mtm` | number | No | Mtm |  |
+| `first_price` | number | No | First Price |  |
+| `last_price` | number | No | Last Price |  |
+| `high_price` | number | No | High Price |  |
+| `low_price` | number | No | Low Price |  |
+| `number_of_deals` | number | No | Number Of Deals |  |
+| `volume_traded` | number | No | Volume Traded |  |
+| `value_traded` | number | No | Value Traded |  |
+| `open_interest` | number | No | Open Interest |  |
+| `volatility` | number | No | Volatility |  |
+| `isin` | text | No | Isin |  |
+| `instrument_id` | number | No | Instrument Id |  |
+| `derivatives_instrument_type` | text | No | Derivatives Instrument Type |  |
+| `contract_code` | text | No | Contract Code |  |
+| `call_put_future` | text | No | Call Put Future |  |
+| `deals` | number | No | Deals |  |
+| `contracts_traded` | number | No | Contracts Traded |  |
+| `nominal_value` | number | No | Nominal Value |  |
+| `delta_value` | number | No | Delta Value |  |
+| `delta_value_sign` | text | No | Delta Value Sign |  |
+| `premium_value` | number | No | Premium Value |  |
+| `ded05_contract_code` | text | No | Ded05 Contract Code |  |
+| `ded05_open_interest` | number | No | Ded05 Open Interest |  |
+| `ded05_contract_traded` | number | No | Ded05 Contract Traded |  |
+| `total_contracts` | number | No | Total Contracts |  |
+| `total_deals` | number | No | Total Deals |  |
+| `total_value` | number | No | Total Value |  |
+| `total_open_interest` | number | No | Total Open Interest |  |
+| `total_margin_on_deposit` | number | No | Total Margin On Deposit |  |
+| `interest_on_initial_margin` | number | No | Interest On Initial Margin |  |
+| `jibar_one_month_yield` | number | No | Jibar One Month Yield |  |
+| `jibar_three_month_yield` | number | No | Jibar Three Month Yield |  |
+| `jibar_six_month_yield` | number | No | Jibar Six Month Yield |  |
+| `jibar_nine_month_yield` | number | No | Jibar Nine Month Yield |  |
+| `jibar_twelve_month_yield` | number | No | Jibar Twelve Month Yield |  |
+| `prime_rate` | number | No | Prime Rate |  |
+| `cpi` | number | No | Cpi |  |
 
 ## Rules
 
@@ -115,7 +115,7 @@ description: "End-of-day equity derivatives data delivery via FTP — fixed-widt
 
 ## Outcomes
 
-### Successful_delivery
+### Successful_delivery (Priority: 10)
 
 **Given:**
 - subscriber is licensed and provisioned with IDP credentials
@@ -128,7 +128,7 @@ description: "End-of-day equity derivatives data delivery via FTP — fixed-widt
 
 **Result:** subscriber receives complete end-of-day equity derivatives data
 
-### Subscriber_provisioned
+### Subscriber_provisioned (Priority: 11)
 
 **Given:**
 - prospective subscriber has contacted Market Data Department in writing

@@ -34,39 +34,39 @@ description: "Store, retrieve, manage, and generate documents with metadata, per
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `document_id` | text | Yes |  |  |
-| `document_name` | text | Yes |  |  |
-| `document_type` | text | Yes |  |  |
-| `display_type` | text | Yes |  |  |
-| `document_classification` | text | Yes |  |  |
-| `document_folder_id` | number | Yes |  |  |
-| `document_folder_name` | text | No |  |  |
-| `document_date` | date | Yes |  |  |
-| `document_size_bytes` | number | Yes |  |  |
-| `file_extension` | text | Yes |  |  |
-| `content_type` | text | Yes |  |  |
-| `storage_location` | text | Yes |  |  |
-| `document_url` | url | Yes |  |  |
-| `is_local` | boolean | Yes |  |  |
-| `access_token` | text | No |  |  |
-| `share_with_sasfin` | boolean | No |  |  |
-| `is_active` | boolean | Yes |  |  |
-| `expiry_date` | date | No |  |  |
-| `created_by` | text | Yes |  |  |
-| `created_date` | datetime | Yes |  |  |
-| `uploaded_to_crm_user_id` | text | No |  |  |
-| `last_modified_by` | text | No |  |  |
-| `last_modified_date` | datetime | No |  |  |
-| `account_number` | text | No |  |  |
-| `dynamics_user_id` | text | Yes |  |  |
-| `aspnet_user_id` | text | No |  |  |
-| `free_text_description` | text | No |  |  |
-| `record_type` | number | No |  |  |
-| `status_reason` | text | No |  |  |
-| `policy_number` | text | No |  |  |
-| `document_process_id_name` | text | No |  |  |
-| `parent_document_id` | text | No |  |  |
-| `version_number` | number | No |  |  |
+| `document_id` | text | Yes | Document Id |  |
+| `document_name` | text | Yes | Document Name |  |
+| `document_type` | text | Yes | Document Type |  |
+| `display_type` | text | Yes | Display Type |  |
+| `document_classification` | text | Yes | Document Classification |  |
+| `document_folder_id` | number | Yes | Document Folder Id |  |
+| `document_folder_name` | text | No | Document Folder Name |  |
+| `document_date` | date | Yes | Document Date |  |
+| `document_size_bytes` | number | Yes | Document Size Bytes |  |
+| `file_extension` | text | Yes | File Extension |  |
+| `content_type` | text | Yes | Content Type |  |
+| `storage_location` | text | Yes | Storage Location |  |
+| `document_url` | url | Yes | Document Url |  |
+| `is_local` | boolean | Yes | Is Local |  |
+| `access_token` | text | No | Access Token |  |
+| `share_with_sasfin` | boolean | No | Share With Sasfin |  |
+| `is_active` | boolean | Yes | Is Active |  |
+| `expiry_date` | date | No | Expiry Date |  |
+| `created_by` | text | Yes | Created By |  |
+| `created_date` | datetime | Yes | Created Date |  |
+| `uploaded_to_crm_user_id` | text | No | Uploaded To Crm User Id |  |
+| `last_modified_by` | text | No | Last Modified By |  |
+| `last_modified_date` | datetime | No | Last Modified Date |  |
+| `account_number` | text | No | Account Number |  |
+| `dynamics_user_id` | text | Yes | Dynamics User Id |  |
+| `aspnet_user_id` | text | No | Aspnet User Id |  |
+| `free_text_description` | text | No | Free Text Description |  |
+| `record_type` | number | No | Record Type |  |
+| `status_reason` | text | No | Status Reason |  |
+| `policy_number` | text | No | Policy Number |  |
+| `document_process_id_name` | text | No | Document Process Id Name |  |
+| `parent_document_id` | text | No | Parent Document Id |  |
+| `version_number` | number | No | Version Number |  |
 
 ## States
 
@@ -142,7 +142,7 @@ description: "Store, retrieve, manage, and generate documents with metadata, per
 
 **Result:** 404 Not Found - document does not exist
 
-### Document_uploaded (Priority: 3) | Transaction: atomic
+### Document_uploaded (Priority: 3) — Error: `DOCUMENT_UPLOAD_FAILED` | Transaction: atomic
 
 **Given:**
 - user is authenticated
@@ -160,7 +160,7 @@ description: "Store, retrieve, manage, and generate documents with metadata, per
 
 **Result:** Document stored and indexed, metadata recorded
 
-### Document_expired (Priority: 3)
+### Document_expired (Priority: 3) — Error: `DOCUMENT_EXPIRED`
 
 **Given:**
 - `expiry_date` (db) lt `today`
@@ -194,7 +194,7 @@ description: "Store, retrieve, manage, and generate documents with metadata, per
 
 **Result:** 400 Bad Request - file too large
 
-### Document_metadata_updated (Priority: 5)
+### Document_metadata_updated (Priority: 5) — Error: `DOCUMENT_METADATA_UPDATE_FAILED`
 
 **Given:**
 - user is authenticated

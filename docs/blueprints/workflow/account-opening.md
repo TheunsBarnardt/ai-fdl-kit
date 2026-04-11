@@ -33,8 +33,8 @@ description: "Investment account opening workflow with product selection, risk p
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `application_id` | text | Yes |  | Validations: required |
-| `client_id` | text | Yes |  | Validations: required |
+| `application_id` | text | Yes | Application Id | Validations: required |
+| `client_id` | text | Yes | Client Id | Validations: required |
 | `account_type` | select | Yes | Account Type |  |
 | `selected_products` | json | Yes | Selected Investment Products |  |
 | `risk_profile` | select | Yes | Risk Profile |  |
@@ -46,13 +46,13 @@ description: "Investment account opening workflow with product selection, risk p
 | `source_of_funds` | select | Yes | Source of Funds |  |
 | `source_of_funds_detail` | text | No | Source of Funds Details |  |
 | `terms_accepted` | boolean | Yes | Terms and Conditions Accepted | Validations: required |
-| `terms_accepted_at` | datetime | No |  |  |
+| `terms_accepted_at` | datetime | No | Terms Accepted At |  |
 | `mandate_document_id` | text | No | Signed Mandate Document |  |
 | `funding_method` | select | Yes | Funding Method |  |
 | `funding_reference` | text | No | Funding Reference Number |  |
-| `status` | select | Yes |  |  |
+| `status` | select | Yes | Status |  |
 | `compliance_notes` | rich_text | No | Compliance Review Notes |  |
-| `rejection_reason` | text | No |  |  |
+| `rejection_reason` | text | No | Rejection Reason |  |
 
 ## States
 
@@ -155,7 +155,7 @@ description: "Investment account opening workflow with product selection, risk p
 
 **Result:** Return available investment products with descriptions, fees, and minimum investments
 
-### Select_products (Priority: 10)
+### Select_products (Priority: 10) — Error: `NO_PRODUCTS_SELECTED`
 
 **Given:**
 - `application_id` (input) exists
@@ -170,7 +170,7 @@ description: "Investment account opening workflow with product selection, risk p
 
 **Result:** Products selected, moved to risk assessment
 
-### Product_suitability_warning (Priority: 15)
+### Product_suitability_warning (Priority: 15) — Error: `PRODUCT_SUITABILITY_VIOLATION`
 
 **Given:**
 - `application_id` (input) exists
@@ -182,7 +182,7 @@ description: "Investment account opening workflow with product selection, risk p
 
 **Result:** Warning displayed about product-risk profile mismatch
 
-### Complete_risk_assessment (Priority: 20)
+### Complete_risk_assessment (Priority: 20) — Error: `RISK_ASSESSMENT_REQUIRED`
 
 **Given:**
 - `application_id` (input) exists
@@ -200,7 +200,7 @@ description: "Investment account opening workflow with product selection, risk p
 
 **Result:** Risk assessment completed
 
-### Accept_terms (Priority: 30)
+### Accept_terms (Priority: 30) — Error: `TERMS_NOT_ACCEPTED`
 
 **Given:**
 - `application_id` (input) exists

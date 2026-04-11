@@ -82,7 +82,7 @@ description: "WCAG 2.1 AA compliance with keyboard navigation, focus management,
 
 **Result:** All interactive elements are reachable and operable via keyboard alone
 
-### Skip_link_bypasses_navigation (Priority: 2)
+### Skip_link_bypasses_navigation (Priority: 2) — Error: `A11Y_SKIP_LINK_MISSING`
 
 **Given:**
 - a page has repetitive navigation blocks
@@ -94,7 +94,7 @@ description: "WCAG 2.1 AA compliance with keyboard navigation, focus management,
 
 **Result:** User can skip repetitive navigation and jump directly to main content
 
-### Modal_focus_trapped (Priority: 3)
+### Modal_focus_trapped (Priority: 3) — Error: `A11Y_FOCUS_TRAP_FAILED`
 
 **Given:**
 - a modal dialog is opened

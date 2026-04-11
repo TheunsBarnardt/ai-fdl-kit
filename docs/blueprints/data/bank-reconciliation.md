@@ -101,7 +101,7 @@ description: "Bank reconciliation with statement import, auto/manual matching, r
 
 **Result:** Statement flagged as invalid for accountant review
 
-### Line_auto_reconciled (Priority: 2)
+### Line_auto_reconciled (Priority: 2) — Error: `BANK_LINE_ALREADY_RECONCILED`
 
 **Given:**
 - a reconciliation model with auto trigger exists

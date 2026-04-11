@@ -76,7 +76,7 @@ description: "Extensible plugin architecture with 12 UI override points, wrappin
 
 ## Outcomes
 
-### Load_plugins (Priority: 1)
+### Load_plugins (Priority: 1) — Error: `PLUGIN_LOAD_FAILED`
 
 **Given:**
 - editor initializes with a plugins array
@@ -89,7 +89,7 @@ description: "Extensible plugin architecture with 12 UI override points, wrappin
 
 **Result:** All plugin overrides composed and ready for rendering
 
-### Render_with_override (Priority: 2)
+### Render_with_override (Priority: 2) — Error: `OVERRIDE_RENDER_FAILED`
 
 **Given:**
 - an editor component renders at an override point

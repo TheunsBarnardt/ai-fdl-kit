@@ -29,11 +29,11 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `transaction_state` | select | No |  |  |
-| `queued_commands` | json | No |  |  |
-| `command_results` | json | No |  |  |
-| `watched_keys` | json | No |  |  |
-| `abort_transaction` | boolean | No |  |  |
+| `transaction_state` | select | No | Transaction State |  |
+| `queued_commands` | json | No | Queued Commands |  |
+| `command_results` | json | No | Command Results |  |
+| `watched_keys` | json | No | Watched Keys |  |
+| `abort_transaction` | boolean | No | Abort Transaction |  |
 
 ## States
 
@@ -46,20 +46,7 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 
 ## Rules
 
-- MULTI marks start of transaction; client queues commands instead of executing
-- All queued commands execute sequentially without interleaving from other clients
-- Syntax errors during queueing set EXECABORT flag; EXEC fails entirely
-- Runtime errors during execution do not abort other commands (partial success possible)
-- WATCH monitors keys; if ANY watched key modified by other client before EXEC, transaction aborts
-## Rules
-
-- **Atomicity guarantee:** Either all commands execute or none (in case of WATCH violation)
-
-- No nested MULTI (attempt to MULTI while in transaction returns error)
-## Rules
-
-- **Transactions provide isolation:** Other clients cannot see partial state
-
+- **general:** MULTI marks start of transaction; client queues commands instead of executing, All queued commands execute sequentially without interleaving from other clients, Syntax errors during queueing set EXECABORT flag; EXEC fails entirely, Runtime errors during execution do not abort other commands (partial success possible), WATCH monitors keys; if ANY watched key modified by other client before EXEC, transaction aborts, {"Atomicity guarantee":"Either all commands execute or none (in case of WATCH violation)"}, No nested MULTI (attempt to MULTI while in transaction returns error), {"Transactions provide isolation":"Other clients cannot see partial state"}
 
 ## Outcomes
 

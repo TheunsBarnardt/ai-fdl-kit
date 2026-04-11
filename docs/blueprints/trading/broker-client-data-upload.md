@@ -31,67 +31,67 @@ description: "Client account data upload from broker firms to central back-offic
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `card_code` | text | Yes |  |  |
-| `broker_code` | text | Yes |  |  |
-| `upload_date` | date | Yes |  |  |
-| `record_count` | number | No |  |  |
-| `account_number` | text | Yes |  |  |
-| `client_name` | text | Yes |  |  |
-| `client_initials` | text | No |  |  |
-| `client_surname` | text | No |  |  |
-| `client_title` | select | No |  |  |
-| `id_number` | text | Yes |  |  |
-| `id_type` | select | No |  |  |
-| `date_of_birth` | date | No |  |  |
-| `gender` | select | No |  |  |
-| `country_of_birth` | text | No |  |  |
-| `nationality` | text | No |  |  |
-| `citizenship` | text | No |  |  |
-| `language_preference` | select | No |  |  |
-| `account_type` | select | No |  |  |
-| `csdp_code` | text | No |  |  |
-| `csdp_account_number` | text | No |  |  |
-| `csdp_bank_code` | text | No |  |  |
-| `dematerialisation_indicator` | select | No |  |  |
-| `employment_status` | select | No |  |  |
-| `occupation` | text | No |  |  |
-| `employer_name` | text | No |  |  |
-| `income_category` | select | No |  |  |
-| `source_of_funds` | text | No |  |  |
-| `risk_rating` | select | No |  |  |
-| `vat_number` | text | No |  |  |
-| `income_tax_reference` | text | No |  |  |
-| `marital_status` | select | No |  |  |
-| `spouse_id_number` | text | No |  |  |
-| `postal_address_line_1` | text | No |  |  |
-| `postal_address_line_2` | text | No |  |  |
-| `postal_city` | text | No |  |  |
-| `postal_postcode` | text | No |  |  |
-| `postal_country` | text | No |  |  |
-| `physical_address_line_1` | text | No |  |  |
-| `physical_city` | text | No |  |  |
-| `physical_postcode` | text | No |  |  |
-| `email_address` | email | No |  |  |
-| `mobile_number` | phone | No |  |  |
-| `telephone_home` | phone | No |  |  |
-| `telephone_work` | phone | No |  |  |
-| `fatca_status` | select | No |  |  |
-| `fatca_classification` | text | No |  |  |
-| `gin_number` | text | No |  |  |
-| `tin_number` | text | No |  |  |
-| `tin_country` | text | No |  |  |
-| `it3b_exclusion` | select | No |  |  |
-| `it3c_exclusion` | select | No |  |  |
-| `withholding_tax_exemption` | select | No |  |  |
-| `us_person_indicator` | select | No |  |  |
-| `crs_status` | select | No |  |  |
-| `politically_exposed_person` | select | No |  |  |
-| `sanctions_check_status` | select | No |  |  |
-| `portfolio_code` | text | No |  |  |
-| `portfolio_manager` | text | No |  |  |
-| `portfolio_mandate_type` | select | No |  |  |
-| `portfolio_base_currency` | text | No |  |  |
-| `portfolio_benchmark` | text | No |  |  |
+| `card_code` | text | Yes | Card Code |  |
+| `broker_code` | text | Yes | Broker Code |  |
+| `upload_date` | date | Yes | Upload Date |  |
+| `record_count` | number | No | Record Count |  |
+| `account_number` | text | Yes | Account Number |  |
+| `client_name` | text | Yes | Client Name |  |
+| `client_initials` | text | No | Client Initials |  |
+| `client_surname` | text | No | Client Surname |  |
+| `client_title` | select | No | Client Title |  |
+| `id_number` | text | Yes | Id Number |  |
+| `id_type` | select | No | Id Type |  |
+| `date_of_birth` | date | No | Date Of Birth |  |
+| `gender` | select | No | Gender |  |
+| `country_of_birth` | text | No | Country Of Birth |  |
+| `nationality` | text | No | Nationality |  |
+| `citizenship` | text | No | Citizenship |  |
+| `language_preference` | select | No | Language Preference |  |
+| `account_type` | select | No | Account Type |  |
+| `csdp_code` | text | No | Csdp Code |  |
+| `csdp_account_number` | text | No | Csdp Account Number |  |
+| `csdp_bank_code` | text | No | Csdp Bank Code |  |
+| `dematerialisation_indicator` | select | No | Dematerialisation Indicator |  |
+| `employment_status` | select | No | Employment Status |  |
+| `occupation` | text | No | Occupation |  |
+| `employer_name` | text | No | Employer Name |  |
+| `income_category` | select | No | Income Category |  |
+| `source_of_funds` | text | No | Source Of Funds |  |
+| `risk_rating` | select | No | Risk Rating |  |
+| `vat_number` | text | No | Vat Number |  |
+| `income_tax_reference` | text | No | Income Tax Reference |  |
+| `marital_status` | select | No | Marital Status |  |
+| `spouse_id_number` | text | No | Spouse Id Number |  |
+| `postal_address_line_1` | text | No | Postal Address Line 1 |  |
+| `postal_address_line_2` | text | No | Postal Address Line 2 |  |
+| `postal_city` | text | No | Postal City |  |
+| `postal_postcode` | text | No | Postal Postcode |  |
+| `postal_country` | text | No | Postal Country |  |
+| `physical_address_line_1` | text | No | Physical Address Line 1 |  |
+| `physical_city` | text | No | Physical City |  |
+| `physical_postcode` | text | No | Physical Postcode |  |
+| `email_address` | email | No | Email Address |  |
+| `mobile_number` | phone | No | Mobile Number |  |
+| `telephone_home` | phone | No | Telephone Home |  |
+| `telephone_work` | phone | No | Telephone Work |  |
+| `fatca_status` | select | No | Fatca Status |  |
+| `fatca_classification` | text | No | Fatca Classification |  |
+| `gin_number` | text | No | Gin Number |  |
+| `tin_number` | text | No | Tin Number |  |
+| `tin_country` | text | No | Tin Country |  |
+| `it3b_exclusion` | select | No | It3b Exclusion |  |
+| `it3c_exclusion` | select | No | It3c Exclusion |  |
+| `withholding_tax_exemption` | select | No | Withholding Tax Exemption |  |
+| `us_person_indicator` | select | No | Us Person Indicator |  |
+| `crs_status` | select | No | Crs Status |  |
+| `politically_exposed_person` | select | No | Politically Exposed Person |  |
+| `sanctions_check_status` | select | No | Sanctions Check Status |  |
+| `portfolio_code` | text | No | Portfolio Code |  |
+| `portfolio_manager` | text | No | Portfolio Manager |  |
+| `portfolio_mandate_type` | select | No | Portfolio Mandate Type |  |
+| `portfolio_base_currency` | text | No | Portfolio Base Currency |  |
+| `portfolio_benchmark` | text | No | Portfolio Benchmark |  |
 
 ## Rules
 
@@ -131,7 +131,7 @@ description: "Client account data upload from broker firms to central back-offic
 - **create_record**
 - **emit_event** event: `client_upload.validation_failed`
 
-### Fatca_validation_check (Priority: 4)
+### Fatca_validation_check (Priority: 4) — Error: `CLIENT_UPLOAD_FATCA_VALIDATION_FAILED`
 
 **Given:**
 - `card_code` (input) eq `038`

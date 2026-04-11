@@ -31,36 +31,36 @@ description: "Broker deal management upload to central back-office - deal alloca
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `record_type` | text | Yes |  |  |
-| `broker_code` | text | Yes |  |  |
-| `upload_date` | date | Yes |  |  |
-| `deal_reference` | text | Yes |  |  |
-| `order_reference` | text | No |  |  |
-| `trade_date` | date | Yes |  |  |
-| `settlement_date` | date | No |  |  |
-| `buy_sell_indicator` | select | Yes |  |  |
-| `instrument_code` | text | Yes |  |  |
-| `isin` | text | No |  |  |
-| `quantity` | number | Yes |  |  |
-| `price` | number | Yes |  |  |
-| `consideration` | number | No |  |  |
-| `trade_time` | text | No |  |  |
-| `client_account` | text | Yes |  |  |
-| `external_account_code` | text | No |  |  |
-| `commission_amount` | number | No |  |  |
-| `charges_amount` | number | No |  |  |
-| `vat_amount` | number | No |  |  |
-| `stt_amount` | number | No |  |  |
-| `allocation_reference` | text | No |  |  |
-| `partner_code` | text | No |  |  |
-| `branch_code` | text | No |  |  |
-| `portfolio_code` | text | No |  |  |
-| `dealer_code` | text | No |  |  |
-| `trade_type` | select | No |  |  |
-| `execution_venue` | text | No |  |  |
-| `counter_party_code` | text | No |  |  |
-| `principal_indicator` | select | No |  |  |
-| `cancellation_indicator` | select | No |  |  |
+| `record_type` | text | Yes | Record Type |  |
+| `broker_code` | text | Yes | Broker Code |  |
+| `upload_date` | date | Yes | Upload Date |  |
+| `deal_reference` | text | Yes | Deal Reference |  |
+| `order_reference` | text | No | Order Reference |  |
+| `trade_date` | date | Yes | Trade Date |  |
+| `settlement_date` | date | No | Settlement Date |  |
+| `buy_sell_indicator` | select | Yes | Buy Sell Indicator |  |
+| `instrument_code` | text | Yes | Instrument Code |  |
+| `isin` | text | No | Isin |  |
+| `quantity` | number | Yes | Quantity |  |
+| `price` | number | Yes | Price |  |
+| `consideration` | number | No | Consideration |  |
+| `trade_time` | text | No | Trade Time |  |
+| `client_account` | text | Yes | Client Account |  |
+| `external_account_code` | text | No | External Account Code |  |
+| `commission_amount` | number | No | Commission Amount |  |
+| `charges_amount` | number | No | Charges Amount |  |
+| `vat_amount` | number | No | Vat Amount |  |
+| `stt_amount` | number | No | Stt Amount |  |
+| `allocation_reference` | text | No | Allocation Reference |  |
+| `partner_code` | text | No | Partner Code |  |
+| `branch_code` | text | No | Branch Code |  |
+| `portfolio_code` | text | No | Portfolio Code |  |
+| `dealer_code` | text | No | Dealer Code |  |
+| `trade_type` | select | No | Trade Type |  |
+| `execution_venue` | text | No | Execution Venue |  |
+| `counter_party_code` | text | No | Counter Party Code |  |
+| `principal_indicator` | select | No | Principal Indicator |  |
+| `cancellation_indicator` | select | No | Cancellation Indicator |  |
 
 ## Rules
 
@@ -72,7 +72,7 @@ description: "Broker deal management upload to central back-office - deal alloca
 
 ## Outcomes
 
-### Manual_deal_allocation_upload (Priority: 1)
+### Manual_deal_allocation_upload (Priority: 1) — Error: `DEAL_UPLOAD_INVALID_EXTERNAL_ACCOUNT`
 
 **Given:**
 - `submission_mode` (input) eq `manual_ftp`
@@ -81,7 +81,7 @@ description: "Broker deal management upload to central back-office - deal alloca
 - **create_record**
 - **emit_event** event: `deal_upload.manual.received`
 
-### Automated_deal_allocation_upload (Priority: 2)
+### Automated_deal_allocation_upload (Priority: 2) — Error: `DEAL_UPLOAD_INVALID_TRADE_DATE`
 
 **Given:**
 - `submission_mode` (input) eq `automated_ftp`
@@ -100,7 +100,7 @@ description: "Broker deal management upload to central back-office - deal alloca
 - **create_record**
 - **emit_event** event: `deal_upload.same_day.received`
 
-### Deals_upload (Priority: 4)
+### Deals_upload (Priority: 4) — Error: `DEAL_UPLOAD_INSTRUMENT_NOT_FOUND`
 
 **Given:**
 - `upload_type` (input) eq `deals`

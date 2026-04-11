@@ -81,7 +81,7 @@ description: "Create, rotate, revoke, and scope API keys for programmatic access
 
 **Result:** show "Maximum number of API keys reached. Please revoke unused keys."
 
-### Create_key (Priority: 5) | Transaction: atomic
+### Create_key (Priority: 5) — Error: `API_KEY_PER_KEY_RATE_LIMITED` | Transaction: atomic
 
 **Given:**
 - `name` (input) exists
@@ -108,7 +108,7 @@ description: "Create, rotate, revoke, and scope API keys for programmatic access
 
 **Result:** show new key ONCE — old key valid for 24 more hours
 
-### Revoke_key (Priority: 7) | Transaction: atomic
+### Revoke_key (Priority: 7) — Error: `API_KEY_REVOKED` | Transaction: atomic
 
 **Given:**
 - `target_key` (db) exists

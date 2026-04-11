@@ -128,7 +128,7 @@ description: "Multi-step form and process wizard with progress indicator, step v
 
 **Result:** Progress saved, user can resume later
 
-### Wizard_resumed (Priority: 7)
+### Wizard_resumed (Priority: 7) — Error: `WIZARD_RESUME_EXPIRED`
 
 **Given:**
 - user returns to a wizard with saved progress

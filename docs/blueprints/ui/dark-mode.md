@@ -108,7 +108,7 @@ description: "Theme toggle supporting light, dark, and system-preference modes w
 
 **Result:** Page renders with correct theme from the first frame with no flash
 
-### Component_overrides_theme (Priority: 5)
+### Component_overrides_theme (Priority: 5) — Error: `THEME_OVERRIDE_SCOPE_LEAK`
 
 **Given:**
 - a component specifies a theme override different from the global theme

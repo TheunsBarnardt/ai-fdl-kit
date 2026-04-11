@@ -127,7 +127,7 @@ description: "Deliver outbound webhooks to external systems with signing, retrie
 
 **Result:** webhook delivered successfully with signature verification
 
-### Webhook_failed (Priority: 11)
+### Webhook_failed (Priority: 11) — Error: `WEBHOOK_DELIVERY_FAILED`
 
 **Given:**
 - ANY: `response_status` (system) gte `400` OR `response_status` (system) not_exists

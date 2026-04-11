@@ -1,0 +1,223 @@
+{
+  "feature": "security-scan-report",
+  "version": "1.0.0",
+  "description": "Generate, persist, and export a structured AI vulnerability scan report with per-probe pass rates, confidence intervals, attempt-level detail, and AVID-compatible export.",
+  "category": "security",
+  "tags": [
+    "llm",
+    "report",
+    "scan-results",
+    "avid",
+    "confidence-interval",
+    "ai-safety",
+    "compliance"
+  ],
+  "actors": [
+    {
+      "id": "report_writer",
+      "name": "Report Writer",
+      "type": "system",
+      "description": "Aggregates evaluator output into a structured report during scan execution."
+    },
+    {
+      "id": "security_engineer",
+      "name": "Security Engineer",
+      "type": "human",
+      "description": "Reads the report to understand model vulnerabilities and prioritise fixes."
+    },
+    {
+      "id": "compliance_system",
+      "name": "Compliance System",
+      "type": "external",
+      "description": "Consumes machine-readable export (AVID, JSON) for governance tracking."
+    }
+  ],
+  "fields": [
+    {
+      "name": "report_id",
+      "type": "token",
+      "required": true,
+      "label": "Report ID"
+    },
+    {
+      "name": "scan_id",
+      "type": "token",
+      "required": true,
+      "label": "Scan Run ID"
+    },
+    {
+      "name": "target_model_id",
+      "type": "text",
+      "required": true,
+      "label": "Target Model"
+    },
+    {
+      "name": "report_format",
+      "type": "multiselect",
+      "required": true,
+      "label": "Output Formats"
+    },
+    {
+      "name": "probe_results",
+      "type": "json",
+      "required": true,
+      "label": "Per-Probe Results"
+    },
+    {
+      "name": "confidence_method",
+      "type": "select",
+      "required": false,
+      "label": "Confidence Interval Method"
+    },
+    {
+      "name": "generated_at",
+      "type": "datetime",
+      "required": true,
+      "label": "Generated At"
+    }
+  ],
+  "rules": {
+    "generation": {
+      "trigger": "scan_complete_only",
+      "include_all_attempts": true
+    },
+    "pass_rate_calculation": {
+      "formula": "passing_attempts_divided_by_total_attempts",
+      "confidence_intervals": "when_method_not_none"
+    },
+    "export": {
+      "avid_compliance": "required",
+      "write_atomicity": "required"
+    },
+    "identifiers": {
+      "report_id": "globally_unique_and_stable"
+    },
+    "digest": {
+      "format": "human_readable"
+    }
+  },
+  "outcomes": {
+    "no_attempts_recorded": {
+      "priority": 1,
+      "error": "REPORT_NO_DATA",
+      "given": [
+        "scan run completed but zero probe attempts were recorded"
+      ],
+      "then": [],
+      "result": "Report generation is skipped; error is logged."
+    },
+    "export_failed": {
+      "priority": 5,
+      "error": "REPORT_EXPORT_FAILED",
+      "given": [
+        "report data aggregated successfully",
+        "write to output destination fails (disk full, permission denied)"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "security.report.export_failed",
+          "payload": [
+            "report_id",
+            "scan_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Report data is retained in memory; export error is surfaced to the operator."
+    },
+    "report_generated": {
+      "priority": 10,
+      "transaction": true,
+      "given": [
+        "scan run is in complete state",
+        "at least one probe attempt was recorded"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "scan_report",
+          "description": "Structured report with per-probe pass rates and attempt-level detail."
+        },
+        {
+          "action": "emit_event",
+          "event": "security.report.generated",
+          "payload": [
+            "report_id",
+            "scan_id",
+            "target_model_id",
+            "report_format",
+            "generated_at"
+          ]
+        }
+      ],
+      "result": "Report is written in all configured formats; path is available for download or review."
+    }
+  },
+  "errors": [
+    {
+      "code": "REPORT_NO_DATA",
+      "status": 422,
+      "message": "No probe attempts were recorded for this scan. The report cannot be generated."
+    },
+    {
+      "code": "REPORT_EXPORT_FAILED",
+      "status": 500,
+      "message": "The scan report could not be written to the output destination."
+    }
+  ],
+  "events": [
+    {
+      "name": "security.report.generated",
+      "description": "Emitted when a scan report has been successfully written.",
+      "payload": [
+        "report_id",
+        "scan_id",
+        "target_model_id",
+        "report_format",
+        "generated_at"
+      ]
+    },
+    {
+      "name": "security.report.export_failed",
+      "description": "Emitted when report export fails after successful aggregation.",
+      "payload": [
+        "report_id",
+        "scan_id",
+        "reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "llm-vulnerability-scan",
+      "type": "required",
+      "reason": "The scan pipeline that produces the attempt data this report aggregates."
+    },
+    {
+      "feature": "llm-attack-probe-library",
+      "type": "required",
+      "reason": "Source of per-probe result data included in the report."
+    },
+    {
+      "feature": "redteam-conversation-memory",
+      "type": "optional",
+      "reason": "Persistent memory store that can be queried to rebuild or extend reports."
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/NVIDIA/garak",
+      "project": "garak — LLM vulnerability scanner",
+      "tech_stack": "Python 3.10+",
+      "files_traced": 15,
+      "entry_points": [
+        "garak/report.py",
+        "garak/analyze/aggregate_reports.py",
+        "garak/analyze/report_avid.py",
+        "garak/analyze/report_digest.py",
+        "garak/analyze/bootstrap_ci.py"
+      ]
+    }
+  }
+}

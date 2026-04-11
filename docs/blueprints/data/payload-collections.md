@@ -31,9 +31,9 @@ description: "Full CRUD operations for document collections with pagination, fil
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `id` | text | Yes |  |  |
-| `created_at` | datetime | Yes |  |  |
-| `updated_at` | datetime | Yes |  |  |
+| `id` | text | Yes | Id |  |
+| `created_at` | datetime | Yes | Created At |  |
+| `updated_at` | datetime | Yes | Updated At |  |
 | `slug` | text | Yes | Collection Slug | Validations: required, pattern |
 
 ## Rules

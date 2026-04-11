@@ -29,11 +29,11 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `key` | text | Yes |  |  |
-| `members` | json | No |  |  |
-| `fields` | json | No |  |  |
-| `score` | number | No |  |  |
-| `field_ttl_ms` | number | No |  |  |
+| `key` | text | Yes | Key |  |
+| `members` | json | No | Members |  |
+| `fields` | json | No | Fields |  |
+| `score` | number | No | Score |  |
+| `field_ttl_ms` | number | No | Field Ttl Ms |  |
 
 ## States
 
@@ -46,16 +46,7 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ## Rules
 
-- Sorted set members are unique; adding existing member updates score
-- Scores can be equal; ties broken by lexicographic member order
-- Scores can be negative, infinity (-inf), or +inf
-- Range queries support inclusive and exclusive boundaries
-- Rank is 0-based (0 = lowest score, -1 = highest score in reverse)
-- Lex ranges require all members to have identical scores
-- Hash fields are unique strings; updating field overwrites value
-- Hash supports per-field TTL (field expires independently)
-- Numeric field operations (HINCRBY) increment field values
-- Fields are unordered unless scanning with HSCAN
+- **general:** Sorted set members are unique; adding existing member updates score, Scores can be equal; ties broken by lexicographic member order, Scores can be negative, infinity (-inf), or +inf, Range queries support inclusive and exclusive boundaries, Rank is 0-based (0 = lowest score, -1 = highest score in reverse), Lex ranges require all members to have identical scores, Hash fields are unique strings; updating field overwrites value, Hash supports per-field TTL (field expires independently), Numeric field operations (HINCRBY) increment field values, Fields are unordered unless scanning with HSCAN
 
 ## Outcomes
 

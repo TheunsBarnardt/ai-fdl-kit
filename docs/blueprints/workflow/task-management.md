@@ -100,7 +100,7 @@ description: "Task lifecycle management with kanban board, subtask hierarchies, 
 
 ## Outcomes
 
-### Task_created (Priority: 1)
+### Task_created (Priority: 1) — Error: `TASK_SUBTASKS_INCOMPLETE`
 
 **Given:**
 - reporter is authenticated
@@ -112,7 +112,7 @@ description: "Task lifecycle management with kanban board, subtask hierarchies, 
 
 **Result:** Task created and visible on the kanban board
 
-### Task_assigned (Priority: 2)
+### Task_assigned (Priority: 2) — Error: `TASK_ALREADY_ASSIGNED`
 
 **Given:**
 - task exists and is not in a terminal state

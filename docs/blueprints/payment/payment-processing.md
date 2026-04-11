@@ -30,18 +30,18 @@ description: "Process incoming, outgoing, and internal transfer payments with mu
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `payment_type` | select | Yes |  |  |
-| `party_type` | select | No |  |  |
-| `party` | text | No |  |  |
-| `paid_from` | text | Yes |  | Validations: minLength |
-| `paid_to` | text | Yes |  | Validations: minLength |
-| `paid_amount` | number | Yes |  | Validations: min |
-| `received_amount` | number | Yes |  | Validations: min |
-| `source_exchange_rate` | number | Yes |  | Validations: min |
-| `target_exchange_rate` | number | Yes |  | Validations: min |
-| `references` | json | No |  |  |
-| `mode_of_payment` | select | No |  |  |
-| `status` | select | Yes |  |  |
+| `payment_type` | select | Yes | Payment Type |  |
+| `party_type` | select | No | Party Type |  |
+| `party` | text | No | Party |  |
+| `paid_from` | text | Yes | Paid From | Validations: minLength |
+| `paid_to` | text | Yes | Paid To | Validations: minLength |
+| `paid_amount` | number | Yes | Paid Amount | Validations: min |
+| `received_amount` | number | Yes | Received Amount | Validations: min |
+| `source_exchange_rate` | number | Yes | Source Exchange Rate | Validations: min |
+| `target_exchange_rate` | number | Yes | Target Exchange Rate | Validations: min |
+| `references` | json | No | References |  |
+| `mode_of_payment` | select | No | Mode Of Payment |  |
+| `status` | select | Yes | Status |  |
 
 ## States
 
@@ -91,7 +91,7 @@ description: "Process incoming, outgoing, and internal transfer payments with mu
 
 ## Outcomes
 
-### Process_payment | Transaction: atomic
+### Process_payment (Priority: 10) | Transaction: atomic
 
 **Given:**
 - payment entry is in Draft status
@@ -106,7 +106,7 @@ description: "Process incoming, outgoing, and internal transfer payments with mu
 
 **Result:** Payment is submitted with GL entries posted and referenced document outstanding amounts reduced
 
-### Reconcile_payment
+### Reconcile_payment (Priority: 11)
 
 **Given:**
 - payment is in Submitted status
@@ -118,7 +118,7 @@ description: "Process incoming, outgoing, and internal transfer payments with mu
 
 **Result:** Payment is reconciled against referenced invoices with outstanding amounts updated
 
-### Cancel_payment | Transaction: atomic
+### Cancel_payment (Priority: 12) | Transaction: atomic
 
 **Given:**
 - payment is in Submitted status

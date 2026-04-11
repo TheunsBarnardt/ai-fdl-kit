@@ -176,7 +176,7 @@ description: "Built-in job queue with tasks, workflows, cron scheduling, retry w
 
 **Result:** Jobs executed, results stored in task_status
 
-### Run_job_by_id (Priority: 10)
+### Run_job_by_id (Priority: 10) — Error: `JOB_INVALID_INPUT`
 
 **Given:**
 - user has run access

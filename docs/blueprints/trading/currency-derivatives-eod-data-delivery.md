@@ -31,43 +31,43 @@ description: "End-of-day currency derivatives data delivery via FTP — fixed-wi
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `market_number` | number | Yes |  |  |
-| `contract_type` | text | Yes |  |  |
-| `instrument_type` | text | Yes |  |  |
-| `record_type` | text | Yes |  |  |
-| `record_sub_type` | text | Yes |  |  |
-| `run_date` | date | Yes |  |  |
-| `filler_header` | text | No |  |  |
-| `instrument` | text | No |  |  |
-| `date` | date | No |  |  |
-| `strike_price` | number | No |  |  |
-| `option_type` | text | No |  |  |
-| `spot_price` | number | No |  |  |
-| `closing_bid` | number | No |  |  |
-| `closing_offer` | number | No |  |  |
-| `mtm` | number | No |  |  |
-| `first_price` | number | No |  |  |
-| `last_price` | number | No |  |  |
-| `high_price` | number | No |  |  |
-| `low_price` | number | No |  |  |
-| `number_of_deals` | number | No |  |  |
-| `volume_traded` | number | No |  |  |
-| `value_traded` | number | No |  |  |
-| `open_interest` | number | No |  |  |
-| `volatility` | number | No |  |  |
-| `isin` | text | No |  |  |
-| `instrument_id` | number | No |  |  |
-| `dcd05_contract_code` | text | No |  |  |
-| `dcd05_open_interest` | number | No |  |  |
-| `dcd05_contracts_traded` | number | No |  |  |
-| `interest_on_initial_margin_fxm` | number | No |  |  |
-| `jibar_one_month_yield` | number | No |  |  |
-| `jibar_three_month_yield` | number | No |  |  |
-| `jibar_six_month_yield` | number | No |  |  |
-| `jibar_nine_month_yield` | number | No |  |  |
-| `jibar_twelve_month_yield` | number | No |  |  |
-| `prime_rate` | number | No |  |  |
-| `cpi` | number | No |  |  |
+| `market_number` | number | Yes | Market Number |  |
+| `contract_type` | text | Yes | Contract Type |  |
+| `instrument_type` | text | Yes | Instrument Type |  |
+| `record_type` | text | Yes | Record Type |  |
+| `record_sub_type` | text | Yes | Record Sub Type |  |
+| `run_date` | date | Yes | Run Date |  |
+| `filler_header` | text | No | Filler Header |  |
+| `instrument` | text | No | Instrument |  |
+| `date` | date | No | Date |  |
+| `strike_price` | number | No | Strike Price |  |
+| `option_type` | text | No | Option Type |  |
+| `spot_price` | number | No | Spot Price |  |
+| `closing_bid` | number | No | Closing Bid |  |
+| `closing_offer` | number | No | Closing Offer |  |
+| `mtm` | number | No | Mtm |  |
+| `first_price` | number | No | First Price |  |
+| `last_price` | number | No | Last Price |  |
+| `high_price` | number | No | High Price |  |
+| `low_price` | number | No | Low Price |  |
+| `number_of_deals` | number | No | Number Of Deals |  |
+| `volume_traded` | number | No | Volume Traded |  |
+| `value_traded` | number | No | Value Traded |  |
+| `open_interest` | number | No | Open Interest |  |
+| `volatility` | number | No | Volatility |  |
+| `isin` | text | No | Isin |  |
+| `instrument_id` | number | No | Instrument Id |  |
+| `dcd05_contract_code` | text | No | Dcd05 Contract Code |  |
+| `dcd05_open_interest` | number | No | Dcd05 Open Interest |  |
+| `dcd05_contracts_traded` | number | No | Dcd05 Contracts Traded |  |
+| `interest_on_initial_margin_fxm` | number | No | Interest On Initial Margin Fxm |  |
+| `jibar_one_month_yield` | number | No | Jibar One Month Yield |  |
+| `jibar_three_month_yield` | number | No | Jibar Three Month Yield |  |
+| `jibar_six_month_yield` | number | No | Jibar Six Month Yield |  |
+| `jibar_nine_month_yield` | number | No | Jibar Nine Month Yield |  |
+| `jibar_twelve_month_yield` | number | No | Jibar Twelve Month Yield |  |
+| `prime_rate` | number | No | Prime Rate |  |
+| `cpi` | number | No | Cpi |  |
 
 ## Rules
 
@@ -95,7 +95,7 @@ description: "End-of-day currency derivatives data delivery via FTP — fixed-wi
 
 ## Outcomes
 
-### Successful_delivery
+### Successful_delivery (Priority: 10)
 
 **Given:**
 - subscriber is licensed and provisioned with IDP credentials
@@ -108,7 +108,7 @@ description: "End-of-day currency derivatives data delivery via FTP — fixed-wi
 
 **Result:** subscriber receives complete end-of-day currency derivatives data
 
-### Subscriber_provisioned
+### Subscriber_provisioned (Priority: 11)
 
 **Given:**
 - prospective subscriber has contacted Market Data Department in writing

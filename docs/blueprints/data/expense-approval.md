@@ -42,8 +42,8 @@ description: "Submit and approve employee expense reports with receipt validatio
 | `receipt` | file | No | Receipt | Validations: custom |
 | `status` | select | Yes | Status |  |
 | `rejection_reason` | text | No | Rejection Reason |  |
-| `submitted_by` | hidden | Yes |  |  |
-| `approved_by` | hidden | No |  |  |
+| `submitted_by` | hidden | Yes | Submitted By |  |
+| `approved_by` | hidden | No | Approved By |  |
 
 ## States
 
@@ -259,7 +259,7 @@ Payment processing failed
 
 **Result:** employee receives reimbursement via direct deposit or payroll
 
-### Payment_failed — Error: `EXPENSE_PAYMENT_FAILED`
+### Payment_failed (Priority: 20) — Error: `EXPENSE_PAYMENT_FAILED`
 
 **Given:**
 - payment system returns error
@@ -270,7 +270,7 @@ Payment processing failed
 
 **Result:** expense stays in approved status, finance investigates
 
-### Sla_breached
+### Sla_breached (Priority: 21)
 
 **Given:**
 - `time_in_submitted` gt `48h`

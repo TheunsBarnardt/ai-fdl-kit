@@ -32,23 +32,23 @@ description: "Independent Financial Advisor portal for client management, onboar
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `ifa_id` | text | Yes |  | Validations: required |
-| `client_id` | text | Yes |  | Validations: required |
-| `ifa_status` | select | Yes |  |  |
+| `ifa_id` | text | Yes | Ifa Id | Validations: required |
+| `client_id` | text | Yes | Client Id | Validations: required |
+| `ifa_status` | select | Yes | Ifa Status |  |
 | `assigned_clients` | json | No | Assigned Client IDs |  |
-| `message_id` | text | No |  |  |
-| `message_subject` | text | No |  | Validations: maxLength |
-| `message_body` | rich_text | No |  |  |
-| `message_type` | select | No |  |  |
+| `message_id` | text | No | Message Id |  |
+| `message_subject` | text | No | Message Subject | Validations: maxLength |
+| `message_body` | rich_text | No | Message Body |  |
+| `message_type` | select | No | Message Type |  |
 | `suggested_product_ids` | json | No | Suggested Products |  |
 | `suggestion_reason` | rich_text | No | Reason for Product Suggestion |  |
-| `lead_id` | text | No |  |  |
-| `lead_name` | text | No |  | Validations: maxLength |
-| `lead_email` | email | No |  |  |
-| `lead_phone` | phone | No |  |  |
-| `lead_source` | select | No |  |  |
-| `lead_notes` | rich_text | No |  |  |
-| `lead_status` | select | No |  |  |
+| `lead_id` | text | No | Lead Id |  |
+| `lead_name` | text | No | Lead Name | Validations: maxLength |
+| `lead_email` | email | No | Lead Email |  |
+| `lead_phone` | phone | No | Lead Phone |  |
+| `lead_source` | select | No | Lead Source |  |
+| `lead_notes` | rich_text | No | Lead Notes |  |
+| `lead_status` | select | No | Lead Status |  |
 | `impersonation_active` | boolean | No | Client View Active |  |
 
 ## Rules
@@ -175,7 +175,7 @@ description: "Independent Financial Advisor portal for client management, onboar
 
 **Result:** Onboarding initiated on behalf of client, client notified to continue
 
-### Send_message (Priority: 40)
+### Send_message (Priority: 40) — Error: `MESSAGE_SEND_FAILED`
 
 **Given:**
 - `client_id` (input) exists
@@ -232,7 +232,7 @@ description: "Independent Financial Advisor portal for client management, onboar
 
 **Result:** Lead submitted and tracked in pipeline
 
-### Update_lead_status (Priority: 51)
+### Update_lead_status (Priority: 51) — Error: `INVALID_LEAD_STATUS`
 
 **Given:**
 - `lead_id` (input) exists

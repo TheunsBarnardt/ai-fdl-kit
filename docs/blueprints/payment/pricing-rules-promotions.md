@@ -23,27 +23,27 @@ description: "Define and apply pricing rules, discount schemes, and promotional 
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `title` | text | Yes |  | Validations: minLength, maxLength |
-| `apply_on` | select | Yes |  |  |
-| `rate_or_discount` | select | Yes |  |  |
-| `rate` | number | No |  | Validations: min |
-| `discount_percentage` | number | No |  | Validations: min, max |
-| `discount_amount` | number | No |  | Validations: min |
-| `min_qty` | number | No |  | Validations: min |
-| `max_qty` | number | No |  | Validations: min |
-| `min_amt` | number | No |  | Validations: min |
-| `max_amt` | number | No |  | Validations: min |
-| `valid_from` | date | No |  |  |
-| `valid_upto` | date | No |  |  |
-| `priority` | number | Yes |  | Validations: min |
-| `price_or_product_discount` | select | Yes |  |  |
-| `free_item` | text | No |  |  |
-| `free_qty` | number | No |  | Validations: min |
-| `is_cumulative` | boolean | No |  |  |
-| `coupon_code_based` | boolean | No |  |  |
-| `condition` | text | No |  |  |
-| `selling` | boolean | No |  |  |
-| `buying` | boolean | No |  |  |
+| `title` | text | Yes | Title | Validations: minLength, maxLength |
+| `apply_on` | select | Yes | Apply On |  |
+| `rate_or_discount` | select | Yes | Rate Or Discount |  |
+| `rate` | number | No | Rate | Validations: min |
+| `discount_percentage` | number | No | Discount Percentage | Validations: min, max |
+| `discount_amount` | number | No | Discount Amount | Validations: min |
+| `min_qty` | number | No | Min Qty | Validations: min |
+| `max_qty` | number | No | Max Qty | Validations: min |
+| `min_amt` | number | No | Min Amt | Validations: min |
+| `max_amt` | number | No | Max Amt | Validations: min |
+| `valid_from` | date | No | Valid From |  |
+| `valid_upto` | date | No | Valid Upto |  |
+| `priority` | number | Yes | Priority | Validations: min |
+| `price_or_product_discount` | select | Yes | Price Or Product Discount |  |
+| `free_item` | text | No | Free Item |  |
+| `free_qty` | number | No | Free Qty | Validations: min |
+| `is_cumulative` | boolean | No | Is Cumulative |  |
+| `coupon_code_based` | boolean | No | Coupon Code Based |  |
+| `condition` | text | No | Condition |  |
+| `selling` | boolean | No | Selling |  |
+| `buying` | boolean | No | Buying |  |
 
 ## Rules
 
@@ -77,7 +77,7 @@ description: "Define and apply pricing rules, discount schemes, and promotional 
 
 ## Outcomes
 
-### Apply_price_discount
+### Apply_price_discount (Priority: 10)
 
 **Given:**
 - `price_or_product_discount` eq `price`
@@ -91,7 +91,7 @@ description: "Define and apply pricing rules, discount schemes, and promotional 
 
 **Result:** Price discount is applied to the matching line items or transaction total
 
-### Apply_product_discount
+### Apply_product_discount (Priority: 11)
 
 **Given:**
 - `price_or_product_discount` eq `product`
@@ -104,7 +104,7 @@ description: "Define and apply pricing rules, discount schemes, and promotional 
 
 **Result:** Free item is added to the transaction with the calculated quantity
 
-### Apply_margin
+### Apply_margin (Priority: 12)
 
 **Given:**
 - rule specifies a margin type (percentage or amount)
@@ -116,7 +116,7 @@ description: "Define and apply pricing rules, discount schemes, and promotional 
 
 **Result:** Margin is applied to the item rate on the matching transaction lines
 
-### Resolve_conflicts — Error: `PRICING_RULE_CONFLICT`
+### Resolve_conflicts (Priority: 13) — Error: `PRICING_RULE_CONFLICT`
 
 **Given:**
 - multiple pricing rules match the same transaction or line item

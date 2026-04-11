@@ -66,7 +66,7 @@ description: "Saved payment methods with card tokenization, add/remove/set defau
 
 ## Outcomes
 
-### Payment_method_added (Priority: 1)
+### Payment_method_added (Priority: 1) — Error: `PAYMENT_METHOD_INVALID_CARD`
 
 **Given:**
 - customer submits card details via secure form
@@ -116,7 +116,7 @@ description: "Saved payment methods with card tokenization, add/remove/set defau
 
 **Result:** Cannot add more payment methods, limit reached
 
-### Payment_method_removed (Priority: 3)
+### Payment_method_removed (Priority: 3) — Error: `PAYMENT_METHOD_EXPIRED`
 
 **Given:**
 - customer requests removal of a payment method

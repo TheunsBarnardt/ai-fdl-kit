@@ -33,24 +33,24 @@ description: "Multi-step process for new clients to complete personal, contact, 
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `onboarding_id` | number | Yes |  | Validations: required |
-| `first_name` | text | Yes |  | Validations: required, maxLength |
-| `last_name` | text | Yes |  | Validations: required, maxLength |
-| `date_of_birth` | date | Yes |  | Validations: required |
-| `identification_number` | text | Yes |  | Validations: required |
-| `passport_number` | text | No |  |  |
-| `email` | email | Yes |  | Validations: required, email |
-| `mobile_phone` | phone | Yes |  | Validations: required, phone |
-| `home_phone` | phone | No |  |  |
-| `work_phone` | phone | No |  |  |
-| `physical_address_street` | text | Yes |  | Validations: required |
-| `physical_address_city` | text | Yes |  | Validations: required |
-| `physical_address_postal_code` | text | Yes |  | Validations: required |
-| `postal_address_same_as_physical` | boolean | No |  |  |
-| `employer_name` | text | Yes |  | Validations: required |
-| `occupation` | text | Yes |  | Validations: required |
-| `industry_sector` | text | Yes |  | Validations: required |
-| `status` | select | Yes |  | Validations: required |
+| `onboarding_id` | number | Yes | Onboarding Id | Validations: required |
+| `first_name` | text | Yes | First Name | Validations: required, maxLength |
+| `last_name` | text | Yes | Last Name | Validations: required, maxLength |
+| `date_of_birth` | date | Yes | Date Of Birth | Validations: required |
+| `identification_number` | text | Yes | Identification Number | Validations: required |
+| `passport_number` | text | No | Passport Number |  |
+| `email` | email | Yes | Email | Validations: required, email |
+| `mobile_phone` | phone | Yes | Mobile Phone | Validations: required, phone |
+| `home_phone` | phone | No | Home Phone |  |
+| `work_phone` | phone | No | Work Phone |  |
+| `physical_address_street` | text | Yes | Physical Address Street | Validations: required |
+| `physical_address_city` | text | Yes | Physical Address City | Validations: required |
+| `physical_address_postal_code` | text | Yes | Physical Address Postal Code | Validations: required |
+| `postal_address_same_as_physical` | boolean | No | Postal Address Same As Physical |  |
+| `employer_name` | text | Yes | Employer Name | Validations: required |
+| `occupation` | text | Yes | Occupation | Validations: required |
+| `industry_sector` | text | Yes | Industry Sector | Validations: required |
+| `status` | select | Yes | Status | Validations: required |
 
 ## States
 
@@ -105,7 +105,7 @@ description: "Multi-step process for new clients to complete personal, contact, 
 
 **Result:** Progress step updated
 
-### Notify_client_onboarding_ready (Priority: 3)
+### Notify_client_onboarding_ready (Priority: 3) — Error: `ONBOARDING_NOT_FOUND`
 
 **Given:**
 - `onboarding_id` (input) exists

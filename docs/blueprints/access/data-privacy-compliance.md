@@ -89,7 +89,7 @@ description: "GDPR/CCPA compliance with consent management, data export, right t
 
 **Result:** consent recorded with proof of affirmative opt-in
 
-### Consent_revoked (Priority: 2) | Transaction: atomic
+### Consent_revoked (Priority: 2) — Error: `CONSENT_ALREADY_REVOKED` | Transaction: atomic
 
 **Given:**
 - `consent_id` (db) exists

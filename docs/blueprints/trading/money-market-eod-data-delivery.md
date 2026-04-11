@@ -31,42 +31,42 @@ description: "End-of-day money market instrument reference data delivery via FTP
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `instrument_numeric_key` | number | Yes |  |  |
-| `record_type` | text | Yes |  |  |
-| `sub_type` | text | Yes |  |  |
-| `continuation_sequence_number` | number | Yes |  |  |
-| `run_date` | date | Yes |  |  |
-| `isin` | text | Yes |  |  |
-| `filler_header` | text | No |  |  |
-| `instrument_alpha_code` | text | Yes |  |  |
-| `mmd01_isin` | text | Yes |  |  |
-| `issuer_name` | text | Yes |  |  |
-| `mmi_type` | text | Yes |  |  |
-| `mmi_category` | text | Yes |  |  |
-| `short_name` | text | Yes |  |  |
-| `long_name` | text | Yes |  |  |
-| `instrument_status` | select | Yes |  |  |
-| `issued_amount` | number | No |  |  |
-| `issue_date` | date | No |  |  |
-| `coupon_rate` | number | No |  |  |
-| `coupon_frequency_interval` | text | No |  |  |
-| `coupon_payment_cycle` | text | No |  |  |
-| `isin_maturity_date` | date | No |  |  |
-| `isin_coupon_payment_day` | number | No |  |  |
-| `coupon_compounding_frequency` | text | No |  |  |
-| `coupon_reset_frequency` | text | No |  |  |
-| `coupon_reset_start_date` | date | No |  |  |
-| `coupon_source` | text | No |  |  |
-| `coupon_variance_from_source` | number | No |  |  |
-| `coupon_variance_unit` | select | No |  |  |
-| `currency` | text | No |  |  |
-| `floor_rate` | number | No |  |  |
-| `cap_rate` | number | No |  |  |
-| `mmd02_instrument_alpha_code` | text | No |  |  |
-| `reset_date` | date | No |  |  |
-| `reset_rate` | number | No |  |  |
-| `mmd03_instrument_alpha_code` | text | No |  |  |
-| `payment_date` | date | No |  |  |
+| `instrument_numeric_key` | number | Yes | Instrument Numeric Key |  |
+| `record_type` | text | Yes | Record Type |  |
+| `sub_type` | text | Yes | Sub Type |  |
+| `continuation_sequence_number` | number | Yes | Continuation Sequence Number |  |
+| `run_date` | date | Yes | Run Date |  |
+| `isin` | text | Yes | Isin |  |
+| `filler_header` | text | No | Filler Header |  |
+| `instrument_alpha_code` | text | Yes | Instrument Alpha Code |  |
+| `mmd01_isin` | text | Yes | Mmd01 Isin |  |
+| `issuer_name` | text | Yes | Issuer Name |  |
+| `mmi_type` | text | Yes | Mmi Type |  |
+| `mmi_category` | text | Yes | Mmi Category |  |
+| `short_name` | text | Yes | Short Name |  |
+| `long_name` | text | Yes | Long Name |  |
+| `instrument_status` | select | Yes | Instrument Status |  |
+| `issued_amount` | number | No | Issued Amount |  |
+| `issue_date` | date | No | Issue Date |  |
+| `coupon_rate` | number | No | Coupon Rate |  |
+| `coupon_frequency_interval` | text | No | Coupon Frequency Interval |  |
+| `coupon_payment_cycle` | text | No | Coupon Payment Cycle |  |
+| `isin_maturity_date` | date | No | Isin Maturity Date |  |
+| `isin_coupon_payment_day` | number | No | Isin Coupon Payment Day |  |
+| `coupon_compounding_frequency` | text | No | Coupon Compounding Frequency |  |
+| `coupon_reset_frequency` | text | No | Coupon Reset Frequency |  |
+| `coupon_reset_start_date` | date | No | Coupon Reset Start Date |  |
+| `coupon_source` | text | No | Coupon Source |  |
+| `coupon_variance_from_source` | number | No | Coupon Variance From Source |  |
+| `coupon_variance_unit` | select | No | Coupon Variance Unit |  |
+| `currency` | text | No | Currency |  |
+| `floor_rate` | number | No | Floor Rate |  |
+| `cap_rate` | number | No | Cap Rate |  |
+| `mmd02_instrument_alpha_code` | text | No | Mmd02 Instrument Alpha Code |  |
+| `reset_date` | date | No | Reset Date |  |
+| `reset_rate` | number | No | Reset Rate |  |
+| `mmd03_instrument_alpha_code` | text | No | Mmd03 Instrument Alpha Code |  |
+| `payment_date` | date | No | Payment Date |  |
 
 ## Rules
 
@@ -103,7 +103,7 @@ description: "End-of-day money market instrument reference data delivery via FTP
 
 ## Outcomes
 
-### Successful_eod_delivery
+### Successful_eod_delivery (Priority: 10)
 
 **Given:**
 - subscriber is licensed and provisioned
@@ -116,7 +116,7 @@ description: "End-of-day money market instrument reference data delivery via FTP
 
 **Result:** subscriber receives complete money market instrument reference data
 
-### Successful_intraday_delivery
+### Successful_intraday_delivery (Priority: 11)
 
 **Given:**
 - subscriber is licensed and provisioned
@@ -128,7 +128,7 @@ description: "End-of-day money market instrument reference data delivery via FTP
 
 **Result:** subscriber receives intraday priority coupon rate updates
 
-### Subscriber_provisioned
+### Subscriber_provisioned (Priority: 12)
 
 **Given:**
 - prospective subscriber has contacted Market Data Department

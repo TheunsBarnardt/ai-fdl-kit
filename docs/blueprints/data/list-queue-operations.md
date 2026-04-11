@@ -29,13 +29,13 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `key` | text | Yes |  |  |
-| `elements` | json | No |  |  |
-| `length` | number | No |  |  |
-| `head_index` | number | No |  |  |
-| `tail_index` | number | No |  |  |
-| `is_blocking` | boolean | No |  |  |
-| `block_timeout_ms` | number | No |  |  |
+| `key` | text | Yes | Key |  |
+| `elements` | json | No | Elements |  |
+| `length` | number | No | Length |  |
+| `head_index` | number | No | Head Index |  |
+| `tail_index` | number | No | Tail Index |  |
+| `is_blocking` | boolean | No | Is Blocking |  |
+| `block_timeout_ms` | number | No | Block Timeout Ms |  |
 
 ## States
 
@@ -48,14 +48,7 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 ## Rules
 
-- List can be accessed from both ends (head and tail) in O(1) time
-- Indices support negative values (-1 = last element, -2 = second-to-last, etc.)
-- LTRIM removes elements from both ends simultaneously; intermediate indices unclamped
-- Blocking operations (BLPOP, BRPOP, etc.) suspend client until data available or timeout
-- When list becomes empty after pop/trim, key is automatically deleted
-- LMOVE and BLMOVE atomically pop from source and push to destination
-- Range indices clamped to valid bounds; out-of-range ranges return empty results
-- All operations are atomic with respect to individual keys
+- **general:** List can be accessed from both ends (head and tail) in O(1) time, Indices support negative values (-1 = last element, -2 = second-to-last, etc.), LTRIM removes elements from both ends simultaneously; intermediate indices unclamped, Blocking operations (BLPOP, BRPOP, etc.) suspend client until data available or timeout, When list becomes empty after pop/trim, key is automatically deleted, LMOVE and BLMOVE atomically pop from source and push to destination, Range indices clamped to valid bounds; out-of-range ranges return empty results, All operations are atomic with respect to individual keys
 
 ## Outcomes
 

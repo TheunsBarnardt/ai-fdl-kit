@@ -205,7 +205,7 @@ description: "Recurring subscription lifecycle with plan tiers, billing cycles, 
 
 **Result:** All retry attempts failed, subscription suspended
 
-### Subscription_canceled (Priority: 9)
+### Subscription_canceled (Priority: 9) — Error: `SUBSCRIPTION_CANCELED`
 
 **Given:**
 - customer requests cancellation

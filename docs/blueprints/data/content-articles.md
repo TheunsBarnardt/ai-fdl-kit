@@ -32,22 +32,22 @@ description: "Blog and news article system for advisors and portfolio managers t
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `article_id` | text | Yes |  | Validations: required |
-| `title` | text | Yes |  | Validations: required, maxLength |
-| `slug` | text | Yes |  | Validations: pattern |
-| `excerpt` | text | Yes |  | Validations: maxLength |
-| `body` | rich_text | Yes |  | Validations: required |
-| `cover_image_url` | url | No |  |  |
-| `author_id` | text | Yes |  |  |
-| `author_name` | text | Yes |  |  |
-| `author_role` | select | Yes |  |  |
-| `category` | select | Yes |  |  |
+| `article_id` | text | Yes | Article Id | Validations: required |
+| `title` | text | Yes | Title | Validations: required, maxLength |
+| `slug` | text | Yes | Slug | Validations: pattern |
+| `excerpt` | text | Yes | Excerpt | Validations: maxLength |
+| `body` | rich_text | Yes | Body | Validations: required |
+| `cover_image_url` | url | No | Cover Image Url |  |
+| `author_id` | text | Yes | Author Id |  |
+| `author_name` | text | Yes | Author Name |  |
+| `author_role` | select | Yes | Author Role |  |
+| `category` | select | Yes | Category |  |
 | `tags` | json | No | Article Tags |  |
 | `related_product_ids` | json | No | Related Products |  |
-| `target_audience` | select | Yes |  |  |
-| `status` | select | Yes |  |  |
-| `published_at` | datetime | No |  |  |
-| `is_featured` | boolean | No |  |  |
+| `target_audience` | select | Yes | Target Audience |  |
+| `status` | select | Yes | Status |  |
+| `published_at` | datetime | No | Published At |  |
+| `is_featured` | boolean | No | Is Featured |  |
 
 ## Rules
 
@@ -71,7 +71,7 @@ description: "Blog and news article system for advisors and portfolio managers t
 
 **Result:** Article created in draft status
 
-### Publish_article (Priority: 20)
+### Publish_article (Priority: 20) — Error: `ARTICLE_ALREADY_PUBLISHED`
 
 **Given:**
 - `article_id` (input) exists
@@ -96,7 +96,7 @@ description: "Blog and news article system for advisors and portfolio managers t
 
 **Result:** Return published articles visible to this client based on audience rules
 
-### List_articles_author (Priority: 31)
+### List_articles_author (Priority: 31) — Error: `ARTICLE_UNAUTHORIZED`
 
 **Given:**
 - `user.role` (session) in `IFA,Portfolio Manager,Admin`

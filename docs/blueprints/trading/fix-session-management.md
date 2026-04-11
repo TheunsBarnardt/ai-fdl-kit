@@ -31,17 +31,17 @@ description: "Manages stateful FIX protocol sessions including logon/logout life
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `sender_comp_id` | text | Yes |  |  |
-| `target_comp_id` | text | Yes |  |  |
-| `begin_string` | select | Yes |  |  |
-| `session_qualifier` | text | No |  |  |
-| `heartbeat_interval` | number | Yes |  |  |
-| `logon_timeout` | number | No |  |  |
-| `logout_timeout` | number | No |  |  |
-| `next_sender_seq_num` | number | No |  |  |
-| `next_target_seq_num` | number | No |  |  |
-| `reset_seq_num_flag` | boolean | No |  |  |
-| `default_appl_ver_id` | text | No |  |  |
+| `sender_comp_id` | text | Yes | Sender Comp Id |  |
+| `target_comp_id` | text | Yes | Target Comp Id |  |
+| `begin_string` | select | Yes | Begin String |  |
+| `session_qualifier` | text | No | Session Qualifier |  |
+| `heartbeat_interval` | number | Yes | Heartbeat Interval |  |
+| `logon_timeout` | number | No | Logon Timeout |  |
+| `logout_timeout` | number | No | Logout Timeout |  |
+| `next_sender_seq_num` | number | No | Next Sender Seq Num |  |
+| `next_target_seq_num` | number | No | Next Target Seq Num |  |
+| `reset_seq_num_flag` | boolean | No | Reset Seq Num Flag |  |
+| `default_appl_ver_id` | text | No | Default Appl Ver Id |  |
 
 ## States
 
@@ -177,7 +177,7 @@ Keepalive mechanism to detect dead connections
 
 **Result:** Session terminated due to heartbeat timeout
 
-### Sequence_gap_detected (Priority: 7)
+### Sequence_gap_detected (Priority: 7) — Error: `SEQUENCE_GAP`
 
 **Given:**
 - message received with sequence number higher than expected

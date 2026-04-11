@@ -107,7 +107,7 @@ description: "Customer self-ordering system supporting kiosk terminals and mobil
 
 ## Outcomes
 
-### Mobile_order_placed (Priority: 1)
+### Mobile_order_placed (Priority: 1) — Error: `SELF_ORDER_ORDER_NOT_FOUND`
 
 **Given:**
 - customer scans table QR code containing table identifier and access token

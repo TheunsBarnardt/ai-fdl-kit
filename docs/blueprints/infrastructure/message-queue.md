@@ -96,7 +96,7 @@ description: "Process asynchronous jobs and events through a provider-agnostic m
 
 **Result:** Message returned to queue with incremented retry count; exponential backoff delay applied
 
-### Message_dead_lettered (Priority: 5)
+### Message_dead_lettered (Priority: 5) — Error: `DEAD_LETTER_QUEUE_FULL`
 
 **Given:**
 - `retry_count` (db) gte `max_retries`

@@ -33,75 +33,75 @@ description: "End-of-day SENS announcements delivery via NewsML-G2 XML — text 
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `news_item_guid` | text | Yes |  |  |
-| `standard_attr` | text | Yes |  |  |
-| `standard_version` | text | Yes |  |  |
-| `conformance` | text | Yes |  |  |
-| `xml_lang` | text | Yes |  |  |
-| `catalog_ref` | url | Yes |  |  |
-| `usage_terms` | text | Yes |  |  |
-| `item_class` | select | Yes |  |  |
-| `provider` | text | Yes |  |  |
-| `version_created` | datetime | Yes |  |  |
-| `first_created` | datetime | Yes |  |  |
-| `embargoed` | datetime | No |  |  |
-| `pub_status` | select | Yes |  |  |
-| `file_name` | text | Yes |  |  |
-| `generator_name` | text | No |  |  |
-| `generator_version` | text | No |  |  |
-| `service` | select | Yes |  |  |
-| `signal` | select | No |  |  |
-| `link_resid_ref` | text | No |  |  |
-| `alt_id_ann_no` | text | No |  |  |
-| `alt_id_ann_ref_no` | text | No |  |  |
-| `urgency` | select | Yes |  |  |
-| `content_created` | datetime | Yes |  |  |
-| `located` | text | Yes |  |  |
-| `info_source_org_id` | text | No |  |  |
-| `creator_org_id` | text | No |  |  |
-| `audience_prd_cde` | select | Yes |  |  |
-| `language_tag` | text | Yes |  |  |
-| `genre_rel_typ` | text | No |  |  |
-| `headline` | text | Yes |  |  |
-| `announcement_type_qcode` | text | Yes |  |  |
-| `announcement_sub_type_qcode` | text | No |  |  |
-| `company_org_id` | text | No |  |  |
-| `instrument_num_code` | text | No |  |  |
-| `announcement_regulatory_code` | select | Yes |  |  |
-| `price_sensitivity_indicator` | select | Yes |  |  |
-| `announcement_group_code` | select | No |  |  |
-| `company_rel_seq` | number | No |  |  |
-| `company_role` | select | No |  |  |
-| `company_role_on_mic` | text | No |  |  |
-| `company_registered_in` | text | No |  |  |
-| `company_alpha_code` | text | No |  |  |
-| `company_short_name` | text | No |  |  |
-| `company_full_name` | text | No |  |  |
-| `instrument_issued_by` | text | No |  |  |
-| `instrument_issued_in` | text | No |  |  |
-| `instrument_listing_type` | select | No |  |  |
-| `instrument_listed_on_mic` | text | No |  |  |
-| `instrument_market_type` | text | No |  |  |
-| `instrument_board_type` | text | No |  |  |
-| `instrument_icb_subsector` | text | No |  |  |
-| `instrument_isin` | text | No |  |  |
-| `instrument_future_isin` | text | No |  |  |
-| `instrument_tidm` | text | No |  |  |
-| `instrument_alpha_code` | text | No |  |  |
-| `instrument_short_name` | text | No |  |  |
-| `instrument_full_name` | text | No |  |  |
-| `inline_data_content_type` | select | No |  |  |
-| `inline_data` | rich_text | No |  |  |
-| `remote_content_type` | select | No |  |  |
-| `remote_content_size` | number | No |  |  |
-| `remote_content_href` | text | No |  |  |
-| `package_item_guid` | text | No |  |  |
-| `package_headline` | text | No |  |  |
-| `package_genre` | text | No |  |  |
-| `group_id` | text | No |  |  |
-| `group_role` | select | No |  |  |
-| `item_ref_resid_ref` | text | No |  |  |
-| `item_ref_href` | text | No |  |  |
+| `news_item_guid` | text | Yes | News Item Guid |  |
+| `standard_attr` | text | Yes | Standard Attr |  |
+| `standard_version` | text | Yes | Standard Version |  |
+| `conformance` | text | Yes | Conformance |  |
+| `xml_lang` | text | Yes | Xml Lang |  |
+| `catalog_ref` | url | Yes | Catalog Ref |  |
+| `usage_terms` | text | Yes | Usage Terms |  |
+| `item_class` | select | Yes | Item Class |  |
+| `provider` | text | Yes | Provider |  |
+| `version_created` | datetime | Yes | Version Created |  |
+| `first_created` | datetime | Yes | First Created |  |
+| `embargoed` | datetime | No | Embargoed |  |
+| `pub_status` | select | Yes | Pub Status |  |
+| `file_name` | text | Yes | File Name |  |
+| `generator_name` | text | No | Generator Name |  |
+| `generator_version` | text | No | Generator Version |  |
+| `service` | select | Yes | Service |  |
+| `signal` | select | No | Signal |  |
+| `link_resid_ref` | text | No | Link Resid Ref |  |
+| `alt_id_ann_no` | text | No | Alt Id Ann No |  |
+| `alt_id_ann_ref_no` | text | No | Alt Id Ann Ref No |  |
+| `urgency` | select | Yes | Urgency |  |
+| `content_created` | datetime | Yes | Content Created |  |
+| `located` | text | Yes | Located |  |
+| `info_source_org_id` | text | No | Info Source Org Id |  |
+| `creator_org_id` | text | No | Creator Org Id |  |
+| `audience_prd_cde` | select | Yes | Audience Prd Cde |  |
+| `language_tag` | text | Yes | Language Tag |  |
+| `genre_rel_typ` | text | No | Genre Rel Typ |  |
+| `headline` | text | Yes | Headline |  |
+| `announcement_type_qcode` | text | Yes | Announcement Type Qcode |  |
+| `announcement_sub_type_qcode` | text | No | Announcement Sub Type Qcode |  |
+| `company_org_id` | text | No | Company Org Id |  |
+| `instrument_num_code` | text | No | Instrument Num Code |  |
+| `announcement_regulatory_code` | select | Yes | Announcement Regulatory Code |  |
+| `price_sensitivity_indicator` | select | Yes | Price Sensitivity Indicator |  |
+| `announcement_group_code` | select | No | Announcement Group Code |  |
+| `company_rel_seq` | number | No | Company Rel Seq |  |
+| `company_role` | select | No | Company Role |  |
+| `company_role_on_mic` | text | No | Company Role On Mic |  |
+| `company_registered_in` | text | No | Company Registered In |  |
+| `company_alpha_code` | text | No | Company Alpha Code |  |
+| `company_short_name` | text | No | Company Short Name |  |
+| `company_full_name` | text | No | Company Full Name |  |
+| `instrument_issued_by` | text | No | Instrument Issued By |  |
+| `instrument_issued_in` | text | No | Instrument Issued In |  |
+| `instrument_listing_type` | select | No | Instrument Listing Type |  |
+| `instrument_listed_on_mic` | text | No | Instrument Listed On Mic |  |
+| `instrument_market_type` | text | No | Instrument Market Type |  |
+| `instrument_board_type` | text | No | Instrument Board Type |  |
+| `instrument_icb_subsector` | text | No | Instrument Icb Subsector |  |
+| `instrument_isin` | text | No | Instrument Isin |  |
+| `instrument_future_isin` | text | No | Instrument Future Isin |  |
+| `instrument_tidm` | text | No | Instrument Tidm |  |
+| `instrument_alpha_code` | text | No | Instrument Alpha Code |  |
+| `instrument_short_name` | text | No | Instrument Short Name |  |
+| `instrument_full_name` | text | No | Instrument Full Name |  |
+| `inline_data_content_type` | select | No | Inline Data Content Type |  |
+| `inline_data` | rich_text | No | Inline Data |  |
+| `remote_content_type` | select | No | Remote Content Type |  |
+| `remote_content_size` | number | No | Remote Content Size |  |
+| `remote_content_href` | text | No | Remote Content Href |  |
+| `package_item_guid` | text | No | Package Item Guid |  |
+| `package_headline` | text | No | Package Headline |  |
+| `package_genre` | text | No | Package Genre |  |
+| `group_id` | text | No | Group Id |  |
+| `group_role` | select | No | Group Role |  |
+| `item_ref_resid_ref` | text | No | Item Ref Resid Ref |  |
+| `item_ref_href` | text | No | Item Ref Href |  |
 
 ## Rules
 

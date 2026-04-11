@@ -3,7 +3,7 @@ title: "String Key Value Blueprint"
 layout: default
 parent: "Data"
 grand_parent: Blueprint Catalog
-description: "Store and retrieve arbitrary-length string values with atomic increment, decrement, append, and range operations. 6 fields. 22 outcomes. 6 error codes. rules: 0"
+description: "Store and retrieve arbitrary-length string values with atomic increment, decrement, append, and range operations. 6 fields. 22 outcomes. 6 error codes. rules: g"
 ---
 
 # String Key Value Blueprint
@@ -29,12 +29,12 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `key` | text | Yes |  |  |
-| `value` | text | No |  |  |
-| `ttl_milliseconds` | number | No |  |  |
-| `is_numeric` | boolean | No |  |  |
-| `old_value` | text | No |  |  |
-| `encoding` | select | No |  |  |
+| `key` | text | Yes | Key |  |
+| `value` | text | No | Value |  |
+| `ttl_milliseconds` | number | No | Ttl Milliseconds |  |
+| `is_numeric` | boolean | No | Is Numeric |  |
+| `old_value` | text | No | Old Value |  |
+| `encoding` | select | No | Encoding |  |
 
 ## States
 
@@ -47,13 +47,7 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 ## Rules
 
-- String size cannot exceed 512 MB (configurable via proto_max_bulk_len)
-- Numeric operations (INCR, DECR) require value to be a valid 64-bit signed integer; otherwise fail with syntax error
-- Increment/decrement values must fit in [-2^63, 2^63-1]; overflow checked and rejected with error
-- Floating-point increment (INCRBYFLOAT) parsed as long double; operations returning NaN or Infinity fail
-- APPEND and SETRANGE extend string with zero-padding if needed; SETRANGE with negative offset rejected
-- All operations are atomic—no partial states visible to concurrent clients
-- SET with NX (if-not-exists) and XX (if-exists) conditions are mutually exclusive
+- **general:** String size cannot exceed 512 MB (configurable via proto_max_bulk_len), Numeric operations (INCR, DECR) require value to be a valid 64-bit signed integer; otherwise fail with syntax error, Increment/decrement values must fit in [-2^63, 2^63-1]; overflow checked and rejected with error, Floating-point increment (INCRBYFLOAT) parsed as long double; operations returning NaN or Infinity fail, APPEND and SETRANGE extend string with zero-padding if needed; SETRANGE with negative offset rejected, All operations are atomic—no partial states visible to concurrent clients, SET with NX (if-not-exists) and XX (if-exists) conditions are mutually exclusive
 
 ## Outcomes
 
@@ -139,7 +133,7 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 **Result:** value unchanged; client receives nil
 
-### Append_to_string (Priority: 20)
+### Append_to_string (Priority: 20) — Error: `STRING_TOO_LARGE`
 
 **Given:**
 - APPEND command
@@ -426,7 +420,7 @@ source:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "String Key Value Blueprint",
-  "description": "Store and retrieve arbitrary-length string values with atomic increment, decrement, append, and range operations. 6 fields. 22 outcomes. 6 error codes. rules: 0",
+  "description": "Store and retrieve arbitrary-length string values with atomic increment, decrement, append, and range operations. 6 fields. 22 outcomes. 6 error codes. rules: g",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

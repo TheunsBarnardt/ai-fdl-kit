@@ -69,7 +69,7 @@ description: "Cloud storage abstraction with signed URLs, virus scanning, conten
 
 ## Outcomes
 
-### File_uploaded (Priority: 1)
+### File_uploaded (Priority: 1) — Error: `FILE_UPLOAD_URL_EXPIRED`
 
 **Given:**
 - a file upload request is received

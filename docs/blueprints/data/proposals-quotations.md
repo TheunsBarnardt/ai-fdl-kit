@@ -31,27 +31,27 @@ description: "Creation, management, and approval workflow for investment proposa
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `proposal_id` | number | Yes |  | Validations: required |
-| `crm_number` | text | Yes |  | Validations: required, pattern |
-| `proposal_name` | text | Yes |  | Validations: required, maxLength |
-| `client_id` | text | Yes |  | Validations: required |
-| `first_name` | text | Yes |  | Validations: required |
-| `last_name` | text | Yes |  | Validations: required |
-| `email` | email | Yes |  | Validations: required, email |
-| `mobile_phone` | phone | Yes |  | Validations: required, phone |
-| `identification_number` | text | Yes |  | Validations: required |
-| `passport_number` | text | No |  |  |
-| `portfolio_manager_id` | text | Yes |  | Validations: required |
-| `portfolio_manager_name` | text | Yes |  | Validations: required |
-| `relationship_team_id` | text | Yes |  | Validations: required |
-| `product_id` | number | Yes |  | Validations: required |
-| `product_name` | text | Yes |  | Validations: required |
-| `asset_manager_id` | number | Yes |  | Validations: required |
-| `document_id` | text | Yes |  | Validations: required |
-| `document_name` | text | Yes |  | Validations: required |
-| `status` | select | Yes |  | Validations: required |
-| `client_comment` | rich_text | No |  | Validations: maxLength |
-| `created_at` | datetime | Yes |  | Validations: required |
+| `proposal_id` | number | Yes | Proposal Id | Validations: required |
+| `crm_number` | text | Yes | Crm Number | Validations: required, pattern |
+| `proposal_name` | text | Yes | Proposal Name | Validations: required, maxLength |
+| `client_id` | text | Yes | Client Id | Validations: required |
+| `first_name` | text | Yes | First Name | Validations: required |
+| `last_name` | text | Yes | Last Name | Validations: required |
+| `email` | email | Yes | Email | Validations: required, email |
+| `mobile_phone` | phone | Yes | Mobile Phone | Validations: required, phone |
+| `identification_number` | text | Yes | Identification Number | Validations: required |
+| `passport_number` | text | No | Passport Number |  |
+| `portfolio_manager_id` | text | Yes | Portfolio Manager Id | Validations: required |
+| `portfolio_manager_name` | text | Yes | Portfolio Manager Name | Validations: required |
+| `relationship_team_id` | text | Yes | Relationship Team Id | Validations: required |
+| `product_id` | number | Yes | Product Id | Validations: required |
+| `product_name` | text | Yes | Product Name | Validations: required |
+| `asset_manager_id` | number | Yes | Asset Manager Id | Validations: required |
+| `document_id` | text | Yes | Document Id | Validations: required |
+| `document_name` | text | Yes | Document Name | Validations: required |
+| `status` | select | Yes | Status | Validations: required |
+| `client_comment` | rich_text | No | Client Comment | Validations: maxLength |
+| `created_at` | datetime | Yes | Created At | Validations: required |
 
 ## States
 

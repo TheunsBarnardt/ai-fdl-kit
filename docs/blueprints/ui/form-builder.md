@@ -119,7 +119,7 @@ description: "Dynamic form creation and rendering with drag-and-drop field place
 
 **Result:** Field shows or hides dynamically based on the condition at render time
 
-### Form_published (Priority: 5)
+### Form_published (Priority: 5) — Error: `FORM_NOT_PUBLISHED`
 
 **Given:**
 - form is in draft status

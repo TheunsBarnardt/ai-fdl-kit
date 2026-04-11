@@ -31,64 +31,64 @@ description: "End-of-day bonds market data delivery via FTP — CSV/XLS formats 
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `trade_date` | date | Yes |  |  |
-| `settlement_date` | date | Yes |  |  |
-| `bond_code` | text | Yes |  |  |
-| `isin_code` | text | Yes |  |  |
-| `maturity` | date | Yes |  |  |
-| `coupon` | number | Yes |  |  |
-| `companion_bond` | text | No |  |  |
-| `bp_spread` | number | No |  |  |
-| `mtm` | number | Yes |  |  |
-| `all_in_price` | number | Yes |  |  |
-| `clean_price` | number | Yes |  |  |
-| `accrued_interest` | number | Yes |  |  |
-| `year_high_yield` | number | No |  |  |
-| `year_low_yield` | number | No |  |  |
-| `return_ytd` | number | No |  |  |
-| `duration` | number | No |  |  |
-| `modified_duration` | number | No |  |  |
-| `delta` | number | No |  |  |
-| `rand_per_basis_point` | number | No |  |  |
-| `convexity` | number | No |  |  |
-| `yield_volatility` | number | No |  |  |
-| `yield_price_indicator` | text | No |  |  |
-| `last_trade_date` | date | No |  |  |
-| `last_mtm_change_date` | date | No |  |  |
-| `index_ratio` | number | No |  |  |
-| `base_cpi` | number | No |  |  |
-| `reference_cpi` | number | No |  |  |
-| `mtm_process_methodology` | text | No |  |  |
-| `mtm_change` | text | No |  |  |
-| `curve_date` | date | Yes |  |  |
-| `period` | text | No |  |  |
-| `bond_curve_nacc` | number | No |  |  |
-| `swap_curve_nacc` | number | No |  |  |
-| `real_curve_nacc` | number | No |  |  |
-| `nominal_swap_nacq` | number | No |  |  |
-| `nominal_bond_nacs` | number | No |  |  |
-| `real_bond_nacs` | number | No |  |  |
-| `curve_code` | text | No |  |  |
-| `curve_mtm` | number | No |  |  |
-| `time_to_maturity` | date | No |  |  |
-| `yield_to_maturity` | number | No |  |  |
-| `statistic_date` | date | No |  |  |
-| `trade_time` | text | No |  |  |
-| `instrument` | text | No |  |  |
-| `yield` | number | No |  |  |
-| `nominal` | number | No |  |  |
-| `consideration` | number | No |  |  |
-| `carry_rate` | number | No |  |  |
-| `trade_type` | select | No |  |  |
-| `buy_party` | select | No |  |  |
-| `sell_party` | select | No |  |  |
-| `settlement` | date | No |  |  |
-| `period_settlement` | text | No |  |  |
-| `spread` | number | No |  |  |
-| `trade_clean_price` | number | No |  |  |
-| `deals` | number | No |  |  |
-| `member_client` | select | No |  |  |
-| `party` | select | No |  |  |
+| `trade_date` | date | Yes | Trade Date |  |
+| `settlement_date` | date | Yes | Settlement Date |  |
+| `bond_code` | text | Yes | Bond Code |  |
+| `isin_code` | text | Yes | Isin Code |  |
+| `maturity` | date | Yes | Maturity |  |
+| `coupon` | number | Yes | Coupon |  |
+| `companion_bond` | text | No | Companion Bond |  |
+| `bp_spread` | number | No | Bp Spread |  |
+| `mtm` | number | Yes | Mtm |  |
+| `all_in_price` | number | Yes | All In Price |  |
+| `clean_price` | number | Yes | Clean Price |  |
+| `accrued_interest` | number | Yes | Accrued Interest |  |
+| `year_high_yield` | number | No | Year High Yield |  |
+| `year_low_yield` | number | No | Year Low Yield |  |
+| `return_ytd` | number | No | Return Ytd |  |
+| `duration` | number | No | Duration |  |
+| `modified_duration` | number | No | Modified Duration |  |
+| `delta` | number | No | Delta |  |
+| `rand_per_basis_point` | number | No | Rand Per Basis Point |  |
+| `convexity` | number | No | Convexity |  |
+| `yield_volatility` | number | No | Yield Volatility |  |
+| `yield_price_indicator` | text | No | Yield Price Indicator |  |
+| `last_trade_date` | date | No | Last Trade Date |  |
+| `last_mtm_change_date` | date | No | Last Mtm Change Date |  |
+| `index_ratio` | number | No | Index Ratio |  |
+| `base_cpi` | number | No | Base Cpi |  |
+| `reference_cpi` | number | No | Reference Cpi |  |
+| `mtm_process_methodology` | text | No | Mtm Process Methodology |  |
+| `mtm_change` | text | No | Mtm Change |  |
+| `curve_date` | date | Yes | Curve Date |  |
+| `period` | text | No | Period |  |
+| `bond_curve_nacc` | number | No | Bond Curve Nacc |  |
+| `swap_curve_nacc` | number | No | Swap Curve Nacc |  |
+| `real_curve_nacc` | number | No | Real Curve Nacc |  |
+| `nominal_swap_nacq` | number | No | Nominal Swap Nacq |  |
+| `nominal_bond_nacs` | number | No | Nominal Bond Nacs |  |
+| `real_bond_nacs` | number | No | Real Bond Nacs |  |
+| `curve_code` | text | No | Curve Code |  |
+| `curve_mtm` | number | No | Curve Mtm |  |
+| `time_to_maturity` | date | No | Time To Maturity |  |
+| `yield_to_maturity` | number | No | Yield To Maturity |  |
+| `statistic_date` | date | No | Statistic Date |  |
+| `trade_time` | text | No | Trade Time |  |
+| `instrument` | text | No | Instrument |  |
+| `yield` | number | No | Yield |  |
+| `nominal` | number | No | Nominal |  |
+| `consideration` | number | No | Consideration |  |
+| `carry_rate` | number | No | Carry Rate |  |
+| `trade_type` | select | No | Trade Type |  |
+| `buy_party` | select | No | Buy Party |  |
+| `sell_party` | select | No | Sell Party |  |
+| `settlement` | date | No | Settlement |  |
+| `period_settlement` | text | No | Period Settlement |  |
+| `spread` | number | No | Spread |  |
+| `trade_clean_price` | number | No | Trade Clean Price |  |
+| `deals` | number | No | Deals |  |
+| `member_client` | select | No | Member Client |  |
+| `party` | select | No | Party |  |
 
 ## Rules
 

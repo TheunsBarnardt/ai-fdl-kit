@@ -32,19 +32,19 @@ description: "Persists all sent and received FIX messages with sequence numbers 
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `session_id` | text | Yes |  |  |
-| `msg_seq_num` | number | Yes |  |  |
-| `message_body` | text | Yes |  |  |
-| `next_sender_seq_num` | number | Yes |  |  |
-| `next_target_seq_num` | number | Yes |  |  |
-| `creation_time` | datetime | Yes |  |  |
-| `file_store_path` | text | No |  |  |
-| `db_host` | text | No |  |  |
-| `db_port` | number | No |  |  |
-| `db_name` | text | No |  |  |
-| `db_user` | text | No |  |  |
-| `db_password` | password | No |  |  |
-| `db_connection_pool` | boolean | No |  |  |
+| `session_id` | text | Yes | Session Id |  |
+| `msg_seq_num` | number | Yes | Msg Seq Num |  |
+| `message_body` | text | Yes | Message Body |  |
+| `next_sender_seq_num` | number | Yes | Next Sender Seq Num |  |
+| `next_target_seq_num` | number | Yes | Next Target Seq Num |  |
+| `creation_time` | datetime | Yes | Creation Time |  |
+| `file_store_path` | text | No | File Store Path |  |
+| `db_host` | text | No | Db Host |  |
+| `db_port` | number | No | Db Port |  |
+| `db_name` | text | No | Db Name |  |
+| `db_user` | text | No | Db User |  |
+| `db_password` | password | No | Db Password |  |
+| `db_connection_pool` | boolean | No | Db Connection Pool |  |
 
 ## Rules
 

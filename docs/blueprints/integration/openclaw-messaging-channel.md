@@ -198,7 +198,7 @@ Trust: admin agent or explicit approval.
 
 **Result:** Message normalized and routed to agent
 
-### Message_sent (Priority: 1) | Transaction: atomic
+### Message_sent (Priority: 1) — Error: `MESSAGE_NOT_SENT` | Transaction: atomic
 
 **Given:**
 - platform API accepted message
@@ -209,7 +209,7 @@ Trust: admin agent or explicit approval.
 
 **Result:** Message delivered to platform
 
-### Rate_limit_handling (Priority: 2)
+### Rate_limit_handling (Priority: 2) — Error: `PLATFORM_RATE_LIMITED`
 
 **Given:**
 - platform returned 429 or rate limit header

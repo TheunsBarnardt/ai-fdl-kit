@@ -111,7 +111,7 @@ description: "Product configuration with attributes, variant generation, exclusi
 
 **Result:** Invalid combination prevented before order line creation
 
-### Variant_selected_always_mode (Priority: 2)
+### Variant_selected_always_mode (Priority: 2) — Error: `CONFIGURATOR_VARIANT_MODE_LOCKED`
 
 **Given:**
 - buyer selects a combination of attribute values

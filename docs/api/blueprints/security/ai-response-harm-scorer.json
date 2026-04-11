@@ -1,0 +1,299 @@
+{
+  "feature": "ai-response-harm-scorer",
+  "version": "1.0.0",
+  "description": "Evaluate AI model responses for harm or policy violation using a pluggable scorer — binary, float-scale, LLM-as-judge, or human review. Results are stored for audit.",
+  "category": "security",
+  "tags": [
+    "llm",
+    "scorer",
+    "harm-detection",
+    "ai-safety",
+    "red-team",
+    "judge",
+    "evaluation"
+  ],
+  "actors": [
+    {
+      "id": "scorer",
+      "name": "Scorer",
+      "type": "system",
+      "description": "Evaluates a model response against a defined harm criterion."
+    },
+    {
+      "id": "red_team_operator",
+      "name": "Red-Team Operator",
+      "type": "human",
+      "description": "Configures scoring criteria and reviews edge-case results."
+    },
+    {
+      "id": "human_reviewer",
+      "name": "Human Reviewer",
+      "type": "human",
+      "description": "Manually reviews and overrides scores when the scorer requests human input."
+    },
+    {
+      "id": "target_model",
+      "name": "Target AI Model",
+      "type": "external",
+      "description": "The model whose response is being scored."
+    },
+    {
+      "id": "judge_model",
+      "name": "Judge Model",
+      "type": "external",
+      "description": "An AI model used as the scoring backend in LLM-as-judge mode."
+    }
+  ],
+  "fields": [
+    {
+      "name": "scorer_id",
+      "type": "text",
+      "required": true,
+      "label": "Scorer ID"
+    },
+    {
+      "name": "scorer_type",
+      "type": "select",
+      "required": true,
+      "label": "Scorer Type"
+    },
+    {
+      "name": "response_text",
+      "type": "rich_text",
+      "required": true,
+      "label": "Response to Score"
+    },
+    {
+      "name": "scoring_criteria",
+      "type": "rich_text",
+      "required": true,
+      "label": "Harm Criterion"
+    },
+    {
+      "name": "score_value",
+      "type": "text",
+      "required": false,
+      "label": "Score Value"
+    },
+    {
+      "name": "score_rationale",
+      "type": "rich_text",
+      "required": false,
+      "label": "Score Rationale"
+    },
+    {
+      "name": "score_threshold",
+      "type": "number",
+      "required": false,
+      "label": "Harm Threshold"
+    }
+  ],
+  "rules": {
+    "scorer_types": {
+      "type_required": true,
+      "no_mixed_types_per_instance": true
+    },
+    "scoring": {
+      "float_scale_normalisation": "zero_to_one",
+      "binary_semantics": {
+        "true_means": "harmful_or_criteria_met",
+        "false_means": "safe_or_criteria_not_met"
+      },
+      "null_score_meaning": "scorer_could_not_determine"
+    },
+    "llm_judge": {
+      "structured_prompt_required": true
+    },
+    "human_scorer": {
+      "blocks_execution": true,
+      "resumes_on_reviewer_submission": true
+    },
+    "batch_scoring": {
+      "concurrent_processing": true,
+      "results_stored_independently": true
+    },
+    "audit": {
+      "rationale_stored_with_score": "required",
+      "immutability": true,
+      "correction_via_new_record": true
+    }
+  },
+  "outcomes": {
+    "scorer_config_invalid": {
+      "priority": 1,
+      "error": "SCORER_CONFIG_INVALID",
+      "given": [
+        {
+          "field": "scorer_type",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [],
+      "result": "Scorer fails to initialise; error is surfaced to the operator."
+    },
+    "response_ambiguous": {
+      "priority": 3,
+      "given": [
+        "scorer cannot determine a definitive score (response is ambiguous or off-topic)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "score_value",
+          "description": "Null score recorded."
+        },
+        {
+          "action": "emit_event",
+          "event": "security.scorer.ambiguous",
+          "payload": [
+            "scorer_id",
+            "scorer_type",
+            "response_text"
+          ]
+        }
+      ],
+      "result": "A null score is recorded; downstream aggregation treats null scores as inconclusive."
+    },
+    "human_review_requested": {
+      "priority": 4,
+      "given": [
+        "scorer_type is human"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "target": "human_reviewer",
+          "description": "Human reviewer is prompted to score the response."
+        }
+      ],
+      "result": "Execution is paused until the human reviewer submits a score."
+    },
+    "scored_harmful": {
+      "priority": 8,
+      "given": [
+        "scorer determines the response meets the harm criterion"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "score_entry",
+          "description": "Score stored with value, rationale, scorer ID, and timestamp."
+        },
+        {
+          "action": "emit_event",
+          "event": "security.scorer.harmful_detected",
+          "payload": [
+            "scorer_id",
+            "scorer_type",
+            "score_value",
+            "score_rationale"
+          ]
+        }
+      ],
+      "result": "Harmful score is recorded; downstream attack orchestrators use this to adapt strategy."
+    },
+    "scored_safe": {
+      "priority": 10,
+      "given": [
+        "scorer determines the response does not meet the harm criterion"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "score_entry",
+          "description": "Score stored with value, rationale, scorer ID, and timestamp."
+        },
+        {
+          "action": "emit_event",
+          "event": "security.scorer.safe",
+          "payload": [
+            "scorer_id",
+            "scorer_type",
+            "score_value"
+          ]
+        }
+      ],
+      "result": "Safe score is recorded; no further escalation required."
+    }
+  },
+  "errors": [
+    {
+      "code": "SCORER_CONFIG_INVALID",
+      "status": 422,
+      "message": "The scorer configuration is missing required fields or references an unknown scorer type."
+    },
+    {
+      "code": "SCORER_JUDGE_UNAVAILABLE",
+      "status": 503,
+      "message": "The judge model could not be reached. Scoring cannot proceed."
+    },
+    {
+      "code": "SCORER_INVALID_JSON",
+      "status": 422,
+      "message": "The judge model returned a response that could not be parsed as a valid score."
+    }
+  ],
+  "events": [
+    {
+      "name": "security.scorer.harmful_detected",
+      "description": "Emitted when a scorer determines the response meets the harm criterion.",
+      "payload": [
+        "scorer_id",
+        "scorer_type",
+        "score_value",
+        "score_rationale"
+      ]
+    },
+    {
+      "name": "security.scorer.safe",
+      "description": "Emitted when a scorer determines the response is safe.",
+      "payload": [
+        "scorer_id",
+        "scorer_type",
+        "score_value"
+      ]
+    },
+    {
+      "name": "security.scorer.ambiguous",
+      "description": "Emitted when a scorer cannot determine a definitive result.",
+      "payload": [
+        "scorer_id",
+        "scorer_type",
+        "response_text"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "multi-turn-attack-orchestration",
+      "type": "required",
+      "reason": "Attack strategies that use harm scores to adapt conversation turns."
+    },
+    {
+      "feature": "llm-vulnerability-scan",
+      "type": "optional",
+      "reason": "Scan pipeline that can use this scorer as a detector backend."
+    },
+    {
+      "feature": "redteam-conversation-memory",
+      "type": "recommended",
+      "reason": "Persists score records alongside conversation history for audit."
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/microsoft/PyRIT",
+      "project": "PyRIT — Python Risk Identification Tool",
+      "tech_stack": "Python 3.10+",
+      "files_traced": 15,
+      "entry_points": [
+        "pyrit/score/scorer.py",
+        "pyrit/score/true_false/",
+        "pyrit/score/float_scale/",
+        "pyrit/score/human/",
+        "pyrit/score/batch_scorer.py"
+      ]
+    }
+  }
+}

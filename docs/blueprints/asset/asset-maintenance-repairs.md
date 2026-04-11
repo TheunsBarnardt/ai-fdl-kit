@@ -69,7 +69,7 @@ description: "Asset maintenance scheduling and repair management with preventive
 
 ## Outcomes
 
-### Schedule_maintenance
+### Schedule_maintenance (Priority: 10)
 
 **Given:**
 - asset exists and is not in Draft status
@@ -81,7 +81,7 @@ description: "Asset maintenance scheduling and repair management with preventive
 
 **Result:** Maintenance schedule created with calendar events for each task
 
-### Complete_maintenance_task
+### Complete_maintenance_task (Priority: 11)
 
 **Given:**
 - maintenance task exists and is in Planned status
@@ -94,7 +94,7 @@ description: "Asset maintenance scheduling and repair management with preventive
 
 **Result:** Task marked complete, next cycle scheduled
 
-### Log_repair
+### Log_repair (Priority: 12)
 
 **Given:**
 - asset exists
@@ -106,7 +106,7 @@ description: "Asset maintenance scheduling and repair management with preventive
 
 **Result:** Repair logged and assigned for resolution
 
-### Capitalize_repair_cost — Error: `REPAIR_CAPITALIZE_INVALID`
+### Capitalize_repair_cost (Priority: 13) — Error: `REPAIR_CAPITALIZE_INVALID`
 
 **Given:**
 - repair is in Completed status
@@ -120,7 +120,7 @@ description: "Asset maintenance scheduling and repair management with preventive
 
 **Result:** Repair cost added to asset value with GL entries
 
-### Extend_asset_life
+### Extend_asset_life (Priority: 14)
 
 **Given:**
 - repair is in Completed status

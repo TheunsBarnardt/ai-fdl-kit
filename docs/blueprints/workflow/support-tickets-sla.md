@@ -113,7 +113,7 @@ description: "Support ticket management with SLA tracking, priority-based respon
 
 ## Outcomes
 
-### Create_issue
+### Create_issue (Priority: 10)
 
 **Given:**
 - subject and opening_date are provided
@@ -124,7 +124,7 @@ description: "Support ticket management with SLA tracking, priority-based respon
 
 **Result:** Support issue created and SLA assignment triggered
 
-### Assign_sla — Error: `ISSUE_SLA_NOT_FOUND`
+### Assign_sla (Priority: 11) — Error: `ISSUE_SLA_NOT_FOUND`
 
 **Given:**
 - issue exists and is Open
@@ -138,7 +138,7 @@ description: "Support ticket management with SLA tracking, priority-based respon
 
 **Result:** SLA assigned with calculated response and resolution deadlines
 
-### Track_response_time
+### Track_response_time (Priority: 12)
 
 **Given:**
 - issue exists and first_responded_on is not set
@@ -151,7 +151,7 @@ description: "Support ticket management with SLA tracking, priority-based respon
 
 **Result:** First response time recorded and compared against SLA
 
-### Resolve_issue
+### Resolve_issue (Priority: 13)
 
 **Given:**
 - issue exists and is not Closed
@@ -165,7 +165,7 @@ description: "Support ticket management with SLA tracking, priority-based respon
 
 **Result:** Issue resolved with SLA status determined
 
-### Close_issue — Error: `ISSUE_ALREADY_CLOSED`
+### Close_issue (Priority: 14) — Error: `ISSUE_ALREADY_CLOSED`
 
 **Given:**
 - issue is in Resolved status
@@ -175,7 +175,7 @@ description: "Support ticket management with SLA tracking, priority-based respon
 
 **Result:** Issue closed after resolution confirmation
 
-### Escalate_issue
+### Escalate_issue (Priority: 15)
 
 **Given:**
 - response_by or resolution_by deadline has passed
@@ -187,7 +187,7 @@ description: "Support ticket management with SLA tracking, priority-based respon
 
 **Result:** SLA marked as failed and escalation triggered
 
-### Create_warranty_claim — Error: `WARRANTY_SERIAL_INVALID`
+### Create_warranty_claim (Priority: 16) — Error: `WARRANTY_SERIAL_INVALID`
 
 **Given:**
 - warranty_customer and item_code are provided

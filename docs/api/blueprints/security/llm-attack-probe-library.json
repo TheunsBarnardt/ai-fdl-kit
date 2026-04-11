@@ -1,0 +1,275 @@
+{
+  "feature": "llm-attack-probe-library",
+  "version": "1.0.0",
+  "description": "Registry of modular attack probes for testing AI model vulnerabilities — each probe targets a category (jailbreak, prompt injection, data leakage, toxicity) and pairs with a detector.",
+  "category": "security",
+  "tags": [
+    "llm",
+    "probe",
+    "jailbreak",
+    "prompt-injection",
+    "toxicity",
+    "data-leakage",
+    "ai-safety",
+    "red-team"
+  ],
+  "actors": [
+    {
+      "id": "probe_registry",
+      "name": "Probe Registry",
+      "type": "system",
+      "description": "Discovers, loads, and manages all available probe types."
+    },
+    {
+      "id": "probe",
+      "name": "Attack Probe",
+      "type": "system",
+      "description": "Generates attack prompts for a specific vulnerability category."
+    },
+    {
+      "id": "target_model",
+      "name": "Target AI Model",
+      "type": "external",
+      "description": "Receives probe prompts and returns responses to be evaluated."
+    },
+    {
+      "id": "detector",
+      "name": "Detector",
+      "type": "system",
+      "description": "Scores model responses to determine if the attack triggered a vulnerability."
+    }
+  ],
+  "fields": [
+    {
+      "name": "probe_id",
+      "type": "text",
+      "required": true,
+      "label": "Probe ID"
+    },
+    {
+      "name": "probe_category",
+      "type": "select",
+      "required": true,
+      "label": "Vulnerability Category"
+    },
+    {
+      "name": "goal",
+      "type": "text",
+      "required": true,
+      "label": "Attack Goal"
+    },
+    {
+      "name": "prompt_template",
+      "type": "rich_text",
+      "required": true,
+      "label": "Prompt Template"
+    },
+    {
+      "name": "detector_id",
+      "type": "text",
+      "required": true,
+      "label": "Primary Detector"
+    },
+    {
+      "name": "language",
+      "type": "text",
+      "required": false,
+      "label": "Language (BCP-47)"
+    },
+    {
+      "name": "parallelisable",
+      "type": "boolean",
+      "required": false,
+      "label": "Allow Parallel Attempts"
+    },
+    {
+      "name": "tier",
+      "type": "select",
+      "required": false,
+      "label": "Probe Tier"
+    }
+  ],
+  "rules": {
+    "probe_requirements": {
+      "goal_required": true,
+      "primary_detector_required": true
+    },
+    "probe_execution": {
+      "prompt_sanitisation": "never",
+      "category_per_probe": "one",
+      "on_language_mismatch": "skip",
+      "on_no_prompts": "config_error"
+    },
+    "output_requirements": {
+      "fields_recorded": [
+        "generated_prompt",
+        "model_response",
+        "detector_score"
+      ],
+      "truncation": "never"
+    },
+    "tiers": {
+      "active_by_default": [
+        "of_concern",
+        "competitive"
+      ]
+    }
+  },
+  "outcomes": {
+    "probe_config_invalid": {
+      "priority": 1,
+      "error": "PROBE_CONFIG_INVALID",
+      "given": [
+        {
+          "field": "goal",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [],
+      "result": "Probe fails to load; error is logged and the probe is skipped in the scan run."
+    },
+    "prompt_generation_failed": {
+      "priority": 2,
+      "error": "PROBE_NO_PROMPTS",
+      "given": [
+        "probe cannot generate any attack prompts (missing dataset, template error)"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "security.probe.load_failed",
+          "payload": [
+            "probe_id",
+            "probe_category",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Probe is skipped; scan continues with remaining probes."
+    },
+    "attack_detected": {
+      "priority": 5,
+      "given": [
+        "probe submits at least one attack prompt to the target model",
+        "detector scores one or more responses above the failure threshold"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "probe_attempt",
+          "description": "Records prompt, response, detector name, score, and fail verdict."
+        },
+        {
+          "action": "emit_event",
+          "event": "security.probe.vulnerability_detected",
+          "payload": [
+            "probe_id",
+            "probe_category",
+            "attempt_id",
+            "detector_score"
+          ]
+        }
+      ],
+      "result": "Vulnerability is recorded; pass rate for this probe decreases."
+    },
+    "attack_not_triggered": {
+      "priority": 10,
+      "given": [
+        "all detector scores for this probe's attempts are below the failure threshold"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "probe_attempt",
+          "description": "Records prompt, response, detector name, score, and pass verdict."
+        },
+        {
+          "action": "emit_event",
+          "event": "security.probe.passed",
+          "payload": [
+            "probe_id",
+            "probe_category",
+            "attempt_count"
+          ]
+        }
+      ],
+      "result": "Probe passes; model did not produce the targeted failure mode."
+    }
+  },
+  "errors": [
+    {
+      "code": "PROBE_CONFIG_INVALID",
+      "status": 422,
+      "message": "The probe configuration is invalid or references an unknown category."
+    },
+    {
+      "code": "PROBE_NO_PROMPTS",
+      "status": 422,
+      "message": "The probe could not generate attack prompts. Check the probe's dataset or template."
+    }
+  ],
+  "events": [
+    {
+      "name": "security.probe.load_failed",
+      "description": "Emitted when a probe fails to load due to configuration or dependency error.",
+      "payload": [
+        "probe_id",
+        "probe_category",
+        "reason"
+      ]
+    },
+    {
+      "name": "security.probe.vulnerability_detected",
+      "description": "Emitted when a detector determines the model produced a vulnerable response.",
+      "payload": [
+        "probe_id",
+        "probe_category",
+        "attempt_id",
+        "detector_score"
+      ]
+    },
+    {
+      "name": "security.probe.passed",
+      "description": "Emitted when all attempts in a probe pass without triggering the vulnerability.",
+      "payload": [
+        "probe_id",
+        "probe_category",
+        "attempt_count"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "llm-vulnerability-scan",
+      "type": "required",
+      "reason": "The orchestration pipeline that loads and executes probes."
+    },
+    {
+      "feature": "prompt-attack-augmentation",
+      "type": "optional",
+      "reason": "Augmentations that transform probe prompts before submission."
+    },
+    {
+      "feature": "security-scan-report",
+      "type": "recommended",
+      "reason": "Aggregates probe results into a human-readable scan report."
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/NVIDIA/garak",
+      "project": "garak — LLM vulnerability scanner",
+      "tech_stack": "Python 3.10+",
+      "files_traced": 40,
+      "entry_points": [
+        "garak/probes/base.py",
+        "garak/probes/promptinject.py",
+        "garak/probes/dan.py",
+        "garak/probes/leakreplay.py",
+        "garak/detectors/base.py",
+        "garak/detectors/judge.py"
+      ]
+    }
+  }
+}

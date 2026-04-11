@@ -91,7 +91,7 @@ description: "Shopping cart and checkout flow with stock reservation, guest cart
 
 ## Outcomes
 
-### Item_added_to_cart (Priority: 1)
+### Item_added_to_cart (Priority: 1) — Error: `CART_STOCK_RESERVATION_EXPIRED`
 
 **Given:**
 - customer adds a product to cart

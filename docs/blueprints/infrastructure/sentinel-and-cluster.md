@@ -33,12 +33,12 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `sentinel_mode` | boolean | No |  |  |
-| `cluster_mode` | boolean | No |  |  |
-| `master_state` | select | No |  |  |
-| `cluster_slots` | number | No |  |  |
-| `node_slots_owned` | json | No |  |  |
-| `sentinel_quorum_size` | number | No |  |  |
+| `sentinel_mode` | boolean | No | Sentinel Mode |  |
+| `cluster_mode` | boolean | No | Cluster Mode |  |
+| `master_state` | select | No | Master State |  |
+| `cluster_slots` | number | No | Cluster Slots |  |
+| `node_slots_owned` | json | No | Node Slots Owned |  |
+| `sentinel_quorum_size` | number | No | Sentinel Quorum Size |  |
 
 ## States
 
@@ -51,22 +51,7 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 ## Rules
 
-- Sentinel monitors master health via PING; no response within down_after_milliseconds = SDOWN
-- Quorum of Sentinels must agree (ODOWN) before failover begins
-- Failover elected to one Sentinel as leader; others follow decisions
-## Rules
-
-- **During failover:** replica promoted to master, other replicas reconfigured
-
-- Configurations written to disk and propagated via Pub/Sub
-- Failed master can rejoin cluster as replica after recovery
-- Data sharded across cluster nodes using hash slots (0-16383)
-- Slot assignment determines which node owns which keys
-- Replicas replicate their master's slots (same slot ranges)
-- Multi-key operations must have all keys in same slot
-- Cluster protocol via gossip (periodic node updates)
-- Redirection via MOVED (permanent) or ASK (temporary)
-- Cluster can rebalance slots (migrate data between nodes)
+- **general:** Sentinel monitors master health via PING; no response within down_after_milliseconds = SDOWN, Quorum of Sentinels must agree (ODOWN) before failover begins, Failover elected to one Sentinel as leader; others follow decisions, {"During failover":"replica promoted to master, other replicas reconfigured"}, Configurations written to disk and propagated via Pub/Sub, Failed master can rejoin cluster as replica after recovery, Data sharded across cluster nodes using hash slots (0-16383), Slot assignment determines which node owns which keys, Replicas replicate their master's slots (same slot ranges), Multi-key operations must have all keys in same slot, Cluster protocol via gossip (periodic node updates), Redirection via MOVED (permanent) or ASK (temporary), Cluster can rebalance slots (migrate data between nodes)
 
 ## Outcomes
 
@@ -170,7 +155,7 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 **Result:** node added to cluster; gossip begins
 
-### Cluster_slot_assignment (Priority: 31)
+### Cluster_slot_assignment (Priority: 31) — Error: `CLUSTER_CROSSSLOT`
 
 **Given:**
 - CLUSTER ADDSLOTS slot [slot ...]
@@ -216,7 +201,7 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 **Result:** client receives ASK; forward request to new node; next request goes to moved node
 
-### Cluster_slot_migration (Priority: 35)
+### Cluster_slot_migration (Priority: 35) — Error: `CLUSTER_SLOT_UNOWNED`
 
 **Given:**
 - CLUSTER SETSLOT slot MIGRATING target_node_id

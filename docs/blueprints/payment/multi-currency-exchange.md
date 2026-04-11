@@ -23,18 +23,18 @@ description: "Manage exchange rates, perform multi-currency transactions, and re
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `from_currency` | text | Yes |  | Validations: pattern |
-| `to_currency` | text | Yes |  | Validations: pattern |
-| `exchange_rate` | number | Yes |  | Validations: min |
-| `date` | date | Yes |  |  |
-| `for_buying` | boolean | No |  |  |
-| `for_selling` | boolean | No |  |  |
-| `rounding_loss_allowance` | number | No |  | Validations: min, max |
-| `company` | text | Yes |  | Validations: minLength |
-| `posting_date` | date | Yes |  |  |
-| `accounts` | json | No |  |  |
-| `gain_loss_booked` | number | No |  |  |
-| `gain_loss_unbooked` | number | No |  |  |
+| `from_currency` | text | Yes | From Currency | Validations: pattern |
+| `to_currency` | text | Yes | To Currency | Validations: pattern |
+| `exchange_rate` | number | Yes | Exchange Rate | Validations: min |
+| `date` | date | Yes | Date |  |
+| `for_buying` | boolean | No | For Buying |  |
+| `for_selling` | boolean | No | For Selling |  |
+| `rounding_loss_allowance` | number | No | Rounding Loss Allowance | Validations: min, max |
+| `company` | text | Yes | Company | Validations: minLength |
+| `posting_date` | date | Yes | Posting Date |  |
+| `accounts` | json | No | Accounts |  |
+| `gain_loss_booked` | number | No | Gain Loss Booked |  |
+| `gain_loss_unbooked` | number | No | Gain Loss Unbooked |  |
 
 ## Rules
 
@@ -68,7 +68,7 @@ description: "Manage exchange rates, perform multi-currency transactions, and re
 
 ## Outcomes
 
-### Fetch_exchange_rate — Error: `EXCHANGE_RATE_NOT_FOUND`
+### Fetch_exchange_rate (Priority: 10) — Error: `EXCHANGE_RATE_NOT_FOUND`
 
 **Given:**
 - `from_currency` exists
@@ -81,7 +81,7 @@ description: "Manage exchange rates, perform multi-currency transactions, and re
 
 **Result:** Exchange rate is returned for the specified currency pair and date
 
-### Revalue_accounts — Error: `REVALUATION_NO_ACCOUNTS`
+### Revalue_accounts (Priority: 11) — Error: `REVALUATION_NO_ACCOUNTS`
 
 **Given:**
 - `company` exists
@@ -95,7 +95,7 @@ description: "Manage exchange rates, perform multi-currency transactions, and re
 
 **Result:** All open foreign currency accounts are revalued and gain/loss amounts calculated
 
-### Create_gain_loss_journal | Transaction: atomic
+### Create_gain_loss_journal (Priority: 12) | Transaction: atomic
 
 **Given:**
 - revaluation has been completed with non-zero gain/loss amounts

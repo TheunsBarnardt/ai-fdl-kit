@@ -31,18 +31,18 @@ description: "End-of-day bond electronic trading platform data delivery via FTP 
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `record_type` | text | Yes |  |  |
-| `record_sub_type` | text | Yes |  |  |
-| `run_date` | date | Yes |  |  |
-| `filler_header` | text | No |  |  |
-| `trade_date` | date | Yes |  |  |
-| `trade_time` | text | Yes |  |  |
-| `instrument` | text | Yes |  |  |
-| `yield` | number | Yes |  |  |
-| `nominal` | number | Yes |  |  |
-| `consideration` | number | Yes |  |  |
-| `trade_type` | text | Yes |  |  |
-| `settlement` | date | Yes |  |  |
+| `record_type` | text | Yes | Record Type |  |
+| `record_sub_type` | text | Yes | Record Sub Type |  |
+| `run_date` | date | Yes | Run Date |  |
+| `filler_header` | text | No | Filler Header |  |
+| `trade_date` | date | Yes | Trade Date |  |
+| `trade_time` | text | Yes | Trade Time |  |
+| `instrument` | text | Yes | Instrument |  |
+| `yield` | number | Yes | Yield |  |
+| `nominal` | number | Yes | Nominal |  |
+| `consideration` | number | Yes | Consideration |  |
+| `trade_type` | text | Yes | Trade Type |  |
+| `settlement` | date | Yes | Settlement |  |
 
 ## Rules
 
@@ -73,7 +73,7 @@ description: "End-of-day bond electronic trading platform data delivery via FTP 
 
 ## Outcomes
 
-### Successful_fixed_width_delivery
+### Successful_fixed_width_delivery (Priority: 10)
 
 **Given:**
 - subscriber is licensed and provisioned with IDP credentials
@@ -86,7 +86,7 @@ description: "End-of-day bond electronic trading platform data delivery via FTP 
 
 **Result:** subscriber receives fixed-width bond ETP trade detail data
 
-### Successful_csv_delivery
+### Successful_csv_delivery (Priority: 11)
 
 **Given:**
 - subscriber is licensed and provisioned with IDP credentials
@@ -99,7 +99,7 @@ description: "End-of-day bond electronic trading platform data delivery via FTP 
 
 **Result:** subscriber receives CSV bond ETP trade detail data
 
-### Subscriber_provisioned
+### Subscriber_provisioned (Priority: 12)
 
 **Given:**
 - prospective subscriber has contacted Market Data team in writing

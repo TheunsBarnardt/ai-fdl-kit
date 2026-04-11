@@ -32,21 +32,21 @@ description: "Manages TCP connections for FIX protocol engines including server-
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `connection_type` | select | Yes |  |  |
-| `socket_accept_port` | number | No |  |  |
-| `socket_connect_host` | text | No |  |  |
-| `socket_connect_port` | number | No |  |  |
-| `socket_connect_source_host` | text | No |  |  |
-| `socket_connect_source_port` | number | No |  |  |
-| `reconnect_interval` | number | No |  |  |
-| `socket_nodelay` | boolean | No |  |  |
-| `socket_send_buffer_size` | number | No |  |  |
-| `socket_receive_buffer_size` | number | No |  |  |
-| `socket_reuse_address` | boolean | No |  |  |
-| `host_selection_policy` | select | No |  |  |
-| `ssl_certificate` | text | No |  |  |
-| `ssl_private_key` | text | No |  |  |
-| `ssl_ca_certificate` | text | No |  |  |
+| `connection_type` | select | Yes | Connection Type |  |
+| `socket_accept_port` | number | No | Socket Accept Port |  |
+| `socket_connect_host` | text | No | Socket Connect Host |  |
+| `socket_connect_port` | number | No | Socket Connect Port |  |
+| `socket_connect_source_host` | text | No | Socket Connect Source Host |  |
+| `socket_connect_source_port` | number | No | Socket Connect Source Port |  |
+| `reconnect_interval` | number | No | Reconnect Interval |  |
+| `socket_nodelay` | boolean | No | Socket Nodelay |  |
+| `socket_send_buffer_size` | number | No | Socket Send Buffer Size |  |
+| `socket_receive_buffer_size` | number | No | Socket Receive Buffer Size |  |
+| `socket_reuse_address` | boolean | No | Socket Reuse Address |  |
+| `host_selection_policy` | select | No | Host Selection Policy |  |
+| `ssl_certificate` | text | No | Ssl Certificate |  |
+| `ssl_private_key` | text | No | Ssl Private Key |  |
+| `ssl_ca_certificate` | text | No | Ssl Ca Certificate |  |
 
 ## States
 

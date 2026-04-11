@@ -31,38 +31,38 @@ description: "Broker securities lending and borrowing (SLB) upload to central ba
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `card_code` | text | Yes |  |  |
-| `broker_code` | text | Yes |  |  |
-| `upload_date` | date | Yes |  |  |
-| `loan_reference` | text | No |  |  |
-| `loan_trade_date` | date | No |  |  |
-| `loan_start_date` | date | No |  |  |
-| `loan_end_date` | date | No |  |  |
-| `loan_account_code` | text | No |  |  |
-| `loan_instrument_code` | text | No |  |  |
-| `loan_isin` | text | No |  |  |
-| `loan_quantity` | number | No |  |  |
-| `loan_rate` | number | No |  |  |
-| `loan_fee` | number | No |  |  |
-| `loan_counterparty` | text | No |  |  |
-| `loan_type` | select | No |  |  |
-| `loan_direction` | select | No |  |  |
-| `collateral_reference` | text | No |  |  |
-| `collateral_trade_date` | date | No |  |  |
-| `collateral_type` | select | No |  |  |
-| `collateral_instrument` | text | No |  |  |
-| `collateral_quantity` | number | No |  |  |
-| `collateral_value` | number | No |  |  |
-| `collateral_currency` | text | No |  |  |
-| `collateral_haircut` | number | No |  |  |
-| `collateral_linked_loan_reference` | text | No |  |  |
-| `confirmation_type` | select | No |  |  |
-| `confirmation_date` | date | No |  |  |
-| `return_quantity` | number | No |  |  |
-| `return_amount` | number | No |  |  |
-| `collateral_confirmation_type` | select | No |  |  |
-| `collateral_return_quantity` | number | No |  |  |
-| `collateral_return_value` | number | No |  |  |
+| `card_code` | text | Yes | Card Code |  |
+| `broker_code` | text | Yes | Broker Code |  |
+| `upload_date` | date | Yes | Upload Date |  |
+| `loan_reference` | text | No | Loan Reference |  |
+| `loan_trade_date` | date | No | Loan Trade Date |  |
+| `loan_start_date` | date | No | Loan Start Date |  |
+| `loan_end_date` | date | No | Loan End Date |  |
+| `loan_account_code` | text | No | Loan Account Code |  |
+| `loan_instrument_code` | text | No | Loan Instrument Code |  |
+| `loan_isin` | text | No | Loan Isin |  |
+| `loan_quantity` | number | No | Loan Quantity |  |
+| `loan_rate` | number | No | Loan Rate |  |
+| `loan_fee` | number | No | Loan Fee |  |
+| `loan_counterparty` | text | No | Loan Counterparty |  |
+| `loan_type` | select | No | Loan Type |  |
+| `loan_direction` | select | No | Loan Direction |  |
+| `collateral_reference` | text | No | Collateral Reference |  |
+| `collateral_trade_date` | date | No | Collateral Trade Date |  |
+| `collateral_type` | select | No | Collateral Type |  |
+| `collateral_instrument` | text | No | Collateral Instrument |  |
+| `collateral_quantity` | number | No | Collateral Quantity |  |
+| `collateral_value` | number | No | Collateral Value |  |
+| `collateral_currency` | text | No | Collateral Currency |  |
+| `collateral_haircut` | number | No | Collateral Haircut |  |
+| `collateral_linked_loan_reference` | text | No | Collateral Linked Loan Reference |  |
+| `confirmation_type` | select | No | Confirmation Type |  |
+| `confirmation_date` | date | No | Confirmation Date |  |
+| `return_quantity` | number | No | Return Quantity |  |
+| `return_amount` | number | No | Return Amount |  |
+| `collateral_confirmation_type` | select | No | Collateral Confirmation Type |  |
+| `collateral_return_quantity` | number | No | Collateral Return Quantity |  |
+| `collateral_return_value` | number | No | Collateral Return Value |  |
 
 ## Rules
 
@@ -73,7 +73,7 @@ description: "Broker securities lending and borrowing (SLB) upload to central ba
 
 ## Outcomes
 
-### Automated_loan_upload (Priority: 1)
+### Automated_loan_upload (Priority: 1) — Error: `SLB_UPLOAD_INVALID_LOAN_REF`
 
 **Given:**
 - `card_code` (input) eq `025`
@@ -83,7 +83,7 @@ description: "Broker securities lending and borrowing (SLB) upload to central ba
 - **create_record**
 - **emit_event** event: `slb_upload.loan.received`
 
-### Automated_collateral_upload (Priority: 2)
+### Automated_collateral_upload (Priority: 2) — Error: `SLB_UPLOAD_COLLATERAL_NOT_LINKED`
 
 **Given:**
 - `card_code` (input) eq `026`

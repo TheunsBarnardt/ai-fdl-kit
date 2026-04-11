@@ -1,0 +1,331 @@
+{
+  "feature": "redteam-conversation-memory",
+  "version": "1.0.0",
+  "description": "Persist all red-team prompts, model responses, scores, and attack metadata to a queryable store — enables session replay, cross-run analysis, and compliance reporting.",
+  "category": "security",
+  "tags": [
+    "llm",
+    "memory",
+    "audit-trail",
+    "red-team",
+    "conversation",
+    "persistence",
+    "compliance"
+  ],
+  "actors": [
+    {
+      "id": "memory_store",
+      "name": "Memory Store",
+      "type": "system",
+      "description": "Persists and retrieves all conversation entries, scores, and attack metadata."
+    },
+    {
+      "id": "attack_orchestrator",
+      "name": "Attack Orchestrator",
+      "type": "system",
+      "description": "Reads prior conversation turns from memory to build context for next attack prompt."
+    },
+    {
+      "id": "compliance_officer",
+      "name": "Compliance Officer",
+      "type": "human",
+      "description": "Queries memory to produce audit reports and evidence of red-team activities."
+    },
+    {
+      "id": "red_team_operator",
+      "name": "Red-Team Operator",
+      "type": "human",
+      "description": "Searches and filters memory to analyse attack patterns and outcomes."
+    }
+  ],
+  "fields": [
+    {
+      "name": "entry_id",
+      "type": "token",
+      "required": true,
+      "label": "Entry ID"
+    },
+    {
+      "name": "conversation_id",
+      "type": "token",
+      "required": true,
+      "label": "Conversation ID"
+    },
+    {
+      "name": "attack_id",
+      "type": "token",
+      "required": false,
+      "label": "Attack Run ID"
+    },
+    {
+      "name": "role",
+      "type": "select",
+      "required": true,
+      "label": "Speaker Role"
+    },
+    {
+      "name": "content",
+      "type": "rich_text",
+      "required": true,
+      "label": "Content"
+    },
+    {
+      "name": "data_type",
+      "type": "select",
+      "required": true,
+      "label": "Content Modality"
+    },
+    {
+      "name": "score_entries",
+      "type": "json",
+      "required": false,
+      "label": "Score Entries"
+    },
+    {
+      "name": "labels",
+      "type": "json",
+      "required": false,
+      "label": "Labels"
+    },
+    {
+      "name": "timestamp",
+      "type": "datetime",
+      "required": true,
+      "label": "Timestamp"
+    },
+    {
+      "name": "embedding",
+      "type": "json",
+      "required": false,
+      "label": "Semantic Embedding"
+    }
+  ],
+  "rules": {
+    "capture": {
+      "every_prompt_to_model": "required",
+      "every_model_response": "required",
+      "every_score": "required"
+    },
+    "data_safety": {
+      "no_credentials_or_pii": "enforced"
+    },
+    "immutability": {
+      "entries": "immutable_after_creation",
+      "corrections": "new_entry_with_reference_to_original"
+    },
+    "identifiers": {
+      "conversation_id": "consistent_across_all_turns"
+    },
+    "embeddings": {
+      "compute_at_write_time": true
+    },
+    "filtering": {
+      "supported_dimensions": [
+        "conversation_id",
+        "attack_id",
+        "role",
+        "label",
+        "timestamp_range",
+        "score_value"
+      ]
+    },
+    "export": {
+      "formats": [
+        "json",
+        "csv"
+      ]
+    },
+    "backends": {
+      "minimum_required": 2
+    },
+    "deletion": {
+      "requires_explicit_authorisation": true,
+      "bulk_delete_requires_confirmation": true
+    }
+  },
+  "outcomes": {
+    "entry_missing_required_fields": {
+      "priority": 1,
+      "error": "MEMORY_ENTRY_INVALID",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "entry_id",
+              "source": "input",
+              "operator": "not_exists"
+            },
+            {
+              "field": "conversation_id",
+              "source": "input",
+              "operator": "not_exists"
+            },
+            {
+              "field": "content",
+              "source": "input",
+              "operator": "not_exists"
+            }
+          ]
+        }
+      ],
+      "then": [],
+      "result": "Entry is rejected; memory store logs the validation error."
+    },
+    "entry_contains_secrets": {
+      "priority": 2,
+      "error": "MEMORY_CONTAINS_SECRETS",
+      "given": [
+        "entry content matches a known credential or PII pattern"
+      ],
+      "then": [],
+      "result": "Entry is rejected; operator is notified to sanitise the content before retrying."
+    },
+    "entry_persisted": {
+      "priority": 10,
+      "transaction": true,
+      "given": [
+        "all required fields are present",
+        "content does not contain secrets or PII patterns"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "memory_entry",
+          "description": "Entry written to the configured backend store."
+        },
+        {
+          "action": "emit_event",
+          "event": "security.memory.entry_added",
+          "payload": [
+            "entry_id",
+            "conversation_id",
+            "role",
+            "data_type",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Entry is persisted and queryable immediately."
+    },
+    "conversation_retrieved": {
+      "priority": 5,
+      "given": [
+        "query specifies a conversation_id",
+        "at least one entry exists for that conversation"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "security.memory.conversation_retrieved",
+          "payload": [
+            "conversation_id",
+            "entry_count"
+          ]
+        }
+      ],
+      "result": "All entries for the conversation are returned in turn order."
+    },
+    "export_requested": {
+      "priority": 6,
+      "given": [
+        "operator requests export of memory entries with optional filters"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "memory_export",
+          "description": "Filtered entries written to export file in requested format."
+        },
+        {
+          "action": "emit_event",
+          "event": "security.memory.exported",
+          "payload": [
+            "filter_criteria",
+            "entry_count",
+            "export_format"
+          ]
+        }
+      ],
+      "result": "Export file is available for download or compliance review."
+    }
+  },
+  "errors": [
+    {
+      "code": "MEMORY_ENTRY_INVALID",
+      "status": 422,
+      "message": "The memory entry is missing required fields and cannot be stored."
+    },
+    {
+      "code": "MEMORY_BACKEND_UNAVAILABLE",
+      "status": 503,
+      "message": "The memory backend is unavailable. Entry could not be persisted."
+    },
+    {
+      "code": "MEMORY_CONTAINS_SECRETS",
+      "status": 422,
+      "message": "The entry appears to contain credentials or PII and was rejected."
+    }
+  ],
+  "events": [
+    {
+      "name": "security.memory.entry_added",
+      "description": "Emitted when a new memory entry is successfully persisted.",
+      "payload": [
+        "entry_id",
+        "conversation_id",
+        "role",
+        "data_type",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "security.memory.conversation_retrieved",
+      "description": "Emitted when conversation history is retrieved from the store.",
+      "payload": [
+        "conversation_id",
+        "entry_count"
+      ]
+    },
+    {
+      "name": "security.memory.exported",
+      "description": "Emitted when a memory export is generated.",
+      "payload": [
+        "filter_criteria",
+        "entry_count",
+        "export_format"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "multi-turn-attack-orchestration",
+      "type": "required",
+      "reason": "Attack orchestrators read conversation history from memory to build context."
+    },
+    {
+      "feature": "ai-response-harm-scorer",
+      "type": "recommended",
+      "reason": "Scores are stored as linked entries in the memory store."
+    },
+    {
+      "feature": "security-scan-report",
+      "type": "optional",
+      "reason": "Scan reports can query memory to include attempt-level evidence."
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/microsoft/PyRIT",
+      "project": "PyRIT — Python Risk Identification Tool",
+      "tech_stack": "Python 3.10+",
+      "files_traced": 10,
+      "entry_points": [
+        "pyrit/memory/memory_interface.py",
+        "pyrit/memory/central_memory.py",
+        "pyrit/memory/sqlite_memory.py",
+        "pyrit/memory/memory_models.py",
+        "pyrit/memory/memory_exporter.py"
+      ]
+    }
+  }
+}

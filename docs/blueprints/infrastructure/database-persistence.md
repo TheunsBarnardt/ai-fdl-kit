@@ -31,12 +31,12 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `persistence_mode` | select | No |  |  |
-| `rdb_file` | text | No |  |  |
-| `aof_file` | text | No |  |  |
-| `last_save_time` | number | No |  |  |
-| `fsync_policy` | select | No |  |  |
-| `recovery_point` | text | No |  |  |
+| `persistence_mode` | select | No | Persistence Mode |  |
+| `rdb_file` | text | No | Rdb File |  |
+| `aof_file` | text | No | Aof File |  |
+| `last_save_time` | number | No | Last Save Time |  |
+| `fsync_policy` | select | No | Fsync Policy |  |
+| `recovery_point` | text | No | Recovery Point |  |
 
 ## States
 
@@ -49,18 +49,7 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 
 ## Rules
 
-- RDB snapshots are point-in-time; commands after snapshot are lost on crash
-- AOF journaling logs every write command; replaying recovers to exact state before crash
-- RDB snapshots smaller but slower to load; AOF larger but can replay incrementally
-- Fsync policy determines durability vs. performance tradeoff (always=safe, no=fast)
-- RDB snapshot created via fork; uses copy-on-write to minimize memory overhead
-- AOF rewrite compacts journal into snapshot + recent commands (background process)
-## Rules
-
-- **RDB + AOF together:** fastest load (RDB) + maximum durability (AOF)
-
-- Persistence operations are transparent; do not block client commands (background)
-- Files are atomic; writes to temp files then renamed
+- **general:** RDB snapshots are point-in-time; commands after snapshot are lost on crash, AOF journaling logs every write command; replaying recovers to exact state before crash, RDB snapshots smaller but slower to load; AOF larger but can replay incrementally, Fsync policy determines durability vs. performance tradeoff (always=safe, no=fast), RDB snapshot created via fork; uses copy-on-write to minimize memory overhead, AOF rewrite compacts journal into snapshot + recent commands (background process), {"RDB + AOF together":"fastest load (RDB) + maximum durability (AOF)"}, Persistence operations are transparent; do not block client commands (background), Files are atomic; writes to temp files then renamed
 
 ## Outcomes
 

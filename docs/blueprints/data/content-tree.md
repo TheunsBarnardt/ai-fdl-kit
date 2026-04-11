@@ -126,7 +126,7 @@ description: "Hierarchical content tree with zone-based storage, tree walking, f
 
 **Result:** Component and all nested children fully removed from tree and indexes
 
-### Reorder_in_zone (Priority: 5)
+### Reorder_in_zone (Priority: 5) — Error: `INVALID_ZONE_FORMAT`
 
 **Given:**
 - source and destination are in the same zone

@@ -62,7 +62,7 @@ description: "Chart rendering system with bar, line, pie, donut, area, scatter, 
 
 ## Outcomes
 
-### Chart_rendered (Priority: 1)
+### Chart_rendered (Priority: 1) — Error: `CHART_RENDER_FAILED`
 
 **Given:**
 - chart type is specified

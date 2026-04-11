@@ -31,15 +31,15 @@ description: "Administrative dashboard for user management, account linking, not
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `user_id` | text | Yes |  | Validations: required |
-| `email` | email | Yes |  | Validations: required, email |
-| `full_name` | text | Yes |  | Validations: required |
-| `user_status` | select | Yes |  |  |
+| `user_id` | text | Yes | User Id | Validations: required |
+| `email` | email | Yes | Email | Validations: required, email |
+| `full_name` | text | Yes | Full Name | Validations: required |
+| `user_status` | select | Yes | User Status |  |
 | `linked_accounts` | json | No | Linked Investment Accounts |  |
 | `assigned_roles` | json | Yes | Assigned Roles |  |
 | `notification_target` | select | Yes | Notification Target |  |
-| `notification_title` | text | Yes |  | Validations: required, maxLength |
-| `notification_body` | rich_text | Yes |  | Validations: required |
+| `notification_title` | text | Yes | Notification Title | Validations: required, maxLength |
+| `notification_body` | rich_text | Yes | Notification Body | Validations: required |
 | `notification_channel` | multiselect | Yes | Delivery Channels |  |
 | `target_product_id` | text | No | Target Product |  |
 | `target_user_id` | text | No | Target User |  |
@@ -177,7 +177,7 @@ description: "Administrative dashboard for user management, account linking, not
 
 **Result:** Notification sent to specific user
 
-### Send_notification_product (Priority: 42)
+### Send_notification_product (Priority: 42) — Error: `PRODUCT_NOT_FOUND`
 
 **Given:**
 - `notification_target` (input) eq `product_holders`
