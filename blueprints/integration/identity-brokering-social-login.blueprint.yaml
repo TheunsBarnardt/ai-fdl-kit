@@ -1,89 +1,609 @@
+# ============================================================
+# identity-brokering-social-login — Feature Blueprint
+# FDL v0.1.0 | Blueprint v2.0.0
+# ============================================================
+# Extracted from: https://github.com/nextauthjs/next-auth
+# Tech stack: TypeScript + Node.js + oauth4webapi (RFC 6749/7636/8017)
+# Files analyzed: ~20 core files (oauth.ts, callback.ts,
+#   authorization-url.ts, handle-login.ts, checks.ts, errors.ts,
+#   types.ts, index.ts, provider implementations)
+# ============================================================
+
 feature: identity-brokering-social-login
-version: "1.0.0"
-description: External identity provider integration and social login
+version: "2.0.0"
+description: >
+  OAuth 2.0 / OIDC social login with multi-provider identity brokering,
+  account linking, profile normalization, PKCE/state/nonce CSRF protection,
+  and configurable JWT or database session strategy.
 category: integration
-tags: [identity-brokering, social-login]
+tags:
+  - oauth2
+  - oidc
+  - social-login
+  - identity-brokering
+  - account-linking
+  - pkce
+  - jwt-session
+
+actors:
+  - id: user
+    name: User
+    type: human
+    description: Person initiating sign-in via an external identity provider
+  - id: oauth_provider
+    name: OAuth / OIDC Provider
+    type: external
+    description: >
+      External identity provider (e.g. Google, GitHub, Discord). Handles
+      user authentication and returns an authorization code plus profile data.
+  - id: auth_service
+    name: Auth Service
+    type: system
+    description: >
+      Core authentication engine that orchestrates the OAuth flow — constructs
+      authorization URLs, exchanges codes for tokens, normalises profiles, and
+      manages account linking.
 
 fields:
-  - name: provider_alias
+  # ── Provider configuration ──────────────────────────────────
+
+  # Unique identifier for the external provider (e.g. "google", "github").
+  # Matches OAuth2Config.id — Source: packages/core/src/providers/oauth.ts:111
+  - name: provider
     type: text
     required: true
-    label: Provider Alias
+    label: Provider ID
     validation:
       - type: required
-        message: Alias required
+        message: Provider ID is required
 
+  # OAuth application's client_id as issued by the provider.
+  # Source: packages/core/src/providers/oauth.ts:205 (OAuth2Config.clientId)
   - name: client_id
     type: text
     required: true
     label: Client ID
     validation:
       - type: required
-        message: Client ID required
+        message: Client ID is required
+
+  # User's unique ID at the external provider (Account.providerAccountId).
+  # Used for sign-in lookups in the accounts table.
+  # Source: packages/core/src/types.ts:117
+  - name: provider_account_id
+    type: text
+    required: true
+    label: Provider Account ID
+    validation:
+      - type: required
+        message: Provider account ID is required
+
+  # OAuth access token from the provider's token endpoint.
+  # Stored per-account; may be used for downstream API calls.
+  # Source: packages/core/src/types.ts:123 (Account.access_token)
+  - name: access_token
+    type: token
+    required: false
+    label: Access Token
+    sensitive: true
+
+  # Refresh token for silent rotation (offline_access scope required).
+  # Source: packages/core/src/types.ts:125 (Account.refresh_token)
+  - name: refresh_token
+    type: token
+    required: false
+    label: Refresh Token
+    sensitive: true
+
+  # Unix timestamp (seconds) when the access token expires.
+  # Computed as: Math.floor(Date.now() / 1000) + expires_in
+  # Source: packages/core/src/types.ts:127 (Account.expires_at)
+  - name: expires_at
+    type: number
+    required: false
+    label: Token Expiry
+
+  # Space-separated OAuth scopes granted by the user.
+  # Source: packages/core/src/types.ts:129 (Account.scope)
+  - name: scope
+    type: text
+    required: false
+    label: Granted Scopes
+
+  # Token type returned by provider; almost always "Bearer".
+  # Source: packages/core/src/types.ts:130 (Account.token_type)
+  - name: token_type
+    type: text
+    required: false
+    label: Token Type
+
+  # Signed OIDC ID token validated against provider's JWKS.
+  # Source: packages/core/src/types.ts:131 (Account.id_token)
+  - name: id_token
+    type: token
+    required: false
+    label: OIDC ID Token
+    sensitive: true
+
+  # "jwt" = stateless JWE cookie (default, no adapter needed).
+  # "database" = opaque token + session record (requires adapter).
+  # Source: packages/core/src/index.ts:241 (AuthConfig.session.strategy)
+  - name: session_strategy
+    type: select
+    required: false
+    label: Session Strategy
+    options:
+      - value: jwt
+        label: JWT (stateless)
+      - value: database
+        label: Database (adapter required)
 
 rules:
-  core: Identity provider delegation
+  security:
+    # ── CSRF / replay protection ─────────────────────────────
+    - MUST: generate a cryptographically random state parameter for every
+        authorization request; validate it on callback to prevent CSRF
+      # Source: packages/core/src/lib/actions/callback/oauth/checks.ts:140-189
+      # state cookie TTL = 15 minutes (STATE_MAX_AGE)
+
+    - MUST: support PKCE (RFC 7636) when provider.checks includes "pkce";
+        store code_verifier in an encrypted cookie and verify on callback
+      # Source: packages/core/src/lib/actions/callback/oauth/checks.ts:112-126
+      # Uses oauth4webapi: generateRandomCodeVerifier + calculatePKCECodeChallenge
+
+    - MUST: generate and validate a nonce for OIDC providers when
+        provider.checks includes "nonce", to prevent ID token replay
+      # Source: packages/core/src/lib/actions/callback/oauth/checks.ts:191-206
+
+    - MUST: store PKCE, state, and nonce values only in HTTP-only, encrypted
+        cookies with SameSite=Lax; never expose them in URLs or response bodies
+      # Source: packages/core/src/lib/actions/callback/oauth/checks.ts:sealCookie
+
+    - MUST: sanitise the callbackUrl redirect target; reject destinations
+        outside the application's trusted origin to prevent open redirects
+      # Source: packages/core/src/lib/actions/callback.ts (redirect validation)
+
+    # ── Account linking ──────────────────────────────────────
+    - MUST NOT: automatically link a newly seen OAuth account to an existing
+        user record by email address unless allowDangerousEmailAccountLinking
+        is explicitly set to true for that provider
+      # Source: packages/core/src/lib/actions/callback/handle-login.ts:264-285
+      # Prevents account takeover when a provider does not verify email ownership
+
+    - MUST NOT: allow an OAuth account already linked to user A to be linked
+        to user B; throw OAuthAccountNotLinked instead
+      # Source: packages/core/src/lib/actions/callback/handle-login.ts:228-242
+
+    - "SHOULD: require trustHost=true in reverse-proxy environments to ensure the redirect_uri is constructed from the correct host header"
+      # Source: packages/core/src/index.ts (AuthConfig.trustHost)
+
+  access:
+    - All endpoints under the /auth/* route prefix are public (no prior session required)
+    - The signIn callback MAY block specific users by returning false; the
+        result is surfaced as an AccessDenied error to the client
 
 outcomes:
-  user_authenticated:
-    priority: 5
+  # ── Error outcomes (lower priority = checked first) ─────────
+
+  configuration_error:
+    priority: 1
     given:
-      - field: provider_alias
-        operator: exists
-        value: null
+      - "provider ID in callback path does not match any registered provider"
     then:
       - action: emit_event
-        event: broker.authenticated
-        payload: [user_id]
-    result: External authentication successful
+        event: auth.configuration_error
+        payload: [provider, error_type]
+    result: >
+      Request redirected to error page with error=Configuration query parameter.
+    error: CONFIGURATION
+    # Source: packages/core/test/callback.test.ts:18-28
+
+  invalid_check:
+    priority: 2
+    given:
+      - "OAuth callback received"
+      - any:
+          - "state cookie missing or does not match state query parameter"
+          - "PKCE code_verifier cookie missing or code_challenge mismatch"
+          - "OIDC nonce in ID token does not match stored nonce cookie"
+    then:
+      - action: emit_event
+        event: auth.invalid_check
+        payload: [provider, check_type]
+    result: Redirect to error page; no session is created.
+    error: INVALID_CHECK
+    # Source: packages/core/src/lib/actions/callback/oauth/checks.ts
+
+  oauth_callback_error:
+    priority: 3
+    given:
+      - "OAuth provider returned an error parameter in the callback URL"
+      - "e.g. user denied consent, or provider server error"
+    then:
+      - action: emit_event
+        event: auth.oauth_callback_error
+        payload: [provider, error, error_description]
+    result: Redirect to error page with provider error details (user-safe).
+    error: OAUTH_CALLBACK_ERROR
+    # Source: packages/core/src/errors.ts:335-344
+
+  profile_parse_error:
+    priority: 4
+    given:
+      - "tokens successfully obtained from provider"
+      - "provider.profile() throws or returns null/undefined"
+    then:
+      - action: emit_event
+        event: auth.profile_parse_error
+        payload: [provider]
+    result: Redirect to error page; account not created.
+    error: OAUTH_PROFILE_PARSE_ERROR
+    # Source: packages/core/src/errors.ts (OAuthProfileParseError)
+
+  access_denied:
+    priority: 5
+    given:
+      - "profile normalised successfully"
+      - "signIn callback returned false or a custom error URL"
+    then:
+      - action: emit_event
+        event: auth.access_denied
+        payload: [provider, user_id]
+    result: Redirect to error page with error=AccessDenied.
+    error: ACCESS_DENIED
+    # Source: packages/core/src/index.ts:305-330 (callbacks.signIn)
+
+  email_conflict:
+    priority: 6
+    given:
+      - "OAuth account not previously seen"
+      - "user is NOT currently signed in"
+      - "provider.allowDangerousEmailAccountLinking is false or unset"
+      - "a user record with the same email address already exists"
+    then:
+      - action: emit_event
+        event: auth.account_not_linked
+        payload: [provider, email]
+    result: >
+      Redirect to error page with error=OAuthAccountNotLinked. User must
+      sign in with their original method first, then link the new provider
+      from their profile settings.
+    error: OAUTH_ACCOUNT_NOT_LINKED
+    # Source: packages/core/src/lib/actions/callback/handle-login.ts:277-285
+
+  provider_account_conflict:
+    priority: 7
+    given:
+      - "OAuth account already exists in the accounts table"
+      - "user IS currently signed in"
+      - "the existing account belongs to a different user"
+    then:
+      - action: emit_event
+        event: auth.account_not_linked
+        payload: [provider, provider_account_id]
+    result: >
+      Redirect to error page with error=OAuthAccountNotLinked. The provider
+      account cannot be reassigned across users.
+    error: OAUTH_ACCOUNT_NOT_LINKED
+    # Source: packages/core/src/lib/actions/callback/handle-login.ts:228-242
+
+  # ── Success outcomes ─────────────────────────────────────────
+
+  account_linked:
+    priority: 8
+    given:
+      - "user IS currently signed in (active session)"
+      - "OAuth account not previously seen for this provider"
+      - "signIn callback returned true"
+    then:
+      - action: create_record
+        type: account
+        target: accounts
+        fields: [provider, provider_account_id, user_id, access_token, refresh_token, expires_at, scope, token_type, id_token]
+      - action: emit_event
+        event: auth.link_account
+        payload: [user_id, provider, provider_account_id]
+    result: >
+      New provider account linked to the currently signed-in user.
+      Existing session updated; user redirected to callbackUrl.
+    # Source: packages/core/src/lib/actions/callback/handle-login.ts:245-260
+
+  new_user_registered:
+    priority: 9
+    given:
+      - "OAuth account not previously seen"
+      - "user is NOT currently signed in"
+      - "no existing user with the same email address (or allowDangerousEmailAccountLinking: true)"
+      - "signIn callback returned true"
+    then:
+      - action: create_record
+        type: user
+        target: users
+        fields: [id, name, email, image]
+      - action: create_record
+        type: account
+        target: accounts
+        fields: [provider, provider_account_id, user_id, access_token, refresh_token, expires_at, scope, token_type, id_token]
+      - action: emit_event
+        event: auth.create_user
+        payload: [user_id, provider]
+      - action: emit_event
+        event: auth.link_account
+        payload: [user_id, provider, provider_account_id]
+      - action: emit_event
+        event: auth.sign_in
+        payload: [user_id, provider, is_new_user]
+    result: >
+      New user record and account record created. Session issued (JWT cookie
+      or database session token). User redirected to pages.newUser if configured,
+      otherwise to callbackUrl.
+    # Source: packages/core/src/lib/actions/callback/handle-login.ts:286-334
+
+  sign_in_success:
+    priority: 10
+    given:
+      - "OAuth account exists and is linked to a user"
+      - "user is NOT currently signed in (or is signed in as the same user)"
+      - "signIn callback returned true"
+    then:
+      - action: emit_event
+        event: auth.sign_in
+        payload: [user_id, provider, is_new_user]
+    result: >
+      Session issued. JWT strategy: signed JWE stored in HTTP-only cookie
+      (default maxAge 30 days). Database strategy: session record created,
+      opaque token stored in cookie. User redirected to callbackUrl.
+    # Source: packages/core/src/lib/actions/callback/handle-login.ts:223-244
+
+flows:
+  oauth_authorization_code_flow:
+    description: Full OAuth 2.0 Authorization Code flow with PKCE and state
+    steps:
+      - step: 1
+        actor: user
+        action: Clicks "Sign in with <Provider>" button
+        description: Triggers GET /auth/signin/{provider}
+
+      - step: 2
+        actor: auth_service
+        action: Construct authorization URL
+        description: >
+          Generates state parameter (encrypted, 15-min TTL cookie),
+          PKCE code_verifier + code_challenge if provider.checks includes "pkce",
+          nonce if OIDC and provider.checks includes "nonce".
+          Builds redirect to provider's authorization_endpoint with
+          client_id, redirect_uri, response_type=code, scope, state, code_challenge.
+        # Source: packages/core/src/lib/actions/signin/authorization-url.ts
+
+      - step: 3
+        actor: oauth_provider
+        action: Authenticate user and obtain consent
+        description: >
+          Provider authenticates the user and shows a consent screen.
+          On approval, redirects to redirect_uri with code and state.
+
+      - step: 4
+        actor: auth_service
+        action: Validate callback and exchange code for tokens
+        description: >
+          Validates state cookie matches state param (CSRF check).
+          Validates PKCE code_verifier against stored challenge.
+          POSTs to provider's token_endpoint with code and code_verifier.
+          Receives access_token, refresh_token, id_token, expires_in.
+        # Source: packages/core/src/lib/actions/callback/oauth/callback.ts:47-302
+
+      - step: 5
+        actor: auth_service
+        action: Fetch and normalise user profile
+        description: >
+          OIDC: decodes claims from id_token (validated against JWKS).
+          OAuth: requests userinfo endpoint with Bearer access_token.
+          Calls provider.profile(rawProfile, tokens) to map provider-specific
+          fields to standard {id, name, email, image} User shape.
+        # Source: packages/core/src/lib/actions/callback/oauth/callback.ts
+
+      - step: 6
+        actor: auth_service
+        action: Account linking decision
+        description: >
+          Looks up accounts table by (provider, providerAccountId).
+          If found → sign in as that user.
+          If not found and session active → link to current user.
+          If not found and email collision → error (unless allowDangerousEmailAccountLinking).
+          If not found and no collision → create user + link account.
+        # Source: packages/core/src/lib/actions/callback/handle-login.ts
+
+      - step: 7
+        actor: auth_service
+        action: Invoke callback chain and issue session
+        description: >
+          Invokes signIn → redirect → jwt → session callbacks in order.
+          Issues JWT (JWE, RS256) stored in __Secure-next-auth.session-token cookie,
+          or creates database session record and issues opaque session token.
+        # Source: packages/core/src/index.ts:305-481
+
+      - step: 8
+        actor: user
+        action: Redirected to application
+        description: >
+          Browser receives session cookie and is redirected to callbackUrl
+          (validated to be within the application's trusted origin).
 
 errors:
-  - code: BROKER_ERROR
-    status: 401
-    message: External authentication failed
+  # Provider ID in callback URL does not match any registered provider
+  # Source: packages/core/test/callback.test.ts:18-28
+  - code: CONFIGURATION
+    status: 500
+    message: There is a problem with the server configuration. Check the server logs for more information.
+
+  # signIn callback returned false; user not permitted to sign in
+  # Source: packages/core/src/errors.ts (AccessDenied)
+  - code: ACCESS_DENIED
+    status: 403
+    message: Access denied.
+
+  # Email exists under a different provider, or OAuth account linked to a different user
+  # Source: packages/core/src/lib/actions/callback/handle-login.ts:228-285
+  - code: OAUTH_ACCOUNT_NOT_LINKED
+    status: 409
+    message: To confirm your identity, sign in with the same account you used originally.
+
+  # Provider returned an error in the callback (user denied consent, server error, etc.)
+  # Source: packages/core/src/errors.ts:335-344
+  - code: OAUTH_CALLBACK_ERROR
+    status: 400
+    message: Try signing in with a different account.
+
+  # provider.profile() threw or returned invalid data
+  # Source: packages/core/src/errors.ts (OAuthProfileParseError)
+  - code: OAUTH_PROFILE_PARSE_ERROR
+    status: 500
+    message: Try signing in with a different account.
+
+  # Generic OAuth sign-in failure not covered by more specific codes
+  # Source: packages/core/src/errors.ts (OAuthSignInError)
+  - code: OAUTH_SIGN_IN_ERROR
+    status: 400
+    message: Try signing in with a different account.
+
+  # PKCE, state, or nonce validation failed — likely CSRF or replay attempt
+  # Source: packages/core/src/errors.ts:238-247
+  - code: INVALID_CHECK
+    status: 400
+    message: Try signing in with a different account.
 
 events:
-  - name: broker.authenticated
-    description: External authentication successful
+  - name: auth.sign_in
+    description: >
+      Fired after every successful sign-in, whether new user or returning.
+      Includes whether the user is newly created.
+    payload: [user_id, provider, provider_account_id, is_new_user]
+    # Source: packages/core/src/index.ts:492-499 (events.signIn)
+
+  - name: auth.sign_out
+    description: Fired when a user signs out (JWT cookie deleted or database session revoked).
+    payload: [user_id, session_strategy]
+    # Source: packages/core/src/index.ts:501-507 (events.signOut)
+
+  - name: auth.create_user
+    description: Fired when a new user record is created in the database.
+    payload: [user_id, email, provider]
+    # Source: packages/core/src/index.ts:509-511 (events.createUser)
+
+  - name: auth.update_user
+    description: Fired when an existing user record is updated.
     payload: [user_id]
+    # Source: packages/core/src/index.ts:513-515 (events.updateUser)
 
-related: []
+  - name: auth.link_account
+    description: >
+      Fired when a new OAuth account is linked to a user (both new registrations
+      and explicit account linking while signed in).
+    payload: [user_id, provider, provider_account_id, access_token]
+    # Source: packages/core/src/index.ts:517-523 (events.linkAccount)
 
+  - name: auth.configuration_error
+    description: Auth system misconfiguration detected (e.g. unknown provider).
+    payload: [provider, error_type]
+
+  - name: auth.invalid_check
+    description: CSRF/replay protection check failed during OAuth callback.
+    payload: [provider, check_type]
+
+  - name: auth.account_not_linked
+    description: >
+      Account linking blocked — email conflict or account already owned by
+      another user.
+    payload: [provider, reason]
+
+  - name: auth.oauth_callback_error
+    description: OAuth provider returned an error in the callback redirect.
+    payload: [provider, error, error_description]
+
+  - name: auth.profile_parse_error
+    description: Provider profile normalisation failed.
+    payload: [provider]
+
+  - name: auth.access_denied
+    description: signIn callback blocked the user from signing in.
+    payload: [user_id, provider]
+
+related:
+  - feature: oauth-provider
+    type: recommended
+    reason: Manages registered OAuth provider configurations
+  - feature: oauth-oidc-client-management
+    type: recommended
+    reason: OIDC client lifecycle and JWKS management
+  - feature: user-federation-ldap-kerberos
+    type: optional
+    reason: Federated enterprise identity alongside social providers
 
 # ─── AGI READINESS ─────────────────────────────────────────
 
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_identity_brokering_social_login
-      description: External identity provider integration and social login
+      description: >
+        OAuth 2.0 / OIDC social login with multi-provider identity brokering,
+        account linking, and session management
       success_metrics:
         - metric: success_rate
           target: ">= 99.5%"
-          measurement: Successful operations divided by total attempts
+          measurement: Successful sign-ins divided by total sign-in attempts
         - metric: error_recovery_rate
           target: ">= 95%"
-          measurement: Errors that auto-recover without manual intervention
+          measurement: Errors that resolve without manual intervention
+        - metric: account_linking_accuracy
+          target: "= 100%"
+          measurement: Zero false-positive account merges
       constraints:
+        - type: security
+          description: PKCE and state validation must never be skipped
+          negotiable: false
         - type: availability
-          description: Must degrade gracefully when dependencies are unavailable
+          description: Must degrade gracefully when a provider is unavailable
           negotiable: false
   autonomy:
     level: supervised
     escalation_triggers:
       - error_rate > 5
+      - account_not_linked_errors > 10
   safety:
     action_permissions:
-      - action: user_authenticated
+      - action: sign_in_success
         permission: autonomous
+      - action: new_user_registered
+        permission: autonomous
+      - action: account_linked
+        permission: supervised
   tradeoffs:
-    - prefer: reliability
-      over: throughput
-      reason: integration failures can cascade across systems
+    - prefer: security
+      over: convenience
+      reason: >
+        Auto-linking accounts by email without provider trust verification
+        creates account-takeover attack surfaces
 
 extensions:
+  tech_stack:
+    language: TypeScript
+    framework: next-auth / auth.js (framework-agnostic core)
+    runtime: Node.js
+    oauth_library: oauth4webapi (RFC 6749, RFC 7636, RFC 8017)
+    session_options:
+      - jwt (JWE, default, no adapter required)
+      - database (requires adapter — Prisma, MongoDB, Drizzle, etc.)
+    provider_count: "125+ built-in social providers"
   source:
-    repo: https://github.com/keycloak/keycloak
-    project: Keycloak
-    tech_stack: Java
+    repo: https://github.com/nextauthjs/next-auth
+    project: NextAuth.js / Auth.js
+    core_package: packages/core
+    key_files:
+      - packages/core/src/providers/oauth.ts
+      - packages/core/src/lib/actions/callback/oauth/callback.ts
+      - packages/core/src/lib/actions/callback/handle-login.ts
+      - packages/core/src/lib/actions/callback/oauth/checks.ts
+      - packages/core/src/lib/actions/signin/authorization-url.ts
+      - packages/core/src/errors.ts
+      - packages/core/src/types.ts
+      - packages/core/src/index.ts
