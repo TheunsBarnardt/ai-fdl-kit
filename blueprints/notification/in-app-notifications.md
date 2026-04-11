@@ -1,0 +1,87 @@
+<!-- AUTO-GENERATED FROM in-app-notifications.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# In App Notifications
+
+> Real-time in-app notification center with read state, grouping, deep links, and persistent storage
+
+**Category:** Notification · **Version:** 1.0.0 · **Tags:** in-app · notification-center · real-time · websocket · sse · bell-icon · deep-links · grouping
+
+## What this does
+
+Real-time in-app notification center with read state, grouping, deep links, and persistent storage
+
+Specifies 7 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **title** *(text, required)* — Notification Title
+- **body** *(text, required)* — Notification Body
+- **type** *(select, required)* — Notification Type
+- **read_at** *(datetime, optional)* — Read At
+- **action_url** *(url, optional)* — Action URL
+- **icon** *(text, optional)* — Icon
+- **group_key** *(text, optional)* — Group Key
+- **recipient_user_id** *(text, required)* — Recipient User ID
+- **sender_id** *(text, optional)* — Sender ID
+- **priority** *(select, optional)* — Priority
+- **expires_at** *(datetime, optional)* — Expiry Time
+- **metadata** *(json, optional)* — Custom Metadata
+
+## What must be true
+
+- **delivery → real_time_channel:** websocket
+- **delivery → fallback_channel:** sse
+- **delivery → polling_interval_seconds:** 30
+- **delivery → delivery_guarantee:** at_least_once
+- **persistence → storage:** database
+- **persistence → retention_days:** 90
+- **persistence → max_per_user:** 1000
+- **read_state → track_read_at:** true
+- **read_state → track_dismissed_at:** true
+- **read_state → mark_all_read:** true
+- **grouping → enabled:** true
+- **grouping → collapse_threshold:** 3
+- **grouping → group_summary_template:** {{count}} new {{type}} notifications
+- **grouping → expand_on_click:** true
+- **pagination → default_page_size:** 20
+- **pagination → max_page_size:** 100
+- **pagination → cursor_based:** true
+- **security → user_isolation:** true
+- **security → xss_prevention:** true
+- **security → action_url_validation:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Notification Created** — when Recipient user exists; Title is present; Body is present, then notification created, persisted, and delivered in real time.
+- **Notification Read** — when Notification ID is provided; Notification has not been read yet, then notification marked as read and badge count updated.
+- **Mark All Read** — when User triggered mark-all-as-read, then all unread notifications marked as read and badge reset.
+- **Notification Dismissed** — when Notification ID is provided for dismissal, then notification dismissed and hidden from feed.
+- **Notification Clicked** — when Notification clicked by user; Notification has an action URL, then mark as read and navigate to action URL.
+
+**❌ Failure paths**
+
+- **User Not Found** — when Recipient user does not exist, then reject with user not found error. *(error: `NOTIFICATION_USER_NOT_FOUND`)*
+- **Storage Limit Reached** — when User has reached the maximum notification storage limit, then remove oldest notification and proceed with creation. *(error: `NOTIFICATION_STORAGE_LIMIT`)*
+
+## Errors it can return
+
+- `NOTIFICATION_USER_NOT_FOUND` — Recipient user not found
+- `NOTIFICATION_NOT_FOUND` — Notification not found
+- `NOTIFICATION_STORAGE_LIMIT` — Notification storage limit reached
+- `NOTIFICATION_UNAUTHORIZED` — You can only access your own notifications
+- `NOTIFICATION_VALIDATION_ERROR` — Please check the notification parameters and try again
+
+## Connects to
+
+- **notification-preferences** *(required)* — Must check in-app notification preferences before displaying
+- **push-notifications** *(recommended)* — Push notifications complement in-app when user is not online
+- **email-notifications** *(optional)* — Email digest of unread in-app notifications
+- **webhook-outbound** *(optional)* — Trigger outbound webhooks when notifications are created
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/notification/in-app-notifications/) · **Spec source:** [`in-app-notifications.blueprint.yaml`](./in-app-notifications.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

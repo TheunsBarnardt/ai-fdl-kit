@@ -1,0 +1,88 @@
+<!-- AUTO-GENERATED FROM session-management.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Session Management
+
+> Active session listing, device tracking, and session revocation
+
+**Category:** Auth · **Version:** 1.0.0 · **Tags:** authentication · session · security · device-tracking · identity
+
+## What this does
+
+Active session listing, device tracking, and session revocation
+
+Specifies 8 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **session_id** *(token, required)* — Session ID
+- **user_id** *(text, required)* — User ID
+- **device_browser** *(text, optional)* — Browser
+- **device_os** *(text, optional)* — Operating System
+- **device_ip** *(text, optional)* — IP Address
+- **device_location** *(text, optional)* — Approximate Location
+- **device_type** *(select, optional)* — Device Type
+- **created_at** *(datetime, required)* — Session Created
+- **last_active_at** *(datetime, required)* — Last Active
+- **expires_at** *(datetime, required)* — Session Expires
+- **revoked_at** *(datetime, optional)* — Session Revoked
+- **is_current** *(boolean, optional)* — Current Session
+- **user_agent** *(text, optional)* — User Agent
+
+## What must be true
+
+- **security → session_id → entropy_bytes:** 32
+- **security → session_id → storage:** server_side
+- **security → concurrent_sessions → max_per_user:** 5
+- **security → concurrent_sessions → enforcement:** evict_oldest
+- **security → concurrent_sessions → notify_on_new_device:** true
+- **security → idle_timeout_minutes:** 30
+- **security → absolute_timeout_hours:** 24
+- **security → ip_binding → enabled:** false
+- **security → ip_binding → warn_on_ip_change:** true
+- **security → rate_limit → window_seconds:** 60
+- **security → rate_limit → max_requests:** 10
+- **security → rate_limit → scope:** per_user
+- **security → revocation → immediate:** true
+- **security → revocation → propagation:** synchronous
+- **device_tracking → fingerprint:** false
+- **device_tracking → parse_user_agent:** true
+- **device_tracking → geo_ip_lookup:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **List Active Sessions** — when User is authenticated, then return list of active sessions with device info, marking the current session.
+- **Create Session** — when Authenticated user ID provided, then session created with device tracking metadata.
+- **Revoke Single Session** — when Target session exists; Session belongs to the current user; Cannot revoke the current session via this action, then session revoked — device is signed out.
+- **Revoke All Other Sessions** — when User is authenticated; User has other active sessions besides current, then all other sessions revoked — user remains signed in on current device only.
+- **Session Expired** — when Session idle for more than 30 minutes OR Session exceeded absolute timeout of 24 hours, then session expired — redirect to login.
+
+**❌ Failure paths**
+
+- **Rate Limited** — when More than 10 session management requests in 60 seconds, then show "Too many requests. Please wait a moment.". *(error: `SESSION_RATE_LIMITED`)*
+- **Session Not Found** — when Target session does not exist, then show "Session not found.". *(error: `SESSION_NOT_FOUND`)*
+- **Unauthorized Revocation** — when User attempting to revoke a session that belongs to another user, then show "You do not have permission to manage this session.". *(error: `SESSION_UNAUTHORIZED`)*
+
+## Errors it can return
+
+- `SESSION_RATE_LIMITED` — Too many requests. Please wait a moment.
+- `SESSION_NOT_FOUND` — Session not found
+- `SESSION_UNAUTHORIZED` — You do not have permission to manage this session
+- `SESSION_ALREADY_REVOKED` — This session has already been revoked
+- `SESSION_CANNOT_REVOKE_CURRENT` — You cannot revoke your current session. Use logout instead.
+- `SESSION_EXPIRED` — Your session has expired. Please sign in again.
+
+## Connects to
+
+- **login** *(required)* — Sessions are created during login
+- **logout** *(required)* — Logout terminates the current session
+- **multi-factor-auth** *(optional)* — MFA verification status is tracked per session
+- **single-sign-on** *(optional)* — SSO sessions need bridging and lifecycle management
+- **oauth-social-login** *(optional)* — OAuth sessions need tracking alongside password sessions
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/auth/session-management/) · **Spec source:** [`session-management.blueprint.yaml`](./session-management.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

@@ -1,0 +1,80 @@
+<!-- AUTO-GENERATED FROM audit-trail.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Audit Trail
+
+> Immutable field-level change tracking for any record with automatic capture on every write, configurable per-model opt-in, and sensitive field exclusion
+
+**Category:** Observability · **Version:** 1.0.0 · **Tags:** audit-trail · change-log · history · field-tracking · immutable · compliance
+
+## What this does
+
+Immutable field-level change tracking for any record with automatic capture on every write, configurable per-model opt-in, and sensitive field exclusion
+
+Specifies 5 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **audit_id** *(text, required)* — Audit Entry ID
+- **entity_type** *(text, required)* — Entity Type
+- **entity_id** *(text, required)* — Entity ID
+- **field_name** *(text, optional)* — Field Name
+- **old_value** *(json, optional)* — Old Value
+- **new_value** *(json, optional)* — New Value
+- **changed_by** *(text, required)* — Changed By
+- **changed_at** *(datetime, required)* — Changed At
+- **change_type** *(select, required)* — Change Type
+- **change_source** *(text, optional)* — Change Source
+- **request_id** *(text, optional)* — Request ID
+
+## What must be true
+
+- **capture → automatic:** true
+- **capture → no_manual_entries:** true
+- **capture → trigger:** on_write
+- **capture → per_field:** true
+- **immutability → append_only:** true
+- **immutability → no_update:** true
+- **immutability → no_delete:** true
+- **immutability → tamper_detection:** optional
+- **configuration → opt_in_per_model:** true
+- **configuration → exclude_fields:** configurable
+- **configuration → excluded_field_placeholder:** [REDACTED]
+- **storage → retention_days:** configurable
+- **storage → partition_by:** entity_type
+- **storage → index_fields:** entity_type, entity_id, changed_at, changed_by
+- **querying → filter_by_entity:** true
+- **querying → filter_by_field:** true
+- **querying → filter_by_user:** true
+- **querying → filter_by_date_range:** true
+- **querying → sort_order:** changed_at_desc
+- **querying → paginated:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Change Recorded** — when a write operation (create, update, or delete) occurs on an audited model; the changed fields are not in the exclusion list, then Field-level change recorded in the audit trail.
+- **Change Recorded With Exclusion** — when a write operation occurs on an audited model; some changed fields are in the exclusion list, then Change recorded with sensitive field values redacted.
+- **History Retrieved** — when a user requests the audit history for an entity; the user has permission to view audit records, then Paginated audit history returned for the requested entity.
+- **History Empty** — when a user requests audit history for an entity; no audit entries exist for the entity, then Empty result set returned indicating no changes have been recorded.
+
+**❌ Failure paths**
+
+- **Audit Access Denied** — when a user requests audit history; the user does not have permission to view audit records, then Error returned indicating insufficient permissions. *(error: `AUDIT_ACCESS_DENIED`)*
+
+## Errors it can return
+
+- `AUDIT_ACCESS_DENIED` — You do not have permission to view audit records
+- `AUDIT_ENTITY_NOT_TRACKED` — Audit trail is not enabled for this entity type
+
+## Connects to
+
+- **soft-delete** *(recommended)* — Deletion events should be captured in the audit trail
+- **pagination** *(required)* — Audit history queries must be paginated for performance
+- **search-and-filtering** *(optional)* — Audit entries can be searched and filtered by entity, user, and date
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/observability/audit-trail/) · **Spec source:** [`audit-trail.blueprint.yaml`](./audit-trail.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

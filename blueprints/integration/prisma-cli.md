@@ -1,0 +1,63 @@
+<!-- AUTO-GENERATED FROM prisma-cli.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Prisma Cli
+
+> CLI tools for schema validation, formatting, generation, and database introspection
+
+**Category:** Integration · **Version:** 1.0.0 · **Tags:** cli · schema-tools · developer-tools · prisma · introspection
+
+## What this does
+
+CLI tools for schema validation, formatting, generation, and database introspection
+
+Specifies 8 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **command** *(select, required)* — CLI Command
+- **schema_path** *(text, optional)* — Schema File Path
+- **database_url** *(password, optional)* — Database Connection String
+- **output_path** *(text, optional)* — Output Directory
+
+## What must be true
+
+- **format:** prisma format: auto-formats schema file, Non-destructive, idempotent operation, Enforces Prisma style conventions, Can integrate with pre-commit hooks
+- **validate:** prisma validate: checks schema syntax and semantics, Validates model definitions and field types, Validates datasource and generator configurations, Reports all errors at once
+- **generate:** prisma generate: generates Prisma Client, Produces type-safe query builder, Can output to custom directories, Integrates with build tools
+- **init:** prisma init: bootstraps new Prisma project, Creates schema file with datasource and generator, Optionally introspects existing database, Creates .env file for credentials
+- **studio:** prisma studio: visual database GUI, Browse and edit data in browser, Available at http://localhost:5555, Requires active database connection
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Schema Formatted** — when command is format; Schema file exists, then Schema file auto-formatted consistently.
+- **Schema Validated** — when command is validate; All models and fields valid, then Validation passed; schema is ready.
+- **Project Initialized** — when command is init; No existing schema, then Prisma project scaffold created.
+- **Studio Launched** — when command is studio; Database is reachable; Schema is valid, then Prisma Studio running at http://localhost:5555.
+- **Client Generated** — when command is generate; Schema is valid, then Prisma Client generated with full types.
+- **Schema Introspected** — when command is init; Database is reachable; Database contains tables, then Schema auto-generated from existing database.
+
+**❌ Failure paths**
+
+- **Schema Syntax Error** — when Schema has syntax errors, then Errors reported with line numbers. *(error: `SCHEMA_SYNTAX_ERROR`)*
+- **Database Unreachable** — when Cannot connect to database, then Connection error with helpful message. *(error: `DATABASE_UNREACHABLE`)*
+
+## Errors it can return
+
+- `SCHEMA_SYNTAX_ERROR` — Syntax error at line {line}: {error}
+- `SCHEMA_SEMANTIC_ERROR` — Error in schema definition: {error}
+- `DATABASE_UNREACHABLE` — Could not connect to database: {error}
+- `GENERATION_FAILED` — Code generation failed: {error}
+
+## Connects to
+
+- **prisma-schema** *(required)* — Schema must exist before CLI operations
+- **prisma-migrations** *(recommended)* — CLI tools support migration workflow
+- **prisma-crud** *(recommended)* — CLI generates types for CRUD operations
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/integration/prisma-cli/) · **Spec source:** [`prisma-cli.blueprint.yaml`](./prisma-cli.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

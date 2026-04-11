@@ -1,0 +1,76 @@
+<!-- AUTO-GENERATED FROM toast-notifications.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Toast Notifications
+
+> Transient toast/snackbar notifications with auto-dismiss, stacking, and accessibility
+
+**Category:** Ui · **Version:** 1.0.0 · **Tags:** toast · snackbar · notification · feedback · ui · accessibility
+
+## What this does
+
+Transient toast/snackbar notifications with auto-dismiss, stacking, and accessibility
+
+Specifies 8 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **message** *(text, required)* — Message
+- **type** *(select, required)* — Notification Type
+- **duration_ms** *(number, optional)* — Duration (ms)
+- **dismissible** *(boolean, optional)* — Dismissible
+- **action_label** *(text, optional)* — Action Button Label
+- **action_callback** *(text, optional)* — Action Callback
+- **position** *(select, optional)* — Position
+
+## What must be true
+
+- **stacking → max_visible:** 5
+- **stacking → strategy:** fifo
+- **stacking → gap_px:** 8
+- **stacking → animation:** slide_in
+- **auto_dismiss → default_duration_ms:** 5000
+- **auto_dismiss → error_persistent:** true
+- **auto_dismiss → warning_duration_ms:** 8000
+- **auto_dismiss → pause_on_hover:** true
+- **accessibility → aria_live:** polite
+- **accessibility → aria_live_error:** assertive
+- **accessibility → role:** status
+- **accessibility → focus_management:** false
+- **accessibility → announce_dismissal:** true
+- **theming → icon_per_type:** true
+- **theming → color_per_type:** true
+- **theming → respect_reduced_motion:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Queue Overflow** — when Maximum visible toasts already displayed, then dismiss oldest toast and display new one.
+- **Error Toast** — when Notification type is error, then render persistent error toast with assertive aria-live and close button.
+- **Warning Toast** — when Notification type is warning, then render warning toast with 8-second auto-dismiss and assertive aria-live.
+- **Toast With Action** — when Action button label is provided; Action callback is defined, then render toast with action button that triggers callback on click.
+- **Hover Pause** — when Mouse is hovering over the toast; Toast has auto-dismiss enabled, then pause auto-dismiss timer while mouse hovers, resume on mouse leave.
+- **Default Toast** — when Message text is provided; Standard success or info notification, then render toast with 5-second auto-dismiss, type-specific icon and color, and polite aria-live.
+- **Toast Dismissed** — when Toast exists and is visible, then remove toast with fade-out animation and announce removal to screen readers.
+
+**❌ Failure paths**
+
+- **Empty Message** — when No message text provided, then do not render toast — silently fail or log warning. *(error: `TOAST_EMPTY_MESSAGE`)*
+
+## Errors it can return
+
+- `TOAST_EMPTY_MESSAGE` — Notification message is required
+- `TOAST_INVALID_TYPE` — Invalid notification type. Must be success, error, warning, or info.
+- `TOAST_INVALID_POSITION` — Invalid position. Must be top-right, top-left, top-center, bottom-right, bottom-left, or bottom-center.
+
+## Connects to
+
+- **form-builder** *(recommended)* — Forms show success/error toasts after submission
+- **theme-configuration** *(optional)* — Toast colors and styling adapt to the active theme
+- **internationalization** *(optional)* — Toast messages may need translation and RTL support
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/ui/toast-notifications/) · **Spec source:** [`toast-notifications.blueprint.yaml`](./toast-notifications.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

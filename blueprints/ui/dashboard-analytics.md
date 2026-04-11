@@ -1,0 +1,76 @@
+<!-- AUTO-GENERATED FROM dashboard-analytics.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Dashboard Analytics
+
+> Configurable analytics dashboard with widget grid system, KPI cards, charts, date range selection, auto-refresh, and drill-down capabilities
+
+**Category:** Ui · **Version:** 1.0.0 · **Tags:** dashboard · analytics · widgets · kpi · charts · grid-layout · data-visualization · reporting
+
+## What this does
+
+Configurable analytics dashboard with widget grid system, KPI cards, charts, date range selection, auto-refresh, and drill-down capabilities
+
+Specifies 7 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **dashboard_id** *(text, required)* — Dashboard ID
+- **name** *(text, required)* — Dashboard Name
+- **widgets** *(json, optional)* — Widget Definitions
+- **date_range** *(json, optional)* — Date Range
+- **refresh_interval** *(number, optional)* — Auto-Refresh Interval (seconds)
+- **layout_columns** *(number, optional)* — Grid Column Count
+- **owner** *(text, required)* — Dashboard Owner
+
+## What must be true
+
+- **widgets → max_per_dashboard:** 20
+- **widgets → types:** metric_card, chart, table, list, progress_bar, text_block
+- **grid → columns:** 12
+- **grid → responsive_breakpoints → mobile:** 1
+- **grid → responsive_breakpoints → tablet:** 6
+- **grid → responsive_breakpoints → desktop:** 12
+- **grid → min_widget_width_cols:** 2
+- **grid → min_widget_height_rows:** 1
+- **performance → lazy_load_offscreen:** true
+- **performance → cache_ttl_seconds:** 300
+- **performance → parallel_fetch:** true
+- **performance → stale_while_revalidate:** true
+- **date_range → presets:** today, 7d, 30d, 90d, ytd, custom
+- **date_range → max_range_days:** 365
+- **date_range → timezone_aware:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Dashboard Created** — when user provides a dashboard name; user is authenticated, then Empty dashboard ready for widget configuration.
+- **Widget Added** — when dashboard has fewer than 20 widgets; widget type is in the supported library; widget data source is configured, then Widget renders at the specified position with live data.
+- **Date Range Changed** — when user selects a new date range preset or custom range; date range is within the maximum 365-day limit, then All widgets refresh to display data for the new date range.
+- **Auto Refreshed** — when refresh interval has elapsed; dashboard tab is visible (not background), then All visible widgets show updated data without page reload.
+- **Widget Drill Down** — when user clicks a data point or KPI value in a widget; widget has drill-down configured, then Detailed view opens showing the underlying data for the selected metric.
+
+**❌ Failure paths**
+
+- **Widget Limit Reached** — when Dashboard already has 20 widgets, then User informed that the maximum widget limit has been reached. *(error: `DASHBOARD_MAX_WIDGETS`)*
+- **Data Source Error** — when widget data source returns an error or times out, then Widget displays error state with retry option, other widgets unaffected. *(error: `DASHBOARD_DATA_SOURCE_ERROR`)*
+
+## Errors it can return
+
+- `DASHBOARD_MAX_WIDGETS` — Maximum of 20 widgets per dashboard has been reached
+- `DASHBOARD_DATA_SOURCE_ERROR` — Failed to load widget data. Please try again.
+- `DASHBOARD_NOT_FOUND` — The requested dashboard does not exist
+- `DASHBOARD_DATE_RANGE_INVALID` — Date range must not exceed 365 days
+
+## Connects to
+
+- **charts-visualization** *(required)* — Dashboard chart widgets use the charts-visualization feature for rendering
+- **data-table** *(recommended)* — Dashboard table widgets use the data-table feature for tabular data display
+- **accessibility** *(recommended)* — Dashboard widgets must be keyboard navigable and screen reader compatible
+- **dark-mode** *(optional)* — Dashboard should support light and dark themes
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/ui/dashboard-analytics/) · **Spec source:** [`dashboard-analytics.blueprint.yaml`](./dashboard-analytics.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

@@ -1,0 +1,65 @@
+<!-- AUTO-GENERATED FROM openclaw-message-routing.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Openclaw Message Routing
+
+> Central message router resolving inbound messages to agents via binding precedence, role-based routing, and guild/channel/peer matching
+
+**Category:** Integration · **Version:** 1.0.0 · **Tags:** gateway · routing · messaging · multi-tenant · binding-resolution
+
+## What this does
+
+Central message router resolving inbound messages to agents via binding precedence, role-based routing, and guild/channel/peer matching
+
+Specifies 2 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **channel** *(text, required)* — Messaging Channel
+- **account_id** *(text, optional)* — Account ID
+- **peer_kind** *(select, optional)* — Peer Type
+- **peer_id** *(text, optional)* — Peer ID
+- **guild_id** *(text, optional)* — Guild ID
+- **team_id** *(text, optional)* — Team ID
+- **member_role_ids** *(json, optional)* — Member Roles
+- **agent_id** *(text, required)* — Resolved Agent ID
+- **session_key** *(text, required)* — Session Key
+- **main_session_key** *(text, required)* — Main Session Key
+- **last_route_policy** *(select, required)* — Last Route Policy
+- **matched_by** *(select, required)* — Binding Match Type
+
+## What must be true
+
+- **routing → binding_precedence:** Bindings evaluated in strict order (first match wins): 1. binding.peer — exact direct peer (highest priority) 2. binding.peer.parent — thread parent peer 3. binding.peer.wildcard — wildcard peer kind (group ↔ channel) 4. binding.guild+roles — guild + role intersection 5. binding.guild — guild ID match 6. binding.team — team ID match 7. binding.account — account-level default 8. binding.channel — channel-level default 9. default — system default agent (lowest priority)
+- **routing → agent_id_normalization:** All agent IDs normalized to lowercase for matching. Case-insensitive lookup preserves original ID casing in resolution. Missing/empty agent_id falls back to resolveDefaultAgentId(cfg).
+- **routing → session_key_derivation:** Format: agent:<agentId>:<scoped_path> Examples: - agent:mybot:main (DM collapse) - agent:mybot:discord:direct:userid (per-channel DM) - agent:mybot:group:groupid (group messages) - agent:mybot:discord:direct:userid:thread:threadid (threaded) Max length: 255 characters Normalized to lowercase for storage
+- **routing → cache_strategy:** Resolved routes cached with per-cfg object weak map. Cache limit: 4000 entries (entire cache cleared on limit exceeded). Stale detection: config change clears all caches for that object.
+- **binding_matching → peer_normalization:** Peer ID normalization: - String: trimmed directly - Number/BigInt: converted to string - Null/undefined: treated as "unknown" Wildcard: "group" matches "channel" (platforms differ)
+- **binding_matching → role_matching:** Discord role-based routing via set intersection. All specified roles required to match (AND logic). Empty roles[] matches any member (no restriction).
+- **binding_matching → guild_team_scoping:** guildId/teamId matching bypasses channel scope. Sub-guild bindings override guild bindings.
+- **dm_policy → peer_kind_matching:** peer.kind values: direct (1:1), group (multi-user), channel (public) Peer.id normalization: trimmed, ID-only (remove prefixes) Parent peer matching for threads: inheritance of parent policy
+- **dm_policy → last_route_policy_logic:** lastRoutePolicy = (sessionKey === mainSessionKey) ? "main" : "session" "main": all inbound from peer update mainSessionKey (collapsed) "session": updates target specific sessionKey (per-peer context)
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Binding Matched** — when message received on channel; channel and account_id provided; matched_by neq "default", then Agent determined, route resolved to session_key.
+- **Fallback To Default** — when message processed; no binding matched any rule, then Fallback agent used, message proceeds to dispatch.
+
+## Errors it can return
+
+- `AGENT_NOT_FOUND` — Agent not found in configuration
+- `INVALID_SESSION_KEY` — Invalid session key format
+- `BINDING_RESOLUTION_FAILED` — Unable to resolve agent binding
+- `CACHE_MISS` — Route cache miss
+
+## Connects to
+
+- **openclaw-session-management** *(required)* — Session key used in persistent conversation store
+- **openclaw-gateway-authentication** *(required)* — Auth must resolve before routing to determine user scope
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/integration/openclaw-message-routing/) · **Spec source:** [`openclaw-message-routing.blueprint.yaml`](./openclaw-message-routing.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

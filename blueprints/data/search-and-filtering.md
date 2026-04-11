@@ -1,0 +1,80 @@
+<!-- AUTO-GENERATED FROM search-and-filtering.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Search And Filtering
+
+> Full-text search with faceted filters, sorting, relevance scoring, fuzzy matching, and saved searches
+
+**Category:** Data · **Version:** 1.0.0 · **Tags:** search · filtering · full-text · facets · sorting · relevance · fuzzy-matching
+
+## What this does
+
+Full-text search with faceted filters, sorting, relevance scoring, fuzzy matching, and saved searches
+
+Specifies 5 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **query** *(text, optional)* — Search Query
+- **filters** *(json, optional)* — Filter Array
+- **filter_field** *(text, required)* — Filter Field Name
+- **filter_operator** *(select, required)* — Filter Operator
+- **filter_value** *(json, optional)* — Filter Value
+- **sort_by** *(text, optional)* — Sort Field
+- **sort_order** *(select, optional)* — Sort Order
+- **page** *(number, optional)* — Page Number
+- **page_size** *(number, optional)* — Page Size
+- **saved_search_name** *(text, optional)* — Saved Search Name
+- **total_results** *(number, optional)* — Total Result Count
+- **relevance_score** *(number, optional)* — Relevance Score
+
+## What must be true
+
+- **search_index → configurable_fields:** true
+- **search_index → index_type:** inverted_index
+- **search_index → analyzer:** standard
+- **query → max_length:** 500
+- **query → min_length:** 1
+- **query → sanitize_input:** true
+- **fuzzy_matching → enabled:** true
+- **fuzzy_matching → default_tolerance:** 2
+- **fuzzy_matching → min_query_length_for_fuzzy:** 3
+- **filters → max_filters:** 20
+- **filters → operators:** eq, neq, gt, gte, lt, lte, in, not_in, between, contains, not_contains, exists, not_exists
+- **filters → validate_field_names:** true
+- **sorting → default_sort:** relevance
+- **sorting → allowed_sort_fields_configurable:** true
+- **saved_searches → max_per_user:** 50
+- **saved_searches → stores:** query, filters, sort_by, sort_order
+- **rate_limiting → max_requests_per_minute:** 60
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Results Found** — when a search request is submitted with valid parameters; matching records exist in the index, then Paginated results returned with relevance scores, total count, and facet counts.
+- **No Results** — when a search request is submitted with valid parameters; no records match the query and filters, then Empty result set returned with suggestions (spelling corrections, relaxed filters).
+- **Search Saved** — when user submits a saved search request with a name; user is authenticated; saved search count is below the per-user limit, then Search configuration saved for future reuse.
+
+**❌ Failure paths**
+
+- **Search Error** — when the search request contains invalid parameters; filter references a non-existent field or uses an unsupported operator, then Error returned describing which parameters are invalid. *(error: `SEARCH_QUERY_INVALID`)*
+- **Search Timeout** — when search execution exceeds the configured timeout threshold, then Timeout error returned; client may retry with narrower filters. *(error: `SEARCH_TIMEOUT`)*
+
+## Errors it can return
+
+- `SEARCH_QUERY_INVALID` — Search query or filter parameters are invalid
+- `SEARCH_TIMEOUT` — Search request timed out; try narrowing your query
+- `SEARCH_RATE_LIMITED` — Too many search requests; please try again shortly
+- `SAVED_SEARCH_LIMIT_REACHED` — Maximum number of saved searches reached
+
+## Connects to
+
+- **pagination** *(required)* — Search results must be paginated for performance and usability
+- **caching** *(recommended)* — Frequently executed searches benefit from result caching
+- **audit-trail** *(optional)* — Search activity can be recorded for analytics and compliance
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/data/search-and-filtering/) · **Spec source:** [`search-and-filtering.blueprint.yaml`](./search-and-filtering.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

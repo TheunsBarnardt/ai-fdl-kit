@@ -1,0 +1,83 @@
+<!-- AUTO-GENERATED FROM comments-annotations.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Comments Annotations
+
+> Threaded comments on any entity (polymorphic) with rich text, @mentions, reactions, edit windows, and rate limiting
+
+**Category:** Data · **Version:** 1.0.0 · **Tags:** comments · annotations · threading · mentions · reactions · polymorphic · collaboration
+
+## What this does
+
+Threaded comments on any entity (polymorphic) with rich text, @mentions, reactions, edit windows, and rate limiting
+
+Specifies 8 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **comment_id** *(text, required)* — Comment ID
+- **body** *(rich_text, required)* — Comment Body
+- **author_id** *(text, required)* — Author ID
+- **parent_comment_id** *(text, optional)* — Parent Comment ID
+- **entity_type** *(text, required)* — Entity Type
+- **entity_id** *(text, required)* — Entity ID
+- **edited_at** *(datetime, optional)* — Last Edited At
+- **reactions** *(json, optional)* — Reactions
+- **mentions** *(json, optional)* — Mentions
+- **thread_depth** *(number, optional)* — Thread Depth
+- **is_deleted** *(boolean, optional)* — Soft Deleted
+
+## What must be true
+
+- **content → max_length:** 10000
+- **content → rich_text_allowed:** true
+- **content → sanitize_html:** true
+- **content → mention_syntax:** @username
+- **threading → max_depth:** 5
+- **threading → collapse_threshold:** 3
+- **editing → edit_window_minutes:** 15
+- **editing → show_edit_indicator:** true
+- **deletion → soft_delete:** true
+- **deletion → author_can_delete:** true
+- **deletion → admin_can_delete:** true
+- **reactions → max_reactions_per_user_per_comment:** 5
+- **reactions → allowed_reactions:** configurable
+- **rate_limiting → max_comments_per_minute:** 5
+- **rate_limiting → max_reactions_per_minute:** 20
+- **sorting → default_sort:** created_at_asc
+- **sorting → options:** created_at_asc, created_at_desc, reactions_count
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Comment Created** — when user submits a comment on an entity; comment body passes validation; user has not exceeded the rate limit, then Comment created and visible on the entity.
+- **Reply Created** — when user submits a reply to an existing comment; parent comment exists and is not deleted; thread depth does not exceed the maximum, then Reply created and nested under the parent comment.
+- **Comment Edited** — when author edits their own comment; the comment was created within the edit window (15 minutes), then Comment updated with edited indicator.
+- **Comment Deleted** — when the author deletes their own comment OR an admin deletes any comment, then Comment soft-deleted; shows '[deleted]' but thread structure preserved.
+- **Reaction Added** — when user adds a reaction to a comment; user has not already added this reaction to this comment; user has not exceeded max reactions per comment, then Reaction added to the comment.
+- **Mention Detected** — when a comment or reply body contains @username references; the mentioned users exist, then Mentioned users notified of the comment.
+
+**❌ Failure paths**
+
+- **Edit Window Expired** — when author attempts to edit a comment; More than 15 minutes have passed since comment creation, then Error returned indicating the edit window has closed. *(error: `COMMENT_EDIT_WINDOW_EXPIRED`)*
+- **Rate Limited** — when user attempts to create a comment; user has exceeded the rate limit, then Error returned indicating rate limit exceeded. *(error: `COMMENT_RATE_LIMITED`)*
+
+## Errors it can return
+
+- `COMMENT_EDIT_WINDOW_EXPIRED` — Comments can only be edited within 15 minutes of creation
+- `COMMENT_RATE_LIMITED` — Comment rate limit exceeded; please wait before posting again
+- `COMMENT_TOO_LONG` — Comment body exceeds the maximum length of 10,000 characters
+- `COMMENT_PARENT_NOT_FOUND` — Parent comment does not exist
+- `COMMENT_THREAD_DEPTH_EXCEEDED` — Maximum reply nesting depth reached
+
+## Connects to
+
+- **soft-delete** *(required)* — Comments use soft-delete to preserve thread structure
+- **search-and-filtering** *(recommended)* — Comments should be searchable by content and author
+- **audit-trail** *(optional)* — Comment edits and deletions can be tracked for moderation
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/data/comments-annotations/) · **Spec source:** [`comments-annotations.blueprint.yaml`](./comments-annotations.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

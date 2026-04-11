@@ -1,0 +1,74 @@
+<!-- AUTO-GENERATED FROM maintenance-scheduling.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Maintenance Scheduling
+
+> Maintenance scheduling and visit management with auto-generated visit dates, holiday avoidance, calendar events, and warranty status tracking for customer equipment.
+
+**Category:** Quality · **Version:** 1.0.0 · **Tags:** maintenance-schedule · maintenance-visit · preventive-maintenance · warranty · calendar-events · field-service
+
+## What this does
+
+Maintenance scheduling and visit management with auto-generated visit dates, holiday avoidance, calendar events, and warranty status tracking for customer equipment.
+
+Specifies 6 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **customer** *(text, required)* — Customer
+- **company** *(text, required)* — Company
+- **items** *(json, required)* — Schedule Items
+- **schedules** *(json, optional)* — Generated Schedules
+- **visit_date** *(date, required)* — Visit Date
+- **visit_time** *(text, optional)* — Visit Time
+- **visit_customer** *(text, required)* — Visit Customer
+- **visit_company** *(text, required)* — Visit Company
+- **maintenance_type** *(select, required)* — Maintenance Type
+- **maintenance_schedule** *(text, optional)* — Maintenance Schedule Reference
+- **completion_status** *(select, required)* — Completion Status
+- **customer_feedback** *(text, optional)* — Customer Feedback
+- **purposes** *(json, required)* — Visit Purposes
+
+## What must be true
+
+- **visit_dates_auto_generated:** Visit dates are auto-generated based on the periodicity setting (Weekly, Monthly, Quarterly, Half Yearly, Yearly, or Random).
+- **holiday_avoidance:** Generated visit dates avoid company holidays. If a calculated date falls on a holiday, it is shifted to the previous working day.
+- **serial_number_validation:** Serial numbers specified in schedule items are validated against the item and checked for warranty status.
+- **calendar_events_per_visit:** Calendar events are created for each scheduled visit, assigned to the designated sales person or service person.
+- **visit_updates_schedule:** Completing a maintenance visit updates the corresponding schedule detail record with the actual completion date and status.
+- **warranty_status_update:** Warranty claim status and AMC expiry date are updated on the serial number based on visit completion.
+- **cannot_cancel_with_later_visits:** A maintenance visit cannot be cancelled if later visits in the same schedule already exist and are completed.
+- **amc_expiry_update:** AMC (Annual Maintenance Contract) expiry date is updated on the serial number record upon schedule submission.
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Create Calendar Events** — when schedule is in Submitted status; sales_person or service_person is assigned, then Calendar events created and assigned to service personnel.
+- **Complete Visit** — when maintenance visit exists; all purposes have work_done recorded, then Visit marked complete and schedule updated.
+- **Update Warranty Status** — when visit is completed; serial numbers are specified in visit purposes, then Serial number warranty and AMC status updated.
+
+**❌ Failure paths**
+
+- **Generate Schedule** — when customer, company, and items with date ranges and periodicity are provided; date range is sufficient for at least one visit, then Maintenance schedule generated with visit dates. *(error: `SCHEDULE_NO_VISITS_GENERATED`)*
+- **Submit Schedule** — when schedule exists in Draft status; at least one visit date is generated, then Schedule submitted and locked for execution. *(error: `SCHEDULE_DATE_RANGE_TOO_SHORT`)*
+- **Record Visit** — when visit_date and visit_customer are provided; purposes with service_person and work_done are provided, then Maintenance visit recorded with work details. *(error: `VISIT_DATE_OUT_OF_RANGE`)*
+
+## Errors it can return
+
+- `SCHEDULE_NO_VISITS_GENERATED` — No visits could be generated for the specified date range and periodicity.
+- `SCHEDULE_DATE_RANGE_TOO_SHORT` — The date range is too short to generate visits with the specified periodicity.
+- `SCHEDULE_SERIAL_UNDER_WARRANTY` — The specified serial number is still under active warranty.
+- `VISIT_LATER_EXISTS` — Cannot cancel this visit because later visits in the schedule are already completed.
+- `VISIT_DATE_OUT_OF_RANGE` — The visit date falls outside the maintenance schedule date range.
+
+## Connects to
+
+- **serial-batch-tracking** *(recommended)* — Serial numbers validated for warranty and AMC status
+- **customer-supplier-management** *(recommended)* — Customer data used for schedule and visit management
+- **support-tickets-sla** *(optional)* — Breakdown visits may link to support tickets
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/quality/maintenance-scheduling/) · **Spec source:** [`maintenance-scheduling.blueprint.yaml`](./maintenance-scheduling.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

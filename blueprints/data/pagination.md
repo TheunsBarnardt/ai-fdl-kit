@@ -1,0 +1,69 @@
+<!-- AUTO-GENERATED FROM pagination.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Pagination
+
+> Cursor-based and offset-based pagination with configurable page sizes, stable sorting, and Link header support for REST APIs
+
+**Category:** Data · **Version:** 1.0.0 · **Tags:** pagination · cursor · offset · paging · rest-api · list
+
+## What this does
+
+Cursor-based and offset-based pagination with configurable page sizes, stable sorting, and Link header support for REST APIs
+
+Specifies 5 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **page** *(number, optional)* — Page Number (offset-based)
+- **page_size** *(number, optional)* — Items Per Page
+- **cursor** *(text, optional)* — Pagination Cursor
+- **total_count** *(number, optional)* — Total Record Count
+- **has_next** *(boolean, required)* — Has Next Page
+- **has_previous** *(boolean, required)* — Has Previous Page
+- **next_cursor** *(text, optional)* — Next Page Cursor
+- **previous_cursor** *(text, optional)* — Previous Page Cursor
+
+## What must be true
+
+- **offset_based → default_page_size:** 20
+- **offset_based → max_page_size:** 100
+- **offset_based → includes_total_count:** true
+- **offset_based → max_offset:** 10000
+- **cursor_based → preferred_for_large_datasets:** true
+- **cursor_based → cursor_encoding:** opaque_base64
+- **cursor_based → stable_sort_required:** true
+- **cursor_based → no_total_count:** true
+- **link_headers → enabled:** true
+- **link_headers → format:** RFC 8288
+- **response_metadata → offset_fields:** page, page_size, total_count, has_next, has_previous
+- **response_metadata → cursor_fields:** page_size, has_next, has_previous, next_cursor, previous_cursor
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Page Returned** — when a paginated list request is made with valid parameters; records exist for the requested page, then Page of results returned with pagination metadata and Link headers.
+- **Empty Page** — when a paginated list request is made with valid parameters; no records exist for the requested page (page beyond last or empty dataset), then Empty array returned with pagination metadata indicating no more results.
+
+**❌ Failure paths**
+
+- **Invalid Cursor** — when a cursor-based request is made; the cursor token is malformed, expired, or references deleted data, then Error returned instructing client to restart pagination from the beginning. *(error: `PAGINATION_INVALID_CURSOR`)*
+- **Page Size Exceeded** — when requested page_size exceeds the maximum allowed (100), then Error returned indicating the maximum page size. *(error: `PAGINATION_PAGE_SIZE_EXCEEDED`)*
+- **Offset Too Deep** — when offset-based pagination is used; Computed offset exceeds max_offset threshold, then Error returned suggesting client switch to cursor-based pagination. *(error: `PAGINATION_OFFSET_TOO_DEEP`)*
+
+## Errors it can return
+
+- `PAGINATION_INVALID_CURSOR` — Invalid or expired pagination cursor; please restart from the first page
+- `PAGINATION_PAGE_SIZE_EXCEEDED` — Page size must not exceed 100
+- `PAGINATION_OFFSET_TOO_DEEP` — Offset too large; use cursor-based pagination for deep result sets
+
+## Connects to
+
+- **search-and-filtering** *(recommended)* — Search results are typically paginated
+- **caching** *(optional)* — Paginated responses can be cached by page/cursor key
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/data/pagination/) · **Spec source:** [`pagination.blueprint.yaml`](./pagination.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

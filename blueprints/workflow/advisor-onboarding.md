@@ -1,0 +1,76 @@
+<!-- AUTO-GENERATED FROM advisor-onboarding.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Advisor Onboarding
+
+> Registration and onboarding process for independent financial advisors with CID approval and mandate signing
+
+**Category:** Workflow · **Version:** 1.0.0 · **Tags:** advisor-registration · approval-workflow · financial-services
+
+## What this does
+
+Registration and onboarding process for independent financial advisors with CID approval and mandate signing
+
+Specifies 11 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **onboarding_id** *(number, required)*
+- **identification_number** *(text, required)*
+- **passport_number** *(text, optional)*
+- **first_name** *(text, required)*
+- **last_name** *(text, required)*
+- **email** *(email, required)*
+- **mobile_phone** *(phone, required)*
+- **advisor_code** *(text, required)*
+- **status** *(select, required)*
+- **cancellation_reason** *(text, optional)*
+- **envelope_id** *(text, optional)*
+
+## What must be true
+
+- **validation:** ID and passport must be unique in system, Valid email and phone required, Advisor code format alphanumeric 6-10 chars
+- **permissions:** Onboarding-Activ8 creates and manages, Onboarding-CID approves, Advisor views own onboarding
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Create Advisor Onboarding** — when identification_number exists; email exists; advisor_code exists; client.role eq "Onboarding-Activ8", then Advisor onboarding created.
+- **Send To Approval** — when onboarding_id exists; status in ["initiated","in_progress"]; identification_number exists; client.role eq "Onboarding-Activ8", then Sent for CID approval.
+- **Cid Approve Onboarding** — when onboarding_id exists; status eq "waiting_approval"; client.role eq "Onboarding-CID", then CID approved onboarding.
+- **Complete Onboarding Mandate** — when onboarding_id exists; status eq "approved"; client.role eq "Onboarding-Activ8", then Mandate sent to eSignature service.
+- **Handle Mandate Signed** — when onboarding_id exists; status eq "mandate_signing"; envelope_status eq "signed", then Mandate signed, onboarding complete.
+- **Get Advisor Onboarding** — when onboarding_id exists; client.role in ["Onboarding-Activ8","Onboarding-CID"], then Returns advisor onboarding data.
+- **Update Advisor Onboarding** — when onboarding_id exists; status in ["initiated","in_progress"]; client.role eq "Onboarding-Activ8", then Advisor onboarding updated.
+- **Cancel Advisor Onboarding** — when onboarding_id exists; cancellation_reason exists; status not_in ["mandate_signed","cancelled"]; client.role eq "Onboarding-Activ8", then Onboarding cancelled.
+- **Get Creator Onboardings** — when client.role eq "Onboarding-Activ8", then Returns created onboardings.
+- **Get Cid Onboardings** — when client.role eq "Onboarding-CID", then Returns pending approvals.
+
+**❌ Failure paths**
+
+- **Create Advisor Onboarding Duplicate** — when identification_number exists OR passport_number exists, then Error duplicate found. *(error: `DUPLICATE_IDENTITY`)*
+
+## Errors it can return
+
+- `ONBOARDING_NOT_FOUND` — Onboarding not found
+- `DUPLICATE_IDENTITY` — Advisor with this identity exists
+- `INVALID_STATUS_TRANSITION` — Invalid status transition
+- `MISSING_REQUIRED_FIELD` — Required field missing
+- `INVALID_EMAIL_FORMAT` — Invalid email
+- `INVALID_PHONE_FORMAT` — Invalid phone
+- `UNAUTHORIZED_ACCESS` — Unauthorized
+- `INVALID_ADVISOR_CODE` — Invalid advisor code
+- `DOCU_SIGN_ERROR` — eSignature service error
+- `MANDATE_GENERATION_FAILED` — Mandate generation failed
+
+## Connects to
+
+- **client-onboarding** *(recommended)*
+- **proposals-quotations** *(optional)*
+- **user-auth** *(required)*
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/workflow/advisor-onboarding/) · **Spec source:** [`advisor-onboarding.blueprint.yaml`](./advisor-onboarding.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

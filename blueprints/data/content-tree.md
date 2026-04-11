@@ -1,0 +1,81 @@
+<!-- AUTO-GENERATED FROM content-tree.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Content Tree
+
+> Hierarchical content tree with zone-based storage, tree walking, flattening, indexed lookups, and schema migration
+
+**Category:** Data · **Version:** 1.0.0 · **Tags:** content-tree · data-model · serialization · tree-operations · page-data
+
+## What this does
+
+Hierarchical content tree with zone-based storage, tree walking, flattening, indexed lookups, and schema migration
+
+Specifies 10 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **root_props** *(json, required)* — Root Properties
+- **content** *(json, required)* — Root Content
+- **zones** *(json, optional)* — Zone Storage
+- **node_index** *(json, optional)* — Node Index
+- **zone_index** *(json, optional)* — Zone Index
+
+## What must be true
+
+- **data_model → three_top_level_keys:** true
+- **data_model → zone_compound_format:** parentId:slotName
+- **data_model → root_zone_id:** root:default-zone
+- **tree_structure → slots_stored_inline:** true
+- **tree_structure → unlimited_nesting_depth:** true
+- **tree_structure → unique_instance_ids:** true
+- **indexing → node_index_maintained:** true
+- **indexing → zone_index_maintained:** true
+- **indexing → path_tracking:** true
+- **indexing → parent_tracking:** true
+- **indexing → flat_data_cached:** true
+- **flattening → nested_to_dotpath:** true
+- **flattening → array_indexed:** true
+- **flattening → empty_array_sentinel:** __puck_[]
+- **flattening → empty_object_sentinel:** __puck_{}
+- **tree_walking → dual_mapper_pattern:** true
+- **tree_walking → skip_optimization:** true
+- **tree_walking → index_rebuild_on_walk:** true
+- **migration → version_upgrades:** true
+- **zone_registration → register_on_mount:** true
+- **zone_registration → unregister_on_unmount:** true
+- **zone_registration → cache_on_unregister:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Insert Into Tree** — when a valid component instance with unique ID exists; the destination zone exists or will be created; the destination index is within bounds, then Component exists in tree at specified position, indexes updated.
+- **Move In Tree** — when source zone and index point to an existing component; destination zone and index are valid; component is not being moved to its current position, then Component relocated, all indexes reflect new position.
+- **Duplicate In Tree** — when source zone and index point to an existing component, then Identical copy with unique IDs placed next to original.
+- **Remove From Tree** — when target zone and index point to an existing component, then Component and all nested children fully removed from tree and indexes.
+- **Reorder In Zone** — when source and destination are in the same zone; source index differs from destination index, then Component order updated within zone.
+- **Register Zone** — when a component with slots mounts in the editor, then Zone is available as a drop target.
+- **Unregister Zone** — when a component with slots unmounts from the editor, then Zone removed but content cached for re-registration.
+- **Lookup Node By Id** — when a valid component ID is provided, then Full node information returned in O(1) lookup.
+- **Walk Tree** — when a tree traversal is needed for any operation, then Modified tree with rebuilt indexes.
+- **Migrate Data** — when data was saved in an older schema version, then Data compatible with current editor version.
+
+## Errors it can return
+
+- `NODE_NOT_FOUND` — Component not found at the specified position
+- `ZONE_NOT_FOUND` — Zone does not exist
+- `INVALID_ZONE_FORMAT` — Zone ID must follow parentId:slotName format
+- `MIGRATION_FAILED` — Failed to migrate data to current schema version
+
+## Connects to
+
+- **component-registry** *(required)* — Component configs define what can be stored in the tree
+- **drag-drop-editor** *(required)* — Drag operations trigger insert, move, and reorder on the tree
+- **editor-state** *(required)* — Tree is part of the centralized editor state
+- **undo-redo** *(recommended)* — Tree state snapshots enable undo/redo
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/data/content-tree/) · **Spec source:** [`content-tree.blueprint.yaml`](./content-tree.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

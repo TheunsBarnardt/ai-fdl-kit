@@ -1,0 +1,62 @@
+<!-- AUTO-GENERATED FROM payload-preferences.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Payload Preferences
+
+> Per-user preferences storage for admin UI state including collapsed fields, tab positions, column visibility, sort order, and list view settings
+
+**Category:** Data · **Version:** 1.0.0 · **Tags:** cms · preferences · user-settings · ui-state · personalization · admin-panel · payload
+
+## What this does
+
+Per-user preferences storage for admin UI state including collapsed fields, tab positions, column visibility, sort order, and list view settings
+
+Specifies 4 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **user** *(json, required)* — Preference Owner
+- **key** *(text, required)* — Preference Key
+- **value** *(json, required)* — Preference Value
+
+## What must be true
+
+- **data → key_value_storage:** true
+- **data → composite_key:** user + key
+- **data → preference_types → collapsed_fields:** string array of collapsed field paths
+- **data → preference_types → tab_indices:** array of {path: tabIndex} objects
+- **data → preference_types → field_state:** {collapsed: string[], tabIndex: number} per field
+- **data → preference_types → document_preferences:** {fields: {[key]: fieldState}}
+- **data → preference_types → column_preferences:** [{accessor, active}] for list view columns
+- **data → preference_types → collection_preferences → columns:** column visibility and order
+- **data → preference_types → collection_preferences → edit_view_type:** 'default' | 'live-preview'
+- **data → preference_types → collection_preferences → group_by:** field to group list by
+- **data → preference_types → collection_preferences → limit:** items per page
+- **data → preference_types → collection_preferences → list_view_type:** 'folders' | 'list'
+- **data → preference_types → collection_preferences → preset:** saved query preset ID
+- **data → preference_types → collection_preferences → sort:** sort field
+- **access → per_user_isolation:** true
+- **access → hidden_from_admin:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Preference Isolation** — when user attempts to access another user's preferences, then Empty result returned — access silently denied through WHERE clause filtering.
+- **Get Preference** — when user is authenticated; key exists, then Preference value returned for the given key, or null if not set.
+- **Set Preference** — when user is authenticated; key exists; value exists, then Preference saved for the current user.
+- **Delete Preference** — when user is authenticated; key exists, then Preference deleted.
+
+## Errors it can return
+
+- `PREFERENCE_VALIDATION_ERROR` — The preference value did not pass validation
+
+## Connects to
+
+- **payload-auth** *(required)* — Preferences are per-user — requires authentication to identify the user
+- **payload-collections** *(required)* — Preferences stored in the auto-created payload-preferences collection
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/data/payload-preferences/) · **Spec source:** [`payload-preferences.blueprint.yaml`](./payload-preferences.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

@@ -1,0 +1,80 @@
+<!-- AUTO-GENERATED FROM plugin-overrides.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Plugin Overrides
+
+> Extensible plugin architecture with 12 UI override points, wrapping composition, field type customization, and sidebar panels
+
+**Category:** Integration · **Version:** 1.0.0 · **Tags:** plugin · override · extensibility · customization · editor-plugins
+
+## What this does
+
+Extensible plugin architecture with 12 UI override points, wrapping composition, field type customization, and sidebar panels
+
+Specifies 6 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **plugin_name** *(text, optional)* — Plugin Name
+- **plugin_label** *(text, optional)* — Plugin Label
+- **plugin_icon** *(text, optional)* — Plugin Icon
+- **overrides** *(json, optional)* — Override Definitions
+- **field_transforms** *(json, optional)* — Field Transforms
+- **mobile_panel_height** *(select, optional)* — Mobile Panel Height
+
+## What must be true
+
+- **override_points → available_overrides:** header, header_actions, preview, puck, fields, field_label, field_types, outline, drawer, drawer_item, component_overlay, iframe, action_bar
+- **override_points → total_count:** 13
+- **override_composition → wrapping_pattern:** true
+- **override_composition → array_order:** true
+- **override_composition → children_passthrough_required:** true
+- **override_composition → immutable_plugins:** true
+- **field_type_overrides → per_type:** true
+- **field_type_overrides → same_wrapping_pattern:** true
+- **built_in_plugins → blocks_plugin:** true
+- **built_in_plugins → fields_plugin:** true
+- **built_in_plugins → outline_plugin:** true
+- **built_in_plugins → legacy_sidebar_plugin:** true
+- **plugin_structure → render_function:** true
+- **plugin_structure → overrides_map:** true
+- **plugin_structure → field_transforms_map:** true
+- **plugin_structure → name_and_label:** true
+- **plugin_structure → icon:** true
+- **override_data_shapes → header_receives:** actions, children
+- **override_data_shapes → header_actions_receives:** children
+- **override_data_shapes → fields_receives:** children, is_loading, item_selector
+- **override_data_shapes → field_label_receives:** children, icon, label, element_type, read_only
+- **override_data_shapes → component_overlay_receives:** children, hover, is_selected, component_id, component_type
+- **override_data_shapes → iframe_receives:** children, document
+- **override_data_shapes → action_bar_receives:** label, children, parent_action
+- **override_data_shapes → drawer_item_receives:** children, name
+- **default_fallback → passthrough_default:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Load Plugins** — when editor initializes with a plugins array, then All plugin overrides composed and ready for rendering.
+- **Render With Override** — when an editor component renders at an override point; one or more plugins have overrides for this point, then Plugin-customized UI renders in place of or wrapping the default.
+- **Render Custom Field Type** — when a component field has a specific type (e.g., text, select); a plugin overrides that field type's rendering, then Custom field editor renders for this field type.
+- **Render Plugin Panel** — when a plugin defines a render function and a label, then Plugin panel appears as a sidebar tab that users can switch to.
+- **Apply Field Transforms** — when a plugin defines field transform functions, then Custom data transformation applied during field resolution.
+- **Override Passthrough** — when no plugin provides an override for a specific point, then Default editor UI renders unchanged.
+
+## Errors it can return
+
+- `PLUGIN_LOAD_FAILED` — Failed to load plugin
+- `OVERRIDE_RENDER_FAILED` — Plugin override failed to render
+- `CHILDREN_NOT_PASSED` — Plugin override must pass children to maintain the composition chain
+
+## Connects to
+
+- **component-registry** *(required)* — Plugins can customize component rendering and field editing
+- **field-transforms** *(recommended)* — Plugins can provide custom field transform functions
+- **editor-state** *(required)* — Plugin state and loaded overrides stored in the central store
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/integration/plugin-overrides/) · **Spec source:** [`plugin-overrides.blueprint.yaml`](./plugin-overrides.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

@@ -1,0 +1,89 @@
+<!-- AUTO-GENERATED FROM api-key-management.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Api Key Management
+
+> Create, rotate, revoke, and scope API keys for programmatic access
+
+**Category:** Auth · **Version:** 1.0.0 · **Tags:** authentication · api-key · security · programmatic-access · developer
+
+## What this does
+
+Create, rotate, revoke, and scope API keys for programmatic access
+
+Specifies 8 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **key_id** *(text, required)* — Key ID
+- **key_hash** *(hidden, required)* — Key Hash
+- **key_prefix** *(text, required)* — Key Prefix
+- **name** *(text, required)* — Key Name
+- **scopes** *(multiselect, required)* — Permissions
+- **expires_at** *(datetime, optional)* — Expiration Date
+- **last_used_at** *(datetime, optional)* — Last Used
+- **last_used_ip** *(text, optional)* — Last Used IP
+- **created_by** *(text, required)* — Created By
+- **created_at** *(datetime, required)* — Created At
+- **revoked_at** *(datetime, optional)* — Revoked At
+- **environment** *(select, required)* — Environment
+
+## What must be true
+
+- **security → key_generation → algorithm:** cryptographic_random
+- **security → key_generation → length_bytes:** 32
+- **security → key_generation → format:** sk_{environment}_{random}
+- **security → key_generation → prefix_live:** sk_live_
+- **security → key_generation → prefix_test:** sk_test_
+- **security → key_generation → show_once:** true
+- **security → storage → hash_algorithm:** sha256
+- **security → storage → never_store_plaintext:** true
+- **security → rate_limit_per_key → default_window_seconds:** 60
+- **security → rate_limit_per_key → default_max_requests:** 100
+- **security → rate_limit_per_key → burst_allowance:** 20
+- **security → max_keys_per_user:** 25
+- **security → rate_limit → window_seconds:** 60
+- **security → rate_limit → max_requests:** 10
+- **security → rate_limit → scope:** per_user
+- **rotation → grace_period_hours:** 24
+- **rotation → notify_on_rotation:** true
+- **expiration → warn_before_days:** 7
+- **expiration → auto_revoke_on_expiry:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Create Key** — when Key name provided; At least one scope selected; User has not exceeded key limit, then show full key ONCE — warn user to copy it now as it cannot be retrieved again.
+- **Rotate Key** — when Target key exists; Target key is not already revoked; User owns the target key, then show new key ONCE — old key valid for 24 more hours.
+- **Revoke Key** — when Target key exists; Key is not already revoked; User owns the target key, then key revoked — all requests using this key will be rejected immediately.
+- **Authenticate With Key** — when API key provided in request header; Key hash matches a stored hash; Key has not been revoked; Key has no expiration OR Key has not expired, then request authenticated — enforce scopes on subsequent authorization checks.
+
+**❌ Failure paths**
+
+- **Rate Limited** — when More than 10 key management requests in 60 seconds, then show "Too many requests. Please wait a moment.". *(error: `API_KEY_RATE_LIMITED`)*
+- **Max Keys Exceeded** — when User already has 25 active API keys, then show "Maximum number of API keys reached. Please revoke unused keys.". *(error: `API_KEY_LIMIT_EXCEEDED`)*
+- **Key Expired** — when Key hash matches; Key has expired, then show "API key has expired. Please generate a new key.". *(error: `API_KEY_EXPIRED`)*
+- **Invalid Key** — when api_key exists; Key hash does not match any stored hash, then return 401 Unauthorized (generic message — do not reveal whether key exists). *(error: `API_KEY_INVALID`)*
+
+## Errors it can return
+
+- `API_KEY_RATE_LIMITED` — Too many requests. Please wait a moment.
+- `API_KEY_LIMIT_EXCEEDED` — Maximum number of API keys reached. Please revoke unused keys.
+- `API_KEY_INVALID` — Invalid API key
+- `API_KEY_EXPIRED` — API key has expired
+- `API_KEY_REVOKED` — API key has been revoked
+- `API_KEY_INSUFFICIENT_SCOPE` — API key does not have the required permissions
+- `API_KEY_NOT_FOUND` — API key not found
+- `API_KEY_PER_KEY_RATE_LIMITED` — Rate limit exceeded for this API key
+
+## Connects to
+
+- **login** *(required)* — User must be authenticated to manage API keys
+- **session-management** *(recommended)* — API key management requires an active session
+- **multi-factor-auth** *(recommended)* — MFA should be required before creating live API keys
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/auth/api-key-management/) · **Spec source:** [`api-key-management.blueprint.yaml`](./api-key-management.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

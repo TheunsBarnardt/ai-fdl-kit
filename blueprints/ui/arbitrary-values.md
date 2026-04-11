@@ -1,0 +1,63 @@
+<!-- AUTO-GENERATED FROM arbitrary-values.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Arbitrary Values
+
+> Use one-off custom values in utilities without defining them in theme, enabling flexible styling beyond framework constraints
+
+**Category:** Ui · **Version:** 1.0.0 · **Tags:** arbitrary · dynamic · custom-values · escape-hatch
+
+## What this does
+
+Use one-off custom values in utilities without defining them in theme, enabling flexible styling beyond framework constraints
+
+Specifies 10 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **utility_name** *(text, required)* — Base utility name (e.g., 'w', 'p', 'bg')
+- **arbitrary_value_syntax** *(text, required)* — Value in square brackets: [value]
+- **css_value** *(text, required)* — CSS value inside brackets (must be valid CSS)
+- **theme_function_reference** *(text, optional)* — Reference to theme value using theme() function
+- **css_variable_reference** *(text, optional)* — Reference to CSS custom property (--variable-name)
+
+## What must be true
+
+- **syntax:** Arbitrary value format: utility[value] (square brackets contain CSS), Value must be valid CSS; framework does not validate CSS syntax at parse time, Spaces inside brackets are allowed: [1rem 2rem] for multi-value properties, Slashes in values must be escaped if interpreted as modifiers: [line-height/1.5]
+- **content_validation:** Value cannot contain unbalanced brackets or quotes unless properly escaped, Value can reference theme() function: [theme(--color-primary)], Value can reference CSS variables: [var(--spacing-unit)]
+- **performance:** Arbitrary values cannot be cached; each unique value generates CSS, For repeated values, define in theme instead of arbitrary values
+- **modifiers:** Arbitrary values can use modifiers: [rgba(255, 0, 0, 0.5)]/50 (opacity modifier)
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Simple Arbitrary Width** — when Designer needs element with 200px width (not in spacing scale); Designer writes 'w-[200px]', then CSS rule generated: .w-\[200px\] { width: 200px; }.
+- **Arbitrary Color Value** — when Designer needs specific color not in palette: 'bg-[#abc123]'; hex value is valid CSS color, then CSS rule generated: .bg-\[\#abc123\] { background-color: #abc123; }.
+- **Arbitrary Rgba Color** — when Designer needs transparent color: 'bg-[rgba(255, 0, 0, 0.5)]', then CSS rule generated: .bg-\[rgba\(255\ 0\ 0\ 0\.5\)\] { background-color: rgba(255, 0, 0, 0.5); }.
+- **Arbitrary With Theme Reference** — when Designer uses theme value in arbitrary: 'p-[theme(--spacing-4)]'; theme() function resolves --spacing-4 from config, then CSS rule generated: .p-\[theme\(--spacing-4\)\] { padding: 1rem; }.
+- **Arbitrary With Css Variable** — when Designer uses CSS variable in arbitrary: 'w-[var(--custom-width)]'; CSS variable defined in stylesheet or inline style, then CSS rule generated: .w-\[var\(--custom-width\)\] { width: var(--custom-width); }.
+- **Arbitrary With Modifier** — when Designer applies opacity modifier to arbitrary color: 'bg-[rgba(255, 0, 0, 0.5)]/75'; Modifier 75 means 75% opacity, then Opacity modifier applied to arbitrary value.
+- **Responsive Arbitrary Value** — when Designer wants custom width at different breakpoints: 'w-[200px] md:w-[300px] lg:w-[400px]', then Each breakpoint generates separate CSS rule with arbitrary value.
+- **Arbitrary Property** — when Designer needs custom CSS property: '[--custom-property:value]'; Some frameworks support arbitrary properties (e.g., [color:red]), then Custom CSS property set or value applied (framework support varies).
+
+**❌ Failure paths**
+
+- **Invalid Arbitrary Syntax** — when Developer writes malformed arbitrary: 'w-[200px' (missing closing bracket); Or unbalanced brackets: 'bg-[rgba(255, 0, 0, 0.5)]', then Arbitrary value rejected; CSS not generated. *(error: `INVALID_ARBITRARY_SYNTAX`)*
+- **Invalid Theme Reference** — when Developer references non-existent theme key: 'p-[theme(--spacing-missing)]', then Theme reference fails; candidate marked invalid. *(error: `INVALID_THEME_REFERENCE`)*
+
+## Errors it can return
+
+- `INVALID_ARBITRARY_SYNTAX` — Arbitrary value syntax is invalid. Use square brackets: utility[value]
+- `INVALID_THEME_REFERENCE` — Theme reference theme(key) is invalid. Check that the theme key exists.
+- `UNBALANCED_BRACKETS` — Arbitrary value contains unbalanced brackets. Ensure all brackets are properly closed.
+
+## Connects to
+
+- **utility-composition** *(recommended)* — Arbitrary values extend utilities beyond theme-defined values
+- **theme-configuration** *(optional)* — Arbitrary values reference theme via theme() function
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/ui/arbitrary-values/) · **Spec source:** [`arbitrary-values.blueprint.yaml`](./arbitrary-values.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

@@ -1,0 +1,87 @@
+<!-- AUTO-GENERATED FROM editor-state.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Editor State
+
+> Centralized state management with sliced architecture, action dispatching, computed selections, and public API
+
+**Category:** Data · **Version:** 1.0.0 · **Tags:** state-management · store · reducer · editor · centralized-state
+
+## What this does
+
+Centralized state management with sliced architecture, action dispatching, computed selections, and public API
+
+Specifies 7 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **data** *(json, required)* — Page Data
+- **ui_state** *(json, required)* — UI State
+- **selected_item** *(json, optional)* — Selected Item
+- **item_selector** *(json, optional)* — Item Selector
+- **left_sidebar_visible** *(boolean, required)* — Left Sidebar Visible
+- **right_sidebar_visible** *(boolean, required)* — Right Sidebar Visible
+- **preview_mode** *(select, required)* — Preview Mode
+- **is_dragging** *(boolean, required)* — Is Dragging
+- **field_focus** *(text, optional)* — Focused Field
+- **status** *(select, required)* — Editor Status
+- **component_loading_state** *(json, optional)* — Component Loading
+
+## What must be true
+
+- **store_architecture → single_store:** true
+- **store_architecture → sliced:** true
+- **store_architecture → immutable_updates:** true
+- **action_types → supported:** insert, move, remove, duplicate, replace, replace_root, reorder, set, set_data, set_ui, register_zone, unregister_zone
+- **dispatch_interceptor → history_recording:** true
+- **dispatch_interceptor → action_callback:** true
+- **dispatch_interceptor → selected_item_sync:** true
+- **slices → history_slice:** true
+- **slices → nodes_slice:** true
+- **slices → fields_slice:** true
+- **slices → permissions_slice:** true
+- **computed_state → selected_item_from_selector:** true
+- **computed_state → component_config_from_type:** true
+- **component_loading → deferred_loading_timeout:** true
+- **component_loading → reference_counting:** true
+- **component_loading → cleanup_on_cancel:** true
+- **public_api → read_state:** true
+- **public_api → dispatch_actions:** true
+- **public_api → access_history:** true
+- **public_api → get_permissions:** true
+- **public_api → resolve_data_by_id:** true
+- **public_api → resolve_data_by_selector:** true
+- **public_api → get_item_by_id:** true
+- **public_api → get_item_by_selector:** true
+- **public_api → get_selector_for_id:** true
+- **public_api → get_parent_by_id:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Dispatch Action** — when a valid action with a recognized type is dispatched, then State updated, history recorded, callbacks notified.
+- **Select Component** — when user clicks on a component in the canvas or outline, then Component highlighted on canvas, properties panel shows its fields.
+- **Deselect Component** — when user clicks on empty canvas area or presses Escape, then No component selected, properties panel empty or shows page settings.
+- **Toggle Preview Mode** — when user toggles between edit and interactive preview, then Canvas switches between editable and interactive modes.
+- **Set Component Loading** — when an async operation starts for a component (data resolution, external fetch), then Component shows loading indicator while async operation is in progress.
+- **Clear Component Loading** — when an async operation completes for a component, then Loading indicator removed when counter reaches 0.
+- **Batch Resolve On Load** — when editor loads initial data, then All components have their dynamic data resolved.
+
+## Errors it can return
+
+- `UNKNOWN_ACTION_TYPE` — Unrecognized action type
+- `INVALID_SELECTOR` — Item selector does not point to a valid component
+
+## Connects to
+
+- **content-tree** *(required)* — Page data (root, content, zones) is core state
+- **undo-redo** *(required)* — History slice manages undo/redo within the store
+- **component-registry** *(required)* — Component configs inform how state is structured and resolved
+- **field-transforms** *(required)* — Field resolution pipeline reads and writes state
+- **drag-drop-editor** *(recommended)* — Drag state (isDragging, preview) is UI state
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/data/editor-state/) · **Spec source:** [`editor-state.blueprint.yaml`](./editor-state.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

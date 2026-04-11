@@ -1,0 +1,89 @@
+<!-- AUTO-GENERATED FROM push-notifications.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Push Notifications
+
+> Deliver mobile and web push notifications with device management, topic subscriptions, and rich media
+
+**Category:** Notification · **Version:** 1.0.0 · **Tags:** push · mobile · web-push · fcm · apns · notifications · real-time · device-tokens
+
+## What this does
+
+Deliver mobile and web push notifications with device management, topic subscriptions, and rich media
+
+Specifies 7 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **device_token** *(token, required)* — Device Token
+- **platform** *(select, required)* — Platform
+- **title** *(text, required)* — Notification Title
+- **body** *(text, required)* — Notification Body
+- **image_url** *(url, optional)* — Rich Media Image
+- **action_url** *(url, optional)* — Action URL
+- **topic** *(text, optional)* — Topic
+- **badge_count** *(number, optional)* — Badge Count
+- **silent** *(boolean, optional)* — Silent Push
+- **priority** *(select, optional)* — Delivery Priority
+- **ttl_seconds** *(number, optional)* — Time to Live
+- **data_payload** *(json, optional)* — Custom Data Payload
+
+## What must be true
+
+- **delivery → provider_abstraction:** true
+- **delivery → max_retries:** 3
+- **delivery → retry_backoff:** exponential
+- **delivery → retry_base_seconds:** 10
+- **delivery → timeout_seconds:** 15
+- **device_management → token_refresh_on_error:** true
+- **device_management → stale_token_cleanup_days:** 90
+- **device_management → max_devices_per_user:** 10
+- **device_management → dedup_tokens:** true
+- **topics → max_subscriptions_per_user:** 100
+- **topics → max_subscribers_per_topic:** 1000000
+- **topics → topic_naming:** kebab-case
+- **payload → max_size_bytes:** 4096
+- **payload → rich_media_max_size_mb:** 5
+- **payload → collapse_key_support:** true
+- **rate_limiting → per_device_per_minute:** 5
+- **rate_limiting → per_topic_per_minute:** 30
+- **rate_limiting → global_per_second:** 500
+- **security → token_encryption_at_rest:** true
+- **security → payload_sanitization:** true
+- **security → url_validation:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Push Sent** — when Device token is registered and valid; Notification title is present; Notification body is present, then push notification delivered to provider for dispatch.
+- **Push Delivered** — when Provider confirmed delivery to device, then update delivery log with confirmed delivery.
+- **Push Dismissed** — when User dismissed the notification without tapping, then record dismissal and update badge count.
+- **Topic Broadcast** — when A topic is specified for broadcast delivery, then notification broadcast to all subscribers of the topic.
+
+**❌ Failure paths**
+
+- **Rate Limited** — when Device has received 5+ push notifications this minute, then reject with rate limit error. *(error: `PUSH_RATE_LIMITED`)*
+- **Invalid Device Token** — when Device token is not registered or has been invalidated, then remove stale token and skip delivery. *(error: `PUSH_INVALID_TOKEN`)*
+- **Payload Too Large** — when Total payload exceeds 4KB provider limit, then reject with payload size error. *(error: `PUSH_PAYLOAD_TOO_LARGE`)*
+
+## Errors it can return
+
+- `PUSH_RATE_LIMITED` — Push notification rate limit exceeded
+- `PUSH_INVALID_TOKEN` — Device token is no longer valid
+- `PUSH_PAYLOAD_TOO_LARGE` — Notification payload exceeds maximum size
+- `PUSH_DELIVERY_FAILED` — Push notification delivery failed
+- `PUSH_TOPIC_NOT_FOUND` — Topic does not exist
+- `PUSH_VALIDATION_ERROR` — Please check the notification parameters and try again
+
+## Connects to
+
+- **notification-preferences** *(required)* — Must check user push notification preferences before sending
+- **in-app-notifications** *(recommended)* — Push notifications often have corresponding in-app notification entries
+- **email-notifications** *(optional)* — Fallback to email when push delivery fails or is not available
+- **sms-notifications** *(optional)* — Fallback to SMS for critical alerts when push is unavailable
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/notification/push-notifications/) · **Spec source:** [`push-notifications.blueprint.yaml`](./push-notifications.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

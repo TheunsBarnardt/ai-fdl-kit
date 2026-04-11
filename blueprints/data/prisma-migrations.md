@@ -1,0 +1,57 @@
+<!-- AUTO-GENERATED FROM prisma-migrations.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Prisma Migrations
+
+> Manage database schema versioning and evolution with safe migrations
+
+**Category:** Data · **Version:** 1.0.0 · **Tags:** migrations · database · schema-evolution · deployment · versioning
+
+## What this does
+
+Manage database schema versioning and evolution with safe migrations
+
+Specifies 5 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **command** *(select, required)* — Migration Command
+- **migration_name** *(text, optional)* — Migration Name
+- **create_only** *(boolean, optional)* — Create Only (Don't Apply)
+- **force_reset** *(boolean, optional)* — Force Reset (Destructive)
+
+## What must be true
+
+- **development:** migrate dev: create from schema changes, apply, regenerate client, Creates safe migration using shadow database, Auto-detects data loss and prompts for confirmation, Regenerates Prisma Client with new types
+- **production:** migrate deploy: apply pending migrations in order, Requires explicit --force for destructive operations, All migrations applied atomically, Prevents deployment if pending migrations exist
+- **safety:** Shadow database validates changes before applying, Automatic detection of schema conflicts, migrate resolve for conflict resolution, Data loss warnings before destructive operations
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Migration Created** — when command is migrate_dev; Schema has changes since last migration, then Migration SQL file generated.
+- **Migration Applied** — when Migration SQL is valid; Database constraints can be satisfied, then Migration executed; schema updated.
+- **Client Regenerated** — when Migration applied successfully, then Prisma Client regenerated with new types.
+
+**❌ Failure paths**
+
+- **Migration Conflict** — when Two migrations from same base state both applied, then Error: run prisma migrate resolve. *(error: `MIGRATION_CONFLICT`)*
+- **Data Loss Warning** — when Migration would drop columns or data; User has not confirmed data loss, then Error: confirm with --accept-data-loss flag. *(error: `DATA_LOSS_DETECTED`)*
+
+## Errors it can return
+
+- `MIGRATION_CONFLICT` — Migrations {a} and {b} conflict. Run: prisma migrate resolve
+- `DATA_LOSS_DETECTED` — This migration removes data. Confirm with --accept-data-loss
+- `MIGRATION_FAILED` — Migration failed: {error}
+- `DATABASE_UNREACHABLE` — Could not connect to database
+
+## Connects to
+
+- **prisma-schema** *(required)* — Schema changes drive migrations
+- **prisma-crud** *(required)* — Migrations create tables for CRUD operations
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/data/prisma-migrations/) · **Spec source:** [`prisma-migrations.blueprint.yaml`](./prisma-migrations.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

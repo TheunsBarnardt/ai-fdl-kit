@@ -39,6 +39,177 @@ Instead, think of it like this:
 
 The blueprint tells you WHAT. You decide HOW based on the framework.
 
+## Step 0a: Detect and Extract External Inputs
+
+**Before** loading the blueprint, scan the user's raw prompt for auxiliary inputs. When an input is present, delegate to a specialist skill to extract it — do NOT try to parse Figma files, OpenAPI specs, or Postman collections yourself.
+
+This layer is **optional**. If no input is detected, skip this step entirely and proceed to Step 0. If an input is detected but the delegate skill is unavailable, fall back gracefully — never crash.
+
+### Source detection table
+
+| Indicator in prompt | Input type | Delegate | Fallback if missing |
+|---|---|---|---|
+| `figma.com/` or `figma.design/` URL | Figma design | `figma-extract-tokens` + `figma-use` (Figma MCP plugin) | Print "Figma MCP not installed. Install the Figma plugin or pass the design as an image." and continue with blueprint only |
+| `openapi.json`, `swagger.json`, `/api-docs`, or `.yaml`+OpenAPI keywords | OpenAPI / REST spec | `/fdl-extract-web` | Continue with blueprint only |
+| GitHub URL or local folder path that isn't a blueprint | Existing codebase | `/fdl-extract-code` | Continue with blueprint only |
+| `.pdf`, `.docx`, `.pptx` path or link | Document spec | `/fdl-extract` | Continue with blueprint only |
+| An image attachment in the message | Design screenshot | Built-in `Read` on the image (Claude vision) | None needed — always available |
+| Nothing recognized | — | Skip Step 0a | — |
+
+### Figma path (canonical example)
+
+When the prompt contains a Figma URL:
+
+1. **Extract design tokens** — call `figma-extract-tokens` on the selected frame. Expect back `{ colors, typography, spacing, radius, shadows }`, often pre-mapped to Tailwind classes.
+2. **Extract component structure** — call `figma-use` / `get_variable_defs` on the same selection to get the component tree (input fields, buttons, labels, images, layout).
+3. **Build the context bundle** (see below) from the combined output.
+
+If the Figma MCP plugin is not installed, the call will fail. **Catch the failure gracefully**:
+```
+⚠ Figma MCP not installed. Install the Figma plugin or pass the design as an image.
+Proceeding with blueprint-only generation.
+```
+Then continue to Step 0 as if no input were provided.
+
+### Other input paths
+
+- **OpenAPI** — invoke `/fdl-extract-web <url>` first. Its output is a blueprint-shaped object. Use its `fields`, `rules`, and `errors` to augment the blueprint context.
+- **Existing code** — invoke `/fdl-extract-code <path>` first. Use its extracted fields / outcomes as hints for what the user already expects.
+- **Document spec** — invoke `/fdl-extract <path>` first. Same merge rules.
+- **Attached image** — read the image with the built-in Read tool. The model describes layout, colors, and components in natural language. Use the description to populate `extracted.layout`.
+
+### Context bundle shape
+
+The output of this phase is an in-memory object — **not** a file, not a blueprint edit — that gets merged into the blueprint context used by Steps 1–4:
+
+```
+extracted = {
+  design_tokens: { colors, typography, spacing, radius, shadows },  // → Tailwind/CSS vars
+  fields: [...],                                                     // → reconciled with blueprint.fields
+  layout: { component_tree, order, grouping },                       // → ui_hints at runtime
+  source: "figma" | "openapi" | "code" | "document" | "image",
+  source_url_or_path: "..."                                          // for audit comments in generated code
+}
+```
+
+### Merge rules (critical)
+
+When Step 1 starts generating code, reconcile `extracted` with the blueprint:
+
+1. **Security and behavior rules come from the blueprint. ALWAYS.** A Figma mock showing a "Stay logged in forever" checkbox does NOT override `session.refresh_token.expiry_days: 7`. The blueprint wins on anything under `rules`, `outcomes`, or `errors`.
+2. **Visual styling comes from `extracted.design_tokens`.** Blueprint `ui_hints` are a floor; Figma tokens override them for colors, spacing, typography. Write these into generated CSS / Tailwind classes / CSS variables.
+3. **Field labels / placeholders / order come from `extracted`** when present, blueprint otherwise.
+4. **Field additions require user approval.** If `extracted.fields` has a field not in `blueprint.fields`, stop and ask via AskUserQuestion: *"The design has a '{name}' field but the {feature} blueprint doesn't define it. Skip it or add it to the generated code?"*. Never silently add or drop fields.
+5. **Field removals require user approval** — same rule in reverse. If the blueprint has a required field the design doesn't show, ask before hiding it.
+6. **Add an audit comment to every generated file** so the source is traceable:
+   ```
+   // FDL: feature=login  blueprint=blueprints/auth/login.blueprint.yaml  source={extracted.source}={extracted.source_url_or_path}
+   ```
+
+## Step 0b: Stack-Companion Skill Detection
+
+**You MUST run this step on every invocation, automatically.** Scan the lowercased raw prompt for any of the keywords in the table below. For every hit, add a `stack_companion` entry to the context bundle and surface it in the final summary. **DO NOT ask the user "should I use shadcn?" — if they named it, they want it.**
+
+### Trigger table (authoritative)
+
+| Keyword in prompt | Stack type | Skill URL | Install command | Generation hints |
+|---|---|---|---|---|
+| `shadcn`, `shadcn/ui`, `shadcn-ui` | UI library | https://skills.sh/shadcn/ui/shadcn | `npx shadcn@latest init` then `npx shadcn@latest add button input form label card` (plus any primitives the feature needs — `calendar`, `popover`, `dialog`, etc.) | Use `@/components/ui/*` imports. Do NOT emit raw HTML `<button>` / `<input>`. Tag each generated file with `// FDL stack-companion: shadcn`. |
+| `tailwind v4`, `tailwindcss v4`, `tailwind-v4 + shadcn` | UI library combo | https://skills.sh/jezweb/claude-skills/tailwind-v4-shadcn | (see pack) | Use Tailwind v4 config syntax (`@theme` blocks, no `tailwind.config.js`). |
+| `clerk`, `@clerk/nextjs` | Auth provider | https://skills.sh/clerk/skills/clerk-custom-ui | `npm i @clerk/nextjs` | Wrap the app in `<ClerkProvider>`, use `<SignIn />` / `<SignUp />` components. Blueprint security rules (bcrypt, rate limiting) become Clerk configuration, not hand-rolled code. |
+| `prisma` | ORM | — (no dedicated skill pack; inline) | `npx prisma init` then `npx prisma generate` | Generate a `schema.prisma` matching `blueprint.fields`. Use `prisma.<model>.findUnique / create / update`. |
+| `drizzle` | ORM | — | `npm i drizzle-orm drizzle-kit` | Generate a schema file using `pgTable` / `mysqlTable`. |
+| `nextauth`, `next-auth` | Auth provider | — | `npm i next-auth` | Generate `auth.ts` with the providers the blueprint implies (credentials + email). |
+
+### Algorithm
+
+1. Lowercase the full raw prompt the user sent.
+2. For every row in the table, check if the keyword (or any alias in that row's first column) is a substring of the lowercased prompt.
+3. For each hit, record `{ keyword, skill_url, install_cmd, invocation_cmd, generation_hint }` in a `stack_companions[]` list.
+4. During code generation (Steps 1–4), apply the `generation_hint` for every stack companion in the list. When multiple are in scope, they compose: `shadcn + prisma + nextauth` means shadcn-imported forms, Prisma queries for data, and NextAuth wrapping the auth flow.
+5. In the final `Output to User` summary, emit a `STACK COMPANIONS` block listing each hit with its install command (see the Output section). The user runs the install commands themselves.
+6. **DO NOT auto-execute `npx skills add`, `npm install`, `npx shadcn init`, or any other install command.** Surfacing the command in the summary is the correct boundary. Installing third-party skill packs is a user decision.
+
+### Unknown stack hint
+
+If the prompt mentions a library name that isn't in the table (examples: `chakra`, `mui`, `antd`, `radix` standalone, `emotion`, `styled-components`), do **not** WebFetch skills.sh at runtime — that adds latency, is unreliable, and isn't worth the complexity for a first pass. Instead:
+
+- Add the hint to a `STACK HINTS (NOT YET INTEGRATED)` block in the summary with one line: *"'{library}' detected but no stack-companion rule exists. Install manually or add it to `.claude/skills/fdl-generate/SKILL.md`'s stack table."*
+- Proceed with generation using the base framework conventions (no library-specific imports).
+
+### Silent behavior when nothing matches
+
+If no keyword matches, this step is a no-op — no section in the summary, no change to generation. Fall through to Step 0c.
+
+## Step 0c: Data-Source Skill Detection
+
+Same pattern as Step 0b, but for external data sources and integration skills. **Runs automatically on every invocation. Do not ask the user.**
+
+### Trigger table
+
+| Concept in prompt or feature | Data source | Skill URL | Install command | Generation hints |
+|---|---|---|---|---|
+| `calendar`, `schedule`, `events` (when tied to viewing/managing personal or shared schedules), `appointments`, `google calendar` | Google Calendar | https://skills.sh/baphomet480/claude-skills/google-calendar | `npx skills add https://github.com/baphomet480/claude-skills --skill google-calendar` | Use the skill's `list` / `get` / `search` / `create` / `update` / `delete` / `quick_add` commands via `uv run skills/google-calendar/scripts/google_calendar.py`. OAuth setup: enable Calendar API in Google Cloud Console, download credentials.json. Also in summary: note that OAuth client ID + secret must be configured before first run. |
+| `payment`, `checkout`, `subscription`, `stripe` | Stripe | — (inline) | `npm i stripe` | Generate a Stripe client singleton (`lib/stripe.ts`) and use `stripe.paymentIntents.create` / `stripe.subscriptions.create`. Environment: `STRIPE_SECRET_KEY`. |
+| `sms`, `text message`, `otp via text`, `twilio` | Twilio | — | `npm i twilio` | Generate a Twilio client and use `client.messages.create`. Environment: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`. |
+| `email`, `transactional email`, `resend`, `sendgrid` | Resend / SendGrid | — | `npm i resend` | Generate a Resend client and use `resend.emails.send`. Environment: `RESEND_API_KEY`. |
+| `storage`, `file upload`, `s3`, `r2` | S3 / Cloudflare R2 | — | `npm i @aws-sdk/client-s3` | Generate an S3 client. For R2, point `endpoint` at the R2 URL. Environment: `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`. |
+| `maps`, `geocoding`, `google maps` | Google Maps | — | `npm i @googlemaps/js-api-loader` | Generate a map component using the JS API loader. Environment: `NEXT_PUBLIC_GOOGLE_MAPS_KEY`. |
+
+### Algorithm
+
+Same as Step 0b: lowercase scan, substring match, record `data_sources[]` entries with `{ concept, skill_url, install_cmd, env_vars, generation_hint }`, emit a `DATA SOURCES` block in the summary, and wire the generation hint into the relevant files.
+
+### Critical rule — scoping
+
+**Data-source skills scope to the feature that needs them, not the whole project.** In the canonical example *"app with login and dashboard showing daily calendar"*, Google Calendar is wired ONLY into the calendar widget — NOT into the login handler, NOT into the dashboard container's other widgets. The blueprint for `login` doesn't get a Google Calendar dependency just because the sibling feature needed one.
+
+### Environment variables in the summary
+
+For every data-source hit, list the required environment variables in the `DATA SOURCES` block so the user knows what to set before running the app. Do NOT generate a `.env` file with real credentials — use a `.env.example` template with placeholder values (e.g., `STRIPE_SECRET_KEY=sk-fake-example-key-not-real`). POPIA/security rule: never write real secrets anywhere.
+
+## Step 0d: Multi-Feature Parsing
+
+**You MUST run this step on every invocation, automatically, before loading any blueprint.** When the user's prompt names more than one feature, generate all of them in one invocation — do NOT ask *"just {first_feature}?"* and do NOT require the user to run `/fdl-generate` N times.
+
+### Trigger detection
+
+The prompt contains multi-feature intent if ANY of these are true:
+- More than one known feature name appears as a substring (check by running `blueprint-lookup.js` against each candidate token)
+- The phrases `" and "`, `" + "`, or a comma separate two feature-like tokens
+- The prompt contains any of: `" app "`, `" create an app "`, `" scaffold "`, `" build me "`, `" full stack "` (these indicate app-level multi-feature intent)
+
+### Algorithm
+
+1. Strip the leading command and arguments from the prompt (everything before the first natural-language noun).
+2. Tokenize the remainder on `and`, `,`, `with`, `+`, and the phrase `that has`.
+3. For each token, extract candidate feature names (noun phrases). Examples:
+   - *"basic login"* → `login`
+   - *"dashboard"* → `dashboard`, `dashboard-analytics`, `admin-panel`
+   - *"daily calendar"* → `calendar-view`, `scheduling-calendar`, `calendar`
+4. For each candidate, run `node scripts/blueprint-lookup.js <candidate>`:
+   - Exit 0 → add the returned JSON to `features_to_generate[]`
+   - Exit 1 → add the candidate to `missing_features[]`
+5. **Skip the existing "Scope" question entirely** when `features_to_generate.length > 1`. The user already told us what they want — don't interrupt.
+6. **Share one answer across features** for Database, AGI-flow, and project-skeleton questions. Do NOT ask them once per feature. One generation run → one set of answers.
+7. **Multi-feature AGI collapse:** when generating more than one feature at once, replace the six granular AGI questions with ONE question: *"Generate with default security and no tests, or tune settings?"* — options: `Generate now (defaults)` / `Tune settings (unfolds the full wizard)`. Most scaffolding asks pick the first option.
+8. **Missing-feature handoff at the END.** If any candidate wasn't in the INDEX, do NOT interrupt the flow. Collect them all and surface ONE question at the very end, just before Step 5/6:
+   > *"The following concept doesn't have a dedicated blueprint: `{list}`. Options: (a) generate inline without a blueprint, (b) run `/fdl-create <name>` first, (c) use the closest blueprint ({closest match from INDEX — use fuzzy match on feature names and descriptions}) as the base."*
+
+### Cross-cutting glue for multi-feature runs
+
+When `features_to_generate.length > 1`, the skill must also emit cross-cutting project glue that no single feature blueprint owns:
+
+- **Route protection middleware** — `middleware.ts` that gates `(app)` / `(protected)` route groups behind a valid session cookie. Required whenever any non-auth feature is in the run alongside `login` / `signup` / `session`.
+- **Root layout** — `src/app/(app)/layout.tsx` (or framework equivalent) with navigation shell, auth context provider, and a slot for the feature pages.
+- **Environment template** — `.env.example` listing every environment variable from every data-source skill detected in Step 0c.
+
+These files get tagged with `// FDL cross-cutting: multi-feature-app` so they're distinguishable from feature-owned files.
+
+### Single-feature runs
+
+When `features_to_generate.length === 1`, Step 0d is a no-op and generation proceeds as before — the existing Scope question (if the one blueprint has `related` entries) still fires.
+
 ## Handling Structured Outcomes
 
 Outcomes may use structured conditions and side effects. Here's how to translate them to code:
@@ -77,14 +248,31 @@ When `when:` is present on a side effect, wrap it in a conditional.
 
 ## Step 0: Load the Blueprint
 
-Before asking any questions, load the blueprint for `<feature>`:
+**You MUST use `scripts/blueprint-lookup.js` as the FIRST action in this step. Do NOT Read, Glob, or Grep blueprint files manually until the script has returned or failed.** The INDEX is a deterministic O(1) lookup — globbing is slower and less reliable.
 
-1. **Local first:** Try `Read blueprints/{category}/{feature}.blueprint.yaml` — check common categories: auth, data, access, ui, integration, notification, payment, workflow, trading, infrastructure, observability.
-   - If you don't know the category, Glob `blueprints/**/{feature}.blueprint.yaml` to find it.
-2. **Remote fallback (no local blueprints):** If the file doesn't exist locally (you're working in a new project outside the FDL repo):
-   - First find the category: `WebFetch https://theunsbarnardt.github.io/ai-fdl-kit/api/registry.json` — search the array for `feature === "<feature>"` to get its `category`.
+### Mandatory flow
+
+1. **Run the lookup script:**
+   ```
+   Bash: node scripts/blueprint-lookup.js <feature>
+   ```
+
+2. **Interpret the exit code:**
+
+   | Exit | Meaning | What to do |
+   |---|---|---|
+   | `0` | Found in INDEX | Parse the JSON from stdout. It has `{ feature, category, yaml_path, md_path, version, description }`. Read the `yaml_path` it returned. Done loading — skip steps 3 and 4. |
+   | `1` | Not in INDEX | The blueprint may not exist in this repo yet. Proceed to step 3 (remote fallback). |
+   | `2` | INDEX.md missing or empty arg | Print the script's stderr message verbatim to the user and **stop**. Do NOT silently glob. The user needs to run `npm run generate:readmes` to regenerate the index. |
+
+3. **Remote fallback** (only when step 2 returned exit 1, e.g. the user is working outside the FDL repo or the feature was published but not yet pulled locally):
+   - `WebFetch https://theunsbarnardt.github.io/ai-fdl-kit/api/registry.json` — search the array for `feature === "<feature>"` to get its `category`.
    - Then fetch the full blueprint: `WebFetch https://theunsbarnardt.github.io/ai-fdl-kit/api/blueprints/{category}/{feature}.json`
-3. If the blueprint still can't be found locally or remotely, tell the user: "No blueprint found for '{feature}'. Run `/fdl-create {feature}` first to define it."
+   - Treat the JSON response as equivalent to the YAML (same field names).
+
+4. **Nothing found locally or remotely:** tell the user *"No blueprint found for '{feature}'. Run `/fdl-create {feature}` first to define it."* and stop.
+
+**Why a script and not prose instructions:** the INDEX parser is a tiny, deterministic helper that cannot be skipped or misread. It guarantees the skill always consults `blueprints/INDEX.md` first, never globs, and never guesses categories. If you find yourself about to run `Glob blueprints/**/*.blueprint.yaml`, stop — you're doing it wrong. Run the script instead.
 
 **The blueprint JSON from the API has the same structure as the YAML** — same fields, outcomes, rules, errors, events. Use it identically.
 
@@ -290,9 +478,124 @@ For each feature, produce these files (adapt to framework conventions):
 - Error handling — maps error codes to user-facing messages
 
 **Don't generate:**
-- Tests (unless the user asks)
 - Documentation (the blueprint IS the documentation)
 - Migration files (the user handles their own DB schema)
+
+Tests are handled by the optional Step 5 below — see the trigger rules there.
+
+## Step 5: Emit Tests (optional post-processing)
+
+**Skip this step entirely unless** one of these conditions is true:
+- The user passed `--with-tests` in the command
+- The user answered "Yes — include the tests" to the AGI testing question in Step 3 of the AGI flow
+- The blueprint has `agi.verification.acceptance_tests` (auto-enable)
+
+When triggered, generate a test file that maps each structured outcome directly to a test case. Blueprints already encode everything you need: `given[]` is the arrange step, `then[]` is the act/assert step, `result` is the final expectation.
+
+### Framework → test framework mapping
+
+Detect the project's test framework from the existing files (don't ask):
+
+| Target | Default | Detection hints |
+|---|---|---|
+| Next.js / Node.js | Vitest | `vitest.config.*` or `"vitest"` in `package.json`. Fall back to Jest if `jest.config.*` exists. |
+| Express | Jest + supertest | `jest.config.*`, `"jest"` in `package.json` |
+| Python (Django / FastAPI) | pytest | `pytest.ini`, `pyproject.toml` with `[tool.pytest]`, or `conftest.py` |
+| Laravel | phpunit | `phpunit.xml` |
+| Rust (Axum / Actix) | built-in `#[test]` + `cargo test` | Always — no detection needed |
+| .NET / ASP.NET | xUnit | `*.Tests.csproj`, references to `Xunit` |
+| Go | standard `testing` + `go test` | Always — no detection needed |
+| Angular | Jasmine + Karma (or Vitest if migrated) | `karma.conf.*`, `angular.json` |
+
+### Test file location
+
+Use the framework's conventional path — **do not invent**:
+
+- Next.js → `src/lib/{category}/__tests__/{feature}.test.ts`
+- Express → `tests/{category}/{feature}.test.ts`
+- Python → `tests/{category}/test_{feature}.py`
+- Laravel → `tests/Feature/{Feature}Test.php`
+- Rust → inline `#[cfg(test)] mod tests` in the handler file, OR `tests/{feature}.rs`
+- .NET → `{Project}.Tests/{Category}/{Feature}Tests.cs`
+- Go → `{category}/{feature}_test.go` (same package)
+
+### Mapping structured outcomes → test cases
+
+For every outcome, emit one test. The pattern is always the same — only the framework idioms change:
+
+```
+describe("{feature}", () => {
+  describe("outcomes.{outcome_name}", () => {
+    it("{result or titleCase(outcome_name)}", async () => {
+      // ARRANGE — set up every `given` condition
+      //   - field/source/operator/value → mock the data source at that value
+      //   - string givens → best-effort setup from natural language
+      //   - `any:` groups → set up ONE branch (pick the first) per test, or split into N sub-tests
+      //   - `all:` groups → set up all
+      const input = { ... };
+      mockDb({ ... });
+
+      // ACT — invoke the feature's entry point
+      const result = await login(input);
+
+      // ASSERT — verify every `then` action ran AND the `result` was produced
+      expect(result).toMatch(/{expected-result}/);
+      expect(mockDb.updates).toContainEqual({ failed_login_attempts: N });
+      expect(mockEvents).toContainEqual({ name: "login.failed", ... });
+    });
+  });
+});
+```
+
+### Rules
+
+- **Outcome coverage is non-negotiable.** Every outcome in the blueprint MUST produce at least one test. Name each test after the outcome (or its `result`) so coverage is auditable.
+- **Use mock data sources** — tests must not depend on a real database. Use the same mock store the main generated code falls back to when the user chose "mock/demo data" in Step 0.
+- **Test the error codes literally.** When an outcome has `error: LOGIN_RATE_LIMITED`, assert on that exact code in the test.
+- **`any:` branches** — if an outcome's `given` has an `any:` group, emit one test per branch so each branch is independently covered.
+- **Don't mock framework internals.** Mock data sources and external services, not your own modules.
+- **Add AGI acceptance tests on top.** If `agi.verification.acceptance_tests` exists, emit one additional test per entry with the scenario name as the test name.
+
+### Silent behavior when skipped
+
+If none of the trigger conditions are met, do not generate tests, do not mention tests in the summary, do not ask "do you want tests?" — stay out of the way.
+
+## Step 6: Verify Loop (optional post-processing)
+
+**Skip this step entirely unless** one of these conditions is true:
+- The user passed `--verify` in the command
+- The user answered "yes" to the final prompt: *"Run the generated tests now?"* (only asked when Step 5 ran)
+
+When triggered, run the tests and iterate on failures until green — with a hard cap.
+
+### The loop
+
+1. **Detect the test command.** Read the project's package manager / build file and pick the right invocation:
+   - `package.json` with `"scripts": { "test": ... }` → `npm test` (or `pnpm test` / `yarn test` based on lockfile)
+   - Python project → `pytest` (or `python -m pytest`)
+   - Rust → `cargo test`
+   - Go → `go test ./...`
+   - Laravel → `php artisan test`
+   - .NET → `dotnet test`
+2. **Run it** via Bash, capturing stdout and stderr. For browser/UI flows, prefer `preview_start` + `preview_logs` over Bash.
+3. **Parse the result.**
+   - All green → exit the loop, report "Pass: N/N" in the summary.
+   - Any red → identify the first failing test, map its name back to the outcome it covers, read the generated source file that implements that outcome, and patch it.
+4. **GOTO step 2.**
+
+### Hard cap: 3 iterations
+
+The loop MUST stop after 3 iterations regardless of state. Unbounded iteration is the fastest way to burn context and tokens on an unreachable fix. When the cap is hit:
+
+- Stop. Do not delete the generated tests or source.
+- Print a clean handoff to the user: *"After 3 attempts the following tests are still failing: {list}. The blueprint outcome is: {outcome_name}. Investigate manually — the likely cause is {first stderr line}."*
+- Include the failing test output so the user can debug without re-running.
+
+### What to patch
+
+- **Only patch files that `/fdl-generate` just created** (they carry the `// FDL:` audit comment). Do NOT patch pre-existing project files.
+- **Never patch the tests themselves to make them pass.** Tests come from the blueprint and are the spec. If a test is wrong, the blueprint is wrong — stop, do not touch.
+- **If a failure is caused by a missing dependency** (e.g., `Cannot find module 'bcrypt'`), stop the loop immediately and tell the user which package to install. Don't try to install packages automatically.
 
 ## Self-Check: Outcome Coverage
 
@@ -332,35 +635,70 @@ Also verify:
 
 ## Output to User
 
-Show a clean summary (no YAML, no implementation details):
+Show a clean summary (no YAML, no implementation details). Every block below is **conditionally included** — only show a block when its step actually produced something. Empty headings are forbidden.
 
 ```
-Generated: login for Next.js (App Router)
+Generated: nextjs app with login + dashboard-analytics + calendar-view
+
+SOURCE:
+  ✓ Blueprint:     blueprints/auth/login.blueprint.yaml
+  ✓ Blueprint:     blueprints/ui/dashboard-analytics.blueprint.yaml
+  ✓ Inline:        calendar-view (no blueprint — generated as a read-only widget)
+
+STACK COMPANIONS:
+  ✓ shadcn (https://skills.sh/shadcn/ui/shadcn)
+    Install: npx shadcn@latest init
+             npx shadcn@latest add button input form label card calendar popover
+
+DATA SOURCES:
+  ✓ google-calendar (https://skills.sh/baphomet480/claude-skills/google-calendar)
+    Install:   npx skills add https://github.com/baphomet480/claude-skills --skill google-calendar
+    OAuth:     enable Calendar API in Google Cloud Console, download credentials.json
+    Env vars:  GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI
 
 FILES:
-  src/app/(auth)/login/page.tsx          — Page
+  src/app/(auth)/login/page.tsx          — Login page
   src/app/(auth)/login/actions.ts        — Server action
   src/lib/auth/login.ts                  — Business logic
-  src/lib/auth/types.ts                  — Types
-  src/components/auth/LoginForm.tsx       — Form
+  src/app/(app)/layout.tsx               — Protected layout (auth wrapper)
+  src/app/(app)/dashboard/page.tsx       — Dashboard container
+  src/components/dashboard/CalendarWidget.tsx — Daily calendar widget
+  src/middleware.ts                      — Route protection (cross-cutting)
+  .env.example                           — Env var template
 
 IMPLEMENTED:
   ✓ Email + password login with "remember me"
-  ✓ Account lockout after 5 failed attempts (15 min)
-  ✓ Rate limiting (10 req/min per IP)
-  ✓ Generic error messages (enumeration prevention)
-  ✓ JWT session with 15-min access + 7-day refresh token
-  ✓ Secure cookies (httpOnly, secure, sameSite: strict)
-  ✓ 4 events emitted (success, failed, locked, unverified)
+  ✓ Account lockout, rate limiting, generic errors (blueprint-enforced)
+  ✓ JWT session with secure cookies
+  ✓ Protected /dashboard route via middleware
+  ✓ Dashboard shell with calendar widget slot
+  ✓ Read-only daily calendar widget wired to Google Calendar skill
+  ✓ shadcn Card / Button / Calendar / Popover used throughout
+
+POST-PROCESSING:
+  ✓ Tests emitted   — 6 test cases across 6 outcomes (Vitest)
+  ✓ Verify loop     — 2/2 iterations, all green (12/12 passing)
 
 NEEDS YOUR WORK:
-  ⚠ Database queries (using mock data — swap in your ORM)
+  ⚠ Run `npx create-next-app@latest` before using the generated files
+  ⚠ Run the shadcn install commands in STACK COMPANIONS above
+  ⚠ Set up Google Cloud OAuth credentials (Client ID + Secret)
+  ⚠ Database queries (currently mock — swap in Prisma/Drizzle)
   ⚠ Rate limiting store (needs Redis or similar)
-  ⚠ Email sending (verification emails)
 
 DEMO CREDENTIALS (mock data):
   Email: demo@example.com | Password: Password1
 ```
+
+### Rules for the summary
+
+- **`SOURCE` block** — list every blueprint loaded (one line per feature when Step 0d found multiple). If Step 0a extracted external input (Figma, OpenAPI, etc.), add a line for it. If Step 0d had a `missing_feature` that was generated inline, add an `Inline:` line for it.
+- **`STACK COMPANIONS` block** — list every hit from Step 0b. One line for the skill URL, one indented line for the install command. When the user needs to run multiple install steps (e.g., shadcn init + shadcn add primitives), show them on separate lines. **Only include this block when Step 0b produced at least one hit.**
+- **`DATA SOURCES` block** — list every hit from Step 0c. One line for the skill URL, one indented line for install, one for OAuth/setup if applicable, one for required env vars. **Only include this block when Step 0c produced at least one hit.**
+- **`POST-PROCESSING` block** — list Step 5 (tests) and Step 6 (verify loop) only if they ran. When the verify loop stopped at the 3-iteration cap, show it as `⚠ Verify loop   — stopped at 3 iterations, {N} tests still failing` and include the failing test names under `NEEDS YOUR WORK`.
+- **`FILES` block** — tag cross-cutting glue files (middleware, layouts, .env.example) with a short suffix so the user can see which files are feature-owned vs multi-feature glue.
+- **Never show empty blocks.** The absence of a block tells the user the step didn't run — don't emit `STACK COMPANIONS: (none)`.
+- **Never auto-execute install commands.** They always go in the summary for the user to run themselves. This is a safety boundary for third-party code execution.
 
 ## Framework Patterns
 

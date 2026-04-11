@@ -1,0 +1,69 @@
+<!-- AUTO-GENERATED FROM email-verification.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Email Verification
+
+> Verify user email ownership via a one-time token link
+
+**Category:** Auth · **Version:** 1.0.0 · **Tags:** email · verification · security · identity · onboarding
+
+## What this does
+
+Verify user email ownership via a one-time token link
+
+Specifies 7 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **token** *(token, required)*
+- **email** *(email, required)* — Email Address
+
+## What must be true
+
+- **security → token → type:** cryptographic_random
+- **security → token → length_bytes:** 32
+- **security → token → hash_before_storage:** true
+- **security → token → algorithm:** sha256
+- **security → token_expiry → hours:** 24
+- **security → single_use:** true
+- **security → rate_limit_resend → window_seconds:** 3600
+- **security → rate_limit_resend → max_requests:** 3
+- **security → rate_limit_resend → scope:** per_email
+- **security → rate_limit_verify → window_seconds:** 60
+- **security → rate_limit_verify → max_requests:** 10
+- **security → rate_limit_verify → scope:** per_ip
+- **email → case_sensitive:** false
+- **email → trim_whitespace:** true
+- **email → enumeration_prevention:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Resend Unknown Email** — when Email not found in database OR Email is already verified, then show SAME message as resend_success (enumeration prevention).
+- **Already Verified** — when Email is already verified, then redirect to /login with message "Email already verified. Please sign in.".
+- **Email Verified** — when Token is present in URL; SHA-256 hash matches a DB record; Token has not expired; Token has not been used (single-use); User account is not disabled, then redirect to /login with message "Email verified! You can now sign in.".
+- **Resend Success** — when Email is valid format; User exists; Email is not yet verified, then show "If an account with that email exists, we've sent a new verification link.".
+
+**❌ Failure paths**
+
+- **Token Invalid** — when Token hash not found in database OR Token has already been used, then show "This verification link is invalid." with option to request a new one. *(error: `VERIFY_TOKEN_INVALID`)*
+- **Resend Rate Limited** — when More than 3 resend requests in 1 hour for this email, then show "If an account with that email exists, we've sent a new verification link." (same as success). *(error: `VERIFY_RATE_LIMITED`)*
+- **Token Expired** — when token_hash exists; Token has expired (older than 24 hours), then show "This verification link has expired." with option to request a new one. *(error: `VERIFY_TOKEN_EXPIRED`)*
+
+## Errors it can return
+
+- `VERIFY_TOKEN_INVALID` — This verification link is invalid. Please request a new one.
+- `VERIFY_TOKEN_EXPIRED` — This verification link has expired. Please request a new one.
+- `VERIFY_RATE_LIMITED` — Too many requests. Please wait before trying again.
+- `VERIFY_VALIDATION_ERROR` — Please check your input and try again
+
+## Connects to
+
+- **signup** *(required)* — Verification is triggered by signup
+- **login** *(required)* — After verification, user logs in
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/auth/email-verification/) · **Spec source:** [`email-verification.blueprint.yaml`](./email-verification.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

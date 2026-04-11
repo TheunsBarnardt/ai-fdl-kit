@@ -1,0 +1,74 @@
+<!-- AUTO-GENERATED FROM form-builder.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Form Builder
+
+> Dynamic form creation and rendering with drag-and-drop field placement, conditional visibility, multi-step forms, validation rules, and versioning
+
+**Category:** Ui · **Version:** 1.0.0 · **Tags:** forms · builder · drag-and-drop · validation · dynamic-forms · multi-step · conditional-logic
+
+## What this does
+
+Dynamic form creation and rendering with drag-and-drop field placement, conditional visibility, multi-step forms, validation rules, and versioning
+
+Specifies 8 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **form_id** *(text, required)* — Form ID
+- **name** *(text, required)* — Form Name
+- **form_fields** *(json, required)* — Form Fields
+- **layout** *(json, optional)* — Form Layout
+- **version** *(number, required)* — Form Version
+- **status** *(select, required)* — Form Status
+- **steps** *(json, optional)* — Multi-Step Configuration
+- **submission_config** *(json, optional)* — Submission Configuration
+
+## What must be true
+
+- **field_types → registry:** text, email, password, number, boolean, date, datetime, phone, url, file, select, multiselect, hidden, rich_text, textarea
+- **validation_expressions → supported_rules:** required, minLength, maxLength, min, max, pattern, email, url, custom
+- **conditional_logic → supported_operators:** eq, neq, gt, gte, lt, lte, in, not_in, exists, not_exists
+- **conditional_logic → evaluation_order:** top-to-bottom
+- **conditional_logic → max_conditions_per_field:** 10
+- **limits → max_fields_per_form:** 100
+- **limits → max_steps:** 20
+- **limits → max_nested_groups:** 3
+- **versioning → auto_increment:** true
+- **versioning → preserve_submissions:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Form Created** — when user provides a form name; form name is unique within the account, then New form exists in draft status, ready for field configuration.
+- **Field Added** — when form is in draft status; field count is below 100; field type is in the supported registry, then Field appears in the form builder canvas at the specified position.
+- **Field Removed** — when form is in draft status; field exists in the form, then Field removed from form, dependent conditions cleaned up.
+- **Conditional Visibility Applied** — when a condition is defined on a field; the referenced source field exists in the form; the operator is valid for the source field type, then Field shows or hides dynamically based on the condition at render time.
+- **Form Published** — when form is in draft status; form has at least one field; all field validations are properly configured; all conditional references point to existing fields, then Form is live and available for submissions.
+- **Form Submitted** — when form is in published status; all required fields have values; all field validations pass, then Submission recorded and confirmation shown to the user.
+
+**❌ Failure paths**
+
+- **Form Submission Invalid** — when form is in published status; one or more required fields are empty OR one or more field validations fail, then Validation errors displayed inline next to the relevant fields. *(error: `FORM_VALIDATION_FAILED`)*
+- **Max Fields Exceeded** — when Form already has 100 fields, then User informed that the maximum field limit has been reached. *(error: `FORM_MAX_FIELDS_EXCEEDED`)*
+
+## Errors it can return
+
+- `FORM_VALIDATION_FAILED` — Please fix the highlighted errors before submitting
+- `FORM_MAX_FIELDS_EXCEEDED` — Maximum of 100 fields per form has been reached
+- `FORM_NOT_FOUND` — The requested form does not exist
+- `FORM_NOT_PUBLISHED` — This form is not currently accepting submissions
+- `FORM_FIELD_TYPE_INVALID` — The specified field type is not supported
+
+## Connects to
+
+- **drag-drop-editor** *(recommended)* — Drag-and-drop provides intuitive field placement in the form builder
+- **wizard-stepper** *(optional)* — Multi-step forms use the wizard/stepper pattern for step navigation
+- **accessibility** *(recommended)* — Form fields must meet WCAG 2.1 AA accessibility requirements
+- **internationalization** *(optional)* — Form labels and validation messages may need translation
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/ui/form-builder/) · **Spec source:** [`form-builder.blueprint.yaml`](./form-builder.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

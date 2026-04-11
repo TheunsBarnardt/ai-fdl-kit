@@ -158,6 +158,7 @@ Want me to adjust anything, or should I create it?
 4. **Validate structure** — run `node scripts/validate.js blueprints/{category}/{feature}.blueprint.yaml`
 5. **Validate completeness** — run `node scripts/completeness-check.js blueprints/{category}/{feature}.blueprint.yaml` (catches placeholders, empty outcomes, dangling error refs)
 6. **Fix any errors** silently and re-run both checks. Do NOT consider the skill complete until both pass with zero errors.
+7. **Generate the human-friendly readme** — run `node scripts/generate-readmes.js blueprints/{category}/{feature}.blueprint.yaml`. This writes a concise co-located `.md` file alongside the YAML. The rendered markdown (NOT the YAML) is what you show the user as a confirmation in Phase 4. Showing this `.md` satisfies the "never show YAML to the user" rule — you're showing the rendered human summary, not the source spec.
 
 ### Phase 4: Show Summary
 

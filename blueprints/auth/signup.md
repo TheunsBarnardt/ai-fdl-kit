@@ -1,0 +1,71 @@
+<!-- AUTO-GENERATED FROM signup.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Signup
+
+> Register a new user account with email and password
+
+**Category:** Auth · **Version:** 1.0.0 · **Tags:** registration · onboarding · account-creation · identity · saas
+
+## What this does
+
+Register a new user account with email and password
+
+Specifies 5 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **first_name** *(text, required)* — First Name
+- **last_name** *(text, required)* — Last Name
+- **email** *(email, required)* — Email Address
+- **password** *(password, required)* — Password
+- **confirm_password** *(password, required)* — Confirm Password
+- **terms_accepted** *(boolean, required)* — I agree to the Terms of Service and Privacy Policy
+
+## What must be true
+
+- **security → password_hashing → algorithm:** bcrypt
+- **security → password_hashing → salt_rounds:** 12
+- **security → rate_limit → window_seconds:** 3600
+- **security → rate_limit → max_requests:** 5
+- **security → rate_limit → scope:** per_ip
+- **security → email_enumeration_prevention → enabled:** true
+- **security → bot_protection → type:** none
+- **account → default_role:** user
+- **account → email_verified_on_signup:** false
+- **account → auto_login_after_signup:** false
+- **email → case_sensitive:** false
+- **email → trim_whitespace:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Successful Signup** — when First name is valid (Unicode letters, hyphens, apostrophes); Last name is valid; Email is valid format; Email is not already registered; Password meets requirements (8-64 chars, upper+lower+digit); Confirm password matches password; User accepted terms of service, then redirect to confirmation page with "Account created! Please check your email to verify.".
+
+**❌ Failure paths**
+
+- **Rate Limited** — when More than 5 signup attempts in 1 hour from this IP, then show "Too many attempts. Please try again later.". *(error: `SIGNUP_RATE_LIMITED`)*
+- **Validation Failed** — when any field fails its validation rules, then show per-field error messages inline. *(error: `SIGNUP_VALIDATION_ERROR`)*
+- **Bot Detected** — when Hidden honeypot field was filled (bots only) OR CAPTCHA verification failed, then show generic rate limit error (don't reveal bot detection triggered). *(error: `SIGNUP_RATE_LIMITED`)*
+- **Email Already Registered** — when Email already exists in database, then show SAME success response as new signup (enumeration prevention). *(error: `SIGNUP_EMAIL_TAKEN`)*
+
+## Errors it can return
+
+- `SIGNUP_VALIDATION_ERROR` — Please check your input and try again
+- `SIGNUP_EMAIL_TAKEN` — Unable to create account. Please try a different email or sign in.
+- `SIGNUP_RATE_LIMITED` — Too many attempts. Please try again later.
+- `SIGNUP_TERMS_NOT_ACCEPTED` — You must accept the terms to create an account
+- `SIGNUP_PASSWORD_WEAK` — Password does not meet security requirements
+- `SIGNUP_PASSWORD_MISMATCH` — Passwords do not match
+
+## Connects to
+
+- **login** *(required)* — After signup, user needs to log in
+- **email-verification** *(required)* — New accounts must verify their email
+- **password-reset** *(recommended)* — Users who just signed up may still need password reset
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/auth/signup/) · **Spec source:** [`signup.blueprint.yaml`](./signup.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

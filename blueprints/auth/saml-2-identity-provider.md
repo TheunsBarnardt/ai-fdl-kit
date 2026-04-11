@@ -1,0 +1,38 @@
+<!-- AUTO-GENERATED FROM saml-2-identity-provider.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Saml 2 Identity Provider
+
+> SAML 2.0 identity provider with assertions and metadata
+
+**Category:** Auth · **Version:** 1.0.0 · **Tags:** saml2 · identity-provider
+
+## What this does
+
+SAML 2.0 identity provider with assertions and metadata
+
+Specifies 1 acceptance outcome that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **issuer_entity_id** *(text, required)* — Issuer Entity ID
+- **assertion_consumer_url** *(url, required)* — Assertion Consumer URL
+
+## What must be true
+
+- **core:** SAML protocol compliance
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Assertion Issued** — when issuer_entity_id exists null, then SAML assertion issued.
+
+## Errors it can return
+
+- `INVALID_ISSUER` — Invalid issuer
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/auth/saml-2-identity-provider/) · **Spec source:** [`saml-2-identity-provider.blueprint.yaml`](./saml-2-identity-provider.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

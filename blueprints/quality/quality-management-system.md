@@ -1,0 +1,73 @@
+<!-- AUTO-GENERATED FROM quality-management-system.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Quality Management System
+
+> Quality management with goals, periodic reviews, hierarchical procedures, feedback collection, and corrective/preventive action tracking for continuous improvement.
+
+**Category:** Quality · **Version:** 1.0.0 · **Tags:** quality-management · quality-goals · quality-review · quality-procedures · corrective-action · preventive-action · feedback · continuous-improvement
+
+## What this does
+
+Quality management with goals, periodic reviews, hierarchical procedures, feedback collection, and corrective/preventive action tracking for continuous improvement.
+
+Specifies 7 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **goal** *(text, required)* — Quality Goal
+- **frequency** *(select, optional)* — Review Frequency
+- **objectives** *(json, required)* — Quality Objectives
+- **review_goal** *(text, optional)* — Review Goal
+- **review_date** *(date, optional)* — Review Date
+- **review_status** *(select, optional)* — Review Status
+- **reviews** *(json, optional)* — Review Results
+- **procedure_name** *(text, optional)* — Procedure Name
+- **is_group** *(boolean, optional)* — Is Group
+- **parent_procedure** *(text, optional)* — Parent Procedure
+- **process_owner** *(text, optional)* — Process Owner
+- **processes** *(json, optional)* — Child Processes
+- **document_type** *(select, optional)* — Feedback Document Type
+- **feedback_template** *(text, optional)* — Feedback Template
+- **parameters** *(json, optional)* — Feedback Parameters
+- **corrective_preventive** *(select, optional)* — Action Type
+- **action_status** *(select, optional)* — Action Status
+- **resolutions** *(json, optional)* — Resolutions
+
+## What must be true
+
+- **reviews_auto_created:** Quality reviews are auto-created by a scheduled job based on the goal frequency setting (Daily, Weekly, Monthly, Quarterly).
+- **review_status_aggregated:** Review status is aggregated from child objective statuses. All objectives must pass for the review to pass.
+- **procedure_tree_structure:** Quality procedures form a nested hierarchy (tree structure) via parent_procedure references. Group procedures contain children.
+- **feedback_from_template:** Feedback parameters are populated from the selected feedback template, defining which aspects to rate.
+- **action_status_aggregated:** Quality action status is aggregated from its resolution statuses. The action is Completed only when all resolutions are Completed.
+- **quarterly_review_schedule:** Quarterly reviews are triggered in January, April, July, and October when frequency is set to Quarterly.
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Create Quality Goal** — when goal description and objectives with targets are provided, then Quality goal created with measurable objectives and review schedule.
+- **Auto Create Review** — when quality goal exists with frequency other than None; scheduled review date has arrived, then Quality review auto-created with target values from goal.
+- **Collect Feedback** — when document_type is specified; feedback_template exists if provided, then Feedback collected with ratings per parameter.
+- **Create Corrective Action** — when corrective_preventive is set to Corrective; at least one resolution is defined, then Corrective action created to address identified quality issue.
+- **Create Preventive Action** — when corrective_preventive is set to Preventive; at least one resolution is defined, then Preventive action created to prevent potential quality issues.
+
+**❌ Failure paths**
+
+- **Evaluate Review** — when quality review exists with actual values entered for all objectives, then Review evaluated and status determined from objective results. *(error: `QMS_REVIEW_GOAL_NOT_FOUND`)*
+- **Create Procedure Hierarchy** — when procedure_name and process_owner are provided, then Quality procedure created, nested under parent if specified. *(error: `QMS_PROCEDURE_PARENT_CONFLICT`)*
+
+## Errors it can return
+
+- `QMS_PROCEDURE_PARENT_CONFLICT` — A procedure cannot be its own parent or create a circular hierarchy.
+- `QMS_REVIEW_GOAL_NOT_FOUND` — The referenced quality goal for this review does not exist.
+
+## Connects to
+
+- **quality-inspection** *(recommended)* — Inspections feed into quality goals and trigger corrective actions
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/quality/quality-management-system/) · **Spec source:** [`quality-management-system.blueprint.yaml`](./quality-management-system.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

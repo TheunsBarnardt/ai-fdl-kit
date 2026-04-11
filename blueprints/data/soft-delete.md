@@ -1,0 +1,70 @@
+<!-- AUTO-GENERATED FROM soft-delete.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Soft Delete
+
+> Trash/archive/restore pattern with soft deletion, configurable retention periods, automatic purging, and cascade rules for related records
+
+**Category:** Data · **Version:** 1.0.0 · **Tags:** soft-delete · trash · archive · restore · purge · retention · data-lifecycle
+
+## What this does
+
+Trash/archive/restore pattern with soft deletion, configurable retention periods, automatic purging, and cascade rules for related records
+
+Specifies 6 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **deleted_at** *(datetime, optional)* — Deleted At
+- **deleted_by** *(text, optional)* — Deleted By
+- **restore_before** *(datetime, optional)* — Auto-Purge Date
+- **deletion_type** *(select, required)* — Deletion Type
+- **deletion_reason** *(text, optional)* — Deletion Reason
+
+## What must be true
+
+- **default_query_behavior → exclude_soft_deleted:** true
+- **default_query_behavior → soft_delete_scope:** per_model
+- **retention → default_retention_days:** 30
+- **retention → configurable_per_model:** true
+- **retention → restore_before_auto_set:** true
+- **cascade → strategy:** configurable
+- **cascade → default:** cascade
+- **cascade → restore_cascades:** true
+- **permanent_delete → admin_only:** true
+- **permanent_delete → requires_soft_delete_first:** true
+- **permanent_delete → irreversible:** true
+- **purge_job → schedule:** daily
+- **purge_job → batch_size:** 1000
+- **unique_constraints → scoped_to_active:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Record Soft Deleted** — when user requests deletion of a record; the record exists and is not already soft-deleted; user has permission to delete the record, then Record marked as deleted; excluded from default queries; restorable until purge date.
+- **Record Restored** — when user requests restoration of a soft-deleted record; the record exists and is currently soft-deleted; the restore_before date has not passed; user has permission to restore the record, then Record restored to active state; visible in default queries again.
+- **Record Permanently Purged** — when the auto-purge job runs and restore_before has passed OR an admin explicitly requests permanent deletion of a soft-deleted record, then Record permanently removed; cannot be restored.
+
+**❌ Failure paths**
+
+- **Delete Already Deleted** — when user requests deletion of a record; the record is already soft-deleted, then Error returned indicating the record is already in the trash. *(error: `RECORD_ALREADY_DELETED`)*
+- **Restore Expired** — when user requests restoration of a soft-deleted record; the restore_before date has passed, then Error returned indicating the retention period has expired. *(error: `RECORD_RESTORE_EXPIRED`)*
+- **Permanent Delete Not Soft Deleted** — when admin requests permanent deletion of a record; the record is not currently soft-deleted, then Error returned; record must be soft-deleted before permanent deletion. *(error: `RECORD_NOT_SOFT_DELETED`)*
+
+## Errors it can return
+
+- `RECORD_ALREADY_DELETED` — Record is already in the trash
+- `RECORD_RESTORE_EXPIRED` — Retention period has expired; record can no longer be restored
+- `RECORD_NOT_SOFT_DELETED` — Record must be soft-deleted before it can be permanently purged
+- `PERMANENT_DELETE_UNAUTHORIZED` — Only administrators can permanently delete records
+
+## Connects to
+
+- **audit-trail** *(required)* — All delete, restore, and purge operations must be tracked in the audit trail
+- **search-and-filtering** *(recommended)* — Search must respect soft-delete scoping to exclude trashed records by default
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/data/soft-delete/) · **Spec source:** [`soft-delete.blueprint.yaml`](./soft-delete.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

@@ -1,0 +1,79 @@
+<!-- AUTO-GENERATED FROM database-persistence.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Database Persistence
+
+> Data durability via RDB snapshots and/or AOF journaling; recover to point-in-time or exact command sequence after crash
+
+**Category:** Infrastructure · **Version:** 1.0.0 · **Tags:** persistence · durability · rdb-snapshots · aof-journal · crash-recovery · backup
+
+## What this does
+
+Data durability via RDB snapshots and/or AOF journaling; recover to point-in-time or exact command sequence after crash
+
+Specifies 20 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **persistence_mode** *(select, optional)*
+- **rdb_file** *(text, optional)*
+- **aof_file** *(text, optional)*
+- **last_save_time** *(number, optional)*
+- **fsync_policy** *(select, optional)*
+- **recovery_point** *(text, optional)*
+
+## What must be true
+
+- **0:** RDB snapshots are point-in-time; commands after snapshot are lost on crash
+- **1:** AOF journaling logs every write command; replaying recovers to exact state before crash
+- **2:** RDB snapshots smaller but slower to load; AOF larger but can replay incrementally
+- **3:** Fsync policy determines durability vs. performance tradeoff (always=safe, no=fast)
+- **4:** RDB snapshot created via fork; uses copy-on-write to minimize memory overhead
+- **5:** AOF rewrite compacts journal into snapshot + recent commands (background process)
+- **6 → RDB + AOF together:** fastest load (RDB) + maximum durability (AOF)
+- **7:** Persistence operations are transparent; do not block client commands (background)
+- **8:** Files are atomic; writes to temp files then renamed
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Rdb Save Sync** — when SAVE command, then server blocks; snapshot written to disk; client receives OK.
+- **Rdb Bgsave** — when BGSAVE command; no_other_save_in_progress eq true, then background process started; client receives OK immediately.
+- **Rdb Save Complete** — when rdb_save_succeeds eq true, then snapshot available for recovery.
+- **Rdb Lastsave** — when LASTSAVE command, then Unix timestamp of last successful save (or 0 if never saved).
+- **Aof Write Command** — when any write command (SET, DEL, LPUSH, etc.); aof_enabled eq true, then command written to AOF buffer (fsync per policy).
+- **Aof Fsync Always** — when fsync_policy eq "always", then AOF durability guaranteed; write latency increased.
+- **Aof Fsync Everysec** — when fsync_policy eq "everysec", then good balance of durability and performance.
+- **Aof Fsync No** — when fsync_policy eq "no", then fastest but least durable; data loss possible on crash.
+- **Aof Rewrite** — when BGREWRITEAOF command; no_rewrite_in_progress eq true, then background rewrite process started.
+- **Aof Rewrite Complete** — when aof_rewrite_succeeds eq true, then AOF compacted; future appends continue on new AOF.
+- **Recovery Rdb Only** — when persistence_mode eq "rdb_only"; server startup, then database loaded from RDB; commands after snapshot lost.
+- **Recovery Aof Only** — when persistence_mode eq "aof_only", then database recovered to exact state before crash.
+- **Recovery Rdb And Aof** — when persistence_mode eq "rdb_and_aof", then fast load (RDB) with exact state (AOF replay).
+- **Recovery Aof Truncated** — when aof_last_command_incomplete eq true, then incomplete command skipped; recovery continues with earlier commands.
+- **Backup Via Rdb** — when strategy eq "snapshot-based", then small backup files; fast restore; acceptable data loss window.
+- **Backup Via Replication** — when strategy eq "replica-based", then replicas take RDB snapshots while staying up-to-date.
+- **Backup Hybrid** — when persistence_mode eq "rdb_and_aof", then maximum durability; largest disk footprint.
+
+**❌ Failure paths**
+
+- **Rdb Save Failed** — when rdb_save_fails eq true; disk full, write error, fork failure, etc., then save aborted; existing snapshot unchanged; server continues. *(error: `BGSAVE_FAILED`)*
+- **Aof Rewrite Failed** — when aof_rewrite_fails eq, then rewrite aborted; old AOF continues. *(error: `BGREWRITEAOF_FAILED`)*
+- **Recovery Aof Corruption** — when aof_corrupted_mid_command eq true, then admin must use redis-check-aof tool to fix; recovery manual. *(error: `CORRUPTED_AOF`)*
+
+## Errors it can return
+
+- `BGSAVE_FAILED` — Background save failed
+- `BGREWRITEAOF_FAILED` — Background AOF rewrite failed
+- `CORRUPTED_AOF` — The AOF file is corrupted
+
+## Connects to
+
+- **master-replica-replication** *(optional)* — Replicas can hold backup snapshots
+- **key-expiration** *(optional)* — Expired keys may or may not be persisted
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/infrastructure/database-persistence/) · **Spec source:** [`database-persistence.blueprint.yaml`](./database-persistence.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

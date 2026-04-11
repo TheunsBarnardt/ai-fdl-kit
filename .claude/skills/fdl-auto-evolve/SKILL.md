@@ -86,10 +86,11 @@ ls blueprints/**/*.blueprint.yaml | wc -l
 ```bash
 npm run generate
 ```
-- Regenerates `docs/blueprints/**/*.md`
-- Regenerates `docs/api/**/*.json`
+- Regenerates `docs/blueprints/**/*.md` — Jekyll reference pages for the docs site
+- Regenerates `docs/api/**/*.json` — static JSON API
+- Regenerates `blueprints/**/*.md` — human-friendly summaries next to each YAML (via `scripts/generate-readmes.js`)
 - Updates `registry.json` with all features
-- Keeps docs always in sync with blueprints
+- Keeps every generated artifact in sync with the YAML source of truth
 
 ### Step 3: Detect Changes
 - Compare git index before/after validate/generate

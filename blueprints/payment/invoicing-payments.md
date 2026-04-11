@@ -1,0 +1,80 @@
+<!-- AUTO-GENERATED FROM invoicing-payments.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Invoicing Payments
+
+> Invoicing and payment lifecycle: customer invoices, vendor bills, credit notes, receipts, payment registration, multi-currency, and follow-up.
+
+**Category:** Payment · **Version:** 1.0.0 · **Tags:** invoicing · payments · billing · credit-notes · multi-currency · accounting
+
+## What this does
+
+Invoicing and payment lifecycle: customer invoices, vendor bills, credit notes, receipts, payment registration, multi-currency, and follow-up.
+
+Specifies 6 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **move_type** *(select, required)* — Document Type
+- **invoice_state** *(select, required)* — State
+- **payment_state** *(select, required)* — Payment State
+- **partner_id** *(text, required)* — Customer/Vendor
+- **invoice_date** *(date, required)* — Invoice Date
+- **invoice_date_due** *(date, required)* — Due Date
+- **amount_untaxed** *(number, required)* — Untaxed Amount
+- **amount_tax** *(number, required)* — Tax Amount
+- **amount_total** *(number, required)* — Total Amount
+- **amount_residual** *(number, required)* — Amount Due
+- **currency_id** *(text, required)* — Currency
+- **journal_id** *(text, required)* — Journal
+- **payment_term_id** *(text, optional)* — Payment Terms
+- **fiscal_position_id** *(text, optional)* — Fiscal Position
+- **invoice_lines** *(json, required)* — Invoice Lines
+- **payment_amount** *(number, required)* — Payment Amount
+- **payment_method** *(select, required)* — Payment Method
+- **payment_reference** *(text, optional)* — Payment Reference
+
+## What must be true
+
+- **balanced_journal_entry:** Total debits must equal total credits in every journal entry
+- **draft_only_editable:** Only draft invoices can be edited; posted invoices are locked
+- **reset_clears_attachments:** Resetting to draft removes generated PDFs and report attachments
+- **payment_term_computes_due_date:** Due date automatically calculated from invoice date and payment terms
+- **fiscal_position_maps_taxes:** Fiscal position automatically remaps tax lines based on customer jurisdiction
+- **multi_currency_rate_at_date:** Multi-currency invoices use the exchange rate at invoice date for conversion. Payment reconciliation computes exchange differences.
+- **lock_date_prevents_posting:** Cannot post entries dated before the company accounting lock date
+- **sequence_numbering:** Posted invoices receive a sequential number that cannot be reused
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Invoice Posted** — when accountant creates a draft invoice with lines; all lines have valid accounts and amounts, then Invoice posted to accounting, number assigned, available on customer portal.
+- **Payment Registered** — when invoice is posted with outstanding balance; accountant registers a payment, then Payment recorded, invoice balance updated accordingly.
+- **Invoice Fully Paid** — when total payments match or exceed invoice amount, then Invoice marked as fully paid, no remaining balance.
+- **Credit Note Created** — when accountant reverses a posted invoice, then Credit note created and optionally reconciled against original invoice.
+- **Payment Link Sent** — when invoice is posted with outstanding balance; accountant generates a payment link, then Customer receives link to pay online via portal.
+
+**❌ Failure paths**
+
+- **Posting Blocked Lock Date** — when invoice date is before the company accounting lock date, then Invoice cannot be posted until date is after lock date. *(error: `INVOICE_BEFORE_LOCK_DATE`)*
+
+## Errors it can return
+
+- `INVOICE_BEFORE_LOCK_DATE` — Cannot post an entry dated before the accounting lock date.
+- `INVOICE_UNBALANCED` — The journal entry is not balanced. Debits must equal credits.
+- `INVOICE_NO_LINES` — Cannot post an invoice with no lines.
+- `INVOICE_ALREADY_POSTED` — This invoice has already been posted and cannot be edited.
+- `PAYMENT_EXCEEDS_BALANCE` — Payment amount exceeds the remaining balance on this invoice.
+
+## Connects to
+
+- **tax-engine** *(required)* — Tax computation on every invoice line
+- **bank-reconciliation** *(required)* — Bank statement lines reconciled against invoice payments
+- **quotation-order-management** *(optional)* — Invoices generated from confirmed sales orders
+- **pos-core** *(optional)* — POS session closing generates accounting entries
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/payment/invoicing-payments/) · **Spec source:** [`invoicing-payments.blueprint.yaml`](./invoicing-payments.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

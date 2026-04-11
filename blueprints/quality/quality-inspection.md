@@ -1,0 +1,72 @@
+<!-- AUTO-GENERATED FROM quality-inspection.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Quality Inspection
+
+> Quality inspection for incoming, outgoing, and in-process materials with numeric range checks, formula-based acceptance criteria, and template-driven reading parameters.
+
+**Category:** Quality · **Version:** 1.0.0 · **Tags:** quality-inspection · incoming-inspection · outgoing-inspection · quality-control · acceptance-criteria · manufacturing
+
+## What this does
+
+Quality inspection for incoming, outgoing, and in-process materials with numeric range checks, formula-based acceptance criteria, and template-driven reading parameters.
+
+Specifies 5 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **inspection_type** *(select, required)* — Inspection Type
+- **reference_type** *(select, optional)* — Reference Document Type
+- **reference_name** *(text, optional)* — Reference Document Name
+- **item_code** *(text, required)* — Item Code
+- **sample_size** *(number, optional)* — Sample Size
+- **status** *(select, required)* — Inspection Status
+- **inspected_by** *(text, optional)* — Inspected By
+- **report_date** *(date, required)* — Report Date
+- **readings** *(json, required)* — Inspection Readings
+- **quality_inspection_template** *(text, optional)* — Inspection Template
+- **manual_inspection** *(boolean, optional)* — Manual Inspection
+- **batch_no** *(text, optional)* — Batch Number
+
+## What must be true
+
+- **template_auto_populate:** When a quality inspection template is selected, reading parameters (specification, min_value, max_value, formula) are auto-populated from the template.
+- **numeric_range_check:** Numeric readings are evaluated against min_value and max_value. A reading within the range (inclusive) is Accepted; outside is Rejected.
+- **non_numeric_exact_match:** Non-numeric readings are evaluated as exact value matches against the expected specification value.
+- **formula_based_criteria:** Formula-based acceptance criteria are supported, allowing complex expressions to determine acceptance status.
+- **all_readings_required:** All readings must have a status (Accepted/Rejected) before the inspection can be submitted.
+- **overall_status_from_readings:** Overall inspection status is set to Rejected if any individual reading is Rejected. All readings must be Accepted for overall Accepted status.
+- **source_document_link:** Inspection links back to the source document (Purchase Receipt, Delivery Note, Stock Entry, or Job Card) for traceability.
+- **inspection_required_flag:** Items must have the inspection_required flag enabled in their master data for inspections to be created.
+- **stock_settings_on_failure:** Stock settings control the action on inspection failure: Warn (allow with warning), Stop (block), or Ignore.
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Accept Inspection** — when all readings have status Accepted; status neq "Cancelled", then Inspection accepted, material cleared for use.
+- **Reject Inspection** — when one or more readings have status Rejected, then Inspection rejected, material flagged per stock settings.
+
+**❌ Failure paths**
+
+- **Create Inspection** — when item_code and inspection_type are provided; item has inspection_required flag enabled, then Quality inspection created and ready for readings. *(error: `QI_INSPECTION_NOT_REQUIRED`)*
+- **Populate From Template** — when quality_inspection_template is provided and exists, then Inspection readings pre-populated from template specifications. *(error: `QI_TEMPLATE_NOT_FOUND`)*
+- **Evaluate Readings** — when all readings have reading_value entered, then All readings evaluated against acceptance criteria. *(error: `QI_FORMULA_INVALID`)*
+
+## Errors it can return
+
+- `QI_READING_STATUS_MISSING` — All readings must have an Accepted or Rejected status before submission.
+- `QI_FORMULA_INVALID` — The acceptance formula for one or more readings is invalid.
+- `QI_INSPECTION_NOT_REQUIRED` — Quality inspection is not required for this item.
+- `QI_TEMPLATE_NOT_FOUND` — The specified quality inspection template does not exist.
+
+## Connects to
+
+- **stock-entry-movements** *(recommended)* — Inspections linked to stock entries for in-process checks
+- **pick-list-shipping** *(recommended)* — Outgoing inspections linked to delivery notes
+- **work-orders-job-cards** *(optional)* — In-process inspections linked to job cards
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/quality/quality-inspection/) · **Spec source:** [`quality-inspection.blueprint.yaml`](./quality-inspection.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

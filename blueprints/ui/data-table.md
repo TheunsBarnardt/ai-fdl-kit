@@ -1,0 +1,81 @@
+<!-- AUTO-GENERATED FROM data-table.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Data Table
+
+> Sortable, filterable, paginated data table with column management, row selection, inline editing, bulk actions, and CSV export
+
+**Category:** Ui · **Version:** 1.0.0 · **Tags:** table · data-grid · sorting · filtering · pagination · inline-editing · bulk-actions · export
+
+## What this does
+
+Sortable, filterable, paginated data table with column management, row selection, inline editing, bulk actions, and CSV export
+
+Specifies 9 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **columns** *(json, required)* — Column Definitions
+- **data_source** *(json, required)* — Data Source Configuration
+- **page_size** *(number, optional)* — Page Size
+- **current_page** *(number, optional)* — Current Page
+- **selected_rows** *(json, optional)* — Selected Row IDs
+- **sort_by** *(text, optional)* — Sort Column Key
+- **sort_order** *(select, optional)* — Sort Order
+- **filters** *(json, optional)* — Active Filters
+- **selection_mode** *(select, optional)* — Selection Mode
+
+## What must be true
+
+- **columns → max_columns:** 50
+- **columns → resizable:** true
+- **columns → reorderable:** true
+- **columns → min_width_px:** 50
+- **performance → virtual_scrolling_threshold:** 1000
+- **performance → debounce_filter_ms:** 300
+- **performance → debounce_search_ms:** 300
+- **persistence → column_preferences_per_user:** true
+- **persistence → filter_state_in_url:** true
+- **persistence → storage:** localStorage
+- **pagination → server_side:** true
+- **pagination → page_size_options:** 10, 25, 50, 100
+- **pagination → show_total_count:** true
+- **export → formats:** csv
+- **export → max_export_rows:** 10000
+- **export → include_filtered_only:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Table Rendered** — when column definitions are provided; data source is configured and returns data, then Data table displays with columns, rows, and pagination controls.
+- **Column Sorted** — when user clicks a sortable column header, then Table re-renders with data sorted by the selected column.
+- **Filter Applied** — when user enters a filter value on a filterable column; filter debounce period (300ms) has elapsed, then Table displays only rows matching the filter criteria.
+- **Row Selected** — when selection mode is single or multi; user clicks a row or selection checkbox, then Row visually highlighted, selection state updated.
+- **Bulk Action Executed** — when one or more rows are selected; user triggers a bulk action (delete, export, status change), then Bulk action applied to all selected rows, selection cleared.
+- **Inline Edit Saved** — when user double-clicks an editable cell; user modifies the value and confirms (Enter or blur); new value passes column validation, then Cell value updated, row refreshed.
+- **Export Completed** — when user triggers CSV export; total exportable rows are within the 10000 limit, then CSV file downloaded to the user's device.
+
+**❌ Failure paths**
+
+- **Inline Edit Invalid** — when user modifies a cell value; new value fails column validation rules, then Validation error shown inline, cell reverts to original value. *(error: `TABLE_CELL_VALIDATION_FAILED`)*
+- **Export Too Large** — when Filtered result set exceeds export limit, then User informed to apply filters to reduce the data set before exporting. *(error: `TABLE_EXPORT_TOO_LARGE`)*
+
+## Errors it can return
+
+- `TABLE_CELL_VALIDATION_FAILED` — The entered value is not valid for this column
+- `TABLE_EXPORT_TOO_LARGE` — Too many rows to export. Please apply filters to reduce the data set.
+- `TABLE_DATA_SOURCE_ERROR` — Failed to load table data from the data source
+- `TABLE_COLUMN_NOT_SORTABLE` — This column does not support sorting
+
+## Connects to
+
+- **pagination** *(required)* — Data tables require pagination for large data sets
+- **search-and-filtering** *(recommended)* — Server-side filtering integrates with the search and filtering feature
+- **accessibility** *(recommended)* — Tables must be keyboard navigable and screen reader compatible
+- **internationalization** *(optional)* — Column headers, filter labels, and pagination text may need translation
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/ui/data-table/) · **Spec source:** [`data-table.blueprint.yaml`](./data-table.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

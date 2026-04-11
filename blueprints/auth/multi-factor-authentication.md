@@ -1,0 +1,38 @@
+<!-- AUTO-GENERATED FROM multi-factor-authentication.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Multi Factor Authentication
+
+> MFA with OTP, WebAuthn, and recovery codes
+
+**Category:** Auth · **Version:** 1.0.0 · **Tags:** mfa · credentials
+
+## What this does
+
+MFA with OTP, WebAuthn, and recovery codes
+
+Specifies 1 acceptance outcome that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **credential_type** *(select, required)* — Credential Type
+- **otp_code** *(text, optional)* — OTP Code
+
+## What must be true
+
+- **core:** MFA credential management
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Mfa Verified** — when otp_code exists null, then MFA verified.
+
+## Errors it can return
+
+- `INVALID_OTP` — Invalid OTP code
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/auth/multi-factor-authentication/) · **Spec source:** [`multi-factor-authentication.blueprint.yaml`](./multi-factor-authentication.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

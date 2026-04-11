@@ -1,0 +1,89 @@
+<!-- AUTO-GENERATED FROM file-storage.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# File Storage
+
+> Cloud storage abstraction with signed URLs, virus scanning, content type validation, checksum deduplication, and multi-provider support
+
+**Category:** Data · **Version:** 1.0.0 · **Tags:** file-storage · upload · download · s3 · cloud-storage · signed-urls · virus-scanning
+
+## What this does
+
+Cloud storage abstraction with signed URLs, virus scanning, content type validation, checksum deduplication, and multi-provider support
+
+Specifies 8 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **file_id** *(text, required)* — File ID
+- **bucket** *(text, required)* — Storage Bucket
+- **key** *(text, required)* — Object Key
+- **filename** *(text, required)* — Original Filename
+- **content_type** *(text, required)* — MIME Content Type
+- **size_bytes** *(number, required)* — File Size (bytes)
+- **checksum_sha256** *(text, required)* — SHA-256 Checksum
+- **storage_provider** *(select, required)* — Storage Provider
+- **upload_url** *(url, optional)* — Presigned Upload URL
+- **download_url** *(url, optional)* — Presigned Download URL
+- **uploaded_by** *(text, required)* — Uploaded By
+- **uploaded_at** *(datetime, required)* — Upload Timestamp
+- **scan_status** *(select, optional)* — Virus Scan Status
+
+## What must be true
+
+- **upload → max_file_size_bytes:** configurable
+- **upload → default_max_file_size_bytes:** 104857600
+- **upload → allowed_content_types:** configurable
+- **upload → content_type_validation:** server_side
+- **upload → presigned_upload:** true
+- **upload → presigned_upload_expiry_seconds:** 3600
+- **download → presigned_download:** true
+- **download → presigned_download_expiry_seconds:** 3600
+- **download → content_disposition:** attachment
+- **virus_scanning → enabled:** true
+- **virus_scanning → scan_on_upload:** true
+- **virus_scanning → quarantine_on_detect:** true
+- **virus_scanning → block_until_scanned:** false
+- **deduplication → enabled:** true
+- **deduplication → strategy:** checksum
+- **deduplication → scope:** per_bucket
+- **storage → path_strategy:** date_partitioned
+- **storage → encryption_at_rest:** true
+- **storage → versioning:** false
+- **cleanup → orphan_detection:** true
+- **cleanup → orphan_grace_period_days:** 7
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **File Uploaded** — when a file upload request is received; the file passes size and content type validation; the user is authenticated, then File stored and metadata recorded; virus scan queued.
+- **File Downloaded** — when a file download request is received; the file exists and the user has access; the file is not quarantined (scan_status != infected), then Presigned download URL returned to the client.
+- **Presigned Url Generated** — when a presigned upload URL is requested; the content type and size are within allowed limits, then Presigned upload URL returned for direct client-to-storage upload.
+- **File Deleted** — when a file deletion request is received; the file exists; the user has permission to delete the file, then File metadata removed; storage object scheduled for cleanup.
+- **File Scanned Clean** — when virus scan completes on an uploaded file; no threats detected, then File marked as clean and fully available for download.
+- **File Scanned Infected** — when virus scan completes on an uploaded file; a threat is detected, then File quarantined; not available for download; uploader notified.
+
+**❌ Failure paths**
+
+- **Upload Too Large** — when the uploaded file exceeds the maximum allowed size, then Error returned indicating file size limit. *(error: `FILE_TOO_LARGE`)*
+- **Content Type Not Allowed** — when the detected content type is not in the allowed list for the target bucket, then Error returned indicating the file type is not permitted. *(error: `FILE_CONTENT_TYPE_NOT_ALLOWED`)*
+
+## Errors it can return
+
+- `FILE_TOO_LARGE` — File exceeds the maximum allowed size
+- `FILE_CONTENT_TYPE_NOT_ALLOWED` — File type is not permitted for this upload
+- `FILE_NOT_FOUND` — File not found
+- `FILE_QUARANTINED` — File is quarantined due to a detected threat and cannot be downloaded
+- `FILE_UPLOAD_URL_EXPIRED` — Presigned upload URL has expired; request a new one
+
+## Connects to
+
+- **data-import-export** *(recommended)* — Import/export operations use file storage for uploaded and generated files
+- **audit-trail** *(recommended)* — File uploads, downloads, and deletions should be tracked
+- **soft-delete** *(optional)* — Files can use soft-delete with retention before permanent removal
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/data/file-storage/) · **Spec source:** [`file-storage.blueprint.yaml`](./file-storage.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

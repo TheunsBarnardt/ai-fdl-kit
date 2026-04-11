@@ -1,0 +1,89 @@
+<!-- AUTO-GENERATED FROM sms-notifications.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Sms Notifications
+
+> Send SMS messages for OTP codes, alerts, and marketing with provider abstraction and compliance
+
+**Category:** Notification · **Version:** 1.0.0 · **Tags:** sms · otp · alerts · marketing · tcpa · gdpr · notification · messaging
+
+## What this does
+
+Send SMS messages for OTP codes, alerts, and marketing with provider abstraction and compliance
+
+Specifies 8 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **recipient_phone** *(phone, required)* — Recipient Phone Number
+- **message_body** *(text, required)* — Message Body
+- **message_type** *(select, required)* — Message Type
+- **sender_id** *(text, optional)* — Sender ID
+- **tracking_id** *(text, optional)* — Tracking ID
+- **expiry_seconds** *(number, optional)* — Message Expiry
+
+## What must be true
+
+- **delivery → provider_abstraction:** true
+- **delivery → max_retries:** 2
+- **delivery → retry_backoff:** exponential
+- **delivery → retry_base_seconds:** 15
+- **delivery → timeout_seconds:** 30
+- **phone_validation → format:** e164
+- **phone_validation → lookup_carrier:** true
+- **phone_validation → reject_landline_for_otp:** true
+- **compliance → tcpa → prior_express_consent_required:** true
+- **compliance → tcpa → opt_out_keywords:** STOP, UNSUBSCRIBE, CANCEL, END, QUIT
+- **compliance → tcpa → opt_out_response:** You have been unsubscribed. Reply START to re-subscribe.
+- **compliance → tcpa → opt_in_keywords:** START, YES, SUBSCRIBE
+- **compliance → tcpa → quiet_hours → start:** 21:00
+- **compliance → tcpa → quiet_hours → end:** 08:00
+- **compliance → tcpa → quiet_hours → timezone:** recipient_local
+- **compliance → gdpr → consent_record_required:** true
+- **compliance → gdpr → right_to_erasure:** true
+- **rate_limiting → per_recipient_per_minute:** 2
+- **rate_limiting → per_recipient_per_hour:** 10
+- **rate_limiting → per_recipient_per_day:** 25
+- **rate_limiting → otp_per_recipient_per_hour:** 5
+- **rate_limiting → global_per_second:** 30
+- **security → otp_masking:** true
+- **security → sensitive_data_scrubbing:** true
+- **security → number_sanitization:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Sms Sent** — when Phone number is valid E.164 format; Recipient has not opted out; Message body is present, then SMS queued for delivery with tracking ID returned.
+- **Sms Delivered** — when Provider confirmed delivery via delivery receipt callback, then update delivery log with confirmed delivery.
+- **Sms Failed** — when Provider reported delivery failure, then update delivery log with failure and trigger retry if eligible.
+
+**❌ Failure paths**
+
+- **Rate Limited** — when Recipient has received 2+ SMS this minute, then reject with rate limit error. *(error: `SMS_RATE_LIMITED`)*
+- **Invalid Phone Number** — when Phone number failed E.164 validation or carrier lookup, then reject with invalid phone number error. *(error: `SMS_INVALID_PHONE`)*
+- **Recipient Opted Out** — when Recipient has opted out of SMS messages, then silently skip delivery and log opt-out hit. *(error: `SMS_RECIPIENT_OPTED_OUT`)*
+- **Quiet Hours Blocked** — when Message is a marketing SMS; Recipient local time is within quiet hours, then queue for delivery after quiet hours end. *(error: `SMS_QUIET_HOURS`)*
+- **Missing Consent** — when Message type requires explicit consent; No consent record found for this recipient and message type, then reject with consent required error. *(error: `SMS_CONSENT_REQUIRED`)*
+
+## Errors it can return
+
+- `SMS_RATE_LIMITED` — SMS rate limit exceeded. Please try again later.
+- `SMS_INVALID_PHONE` — Invalid phone number. Please use E.164 format.
+- `SMS_RECIPIENT_OPTED_OUT` — Recipient has opted out of SMS messages
+- `SMS_QUIET_HOURS` — Marketing messages cannot be sent during quiet hours
+- `SMS_CONSENT_REQUIRED` — Recipient consent is required for this message type
+- `SMS_DELIVERY_FAILED` — SMS delivery failed. The message will be retried automatically.
+- `SMS_VALIDATION_ERROR` — Please check the SMS parameters and try again
+
+## Connects to
+
+- **notification-preferences** *(required)* — Must check user SMS opt-in preferences before sending
+- **email-notifications** *(optional)* — Email fallback when SMS delivery fails
+- **login** *(optional)* — OTP codes for two-factor authentication during login
+- **webhook-outbound** *(optional)* — Delivery receipt callbacks from SMS providers
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/notification/sms-notifications/) · **Spec source:** [`sms-notifications.blueprint.yaml`](./sms-notifications.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

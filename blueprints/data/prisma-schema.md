@@ -1,0 +1,57 @@
+<!-- AUTO-GENERATED FROM prisma-schema.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Prisma Schema
+
+> Define application data models with fields, types, relationships, and validation rules in Prisma schema
+
+**Category:** Data · **Version:** 1.0.0 · **Tags:** schema · models · orm · data-modeling · prisma
+
+## What this does
+
+Define application data models with fields, types, relationships, and validation rules in Prisma schema
+
+Specifies 3 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **model_name** *(text, required)* — Model Name
+- **field_name** *(text, required)* — Field Name
+- **field_type** *(select, required)* — Field Type
+- **is_required** *(boolean, required)* — Is Required
+- **is_unique** *(boolean, required)* — Is Unique
+- **default_value** *(text, optional)* — Default Value
+- **relation_type** *(select, optional)* — Relation Type
+
+## What must be true
+
+- **naming:** Models: PascalCase (User, BlogPost, OrderItem), Fields: camelCase (firstName, emailAddress, createdAt), Enums: UPPER_SNAKE_CASE values (ACTIVE, PENDING, ARCHIVED)
+- **validation:** Required fields cannot be null in database, Unique constraints prevent duplicate values, Default values must match field type, Relations must reference existing models
+- **relationships:** One-to-one: unique constraint on foreign key, One-to-many: implicit foreign key in child model, Many-to-many: automatic join table created, Cascade delete propagates to related records
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Model Defined** — when Schema block contains valid model definition; All fields have supported types, then Model definition stored and validated.
+- **Schema Validated** — when All models syntactically valid; All relations reference existing models, then Schema ready for client generation.
+
+**❌ Failure paths**
+
+- **Invalid Type Error** — when Field uses unsupported type, then Validation error: type not supported. *(error: `INVALID_FIELD_TYPE`)*
+
+## Errors it can return
+
+- `INVALID_FIELD_TYPE` — Field type '{type}' is not supported
+- `INVALID_RELATION` — Relation references non-existent model
+- `SYNTAX_ERROR` — Schema syntax error at line {line}: {error}
+
+## Connects to
+
+- **prisma-migrations** *(recommended)* — Schema must be migrated to create database
+- **prisma-crud** *(recommended)* — Models are queried via CRUD operations
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/data/prisma-schema/) · **Spec source:** [`prisma-schema.blueprint.yaml`](./prisma-schema.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

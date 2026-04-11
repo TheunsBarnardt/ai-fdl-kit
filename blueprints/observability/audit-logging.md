@@ -1,0 +1,84 @@
+<!-- AUTO-GENERATED FROM audit-logging.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Audit Logging
+
+> Immutable, append-only audit trail with tamper detection and compliance-ready querying
+
+**Category:** Observability · **Version:** 1.0.0 · **Tags:** audit · logging · compliance · security · immutable · trail · monitoring · forensics
+
+## What this does
+
+Immutable, append-only audit trail with tamper detection and compliance-ready querying
+
+Specifies 5 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **audit_id** *(text, required)* — Audit Entry ID
+- **actor_id** *(text, required)* — Actor ID
+- **actor_type** *(select, required)* — Actor Type
+- **action** *(text, required)* — Action
+- **resource_type** *(text, required)* — Resource Type
+- **resource_id** *(text, required)* — Resource ID
+- **changes** *(json, optional)* — Changes
+- **ip_address** *(text, required)* — IP Address
+- **user_agent** *(text, optional)* — User Agent
+- **timestamp** *(datetime, required)* — Timestamp
+- **hash** *(text, required)* — Entry Hash
+- **previous_hash** *(text, required)* — Previous Entry Hash
+- **metadata** *(json, optional)* — Metadata
+
+## What must be true
+
+- **immutability → append_only:** true
+- **immutability → no_update:** true
+- **immutability → no_delete:** true
+- **immutability → soft_delete_prohibited:** true
+- **tamper_detection → algorithm:** sha256
+- **tamper_detection → hash_chain:** true
+- **tamper_detection → genesis_seed:** fdl-audit-genesis-v1
+- **tamper_detection → verification_schedule:** daily
+- **retention → default_days:** 2555
+- **retention → minimum_days:** 365
+- **retention → deletion_method:** crypto_shred
+- **storage → separate_database:** true
+- **storage → write_ahead_log:** true
+- **storage → compression:** true
+- **storage → indexing:** actor_id, action, resource_type, resource_id, timestamp
+- **query → max_results_per_page:** 100
+- **query → require_date_range:** true
+- **query → max_date_range_days:** 90
+- **query → export_formats:** json, csv
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Entry Created** — when Actor identity resolved from session, API key, or system context; Action descriptor provided; Resource type specified; Resource ID specified, then audit entry appended to the immutable log.
+- **Query Results** — when Date range filter provided (required for all queries); Date range does not exceed 90-day maximum, then return paginated audit entries matching the filter criteria.
+- **Chain Integrity Verified** — when All hashes in the specified range verify correctly, then return integrity verification report with status pass.
+
+**❌ Failure paths**
+
+- **Query Range Exceeded** — when Requested date range exceeds 90-day limit, then show "Please narrow your date range to 90 days or fewer". *(error: `AUDIT_QUERY_RANGE_EXCEEDED`)*
+- **Chain Tamper Detected** — when Hash chain broken — one or more entries do not verify, then report tamper detection with details of the first broken link. *(error: `AUDIT_TAMPER_DETECTED`)*
+
+## Errors it can return
+
+- `AUDIT_IMMUTABLE` — Audit records cannot be modified or deleted
+- `AUDIT_QUERY_RANGE_EXCEEDED` — Date range must not exceed 90 days
+- `AUDIT_TAMPER_DETECTED` — Audit log integrity check failed — possible tampering detected
+- `AUDIT_WRITE_FAILED` — Failed to write audit entry. The operation has been rolled back.
+
+## Connects to
+
+- **login** *(recommended)* — Authentication events should be captured in the audit trail
+- **role-based-access** *(recommended)* — Permission changes and access decisions should be audited
+- **data-privacy-compliance** *(recommended)* — GDPR/CCPA compliance requires audit trails for data access
+- **team-organization** *(optional)* — Audit entries can be scoped per organization for multi-tenancy
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/observability/audit-logging/) · **Spec source:** [`audit-logging.blueprint.yaml`](./audit-logging.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

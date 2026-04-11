@@ -1,0 +1,80 @@
+<!-- AUTO-GENERATED FROM caching.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Caching
+
+> Multi-tier caching with read-through, write-through, write-behind, and cache-aside strategies, stampede protection, and configurable invalidation
+
+**Category:** Infrastructure · **Version:** 1.0.0 · **Tags:** caching · performance · redis · cdn · invalidation · ttl · stampede-protection
+
+## What this does
+
+Multi-tier caching with read-through, write-through, write-behind, and cache-aside strategies, stampede protection, and configurable invalidation
+
+Specifies 5 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **cache_key** *(text, required)* — Cache Key
+- **ttl_seconds** *(number, optional)* — Time-to-Live (seconds)
+- **invalidation_strategy** *(select, required)* — Invalidation Strategy
+- **cache_tier** *(select, required)* — Cache Tier
+- **cache_strategy** *(select, required)* — Cache Strategy
+- **compressed** *(boolean, optional)* — Compression Enabled
+- **cache_tags** *(json, optional)* — Cache Tags
+
+## What must be true
+
+- **strategies → read_through:** Cache checks for key; on miss, loads from source, stores in cache, returns value
+- **strategies → read_through → automatic_population:** true
+- **strategies → write_through:** Writes go to cache and source simultaneously; strong consistency
+- **strategies → write_through → consistency:** strong
+- **strategies → write_behind:** Writes go to cache immediately; source updated asynchronously
+- **strategies → write_behind → consistency:** eventual
+- **strategies → write_behind → flush_interval_ms:** 1000
+- **strategies → cache_aside:** Application manages cache explicitly; reads check cache first, writes update source and invalidate cache
+- **strategies → cache_aside → manual_management:** true
+- **ttl → max_ttl_seconds:** 604800
+- **ttl → default_ttl_seconds:** 3600
+- **ttl → jitter_percent:** 10
+- **stampede_protection → enabled:** true
+- **stampede_protection → mutex_strategy:** true
+- **stampede_protection → mutex_timeout_ms:** 5000
+- **stampede_protection → probabilistic_early_expiry:** true
+- **compression → enabled:** true
+- **compression → threshold_bytes:** 1024
+- **compression → algorithm:** gzip
+- **multi_tier → enabled:** true
+- **multi_tier → tier_order:** memory, redis, cdn
+- **multi_tier → memory_max_entries:** 10000
+- **tagging → enabled:** true
+- **tagging → max_tags_per_entry:** 10
+- **warming → enabled:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Cache Hit** — when a cache lookup is performed; the key exists in the cache and has not expired, then Cached value returned without hitting the data source.
+- **Cache Miss** — when a cache lookup is performed; the key does not exist in the cache or has expired, then Value fetched from data source; cache populated for subsequent requests.
+- **Cache Invalidated** — when a data change event triggers event-based invalidation OR a manual purge request is received OR tag-based invalidation is triggered, then Cache entry removed; next read will fetch from source.
+- **Cache Warmed** — when a cache warming job is triggered (startup or scheduled); a list of hot keys is available, then Cache pre-populated with frequently accessed data.
+
+**❌ Failure paths**
+
+- **Cache Write Failed** — when an attempt to write to the cache tier fails (e.g., Redis unavailable), then Write proceeds to source; cache failure is logged but does not block the operation. *(error: `CACHE_WRITE_FAILED`)*
+
+## Errors it can return
+
+- `CACHE_WRITE_FAILED` — Failed to write to cache; operation completed against data source
+- `CACHE_INVALIDATION_FAILED` — Cache invalidation failed; stale data may be served temporarily
+
+## Connects to
+
+- **search-and-filtering** *(optional)* — Search results benefit from caching for repeated queries
+- **pagination** *(optional)* — Paginated results can be cached by page key
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/infrastructure/caching/) · **Spec source:** [`caching.blueprint.yaml`](./caching.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

@@ -1,0 +1,62 @@
+<!-- AUTO-GENERATED FROM theme-configuration.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Theme Configuration
+
+> Define and customize design tokens (colors, spacing, typography, breakpoints) that power a CSS framework
+
+**Category:** Ui · **Version:** 1.0.0 · **Tags:** design-system · theming · customization · tokens
+
+## What this does
+
+Define and customize design tokens (colors, spacing, typography, breakpoints) that power a CSS framework
+
+Specifies 6 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **theme_key** *(text, required)* — Theme Key
+- **theme_value** *(text, required)* — CSS Value
+- **color_palette** *(select, optional)* — Color Namespace
+- **spacing_scale** *(text, optional)* — Spacing Namespace
+- **breakpoint_name** *(text, optional)* — Breakpoint Name
+- **breakpoint_value** *(text, optional)* — Breakpoint Value
+- **extend_mode** *(boolean, optional)* — Extend Mode
+- **prefix** *(text, optional)* — Utility Prefix
+- **dark_mode_strategy** *(select, optional)* — Dark Mode Strategy
+
+## What must be true
+
+- **naming:** Theme keys use CSS custom property format: --namespace-name (kebab-case after double dash), Color palettes must use 3-digit or 6-digit hex (#fff, #ffffff), rgb(), or hsl() format, Spacing values must be valid CSS lengths (px, rem, em, %)
+- **inheritance:** Extend mode (theme.extend) merges with defaults; non-extend mode replaces defaults, Plugin-provided theme values take precedence over user config when using extend
+- **constraints:** Theme key cannot be just --* (wildcard reset); must be --namespace or --namespace-value, Breakpoint values must be ordered from smallest to largest for responsive cascading, Dark mode strategy cannot be both 'class' and 'selector' simultaneously
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Define Color Palette** — when Developer provides a color name (e.g., 'primary') and hex value (e.g., '#3b82f6'); Developer decides whether to extend default colors or replace them, then Color palette entry created; utilities like 'bg-primary', 'text-primary' become available.
+- **Extend Spacing Scale** — when Developer provides custom spacing multiplier (e.g., xs: '0.5rem'); extend_mode is true, then New spacing value merged with defaults; utilities like 'p-xs', 'gap-xs' available.
+- **Configure Responsive Breakpoints** — when Developer defines custom breakpoint (e.g., sm: '640px', tablet: '768px'), then Breakpoint registered; responsive variants (sm:, tablet:) auto-generated from CSS media queries.
+- **Enable Dark Mode** — when Developer sets darkMode strategy (e.g., 'class', 'media', or custom), then Dark mode variant (dark:) generated; utilities respond to dark mode selector.
+- **Apply Prefix To Utilities** — when prefix field is set (e.g., 'tw-'), then All utility class names prefixed (flex → tw-flex, p-4 → tw-p-4).
+
+**❌ Failure paths**
+
+- **Theme Value Not Found** — when Utility references a theme key that does not exist (e.g., text-[theme(--color-missing)]), then Candidate marked invalid; utility not generated. *(error: `THEME_VALUE_NOT_FOUND`)*
+
+## Errors it can return
+
+- `THEME_VALUE_NOT_FOUND` — Theme key does not exist. Check spelling and ensure the key is defined in theme config.
+- `INVALID_THEME_FORMAT` — Theme value does not match expected CSS format (hex, rgb, hsl, length).
+- `BREAKPOINT_ORDER_INVALID` — Breakpoints must be ordered from smallest to largest for responsive cascading.
+
+## Connects to
+
+- **utility-composition** *(recommended)* — Uses theme values to generate utilities
+- **plugin-development** *(optional)* — Plugins can extend theme with custom values
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/ui/theme-configuration/) · **Spec source:** [`theme-configuration.blueprint.yaml`](./theme-configuration.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

@@ -1,0 +1,79 @@
+<!-- AUTO-GENERATED FROM charts-visualization.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Charts Visualization
+
+> Chart rendering system with bar, line, pie, donut, area, scatter, time-series, and heatmap types, responsive sizing, tooltips, legends, and real-time updates
+
+**Category:** Ui · **Version:** 1.0.0 · **Tags:** charts · visualization · graphs · data-viz · responsive · real-time · analytics
+
+## What this does
+
+Chart rendering system with bar, line, pie, donut, area, scatter, time-series, and heatmap types, responsive sizing, tooltips, legends, and real-time updates
+
+Specifies 6 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **chart_type** *(select, required)* — Chart Type
+- **data_series** *(json, required)* — Data Series
+- **x_axis** *(json, optional)* — X-Axis Configuration
+- **y_axis** *(json, optional)* — Y-Axis Configuration
+- **title** *(text, optional)* — Chart Title
+- **subtitle** *(text, optional)* — Chart Subtitle
+- **legend_position** *(select, optional)* — Legend Position
+- **color_palette** *(json, optional)* — Color Palette
+- **animate** *(boolean, optional)* — Enable Animation
+- **tooltip_enabled** *(boolean, optional)* — Show Tooltips
+
+## What must be true
+
+- **data_series → max_series:** 10
+- **data_series → empty_state_required:** true
+- **rendering → responsive:** true
+- **rendering → min_height_px:** 200
+- **rendering → resize_debounce_ms:** 100
+- **accessibility → colorblind_safe_palettes:** true
+- **accessibility → pattern_fills_available:** true
+- **accessibility → aria_labels:** true
+- **accessibility → keyboard_navigable:** true
+- **axes → auto_scale:** true
+- **axes → grid_lines:** true
+- **axes → tick_rotation_threshold:** 10
+- **animation → initial_duration_ms:** 500
+- **animation → update_duration_ms:** 300
+- **animation → respect_reduced_motion:** true
+- **real_time → max_points_before_shift:** 100
+- **real_time → update_throttle_ms:** 200
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Chart Rendered** — when chart type is specified; at least one data series is provided; data series has at least one data point, then Chart renders with data, axes, legend, and tooltips according to configuration.
+- **Chart Empty State** — when chart type is specified; data series is empty or all values are null, then Chart container displays an empty state message instead of blank space.
+- **Data Updated** — when chart is already rendered; new data is provided for one or more series, then Chart animates to reflect new data without full re-render.
+- **Data Point Clicked** — when user clicks or taps a data point, bar, or slice, then Click event emitted with the data point details for drill-down or linking.
+- **Series Toggled** — when user clicks a legend item; chart has more than one data series, then Series hidden or shown with animation, axes rescale if needed.
+
+**❌ Failure paths**
+
+- **Max Series Exceeded** — when More than 10 data series provided, then Only the first 10 series are rendered, user warned about the limit. *(error: `CHART_MAX_SERIES_EXCEEDED`)*
+
+## Errors it can return
+
+- `CHART_MAX_SERIES_EXCEEDED` — Maximum of 10 data series per chart. Additional series will not be displayed.
+- `CHART_INVALID_DATA` — Data format is incompatible with the selected chart type
+- `CHART_RENDER_FAILED` — Chart failed to render. Please check the data and configuration.
+
+## Connects to
+
+- **dashboard-analytics** *(recommended)* — Charts are commonly used as dashboard widgets
+- **dark-mode** *(optional)* — Chart colors and grid lines should adapt to light and dark themes
+- **accessibility** *(recommended)* — Charts need colorblind-safe palettes, ARIA labels, and keyboard navigation
+- **internationalization** *(optional)* — Axis labels, tooltips, and number formatting depend on locale
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/ui/charts-visualization/) · **Spec source:** [`charts-visualization.blueprint.yaml`](./charts-visualization.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

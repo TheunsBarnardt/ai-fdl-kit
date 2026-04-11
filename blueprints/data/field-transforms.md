@@ -1,0 +1,74 @@
+<!-- AUTO-GENERATED FROM field-transforms.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Field Transforms
+
+> Per-field-type transformation pipeline with read-only path resolution, async tracking, and trigger-based caching
+
+**Category:** Data · **Version:** 1.0.0 · **Tags:** field-transforms · data-resolution · computed-properties · pipeline · editor
+
+## What this does
+
+Per-field-type transformation pipeline with read-only path resolution, async tracking, and trigger-based caching
+
+Specifies 7 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **field_type** *(select, required)* — Field Type
+- **field_value** *(json, optional)* — Field Value
+- **prop_path** *(text, required)* — Property Path
+- **is_read_only** *(boolean, optional)* — Is Read Only
+- **component_id** *(text, required)* — Component ID
+- **resolve_trigger** *(select, optional)* — Resolution Trigger
+
+## What must be true
+
+- **transform_pipeline → per_field_type:** true
+- **transform_pipeline → walks_entire_props:** true
+- **transform_pipeline → handles_nested_objects:** true
+- **transform_pipeline → handles_arrays:** true
+- **transform_pipeline → handles_slots:** true
+- **read_only_resolution → exact_path_match:** true
+- **read_only_resolution → wildcard_path_match:** true
+- **read_only_resolution → force_read_only_flag:** true
+- **caching → cache_by_component_id:** true
+- **caching → cache_stores_input_and_output:** true
+- **caching → skip_on_unchanged:** true
+- **trigger_based_skip → move_skip_unless_parent_changed:** true
+- **trigger_based_skip → force_always_resolves:** true
+- **trigger_based_skip → insert_always_resolves:** true
+- **async_tracking → per_field_loading_state:** true
+- **async_tracking → deferred_loading_status:** true
+- **default_transforms → slot_transform:** true
+- **default_transforms → rich_text_transform:** true
+- **default_transforms → inline_text_transform:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Apply Transforms** — when component data is being prepared for rendering or editing; field transform functions are registered for the field types in use, then Transformed prop values returned for rendering.
+- **Resolve Read Only** — when a field has a prop path; the component has read-only flags defined, then Field marked as read-only or editable based on resolution.
+- **Resolve Component Data** — when a trigger event occurs (insert, replace, move, load, or force); the component has a resolveData lifecycle hook; cache check passes (data has changed, or trigger is force/insert), then Component data updated with dynamically computed values.
+- **Resolve Fields Schema** — when component data has changed; the component has a resolveFields lifecycle hook, then Field panel shows/hides fields based on current component state.
+- **Resolve Permissions** — when component data or context has changed; the component has a resolvePermissions lifecycle hook, then Component actions enabled/disabled based on resolved permissions.
+- **Skip Resolution On Cache Hit** — when trigger is 'replace' or 'move'; component data has not changed since last resolution; for 'move' trigger, parent component has not changed, then Resolution skipped, cached result used.
+- **Recursive Slot Resolution** — when a component has slot fields containing child components; parent component is being resolved, then All nested components resolved with parent context propagated.
+
+## Errors it can return
+
+- `TRANSFORM_FAILED` — Field transform failed to process
+- `RESOLVE_TIMEOUT` — Component data resolution timed out
+- `RESOLVE_ABORTED` — Resolution aborted because component was deleted during async operation
+
+## Connects to
+
+- **component-registry** *(required)* — Lifecycle hooks (resolveData, resolveFields, resolvePermissions) are defined on component configs
+- **content-tree** *(required)* — Transforms operate on component data stored in the content tree
+- **editor-state** *(required)* — Resolution results update the centralized state
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/data/field-transforms/) · **Spec source:** [`field-transforms.blueprint.yaml`](./field-transforms.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

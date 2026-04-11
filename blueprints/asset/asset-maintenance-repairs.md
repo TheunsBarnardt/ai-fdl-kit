@@ -1,0 +1,74 @@
+<!-- AUTO-GENERATED FROM asset-maintenance-repairs.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Asset Maintenance Repairs
+
+> Asset maintenance scheduling and repair management with preventive and corrective tasks, repair cost capitalization, and stock consumption tracking for parts used during repairs.
+
+**Category:** Asset · **Version:** 1.0.0 · **Tags:** asset-maintenance · preventive-maintenance · corrective-maintenance · repair · maintenance-log · asset-lifecycle
+
+## What this does
+
+Asset maintenance scheduling and repair management with preventive and corrective tasks, repair cost capitalization, and stock consumption tracking for parts used during repairs.
+
+Specifies 5 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **asset_name** *(text, required)* — Asset Name
+- **maintenance_tasks** *(json, required)* — Maintenance Tasks
+- **maintenance_status** *(select, required)* — Maintenance Status
+- **task** *(text, optional)* — Task Name
+- **maintenance_type** *(select, optional)* — Maintenance Type
+- **log_status** *(select, optional)* — Log Status
+- **has_certificate** *(boolean, optional)* — Has Certificate
+- **certificate_attachments** *(file, optional)* — Certificate Attachments
+- **completion_date** *(date, optional)* — Completion Date
+- **actions_performed** *(text, optional)* — Actions Performed
+- **description** *(rich_text, optional)* — Description
+- **failure_date** *(date, optional)* — Failure Date
+- **assign_to** *(text, optional)* — Assigned To
+- **repair_status** *(select, optional)* — Repair Status
+- **repair_cost** *(number, optional)* — Repair Cost
+- **stock_items** *(json, optional)* — Stock Items Consumed
+- **capitalize_repair_cost** *(boolean, optional)* — Capitalize Repair Cost
+- **increase_in_asset_life** *(number, optional)* — Increase in Asset Life (Months)
+
+## What must be true
+
+- **calendar_events_per_schedule:** Maintenance tasks generate calendar events based on their configured periodicity, assigned to the responsible person.
+- **next_due_date_auto_calculated:** Next due date is auto-calculated from the periodicity setting when a maintenance task is completed.
+- **overdue_status_auto_set:** Maintenance status is automatically set to Overdue when next_due_date is earlier than today.
+- **repair_cost_capitalization:** Repair cost can be capitalized (added to asset gross value), which creates a corresponding GL entry for the value increase.
+- **repair_extends_useful_life:** A repair can extend the asset useful life by a specified number of months, recalculating the remaining depreciation schedule.
+- **stock_items_create_entries:** Stock items consumed during repair create stock entries (Material Issue) from the specified warehouse.
+- **completion_triggers_next_cycle:** Completing a maintenance task triggers calculation of the next due date and creates the next calendar event.
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Schedule Maintenance** — when asset exists and is not in Draft status; maintenance tasks with periodicity and assignment are provided, then Maintenance schedule created with calendar events for each task.
+- **Complete Maintenance Task** — when maintenance task exists and is in Planned status; actions performed and completion date are provided, then Task marked complete, next cycle scheduled.
+- **Log Repair** — when asset exists; failure_date and description are provided, then Repair logged and assigned for resolution.
+- **Extend Asset Life** — when repair is in Completed status; increase_in_asset_life is greater than zero, then Asset useful life extended and depreciation schedule recalculated.
+
+**❌ Failure paths**
+
+- **Capitalize Repair Cost** — when repair is in Completed status; capitalize_repair_cost is true; repair_cost is greater than zero, then Repair cost added to asset value with GL entries. *(error: `REPAIR_CAPITALIZE_INVALID`)*
+
+## Errors it can return
+
+- `MAINTENANCE_ASSET_NOT_FOUND` — The specified asset does not exist or is not active.
+- `REPAIR_ALREADY_COMPLETED` — This repair has already been completed and cannot be modified.
+- `REPAIR_CAPITALIZE_INVALID` — Cannot capitalize repair cost. Repair must be completed with a cost greater than zero.
+
+## Connects to
+
+- **fixed-asset-lifecycle** *(required)* — Maintenance and repairs operate on registered fixed assets
+- **stock-entry-movements** *(optional)* — Stock items consumed during repair create material issue entries
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/asset/asset-maintenance-repairs/) · **Spec source:** [`asset-maintenance-repairs.blueprint.yaml`](./asset-maintenance-repairs.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

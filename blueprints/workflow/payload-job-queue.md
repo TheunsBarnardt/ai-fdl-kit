@@ -1,0 +1,85 @@
+<!-- AUTO-GENERATED FROM payload-job-queue.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Payload Job Queue
+
+> Built-in job queue with tasks, workflows, cron scheduling, retry with backoff, concurrency control, and sub-task orchestration
+
+**Category:** Workflow · **Version:** 1.0.0 · **Tags:** cms · jobs · queue · tasks · workflows · cron · retry · concurrency · scheduling · payload
+
+## What this does
+
+Built-in job queue with tasks, workflows, cron scheduling, retry with backoff, concurrency control, and sub-task orchestration
+
+Specifies 10 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **task_slug** *(text, optional)* — Task Slug
+- **workflow_slug** *(text, optional)* — Workflow Slug
+- **input** *(json, optional)* — Job Input
+- **task_status** *(json, optional)* — Task Status Map
+- **completed_at** *(datetime, optional)* — Completion Timestamp
+- **total_tried** *(number, optional)* — Total Attempts
+- **has_error** *(boolean, optional)* — Has Error
+- **error** *(json, optional)* — Error Details
+- **log** *(json, optional)* — Execution Log
+- **queue** *(text, optional)* — Queue Name
+- **wait_until** *(datetime, optional)* — Delay Until
+- **processing** *(boolean, optional)* — Currently Processing
+- **concurrency_key** *(text, optional)* — Concurrency Key
+
+## What must be true
+
+- **execution → processing_order:** FIFO by default, configurable per queue
+- **execution → retry → max_attempts:** configurable per task/workflow
+- **execution → retry → backoff_strategies:** fixed, exponential
+- **execution → retry → restore_logic:** configurable — can restore job state before retry
+- **execution → concurrency → modes:** exclusive, supersedes
+- **execution → concurrency → requires_opt_in:** true
+- **execution → sub_tasks → inline_execution:** true
+- **execution → sub_tasks → independent_retry:** true
+- **execution → sub_tasks → independent_concurrency:** true
+- **execution → auto_run → cron_based:** true
+- **execution → auto_run → not_for_serverless:** true
+- **scheduling → cron_expressions:** true
+- **scheduling → before_schedule_hooks:** true
+- **scheduling → after_schedule_hooks:** true
+- **scheduling → stats_tracking:** true
+- **access → queue_permission:** access.queue — controls who can add jobs
+- **access → run_permission:** access.run — controls who can trigger job execution
+- **access → cancel_permission:** access.cancel — controls who can cancel jobs
+- **access → default:** authenticated users only
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Job Failed Permanently** — when job handler throws an error; no retry attempts remaining, then Job marked as permanently failed.
+- **Concurrency Exclusive** — when concurrency control enabled; another job with same concurrency key is processing; mode is exclusive, then New job waits in queue until running job completes.
+- **Concurrency Supersedes** — when concurrency control enabled; older pending jobs exist with same concurrency key; mode is supersedes, then Only the newest job runs, older ones cancelled.
+- **Job Retry** — when job handler throws an error; retry attempts remaining (totalTried < maxRetries), then Job scheduled for retry after backoff period.
+- **Queue Job** — when user has queue access; task or workflow slug is valid; input matches task input schema (if defined), then Job ID returned, job queued for execution.
+- **Run Jobs** — when user has run access (or endpoint called by cron); pending jobs exist in the specified queue, then Jobs executed, results stored in task_status.
+- **Run Job By Id** — when user has run access; job ID exists and is not completed, then Single job executed and result returned.
+- **Cancel Job** — when user has cancel access; job is in queued state (not yet processing), then Job cancelled, will not be retried.
+- **Job Success** — when job handler completes without error, then Job marked as completed.
+- **Handle Schedules** — when cron expression matches current time; schedule is enabled, then Scheduled job created and queued.
+
+## Errors it can return
+
+- `JOB_NOT_FOUND` — The requested job was not found
+- `JOB_ACCESS_DENIED` — You do not have permission to perform this job operation
+- `JOB_INVALID_INPUT` — The job input does not match the expected schema
+- `JOB_EXECUTION_ERROR` — An error occurred while executing the job
+
+## Connects to
+
+- **payload-versions** *(optional)* — Scheduled publishing uses the job queue to publish/unpublish at future times
+- **payload-access-control** *(required)* — Queue, run, and cancel operations are access-controlled
+- **payload-collections** *(required)* — Jobs stored in the payload-jobs auto-created collection
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/workflow/payload-job-queue/) · **Spec source:** [`payload-job-queue.blueprint.yaml`](./payload-job-queue.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

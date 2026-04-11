@@ -31,13 +31,54 @@ Superpowers' brainstorming skill ends by writing a design doc to `docs/superpowe
 
 ## Workflow (11 steps, executed one at a time)
 
-### Step 1 — Explore existing context
+### Step 1 — Explore existing context (INDEX-first, skill-aware)
 
-Before asking anything, glob `blueprints/**/*.blueprint.yaml` and scan categories. If a blueprint already exists that's similar to what the user described, tell them:
+Before asking anything, gather the full picture of what already exists. **You MUST do both of these before asking any question — the user should never hear "let me think about that" when the answer is a one-command lookup.**
 
-> "There's already a `{existing}` blueprint in `{category}` that does X. Do you want to extend it, create a variant, or build something distinct?"
+#### 1a. Check the blueprint INDEX
 
-Never invent a new blueprint when an existing one would do.
+The repo ships a deterministic catalog at `blueprints/INDEX.md` (auto-generated, lists every blueprint grouped by category with links). Read it first — **never glob** `blueprints/**/*.blueprint.yaml` unless the INDEX is missing:
+
+1. **Read `blueprints/INDEX.md`** in one call. This gives you all 200+ blueprints with their categories, versions, and one-line descriptions in under a few hundred lines.
+2. **Extract candidate feature names** from the user's rough idea. Example: *"I need something to track my daily calendar and who attended"* → candidates `calendar`, `scheduling`, `meeting`, `attendance`, `event`.
+3. **For each candidate, run the lookup script:**
+   ```
+   Bash: node scripts/blueprint-lookup.js <candidate>
+   ```
+   Exit 0 means a blueprint with that exact name exists — use its returned JSON (`category`, `description`, `yaml_path`) to offer the user an extension or variant. Exit 1 means no exact match — fall back to fuzzy search against the INDEX's descriptions (substring match on `description` column, surface the top 3 closest hits).
+4. **If one or more close matches exist**, tell the user and offer three concrete paths:
+   > "I found these related blueprints already: `{existing-1}` in `{category-1}` ({one-liner}), `{existing-2}` in `{category-2}` ({one-liner}). Do you want to: (a) extend one of them, (b) create a variant, or (c) build something distinct?"
+5. **Never invent a new blueprint when an existing one would do.** The INDEX is your guard against duplication.
+
+**Fallback only when `blueprints/INDEX.md` is missing:** if Read returns "file not found", tell the user *"INDEX.md is missing — run `npm run generate:readmes` to rebuild it"* and stop. Do NOT silently glob the repo. The index is the source of truth.
+
+#### 1b. Scan the idea for skill-delegation signals
+
+While you have the user's rough idea in front of you, also scan it for keywords that map to known companion/data-source skills. These become **informed options** in Step 5 instead of generic alternatives.
+
+**Stack-companion signals** (UI libraries, ORMs, auth providers):
+
+| Keyword in idea | Known skill / library | Inform the user |
+|---|---|---|
+| `shadcn`, `shadcn/ui` | [shadcn/ui](https://skills.sh/shadcn/ui/shadcn) — UI component pack | A dedicated skill exists that can install and compose shadcn primitives. |
+| `tailwind v4` + `shadcn` | [tailwind-v4-shadcn](https://skills.sh/jezweb/claude-skills/tailwind-v4-shadcn) | Combined setup skill covers both. |
+| `clerk`, `clerk auth` | [clerk-custom-ui](https://skills.sh/clerk/skills/clerk-custom-ui) | Drop-in auth provider — replaces hand-rolled login flow. |
+| `prisma`, `drizzle`, `nextauth` | no dedicated skill pack; inline patterns | Widely-used libraries — `/fdl-generate` knows how to emit them idiomatically. |
+
+**Data-source signals** (external data, integrations):
+
+| Concept in idea | Known skill / library | Inform the user |
+|---|---|---|
+| `calendar`, `schedule`, `events`, `appointments`, `meeting` | [google-calendar](https://skills.sh/baphomet480/claude-skills/google-calendar) — full CRUD skill | You can plug in Google Calendar as the backing store instead of building your own event table. |
+| `payment`, `checkout`, `subscription`, `stripe` | Stripe inline | Stripe is the default; mention it as an option alongside building your own payment flow. |
+| `sms`, `otp via text`, `twilio` | Twilio inline | Same pattern. |
+| `email`, `transactional email` | Resend / SendGrid inline | Same pattern. |
+| `file upload`, `storage`, `s3`, `r2` | S3 / Cloudflare R2 inline | Same pattern. |
+| `maps`, `geocoding` | Google Maps inline | Same pattern. |
+
+**The full, authoritative tables live in `.claude/skills/fdl-generate/SKILL.md` under Steps 0b and 0c.** This brainstorm skill maintains a summary so it can make decisions during Socratic questioning; the full delegate metadata (install commands, env vars, generation hints) only needs to be in fdl-generate's hands at code-generation time.
+
+**What to do with the signals you find:** store them in working memory and surface them as options in Step 5. Do NOT volunteer them in Step 1 — at this stage you're just building context. The user hasn't committed to a shape yet, and you don't want to bias them toward a specific vendor until they've told you what problem they're solving.
 
 ### Step 2 — Understand the problem, not the solution
 
@@ -65,7 +106,9 @@ Ask ONE question:
 
 ### Step 5 — Propose 2-3 approaches with trade-offs
 
-Never jump to a single solution. Lay out alternatives:
+Never jump to a single solution. Lay out alternatives across **two axes** and let the user pick from each:
+
+#### Axis 1: Blueprint shape
 
 > "There are a few ways to model this. Each has trade-offs:
 >
@@ -76,6 +119,42 @@ Never jump to a single solution. Lay out alternatives:
 > **C. Full workflow** — Add `actors:` (humans + systems), `flows:` (step-by-step procedures), and `sla:` (time limits). Right choice when humans are making decisions in the loop.
 >
 > Given what you described, I'd lean toward **B**. Which matches your mental model?"
+
+#### Axis 2: Delegate vs. own (only when Step 1b found skill-delegation signals)
+
+When Step 1b surfaced a known data-source or stack skill, the user has a real choice: own the data end-to-end or delegate to a specialist. Frame this explicitly — don't hide it, and don't assume the answer.
+
+**Template when a data-source skill was detected (e.g., calendar → google-calendar):**
+
+> "Before I lock this in — you mentioned calendar events. There's a real fork here:
+>
+> **1. Own the data** — Blueprint has its own `events` table with fields for title, start, end, attendees, location. You control the schema, you own the history, you handle all backup/export/audit. Good if compliance or data residency matters, or you need to integrate with something Google Calendar can't (e.g., your existing attendance system).
+>
+> **2. Delegate to Google Calendar** — The `google-calendar` skill pack at skills.sh provides full CRUD against a user's real Google Calendar. You don't store events at all — you read and write through their account. Good if the user already lives in Google Calendar, the data should sync across their other tools, and you don't need to add structure beyond what Google supports. Requires OAuth setup and a per-user consent flow.
+>
+> Which direction fits? I can also propose a hybrid — own the blueprint metadata (e.g., who attended, any internal tags) but pull the events themselves from Google Calendar."
+
+**Template when a stack-companion skill was detected (e.g., shadcn, clerk):**
+
+> "For the UI shell, you mentioned shadcn. Two options:
+>
+> **1. Use the shadcn skill pack** — The blueprint's `ui_hints` get mapped to shadcn primitives at code-generation time. Install is one line (`npx shadcn@latest init`). Idiomatic, batteries-included.
+>
+> **2. Build the components yourself** — The blueprint stays UI-library-agnostic; you decide at generation time whether to use shadcn, MUI, Chakra, or hand-rolled Tailwind. More flexible but more work.
+>
+> Default recommendation: **1**. Any reason to pick **2**?"
+
+**When no skill signals were found, skip Axis 2 entirely.** Don't fabricate vendor options to fill space — the user didn't ask for them.
+
+#### Recording the choice
+
+Write the user's answers on both axes into the brainstorm working state:
+
+- `shape` → A / B / C (determines blueprint section structure)
+- `delegate_data` → which external data source, if any, will back this feature
+- `delegate_stack` → which stack companion, if any, will drive the UI generation
+
+These three values get carried forward to Step 6 (design sections), into the brainstorm doc at Step 9, and into the handoff at Step 11 so `/fdl-create` (and downstream `/fdl-generate`) can honor the user's decisions without re-asking.
 
 ### Step 6 — Present design sections iteratively, wait for acknowledgment
 
@@ -154,11 +233,19 @@ Before any handoff, **always** write a full markdown design doc capturing the co
 ## 8. Related blueprints
 {From Step 6.5 — list as `category/feature` with relationship type.}
 
-## 9. Open questions
+## 9. Skill delegations
+{From Step 5 Axis 2. Record in this order — omit lines that didn't apply:}
+
+- **Data source:** `{e.g. google-calendar via https://skills.sh/baphomet480/claude-skills/google-calendar}` — *Rationale: {user's reason}*
+- **Stack companion:** `{e.g. shadcn via https://skills.sh/shadcn/ui/shadcn}` — *Rationale: {user's reason}*
+
+{If no delegations were chosen, write "None — feature owns its own data and UI."}
+
+## 10. Open questions
 {Anything the user deferred or flagged as "figure out during /fdl-create". If none, write "None".}
 
-## 10. Next step
-Run `/fdl-create {feature-kebab-case}` to materialize this brainstorm into a validated YAML blueprint.
+## 11. Next step
+Run `/fdl-create {feature-kebab-case}` to materialize this brainstorm into a validated YAML blueprint. Any skill delegations recorded in section 9 will be carried into the blueprint's `tags` and `related` fields so `/fdl-generate` picks them up automatically at code-generation time.
 ```
 
 **Do NOT:**
@@ -197,11 +284,19 @@ Only after the brainstorm doc is written and its path confirmed:
 
 > "Brainstorm saved to `{path}`. Now I'll create the blueprint."
 
-Then invoke `/fdl-create` with the feature name, category, and the full specification accumulated through steps 2-6. `/fdl-create` then:
-1. Writes the YAML
+Then invoke `/fdl-create` with the feature name, category, the full specification accumulated through steps 2-6, AND the skill delegations recorded in Step 5 Axis 2. Pass the delegations as part of the description so `/fdl-create` can fold them into the blueprint:
+
+- **Data-source delegations** → add a tag like `delegate:google-calendar` and a `related:` entry pointing at the skill URL in a comment. The blueprint's `events:` payload references the skill's data shape rather than inventing a new schema.
+- **Stack-companion delegations** → add a tag like `stack:shadcn`. The blueprint's `ui_hints` section notes that shadcn primitives should drive the component selection.
+- **No delegations** → pass nothing extra; `/fdl-create` builds a vanilla blueprint.
+
+`/fdl-create` then:
+1. Writes the YAML (including any delegation tags from the brainstorm)
 2. Runs `node scripts/validate.js` (schema)
 3. Runs `node scripts/completeness-check.js` (semantic)
 4. Triggers `/fdl-auto-evolve` (auto-commit)
+
+Downstream, when the user later runs `/fdl-generate <feature>`, Step 0b and Step 0c of that skill will see the delegation tags in the blueprint and auto-wire the matching skills — closing the loop from brainstorm → blueprint → code without re-asking the user any of the decisions made here.
 
 **If the blueprint fails either check, that's a failure of this skill too.** The brainstorm was incomplete. Go back to step 6 and find the missing piece. The brainstorm doc from Step 9 stays on disk regardless — it's the audit trail of the conversation.
 
@@ -229,10 +324,12 @@ FDL's existing skills assume the user knows what feature they want. That assumpt
 ```
 User: /fdl-brainstorm I need something to handle customer complaints
 
-Claude: [Step 1] Let me check what's already in the blueprints...
+Claude: [Step 1a] Reading blueprints/INDEX.md and running blueprint-lookup.js for
+        candidates: complaint, ticket, feedback, customer-support, ombudsman...
         Found `workflow/customer-support-ticket.blueprint.yaml`. It covers ticket
-        intake, assignment, and resolution. Is this what you need, or is this
-        distinct?
+        intake, assignment, and resolution.
+        [Step 1b] No stack or data-source keywords in the prompt — skipping skill scan.
+        Is this what you need, or is this distinct?
 
 User: It's distinct — these are regulatory complaints that need an ombudsman review.
 

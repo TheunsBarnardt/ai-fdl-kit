@@ -1,0 +1,73 @@
+<!-- AUTO-GENERATED FROM role-based-access.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Role Based Access
+
+> Role-based access control with hierarchical permission inheritance
+
+**Category:** Access · **Version:** 1.0.0 · **Tags:** rbac · permissions · roles · authorization · hierarchy · security · access-control
+
+## What this does
+
+Role-based access control with hierarchical permission inheritance
+
+Specifies 8 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **role_id** *(text, required)* — Role ID
+- **role_name** *(text, required)* — Role Name
+- **description** *(text, optional)* — Description
+- **permissions** *(json, required)* — Permissions
+- **parent_role** *(text, optional)* — Parent Role
+- **is_system_role** *(boolean, optional)* — System Role
+- **is_active** *(boolean, optional)* — Active
+
+## What must be true
+
+- **hierarchy → inheritance_direction:** upward
+- **hierarchy → max_depth:** 10
+- **hierarchy → circular_reference_check:** true
+- **system_roles → protected:** super_admin, admin
+- **system_roles → super_admin_bypass:** true
+- **permissions → format:** resource.action
+- **permissions → wildcard_support:** true
+- **permissions → case_sensitive:** false
+- **permissions → deduplication:** true
+- **assignment → max_roles_per_user:** 20
+- **assignment → effective_permissions:** union
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Permission Granted** — when User holds super_admin role — bypass all checks OR Required permission found in user's effective permission set, then allow access to the requested resource.
+- **Role Assigned** — when Role exists in system; Role not already assigned to user, then role successfully assigned to user.
+- **Role Revoked** — when Role exists in system; User currently holds this role, then role successfully revoked from user.
+
+**❌ Failure paths**
+
+- **Permission Denied No Role** — when User has no roles assigned, then deny access with "You do not have permission to perform this action". *(error: `ACCESS_DENIED`)*
+- **Permission Denied** — when Required permission not in user's effective permission set; User is not a super_admin (super_admin bypasses all checks), then deny access with "You do not have permission to perform this action". *(error: `ACCESS_DENIED`)*
+- **Role Not Found** — when Requested role does not exist, then show "The specified role does not exist". *(error: `ROLE_NOT_FOUND`)*
+- **System Role Delete Blocked** — when Role is a protected system role, then show "System roles cannot be deleted or modified". *(error: `SYSTEM_ROLE_PROTECTED`)*
+- **Permission Invalid** — when Permission string does not match any registered permission, then show "The specified permission is not valid". *(error: `PERMISSION_INVALID`)*
+
+## Errors it can return
+
+- `ACCESS_DENIED` — You do not have permission to perform this action
+- `ROLE_NOT_FOUND` — The specified role does not exist
+- `PERMISSION_INVALID` — The specified permission is not valid
+- `SYSTEM_ROLE_PROTECTED` — System roles cannot be deleted or modified
+- `ROLE_HIERARCHY_CYCLE` — Setting this parent role would create a circular reference
+
+## Connects to
+
+- **login** *(required)* — User must be authenticated before role-based access checks apply
+- **audit-logging** *(recommended)* — Access grants and denials should be logged for compliance
+- **team-organization** *(optional)* — Roles can be scoped per organization or team
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/access/role-based-access/) · **Spec source:** [`role-based-access.blueprint.yaml`](./role-based-access.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

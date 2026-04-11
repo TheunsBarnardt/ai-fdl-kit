@@ -1,0 +1,78 @@
+<!-- AUTO-GENERATED FROM pricing-rules-promotions.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Pricing Rules Promotions
+
+> Define and apply pricing rules, discount schemes, and promotional offers with priority-based conflict resolution, cumulative tracking, and free item support
+
+**Category:** Payment · **Version:** 1.0.0 · **Tags:** pricing · discounts · promotions · coupons · erp · sales · purchase
+
+## What this does
+
+Define and apply pricing rules, discount schemes, and promotional offers with priority-based conflict resolution, cumulative tracking, and free item support
+
+Specifies 4 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **title** *(text, required)*
+- **apply_on** *(select, required)*
+- **rate_or_discount** *(select, required)*
+- **rate** *(number, optional)*
+- **discount_percentage** *(number, optional)*
+- **discount_amount** *(number, optional)*
+- **min_qty** *(number, optional)*
+- **max_qty** *(number, optional)*
+- **min_amt** *(number, optional)*
+- **max_amt** *(number, optional)*
+- **valid_from** *(date, optional)*
+- **valid_upto** *(date, optional)*
+- **priority** *(number, required)*
+- **price_or_product_discount** *(select, required)*
+- **free_item** *(text, optional)*
+- **free_qty** *(number, optional)*
+- **is_cumulative** *(boolean, optional)*
+- **coupon_code_based** *(boolean, optional)*
+- **condition** *(text, optional)*
+- **selling** *(boolean, optional)*
+- **buying** *(boolean, optional)*
+
+## What must be true
+
+- **direction_required:** Either selling or buying flag must be enabled. A pricing rule must apply to at least one transaction direction.
+- **priority_order:** Priority determines evaluation order. Lower priority number is evaluated first and takes precedence when multiple rules match.
+- **max_discount_enforcement:** Discount percentage cannot exceed the item maximum discount if one is configured on the item master.
+- **cumulative_tracking:** Cumulative rules track total quantity or amount across transactions within the defined validity period.
+- **recursive_free_item:** Free item quantity is calculated recursively when is_recursive is enabled. For example, buy 3 get 1 free applied to qty 12 gives 3 free items.
+- **coupon_validation:** Coupon-code-based rules are only applied when a valid coupon code is provided at transaction time.
+- **date_bound:** Date-bound rules are only active between valid_from and valid_upto dates inclusive. Rules outside this range are skipped.
+- **transaction_level:** Transaction-level rules apply to the entire document total rather than individual line items.
+- **conflict_resolution:** When multiple rules match, highest priority rule wins. Ties are resolved by the most specific match (item code beats item group beats brand beats transaction).
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Apply Price Discount** — when Rule is a price discount type; transaction line matches the rule criteria; quantity and amount fall within min/max thresholds; current date is within validity period, then Price discount is applied to the matching line items or transaction total.
+- **Apply Product Discount** — when Rule is a product discount type; Free item is configured; transaction line meets quantity or amount thresholds, then Free item is added to the transaction with the calculated quantity.
+- **Apply Margin** — when rule specifies a margin type (percentage or amount); transaction line matches rule criteria, then Margin is applied to the item rate on the matching transaction lines.
+
+**❌ Failure paths**
+
+- **Resolve Conflicts** — when multiple pricing rules match the same transaction or line item, then Single winning pricing rule is selected and applied; other conflicting rules are skipped. *(error: `PRICING_RULE_CONFLICT`)*
+
+## Errors it can return
+
+- `PRICING_RULE_CONFLICT` — Multiple pricing rules conflict and cannot be resolved automatically.
+- `PRICING_MAX_DISCOUNT_EXCEEDED` — Discount exceeds the maximum allowed discount for this item.
+- `PRICING_INVALID_CONDITION` — Pricing rule condition expression is invalid or references unknown fields.
+
+## Connects to
+
+- **sales-purchase-invoicing** *(recommended)* — Pricing rules are applied to invoice line items
+- **sales-order-lifecycle** *(recommended)* — Pricing rules are applied during order creation
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/payment/pricing-rules-promotions/) · **Spec source:** [`pricing-rules-promotions.blueprint.yaml`](./pricing-rules-promotions.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

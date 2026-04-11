@@ -1,0 +1,63 @@
+<!-- AUTO-GENERATED FROM prisma-crud.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Prisma Crud
+
+> Execute type-safe database CRUD operations with Prisma Client query builder
+
+**Category:** Data · **Version:** 1.0.0 · **Tags:** crud · database · orm · prisma · query-builder
+
+## What this does
+
+Execute type-safe database CRUD operations with Prisma Client query builder
+
+Specifies 9 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **operation** *(select, required)* — Operation Type
+- **model** *(text, required)* — Model Name
+- **where_conditions** *(json, optional)* — Filter Conditions
+- **data** *(json, optional)* — Record Data
+- **include_relations** *(boolean, optional)* — Include Related Records
+
+## What must be true
+
+- **read_operations:** findUnique returns single record or null; requires unique field, findFirst returns first matching record; requires where clause, findMany returns array; supports pagination via skip/take, count returns total matching records, aggregate returns computed values, groupBy returns grouped results with aggregations
+- **write_operations:** create inserts one record; returns created record with generated IDs, createMany batch creates; no auto-rollback on partial failure, update updates one record by ID; returns updated record, updateMany bulk updates matching criteria, upsert atomically creates or updates, delete removes one record; returns deleted record, deleteMany bulk deletes matching criteria
+- **constraints:** Unique constraint violation: value already exists, Foreign key violation: related record missing, Type mismatch: wrong data type provided, NOT NULL violation: required field omitted
+- **transactions:** Wrap multiple operations in $transaction for atomicity, All changes rolled back if any operation fails, Configurable timeout (default 5 seconds)
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Record Found** — when operation is find_unique or find_first; where conditions match exactly one record, then Record returned with all fields or selected subset.
+- **Record Created** — when operation is create; All required fields provided; No unique constraint violations, then New record inserted with auto-generated ID and timestamps.
+- **Multiple Records Found** — when operation is find_many, then Array of matching records returned; empty array if no matches.
+- **Record Updated** — when operation is update; Record exists matching where clause, then Record updated; updatedAt timestamp set.
+- **Record Upserted** — when operation is upsert, then Record created if not exists, updated if exists (atomic).
+- **Record Deleted** — when operation is delete; No foreign key constraints prevent deletion, then Record deleted from database.
+
+**❌ Failure paths**
+
+- **Unique Constraint Violation** — when Attempting to create/update with duplicate unique field value, then Operation fails; error indicates field with conflicting value. *(error: `UNIQUE_CONSTRAINT_VIOLATION`)*
+- **Foreign Key Violation** — when Referencing non-existent record in relation, then Operation rejected; missing related record. *(error: `FOREIGN_KEY_VIOLATION`)*
+- **Record Not Found** — when Using findOrThrow operation; No record matches where clause, then NotFoundError thrown. *(error: `NOT_FOUND`)*
+
+## Errors it can return
+
+- `UNIQUE_CONSTRAINT_VIOLATION` — Unique constraint failed on fields: {fields}
+- `FOREIGN_KEY_VIOLATION` — Foreign key constraint failed on relation: {relation}
+- `NOT_FOUND` — No {model} found
+- `VALIDATION_ERROR` — Invalid value for field {field}: {reason}
+
+## Connects to
+
+- **prisma-schema** *(required)* — Models must be defined before querying
+- **prisma-migrations** *(required)* — Schema must be migrated to create database tables
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/data/prisma-crud/) · **Spec source:** [`prisma-crud.blueprint.yaml`](./prisma-crud.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

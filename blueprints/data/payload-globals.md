@@ -1,0 +1,57 @@
+<!-- AUTO-GENERATED FROM payload-globals.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Payload Globals
+
+> Singleton document management for site-wide settings, navigation, headers, and footers with versioning and access control
+
+**Category:** Data · **Version:** 1.0.0 · **Tags:** cms · globals · singleton · settings · configuration · site-wide · payload
+
+## What this does
+
+Singleton document management for site-wide settings, navigation, headers, and footers with versioning and access control
+
+Specifies 5 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **slug** *(text, required)* — Global Slug
+- **created_at** *(datetime, required)*
+- **updated_at** *(datetime, required)*
+
+## What must be true
+
+- **data → singleton_pattern:** true
+- **data → no_id_field:** true
+- **data → hooks_supported:** beforeOperation, beforeRead, afterRead, beforeValidate, beforeChange, afterChange
+- **data → versioning_supported:** true
+- **data → localization_supported:** true
+- **access → operations:** read, update, readVersions
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Find Global** — when user has read access for this global, then Single global document returned with populated relationships.
+- **Update Global** — when user has update access for this global; data passes field validation; document is not locked by another user, then Updated global document returned.
+- **Find Global Versions** — when user has readVersions access; versioning is enabled for this global, then Paginated list of version history.
+- **Restore Global Version** — when user has update access; versioning is enabled; version ID exists, then Global restored to previous version.
+- **Global Doc Access** — when user is authenticated, then Returns permission object with read/update/readVersions booleans and field-level access.
+
+## Errors it can return
+
+- `GLOBAL_FORBIDDEN` — You are not allowed to access this global
+- `GLOBAL_VALIDATION_ERROR` — The data provided did not pass validation
+- `GLOBAL_DUPLICATE` — A global with this slug already exists
+
+## Connects to
+
+- **payload-collections** *(optional)* — Globals complement collections — collections for multiple docs, globals for singletons
+- **payload-access-control** *(required)* — Globals have their own access control configuration
+- **payload-versions** *(optional)* — Globals support the same versioning system as collections
+- **payload-document-locking** *(optional)* — Globals support document locking
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/data/payload-globals/) · **Spec source:** [`payload-globals.blueprint.yaml`](./payload-globals.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

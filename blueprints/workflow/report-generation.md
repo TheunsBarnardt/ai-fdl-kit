@@ -1,0 +1,73 @@
+<!-- AUTO-GENERATED FROM report-generation.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Report Generation
+
+> Scheduled and on-demand report generation with PDF, Excel, and CSV output, background processing, caching, email delivery, and cron scheduling.
+
+**Category:** Workflow · **Version:** 1.0.0 · **Tags:** reports · pdf · excel · csv · scheduled-jobs · data-export · background-processing
+
+## What this does
+
+Scheduled and on-demand report generation with PDF, Excel, and CSV output, background processing, caching, email delivery, and cron scheduling.
+
+Specifies 6 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **report_id** *(text, required)* — Report ID
+- **name** *(text, required)* — Report Name
+- **template** *(text, required)* — Report Template
+- **data_source** *(text, required)* — Data Source
+- **parameters** *(json, optional)* — Query Parameters
+- **format** *(select, required)* — Output Format
+- **schedule** *(text, optional)* — Cron Schedule
+- **recipients** *(json, optional)* — Email Recipients
+- **status** *(select, required)* — Status
+- **file_url** *(url, optional)* — Generated File URL
+- **file_size_bytes** *(number, optional)* — File Size (bytes)
+- **generated_at** *(datetime, optional)* — Generated At
+- **expires_at** *(datetime, optional)* — Cache Expires At
+
+## What must be true
+
+- **max_file_size:** Generated report files must not exceed 100 MB. If the output exceeds this limit, the report fails with an error and suggests narrowing parameters or splitting into multiple reports.
+- **background_processing:** Reports that are estimated to take longer than 5 seconds must be processed in a background job. The requester receives immediate acknowledgment with a report ID for status polling.
+- **cache_recent_reports:** Completed reports are cached for 1 hour. Requests with identical template, data source, and parameters within the cache window return the cached file instead of regenerating.
+- **parameterized_queries_only:** All data source queries must use parameterized inputs to prevent injection attacks. Raw user input must never be interpolated into query strings.
+- **schedule_validation:** Cron schedule expressions must be valid five-field cron format. Minimum allowed interval is 15 minutes to prevent excessive load.
+- **recipient_notification:** When recipients are configured, the generated report is emailed as an attachment (under 25 MB) or as a download link (over 25 MB).
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **On Demand Report Generated** — when user requests a report with template, data source, and parameters; no cached report exists for the same parameters, then Report generated in background and download URL provided to requester.
+- **Cached Report Returned** — when user requests a report with template, data source, and parameters; a cached report exists for identical parameters; Cache has not expired, then Cached report returned immediately without regeneration.
+- **Scheduled Report Triggered** — when cron schedule fires for a configured report; schedule exists, then Scheduled report generated and delivered to all recipients.
+- **Report Delivered To Recipients** — when report generation completes successfully; recipients exists, then Report delivered to all configured recipients via email.
+
+**❌ Failure paths**
+
+- **Report Exceeds Size Limit** — when report generation produces output exceeding 100 MB, then Report generation fails with size limit exceeded error. *(error: `REPORT_SIZE_EXCEEDED`)*
+- **Report Generation Fails** — when report engine encounters an error during generation, then Report generation fails and requester is notified with error details. *(error: `REPORT_GENERATION_FAILED`)*
+
+## Errors it can return
+
+- `REPORT_SIZE_EXCEEDED` — Generated report exceeds the 100 MB size limit. Narrow parameters or split into multiple reports.
+- `REPORT_GENERATION_FAILED` — An error occurred while generating the report. Check data source and template configuration.
+- `REPORT_TEMPLATE_NOT_FOUND` — The specified report template does not exist.
+- `REPORT_DATA_SOURCE_ERROR` — Failed to connect to or query the specified data source.
+- `REPORT_INVALID_SCHEDULE` — Cron schedule expression is invalid or interval is below the 15-minute minimum.
+- `REPORT_INVALID_PARAMETERS` — One or more query parameters are invalid or missing required values.
+
+## Connects to
+
+- **automation-rules** *(optional)* — Automation rules can trigger on-demand reports based on record events
+- **task-management** *(optional)* — Report generation jobs can be tracked as background tasks
+- **dashboard-analytics** *(recommended)* — Dashboard widgets may offer report export functionality
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/workflow/report-generation/) · **Spec source:** [`report-generation.blueprint.yaml`](./report-generation.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

@@ -1,0 +1,79 @@
+<!-- AUTO-GENERATED FROM login.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Login
+
+> Authenticate a user with email and password
+
+**Category:** Auth · **Version:** 1.0.0 · **Tags:** authentication · session · security · identity · saas
+
+## What this does
+
+Authenticate a user with email and password
+
+Specifies 6 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **email** *(email, required)* — Email Address
+- **password** *(password, required)* — Password
+- **remember_me** *(boolean, optional)* — Remember me
+
+## What must be true
+
+- **security → max_attempts:** 5
+- **security → lockout_duration_minutes:** 15
+- **security → lockout_scope:** per_email
+- **security → rate_limit → window_seconds:** 60
+- **security → rate_limit → max_requests:** 10
+- **security → rate_limit → scope:** per_ip
+- **security → password_comparison → constant_time:** true
+- **security → credential_error_handling → generic_message:** true
+- **session → type:** jwt
+- **session → access_token → expiry_minutes:** 15
+- **session → refresh_token → expiry_days:** 7
+- **session → refresh_token → rotate_on_use:** true
+- **session → remember_me_expiry_days:** 30
+- **session → extend_on_activity:** true
+- **session → secure_flags → http_only:** true
+- **session → secure_flags → secure:** true
+- **session → secure_flags → same_site:** strict
+- **email → require_verified:** true
+- **email → case_sensitive:** false
+- **email → trim_whitespace:** true
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Successful Login** — when Email is valid format; User found in database (after lowercase + trim normalization); Password matches stored hash (constant-time via bcrypt); status neq "disabled"; email_verified eq true, then redirect to /dashboard.
+
+**❌ Failure paths**
+
+- **Rate Limited** — when More than 10 requests in 60 seconds from this IP, then show "Too many login attempts. Please wait a moment.". *(error: `LOGIN_RATE_LIMITED`)*
+- **Account Locked** — when Max attempts exceeded; Lockout period has not expired, then show "Account temporarily locked. Please try again later.". *(error: `LOGIN_ACCOUNT_LOCKED`)*
+- **Account Disabled** — when Account deactivated by admin or user, then show "This account has been disabled. Please contact support.". *(error: `LOGIN_ACCOUNT_DISABLED`)*
+- **Invalid Credentials** — when User not found in database OR Password does not match (constant-time comparison), then show "Invalid email or password" (SAME message for both cases — enumeration prevention). *(error: `LOGIN_INVALID_CREDENTIALS`)*
+- **Email Not Verified** — when User exists, password correct, but email not verified, then redirect to /verify-email with message "Please verify your email before logging in". *(error: `LOGIN_EMAIL_NOT_VERIFIED`)*
+
+## Errors it can return
+
+- `LOGIN_INVALID_CREDENTIALS` — Invalid email or password
+- `LOGIN_ACCOUNT_LOCKED` — Account temporarily locked. Please try again later.
+- `LOGIN_EMAIL_NOT_VERIFIED` — Please verify your email address to continue
+- `LOGIN_ACCOUNT_DISABLED` — This account has been disabled. Please contact support.
+- `LOGIN_RATE_LIMITED` — Too many login attempts. Please wait a moment.
+- `LOGIN_VALIDATION_ERROR` — Please check your input and try again
+
+## Connects to
+
+- **signup** *(required)* — User must exist before they can log in
+- **password-reset** *(recommended)* — Users will forget passwords
+- **email-verification** *(recommended)* — Required when rules.email.require_verified is true
+- **logout** *(required)* — Every login needs a logout
+- **biometric-auth** *(optional)* — Palm vein scan as an alternative to password login
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/auth/login/) · **Spec source:** [`login.blueprint.yaml`](./login.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*
