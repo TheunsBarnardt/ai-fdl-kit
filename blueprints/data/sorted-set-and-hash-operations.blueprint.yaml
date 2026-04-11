@@ -24,29 +24,29 @@ actors:
     type: human
     description: Application requesting sorted set or hash operations
 fields:
+  # Unique identifier for the collection
   - name: key
     type: text
-    description: Unique identifier for the collection
     required: true
     label: Key
+  # For sorted sets: array of [member, score] pairs
   - name: members
     type: json
-    description: "For sorted sets: array of [member, score] pairs"
     required: false
     label: Members
+  # For hashes: object of field->value mappings
   - name: fields
     type: json
-    description: "For hashes: object of field->value mappings"
     required: false
     label: Fields
+  # Numeric score (for sorted sets; determines ordering)
   - name: score
     type: number
-    description: Numeric score (for sorted sets; determines ordering)"
     required: false
     label: Score
+  # For hashes: milliseconds until field expires
   - name: field_ttl_ms
     type: number
-    description: "For hashes: milliseconds until field expires"
     required: false
     label: Field Ttl Ms
 rules:
@@ -62,20 +62,16 @@ rules:
     - Numeric field operations (HINCRBY) increment field values
     - Fields are unordered unless scanning with HSCAN
 states:
-  - field: collection_type
-    values:
-      - value: sorted_set
-        description: Ordered by score
-      - value: hash
-        description: Key-value mappings with optional field TTL
-  - field: presence
-    values:
-      - value: absent
-        initial: true
-      - value: present
-        description: Collection exists
-      - value: empty
-        terminal: true
+  field: presence
+  values:
+    - name: absent
+      initial: true
+      description: Collection does not exist
+    - name: present
+      description: Collection exists
+    - name: empty
+      terminal: true
+      description: Collection is empty
 outcomes:
   zadd_members:
     priority: 10
@@ -188,8 +184,10 @@ outcomes:
       - ZRANGE key min max BYSCORE [WITHSCORES] [LIMIT offset count]
       - field: min_score
         source: input
+        operator: exists
       - field: max_score
         source: input
+        operator: exists
     then:
       - action: emit_event
         event: zset.range_score
@@ -250,12 +248,14 @@ outcomes:
     description: Get intersection of sorted sets
     given:
       - ZINTER numkeys key [key ...] [WEIGHTS weight ...] [AGGREGATE SUM|MIN|MAX]
+      # optional multipliers per set
       - field: weights
         source: input
-        description: optional multipliers per set
+        operator: exists
+      # how to combine scores (default SUM)
       - field: aggregate
         source: input
-        description: how to combine scores (default SUM)
+        operator: exists
     then:
       - action: emit_event
         event: zset.inter
@@ -291,6 +291,7 @@ outcomes:
           - HMSET
       - field: field_value_pairs
         source: input
+        operator: exists
     then:
       - action: set_field
         target: fields
@@ -445,9 +446,10 @@ outcomes:
     description: Set field expiration time (seconds)
     given:
       - HEXPIRE key [NX|XX|GT|LT] seconds FIELDS count field [field ...]
+      # optional condition (NX=no-ttl, XX=has-ttl, GT/LT=compare expiry)
       - field: condition
         source: input
-        description: optional condition (NX=no-ttl, XX=has-ttl, GT/LT=compare expiry)
+        operator: exists
     then:
       - action: set_field
         target: field_ttl_ms
@@ -518,41 +520,67 @@ outcomes:
     result: array [new_cursor, [field1, value1, field2, value2, ...]]
 errors:
   - code: NOT_AN_INTEGER
-    message: hash value is not an integer
-    user_safe: true
+    message: Hash value is not an integer
+    status: 400
   - code: WRONG_TYPE
-    message: WRONGTYPE Operation against a key holding the wrong kind of value
-    user_safe: true
+    message: Operation against a key holding the wrong kind of value
+    status: 400
   - code: SYNTAX_ERROR
-    message: syntax error in score or condition
-    user_safe: true
+    message: Syntax error in score or condition
+    status: 400
 events:
-  - zset.added
-  - zset.conditional_add
-  - zset.removed
-  - zset.range_rank
-  - zset.range_score
-  - zset.range_lex
-  - zset.rank
-  - zset.score_read
-  - zset.inter
-  - zset.union
-  - hash.set
-  - hash.field_read
-  - hash.multi_read
-  - hash.all_read
-  - hash.keys_read
-  - hash.vals_read
-  - hash.deleted
-  - hash.incr
-  - hash.incrbyfloat
-  - hash.exists_check
-  - hash.count
-  - hash.expire_set
-  - hash.pexpire_set
-  - hash.persist
-  - hash.ttl_read
-  - hash.scan
+  - name: zset.added
+    payload: []
+  - name: zset.conditional_add
+    payload: []
+  - name: zset.removed
+    payload: []
+  - name: zset.range_rank
+    payload: []
+  - name: zset.range_score
+    payload: []
+  - name: zset.range_lex
+    payload: []
+  - name: zset.rank
+    payload: []
+  - name: zset.score_read
+    payload: []
+  - name: zset.inter
+    payload: []
+  - name: zset.union
+    payload: []
+  - name: hash.set
+    payload: []
+  - name: hash.field_read
+    payload: []
+  - name: hash.multi_read
+    payload: []
+  - name: hash.all_read
+    payload: []
+  - name: hash.keys_read
+    payload: []
+  - name: hash.vals_read
+    payload: []
+  - name: hash.deleted
+    payload: []
+  - name: hash.incr
+    payload: []
+  - name: hash.incrbyfloat
+    payload: []
+  - name: hash.exists_check
+    payload: []
+  - name: hash.count
+    payload: []
+  - name: hash.expire_set
+    payload: []
+  - name: hash.pexpire_set
+    payload: []
+  - name: hash.persist
+    payload: []
+  - name: hash.ttl_read
+    payload: []
+  - name: hash.scan
+    payload: []
 related:
   - feature: string-key-value
     type: optional

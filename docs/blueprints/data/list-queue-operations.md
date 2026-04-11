@@ -39,12 +39,15 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 ## States
 
-**State field:** `undefined`
+**State field:** `presence`
 
 **Values:**
 
 | State | Initial | Terminal |
 |-------|---------|----------|
+| `absent` | Yes |  |
+| `present` |  |  |
+| `empty` |  | Yes |
 
 ## Rules
 
@@ -56,7 +59,7 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 **Given:**
 - LPUSH command issued
-- `elements` (input) eq
+- elements: one or more values to push
 
 **Then:**
 - **set_field** target: `elements` — add to head in order provided
@@ -68,7 +71,7 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 **Given:**
 - RPUSH command issued
-- `elements` (input) eq
+- elements: one or more values to push
 
 **Then:**
 - **set_field** target: `elements` — add to tail in order provided
@@ -82,7 +85,7 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 - `command` (input) in `LPUSHX,RPUSHX`
 
 **Then:**
-- **set_field** target: `elements` when: `list exists`
+- **set_field** target: `elements` when: `list_length > 0`
 - **emit_event** event: `list.push_conditional`
 
 **Result:** elements added if list present; returns 0 if key absent
@@ -150,8 +153,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 **Given:**
 - LRANGE key start stop
-- `start` (input) eq
-- `stop` (input) eq
+- start: zero-based index (negative counts from tail)
+- stop: inclusive end index
 
 **Then:**
 - **emit_event** event: `list.range_read`
@@ -162,7 +165,7 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 **Given:**
 - LINDEX key index
-- `index` (input) eq
+- index: zero-based position (negative counts from tail)
 
 **Then:**
 - **emit_event** event: `list.index_read`
@@ -183,7 +186,7 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 **Given:**
 - LSET key index element
-- `index` (input) eq
+- index: must be within [0, length-1] or [-length, -1]
 
 **Then:**
 - **set_field** target: `elements` — replace at index
@@ -202,7 +205,7 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 **Given:**
 - LINSERT key BEFORE|AFTER pivot element
-- `pivot` (input) eq
+- pivot: element to find (first occurrence used)
 - `pivot_found` (db) eq `true`
 
 **Then:**
@@ -225,8 +228,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 **Given:**
 - LTRIM key start stop
-- `start` (input) eq
-- `stop` (input) eq
+- start: first index to keep
+- stop: last index to keep (inclusive)
 
 **Then:**
 - **set_field** target: `elements` — remove elements outside [start, stop]
@@ -238,7 +241,7 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 **Given:**
 - LREM key count element
-- `count` (input) eq
+- count: positive=remove from head, negative=from tail, 0=all occurrences
 
 **Then:**
 - **set_field** target: `elements` — remove matching elements per count direction
@@ -296,7 +299,7 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 **Given:**
 - LMPOP numkeys key [key ...] LEFT|RIGHT [COUNT count]
-- `first_non_empty` (db) eq
+- first_non_empty: first key in list with available data
 
 **Then:**
 - **set_field** target: `first_non_empty.elements` — pop count elements from this list
@@ -320,33 +323,33 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `OUT_OF_RANGE` |  | index is out of range | No |
-| `WRONG_TYPE` |  | WRONGTYPE Operation against a key holding the wrong kind of value | No |
+| `OUT_OF_RANGE` | 400 | Index is out of range | No |
+| `WRONG_TYPE` | 400 | Operation against a key holding the wrong kind of value | No |
 
 ## Events
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
+| `list.lpush` |  |  |
+| `list.rpush` |  |  |
+| `list.push_conditional` |  |  |
+| `list.lpop` |  |  |
+| `list.rpop` |  |  |
+| `list.pop_empty` |  |  |
+| `list.blocking_wait` |  |  |
+| `list.blocking_timeout` |  |  |
+| `list.range_read` |  |  |
+| `list.index_read` |  |  |
+| `list.len` |  |  |
+| `list.set` |  |  |
+| `list.insert` |  |  |
+| `list.trimmed` |  |  |
+| `list.removed` |  |  |
+| `list.pos_search` |  |  |
+| `list.moved` |  |  |
+| `list.blocking_move` |  |  |
+| `list.mpop` |  |  |
+| `list.blocking_mpop` |  |  |
 
 ## Related Blueprints
 

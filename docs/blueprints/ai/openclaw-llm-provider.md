@@ -183,7 +183,7 @@ Accumulated: in session entry for cost tracking.
 ### Model_loaded (Priority: 1)
 
 **Given:**
-- `model_id` (agent) exists
+- `model_id` (system) exists
 - provider API authenticated
 - model_id exists in provider catalog
 
@@ -210,7 +210,7 @@ Accumulated: in session entry for cost tracking.
 ### Streaming_response (Priority: 1)
 
 **Given:**
-- `streaming_mode` (config) neq `off`
+- `streaming_mode` (system) neq `off`
 - provider supports streaming
 
 **Then:**
@@ -222,7 +222,7 @@ Accumulated: in session entry for cost tracking.
 
 **Given:**
 - `provider_state` (computed) in `rate_limited,auth_failed,unavailable`
-- `fallback_models` (config) exists
+- `fallback_models` (system) exists
 
 **Then:**
 - **set_field** target: `model_id` value: `fallback_models[0]`

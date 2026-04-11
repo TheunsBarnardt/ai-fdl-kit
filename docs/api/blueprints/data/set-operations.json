@@ -21,28 +21,24 @@
     {
       "name": "key",
       "type": "text",
-      "description": "Unique identifier for the set",
       "required": true,
       "label": "Key"
     },
     {
       "name": "members",
       "type": "json",
-      "description": "Unordered array of unique elements (strings or integers)",
       "required": false,
       "label": "Members"
     },
     {
       "name": "cardinality",
       "type": "number",
-      "description": "Count of unique members",
       "required": false,
       "label": "Cardinality"
     },
     {
       "name": "destination_key",
       "type": "text",
-      "description": "Target key for store operations (SINTERSTORE, SUNIONSTORE, SDIFFSTORE)",
       "required": false,
       "label": "Destination Key"
     }
@@ -59,27 +55,25 @@
       "All operations are atomic with respect to individual keys"
     ]
   },
-  "states": [
-    {
-      "field": "presence",
-      "values": [
-        {
-          "value": "absent",
-          "initial": true,
-          "description": "Key does not exist"
-        },
-        {
-          "value": "present",
-          "description": "Set exists with one or more members"
-        },
-        {
-          "value": "empty",
-          "terminal": true,
-          "description": "Set becomes empty (key auto-deleted)"
-        }
-      ]
-    }
-  ],
+  "states": {
+    "field": "presence",
+    "values": [
+      {
+        "name": "absent",
+        "initial": true,
+        "description": "Key does not exist"
+      },
+      {
+        "name": "present",
+        "description": "Set exists with one or more members"
+      },
+      {
+        "name": "empty",
+        "terminal": true,
+        "description": "Set becomes empty (key auto-deleted)"
+      }
+    ]
+  },
   "outcomes": {
     "add_members": {
       "priority": 10,
@@ -88,7 +82,8 @@
         "SADD key member [member ...]",
         {
           "field": "members_to_add",
-          "source": "input"
+          "source": "input",
+          "operator": "exists"
         }
       ],
       "then": [
@@ -121,7 +116,8 @@
         "SREM key member [member ...]",
         {
           "field": "members_to_remove",
-          "source": "input"
+          "source": "input",
+          "operator": "exists"
         }
       ],
       "then": [
@@ -172,7 +168,8 @@
         "SISMEMBER key member",
         {
           "field": "member",
-          "source": "input"
+          "source": "input",
+          "operator": "exists"
         }
       ],
       "then": [
@@ -195,7 +192,8 @@
         "SMISMEMBER key member [member ...]",
         {
           "field": "members_to_check",
-          "source": "input"
+          "source": "input",
+          "operator": "exists"
         }
       ],
       "then": [
@@ -237,7 +235,7 @@
         {
           "field": "count",
           "source": "input",
-          "description": "optional; default 1"
+          "operator": "exists"
         }
       ],
       "then": [
@@ -259,7 +257,8 @@
         "SPOP key [count]",
         {
           "field": "count",
-          "source": "input"
+          "source": "input",
+          "operator": "exists"
         }
       ],
       "then": [
@@ -328,7 +327,7 @@
         {
           "field": "input_sets",
           "source": "input",
-          "description": "multiple keys to intersect"
+          "operator": "exists"
         }
       ],
       "then": [
@@ -350,7 +349,8 @@
         "SINTERSTORE destination key [key ...]",
         {
           "field": "destination",
-          "source": "input"
+          "source": "input",
+          "operator": "exists"
         }
       ],
       "then": [
@@ -378,7 +378,7 @@
         {
           "field": "limit",
           "source": "input",
-          "description": "optional early termination"
+          "operator": "exists"
         }
       ],
       "then": [
@@ -439,16 +439,8 @@
       "description": "Get elements in first set but not in others",
       "given": [
         "SDIFF key [key ...]",
-        {
-          "field": "first_key",
-          "source": "input",
-          "description": "set to subtract from"
-        },
-        {
-          "field": "other_keys",
-          "source": "input",
-          "description": "sets to subtract"
-        }
+        "first_key: set to subtract from",
+        "other_keys: sets to subtract"
       ],
       "then": [
         {
@@ -491,11 +483,7 @@
       "description": "Iterate members with cursor (safe for large sets)",
       "given": [
         "SSCAN key cursor [MATCH pattern] [COUNT count]",
-        {
-          "field": "cursor",
-          "source": "input",
-          "description": "starting cursor position"
-        }
+        "cursor: starting cursor position (0 to start)"
       ],
       "then": [
         {
@@ -515,28 +503,79 @@
   "errors": [
     {
       "code": "WRONG_TYPE",
-      "message": "WRONGTYPE Operation against a key holding the wrong kind of value",
-      "user_safe": true
+      "message": "Operation against a key holding the wrong kind of value",
+      "status": 400
     }
   ],
   "events": [
-    "set.added",
-    "set.removed",
-    "set.members_read",
-    "set.ismember_check",
-    "set.mismember_check",
-    "set.cardinality",
-    "set.random_draw",
-    "set.popped",
-    "set.moved",
-    "set.intersection",
-    "set.intersection_stored",
-    "set.intercard",
-    "set.union",
-    "set.union_stored",
-    "set.difference",
-    "set.difference_stored",
-    "set.scan"
+    {
+      "name": "set.added",
+      "payload": []
+    },
+    {
+      "name": "set.removed",
+      "payload": []
+    },
+    {
+      "name": "set.members_read",
+      "payload": []
+    },
+    {
+      "name": "set.ismember_check",
+      "payload": []
+    },
+    {
+      "name": "set.mismember_check",
+      "payload": []
+    },
+    {
+      "name": "set.cardinality",
+      "payload": []
+    },
+    {
+      "name": "set.random_draw",
+      "payload": []
+    },
+    {
+      "name": "set.popped",
+      "payload": []
+    },
+    {
+      "name": "set.moved",
+      "payload": []
+    },
+    {
+      "name": "set.intersection",
+      "payload": []
+    },
+    {
+      "name": "set.intersection_stored",
+      "payload": []
+    },
+    {
+      "name": "set.intercard",
+      "payload": []
+    },
+    {
+      "name": "set.union",
+      "payload": []
+    },
+    {
+      "name": "set.union_stored",
+      "payload": []
+    },
+    {
+      "name": "set.difference",
+      "payload": []
+    },
+    {
+      "name": "set.difference_stored",
+      "payload": []
+    },
+    {
+      "name": "set.scan",
+      "payload": []
+    }
   ],
   "related": [
     {

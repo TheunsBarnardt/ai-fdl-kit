@@ -1,0 +1,204 @@
+{
+  "feature": "overspeed-alerts",
+  "version": "1.0.0",
+  "description": "Detect when a tracked device exceeds a configured speed limit for a minimum duration, using a four-level speed limit hierarchy (position > geofence > device > server), and emit a single event at the start of each overspeed episode.",
+  "category": "notification",
+  "tags": [
+    "gps",
+    "tracking",
+    "overspeed",
+    "speed-limit",
+    "alert",
+    "fleet",
+    "safety"
+  ],
+  "actors": [
+    {
+      "id": "pipeline",
+      "name": "Position Processing Pipeline",
+      "type": "system",
+      "description": "Evaluates each incoming position speed against the applicable limit and manages overspeed state"
+    },
+    {
+      "id": "fleet_admin",
+      "name": "Fleet Administrator",
+      "type": "human",
+      "description": "Configures speed limits at device, geofence, or server level"
+    }
+  ],
+  "fields": [
+    {
+      "name": "device_id",
+      "type": "hidden",
+      "required": true,
+      "description": "Device being monitored"
+    },
+    {
+      "name": "speed",
+      "type": "number",
+      "required": true,
+      "description": "Instantaneous speed from the position record (knots as reported by GPS)"
+    },
+    {
+      "name": "speed_limit",
+      "type": "number",
+      "required": false,
+      "description": "Effective speed limit applied to this position (resolved from the hierarchy)"
+    },
+    {
+      "name": "geofence_id",
+      "type": "hidden",
+      "required": false,
+      "description": "Zone whose speed limit is being applied when inside a geofence"
+    },
+    {
+      "name": "overspeed_state",
+      "type": "boolean",
+      "required": false,
+      "description": "Persisted flag indicating the device is currently in an overspeed episode"
+    },
+    {
+      "name": "overspeed_start_time",
+      "type": "datetime",
+      "required": false,
+      "description": "Timestamp when the current overspeed episode began"
+    },
+    {
+      "name": "min_duration_seconds",
+      "type": "number",
+      "required": false,
+      "description": "Minimum number of seconds the device must exceed the limit before an event is emitted"
+    }
+  ],
+  "rules": {
+    "processing": {
+      "speed_limit_hierarchy": "Speed limits are resolved in priority order — position-level limit first, then the lowest (or highest, if configured) geofence limit among all active geofences, then device-level limit, then server-wide default",
+      "geofence_limit_selection": "When multiple geofences each carry a speed limit, the platform selects the most restrictive (lowest) limit by default; this behaviour is configurable",
+      "speed_multiplier_tolerance": "A speed multiplier (threshold_multiplier > 1.0) may be applied to create a tolerance buffer above the nominal limit before triggering",
+      "latest_position_only": "Only positions that are the latest for the device are evaluated; outdated positions do not change overspeed state"
+    },
+    "event_emission": {
+      "single_event_per_episode": "An overspeed event is emitted only when the device transitions from non-overspeeding to overspeeding AND the overspeed condition has persisted for at least min_duration_seconds",
+      "no_repeated_events": "Only one overspeed event is emitted per episode; no repeated events are generated while the device remains over the limit",
+      "state_cleared_on_recovery": "When the device's speed drops below the limit, the overspeed state is cleared; a new episode can begin if speed rises again"
+    }
+  },
+  "outcomes": {
+    "overspeed_event_emitted": {
+      "priority": 10,
+      "given": [
+        "device speed exceeds (speed_limit × threshold_multiplier)",
+        "overspeed condition has persisted for >= min_duration_seconds",
+        {
+          "field": "overspeed_state",
+          "source": "db",
+          "operator": "eq",
+          "value": false,
+          "description": "Device was not already in an overspeed episode"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "overspeed_state",
+          "value": true
+        },
+        {
+          "action": "create_record",
+          "target": "event",
+          "description": "Overspeed event recorded with type = device_overspeed, speed, speed_limit, geofence_id (if applicable)"
+        },
+        {
+          "action": "emit_event",
+          "event": "device.overspeed",
+          "payload": [
+            "device_id",
+            "speed",
+            "speed_limit",
+            "geofence_id",
+            "fix_time"
+          ]
+        }
+      ],
+      "result": "Overspeed event stored; notification handlers alert subscribed users"
+    },
+    "overspeed_cleared": {
+      "priority": 8,
+      "given": [
+        "device speed drops below speed_limit",
+        {
+          "field": "overspeed_state",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "overspeed_state",
+          "value": false
+        }
+      ],
+      "result": "Overspeed state cleared; the device can trigger a new event if it speeds again"
+    },
+    "no_speed_limit_configured": {
+      "priority": 3,
+      "given": [
+        "no speed limit is configured at any level of the hierarchy"
+      ],
+      "then": [],
+      "result": "Speed is not evaluated; no overspeed events are generated"
+    }
+  },
+  "errors": [
+    {
+      "code": "OVERSPEED_DEVICE_NOT_FOUND",
+      "message": "The device referenced does not exist"
+    }
+  ],
+  "events": [
+    {
+      "name": "device.overspeed",
+      "description": "Device exceeded the applicable speed limit for the minimum required duration",
+      "payload": [
+        "device_id",
+        "speed",
+        "speed_limit",
+        "geofence_id",
+        "fix_time",
+        "position_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "gps-position-ingestion",
+      "relationship": "required",
+      "description": "Position speed values drive overspeed detection"
+    },
+    {
+      "feature": "geofence-management",
+      "relationship": "recommended",
+      "description": "Geofence-level speed limits override device-level limits"
+    },
+    {
+      "feature": "gps-device-registration",
+      "relationship": "required",
+      "description": "Speed limits are configured as device attributes"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/traccar/traccar",
+      "project": "Traccar GPS Tracking Server",
+      "tech_stack": "Java 17, Netty",
+      "files_traced": 5,
+      "entry_points": [
+        "src/main/java/org/traccar/handler/events/OverspeedEventHandler.java",
+        "src/main/java/org/traccar/session/state/OverspeedProcessor.java",
+        "src/main/java/org/traccar/session/state/OverspeedState.java"
+      ]
+    }
+  }
+}

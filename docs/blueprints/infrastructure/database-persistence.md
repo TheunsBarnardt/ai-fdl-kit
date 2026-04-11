@@ -40,12 +40,16 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 
 ## States
 
-**State field:** `undefined`
+**State field:** `rdb_save_state`
 
 **Values:**
 
 | State | Initial | Terminal |
 |-------|---------|----------|
+| `idle` | Yes |  |
+| `saving` |  |  |
+| `saved` |  |  |
+| `save_failed` |  |  |
 
 ## Rules
 
@@ -92,7 +96,7 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 
 **Given:**
 - `rdb_save_fails` (system) eq `true`
-- `failure_reason` (system) eq
+- `failure_reason` (system) exists
 
 **Then:**
 - **transition_state** field: `rdb_save_state` to: `save_failed`
@@ -177,7 +181,7 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 ### Aof_rewrite_failed (Priority: 26) — Error: `BGREWRITEAOF_FAILED`
 
 **Given:**
-- `aof_rewrite_fails` (system) eq
+- `aof_rewrite_fails` (system) exists
 
 **Then:**
 - **transition_state** field: `aof_rewrite_state` to: `rewrite_failed`
@@ -270,34 +274,34 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `BGSAVE_FAILED` |  | Background save failed | No |
-| `BGREWRITEAOF_FAILED` |  | Background AOF rewrite failed | No |
-| `CORRUPTED_AOF` |  | The AOF file is corrupted | No |
+| `BGSAVE_FAILED` | 500 | Background save failed | No |
+| `BGREWRITEAOF_FAILED` | 500 | Background AOF rewrite failed | No |
+| `CORRUPTED_AOF` | 500 | The AOF file is corrupted | No |
 
 ## Events
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
+| `rdb.save_started` |  |  |
+| `rdb.bgsave_started` |  |  |
+| `rdb.save_complete` |  |  |
+| `rdb.save_failed` |  |  |
+| `rdb.lastsave_queried` |  |  |
+| `aof.command_logged` |  |  |
+| `aof.fsync` |  |  |
+| `aof.periodic_fsync` |  |  |
+| `aof.os_fsync` |  |  |
+| `aof.rewrite_started` |  |  |
+| `aof.rewrite_complete` |  |  |
+| `aof.rewrite_failed` |  |  |
+| `persistence.recovery_rdb` |  |  |
+| `persistence.recovery_aof` |  |  |
+| `persistence.recovery_hybrid` |  |  |
+| `persistence.aof_truncated` |  |  |
+| `persistence.aof_corrupt` |  |  |
+| `persistence.backup_rdb` |  |  |
+| `persistence.backup_replica` |  |  |
+| `persistence.backup_hybrid` |  |  |
 
 ## Related Blueprints
 

@@ -1,0 +1,138 @@
+# ============================================================
+# Geofence Entry and Exit Alerts — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/traccar/traccar
+# Source project: Traccar GPS Tracking Server (Java/Netty)
+# Files traced: ~5
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: geofence-alerts
+version: "1.0.0"
+description: Detect and emit events when a tracked device crosses the boundary of a geofence zone, distinguishing entry (device was outside, now inside) from exit (device was inside, now outside), with calendar-based suppression.
+category: notification
+tags: [gps, tracking, geofence, alert, event, fleet, zone]
+
+actors:
+  - id: pipeline
+    name: Position Processing Pipeline
+    type: system
+    description: Evaluates zone membership for each incoming position and compares with the previous position
+  - id: fleet_user
+    name: Fleet User
+    type: human
+    description: Receives notifications when devices enter or leave zones of interest
+
+fields:
+  - name: device_id
+    type: hidden
+    required: true
+    description: Device whose zone membership changed
+  - name: geofence_id
+    type: hidden
+    required: true
+    description: Zone that was entered or exited
+  - name: event_type
+    type: select
+    required: true
+    description: "Either geofence_enter or geofence_exit"
+  - name: position_id
+    type: hidden
+    required: true
+    description: Position record at which the boundary crossing was detected
+  - name: fix_time
+    type: datetime
+    required: true
+    description: Timestamp of the crossing event
+
+rules:
+  processing:
+    entry_detection: A geofence entry event is generated when a zone ID appears in the current position's zone list but was absent from the previous position's zone list
+    exit_detection: A geofence exit event is generated when a zone ID was present in the previous position's zone list but is absent from the current position's zone list
+    latest_position_only: Only positions that are the latest for the device are evaluated; outdated or replayed positions do not trigger crossing events
+    atomic_processing: Both entry and exit events for the same position are processed atomically; a position update may produce multiple crossing events
+  event_emission:
+    calendar_suppression: If the geofence has an associated calendar and the current time falls outside the calendar's active periods, no entry or exit event is generated
+    one_event_per_zone_crossing: One event is generated per zone per crossing; if a device enters two zones simultaneously, two separate entry events are emitted
+
+outcomes:
+  geofence_entered:
+    priority: 10
+    given:
+      - "current position includes a geofence_id not present in the previous position"
+      - "geofence calendar is active (or no calendar is set)"
+      - "position is the latest for the device (not outdated)"
+    then:
+      - action: create_record
+        target: event
+        description: "Geofence entry event recorded with type = geofence_enter, device_id, geofence_id, position_id"
+      - action: emit_event
+        event: geofence.entered
+        payload: [device_id, geofence_id, position_id, fix_time]
+    result: Entry event stored; notification handlers route alerts to subscribed users
+
+  geofence_exited:
+    priority: 10
+    given:
+      - "previous position included a geofence_id that is absent from the current position"
+      - "geofence calendar is active (or no calendar is set)"
+      - "position is the latest for the device (not outdated)"
+    then:
+      - action: create_record
+        target: event
+        description: "Geofence exit event recorded with type = geofence_exit, device_id, geofence_id, position_id"
+      - action: emit_event
+        event: geofence.exited
+        payload: [device_id, geofence_id, position_id, fix_time]
+    result: Exit event stored; notification handlers route alerts to subscribed users
+
+  calendar_suppressed:
+    priority: 5
+    given:
+      - "geofence boundary would have been crossed"
+      - "geofence has a calendar and current time is outside active calendar periods"
+    then: []
+    result: Crossing is ignored; no entry or exit event is generated
+
+  no_previous_position:
+    priority: 3
+    given:
+      - "device has no previous stored position to compare against"
+    then: []
+    result: No crossing event can be inferred; evaluation is skipped until a second position arrives
+
+errors:
+  - code: GEOFENCE_EVENT_DEVICE_NOT_FOUND
+    message: The device referenced in the position record does not exist
+
+events:
+  - name: geofence.entered
+    description: Device has crossed into a geofence zone
+    payload: [device_id, geofence_id, geofence_name, position_id, fix_time]
+  - name: geofence.exited
+    description: Device has crossed out of a geofence zone
+    payload: [device_id, geofence_id, geofence_name, position_id, fix_time]
+
+related:
+  - feature: geofence-management
+    relationship: required
+    description: Zones must be defined before crossing events can be detected
+  - feature: gps-position-ingestion
+    relationship: required
+    description: Positions trigger the zone membership comparison
+  - feature: fleet-device-sharing
+    relationship: recommended
+    description: Only users with access to the device receive crossing notifications
+
+extensions:
+  source:
+    repo: https://github.com/traccar/traccar
+    project: Traccar GPS Tracking Server
+    tech_stack: Java 17, Netty
+    files_traced: 5
+    entry_points:
+      - src/main/java/org/traccar/handler/events/GeofenceEventHandler.java
+      - src/main/java/org/traccar/handler/GeofenceHandler.java

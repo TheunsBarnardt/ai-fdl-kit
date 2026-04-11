@@ -22,24 +22,24 @@ actors:
     type: human
     description: Application requesting set operations
 fields:
+  # Unique identifier for the set
   - name: key
     type: text
-    description: Unique identifier for the set
     required: true
     label: Key
+  # Unordered array of unique elements (strings or integers)
   - name: members
     type: json
-    description: Unordered array of unique elements (strings or integers)
     required: false
     label: Members
+  # Count of unique members
   - name: cardinality
     type: number
-    description: Count of unique members
     required: false
     label: Cardinality
+  # Target key for store operations (SINTERSTORE, SUNIONSTORE, SDIFFSTORE)
   - name: destination_key
     type: text
-    description: Target key for store operations (SINTERSTORE, SUNIONSTORE, SDIFFSTORE)
     required: false
     label: Destination Key
 rules:
@@ -53,16 +53,16 @@ rules:
     - Store variants (*STORE) create destination set atomically; overwrite if exists
     - All operations are atomic with respect to individual keys
 states:
-  - field: presence
-    values:
-      - value: absent
-        initial: true
-        description: Key does not exist
-      - value: present
-        description: Set exists with one or more members
-      - value: empty
-        terminal: true
-        description: Set becomes empty (key auto-deleted)
+  field: presence
+  values:
+    - name: absent
+      initial: true
+      description: Key does not exist
+    - name: present
+      description: Set exists with one or more members
+    - name: empty
+      terminal: true
+      description: Set becomes empty (key auto-deleted)
 outcomes:
   add_members:
     priority: 10
@@ -71,6 +71,7 @@ outcomes:
       - SADD key member [member ...]
       - field: members_to_add
         source: input
+        operator: exists
     then:
       - action: set_field
         target: members
@@ -92,6 +93,7 @@ outcomes:
       - SREM key member [member ...]
       - field: members_to_remove
         source: input
+        operator: exists
     then:
       - action: set_field
         target: members
@@ -125,6 +127,7 @@ outcomes:
       - SISMEMBER key member
       - field: member
         source: input
+        operator: exists
     then:
       - action: emit_event
         event: set.ismember_check
@@ -140,6 +143,7 @@ outcomes:
       - SMISMEMBER key member [member ...]
       - field: members_to_check
         source: input
+        operator: exists
     then:
       - action: emit_event
         event: set.mismember_check
@@ -165,9 +169,10 @@ outcomes:
     description: Return random element(s) from set
     given:
       - SRANDMEMBER key [count]
+      # optional; default 1
       - field: count
         source: input
-        description: optional; default 1
+        operator: exists
     then:
       - action: emit_event
         event: set.random_draw
@@ -182,6 +187,7 @@ outcomes:
       - SPOP key [count]
       - field: count
         source: input
+        operator: exists
     then:
       - action: set_field
         target: members
@@ -224,9 +230,10 @@ outcomes:
     description: Get elements common to all input sets
     given:
       - SINTER key [key ...]
+      # multiple keys to intersect
       - field: input_sets
         source: input
-        description: multiple keys to intersect
+        operator: exists
     then:
       - action: emit_event
         event: set.intersection
@@ -241,6 +248,7 @@ outcomes:
       - SINTERSTORE destination key [key ...]
       - field: destination
         source: input
+        operator: exists
     then:
       - action: set_field
         target: destination.members
@@ -256,9 +264,10 @@ outcomes:
     description: Get count of common elements without returning them
     given:
       - SINTERCARD numkeys key [key ...] [LIMIT limit]
+      # optional early termination
       - field: limit
         source: input
-        description: optional early termination
+        operator: exists
     then:
       - action: emit_event
         event: set.intercard
@@ -298,12 +307,8 @@ outcomes:
     description: Get elements in first set but not in others
     given:
       - SDIFF key [key ...]
-      - field: first_key
-        source: input
-        description: set to subtract from
-      - field: other_keys
-        source: input
-        description: sets to subtract
+      - "first_key: set to subtract from"
+      - "other_keys: sets to subtract"
     then:
       - action: emit_event
         event: set.difference
@@ -332,9 +337,7 @@ outcomes:
     description: Iterate members with cursor (safe for large sets)
     given:
       - SSCAN key cursor [MATCH pattern] [COUNT count]
-      - field: cursor
-        source: input
-        description: starting cursor position
+      - "cursor: starting cursor position (0 to start)"
     then:
       - action: emit_event
         event: set.scan
@@ -346,26 +349,43 @@ outcomes:
     result: array [new_cursor, [members...]] (cursor=0 when full scan complete)
 errors:
   - code: WRONG_TYPE
-    message: WRONGTYPE Operation against a key holding the wrong kind of value
-    user_safe: true
+    message: Operation against a key holding the wrong kind of value
+    status: 400
 events:
-  - set.added
-  - set.removed
-  - set.members_read
-  - set.ismember_check
-  - set.mismember_check
-  - set.cardinality
-  - set.random_draw
-  - set.popped
-  - set.moved
-  - set.intersection
-  - set.intersection_stored
-  - set.intercard
-  - set.union
-  - set.union_stored
-  - set.difference
-  - set.difference_stored
-  - set.scan
+  - name: set.added
+    payload: []
+  - name: set.removed
+    payload: []
+  - name: set.members_read
+    payload: []
+  - name: set.ismember_check
+    payload: []
+  - name: set.mismember_check
+    payload: []
+  - name: set.cardinality
+    payload: []
+  - name: set.random_draw
+    payload: []
+  - name: set.popped
+    payload: []
+  - name: set.moved
+    payload: []
+  - name: set.intersection
+    payload: []
+  - name: set.intersection_stored
+    payload: []
+  - name: set.intercard
+    payload: []
+  - name: set.union
+    payload: []
+  - name: set.union_stored
+    payload: []
+  - name: set.difference
+    payload: []
+  - name: set.difference_stored
+    payload: []
+  - name: set.scan
+    payload: []
 related:
   - feature: string-key-value
     type: optional

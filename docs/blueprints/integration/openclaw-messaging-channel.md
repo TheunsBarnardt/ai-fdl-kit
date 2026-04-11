@@ -215,7 +215,7 @@ Trust: admin agent or explicit approval.
 - platform returned 429 or rate limit header
 
 **Then:**
-- **call_service**
+- **call_service** target: `external_service`
 - **emit_event** event: `message.failed`
 
 **Result:** Message queued with exponential backoff, will retry

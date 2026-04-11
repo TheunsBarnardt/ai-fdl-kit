@@ -70,7 +70,7 @@ Specifies 17 acceptance outcomes that any implementation must satisfy, regardles
 - **Instrument Lookup Completed** — when lookup string is provided (partial name/code), then Dropdown list of matching instruments.
 - **Intraday Trades Retrieved** — when instrument_code is provided; quote_date is provided, then Tick-by-tick trades for the day.
 - **Ticker Retrieved** — when user requests top movers, then Top 40 index components sorted by movement.
-- **Watchlist Created** — when user is authenticated; watchlist_name is provided; watchlist_owner_id is current user, then Watchlist created and ready for instruments to be added.
+- **Watchlist Created** — when user is authenticated; watchlist_name is provided; watchlist_owner_id is current user, then Watchlist record persisted; client receives watchlist_id and created_date; no instruments assigned yet.
 - **Watchlist Instrument Added** — when watchlist_id is provided; instrument_code is provided; user owns watchlist; instrument already not in watchlist, then Instrument added to watchlist.
 - **Watchlist Data Retrieved** — when watchlist_id is provided; quote_date is provided (optional, defaults to today), then Watchlist with current prices for all instruments.
 - **Watchlist Removed** — when watchlist_id is provided; user owns watchlist, then Watchlist deleted.

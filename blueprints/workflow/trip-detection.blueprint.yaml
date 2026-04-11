@@ -1,0 +1,183 @@
+# ============================================================
+# Trip Detection and Segmentation — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/traccar/traccar
+# Source project: Traccar GPS Tracking Server (Java/Netty)
+# Files traced: ~7
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: trip-detection
+version: "1.0.0"
+description: Automatically detect the start and end of vehicle trips by monitoring movement patterns across consecutive position records, applying configurable distance and duration thresholds to filter noise, and producing structured trip records for reporting.
+category: workflow
+tags: [gps, tracking, trip, motion, fleet, report, segmentation]
+
+actors:
+  - id: pipeline
+    name: Position Processing Pipeline
+    type: system
+    description: Evaluates each position for motion state transitions using a rolling distance and duration model
+  - id: fleet_user
+    name: Fleet User
+    type: human
+    description: Views trip history, distances, durations, and per-trip driver or fuel data in reports
+
+fields:
+  - name: device_id
+    type: hidden
+    required: true
+    description: Device being monitored for trips
+  - name: motion_streak
+    type: boolean
+    required: false
+    description: Persisted flag indicating the device is currently in a motion (trip-in-progress) state
+  - name: motion_start_time
+    type: datetime
+    required: false
+    description: Timestamp when the current motion episode began
+  - name: motion_start_latitude
+    type: number
+    required: false
+    description: Coordinate where motion was first detected for the current trip
+  - name: motion_start_longitude
+    type: number
+    required: false
+    description: Coordinate where motion was first detected for the current trip
+  - name: min_trip_distance_meters
+    type: number
+    required: false
+    description: Minimum total distance a movement must cover to be classified as a trip (filters GPS jitter)
+  - name: min_trip_duration_seconds
+    type: number
+    required: false
+    description: Minimum duration a movement episode must last to be classified as a trip
+  - name: stop_gap_seconds
+    type: number
+    required: false
+    description: Seconds of stillness required to conclude that a trip has ended
+
+states:
+  field: motion_streak
+  values:
+    - id: stopped
+      label: Stopped
+      initial: true
+      description: Device is stationary; no active trip
+    - id: moving
+      label: Moving
+      description: Device is in motion; a trip is in progress
+
+  transitions:
+    - from: stopped
+      to: moving
+      actor: pipeline
+      description: Device movement detected after stationary period
+    - from: moving
+      to: stopped
+      actor: pipeline
+      description: Device has been stationary for stop_gap_seconds
+
+rules:
+  - Movement is detected when the device travels at least min_trip_distance_meters from the last recorded stop position
+  - A trip is only recorded if the movement episode lasts at least min_trip_duration_seconds; shorter movements are treated as noise
+  - A trip ends when the device remains stationary (below the motion speed threshold) for at least stop_gap_seconds
+  - Motion state is persisted on the device record so it survives server restarts; the last known state is used as the baseline for the next incoming position
+  - Only latest positions drive state transitions; outdated or replayed positions are ignored
+  - Trip start and end positions are stored with full coordinates, timestamps, addresses, and cumulative sensor values (fuel, odometer, engine hours)
+  - If ignition data is available, the ignition-off event can be used as a supplemental trip-end signal
+
+outcomes:
+  trip_started:
+    priority: 10
+    given:
+      - field: motion_streak
+        source: db
+        operator: eq
+        value: false
+      - "device has moved >= min_trip_distance_meters from the last stop"
+    then:
+      - action: set_field
+        target: motion_streak
+        value: true
+      - action: set_field
+        target: motion_start_time
+        description: Trip start timestamp recorded
+      - action: create_record
+        target: event
+        description: "Trip start event recorded with type = device_moving"
+      - action: emit_event
+        event: trip.started
+        payload: [device_id, start_time, start_latitude, start_longitude, position_id]
+    result: Trip start event stored; trip record begins accumulating distance and duration
+
+  trip_ended:
+    priority: 10
+    given:
+      - field: motion_streak
+        source: db
+        operator: eq
+        value: true
+      - "device has been stationary for >= stop_gap_seconds"
+    then:
+      - action: set_field
+        target: motion_streak
+        value: false
+      - action: create_record
+        target: event
+        description: "Trip end event recorded with type = device_stopped"
+      - action: emit_event
+        event: trip.ended
+        payload: [device_id, start_time, end_time, distance_meters, duration_seconds, position_id]
+    result: Trip record completed with start/end coordinates, total distance, and duration
+
+  noise_filtered:
+    priority: 5
+    given:
+      - "device moved but distance or duration did not meet minimum thresholds"
+    then: []
+    result: No trip events generated; movement treated as GPS jitter or brief repositioning
+
+errors:
+  - code: TRIP_DEVICE_NOT_FOUND
+    message: The device referenced does not exist
+
+events:
+  - name: trip.started
+    description: A new vehicle trip has begun
+    payload: [device_id, start_time, start_latitude, start_longitude, driver_unique_id]
+  - name: trip.ended
+    description: A vehicle trip has concluded
+    payload: [device_id, start_time, end_time, distance_meters, max_speed, fuel_used, driver_unique_id]
+
+related:
+  - feature: gps-position-ingestion
+    relationship: required
+    description: Position data drives motion state transitions
+  - feature: stop-detection
+    relationship: required
+    description: Stop detection is the counterpart that classifies stationary periods between trips
+  - feature: ignition-detection
+    relationship: recommended
+    description: Ignition events provide supplemental trip boundary signals
+  - feature: driver-identification
+    relationship: recommended
+    description: Trips are attributed to the identified driver for reporting
+  - feature: fleet-scheduled-reports
+    relationship: recommended
+    description: Trip records feed into scheduled trip reports
+
+extensions:
+  source:
+    repo: https://github.com/traccar/traccar
+    project: Traccar GPS Tracking Server
+    tech_stack: Java 17, Netty
+    files_traced: 7
+    entry_points:
+      - src/main/java/org/traccar/handler/events/MotionEventHandler.java
+      - src/main/java/org/traccar/session/state/MotionProcessor.java
+      - src/main/java/org/traccar/session/state/NewMotionProcessor.java
+      - src/main/java/org/traccar/reports/TripsReportProvider.java

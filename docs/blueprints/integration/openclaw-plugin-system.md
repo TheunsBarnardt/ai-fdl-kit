@@ -153,7 +153,7 @@ Deny takes precedence over allow (safer default).
 
 **Given:**
 - plugin_id provided
-- `plugin_id` (config) exists
+- `plugin_id` (system) exists
 - plugin module found in search paths
 
 **Then:**
@@ -202,10 +202,10 @@ Deny takes precedence over allow (safer default).
 ### Plugin_disabled (Priority: 4)
 
 **Given:**
-- `enabled` (config) eq `false`
+- `enabled` (system) eq `false`
 
 **Then:**
-- **call_service**
+- **call_service** target: `external_service`
 - **transition_state** field: `plugin_state` from: `enabled` to: `disabled`
 - **emit_event** event: `plugin.disabled`
 

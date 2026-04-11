@@ -174,8 +174,8 @@ Automatic cleanup: remove stale lock, retry.
 - `total_bytes_used` (computed) gt `max_disk_bytes`
 
 **Then:**
-- **call_service**
-- **delete_record** target: `oldest reset_archives (FIFO)`
+- **call_service** target: `external_service`
+- **delete_record** target: `reset_archives`
 - **emit_event** event: `disk_budget.exceeded`
 
 **Result:** Old transcripts deleted, disk budget enforced
@@ -183,7 +183,7 @@ Automatic cleanup: remove stale lock, retry.
 ### Idle_session_reset (Priority: 4)
 
 **Given:**
-- `idle_minutes` (config) gt `0`
+- `idle_minutes` (system) gt `0`
 - `elapsed_time` (computed) gt `idle_minutes minutes`
 
 **Then:**
@@ -201,6 +201,7 @@ Automatic cleanup: remove stale lock, retry.
 | `WRITE_LOCK_TIMEOUT` | 503 | Session write lock timeout | No |
 | `TRANSCRIPT_CORRUPTION` | 500 | Session transcript corrupted | No |
 | `INVALID_SESSION_KEY` | 400 | Invalid session key format | No |
+| `DISK_CLEANUP_FAILED` | 500 | Disk cleanup failed during budget enforcement | No |
 
 ## Events
 

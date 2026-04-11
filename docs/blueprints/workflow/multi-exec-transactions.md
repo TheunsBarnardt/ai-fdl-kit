@@ -37,12 +37,16 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 
 ## States
 
-**State field:** `undefined`
+**State field:** `transaction_state`
 
 **Values:**
 
 | State | Initial | Terminal |
 |-------|---------|----------|
+| `idle` | Yes |  |
+| `queuing` |  |  |
+| `executing` |  |  |
+| `aborted` |  | Yes |
 
 ## Rules
 
@@ -177,7 +181,7 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 
 **Given:**
 - `watched_key_modified` (system) eq `true`
-- `modifier_client` (system) eq
+- `modifier_client` (system) exists
 
 **Then:**
 - **set_field** target: `watch_violation` value: `true`
@@ -199,7 +203,7 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 ### Optimistic_lock_compute (Priority: 31)
 
 **Given:**
-- `new_value` (computed) eq
+- `new_value` (computed) exists
 
 **Then:**
 - **emit_event** event: `transaction.value_computed`
@@ -230,7 +234,7 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 ### Command_runtime_error (Priority: 40)
 
 **Given:**
-- `command_executing` (system) eq
+- `command_executing` (system) exists
 - `runtime_error` (system) eq `true`
 
 **Then:**
@@ -252,31 +256,31 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `NESTED_TRANSACTION` |  | MULTI calls can not be nested | No |
-| `EXECABORT` |  | EXECABORT Transaction discarded because of previous errors | No |
-| `NO_TRANSACTION` |  | DISCARD without MULTI | No |
-| `WATCH_VIOLATION` |  | WATCH violation (returned as nil, not error) | No |
+| `NESTED_TRANSACTION` | 400 | MULTI calls can not be nested | No |
+| `EXECABORT` | 400 | EXECABORT Transaction discarded because of previous errors | No |
+| `NO_TRANSACTION` | 400 | DISCARD without MULTI | No |
+| `WATCH_VIOLATION` | 409 | WATCH violation detected | No |
 
 ## Events
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
+| `transaction.started` |  |  |
+| `transaction.command_queued` |  |  |
+| `transaction.syntax_error` |  |  |
+| `transaction.executed` |  |  |
+| `transaction.aborted_syntax` |  |  |
+| `transaction.aborted_watch` |  |  |
+| `transaction.discarded` |  |  |
+| `transaction.keys_watched` |  |  |
+| `transaction.watch_cleared` |  |  |
+| `transaction.watch_violated` |  |  |
+| `transaction.optimistic_read` |  |  |
+| `transaction.value_computed` |  |  |
+| `transaction.lock_acquired` |  |  |
+| `transaction.lock_failed` |  |  |
+| `transaction.command_error` |  |  |
+| `transaction.partial_success` |  |  |
 
 ## Related Blueprints
 

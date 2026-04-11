@@ -32,34 +32,34 @@ actors:
     type: system
     description: Named group tracking consumer progress and pending messages
 fields:
+  # Stream identifier
   - name: key
     type: text
-    description: Stream identifier
     required: true
     label: Key
+  # Unique monotonic ID (format: milliseconds-sequence, e.g., 1526919030474-0)
   - name: entry_id
     type: text
-    description: "Unique monotonic ID (format: milliseconds-sequence, e.g., 1526919030474-0)"
     required: false
     label: Entry Id
+  # Event data as field-value pairs
   - name: fields
     type: json
-    description: Event data as field-value pairs
     required: false
     label: Fields
+  # Consumer group identifier
   - name: group_name
     type: text
-    description: Consumer group identifier
     required: false
     label: Group Name
+  # Consumer identifier within group
   - name: consumer_name
     type: text
-    description: Consumer identifier within group
     required: false
     label: Consumer Name
+  # Array of [id, consumer, delivery_count, delivery_time_ms]
   - name: pending_entries
     type: json
-    description: Array of [id, consumer, delivery_count, delivery_time_ms]
     required: false
     label: Pending Entries
 rules:
@@ -73,41 +73,26 @@ rules:
     - All stream operations are atomic with respect to the stream key
     - Entry deletion leaves tombstone (space not reclaimed)
 states:
-  - field: stream_state
-    values:
-      - value: absent
-        initial: true
-        description: Stream does not exist
-      - value: present
-        description: Stream has entries
-  - field: consumer_group_state
-    values:
-      - value: new
-        initial: true
-        description: Group created but no messages delivered
-      - value: active
-        description: Group actively delivering messages
-      - value: idle
-        description: No consumers active in group
-  - field: message_delivery
-    values:
-      - value: undelivered
-        initial: true
-        description: Message not yet given to consumer
-      - value: pending
-        description: Message delivered, awaiting acknowledgment
-      - value: acknowledged
-        terminal: true
-        description: Message acknowledged by consumer
+  field: message_delivery
+  values:
+    - name: undelivered
+      initial: true
+      description: Message not yet given to consumer
+    - name: pending
+      description: Message delivered, awaiting acknowledgment
+    - name: acknowledged
+      terminal: true
+      description: Message acknowledged by consumer
 outcomes:
   xadd_entry:
     priority: 10
     description: Add new entry with auto-generated or explicit ID
     given:
       - XADD key [ID|*] field value [field value ...]
+      # * = auto-generate, or explicit milliseconds-sequence
       - field: id_generation
         source: input
-        description: "* = auto-generate, or explicit milliseconds-sequence"
+        operator: exists
     then:
       - action: set_field
         target: entry_id
@@ -127,9 +112,10 @@ outcomes:
     description: Add entry and trim stream to max length/id
     given:
       - XADD with MAXLEN|MINID flag
+      # MAXLEN (by count) or MINID (by id)
       - field: trim_strategy
         source: input
-        description: MAXLEN (by count) or MINID (by id)
+        operator: exists
     then:
       - action: set_field
         target: entry_id
@@ -165,9 +151,10 @@ outcomes:
     description: Read entries starting after given ID
     given:
       - XREAD [COUNT count] STREAMS key id
+      # read entries after this ID
       - field: start_id
         source: input
-        description: read entries after this ID
+        operator: exists
     then:
       - action: emit_event
         event: stream.read
@@ -188,8 +175,10 @@ outcomes:
           - XREVRANGE
       - field: start_id
         source: input
+        operator: exists
       - field: end_id
         source: input
+        operator: exists
     then:
       - action: emit_event
         event: stream.range_read
@@ -205,9 +194,10 @@ outcomes:
     description: Block until new entries arrive
     given:
       - XREAD BLOCK timeout_ms ... STREAMS key id
+      # 0 = indefinite block
       - field: timeout_ms
         source: input
-        description: 0 = indefinite block
+        operator: exists
       - field: new_entries_available
         source: system
         operator: eq
@@ -239,9 +229,10 @@ outcomes:
     description: Create consumer group
     given:
       - XGROUP CREATE key group id
+      # group start position ($ = stream head, explicit id, 0-0 = from beginning)
       - field: id
         source: input
-        description: group start position ($ = stream head, explicit id, 0-0 = from beginning)
+        operator: exists
     then:
       - action: set_field
         target: group_name
@@ -312,9 +303,10 @@ outcomes:
     description: Read as consumer group member
     given:
       - XREADGROUP GROUP group consumer STREAMS key id
+      # > = new undelivered messages, or explicit id
       - field: id
         source: input
-        description: "> = new undelivered messages, or explicit id"
+        operator: exists
       - field: messages_available
         source: db
         operator: eq
@@ -360,9 +352,10 @@ outcomes:
     description: Acknowledge messages as processed
     given:
       - XACK key group id [id ...]
+      # messages in group's PEL
       - field: ids_in_pel
         source: db
-        description: messages in group's PEL
+        operator: exists
     then:
       - action: set_field
         target: pending_entries
@@ -398,9 +391,10 @@ outcomes:
     description: Get detailed pending message info
     given:
       - XPENDING key group [IDLE min_idle] start end count
+      # optional: only pending >= min_idle_ms
       - field: idle_filter
         source: input
-        description: "optional: only pending >= min_idle_ms"
+        operator: exists
     then:
       - action: emit_event
         event: stream.pending_details
@@ -458,6 +452,7 @@ outcomes:
       - XDEL key id [id ...]
       - field: ids_exist
         source: db
+        operator: exists
     then:
       - action: emit_event
         event: stream.deleted
@@ -471,9 +466,10 @@ outcomes:
     description: Remove old entries by length or ID threshold
     given:
       - XTRIM key [MAXLEN|MINID] [~] threshold [LIMIT count]
+      # MAXLEN = keep N newest, MINID = keep only id >= threshold
       - field: trim_type
         source: input
-        description: MAXLEN = keep N newest, MINID = keep only id >= threshold
+        operator: exists
     then:
       - action: emit_event
         event: stream.trimmed
@@ -526,38 +522,61 @@ outcomes:
     result: array of consumer info (name, pending_count, idle_time)
 errors:
   - code: WRONGTYPE
-    message: WRONGTYPE Operation against a key holding the wrong kind of value
-    user_safe: true
+    message: Operation against a key holding the wrong kind of value
+    status: 400
   - code: NOGROUP
-    message: NOGROUP No such consumer group
-    user_safe: true
+    message: No such consumer group
+    status: 404
   - code: NOSCRIPT
     message: Index out of range
-    user_safe: true
+    status: 400
 events:
-  - stream.entry_added
-  - stream.trimmed
-  - stream.duplicate_detected
-  - stream.read
-  - stream.range_read
-  - stream.blocking_read
-  - stream.length_read
-  - stream.group_created
-  - stream.group_deleted
-  - stream.group_position_updated
-  - stream.consumer_created
-  - stream.consumer_deleted
-  - stream.group_read
-  - stream.group_blocking_read
-  - stream.acked
-  - stream.pending_summary
-  - stream.pending_details
-  - stream.claimed
-  - stream.autoclaimed
-  - stream.deleted
-  - stream.info_read
-  - stream.groups_listed
-  - stream.consumers_listed
+  - name: stream.entry_added
+    payload: []
+  - name: stream.trimmed
+    payload: []
+  - name: stream.duplicate_detected
+    payload: []
+  - name: stream.read
+    payload: []
+  - name: stream.range_read
+    payload: []
+  - name: stream.blocking_read
+    payload: []
+  - name: stream.length_read
+    payload: []
+  - name: stream.group_created
+    payload: []
+  - name: stream.group_deleted
+    payload: []
+  - name: stream.group_position_updated
+    payload: []
+  - name: stream.consumer_created
+    payload: []
+  - name: stream.consumer_deleted
+    payload: []
+  - name: stream.group_read
+    payload: []
+  - name: stream.group_blocking_read
+    payload: []
+  - name: stream.acked
+    payload: []
+  - name: stream.pending_summary
+    payload: []
+  - name: stream.pending_details
+    payload: []
+  - name: stream.claimed
+    payload: []
+  - name: stream.autoclaimed
+    payload: []
+  - name: stream.deleted
+    payload: []
+  - name: stream.info_read
+    payload: []
+  - name: stream.groups_listed
+    payload: []
+  - name: stream.consumers_listed
+    payload: []
 related:
   - feature: pub-sub-messaging
     type: optional

@@ -50,8 +50,8 @@ Specifies 20 acceptance outcomes that any implementation must satisfy, regardles
 
 **❌ Failure paths**
 
-- **Rdb Save Failed** — when rdb_save_fails eq true; disk full, write error, fork failure, etc., then save aborted; existing snapshot unchanged; server continues. *(error: `BGSAVE_FAILED`)*
-- **Aof Rewrite Failed** — when aof_rewrite_fails eq, then rewrite aborted; old AOF continues. *(error: `BGREWRITEAOF_FAILED`)*
+- **Rdb Save Failed** — when rdb_save_fails eq true; failure_reason exists, then save aborted; existing snapshot unchanged; server continues. *(error: `BGSAVE_FAILED`)*
+- **Aof Rewrite Failed** — when aof_rewrite_fails exists, then rewrite aborted; old AOF continues. *(error: `BGREWRITEAOF_FAILED`)*
 - **Recovery Aof Corruption** — when aof_corrupted_mid_command eq true, then admin must use redis-check-aof tool to fix; recovery manual. *(error: `CORRUPTED_AOF`)*
 
 ## Errors it can return

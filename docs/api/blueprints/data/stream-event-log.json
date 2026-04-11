@@ -35,42 +35,36 @@
     {
       "name": "key",
       "type": "text",
-      "description": "Stream identifier",
       "required": true,
       "label": "Key"
     },
     {
       "name": "entry_id",
       "type": "text",
-      "description": "Unique monotonic ID (format: milliseconds-sequence, e.g., 1526919030474-0)",
       "required": false,
       "label": "Entry Id"
     },
     {
       "name": "fields",
       "type": "json",
-      "description": "Event data as field-value pairs",
       "required": false,
       "label": "Fields"
     },
     {
       "name": "group_name",
       "type": "text",
-      "description": "Consumer group identifier",
       "required": false,
       "label": "Group Name"
     },
     {
       "name": "consumer_name",
       "type": "text",
-      "description": "Consumer identifier within group",
       "required": false,
       "label": "Consumer Name"
     },
     {
       "name": "pending_entries",
       "type": "json",
-      "description": "Array of [id, consumer, delivery_count, delivery_time_ms]",
       "required": false,
       "label": "Pending Entries"
     }
@@ -87,59 +81,25 @@
       "Entry deletion leaves tombstone (space not reclaimed)"
     ]
   },
-  "states": [
-    {
-      "field": "stream_state",
-      "values": [
-        {
-          "value": "absent",
-          "initial": true,
-          "description": "Stream does not exist"
-        },
-        {
-          "value": "present",
-          "description": "Stream has entries"
-        }
-      ]
-    },
-    {
-      "field": "consumer_group_state",
-      "values": [
-        {
-          "value": "new",
-          "initial": true,
-          "description": "Group created but no messages delivered"
-        },
-        {
-          "value": "active",
-          "description": "Group actively delivering messages"
-        },
-        {
-          "value": "idle",
-          "description": "No consumers active in group"
-        }
-      ]
-    },
-    {
-      "field": "message_delivery",
-      "values": [
-        {
-          "value": "undelivered",
-          "initial": true,
-          "description": "Message not yet given to consumer"
-        },
-        {
-          "value": "pending",
-          "description": "Message delivered, awaiting acknowledgment"
-        },
-        {
-          "value": "acknowledged",
-          "terminal": true,
-          "description": "Message acknowledged by consumer"
-        }
-      ]
-    }
-  ],
+  "states": {
+    "field": "message_delivery",
+    "values": [
+      {
+        "name": "undelivered",
+        "initial": true,
+        "description": "Message not yet given to consumer"
+      },
+      {
+        "name": "pending",
+        "description": "Message delivered, awaiting acknowledgment"
+      },
+      {
+        "name": "acknowledged",
+        "terminal": true,
+        "description": "Message acknowledged by consumer"
+      }
+    ]
+  },
   "outcomes": {
     "xadd_entry": {
       "priority": 10,
@@ -149,7 +109,7 @@
         {
           "field": "id_generation",
           "source": "input",
-          "description": "* = auto-generate, or explicit milliseconds-sequence"
+          "operator": "exists"
         }
       ],
       "then": [
@@ -183,7 +143,7 @@
         {
           "field": "trim_strategy",
           "source": "input",
-          "description": "MAXLEN (by count) or MINID (by id)"
+          "operator": "exists"
         }
       ],
       "then": [
@@ -241,7 +201,7 @@
         {
           "field": "start_id",
           "source": "input",
-          "description": "read entries after this ID"
+          "operator": "exists"
         }
       ],
       "then": [
@@ -272,11 +232,13 @@
         },
         {
           "field": "start_id",
-          "source": "input"
+          "source": "input",
+          "operator": "exists"
         },
         {
           "field": "end_id",
-          "source": "input"
+          "source": "input",
+          "operator": "exists"
         }
       ],
       "then": [
@@ -302,7 +264,7 @@
         {
           "field": "timeout_ms",
           "source": "input",
-          "description": "0 = indefinite block"
+          "operator": "exists"
         },
         {
           "field": "new_entries_available",
@@ -354,7 +316,7 @@
         {
           "field": "id",
           "source": "input",
-          "description": "group start position ($ = stream head, explicit id, 0-0 = from beginning)"
+          "operator": "exists"
         }
       ],
       "then": [
@@ -463,7 +425,7 @@
         {
           "field": "id",
           "source": "input",
-          "description": "> = new undelivered messages, or explicit id"
+          "operator": "exists"
         },
         {
           "field": "messages_available",
@@ -535,7 +497,7 @@
         {
           "field": "ids_in_pel",
           "source": "db",
-          "description": "messages in group's PEL"
+          "operator": "exists"
         }
       ],
       "then": [
@@ -591,7 +553,7 @@
         {
           "field": "idle_filter",
           "source": "input",
-          "description": "optional: only pending >= min_idle_ms"
+          "operator": "exists"
         }
       ],
       "then": [
@@ -672,7 +634,8 @@
         "XDEL key id [id ...]",
         {
           "field": "ids_exist",
-          "source": "db"
+          "source": "db",
+          "operator": "exists"
         }
       ],
       "then": [
@@ -696,7 +659,7 @@
         {
           "field": "trim_type",
           "source": "input",
-          "description": "MAXLEN = keep N newest, MINID = keep only id >= threshold"
+          "operator": "exists"
         }
       ],
       "then": [
@@ -776,44 +739,113 @@
   "errors": [
     {
       "code": "WRONGTYPE",
-      "message": "WRONGTYPE Operation against a key holding the wrong kind of value",
-      "user_safe": true
+      "message": "Operation against a key holding the wrong kind of value",
+      "status": 400
     },
     {
       "code": "NOGROUP",
-      "message": "NOGROUP No such consumer group",
-      "user_safe": true
+      "message": "No such consumer group",
+      "status": 404
     },
     {
       "code": "NOSCRIPT",
       "message": "Index out of range",
-      "user_safe": true
+      "status": 400
     }
   ],
   "events": [
-    "stream.entry_added",
-    "stream.trimmed",
-    "stream.duplicate_detected",
-    "stream.read",
-    "stream.range_read",
-    "stream.blocking_read",
-    "stream.length_read",
-    "stream.group_created",
-    "stream.group_deleted",
-    "stream.group_position_updated",
-    "stream.consumer_created",
-    "stream.consumer_deleted",
-    "stream.group_read",
-    "stream.group_blocking_read",
-    "stream.acked",
-    "stream.pending_summary",
-    "stream.pending_details",
-    "stream.claimed",
-    "stream.autoclaimed",
-    "stream.deleted",
-    "stream.info_read",
-    "stream.groups_listed",
-    "stream.consumers_listed"
+    {
+      "name": "stream.entry_added",
+      "payload": []
+    },
+    {
+      "name": "stream.trimmed",
+      "payload": []
+    },
+    {
+      "name": "stream.duplicate_detected",
+      "payload": []
+    },
+    {
+      "name": "stream.read",
+      "payload": []
+    },
+    {
+      "name": "stream.range_read",
+      "payload": []
+    },
+    {
+      "name": "stream.blocking_read",
+      "payload": []
+    },
+    {
+      "name": "stream.length_read",
+      "payload": []
+    },
+    {
+      "name": "stream.group_created",
+      "payload": []
+    },
+    {
+      "name": "stream.group_deleted",
+      "payload": []
+    },
+    {
+      "name": "stream.group_position_updated",
+      "payload": []
+    },
+    {
+      "name": "stream.consumer_created",
+      "payload": []
+    },
+    {
+      "name": "stream.consumer_deleted",
+      "payload": []
+    },
+    {
+      "name": "stream.group_read",
+      "payload": []
+    },
+    {
+      "name": "stream.group_blocking_read",
+      "payload": []
+    },
+    {
+      "name": "stream.acked",
+      "payload": []
+    },
+    {
+      "name": "stream.pending_summary",
+      "payload": []
+    },
+    {
+      "name": "stream.pending_details",
+      "payload": []
+    },
+    {
+      "name": "stream.claimed",
+      "payload": []
+    },
+    {
+      "name": "stream.autoclaimed",
+      "payload": []
+    },
+    {
+      "name": "stream.deleted",
+      "payload": []
+    },
+    {
+      "name": "stream.info_read",
+      "payload": []
+    },
+    {
+      "name": "stream.groups_listed",
+      "payload": []
+    },
+    {
+      "name": "stream.consumers_listed",
+      "payload": []
+    }
   ],
   "related": [
     {

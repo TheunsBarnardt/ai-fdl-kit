@@ -1,0 +1,157 @@
+# ============================================================
+# GPS Position History and Playback — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/traccar/traccar
+# Source project: Traccar GPS Tracking Server (Java/Netty)
+# Files traced: ~10
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: gps-position-history
+version: "1.0.0"
+description: Query, replay, and export the historical sequence of GPS positions recorded for one or more devices over a user-specified time range, supporting route visualisation, speed analysis, and multi-format export.
+category: data
+tags: [gps, tracking, history, playback, route, report, export, fleet]
+
+actors:
+  - id: fleet_user
+    name: Fleet User
+    type: human
+    description: Queries historical routes and exports data for analysis
+  - id: system
+    name: Tracking Platform
+    type: system
+    description: Retrieves and streams stored positions in chronological order
+
+fields:
+  - name: device_id
+    type: hidden
+    required: true
+    description: Device whose position history is being queried
+  - name: from
+    type: datetime
+    required: true
+    description: Start of the time range (inclusive)
+  - name: to
+    type: datetime
+    required: true
+    description: End of the time range (inclusive)
+  - name: positions
+    type: json
+    required: false
+    description: Ordered array of position records returned by the query, each including fix_time, latitude, longitude, speed, course, altitude, valid, and all sensor attributes
+  - name: export_format
+    type: select
+    required: false
+    description: "Requested export format: gpx, kml, or csv"
+
+rules:
+  data:
+    time_range_ordering: from must be earlier than to; queries with inverted ranges are rejected
+    result_ordering: Positions are returned in ascending fix_time order to support sequential playback
+    access_control: Only positions belonging to devices the requesting user has permission to view are returned
+    invalid_positions: Invalid (non-valid fix) positions are included in results but clients should visually distinguish them
+    outdated_positions: Outdated positions are included and marked as outdated for client handling
+  performance:
+    streaming: For time ranges that would yield very large result sets, results should be streamed rather than buffered
+  completeness:
+    export_attributes: Export formats must include all available position attributes (sensor data, alarms, driver ID) not only coordinates
+
+outcomes:
+  history_returned:
+    priority: 10
+    given:
+      - "fleet_user requests history for a device they have access to"
+      - field: from
+        source: input
+        operator: lt
+        value: to
+        description: Time range is valid
+    then:
+      - action: emit_event
+        event: position_history.queried
+        payload: [device_id, from, to, position_count]
+    result: Ordered list of positions is returned to the client for playback or display
+
+  empty_result:
+    priority: 5
+    given:
+      - "no positions exist for the device in the requested time range"
+    then: []
+    result: Empty list is returned with no error; client displays an empty route
+
+  export_requested:
+    priority: 8
+    given:
+      - "fleet_user requests history export in gpx, kml, or csv format"
+      - field: export_format
+        source: input
+        operator: in
+        value: [gpx, kml, csv]
+    then:
+      - action: emit_event
+        event: position_history.exported
+        payload: [device_id, from, to, export_format, position_count]
+    result: File in the requested format is returned as a downloadable attachment
+
+  invalid_range:
+    priority: 1
+    error: HISTORY_INVALID_TIME_RANGE
+    given:
+      - field: from
+        source: input
+        operator: gte
+        value: to
+        description: from is equal to or later than to
+    then: []
+    result: Query is rejected with an error indicating the time range is invalid
+
+  access_denied:
+    priority: 2
+    error: HISTORY_ACCESS_DENIED
+    given:
+      - "requesting user does not have permission to view the specified device"
+    then: []
+    result: Query is rejected; no position data is returned
+
+errors:
+  - code: HISTORY_INVALID_TIME_RANGE
+    message: The start time must be before the end time
+  - code: HISTORY_ACCESS_DENIED
+    message: You do not have permission to view history for this device
+
+events:
+  - name: position_history.queried
+    description: A historical position query was executed
+    payload: [device_id, from, to, position_count, requested_by]
+  - name: position_history.exported
+    description: Position history was exported to a file
+    payload: [device_id, from, to, export_format, position_count, requested_by]
+
+related:
+  - feature: gps-position-ingestion
+    relationship: required
+    description: Positions must be ingested before they can be queried as history
+  - feature: fleet-device-sharing
+    relationship: required
+    description: Access control determines which devices a user may query
+  - feature: trip-detection
+    relationship: recommended
+    description: Trip segments can be overlaid on the position route for context
+  - feature: fleet-scheduled-reports
+    relationship: recommended
+    description: Scheduled route reports use position history as their data source
+
+extensions:
+  source:
+    repo: https://github.com/traccar/traccar
+    project: Traccar GPS Tracking Server
+    tech_stack: Java 17, Hibernate, H2/MySQL/PostgreSQL
+    files_traced: 10
+    entry_points:
+      - src/main/java/org/traccar/api/resource/PositionResource.java
+      - src/main/java/org/traccar/helper/model/PositionUtil.java
+      - src/main/java/org/traccar/reports/RouteReportProvider.java

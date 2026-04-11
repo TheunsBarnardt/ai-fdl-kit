@@ -238,7 +238,7 @@ description: "Consume and distribute real-time and delayed market data including
 - **create_record**
 - **emit_event** event: `market.watchlist_created`
 
-**Result:** Watchlist created and ready for instruments to be added
+**Result:** Watchlist record persisted; client receives watchlist_id and created_date; no instruments assigned yet.
 
 ### Watchlist_instrument_added (Priority: 10)
 

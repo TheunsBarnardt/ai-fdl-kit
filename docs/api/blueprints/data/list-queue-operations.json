@@ -22,49 +22,42 @@
     {
       "name": "key",
       "type": "text",
-      "description": "Unique identifier for the list",
       "required": true,
       "label": "Key"
     },
     {
       "name": "elements",
       "type": "json",
-      "description": "Ordered array of list elements (strings or integers)",
       "required": false,
       "label": "Elements"
     },
     {
       "name": "length",
       "type": "number",
-      "description": "Current count of elements",
       "required": false,
       "label": "Length"
     },
     {
       "name": "head_index",
       "type": "number",
-      "description": "Index of first element (0-based)",
       "required": false,
       "label": "Head Index"
     },
     {
       "name": "tail_index",
       "type": "number",
-      "description": "Index of last element",
       "required": false,
       "label": "Tail Index"
     },
     {
       "name": "is_blocking",
       "type": "boolean",
-      "description": "Whether operation should block if list empty",
       "required": false,
       "label": "Is Blocking"
     },
     {
       "name": "block_timeout_ms",
       "type": "number",
-      "description": "Maximum milliseconds to wait (0 = indefinite)",
       "required": false,
       "label": "Block Timeout Ms"
     }
@@ -81,38 +74,32 @@
       "All operations are atomic with respect to individual keys"
     ]
   },
-  "states": [
-    {
-      "field": "presence",
-      "values": [
-        {
-          "value": "absent",
-          "initial": true,
-          "description": "Key does not exist"
-        },
-        {
-          "value": "present",
-          "description": "List exists with one or more elements"
-        },
-        {
-          "value": "empty",
-          "terminal": true,
-          "description": "List becomes empty (key auto-deleted)"
-        }
-      ]
-    }
-  ],
+  "states": {
+    "field": "presence",
+    "values": [
+      {
+        "name": "absent",
+        "initial": true,
+        "description": "Key does not exist"
+      },
+      {
+        "name": "present",
+        "description": "List exists with one or more elements"
+      },
+      {
+        "name": "empty",
+        "terminal": true,
+        "description": "List becomes empty (key auto-deleted)"
+      }
+    ]
+  },
   "outcomes": {
     "push_to_head": {
       "priority": 10,
       "description": "Add element(s) to head of list",
       "given": [
         "LPUSH command issued",
-        {
-          "field": "elements",
-          "source": "input",
-          "description": "one or more values to push"
-        }
+        "elements: one or more values to push"
       ],
       "then": [
         {
@@ -137,10 +124,7 @@
       "description": "Add element(s) to tail of list",
       "given": [
         "RPUSH command issued",
-        {
-          "field": "elements",
-          "source": "input"
-        }
+        "elements: one or more values to push"
       ],
       "then": [
         {
@@ -178,7 +162,7 @@
         {
           "action": "set_field",
           "target": "elements",
-          "when": "list exists"
+          "when": "list_length > 0"
         },
         {
           "action": "emit_event",
@@ -360,14 +344,8 @@
       "description": "Retrieve elements by index range",
       "given": [
         "LRANGE key start stop",
-        {
-          "field": "start",
-          "source": "input"
-        },
-        {
-          "field": "stop",
-          "source": "input"
-        }
+        "start: zero-based index (negative counts from tail)",
+        "stop: inclusive end index"
       ],
       "then": [
         {
@@ -388,10 +366,7 @@
       "description": "Retrieve single element by index",
       "given": [
         "LINDEX key index",
-        {
-          "field": "index",
-          "source": "input"
-        }
+        "index: zero-based position (negative counts from tail)"
       ],
       "then": [
         {
@@ -429,11 +404,7 @@
       "description": "Overwrite element at index",
       "given": [
         "LSET key index element",
-        {
-          "field": "index",
-          "source": "input",
-          "description": "must be within [0, length-1] or [-length, -1]"
-        }
+        "index: must be within [0, length-1] or [-length, -1]"
       ],
       "then": [
         {
@@ -472,11 +443,7 @@
       "description": "Insert element before/after pivot",
       "given": [
         "LINSERT key BEFORE|AFTER pivot element",
-        {
-          "field": "pivot",
-          "source": "input",
-          "description": "element to find"
-        },
+        "pivot: element to find (first occurrence used)",
         {
           "field": "pivot_found",
           "source": "db",
@@ -529,14 +496,8 @@
       "description": "Keep only elements in range, remove rest",
       "given": [
         "LTRIM key start stop",
-        {
-          "field": "start",
-          "source": "input"
-        },
-        {
-          "field": "stop",
-          "source": "input"
-        }
+        "start: first index to keep",
+        "stop: last index to keep (inclusive)"
       ],
       "then": [
         {
@@ -562,11 +523,7 @@
       "description": "Remove matching elements",
       "given": [
         "LREM key count element",
-        {
-          "field": "count",
-          "source": "input",
-          "description": "positive=from head, negative=from tail, 0=all"
-        }
+        "count: positive=remove from head, negative=from tail, 0=all occurrences"
       ],
       "then": [
         {
@@ -710,11 +667,7 @@
       "description": "Pop from first non-empty list among multiple",
       "given": [
         "LMPOP numkeys key [key ...] LEFT|RIGHT [COUNT count]",
-        {
-          "field": "first_non_empty",
-          "source": "db",
-          "description": "first key with data"
-        }
+        "first_non_empty: first key in list with available data"
       ],
       "then": [
         {
@@ -772,36 +725,96 @@
   "errors": [
     {
       "code": "OUT_OF_RANGE",
-      "message": "index is out of range",
-      "user_safe": true
+      "message": "Index is out of range",
+      "status": 400
     },
     {
       "code": "WRONG_TYPE",
-      "message": "WRONGTYPE Operation against a key holding the wrong kind of value",
-      "user_safe": true
+      "message": "Operation against a key holding the wrong kind of value",
+      "status": 400
     }
   ],
   "events": [
-    "list.lpush",
-    "list.rpush",
-    "list.push_conditional",
-    "list.lpop",
-    "list.rpop",
-    "list.pop_empty",
-    "list.blocking_wait",
-    "list.blocking_timeout",
-    "list.range_read",
-    "list.index_read",
-    "list.len",
-    "list.set",
-    "list.insert",
-    "list.trimmed",
-    "list.removed",
-    "list.pos_search",
-    "list.moved",
-    "list.blocking_move",
-    "list.mpop",
-    "list.blocking_mpop"
+    {
+      "name": "list.lpush",
+      "payload": []
+    },
+    {
+      "name": "list.rpush",
+      "payload": []
+    },
+    {
+      "name": "list.push_conditional",
+      "payload": []
+    },
+    {
+      "name": "list.lpop",
+      "payload": []
+    },
+    {
+      "name": "list.rpop",
+      "payload": []
+    },
+    {
+      "name": "list.pop_empty",
+      "payload": []
+    },
+    {
+      "name": "list.blocking_wait",
+      "payload": []
+    },
+    {
+      "name": "list.blocking_timeout",
+      "payload": []
+    },
+    {
+      "name": "list.range_read",
+      "payload": []
+    },
+    {
+      "name": "list.index_read",
+      "payload": []
+    },
+    {
+      "name": "list.len",
+      "payload": []
+    },
+    {
+      "name": "list.set",
+      "payload": []
+    },
+    {
+      "name": "list.insert",
+      "payload": []
+    },
+    {
+      "name": "list.trimmed",
+      "payload": []
+    },
+    {
+      "name": "list.removed",
+      "payload": []
+    },
+    {
+      "name": "list.pos_search",
+      "payload": []
+    },
+    {
+      "name": "list.moved",
+      "payload": []
+    },
+    {
+      "name": "list.blocking_move",
+      "payload": []
+    },
+    {
+      "name": "list.mpop",
+      "payload": []
+    },
+    {
+      "name": "list.blocking_mpop",
+      "payload": []
+    }
   ],
   "related": [
     {

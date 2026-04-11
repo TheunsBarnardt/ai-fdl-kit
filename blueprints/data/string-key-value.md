@@ -33,12 +33,12 @@ Specifies 22 acceptance outcomes that any implementation must satisfy, regardles
 - **Read Missing Key** — when key does not exist, then client receives null/nil.
 - **Read With Ttl Modification** — when key exists with string value; GETEX command with optional expiry flags, then client receives string value; TTL optionally modified.
 - **Set Or Overwrite** — when SET command issued, then key now holds new value; client receives OK.
-- **Set With Conditions** — when Conditional set flags; condition_met eq true, then value set and OK returned; or nil if condition not met.
+- **Set With Conditions** — when condition_type in ["NX","XX","IFEQ","IFNE","IFDEQ","IFDNE"]; condition_met eq true, then value set and OK returned; or nil if condition not met.
 - **Set With Ttl** — when SET with EX|PX|EXAT|PXAT flag, then key set with expiration; expires at specified time.
 - **Get Substring** — when GETRANGE key start end; start gte "-2^31"; end lte "2^31-1", then substring from start to end inclusive (0-indexed, supports negative indices); empty string if range out of bounds.
 - **Set Substring** — when SETRANGE key offset value; offset gte 0, then string modified; client receives new total length.
-- **Increment Integer** — when INCR, INCRBY, or DECR command; value is valid 64-bit signed integer; change is within [-2^63, 2^63-1] range, then client receives new numeric value.
-- **Increment Float** — when INCRBYFLOAT command; interpreted as long double; result not_in ["NaN","Infinity"], then client receives new value as decimal string.
+- **Increment Integer** — when INCR, INCRBY, or DECR command; value matches "^-?[0-9]{1,19}$"; increment_amount exists, then client receives new numeric value.
+- **Increment Float** — when INCRBYFLOAT command; value exists; result not_in ["NaN","Infinity"], then client receives new value as decimal string.
 - **Getset Atomically** — when GETSET or SET with GET flag, then old value returned to client; new value now stored.
 - **Getdel Atomically** — when GETDEL command, then value returned to client; key deleted.
 - **Mget Multiple Keys** — when MGET key1 [key2 ...], then array returned with value for each key (nil for missing or non-string keys).
@@ -48,21 +48,22 @@ Specifies 22 acceptance outcomes that any implementation must satisfy, regardles
 **❌ Failure paths**
 
 - **Conditional Set Fails** — when SET with NX|XX|IFEQ|IFNE condition; condition_met eq false, then value unchanged; client receives nil. *(error: `CONDITION_NOT_MET`)*
-- **Append To String** — when APPEND command; suffix to append, then string extended; client receives new total length. *(error: `STRING_TOO_LARGE`)*
+- **Append To String** — when APPEND command; value exists, then string extended; client receives new total length. *(error: `STRING_TOO_LARGE`)*
 - **Setrange With Invalid Offset** — when SETRANGE with negative offset, then error returned; string unchanged. *(error: `INVALID_OFFSET`)*
-- **Increment Non Numeric** — when value is not a valid integer, then error returned; value unchanged. *(error: `NOT_AN_INTEGER`)*
+- **Increment Non Numeric** — when value is not a valid 64-bit signed integer string, then error returned; value unchanged. *(error: `NOT_AN_INTEGER`)*
 - **Increment Overflow** — when increment would exceed 64-bit bounds, then error returned; value unchanged. *(error: `INCREMENT_OVERFLOW`)*
 - **Increment Float Invalid** — when result in ["NaN","Infinity"], then error returned; value unchanged. *(error: `FLOAT_INVALID`)*
 - **Msetnx Condition Fails** — when all_keys_absent eq false, then no keys set; client receives 0. *(error: `KEY_EXISTS`)*
 
 ## Errors it can return
 
-- `NOT_AN_INTEGER` — value is not an integer or out of range
-- `INCREMENT_OVERFLOW` — increment or decrement would overflow
-- `CONDITION_NOT_MET` — SET condition not met (returned as nil, not error)
-- `INVALID_OFFSET` — offset is out of range
-- `STRING_TOO_LARGE` — string exceeds maximum allowed size
-- `FLOAT_INVALID` — float increment resulted in NaN or Infinity
+- `NOT_AN_INTEGER` — Value is not an integer or out of range
+- `INCREMENT_OVERFLOW` — Increment or decrement would overflow
+- `CONDITION_NOT_MET` — SET condition not met
+- `INVALID_OFFSET` — Offset is out of range
+- `STRING_TOO_LARGE` — String exceeds maximum allowed size
+- `FLOAT_INVALID` — Float increment resulted in NaN or Infinity
+- `KEY_EXISTS` — One or more keys already exist
 
 ## Connects to
 

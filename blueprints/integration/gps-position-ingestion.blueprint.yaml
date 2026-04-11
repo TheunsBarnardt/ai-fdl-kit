@@ -1,0 +1,229 @@
+# ============================================================
+# Multi-Protocol GPS Position Ingestion — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/traccar/traccar
+# Source project: Traccar GPS Tracking Server (Java/Netty)
+# Files traced: ~20
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: gps-position-ingestion
+version: "1.0.0"
+description: Accept raw GPS position messages from heterogeneous hardware devices over multiple transport protocols, decode them into a normalised position record, and route through a processing pipeline before storage.
+category: integration
+tags: [gps, tracking, iot, protocol, position, ingestion, fleet]
+
+actors:
+  - id: device
+    name: GPS Device
+    type: external
+    description: Physical tracking hardware that transmits encoded position messages
+  - id: protocol_decoder
+    name: Protocol Decoder
+    type: system
+    description: Decodes device-specific binary or text frames into normalised position records
+  - id: pipeline
+    name: Processing Pipeline
+    type: system
+    description: Applies enrichment and event-detection handlers to each decoded position
+
+fields:
+  - name: device_id
+    type: hidden
+    required: true
+    description: Internal reference to the registered device this position belongs to
+  - name: protocol
+    type: text
+    required: true
+    description: Name of the device communication protocol that produced this position
+  - name: server_time
+    type: datetime
+    required: true
+    description: Timestamp at which the server received the message
+  - name: device_time
+    type: datetime
+    required: false
+    description: Timestamp reported by the device (may differ from server_time)
+  - name: fix_time
+    type: datetime
+    required: true
+    description: GPS fix timestamp — the moment the device obtained the coordinates
+  - name: valid
+    type: boolean
+    required: true
+    description: Whether the GPS fix is considered valid by the device
+  - name: latitude
+    type: number
+    required: true
+    description: WGS-84 latitude in decimal degrees; must be in range [-90, 90]
+  - name: longitude
+    type: number
+    required: true
+    description: WGS-84 longitude in decimal degrees; must be in range [-180, 180]
+  - name: altitude
+    type: number
+    required: false
+    description: Elevation above sea level in metres
+  - name: speed
+    type: number
+    required: false
+    description: Instantaneous speed in knots as reported by the device
+  - name: course
+    type: number
+    required: false
+    description: Heading in degrees (0–360, true north = 0)
+  - name: accuracy
+    type: number
+    required: false
+    description: Estimated horizontal accuracy in metres
+  - name: outdated
+    type: boolean
+    required: false
+    description: Flag set by the pipeline when a position's fix_time predates the device's most recent stored position
+  - name: attributes
+    type: json
+    required: false
+    description: >
+      Extensible key-value bag for protocol-specific sensor readings.
+      Common keys: ignition (boolean), odometer (metres), hours (milliseconds),
+      fuel_level (%), battery_level (%), power (volts), battery (volts),
+      alarm (comma-separated alarm codes), driver_unique_id, distance (metres),
+      total_distance (metres), motion (boolean), rpm, engine_temperature,
+      satellites, hdop, rssi, input, output, event, status.
+
+rules:
+  validation:
+    latitude_range: latitude must be in the range [-90, 90]; positions outside this range are rejected
+    longitude_range: longitude must be in the range [-180, 180]; positions outside this range are rejected
+    coordinate_precision: Coordinates are stored with sufficient floating-point precision to represent sub-metre accuracy
+  data:
+    outdated_positions: A position whose fix_time is earlier than the device's last stored fix_time is accepted but flagged as outdated; event handlers skip outdated positions
+    disabled_device_handling: Positions from disabled or expired devices are accepted at the transport layer but discarded before pipeline processing
+    protocol_field: The protocol field records which decoder produced the position; downstream handlers may behave differently depending on protocol
+  processing:
+    handler_pipeline: All positions pass through the full handler pipeline in defined order before storage; a handler failure must not discard the position — it should log the error and pass to the next handler
+
+outcomes:
+  position_accepted:
+    priority: 10
+    given:
+      - "device transmits a valid position message"
+      - field: latitude
+        source: input
+        operator: gte
+        value: -90
+      - field: latitude
+        source: input
+        operator: lte
+        value: 90
+      - field: longitude
+        source: input
+        operator: gte
+        value: -180
+      - field: longitude
+        source: input
+        operator: lte
+        value: 180
+      - "device_id resolves to an active, non-disabled device"
+    then:
+      - action: create_record
+        target: position
+        description: Normalised position record persisted to storage
+      - action: set_field
+        target: device.last_update
+        description: Device last_update and latest position_id updated
+      - action: emit_event
+        event: position.received
+        payload: [device_id, position_id, fix_time, latitude, longitude, speed, valid]
+    result: Position is stored and the device's latest position is updated; pipeline handlers run enrichment and event detection
+
+  position_outdated:
+    priority: 5
+    given:
+      - "position fix_time is earlier than device's most recent stored fix_time"
+    then:
+      - action: set_field
+        target: outdated
+        value: true
+      - action: create_record
+        target: position
+        description: Outdated position stored with outdated flag set
+    result: Position is stored for historical completeness but event handlers do not process it
+
+  invalid_coordinates:
+    priority: 1
+    error: POSITION_INVALID_COORDINATES
+    given:
+      - any:
+          - field: latitude
+            source: input
+            operator: lt
+            value: -90
+          - field: latitude
+            source: input
+            operator: gt
+            value: 90
+          - field: longitude
+            source: input
+            operator: lt
+            value: -180
+          - field: longitude
+            source: input
+            operator: gt
+            value: 180
+    then: []
+    result: Position is rejected; no record is created
+
+  device_not_found:
+    priority: 2
+    error: POSITION_DEVICE_NOT_REGISTERED
+    given:
+      - "unique_id in the incoming message does not match any registered device"
+    then: []
+    result: Message is silently discarded; the hardware is not recognised by the platform
+
+errors:
+  - code: POSITION_INVALID_COORDINATES
+    message: Position coordinates are outside valid WGS-84 ranges
+  - code: POSITION_DEVICE_NOT_REGISTERED
+    message: No registered device matches the identifier in the incoming message
+
+events:
+  - name: position.received
+    description: A new position record has been stored after passing pipeline processing
+    payload: [device_id, position_id, fix_time, latitude, longitude, speed, valid, protocol]
+  - name: position.pipeline_error
+    description: A pipeline handler encountered an error while processing a position (position was still stored)
+    payload: [device_id, position_id, handler_name, error_message]
+
+related:
+  - feature: gps-device-registration
+    relationship: required
+    description: Positions can only be attributed to registered devices
+  - feature: gps-position-history
+    relationship: required
+    description: Stored positions form the historical record queried for playback and reports
+  - feature: geofence-management
+    relationship: recommended
+    description: Pipeline enriches positions with geofence membership
+  - feature: overspeed-alerts
+    relationship: recommended
+    description: Pipeline detects overspeed conditions from position speed and configured limits
+  - feature: ignition-detection
+    relationship: recommended
+    description: Pipeline reads ignition attribute to track engine state changes
+
+extensions:
+  source:
+    repo: https://github.com/traccar/traccar
+    project: Traccar GPS Tracking Server
+    tech_stack: Java 17, Netty, Hibernate
+    files_traced: 20
+    entry_points:
+      - src/main/java/org/traccar/model/Position.java
+      - src/main/java/org/traccar/BaseProtocol.java
+      - src/main/java/org/traccar/handler/BasePositionHandler.java
+      - src/main/java/org/traccar/handler/DistanceHandler.java

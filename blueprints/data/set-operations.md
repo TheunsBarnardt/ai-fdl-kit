@@ -27,27 +27,27 @@ Specifies 17 acceptance outcomes that any implementation must satisfy, regardles
 
 **✅ Success paths**
 
-- **Add Members** — when SADD key member [member ...]; members_to_add eq, then set created if absent; members added; client receives count of newly added members.
-- **Remove Members** — when SREM key member [member ...]; members_to_remove eq, then members removed; client receives count of removed members; set deleted if empty.
+- **Add Members** — when SADD key member [member ...]; members_to_add exists, then set created if absent; members added; client receives count of newly added members.
+- **Remove Members** — when SREM key member [member ...]; members_to_remove exists, then members removed; client receives count of removed members; set deleted if empty.
 - **Get All Members** — when SMEMBERS key, then unordered array of all members (empty if set absent).
-- **Check Membership** — when SISMEMBER key member; member eq, then 1 if member present, 0 if not.
-- **Check Multiple Membership** — when SMISMEMBER key member [member ...]; members_to_check eq, then array of 0/1 for each member (1=member present, 0=absent).
+- **Check Membership** — when SISMEMBER key member; member exists, then 1 if member present, 0 if not.
+- **Check Multiple Membership** — when SMISMEMBER key member [member ...]; members_to_check exists, then array of 0/1 for each member (1=member present, 0=absent).
 - **Get Cardinality** — when SCARD key, then number of members (0 if key absent).
-- **Random Members** — when SRANDMEMBER key [count]; optional; default 1, then single member or array of members (may have duplicates if count > cardinality).
-- **Pop Random** — when SPOP key [count]; count eq, then single member or array of members removed (no duplicates); nil if empty.
+- **Random Members** — when SRANDMEMBER key [count]; count exists, then single member or array of members (may have duplicates if count > cardinality).
+- **Pop Random** — when SPOP key [count]; count exists, then single member or array of members removed (no duplicates); nil if empty.
 - **Move Between Sets** — when SMOVE source destination member; member_in_source eq true, then member moved; client receives 1 (or 0 if already in destination).
-- **Intersection** — when SINTER key [key ...]; multiple keys to intersect, then array of elements in ALL sets (empty if no common elements).
-- **Intersection Store** — when SINTERSTORE destination key [key ...]; destination eq, then destination set created/overwritten; client receives cardinality of result.
-- **Intersection Cardinality** — when SINTERCARD numkeys key [key ...] [LIMIT limit]; optional early termination, then cardinality of intersection (limited by LIMIT if provided).
+- **Intersection** — when SINTER key [key ...]; input_sets exists, then array of elements in ALL sets (empty if no common elements).
+- **Intersection Store** — when SINTERSTORE destination key [key ...]; destination exists, then destination set created/overwritten; client receives cardinality of result.
+- **Intersection Cardinality** — when SINTERCARD numkeys key [key ...] [LIMIT limit]; limit exists, then cardinality of intersection (limited by LIMIT if provided).
 - **Union** — when SUNION key [key ...], then array of unique elements across all sets.
 - **Union Store** — when SUNIONSTORE destination key [key ...], then destination set created/overwritten; client receives cardinality.
-- **Difference** — when SDIFF key [key ...]; set to subtract from; sets to subtract, then array of elements in first set minus all others.
+- **Difference** — when SDIFF key [key ...]; first_key: set to subtract from; other_keys: sets to subtract, then array of elements in first set minus all others.
 - **Difference Store** — when SDIFFSTORE destination key [key ...], then destination set created/overwritten; client receives cardinality.
-- **Scan Members** — when SSCAN key cursor [MATCH pattern] [COUNT count]; starting cursor position, then array [new_cursor, [members...]] (cursor=0 when full scan complete).
+- **Scan Members** — when SSCAN key cursor [MATCH pattern] [COUNT count]; cursor: starting cursor position (0 to start), then array [new_cursor, [members...]] (cursor=0 when full scan complete).
 
 ## Errors it can return
 
-- `WRONG_TYPE` — WRONGTYPE Operation against a key holding the wrong kind of value
+- `WRONG_TYPE` — Operation against a key holding the wrong kind of value
 
 ## Connects to
 

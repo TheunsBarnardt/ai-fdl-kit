@@ -30,16 +30,16 @@ Specifies 19 acceptance outcomes that any implementation must satisfy, regardles
 
 **✅ Success paths**
 
-- **Sentinel Monitor Master** — when sentinel monitor <name> <ip> <port> <quorum>, then Sentinel begins periodic health checks (PING, INFO).
-- **Sentinel Health Check** — when no PONG for down_after_milliseconds, then this Sentinel marks master subjectively down.
+- **Sentinel Monitor Master** — when sentinel_config exists, then Sentinel begins periodic health checks (PING, INFO).
+- **Sentinel Health Check** — when ping_no_response exists, then this Sentinel marks master subjectively down.
 - **Sentinel Quorum Agreement** — when other_sentinels_agree gte "quorum-1"; total_sentinels_agree gte "quorum", then master objectively down; failover authorized.
 - **Sentinel Leader Election** — when odown eq true; leader_elected eq "this_sentinel", then leader begins failover state machine.
-- **Sentinel Replica Selection** — when connected replicas; priority, offset, runid, then best replica chosen for promotion.
+- **Sentinel Replica Selection** — when replica_candidates exists; selection_criteria exists, then best replica chosen for promotion.
 - **Sentinel Promotion** — when SLAVEOF NO ONE sent to replica, then replica stops replication, becomes master.
-- **Sentinel Reconfigure Replicas** — when new_master eq; other_replicas gt 0, then other replicas point to new master.
+- **Sentinel Reconfigure Replicas** — when new_master exists; other_replicas gt 0, then other replicas point to new master.
 - **Sentinel Failover Complete** — when new_master_promoted eq true; all_replicas_reconfigured eq true, then failover complete; cluster operational with new master.
 - **Cluster Node Join** — when CLUSTER MEET ip port; cluster_mode_enabled eq true, then node added to cluster; gossip begins.
-- **Cluster Key Routing** — when key eq; CRC16(key) mod 16384; slot_owner eq, then command executed on slot owner or client redirected.
+- **Cluster Key Routing** — when key exists; slot exists; slot_owner exists, then command executed on slot owner or client redirected.
 - **Cluster Moved Redirect** — when slot_owner_changed eq true, then client receives MOVED node_ip:node_port; should update slot map.
 - **Cluster Ask Redirect** — when slot_importing eq true; slot_migrating_from_other eq true, then client receives ASK; forward request to new node; next request goes to moved node.
 - **Cluster State Ok** — when all_slots_assigned eq true; all_nodes_reachable eq true, then cluster operational.
@@ -51,12 +51,12 @@ Specifies 19 acceptance outcomes that any implementation must satisfy, regardles
 
 - **Cluster Slot Assignment** — when CLUSTER ADDSLOTS slot [slot ...]; slots_available eq true, then slots now served by this node. *(error: `CLUSTER_CROSSSLOT`)*
 - **Cluster Slot Migration** — when CLUSTER SETSLOT slot MIGRATING target_node_id; target node: CLUSTER SETSLOT slot IMPORTING source_node_id, then slot enters migration state; data gradually moved. *(error: `CLUSTER_SLOT_UNOWNED`)*
-- **Cluster Multi Key Restriction** — when command_touches_multiple_slots eq true, then error returned; operation not allowed (use MGET, MSET on keys with same slot). *(error: `CROSSSLOT`)*
+- **Cluster Multi Key Restriction** — when command_touches_multiple_slots eq true, then error returned; operation not allowed (use MGET, MSET on keys with same slot). *(error: `CLUSTER_CROSSSLOT`)*
 
 ## Errors it can return
 
-- `CLUSTER_CROSSSLOT` — CROSSSLOT Keys in request don't hash to the same slot
-- `CLUSTER_SLOT_UNOWNED` — CLUSTERDOWN The cluster is down
+- `CLUSTER_CROSSSLOT` — Keys in request do not hash to the same slot
+- `CLUSTER_SLOT_UNOWNED` — The cluster is down
 - `SENTINEL_NOSCRIPT` — Sentinel command syntax error
 
 ## Connects to

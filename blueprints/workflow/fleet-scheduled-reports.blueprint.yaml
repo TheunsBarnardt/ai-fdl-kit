@@ -1,0 +1,173 @@
+# ============================================================
+# Fleet Scheduled Reports — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/traccar/traccar
+# Source project: Traccar GPS Tracking Server (Java/Netty)
+# Files traced: ~12
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: fleet-scheduled-reports
+version: "1.0.0"
+description: Generate, schedule, and distribute fleet tracking reports covering trips, stops, route history, events, geofence activity, device summaries, and fuel consumption, with on-demand and automated periodic delivery.
+category: workflow
+tags: [gps, tracking, reports, fleet, schedule, export, trips, stops]
+
+actors:
+  - id: fleet_user
+    name: Fleet User
+    type: human
+    description: Requests on-demand reports and configures scheduled report deliveries
+  - id: scheduler
+    name: Report Scheduler
+    type: system
+    description: Triggers report generation on configured intervals; distributes results to configured recipients
+  - id: fleet_admin
+    name: Fleet Administrator
+    type: human
+    description: Configures scheduled report definitions for devices and user groups
+
+fields:
+  - name: report_type
+    type: select
+    required: true
+    description: "Type of report: trips, stops, route, events, geofence, summary, devices"
+  - name: device_ids
+    type: json
+    required: false
+    description: List of device IDs to include; if empty, all accessible devices are included
+  - name: group_ids
+    type: json
+    required: false
+    description: Device group IDs to include; devices in selected groups are included
+  - name: from
+    type: datetime
+    required: true
+    description: Start of the report period
+  - name: to
+    type: datetime
+    required: true
+    description: End of the report period
+  - name: export_format
+    type: select
+    required: false
+    description: "Output format: xlsx (default), csv, gpx, or kml"
+  - name: event_types
+    type: json
+    required: false
+    description: Filter for events report; list of event type codes to include (empty = all types)
+  - name: schedule_cron
+    type: text
+    required: false
+    description: Cron expression defining when the report runs automatically (e.g. daily at 06:00)
+  - name: calendar_id
+    type: hidden
+    required: false
+    description: Calendar controlling when a scheduled report is active
+
+rules:
+  - Only devices the requesting user has permission to view are included in report output
+  - Users with the disableReports restriction cannot generate or access reports
+  - from must be earlier than to; reports with inverted ranges are rejected
+  - Trips and stops reports require trip and stop detection to have been active during the report period
+  - Summary reports aggregate per-device: start/end odometer, total distance, max speed, total fuel used, and engine hours
+  - Route reports return all stored positions in chronological order, suitable for animated playback
+  - Events reports filter by event type; an empty type list returns all event types
+  - Export formats include all available sensor and attribute data, not just core fields
+  - Scheduled reports use a cron schedule stored in the database; the scheduler queries due reports at each run interval
+
+outcomes:
+  report_generated:
+    priority: 10
+    given:
+      - "fleet_user requests a report with valid type, device selection, and time range"
+      - "user has access to the specified devices"
+      - "user does not have disableReports restriction"
+      - field: from
+        source: input
+        operator: lt
+        value: to
+    then:
+      - action: emit_event
+        event: report.generated
+        payload: [report_type, device_count, record_count, export_format, requested_by]
+    result: Report file returned to the user as a downloadable attachment or streamed response
+
+  scheduled_report_dispatched:
+    priority: 8
+    given:
+      - "scheduler determines a report definition is due based on its cron expression"
+      - "associated calendar is active (or no calendar set)"
+    then:
+      - action: emit_event
+        event: report.scheduled_dispatched
+        payload: [report_type, device_ids, period_from, period_to, recipient_user_ids]
+    result: Report generated for the configured period and delivered to configured recipients
+
+  access_denied:
+    priority: 2
+    error: REPORT_ACCESS_DENIED
+    given:
+      - any:
+          - "user does not have permission to view the requested devices"
+          - "user has the disableReports restriction"
+    then: []
+    result: Report request rejected; no data returned
+
+  invalid_range:
+    priority: 1
+    error: REPORT_INVALID_TIME_RANGE
+    given:
+      - field: from
+        source: input
+        operator: gte
+        value: to
+    then: []
+    result: Report rejected; operator informed that the time range is invalid
+
+errors:
+  - code: REPORT_ACCESS_DENIED
+    message: You do not have permission to generate reports for the selected devices
+  - code: REPORT_INVALID_TIME_RANGE
+    message: The report start time must be before the end time
+
+events:
+  - name: report.generated
+    description: An on-demand report was generated and is ready for download
+    payload: [report_type, device_count, record_count, export_format, requested_by]
+  - name: report.scheduled_dispatched
+    description: A scheduled report was automatically generated and dispatched to configured recipients
+    payload: [report_type, period_from, period_to, recipient_count]
+
+related:
+  - feature: gps-position-history
+    relationship: required
+    description: Route reports draw directly from position history
+  - feature: trip-detection
+    relationship: recommended
+    description: Trip reports require trip detection to be active
+  - feature: stop-detection
+    relationship: recommended
+    description: Stop reports require stop detection to be active
+  - feature: fleet-device-sharing
+    relationship: required
+    description: Permission model controls which devices each user's reports include
+  - feature: geofence-alerts
+    relationship: recommended
+    description: Geofence reports summarise zone entry and exit events
+
+extensions:
+  source:
+    repo: https://github.com/traccar/traccar
+    project: Traccar GPS Tracking Server
+    tech_stack: Java 17, Hibernate, Apache POI
+    files_traced: 12
+    entry_points:
+      - src/main/java/org/traccar/reports/TripsReportProvider.java
+      - src/main/java/org/traccar/reports/StopsReportProvider.java
+      - src/main/java/org/traccar/reports/SummaryReportProvider.java
+      - src/main/java/org/traccar/reports/EventsReportProvider.java
+      - src/main/java/org/traccar/schedule/TaskReports.java

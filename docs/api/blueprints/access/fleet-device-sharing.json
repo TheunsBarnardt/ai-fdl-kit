@@ -1,0 +1,284 @@
+{
+  "feature": "fleet-device-sharing",
+  "version": "1.0.0",
+  "description": "Control which users can see and operate which GPS devices through an ACL permission model, with hierarchical device groups that inherit configuration and enable bulk sharing, user restrictions to limit dangerous operations, and manager-level user provisioning.",
+  "category": "access",
+  "tags": [
+    "gps",
+    "tracking",
+    "permissions",
+    "groups",
+    "sharing",
+    "fleet",
+    "access-control"
+  ],
+  "actors": [
+    {
+      "id": "admin",
+      "name": "Administrator",
+      "type": "human",
+      "description": "Has unrestricted access to all resources; can create users and assign devices"
+    },
+    {
+      "id": "manager",
+      "name": "Manager",
+      "type": "human",
+      "description": "Can create subordinate users up to their user_limit and share devices with them"
+    },
+    {
+      "id": "fleet_user",
+      "name": "Fleet User",
+      "type": "human",
+      "description": "Has access only to explicitly shared devices and groups"
+    }
+  ],
+  "fields": [
+    {
+      "name": "email",
+      "type": "email",
+      "required": true,
+      "description": "User's email address; used for authentication and notifications"
+    },
+    {
+      "name": "name",
+      "type": "text",
+      "required": true,
+      "description": "Full display name of the user"
+    },
+    {
+      "name": "administrator",
+      "type": "boolean",
+      "required": false,
+      "description": "Grants unrestricted access to all platform resources"
+    },
+    {
+      "name": "readonly",
+      "type": "boolean",
+      "required": false,
+      "description": "Prevents all write operations; user can only view data"
+    },
+    {
+      "name": "device_readonly",
+      "type": "boolean",
+      "required": false,
+      "description": "Prevents modifications to device records while allowing full tracking access"
+    },
+    {
+      "name": "limit_commands",
+      "type": "boolean",
+      "required": false,
+      "description": "Prevents the user from sending any commands to devices"
+    },
+    {
+      "name": "disable_reports",
+      "type": "boolean",
+      "required": false,
+      "description": "Prevents the user from generating or downloading any reports"
+    },
+    {
+      "name": "device_limit",
+      "type": "number",
+      "required": false,
+      "description": "Maximum number of devices this user account may have directly shared; -1 means unlimited"
+    },
+    {
+      "name": "user_limit",
+      "type": "number",
+      "required": false,
+      "description": "Maximum number of subordinate users this user may create; 0 means user cannot create others"
+    },
+    {
+      "name": "expiration_time",
+      "type": "datetime",
+      "required": false,
+      "description": "Date after which the user account is automatically disabled"
+    },
+    {
+      "name": "group_name",
+      "type": "text",
+      "required": false,
+      "description": "Name of the device group"
+    },
+    {
+      "name": "parent_group_id",
+      "type": "hidden",
+      "required": false,
+      "description": "Parent group reference enabling nested group hierarchies"
+    }
+  ],
+  "rules": [
+    "Administrator users have implicit access to all resources; no explicit permission records are required",
+    "Regular users only see and interact with devices, geofences, drivers, and other resources that have been explicitly shared with them",
+    "Sharing a group with a user grants access to all devices currently in that group and any devices added to the group in the future",
+    "Group attributes are inherited by child groups and their devices; device-level attributes override inherited group values",
+    "A manager (user_limit > 0) can create subordinate users but cannot grant more permissions than they themselves have",
+    "The device_limit constrains how many devices can be shared with a given user account; administrators are exempt",
+    "Readonly users can view all accessible data but cannot modify any records, create events, or send commands",
+    "device_readonly users can track and monitor devices but cannot edit device configuration",
+    "limit_commands users can see device positions but cannot use the command interface",
+    "disable_reports users can track live positions but cannot generate historical reports or exports",
+    "An expired user account is treated as disabled; active sessions are invalidated"
+  ],
+  "outcomes": {
+    "device_shared_with_user": {
+      "priority": 10,
+      "given": [
+        "admin or manager shares a device with a user",
+        "user has not reached their device_limit",
+        "sharing user has access to the device themselves"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "permission",
+          "description": "Permission record linking user to device created"
+        },
+        {
+          "action": "emit_event",
+          "event": "device.shared",
+          "payload": [
+            "device_id",
+            "user_id",
+            "shared_by"
+          ]
+        }
+      ],
+      "result": "User can now see the device in their fleet view and receive its events and alerts"
+    },
+    "group_shared_with_user": {
+      "priority": 10,
+      "given": [
+        "admin or manager shares a device group with a user",
+        "sharing user has access to the group"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "permission",
+          "description": "Permission record linking user to group created"
+        },
+        {
+          "action": "emit_event",
+          "event": "group.shared",
+          "payload": [
+            "group_id",
+            "user_id",
+            "shared_by"
+          ]
+        }
+      ],
+      "result": "User gains access to all current and future devices in the group"
+    },
+    "permission_revoked": {
+      "priority": 8,
+      "given": [
+        "admin removes an explicit sharing permission"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "target": "permission"
+        },
+        {
+          "action": "emit_event",
+          "event": "permission.revoked",
+          "payload": [
+            "resource_type",
+            "resource_id",
+            "user_id"
+          ]
+        }
+      ],
+      "result": "User loses access to the resource; ongoing sessions lose visibility immediately"
+    },
+    "device_limit_exceeded": {
+      "priority": 2,
+      "error": "SHARING_DEVICE_LIMIT_EXCEEDED",
+      "given": [
+        "user has reached their device_limit",
+        {
+          "field": "administrator",
+          "source": "db",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [],
+      "result": "Sharing rejected; operator must increase the user's device_limit or remove an existing device"
+    }
+  },
+  "errors": [
+    {
+      "code": "SHARING_DEVICE_LIMIT_EXCEEDED",
+      "message": "This user has reached the maximum number of devices they may access"
+    },
+    {
+      "code": "SHARING_PERMISSION_DENIED",
+      "message": "You cannot share resources you do not have access to"
+    },
+    {
+      "code": "SHARING_USER_NOT_FOUND",
+      "message": "The specified user does not exist"
+    }
+  ],
+  "events": [
+    {
+      "name": "device.shared",
+      "description": "A device has been shared with a user",
+      "payload": [
+        "device_id",
+        "user_id",
+        "shared_by"
+      ]
+    },
+    {
+      "name": "group.shared",
+      "description": "A device group has been shared with a user",
+      "payload": [
+        "group_id",
+        "user_id",
+        "shared_by"
+      ]
+    },
+    {
+      "name": "permission.revoked",
+      "description": "A user's access to a resource has been removed",
+      "payload": [
+        "resource_type",
+        "resource_id",
+        "user_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "gps-device-registration",
+      "relationship": "required",
+      "description": "Devices must be registered before they can be shared"
+    },
+    {
+      "feature": "remote-device-commands",
+      "relationship": "recommended",
+      "description": "Command access is gated by the limit_commands user restriction"
+    },
+    {
+      "feature": "fleet-scheduled-reports",
+      "relationship": "recommended",
+      "description": "Report access is gated by the disable_reports user restriction"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/traccar/traccar",
+      "project": "Traccar GPS Tracking Server",
+      "tech_stack": "Java 17, Hibernate",
+      "files_traced": 10,
+      "entry_points": [
+        "src/main/java/org/traccar/model/User.java",
+        "src/main/java/org/traccar/model/Group.java",
+        "src/main/java/org/traccar/model/Permission.java",
+        "src/main/java/org/traccar/api/security/PermissionsService.java"
+      ]
+    }
+  }
+}

@@ -3,7 +3,7 @@ title: "String Key Value Blueprint"
 layout: default
 parent: "Data"
 grand_parent: Blueprint Catalog
-description: "Store and retrieve arbitrary-length string values with atomic increment, decrement, append, and range operations. 6 fields. 22 outcomes. 6 error codes. rules: g"
+description: "Store and retrieve arbitrary-length string values with atomic increment, decrement, append, and range operations. 6 fields. 22 outcomes. 7 error codes. rules: g"
 ---
 
 # String Key Value Blueprint
@@ -38,12 +38,15 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 ## States
 
-**State field:** `undefined`
+**State field:** `existence`
 
 **Values:**
 
 | State | Initial | Terminal |
 |-------|---------|----------|
+| `absent` | Yes |  |
+| `present` |  |  |
+| `expired` |  | Yes |
 
 ## Rules
 
@@ -79,8 +82,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 - GETEX command with optional expiry flags
 
 **Then:**
-- **set_field** target: `ttl_milliseconds` when: `EX|PX|EXAT|PXAT flag provided` — set new TTL on read
-- **set_field** target: `ttl_milliseconds` value: `null` when: `PERSIST flag provided` — remove TTL on read
+- **set_field** target: `ttl_milliseconds`
+- **set_field** target: `ttl_milliseconds` value: `null`
 - **emit_event** event: `string.getex`
 
 **Result:** client receives string value; TTL optionally modified
@@ -92,7 +95,7 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 **Then:**
 - **set_field** target: `value` — store new value
-- **set_field** target: `ttl_milliseconds` value: `null` when: `no KEEPTTL flag` — discard old TTL unless KEEPTTL
+- **set_field** target: `ttl_milliseconds` value: `null`
 - **set_field** target: `is_numeric` — evaluate if value parseable as integer for optimization
 - **emit_event** event: `string.set`
 
@@ -137,7 +140,7 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 **Given:**
 - APPEND command
-- `value` (input) eq
+- `value` (input) exists
 
 **Then:**
 - **set_field** target: `value` — concatenate suffix to end
@@ -181,7 +184,7 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 **Given:**
 - INCR, INCRBY, or DECR command
 - `value` (db) matches `^-?[0-9]{1,19}$`
-- `increment_amount` (computed) eq
+- `increment_amount` (computed) exists
 
 **Then:**
 - **set_field** target: `value` — increment or decrement value
@@ -192,7 +195,7 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 ### Increment_non_numeric (Priority: 31) — Error: `NOT_AN_INTEGER`
 
 **Given:**
-- `value` (db) not_matches `^-?[0-9]{1,19}$`
+- value is not a valid 64-bit signed integer string
 
 **Result:** error returned; value unchanged
 
@@ -207,7 +210,7 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 **Given:**
 - INCRBYFLOAT command
-- `value` (db) eq
+- `value` (db) exists
 - `result` (computed) not_in `NaN,Infinity`
 
 **Then:**
@@ -289,33 +292,34 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `NOT_AN_INTEGER` |  | value is not an integer or out of range | No |
-| `INCREMENT_OVERFLOW` |  | increment or decrement would overflow | No |
-| `CONDITION_NOT_MET` |  | SET condition not met (returned as nil, not error) | No |
-| `INVALID_OFFSET` |  | offset is out of range | No |
-| `STRING_TOO_LARGE` |  | string exceeds maximum allowed size | No |
-| `FLOAT_INVALID` |  | float increment resulted in NaN or Infinity | No |
+| `NOT_AN_INTEGER` | 400 | Value is not an integer or out of range | No |
+| `INCREMENT_OVERFLOW` | 400 | Increment or decrement would overflow | No |
+| `CONDITION_NOT_MET` | 409 | SET condition not met | No |
+| `INVALID_OFFSET` | 400 | Offset is out of range | No |
+| `STRING_TOO_LARGE` | 413 | String exceeds maximum allowed size | No |
+| `FLOAT_INVALID` | 400 | Float increment resulted in NaN or Infinity | No |
+| `KEY_EXISTS` | 409 | One or more keys already exist | No |
 
 ## Events
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
+| `string.read` |  |  |
+| `string.miss` |  |  |
+| `string.set` |  |  |
+| `string.set_conditional` |  |  |
+| `string.set_expiring` |  |  |
+| `string.appended` |  |  |
+| `string.range_read` |  |  |
+| `string.range_written` |  |  |
+| `string.incr` |  |  |
+| `string.incrbyfloat` |  |  |
+| `string.getset` |  |  |
+| `string.getdel` |  |  |
+| `string.mget` |  |  |
+| `string.mset` |  |  |
+| `string.msetnx_success` |  |  |
+| `string.msetnx_rejected` |  |  |
 
 ## Related Blueprints
 
@@ -420,7 +424,7 @@ source:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "String Key Value Blueprint",
-  "description": "Store and retrieve arbitrary-length string values with atomic increment, decrement, append, and range operations. 6 fields. 22 outcomes. 6 error codes. rules: g",
+  "description": "Store and retrieve arbitrary-length string values with atomic increment, decrement, append, and range operations. 6 fields. 22 outcomes. 7 error codes. rules: g",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",

@@ -1,0 +1,188 @@
+{
+  "feature": "driver-identification",
+  "version": "1.0.0",
+  "description": "Identify the driver operating a vehicle by matching hardware-reported credentials (RFID tag or iButton key) against a registry of named drivers, and emit an event whenever the driver assignment changes.",
+  "category": "data",
+  "tags": [
+    "gps",
+    "tracking",
+    "driver",
+    "rfid",
+    "ibutton",
+    "fleet",
+    "identification"
+  ],
+  "actors": [
+    {
+      "id": "driver",
+      "name": "Driver",
+      "type": "human",
+      "description": "Presents an RFID card or iButton key to the in-vehicle reader"
+    },
+    {
+      "id": "device",
+      "name": "GPS Device",
+      "type": "external",
+      "description": "Reads the hardware credential and includes the unique ID in position transmissions"
+    },
+    {
+      "id": "fleet_admin",
+      "name": "Fleet Administrator",
+      "type": "human",
+      "description": "Maintains the driver registry, mapping hardware credential IDs to driver names"
+    }
+  ],
+  "fields": [
+    {
+      "name": "unique_id",
+      "type": "text",
+      "required": true,
+      "description": "Hardware credential identifier (RFID tag serial, iButton 1-Wire address, or employee badge number) transmitted by the device"
+    },
+    {
+      "name": "name",
+      "type": "text",
+      "required": true,
+      "description": "Full name of the driver"
+    },
+    {
+      "name": "driver_unique_id_on_position",
+      "type": "text",
+      "required": false,
+      "description": "The credential ID embedded in a position record, used to look up the registered driver"
+    }
+  ],
+  "rules": [
+    "Each driver record has a unique hardware credential ID; duplicate IDs across drivers are not allowed",
+    "When a position carries a driver credential ID, the platform resolves it against the driver registry and stores the association on the position",
+    "If the device does not report a credential ID but the device has a linked driver configured, the platform automatically attributes that linked driver to every position from that device",
+    "A driver change event is emitted when the credential ID in the current position differs from the credential ID in the previous position",
+    "If neither the current nor the previous position carries a credential ID, no driver change event is generated",
+    "Only latest positions (not outdated) trigger driver change detection"
+  ],
+  "outcomes": {
+    "driver_identified": {
+      "priority": 10,
+      "given": [
+        "position includes a driver credential ID",
+        "credential ID matches a record in the driver registry"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "position.driver_unique_id",
+          "description": "Driver credential ID attributed to the position"
+        }
+      ],
+      "result": "Driver is linked to the position; trip and report data includes the identified driver"
+    },
+    "driver_changed": {
+      "priority": 8,
+      "given": [
+        "current position has a different driver credential ID than the previous position",
+        "position is the latest for the device"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "event",
+          "description": "Driver change event recorded with type = driver_changed, new driver credential ID"
+        },
+        {
+          "action": "emit_event",
+          "event": "driver.changed",
+          "payload": [
+            "device_id",
+            "previous_driver_id",
+            "new_driver_id",
+            "position_id",
+            "fix_time"
+          ]
+        }
+      ],
+      "result": "Driver change event stored; fleet managers can track handovers between shifts"
+    },
+    "linked_driver_applied": {
+      "priority": 5,
+      "given": [
+        "position does not include a hardware credential ID",
+        "device has a linked driver configured"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "position.driver_unique_id",
+          "description": "Linked driver's credential ID applied to the position automatically"
+        }
+      ],
+      "result": "Position is attributed to the linked driver without requiring hardware presentation"
+    },
+    "unknown_credential": {
+      "priority": 3,
+      "given": [
+        "position includes a credential ID that does not match any registered driver"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "position.driver_unique_id",
+          "description": "Raw credential ID stored as-is; no name resolution"
+        }
+      ],
+      "result": "Raw credential ID is stored on the position; fleet admin can later register the driver against it"
+    }
+  },
+  "errors": [
+    {
+      "code": "DRIVER_DUPLICATE_UNIQUE_ID",
+      "message": "A driver with this credential ID is already registered"
+    },
+    {
+      "code": "DRIVER_NOT_FOUND",
+      "message": "The specified driver does not exist"
+    }
+  ],
+  "events": [
+    {
+      "name": "driver.changed",
+      "description": "The driver associated with a vehicle has changed",
+      "payload": [
+        "device_id",
+        "previous_driver_id",
+        "new_driver_id",
+        "position_id",
+        "fix_time"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "gps-position-ingestion",
+      "relationship": "required",
+      "description": "Driver credential IDs are embedded in position attribute data"
+    },
+    {
+      "feature": "gps-device-registration",
+      "relationship": "required",
+      "description": "Devices carry the optional linked driver configuration"
+    },
+    {
+      "feature": "trip-detection",
+      "relationship": "recommended",
+      "description": "Trip reports include driver attribution when available"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/traccar/traccar",
+      "project": "Traccar GPS Tracking Server",
+      "tech_stack": "Java 17",
+      "files_traced": 5,
+      "entry_points": [
+        "src/main/java/org/traccar/model/Driver.java",
+        "src/main/java/org/traccar/handler/DriverHandler.java",
+        "src/main/java/org/traccar/handler/events/DriverEventHandler.java"
+      ]
+    }
+  }
+}

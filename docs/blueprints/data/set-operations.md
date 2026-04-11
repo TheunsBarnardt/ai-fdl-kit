@@ -36,12 +36,15 @@ description: "Unordered collection of unique elements with set algebra operation
 
 ## States
 
-**State field:** `undefined`
+**State field:** `presence`
 
 **Values:**
 
 | State | Initial | Terminal |
 |-------|---------|----------|
+| `absent` | Yes |  |
+| `present` |  |  |
+| `empty` |  | Yes |
 
 ## Rules
 
@@ -53,7 +56,7 @@ description: "Unordered collection of unique elements with set algebra operation
 
 **Given:**
 - SADD key member [member ...]
-- `members_to_add` (input) eq
+- `members_to_add` (input) exists
 
 **Then:**
 - **set_field** target: `members` — add new members (duplicates ignored)
@@ -66,7 +69,7 @@ description: "Unordered collection of unique elements with set algebra operation
 
 **Given:**
 - SREM key member [member ...]
-- `members_to_remove` (input) eq
+- `members_to_remove` (input) exists
 
 **Then:**
 - **set_field** target: `members` — remove specified members
@@ -89,7 +92,7 @@ description: "Unordered collection of unique elements with set algebra operation
 
 **Given:**
 - SISMEMBER key member
-- `member` (input) eq
+- `member` (input) exists
 
 **Then:**
 - **emit_event** event: `set.ismember_check`
@@ -100,7 +103,7 @@ description: "Unordered collection of unique elements with set algebra operation
 
 **Given:**
 - SMISMEMBER key member [member ...]
-- `members_to_check` (input) eq
+- `members_to_check` (input) exists
 
 **Then:**
 - **emit_event** event: `set.mismember_check`
@@ -121,7 +124,7 @@ description: "Unordered collection of unique elements with set algebra operation
 
 **Given:**
 - SRANDMEMBER key [count]
-- `count` (input) eq
+- `count` (input) exists
 
 **Then:**
 - **emit_event** event: `set.random_draw`
@@ -132,7 +135,7 @@ description: "Unordered collection of unique elements with set algebra operation
 
 **Given:**
 - SPOP key [count]
-- `count` (input) eq
+- `count` (input) exists
 
 **Then:**
 - **set_field** target: `members` — remove random members
@@ -158,7 +161,7 @@ description: "Unordered collection of unique elements with set algebra operation
 
 **Given:**
 - SINTER key [key ...]
-- `input_sets` (input) eq
+- `input_sets` (input) exists
 
 **Then:**
 - **emit_event** event: `set.intersection`
@@ -169,7 +172,7 @@ description: "Unordered collection of unique elements with set algebra operation
 
 **Given:**
 - SINTERSTORE destination key [key ...]
-- `destination` (input) eq
+- `destination` (input) exists
 
 **Then:**
 - **set_field** target: `destination.members` — set to intersection result
@@ -181,7 +184,7 @@ description: "Unordered collection of unique elements with set algebra operation
 
 **Given:**
 - SINTERCARD numkeys key [key ...] [LIMIT limit]
-- `limit` (input) eq
+- `limit` (input) exists
 
 **Then:**
 - **emit_event** event: `set.intercard`
@@ -213,8 +216,8 @@ description: "Unordered collection of unique elements with set algebra operation
 
 **Given:**
 - SDIFF key [key ...]
-- `first_key` (input) eq
-- `other_keys` (input) eq
+- first_key: set to subtract from
+- other_keys: sets to subtract
 
 **Then:**
 - **emit_event** event: `set.difference`
@@ -236,7 +239,7 @@ description: "Unordered collection of unique elements with set algebra operation
 
 **Given:**
 - SSCAN key cursor [MATCH pattern] [COUNT count]
-- `cursor` (input) eq
+- cursor: starting cursor position (0 to start)
 
 **Then:**
 - **emit_event** event: `set.scan`
@@ -247,29 +250,29 @@ description: "Unordered collection of unique elements with set algebra operation
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `WRONG_TYPE` |  | WRONGTYPE Operation against a key holding the wrong kind of value | No |
+| `WRONG_TYPE` | 400 | Operation against a key holding the wrong kind of value | No |
 
 ## Events
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
+| `set.added` |  |  |
+| `set.removed` |  |  |
+| `set.members_read` |  |  |
+| `set.ismember_check` |  |  |
+| `set.mismember_check` |  |  |
+| `set.cardinality` |  |  |
+| `set.random_draw` |  |  |
+| `set.popped` |  |  |
+| `set.moved` |  |  |
+| `set.intersection` |  |  |
+| `set.intersection_stored` |  |  |
+| `set.intercard` |  |  |
+| `set.union` |  |  |
+| `set.union_stored` |  |  |
+| `set.difference` |  |  |
+| `set.difference_stored` |  |  |
+| `set.scan` |  |  |
 
 ## Related Blueprints
 

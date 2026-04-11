@@ -1,0 +1,181 @@
+{
+  "feature": "device-power-alerts",
+  "version": "1.0.0",
+  "description": "Monitor battery voltage, battery level percentage, and external power supply state transmitted by GPS tracking hardware, and emit alerts when power conditions threaten continuous device operation (low battery, power cut, power restoration).",
+  "category": "notification",
+  "tags": [
+    "gps",
+    "tracking",
+    "battery",
+    "power",
+    "alert",
+    "fleet",
+    "hardware"
+  ],
+  "actors": [
+    {
+      "id": "device",
+      "name": "GPS Device",
+      "type": "external",
+      "description": "Reports battery voltage, battery level, and power supply state in position transmissions"
+    },
+    {
+      "id": "pipeline",
+      "name": "Alarm Event Handler",
+      "type": "system",
+      "description": "Detects power-related alarm codes in positions and generates events"
+    },
+    {
+      "id": "fleet_user",
+      "name": "Fleet User",
+      "type": "human",
+      "description": "Receives power alerts to arrange battery replacement or investigate tampering"
+    }
+  ],
+  "fields": [
+    {
+      "name": "battery_level",
+      "type": "number",
+      "required": false,
+      "description": "Battery charge level as a percentage (0–100%)"
+    },
+    {
+      "name": "battery_voltage",
+      "type": "number",
+      "required": false,
+      "description": "Battery voltage in volts"
+    },
+    {
+      "name": "external_power_voltage",
+      "type": "number",
+      "required": false,
+      "description": "External (vehicle) power supply voltage in volts"
+    },
+    {
+      "name": "alarm",
+      "type": "text",
+      "required": false,
+      "description": "Comma-separated alarm codes in the position that may include power-related codes: low_battery, low_power, power_off, power_on, power_cut, power_restored"
+    }
+  ],
+  "rules": [
+    "Power alarm codes are embedded in the position alarm attribute by the device; each code generates a separate alert event",
+    "low_battery indicates the internal battery is below a device-defined threshold; devices typically decide the threshold in firmware",
+    "power_cut indicates the vehicle external power supply has been disconnected (possible tampering or vehicle power failure)",
+    "power_restored indicates external power has been reconnected after a power_cut event",
+    "power_off and power_on reflect transitions detected by the device in the main power rail",
+    "Battery and power voltage readings are stored on every position and can be charted over time to identify degradation trends",
+    "Power alert events follow the same alarm processing pipeline as other alarm types (see device-alarm-notifications); duplicate suppression applies"
+  ],
+  "outcomes": {
+    "power_alarm_generated": {
+      "priority": 10,
+      "given": [
+        "position alarm attribute contains a power-related alarm code",
+        {
+          "any": [
+            "duplicate suppression is disabled",
+            "alarm code was not present in the previous position"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "event",
+          "description": "Power alarm event recorded with type = alarm, alarm_type = power alarm code, device_id, position_id"
+        },
+        {
+          "action": "emit_event",
+          "event": "device.power_alarm",
+          "payload": [
+            "device_id",
+            "alarm_type",
+            "battery_level",
+            "battery_voltage",
+            "external_power_voltage",
+            "fix_time"
+          ]
+        }
+      ],
+      "result": "Power alert event stored; notification handlers dispatch alerts to subscribed users"
+    },
+    "battery_data_recorded": {
+      "priority": 5,
+      "given": [
+        "position includes battery_level or battery_voltage attributes"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "position.battery_level",
+          "description": "Battery level percentage stored on position"
+        },
+        {
+          "action": "set_field",
+          "target": "position.battery_voltage",
+          "description": "Battery voltage stored on position"
+        }
+      ],
+      "result": "Battery telemetry captured on position record; available for trend analysis and reporting"
+    },
+    "no_power_data": {
+      "priority": 3,
+      "given": [
+        "position does not include any power or battery attributes"
+      ],
+      "then": [],
+      "result": "No power events generated for this position; device does not report power telemetry"
+    }
+  },
+  "errors": [
+    {
+      "code": "POWER_DEVICE_NOT_FOUND",
+      "message": "The device referenced does not exist"
+    }
+  ],
+  "events": [
+    {
+      "name": "device.power_alarm",
+      "description": "Device has reported a power-related condition (low battery, power cut, power restored)",
+      "payload": [
+        "device_id",
+        "alarm_type",
+        "battery_level",
+        "battery_voltage",
+        "external_power_voltage",
+        "fix_time",
+        "position_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "device-alarm-notifications",
+      "relationship": "required",
+      "description": "Power alarms are processed through the same alarm event pipeline"
+    },
+    {
+      "feature": "gps-position-ingestion",
+      "relationship": "required",
+      "description": "Power telemetry and alarm codes arrive as position attributes"
+    },
+    {
+      "feature": "device-status-tracking",
+      "relationship": "recommended",
+      "description": "Power cut may correlate with device going offline shortly after"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/traccar/traccar",
+      "project": "Traccar GPS Tracking Server",
+      "tech_stack": "Java 17, Netty",
+      "files_traced": 4,
+      "entry_points": [
+        "src/main/java/org/traccar/handler/events/AlarmEventHandler.java",
+        "src/main/java/org/traccar/model/Position.java"
+      ]
+    }
+  }
+}

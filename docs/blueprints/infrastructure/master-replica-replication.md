@@ -40,12 +40,17 @@ description: "One-way data synchronization from master to replicas; full or part
 
 ## States
 
-**State field:** `undefined`
+**State field:** `replica_state`
 
 **Values:**
 
 | State | Initial | Terminal |
 |-------|---------|----------|
+| `not_replicating` | Yes |  |
+| `connecting` |  |  |
+| `syncing` |  |  |
+| `sync_partial` |  |  |
+| `replicating` |  | Yes |
 
 ## Rules
 
@@ -57,7 +62,7 @@ description: "One-way data synchronization from master to replicas; full or part
 
 **Given:**
 - REPLICAOF master_host master_port
-- `master_address` (input) eq
+- `master_address` (input) exists
 
 **Then:**
 - **transition_state** field: `replica_state` to: `connecting`
@@ -149,7 +154,7 @@ description: "One-way data synchronization from master to replicas; full or part
 ### Replica_receive_command (Priority: 41)
 
 **Given:**
-- `master_sends_command` (system) eq
+- `master_sends_command` (system) exists
 
 **Then:**
 - **emit_event** event: `replication.command_applied`
@@ -169,7 +174,7 @@ description: "One-way data synchronization from master to replicas; full or part
 ### Replica_disconnect (Priority: 50)
 
 **Given:**
-- `network_failure` (system) eq
+- `network_failure` (system) exists
 
 **Then:**
 - **transition_state** field: `replica_state` to: `not_replicating`
@@ -191,7 +196,7 @@ description: "One-way data synchronization from master to replicas; full or part
 ### Backlog_command_buffered (Priority: 60)
 
 **Given:**
-- `write_command` (system) eq
+- `write_command` (system) exists
 
 **Then:**
 - **emit_event** event: `replication.backlog_write`
@@ -212,7 +217,7 @@ description: "One-way data synchronization from master to replicas; full or part
 ### Backlog_size_configurable (Priority: 62)
 
 **Given:**
-- `repl_backlog_size` (input) eq
+- `repl_backlog_size` (input) exists
 
 **Then:**
 - **set_field** target: `backlog_size_mb`
@@ -244,8 +249,8 @@ description: "One-way data synchronization from master to replicas; full or part
 
 **Given:**
 - WAIT num_replicas timeout_ms
-- `num_replicas` (input) eq
-- `timeout_ms` (input) eq
+- `num_replicas` (input) exists
+- `timeout_ms` (input) exists
 
 **Then:**
 - **emit_event** event: `replication.wait_issued`
@@ -256,31 +261,31 @@ description: "One-way data synchronization from master to replicas; full or part
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `REPLICATION_ERROR` |  | Error during replication setup | No |
-| `READONLY` |  | READONLY You can't write against a read only replica | No |
+| `REPLICATION_ERROR` | 500 | Error during replication setup | No |
+| `READONLY` | 403 | You cannot write against a read only replica | No |
 
 ## Events
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
+| `replication.config_set` |  |  |
+| `replication.stopped` |  |  |
+| `replication.full_sync_started` |  |  |
+| `replication.full_sync_complete` |  |  |
+| `replication.partial_resync_request` |  |  |
+| `replication.partial_resync_accepted` |  |  |
+| `replication.full_resync_forced` |  |  |
+| `replication.command_propagated` |  |  |
+| `replication.command_applied` |  |  |
+| `replication.buffer_overflow` |  |  |
+| `replication.disconnected` |  |  |
+| `replication.reconnecting` |  |  |
+| `replication.backlog_write` |  |  |
+| `replication.backlog_overwrite` |  |  |
+| `replication.backlog_resized` |  |  |
+| `replication.info_queried` |  |  |
+| `replication.role_queried` |  |  |
+| `replication.wait_issued` |  |  |
 
 ## Related Blueprints
 

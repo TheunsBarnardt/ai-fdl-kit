@@ -1,0 +1,228 @@
+# ============================================================
+# GPS Device Registration and Identification — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/traccar/traccar
+# Source project: Traccar GPS Tracking Server (Java/Netty)
+# Files traced: ~8
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: gps-device-registration
+version: "1.0.0"
+description: Register and identify GPS tracking devices by unique hardware ID (IMEI or custom identifier), with per-device metadata, grouping, and lifecycle management.
+category: data
+tags: [gps, tracking, device-management, iot, fleet]
+
+actors:
+  - id: fleet_admin
+    name: Fleet Administrator
+    type: human
+    description: Manages the device registry, creates and configures tracking devices
+  - id: device
+    name: GPS Device
+    type: external
+    description: Physical hardware unit that transmits position data
+  - id: system
+    name: Tracking Platform
+    type: system
+    description: Receives registrations, maintains device state, validates uniqueness
+
+fields:
+  - name: unique_id
+    type: text
+    required: true
+    description: Hardware identifier transmitted by the device (IMEI, serial number, or custom ID); must be trimmed of whitespace and unique across all devices
+  - name: name
+    type: text
+    required: true
+    description: Human-readable label for the device
+  - name: phone
+    type: phone
+    required: false
+    description: SIM card phone number for SMS-based commands
+  - name: model
+    type: text
+    required: false
+    description: Device hardware model or type
+  - name: contact
+    type: text
+    required: false
+    description: Contact person or note associated with this device
+  - name: category
+    type: select
+    required: false
+    description: Device category (e.g., car, truck, motorcycle, asset tracker)
+  - name: group_id
+    type: hidden
+    required: false
+    description: Parent group for hierarchical organisation and inherited configuration
+  - name: disabled
+    type: boolean
+    required: false
+    description: When true, device data is accepted but ignored by event handlers and reports
+  - name: expiration_time
+    type: datetime
+    required: false
+    description: Date after which the device is automatically treated as disabled
+  - name: status
+    type: select
+    required: false
+    description: "Runtime status: online, offline, or unknown"
+  - name: last_update
+    type: datetime
+    required: false
+    description: Timestamp of the most recently received position
+
+states:
+  field: status
+  values:
+    - id: unknown
+      label: Unknown
+      initial: true
+      description: Device has never reported or status has not been determined
+    - id: online
+      label: Online
+      description: Device reported a position within the configured inactivity threshold
+    - id: offline
+      label: Offline
+      terminal: false
+      description: Device has not reported within the configured inactivity threshold
+
+rules:
+  validation:
+    unique_id_trimmed: unique_id must be trimmed of leading and trailing whitespace before storage
+    unique_id_uniqueness: unique_id must be unique across all registered devices; duplicate registration is rejected
+  data:
+    group_inheritance: A device inherits configuration attributes from its group hierarchy if not explicitly set
+    disabled_behavior: A disabled device continues to accept raw position data from hardware but suppresses all event processing, alerts, and inclusion in live views
+    expiry_behavior: An expired device (current time > expiration_time) is treated as disabled automatically
+  states:
+    status_transitions: Status transitions are driven by the most recent position timestamp relative to a configurable inactivity window, not by explicit operator action
+
+outcomes:
+  device_registered:
+    priority: 10
+    given:
+      - "fleet_admin provides unique_id, name, and optional metadata"
+      - field: unique_id
+        source: db
+        operator: not_exists
+        description: No device with this unique_id already exists
+    then:
+      - action: create_record
+        target: device
+        description: Device record persisted with all provided fields and status = unknown
+      - action: emit_event
+        event: device.registered
+        payload: [device_id, unique_id, name, group_id]
+    result: Device is registered and visible in the fleet list with status unknown
+
+  duplicate_rejected:
+    priority: 1
+    error: DEVICE_DUPLICATE_UNIQUE_ID
+    given:
+      - field: unique_id
+        source: db
+        operator: exists
+        description: Another device already uses this unique_id
+    then: []
+    result: Registration is rejected; operator is informed of the conflict
+
+  device_updated:
+    priority: 10
+    given:
+      - "fleet_admin submits updated metadata for an existing device"
+      - field: device_id
+        source: db
+        operator: exists
+    then:
+      - action: set_field
+        target: name
+        description: Updated name applied
+      - action: set_field
+        target: category
+        description: Updated category applied
+      - action: emit_event
+        event: device.updated
+        payload: [device_id, changed_fields]
+    result: Device record reflects the new metadata
+
+  device_disabled:
+    priority: 5
+    given:
+      - "fleet_admin sets disabled = true"
+    then:
+      - action: set_field
+        target: disabled
+        value: true
+      - action: emit_event
+        event: device.disabled
+        payload: [device_id]
+    result: Device continues transmitting but all event and alert processing is suppressed
+
+  device_expired:
+    priority: 3
+    given:
+      - field: expiration_time
+        source: db
+        operator: lt
+        value: now
+        description: Device expiration time has passed
+    then:
+      - action: set_field
+        target: status
+        value: offline
+      - action: emit_event
+        event: device.expired
+        payload: [device_id, expiration_time]
+    result: Device is treated as disabled; no further event processing occurs
+
+errors:
+  - code: DEVICE_DUPLICATE_UNIQUE_ID
+    message: A device with this identifier is already registered
+  - code: DEVICE_NOT_FOUND
+    message: The specified device does not exist
+  - code: DEVICE_LIMIT_EXCEEDED
+    message: The maximum number of devices allowed for this account has been reached
+
+events:
+  - name: device.registered
+    description: A new device has been added to the fleet
+    payload: [device_id, unique_id, name, group_id]
+  - name: device.updated
+    description: Device metadata has been modified
+    payload: [device_id, changed_fields]
+  - name: device.disabled
+    description: Device has been disabled
+    payload: [device_id]
+  - name: device.expired
+    description: Device subscription or licence has expired
+    payload: [device_id, expiration_time]
+  - name: device.status_changed
+    description: Device transitioned between online, offline, and unknown states
+    payload: [device_id, old_status, new_status, last_update]
+
+related:
+  - feature: gps-position-ingestion
+    relationship: required
+    description: Devices must be registered before positions can be attributed to them
+  - feature: device-status-tracking
+    relationship: required
+    description: Status transitions are computed from position timestamps
+  - feature: fleet-device-sharing
+    relationship: recommended
+    description: Groups and user permissions govern who can see and manage each device
+
+extensions:
+  source:
+    repo: https://github.com/traccar/traccar
+    project: Traccar GPS Tracking Server
+    tech_stack: Java 17, Netty, Hibernate, H2/MySQL/PostgreSQL
+    files_traced: 8
+    entry_points:
+      - src/main/java/org/traccar/model/Device.java
+      - src/main/java/org/traccar/api/resource/DeviceResource.java
+      - src/main/java/org/traccar/schedule/TaskDeviceInactivityCheck.java

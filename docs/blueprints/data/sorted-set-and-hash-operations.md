@@ -37,12 +37,15 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ## States
 
-**State field:** `undefined`
+**State field:** `presence`
 
 **Values:**
 
 | State | Initial | Terminal |
 |-------|---------|----------|
+| `absent` | Yes |  |
+| `present` |  |  |
+| `empty` |  | Yes |
 
 ## Rules
 
@@ -111,8 +114,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 **Given:**
 - ZRANGE key min max BYSCORE [WITHSCORES] [LIMIT offset count]
-- `min_score` (input) eq
-- `max_score` (input) eq
+- `min_score` (input) exists
+- `max_score` (input) exists
 
 **Then:**
 - **emit_event** event: `zset.range_score`
@@ -154,8 +157,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 **Given:**
 - ZINTER numkeys key [key ...] [WEIGHTS weight ...] [AGGREGATE SUM|MIN|MAX]
-- `weights` (input) eq
-- `aggregate` (input) eq
+- `weights` (input) exists
+- `aggregate` (input) exists
 
 **Then:**
 - **emit_event** event: `zset.inter`
@@ -176,7 +179,7 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 **Given:**
 - `command` (input) in `HSET,HMSET`
-- `field_value_pairs` (input) eq
+- `field_value_pairs` (input) exists
 
 **Then:**
 - **set_field** target: `fields` — set or update fields
@@ -292,7 +295,7 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 **Given:**
 - HEXPIRE key [NX|XX|GT|LT] seconds FIELDS count field [field ...]
-- `condition` (input) eq
+- `condition` (input) exists
 
 **Then:**
 - **set_field** target: `field_ttl_ms` — set absolute expiration timestamp
@@ -346,40 +349,40 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `NOT_AN_INTEGER` |  | hash value is not an integer | No |
-| `WRONG_TYPE` |  | WRONGTYPE Operation against a key holding the wrong kind of value | No |
-| `SYNTAX_ERROR` |  | syntax error in score or condition | No |
+| `NOT_AN_INTEGER` | 400 | Hash value is not an integer | No |
+| `WRONG_TYPE` | 400 | Operation against a key holding the wrong kind of value | No |
+| `SYNTAX_ERROR` | 400 | Syntax error in score or condition | No |
 
 ## Events
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
+| `zset.added` |  |  |
+| `zset.conditional_add` |  |  |
+| `zset.removed` |  |  |
+| `zset.range_rank` |  |  |
+| `zset.range_score` |  |  |
+| `zset.range_lex` |  |  |
+| `zset.rank` |  |  |
+| `zset.score_read` |  |  |
+| `zset.inter` |  |  |
+| `zset.union` |  |  |
+| `hash.set` |  |  |
+| `hash.field_read` |  |  |
+| `hash.multi_read` |  |  |
+| `hash.all_read` |  |  |
+| `hash.keys_read` |  |  |
+| `hash.vals_read` |  |  |
+| `hash.deleted` |  |  |
+| `hash.incr` |  |  |
+| `hash.incrbyfloat` |  |  |
+| `hash.exists_check` |  |  |
+| `hash.count` |  |  |
+| `hash.expire_set` |  |  |
+| `hash.pexpire_set` |  |  |
+| `hash.persist` |  |  |
+| `hash.ttl_read` |  |  |
+| `hash.scan` |  |  |
 
 ## Related Blueprints
 

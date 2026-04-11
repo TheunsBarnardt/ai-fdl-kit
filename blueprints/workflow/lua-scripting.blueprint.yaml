@@ -22,39 +22,39 @@ actors:
     type: human
     description: Application sending scripts to execute
 fields:
+  # Lua code to execute
   - name: script_source
     type: text
-    description: Lua code to execute
     required: false
     label: Script Source
+  # SHA1 digest of script (40 hex chars)
   - name: script_sha
     type: text
-    description: SHA1 digest of script (40 hex chars)
     required: false
     label: Script Sha
+  # Count of Redis key arguments
   - name: num_keys
     type: number
-    description: Count of Redis key arguments
     required: false
     label: Num Keys
+  # KEYS[1..N] accessible in script
   - name: keys_array
     type: json
-    description: KEYS[1..N] accessible in script
     required: false
     label: Keys Array
+  # ARGV[1..N] accessible in script
   - name: argv_array
     type: json
-    description: ARGV[1..N] accessible in script
     required: false
     label: Argv Array
+  # Return value from script
   - name: script_result
     type: text
-    description: Return value from script
     required: false
     label: Script Result
+  # Time spent executing script
   - name: execution_time_ms
     type: number
-    description: Time spent executing script
     required: false
     label: Execution Time Ms
 rules:
@@ -69,18 +69,18 @@ rules:
     - Numeric types preserved; float operations return integers where possible
     - Long-running scripts can be SCRIPT KILL if timeout exceeded
 states:
-  - field: script_state
-    values:
-      - value: not_cached
-        initial: true
-        description: Script not yet cached
-      - value: cached
-        description: Script stored by SHA1
-      - value: executing
-        description: Script currently running
-      - value: completed
-        terminal: true
-        description: Execution finished with result
+  field: script_state
+  values:
+    - name: not_cached
+      initial: true
+      description: Script not yet cached
+    - name: cached
+      description: Script stored by SHA1
+    - name: executing
+      description: Script currently running
+    - name: completed
+      terminal: true
+      description: Execution finished with result
 outcomes:
   eval_inline_script:
     priority: 10
@@ -89,9 +89,10 @@ outcomes:
       - EVAL script numkeys [key ...] [arg ...]
       - field: script
         source: input
+        operator: exists
       - field: numkeys
         source: input
-        description: count of keys (determines KEYS/ARGV split)
+        operator: exists
     then:
       - action: set_field
         target: script_source
@@ -266,6 +267,7 @@ outcomes:
       - SCRIPT LOAD script
       - field: script
         source: input
+        operator: exists
     then:
       - action: set_field
         target: script_sha
@@ -285,6 +287,7 @@ outcomes:
       - SCRIPT EXISTS sha1 [sha1 ...]
       - field: shas
         source: input
+        operator: exists
     then:
       - action: emit_event
         event: script.exists_checked
@@ -299,7 +302,7 @@ outcomes:
       - SCRIPT FLUSH [ASYNC|SYNC]
       - field: mode
         source: input
-        description: ASYNC=non-blocking, SYNC=blocking
+        operator: exists
     then:
       - action: set_field
         target: script_state
@@ -416,35 +419,55 @@ outcomes:
     result: script doesn't see other client's modification (changes applied after script completes)
 errors:
   - code: NOSCRIPT
-    message: NOSCRIPT No matching script. Please use EVAL.
-    user_safe: true
+    message: No matching script. Please use EVAL.
+    status: 404
   - code: SCRIPT_ERROR
-    message: "ERR Error running script: <details>"
-    user_safe: true
+    message: Error running script
+    status: 500
   - code: SCRIPT_KILLED
-    message: SCRIPT KILLED Script killed by user with SCRIPT KILL...
-    user_safe: true
+    message: Script killed by user with SCRIPT KILL
+    status: 500
 events:
-  - script.executed
-  - script.executed_cached
-  - script.not_found
-  - script.result_string
-  - script.result_number
-  - script.result_array
-  - script.result_error
-  - script.runtime_error
-  - script.redis_call_error
-  - script.redis_pcall_error
-  - script.redis_command_executed
-  - script.loaded
-  - script.exists_checked
-  - script.cache_flushed
-  - script.killed
-  - script.call_denied
-  - script.sandbox_violation
-  - script.stdlib_used
-  - script.atomic_abort
-  - script.isolation_maintained
+  - name: script.executed
+    payload: []
+  - name: script.executed_cached
+    payload: []
+  - name: script.not_found
+    payload: []
+  - name: script.result_string
+    payload: []
+  - name: script.result_number
+    payload: []
+  - name: script.result_array
+    payload: []
+  - name: script.result_error
+    payload: []
+  - name: script.runtime_error
+    payload: []
+  - name: script.redis_call_error
+    payload: []
+  - name: script.redis_pcall_error
+    payload: []
+  - name: script.redis_command_executed
+    payload: []
+  - name: script.loaded
+    payload: []
+  - name: script.exists_checked
+    payload: []
+  - name: script.cache_flushed
+    payload: []
+  - name: script.killed
+    payload: []
+  - name: script.call_denied
+    payload: []
+  - name: script.sandbox_violation
+    payload: []
+  - name: script.stdlib_used
+    payload: []
+  - name: script.atomic_abort
+    payload: []
+  - name: script.isolation_maintained
+    payload: []
 related:
   - feature: multi-exec-transactions
     type: optional

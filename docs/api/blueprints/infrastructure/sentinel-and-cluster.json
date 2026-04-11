@@ -48,14 +48,12 @@
     {
       "name": "sentinel_mode",
       "type": "boolean",
-      "description": "Whether Sentinel is enabled",
       "required": false,
       "label": "Sentinel Mode"
     },
     {
       "name": "cluster_mode",
       "type": "boolean",
-      "description": "Whether Cluster mode is enabled",
       "required": false,
       "label": "Cluster Mode"
     },
@@ -63,33 +61,41 @@
       "name": "master_state",
       "type": "select",
       "options": [
-        "healthy",
-        "sdown",
-        "odown",
-        "failing_over"
+        {
+          "value": "healthy",
+          "label": "Healthy"
+        },
+        {
+          "value": "sdown",
+          "label": "Subjectively Down"
+        },
+        {
+          "value": "odown",
+          "label": "Objectively Down"
+        },
+        {
+          "value": "failing_over",
+          "label": "Failing Over"
+        }
       ],
-      "description": "Sentinel's view of master health",
       "required": false,
       "label": "Master State"
     },
     {
       "name": "cluster_slots",
       "type": "number",
-      "description": "Number of hash slots (16384 in cluster mode)",
       "required": false,
       "label": "Cluster Slots"
     },
     {
       "name": "node_slots_owned",
       "type": "json",
-      "description": "Slot ranges owned by this node",
       "required": false,
       "label": "Node Slots Owned"
     },
     {
       "name": "sentinel_quorum_size",
       "type": "number",
-      "description": "Minimum Sentinels required for quorum",
       "required": false,
       "label": "Sentinel Quorum Size"
     }
@@ -113,53 +119,33 @@
       "Cluster can rebalance slots (migrate data between nodes)"
     ]
   },
-  "states": [
-    {
-      "field": "master_health",
-      "values": [
-        {
-          "value": "healthy",
-          "initial": true,
-          "description": "Master responding to pings"
-        },
-        {
-          "value": "sdown",
-          "description": "Subjective down (this Sentinel sees it down)"
-        },
-        {
-          "value": "odown",
-          "description": "Objective down (quorum agrees)"
-        },
-        {
-          "value": "failing_over",
-          "description": "Failover in progress"
-        },
-        {
-          "value": "recovered",
-          "terminal": true,
-          "description": "Master recovered post-failover"
-        }
-      ]
-    },
-    {
-      "field": "cluster_state",
-      "values": [
-        {
-          "value": "ok",
-          "initial": true,
-          "description": "All slots assigned and reachable"
-        },
-        {
-          "value": "fail",
-          "description": "Some slots unreachable or unassigned"
-        },
-        {
-          "value": "rebalancing",
-          "description": "Slots being migrated"
-        }
-      ]
-    }
-  ],
+  "states": {
+    "field": "master_health",
+    "values": [
+      {
+        "name": "healthy",
+        "initial": true,
+        "description": "Master responding to pings"
+      },
+      {
+        "name": "sdown",
+        "description": "Subjective down (this Sentinel sees it down)"
+      },
+      {
+        "name": "odown",
+        "description": "Objective down (quorum agrees)"
+      },
+      {
+        "name": "failing_over",
+        "description": "Failover in progress"
+      },
+      {
+        "name": "recovered",
+        "terminal": true,
+        "description": "Master recovered post-failover"
+      }
+    ]
+  },
   "outcomes": {
     "sentinel_monitor_master": {
       "priority": 10,
@@ -168,7 +154,7 @@
         {
           "field": "sentinel_config",
           "source": "input",
-          "description": "sentinel monitor <name> <ip> <port> <quorum>"
+          "operator": "exists"
         }
       ],
       "then": [
@@ -192,7 +178,7 @@
         {
           "field": "ping_no_response",
           "source": "system",
-          "description": "no PONG for down_after_milliseconds"
+          "operator": "exists"
         }
       ],
       "then": [
@@ -288,12 +274,12 @@
         {
           "field": "replica_candidates",
           "source": "db",
-          "description": "connected replicas"
+          "operator": "exists"
         },
         {
           "field": "selection_criteria",
           "source": "system",
-          "description": "priority, offset, runid"
+          "operator": "exists"
         }
       ],
       "then": [
@@ -331,7 +317,8 @@
       "given": [
         {
           "field": "new_master",
-          "source": "system"
+          "source": "system",
+          "operator": "exists"
         },
         {
           "field": "other_replicas",
@@ -446,16 +433,18 @@
       "given": [
         {
           "field": "key",
-          "source": "input"
+          "source": "input",
+          "operator": "exists"
         },
         {
           "field": "slot",
           "source": "computed",
-          "description": "CRC16(key) mod 16384"
+          "operator": "exists"
         },
         {
           "field": "slot_owner",
-          "source": "db"
+          "source": "db",
+          "operator": "exists"
         }
       ],
       "then": [
@@ -571,7 +560,7 @@
     },
     "cluster_multi_key_restriction": {
       "priority": 36,
-      "error": "CROSSSLOT",
+      "error": "CLUSTER_CROSSSLOT",
       "description": "Multi-key operation on different slots",
       "given": [
         {
@@ -699,40 +688,97 @@
   "errors": [
     {
       "code": "CLUSTER_CROSSSLOT",
-      "message": "CROSSSLOT Keys in request don't hash to the same slot",
-      "user_safe": true
+      "message": "Keys in request do not hash to the same slot",
+      "status": 400
     },
     {
       "code": "CLUSTER_SLOT_UNOWNED",
-      "message": "CLUSTERDOWN The cluster is down",
-      "user_safe": true
+      "message": "The cluster is down",
+      "status": 503
     },
     {
       "code": "SENTINEL_NOSCRIPT",
       "message": "Sentinel command syntax error",
-      "user_safe": true
+      "status": 400
     }
   ],
   "events": [
-    "sentinel.monitoring_started",
-    "sentinel.sdown_detected",
-    "sentinel.odown_detected",
-    "sentinel.failover_started",
-    "sentinel.replica_selected",
-    "sentinel.promotion_sent",
-    "sentinel.replication_updated",
-    "sentinel.failover_complete",
-    "cluster.node_joined",
-    "cluster.slots_assigned",
-    "cluster.request_routed",
-    "cluster.moved",
-    "cluster.ask",
-    "cluster.migration_started",
-    "cluster.crossslot_rejected",
-    "cluster.healthy",
-    "cluster.unhealthy",
-    "cluster.gossip_sent",
-    "cluster.info_queried"
+    {
+      "name": "sentinel.monitoring_started",
+      "payload": []
+    },
+    {
+      "name": "sentinel.sdown_detected",
+      "payload": []
+    },
+    {
+      "name": "sentinel.odown_detected",
+      "payload": []
+    },
+    {
+      "name": "sentinel.failover_started",
+      "payload": []
+    },
+    {
+      "name": "sentinel.replica_selected",
+      "payload": []
+    },
+    {
+      "name": "sentinel.promotion_sent",
+      "payload": []
+    },
+    {
+      "name": "sentinel.replication_updated",
+      "payload": []
+    },
+    {
+      "name": "sentinel.failover_complete",
+      "payload": []
+    },
+    {
+      "name": "cluster.node_joined",
+      "payload": []
+    },
+    {
+      "name": "cluster.slots_assigned",
+      "payload": []
+    },
+    {
+      "name": "cluster.request_routed",
+      "payload": []
+    },
+    {
+      "name": "cluster.moved",
+      "payload": []
+    },
+    {
+      "name": "cluster.ask",
+      "payload": []
+    },
+    {
+      "name": "cluster.migration_started",
+      "payload": []
+    },
+    {
+      "name": "cluster.crossslot_rejected",
+      "payload": []
+    },
+    {
+      "name": "cluster.healthy",
+      "payload": []
+    },
+    {
+      "name": "cluster.unhealthy",
+      "payload": []
+    },
+    {
+      "name": "cluster.gossip_sent",
+      "payload": []
+    },
+    {
+      "name": "cluster.info_queried",
+      "payload": []
+    }
   ],
   "related": [
     {

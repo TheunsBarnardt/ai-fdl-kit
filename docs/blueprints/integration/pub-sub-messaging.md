@@ -40,12 +40,15 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 ## States
 
-**State field:** `undefined`
+**State field:** `subscriber_state`
 
 **Values:**
 
 | State | Initial | Terminal |
 |-------|---------|----------|
+| `not_subscribed` | Yes |  |
+| `subscribed` |  |  |
+| `connected` |  |  |
 
 ## Rules
 
@@ -57,8 +60,8 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 **Given:**
 - PUBLISH channel message
-- `channel` (input) eq
-- `message` (input) eq
+- `channel` (input) exists
+- `message` (input) exists
 
 **Then:**
 - **emit_event** event: `pubsub.message_published`
@@ -91,7 +94,7 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 **Given:**
 - SUBSCRIBE channel [channel ...]
-- `channels` (input) eq
+- `channels` (input) exists
 
 **Then:**
 - **transition_state** field: `subscriber_state` to: `subscribed`
@@ -103,7 +106,7 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 **Given:**
 - PSUBSCRIBE pattern [pattern ...]
-- `patterns` (input) eq
+- `patterns` (input) exists
 
 **Then:**
 - **transition_state** field: `subscriber_state` to: `subscribed`
@@ -114,7 +117,7 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 ### Receive_message (Priority: 22)
 
 **Given:**
-- `message_published` (system) eq
+- `message_published` (system) exists
 - `subscriber_state` (db) eq `subscribed`
 
 **Then:**
@@ -148,7 +151,7 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 **Given:**
 - UNSUBSCRIBE [channel ...]
-- `channels` (input) eq
+- `channels` (input) exists
 
 **Then:**
 - **emit_event** event: `pubsub.unsubscribed`
@@ -159,7 +162,7 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 **Given:**
 - PUNSUBSCRIBE [pattern ...]
-- `patterns` (input) eq
+- `patterns` (input) exists
 
 **Then:**
 - **emit_event** event: `pubsub.pattern_unsubscribed`
@@ -213,7 +216,7 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 **Given:**
 - PUBSUB CHANNELS [pattern]
-- `pattern` (input) eq
+- `pattern` (input) exists
 
 **Then:**
 - **emit_event** event: `pubsub.channels_listed`
@@ -244,30 +247,30 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `SUBSCRIPTION_MODE` |  | only (P)SUBSCRIBE / (P)UNSUBSCRIBE / PING / QUIT allowed in this context | No |
-| `WRONG_TYPE` |  | WRONGTYPE Operation against a key holding the wrong kind of value | No |
+| `SUBSCRIPTION_MODE` | 400 | Only (P)SUBSCRIBE / (P)UNSUBSCRIBE / PING / QUIT allowed in this context | No |
+| `WRONG_TYPE` | 400 | Operation against a key holding the wrong kind of value | No |
 
 ## Events
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
+| `pubsub.message_published` |  |  |
+| `pubsub.published_to_empty` |  |  |
+| `pubsub.sharded_published` |  |  |
+| `pubsub.subscribed` |  |  |
+| `pubsub.pattern_subscribed` |  |  |
+| `pubsub.message_received` |  |  |
+| `pubsub.pattern_message_received` |  |  |
+| `pubsub.sharded_subscribed` |  |  |
+| `pubsub.unsubscribed` |  |  |
+| `pubsub.pattern_unsubscribed` |  |  |
+| `pubsub.mode_exited` |  |  |
+| `pubsub.sharded_unsubscribed` |  |  |
+| `pubsub.invalid_command` |  |  |
+| `pubsub.pong` |  |  |
+| `pubsub.channels_listed` |  |  |
+| `pubsub.numsub_queried` |  |  |
+| `pubsub.numpat_queried` |  |  |
 
 ## Related Blueprints
 

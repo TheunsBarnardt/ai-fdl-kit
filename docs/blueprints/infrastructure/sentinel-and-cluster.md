@@ -42,12 +42,17 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 ## States
 
-**State field:** `undefined`
+**State field:** `master_health`
 
 **Values:**
 
 | State | Initial | Terminal |
 |-------|---------|----------|
+| `healthy` | Yes |  |
+| `sdown` |  |  |
+| `odown` |  |  |
+| `failing_over` |  |  |
+| `recovered` |  | Yes |
 
 ## Rules
 
@@ -58,7 +63,7 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 ### Sentinel_monitor_master (Priority: 10)
 
 **Given:**
-- `sentinel_config` (input) eq
+- `sentinel_config` (input) exists
 
 **Then:**
 - **emit_event** event: `sentinel.monitoring_started`
@@ -68,7 +73,7 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 ### Sentinel_health_check (Priority: 11)
 
 **Given:**
-- `ping_no_response` (system) eq
+- `ping_no_response` (system) exists
 
 **Then:**
 - **transition_state** field: `master_health` to: `sdown`
@@ -103,8 +108,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 ### Sentinel_replica_selection (Priority: 14)
 
 **Given:**
-- `replica_candidates` (db) eq
-- `selection_criteria` (system) eq
+- `replica_candidates` (db) exists
+- `selection_criteria` (system) exists
 
 **Then:**
 - **emit_event** event: `sentinel.replica_selected`
@@ -124,7 +129,7 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 ### Sentinel_reconfigure_replicas (Priority: 16)
 
 **Given:**
-- `new_master` (system) eq
+- `new_master` (system) exists
 - `other_replicas` (system) gt `0`
 
 **Then:**
@@ -170,9 +175,9 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 ### Cluster_key_routing (Priority: 32)
 
 **Given:**
-- `key` (input) eq
-- `slot` (computed) eq
-- `slot_owner` (db) eq
+- `key` (input) exists
+- `slot` (computed) exists
+- `slot_owner` (db) exists
 
 **Then:**
 - **undefined**
@@ -212,7 +217,7 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 **Result:** slot enters migration state; data gradually moved
 
-### Cluster_multi_key_restriction (Priority: 36) — Error: `CROSSSLOT`
+### Cluster_multi_key_restriction (Priority: 36) — Error: `CLUSTER_CROSSSLOT`
 
 **Given:**
 - `command_touches_multiple_slots` (computed) eq `true`
@@ -269,33 +274,33 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `CLUSTER_CROSSSLOT` |  | CROSSSLOT Keys in request don't hash to the same slot | No |
-| `CLUSTER_SLOT_UNOWNED` |  | CLUSTERDOWN The cluster is down | No |
-| `SENTINEL_NOSCRIPT` |  | Sentinel command syntax error | No |
+| `CLUSTER_CROSSSLOT` | 400 | Keys in request do not hash to the same slot | No |
+| `CLUSTER_SLOT_UNOWNED` | 503 | The cluster is down | No |
+| `SENTINEL_NOSCRIPT` | 400 | Sentinel command syntax error | No |
 
 ## Events
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
+| `sentinel.monitoring_started` |  |  |
+| `sentinel.sdown_detected` |  |  |
+| `sentinel.odown_detected` |  |  |
+| `sentinel.failover_started` |  |  |
+| `sentinel.replica_selected` |  |  |
+| `sentinel.promotion_sent` |  |  |
+| `sentinel.replication_updated` |  |  |
+| `sentinel.failover_complete` |  |  |
+| `cluster.node_joined` |  |  |
+| `cluster.slots_assigned` |  |  |
+| `cluster.request_routed` |  |  |
+| `cluster.moved` |  |  |
+| `cluster.ask` |  |  |
+| `cluster.migration_started` |  |  |
+| `cluster.crossslot_rejected` |  |  |
+| `cluster.healthy` |  |  |
+| `cluster.unhealthy` |  |  |
+| `cluster.gossip_sent` |  |  |
+| `cluster.info_queried` |  |  |
 
 ## Related Blueprints
 

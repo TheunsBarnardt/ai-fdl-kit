@@ -28,20 +28,20 @@ Specifies 17 acceptance outcomes that any implementation must satisfy, regardles
 
 **✅ Success paths**
 
-- **Publish Message** — when PUBLISH channel message; channel eq; message eq, then client receives count of subscribers that received the message.
+- **Publish Message** — when PUBLISH channel message; channel exists; message exists, then client receives count of subscribers that received the message.
 - **Publish No Subscribers** — when subscriber_count eq 0; pattern_subscriber_count eq 0, then message discarded; client receives 0.
 - **Sharded Publish** — when SPUBLISH shard_channel message; shard_owned_by_this_node eq true, then count of subscribers on this shard that received message.
-- **Subscribe To Channels** — when SUBSCRIBE channel [channel ...]; channels eq, then client enters subscription mode; receives subscription confirmation; starts receiving messages.
-- **Subscribe Pattern** — when PSUBSCRIBE pattern [pattern ...]; patterns eq, then client enters subscription mode; receives pattern subscription confirmation.
-- **Receive Message** — when message published to subscribed channel; subscriber_state eq "subscribed", then message delivered to subscriber in format [type, channel/pattern, message].
+- **Subscribe To Channels** — when SUBSCRIBE channel [channel ...]; channels exists, then client enters subscription mode; receives subscription confirmation; starts receiving messages.
+- **Subscribe Pattern** — when PSUBSCRIBE pattern [pattern ...]; patterns exists, then client enters subscription mode; receives pattern subscription confirmation.
+- **Receive Message** — when message_published exists; subscriber_state eq "subscribed", then message delivered to subscriber in format [type, channel/pattern, message].
 - **Receive Pattern Match** — when channel_matches_pattern eq true; pattern_subscribed eq true, then message delivered in format [ptype, pattern, channel, message].
 - **Sharded Subscribe** — when SSUBSCRIBE shard_channel [shard_channel ...], then client enters subscription mode; receives shard channel confirmations.
-- **Unsubscribe From Channels** — when UNSUBSCRIBE [channel ...]; empty = unsubscribe from all channels, then receives unsubscription confirmations; client exits subscription mode if no subscriptions remain.
-- **Unsubscribe From Patterns** — when PUNSUBSCRIBE [pattern ...]; patterns eq, then receives unsubscription confirmations; exits subscription mode if no subscriptions remain.
+- **Unsubscribe From Channels** — when UNSUBSCRIBE [channel ...]; channels exists, then receives unsubscription confirmations; client exits subscription mode if no subscriptions remain.
+- **Unsubscribe From Patterns** — when PUNSUBSCRIBE [pattern ...]; patterns exists, then receives unsubscription confirmations; exits subscription mode if no subscriptions remain.
 - **Exit Subscription Mode** — when remaining_subscriptions eq 0, then subscriber back in normal mode; can execute non-pub/sub commands.
 - **Sharded Unsubscribe** — when SUNSUBSCRIBE [shard_channel ...], then unsubscription confirmations.
 - **Ping While Subscribed** — when subscriber_state eq "subscribed"; PING [message], then [pong, message-or-nil].
-- **Pubsub Channels** — when PUBSUB CHANNELS [pattern]; optional glob pattern filter, then array of active channel names (with subscribers).
+- **Pubsub Channels** — when PUBSUB CHANNELS [pattern]; pattern exists, then array of active channel names (with subscribers).
 - **Pubsub Numsub** — when PUBSUB NUMSUB channel [channel ...], then flattened array [channel1, count1, channel2, count2, ...].
 - **Pubsub Numpat** — when PUBSUB NUMPAT, then total count of pattern subscriptions across all clients.
 
@@ -51,8 +51,8 @@ Specifies 17 acceptance outcomes that any implementation must satisfy, regardles
 
 ## Errors it can return
 
-- `SUBSCRIPTION_MODE` — only (P)SUBSCRIBE / (P)UNSUBSCRIBE / PING / QUIT allowed in this context
-- `WRONG_TYPE` — WRONGTYPE Operation against a key holding the wrong kind of value
+- `SUBSCRIPTION_MODE` — Only (P)SUBSCRIBE / (P)UNSUBSCRIBE / PING / QUIT allowed in this context
+- `WRONG_TYPE` — Operation against a key holding the wrong kind of value
 
 ## Connects to
 

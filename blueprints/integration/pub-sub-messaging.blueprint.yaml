@@ -35,29 +35,29 @@ actors:
     type: system
     description: Per-shard message broker (cluster mode)
 fields:
+  # Channel identifier (e.g., news, notifications.user.123)
   - name: channel_name
     type: text
-    description: Channel identifier (e.g., news, notifications.user.123)
     required: true
     label: Channel Name
+  # Glob pattern for subscriptions (e.g., news.*, user.*)
   - name: pattern
     type: text
-    description: Glob pattern for subscriptions (e.g., news.*, user.*)
     required: false
     label: Pattern
+  # Message content to publish
   - name: message
     type: text
-    description: Message content to publish
     required: false
     label: Message
+  # Count of direct subscribers to channel
   - name: subscriber_count
     type: number
-    description: Count of direct subscribers to channel
     required: false
     label: Subscriber Count
+  # Count of pattern subscribers matching channel
   - name: pattern_subscriber_count
     type: number
-    description: Count of pattern subscribers matching channel
     required: false
     label: Pattern Subscriber Count
 rules:
@@ -73,15 +73,15 @@ rules:
     - Subscriber can have multiple channel and pattern subscriptions
     - Unsubscribe with empty list = unsubscribe from all
 states:
-  - field: subscriber_state
-    values:
-      - value: not_subscribed
-        initial: true
-        description: Client in normal mode, can execute any command
-      - value: subscribed
-        description: Client in subscription mode, only subscription commands allowed
-      - value: connected
-        description: Subscriber waiting for messages
+  field: subscriber_state
+  values:
+    - name: not_subscribed
+      initial: true
+      description: Client in normal mode, can execute any command
+    - name: subscribed
+      description: Client in subscription mode, only subscription commands allowed
+    - name: connected
+      description: Subscriber waiting for messages
 outcomes:
   publish_message:
     priority: 10
@@ -90,8 +90,10 @@ outcomes:
       - PUBLISH channel message
       - field: channel
         source: input
+        operator: exists
       - field: message
         source: input
+        operator: exists
     then:
       - action: emit_event
         event: pubsub.message_published
@@ -142,6 +144,7 @@ outcomes:
       - SUBSCRIBE channel [channel ...]
       - field: channels
         source: input
+        operator: exists
     then:
       - action: transition_state
         field: subscriber_state
@@ -159,6 +162,7 @@ outcomes:
       - PSUBSCRIBE pattern [pattern ...]
       - field: patterns
         source: input
+        operator: exists
     then:
       - action: transition_state
         field: subscriber_state
@@ -175,7 +179,7 @@ outcomes:
     given:
       - field: message_published
         source: system
-        description: message published to subscribed channel
+        operator: exists
       - field: subscriber_state
         source: db
         operator: eq
@@ -229,7 +233,7 @@ outcomes:
       - UNSUBSCRIBE [channel ...]
       - field: channels
         source: input
-        description: empty = unsubscribe from all channels
+        operator: exists
     then:
       - action: emit_event
         event: pubsub.unsubscribed
@@ -244,6 +248,7 @@ outcomes:
       - PUNSUBSCRIBE [pattern ...]
       - field: patterns
         source: input
+        operator: exists
     then:
       - action: emit_event
         event: pubsub.pattern_unsubscribed
@@ -327,7 +332,7 @@ outcomes:
       - PUBSUB CHANNELS [pattern]
       - field: pattern
         source: input
-        description: optional glob pattern filter
+        operator: exists
     then:
       - action: emit_event
         event: pubsub.channels_listed
@@ -361,29 +366,46 @@ outcomes:
     result: total count of pattern subscriptions across all clients
 errors:
   - code: SUBSCRIPTION_MODE
-    message: only (P)SUBSCRIBE / (P)UNSUBSCRIBE / PING / QUIT allowed in this context
-    user_safe: true
+    message: Only (P)SUBSCRIBE / (P)UNSUBSCRIBE / PING / QUIT allowed in this context
+    status: 400
   - code: WRONG_TYPE
-    message: WRONGTYPE Operation against a key holding the wrong kind of value
-    user_safe: true
+    message: Operation against a key holding the wrong kind of value
+    status: 400
 events:
-  - pubsub.message_published
-  - pubsub.published_to_empty
-  - pubsub.sharded_published
-  - pubsub.subscribed
-  - pubsub.pattern_subscribed
-  - pubsub.message_received
-  - pubsub.pattern_message_received
-  - pubsub.sharded_subscribed
-  - pubsub.unsubscribed
-  - pubsub.pattern_unsubscribed
-  - pubsub.mode_exited
-  - pubsub.sharded_unsubscribed
-  - pubsub.invalid_command
-  - pubsub.pong
-  - pubsub.channels_listed
-  - pubsub.numsub_queried
-  - pubsub.numpat_queried
+  - name: pubsub.message_published
+    payload: []
+  - name: pubsub.published_to_empty
+    payload: []
+  - name: pubsub.sharded_published
+    payload: []
+  - name: pubsub.subscribed
+    payload: []
+  - name: pubsub.pattern_subscribed
+    payload: []
+  - name: pubsub.message_received
+    payload: []
+  - name: pubsub.pattern_message_received
+    payload: []
+  - name: pubsub.sharded_subscribed
+    payload: []
+  - name: pubsub.unsubscribed
+    payload: []
+  - name: pubsub.pattern_unsubscribed
+    payload: []
+  - name: pubsub.mode_exited
+    payload: []
+  - name: pubsub.sharded_unsubscribed
+    payload: []
+  - name: pubsub.invalid_command
+    payload: []
+  - name: pubsub.pong
+    payload: []
+  - name: pubsub.channels_listed
+    payload: []
+  - name: pubsub.numsub_queried
+    payload: []
+  - name: pubsub.numpat_queried
+    payload: []
 related:
   - feature: stream-event-log
     type: optional

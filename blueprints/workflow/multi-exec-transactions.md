@@ -36,12 +36,12 @@ Specifies 18 acceptance outcomes that any implementation must satisfy, regardles
 - **Discard Transaction** — when DISCARD command; transaction_state eq "queuing", then client receives OK; queued commands discarded.
 - **Watch Keys** — when WATCH key [key ...]; transaction_state in ["idle","queuing"], then client receives OK; keys now monitored.
 - **Unwatch Keys** — when UNWATCH command, then client receives OK; watch list cleared.
-- **Watch Violation Detected** — when watched_key_modified eq true; different client modified the key, then next EXEC returns nil (abort).
+- **Watch Violation Detected** — when watched_key_modified eq true; modifier_client exists, then next EXEC returns nil (abort).
 - **Optimistic Lock Read** — when GET key (before MULTI); WATCH key, then value retrieved; key now watched.
-- **Optimistic Lock Compute** — when calculated from read value, then application prepares new value.
+- **Optimistic Lock Compute** — when new_value exists, then application prepares new value.
 - **Optimistic Lock Execute** — when MULTI ... SET key new_value ... EXEC; key_unchanged eq true, then EXEC succeeds; new value set.
 - **Optimistic Lock Retry** — when watch_violation eq true, then EXEC returns nil; application retries (GET, compute, MULTI/EXEC).
-- **Command Runtime Error** — when command_executing eq; runtime_error eq true, then error stored in results array for that command; other commands still execute.
+- **Command Runtime Error** — when command_executing exists; runtime_error eq true, then error stored in results array for that command; other commands still execute.
 - **Partial Execution** — when mixed_results eq true, then EXEC returns array with mix of values and error objects.
 
 **❌ Failure paths**
@@ -57,7 +57,7 @@ Specifies 18 acceptance outcomes that any implementation must satisfy, regardles
 - `NESTED_TRANSACTION` — MULTI calls can not be nested
 - `EXECABORT` — EXECABORT Transaction discarded because of previous errors
 - `NO_TRANSACTION` — DISCARD without MULTI
-- `WATCH_VIOLATION` — WATCH violation (returned as nil, not error)
+- `WATCH_VIOLATION` — WATCH violation detected
 
 ## Connects to
 

@@ -33,13 +33,13 @@ Specifies 27 acceptance outcomes that any implementation must satisfy, regardles
 - **Zadd Conditional** — when condition in ["NX","XX","GT","LT"]; condition_met eq true, then member added/updated if condition met; client receives count.
 - **Zrem Members** — when ZREM key member [member ...], then client receives count of removed members.
 - **Zrange By Rank** — when ZRANGE key start stop [WITHSCORES]; range_type eq "rank", then array of members (with scores if WITHSCORES); empty if out-of-range.
-- **Zrange By Score** — when ZRANGE key min max BYSCORE [WITHSCORES] [LIMIT offset count]; min_score eq; max_score eq, then array of members in score range [min, max] (exclusive with '(' prefix; handles -inf/+inf).
+- **Zrange By Score** — when ZRANGE key min max BYSCORE [WITHSCORES] [LIMIT offset count]; min_score exists; max_score exists, then array of members in score range [min, max] (exclusive with '(' prefix; handles -inf/+inf).
 - **Zrange By Lex** — when ZRANGE key min max BYLEX [LIMIT offset count]; all_equal_scores eq true, then array of members in lex range [min, max] (exclusive with '(' prefix; handles -/+).
 - **Zrank Member** — when ZRANK key member [WITHSCORE], then 0-based rank (or nil if member absent); score included if WITHSCORE.
 - **Zscore Member** — when ZSCORE key member, then score as string (or nil if member absent).
-- **Zinter Sets** — when ZINTER numkeys key [key ...] [WEIGHTS weight ...] [AGGREGATE SUM|MIN|MAX]; optional multipliers per set; how to combine scores (default SUM), then array of members in all sets (scores combined per AGGREGATE).
+- **Zinter Sets** — when ZINTER numkeys key [key ...] [WEIGHTS weight ...] [AGGREGATE SUM|MIN|MAX]; weights exists; aggregate exists, then array of members in all sets (scores combined per AGGREGATE).
 - **Zunion Sets** — when ZUNION numkeys key [key ...] [WEIGHTS weight ...] [AGGREGATE SUM|MIN|MAX], then array of members in any set (scores combined per AGGREGATE).
-- **Hset Fields** — when command in ["HSET","HMSET"]; field_value_pairs eq, then count of new fields added (HSET) or OK (HMSET).
+- **Hset Fields** — when command in ["HSET","HMSET"]; field_value_pairs exists, then count of new fields added (HSET) or OK (HMSET).
 - **Hget Field** — when HGET key field, then field value (or nil if field absent or expired).
 - **Hmget Fields** — when HMGET key field [field ...], then array with value for each field (nil for missing/expired fields).
 - **Hgetall Fields** — when HGETALL key, then flattened array [field1, value1, field2, value2, ...] (excludes expired fields).
@@ -50,7 +50,7 @@ Specifies 27 acceptance outcomes that any implementation must satisfy, regardles
 - **Hincrbyfloat Field** — when HINCRBYFLOAT key field increment, then new field value as decimal string.
 - **Hexists Field** — when HEXISTS key field, then 1 if field exists and not expired, 0 otherwise.
 - **Hlen Hash** — when HLEN key, then number of fields (after lazy-expiring expired fields).
-- **Hexpire Field** — when HEXPIRE key [NX|XX|GT|LT] seconds FIELDS count field [field ...]; optional condition (NX=no-ttl, XX=has-ttl, GT/LT=compare expiry), then array with count of affected fields per condition.
+- **Hexpire Field** — when HEXPIRE key [NX|XX|GT|LT] seconds FIELDS count field [field ...]; condition exists, then array with count of affected fields per condition.
 - **Hpexpire Field** — when HPEXPIRE key [condition] milliseconds FIELDS count field [field ...], then array with affected field counts.
 - **Hpersist Field** — when HPERSIST key FIELDS count field [field ...], then array with count of fields that had TTL removed.
 - **Httl Field** — when HTTL key field [field ...], then array of TTLs in seconds (-1=no-ttl, -2=field-absent).
@@ -58,9 +58,9 @@ Specifies 27 acceptance outcomes that any implementation must satisfy, regardles
 
 ## Errors it can return
 
-- `NOT_AN_INTEGER` — hash value is not an integer
-- `WRONG_TYPE` — WRONGTYPE Operation against a key holding the wrong kind of value
-- `SYNTAX_ERROR` — syntax error in score or condition
+- `NOT_AN_INTEGER` — Hash value is not an integer
+- `WRONG_TYPE` — Operation against a key holding the wrong kind of value
+- `SYNTAX_ERROR` — Syntax error in score or condition
 
 ## Connects to
 

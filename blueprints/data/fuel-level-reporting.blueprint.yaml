@@ -1,0 +1,135 @@
+# ============================================================
+# Fuel Level Reporting — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/traccar/traccar
+# Source project: Traccar GPS Tracking Server (Java/Netty)
+# Files traced: ~4
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: fuel-level-reporting
+version: "1.0.0"
+description: Read fuel sensor data transmitted by GPS hardware, detect significant fuel drops (theft or fast consumption) and unexpected increases (refuelling), and provide fuel consumption summaries across trips and time periods.
+category: data
+tags: [gps, tracking, fuel, fleet, sensor, alert, consumption]
+
+actors:
+  - id: device
+    name: GPS Device
+    type: external
+    description: Reads fuel sensor and includes fuel level in position transmissions
+  - id: pipeline
+    name: Position Processing Pipeline
+    type: system
+    description: Compares fuel levels between consecutive positions to detect threshold crossings
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: Monitors fuel levels, reviews consumption reports, and investigates anomalous drops
+
+fields:
+  - name: fuel_level
+    type: number
+    required: false
+    description: Current fuel level as a percentage (0–100%) from the sensor
+  - name: fuel_volume
+    type: number
+    required: false
+    description: Current fuel volume in litres (device-specific unit)
+  - name: fuel_used
+    type: number
+    required: false
+    description: Cumulative fuel consumed since device reset or reference point
+  - name: fuel_consumption_rate
+    type: number
+    required: false
+    description: Instantaneous fuel consumption rate (litres per hour or per 100 km depending on device)
+  - name: fuel_drop_threshold
+    type: number
+    required: false
+    description: Minimum decrease in fuel level/volume that triggers a fuel drop event
+  - name: fuel_increase_threshold
+    type: number
+    required: false
+    description: Minimum increase in fuel level/volume that triggers a fuel increase (refuel) event
+
+rules:
+  - Fuel data is read from position attributes; the specific attribute key and unit depend on the device and protocol
+  - A fuel drop event is generated when the fuel level decreases by more than fuel_drop_threshold between consecutive positions
+  - A fuel increase event is generated when the fuel level increases by more than fuel_increase_threshold between consecutive positions (indicating a refuel)
+  - Only latest positions are evaluated for threshold crossings; outdated positions are skipped
+  - Fuel consumption is calculated per trip and per summary period using the difference between start and end fuel values
+  - If the device does not report a fuel sensor, the feature is inactive and no fuel events are generated
+  - Both percentage-based and volume-based fuel attributes are supported; the platform uses whichever the device provides
+
+outcomes:
+  fuel_drop_detected:
+    priority: 10
+    given:
+      - "current fuel value is lower than previous fuel value by >= fuel_drop_threshold"
+      - "position is the latest for the device"
+    then:
+      - action: create_record
+        target: event
+        description: "Fuel drop event recorded with type = device_fuel_drop, previous and current values"
+      - action: emit_event
+        event: fuel.dropped
+        payload: [device_id, previous_fuel, current_fuel, delta, position_id, fix_time]
+    result: Fuel drop event stored; possible theft or leak investigation can be triggered
+
+  fuel_increase_detected:
+    priority: 10
+    given:
+      - "current fuel value is higher than previous fuel value by >= fuel_increase_threshold"
+      - "position is the latest for the device"
+    then:
+      - action: create_record
+        target: event
+        description: "Fuel increase event recorded with type = device_fuel_increase, previous and current values"
+      - action: emit_event
+        event: fuel.increased
+        payload: [device_id, previous_fuel, current_fuel, delta, position_id, fix_time]
+    result: Fuel increase event stored; refuelling noted for cost tracking
+
+  no_fuel_sensor:
+    priority: 3
+    given:
+      - "position does not include any fuel attribute"
+    then: []
+    result: Fuel events skipped for this position; no fuel data is available from this device
+
+errors:
+  - code: FUEL_DEVICE_NOT_FOUND
+    message: The device referenced does not exist
+
+events:
+  - name: fuel.dropped
+    description: Fuel level fell by more than the configured threshold — possible theft, leak, or high consumption
+    payload: [device_id, previous_fuel, current_fuel, delta, position_id, fix_time]
+  - name: fuel.increased
+    description: Fuel level rose by more than the configured threshold — refuelling detected
+    payload: [device_id, previous_fuel, current_fuel, delta, position_id, fix_time]
+
+related:
+  - feature: gps-position-ingestion
+    relationship: required
+    description: Fuel values arrive as position attributes from device transmissions
+  - feature: trip-detection
+    relationship: recommended
+    description: Trip reports include fuel consumption from start to end of each trip
+  - feature: fleet-scheduled-reports
+    relationship: recommended
+    description: Fuel summary reports aggregate consumption over configurable periods
+
+extensions:
+  source:
+    repo: https://github.com/traccar/traccar
+    project: Traccar GPS Tracking Server
+    tech_stack: Java 17, Netty
+    files_traced: 4
+    entry_points:
+      - src/main/java/org/traccar/handler/events/FuelEventHandler.java
+      - src/main/java/org/traccar/model/Position.java

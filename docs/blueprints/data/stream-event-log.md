@@ -40,12 +40,15 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 ## States
 
-**State field:** `undefined`
+**State field:** `message_delivery`
 
 **Values:**
 
 | State | Initial | Terminal |
 |-------|---------|----------|
+| `undelivered` | Yes |  |
+| `pending` |  |  |
+| `acknowledged` |  | Yes |
 
 ## Rules
 
@@ -57,7 +60,7 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 **Given:**
 - XADD key [ID|*] field value [field value ...]
-- `id_generation` (input) eq
+- `id_generation` (input) exists
 
 **Then:**
 - **set_field** target: `entry_id` — create monotonic ID
@@ -70,7 +73,7 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 **Given:**
 - XADD with MAXLEN|MINID flag
-- `trim_strategy` (input) eq
+- `trim_strategy` (input) exists
 
 **Then:**
 - **set_field** target: `entry_id`
@@ -94,7 +97,7 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 **Given:**
 - XREAD [COUNT count] STREAMS key id
-- `start_id` (input) eq
+- `start_id` (input) exists
 
 **Then:**
 - **emit_event** event: `stream.read`
@@ -105,8 +108,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 **Given:**
 - `command` (input) in `XRANGE,XREVRANGE`
-- `start_id` (input) eq
-- `end_id` (input) eq
+- `start_id` (input) exists
+- `end_id` (input) exists
 
 **Then:**
 - **emit_event** event: `stream.range_read`
@@ -117,7 +120,7 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 **Given:**
 - XREAD BLOCK timeout_ms ... STREAMS key id
-- `timeout_ms` (input) eq
+- `timeout_ms` (input) exists
 - `new_entries_available` (system) eq `false`
 
 **Then:**
@@ -140,7 +143,7 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 **Given:**
 - XGROUP CREATE key group id
-- `id` (input) eq
+- `id` (input) exists
 
 **Then:**
 - **set_field** target: `group_name`
@@ -193,7 +196,7 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 **Given:**
 - XREADGROUP GROUP group consumer STREAMS key id
-- `id` (input) eq
+- `id` (input) exists
 - `messages_available` (db) eq `true`
 
 **Then:**
@@ -219,7 +222,7 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 **Given:**
 - XACK key group id [id ...]
-- `ids_in_pel` (db) eq
+- `ids_in_pel` (db) exists
 
 **Then:**
 - **set_field** target: `pending_entries` — remove from group PEL and consumer PEL
@@ -242,7 +245,7 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 **Given:**
 - XPENDING key group [IDLE min_idle] start end count
-- `idle_filter` (input) eq
+- `idle_filter` (input) exists
 
 **Then:**
 - **emit_event** event: `stream.pending_details`
@@ -275,7 +278,7 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 **Given:**
 - XDEL key id [id ...]
-- `ids_exist` (db) eq
+- `ids_exist` (db) exists
 
 **Then:**
 - **emit_event** event: `stream.deleted`
@@ -286,7 +289,7 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 **Given:**
 - XTRIM key [MAXLEN|MINID] [~] threshold [LIMIT count]
-- `trim_type` (input) eq
+- `trim_type` (input) exists
 
 **Then:**
 - **emit_event** event: `stream.trimmed`
@@ -327,37 +330,37 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `WRONGTYPE` |  | WRONGTYPE Operation against a key holding the wrong kind of value | No |
-| `NOGROUP` |  | NOGROUP No such consumer group | No |
-| `NOSCRIPT` |  | Index out of range | No |
+| `WRONGTYPE` | 400 | Operation against a key holding the wrong kind of value | No |
+| `NOGROUP` | 404 | No such consumer group | No |
+| `NOSCRIPT` | 400 | Index out of range | No |
 
 ## Events
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
+| `stream.entry_added` |  |  |
+| `stream.trimmed` |  |  |
+| `stream.duplicate_detected` |  |  |
+| `stream.read` |  |  |
+| `stream.range_read` |  |  |
+| `stream.blocking_read` |  |  |
+| `stream.length_read` |  |  |
+| `stream.group_created` |  |  |
+| `stream.group_deleted` |  |  |
+| `stream.group_position_updated` |  |  |
+| `stream.consumer_created` |  |  |
+| `stream.consumer_deleted` |  |  |
+| `stream.group_read` |  |  |
+| `stream.group_blocking_read` |  |  |
+| `stream.acked` |  |  |
+| `stream.pending_summary` |  |  |
+| `stream.pending_details` |  |  |
+| `stream.claimed` |  |  |
+| `stream.autoclaimed` |  |  |
+| `stream.deleted` |  |  |
+| `stream.info_read` |  |  |
+| `stream.groups_listed` |  |  |
+| `stream.consumers_listed` |  |  |
 
 ## Related Blueprints
 

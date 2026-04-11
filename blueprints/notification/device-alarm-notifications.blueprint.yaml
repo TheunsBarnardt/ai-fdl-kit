@@ -1,0 +1,123 @@
+# ============================================================
+# Device Alarm Notifications (SOS, Panic, Tamper) — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/traccar/traccar
+# Source project: Traccar GPS Tracking Server (Java/Netty)
+# Files traced: ~5
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: device-alarm-notifications
+version: "1.0.0"
+description: Process hardware alarm codes embedded in device position transmissions, generate individual alert events per alarm type (SOS, tamper, vibration, accident, jamming, etc.), and route notifications to subscribed users.
+category: notification
+tags: [gps, tracking, alarm, sos, panic, tamper, safety, fleet, alert]
+
+actors:
+  - id: device
+    name: GPS Device
+    type: external
+    description: Embeds alarm codes in position transmissions when triggered by sensors or driver input
+  - id: pipeline
+    name: Alarm Event Handler
+    type: system
+    description: Parses alarm codes from positions and generates one alert event per active alarm
+  - id: fleet_user
+    name: Fleet User
+    type: human
+    description: Receives alarm notifications and responds to emergencies
+
+fields:
+  - name: alarm
+    type: text
+    required: false
+    description: "Comma-separated list of active alarm codes in the position (e.g. sos, tampering, vibration)"
+  - name: alarm_type
+    type: select
+    required: false
+    description: >
+      Individual alarm type. Supported values:
+      sos, tampering, removing, vibration, movement, low_battery, low_power,
+      power_off, power_on, power_cut, power_restored, door, lock, unlock,
+      acceleration, braking, cornering, fatigue_driving, accident, jamming,
+      geofence_enter, geofence_exit, overspeed, fall_down, idle, tow,
+      hardstop, park, shock, bonnet, foot_brake, fuel_leak, flood, wind
+  - name: suppress_duplicates
+    type: boolean
+    required: false
+    description: When true, only new alarm codes (not in the previous position) generate events; prevents repeated alerts from persistent alarm states
+
+rules:
+  - A position may carry multiple simultaneous alarm codes; each alarm code generates a separate alert event
+  - If suppress_duplicates is enabled, an alarm code that was already present in the previous position does not generate a new event; only newly appearing codes trigger alerts
+  - Each alarm event is linked to the position where it was detected, preserving exact coordinates and time
+  - Alarm events can be routed to users via any configured notification channel (push, email, SMS, webhook)
+  - Alarm codes are device and protocol specific; the platform normalises known codes to standard identifiers
+
+outcomes:
+  alarm_event_generated:
+    priority: 10
+    given:
+      - "position carries one or more alarm codes in the alarm attribute"
+      - any:
+          - "suppress_duplicates is false"
+          - "the alarm code was not present in the previous position"
+    then:
+      - action: create_record
+        target: event
+        description: "Alarm event recorded with type = alarm, alarm_type, device_id, position_id"
+      - action: emit_event
+        event: alarm.triggered
+        payload: [device_id, alarm_type, position_id, fix_time, latitude, longitude]
+    result: Alarm event stored; notification handlers dispatch alerts to subscribed users
+
+  duplicate_alarm_suppressed:
+    priority: 5
+    given:
+      - "alarm code is present in both the current and previous position"
+      - field: suppress_duplicates
+        source: db
+        operator: eq
+        value: true
+    then: []
+    result: Duplicate alarm suppressed; no redundant alert generated
+
+  no_alarm_code:
+    priority: 3
+    given:
+      - "position does not carry any alarm attribute"
+    then: []
+    result: No alarm event generated for this position
+
+errors:
+  - code: ALARM_DEVICE_NOT_FOUND
+    message: The device referenced in the position record does not exist
+
+events:
+  - name: alarm.triggered
+    description: A device has transmitted an alarm code requiring operator attention
+    payload: [device_id, alarm_type, position_id, fix_time, latitude, longitude]
+
+related:
+  - feature: gps-position-ingestion
+    relationship: required
+    description: Alarm codes arrive as position attributes during ingestion
+  - feature: device-status-tracking
+    relationship: recommended
+    description: SOS and offline alarms may indicate the same emergency condition
+  - feature: fleet-device-sharing
+    relationship: recommended
+    description: Only users with access to the device receive alarm notifications
+
+extensions:
+  source:
+    repo: https://github.com/traccar/traccar
+    project: Traccar GPS Tracking Server
+    tech_stack: Java 17, Netty
+    files_traced: 5
+    entry_points:
+      - src/main/java/org/traccar/handler/events/AlarmEventHandler.java
+      - src/main/java/org/traccar/model/Position.java

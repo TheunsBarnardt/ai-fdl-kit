@@ -30,7 +30,7 @@ Specifies 21 acceptance outcomes that any implementation must satisfy, regardles
 
 **✅ Success paths**
 
-- **Eval Inline Script** — when EVAL script numkeys [key ...] [arg ...]; script eq; count of keys (determines KEYS/ARGV split), then script result returned (value, error, or nil).
+- **Eval Inline Script** — when EVAL script numkeys [key ...] [arg ...]; script exists; numkeys exists, then script result returned (value, error, or nil).
 - **Evalsha Cached** — when EVALSHA sha1 numkeys [key ...] [arg ...]; script_cached eq true, then script result returned.
 - **Script Result String** — when script_returns eq "string", then string value returned to client.
 - **Script Result Number** — when script_returns eq "number", then number value returned.
@@ -39,9 +39,9 @@ Specifies 21 acceptance outcomes that any implementation must satisfy, regardles
 - **Script Redis Error** — when redis.call() fails, then error returned; script aborted; database unchanged (atomic).
 - **Script Redis Error Handled** — when redis.pcall() returns error, then error table passed to Lua; script continues.
 - **Script Call Redis Command** — when redis.call('SET', 'key', 'value') or redis.pcall(...), then command executes atomically; result returned to script.
-- **Script Load** — when SCRIPT LOAD script; script eq, then SHA1 digest returned (can later use with EVALSHA).
-- **Script Exists** — when SCRIPT EXISTS sha1 [sha1 ...]; shas eq, then array of 0/1 for each SHA (1=cached, 0=not found).
-- **Script Flush** — when SCRIPT FLUSH [ASYNC|SYNC]; ASYNC=non-blocking, SYNC=blocking, then OK returned; all cached scripts deleted.
+- **Script Load** — when SCRIPT LOAD script; script exists, then SHA1 digest returned (can later use with EVALSHA).
+- **Script Exists** — when SCRIPT EXISTS sha1 [sha1 ...]; shas exists, then array of 0/1 for each SHA (1=cached, 0=not found).
+- **Script Flush** — when SCRIPT FLUSH [ASYNC|SYNC]; mode exists, then OK returned; all cached scripts deleted.
 - **Script Kill** — when SCRIPT KILL; script_executing eq true; execution_time_exceeds_timeout eq true, then script terminated; OK returned (or error if cannot kill).
 - **Sandbox No Network** — when socket.connect(), etc., then error returned.
 - **Sandbox Allowed Functions** — when allowed_libs in ["table","string","math","cjson"], then library functions execute normally.
@@ -57,9 +57,9 @@ Specifies 21 acceptance outcomes that any implementation must satisfy, regardles
 
 ## Errors it can return
 
-- `NOSCRIPT` — NOSCRIPT No matching script. Please use EVAL.
-- `SCRIPT_ERROR` — ERR Error running script: <details>
-- `SCRIPT_KILLED` — SCRIPT KILLED Script killed by user with SCRIPT KILL...
+- `NOSCRIPT` — No matching script. Please use EVAL.
+- `SCRIPT_ERROR` — Error running script
+- `SCRIPT_KILLED` — Script killed by user with SCRIPT KILL
 
 ## Connects to
 

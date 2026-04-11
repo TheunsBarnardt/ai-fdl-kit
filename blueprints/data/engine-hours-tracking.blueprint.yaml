@@ -1,0 +1,121 @@
+# ============================================================
+# Engine Hours Tracking — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/traccar/traccar
+# Source project: Traccar GPS Tracking Server (Java/Netty)
+# Files traced: ~3
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+
+feature: engine-hours-tracking
+version: "1.0.0"
+description: Accumulate the total time a vehicle engine has been running by measuring the duration between consecutive positions while the ignition is on, providing accurate engine-hours data for maintenance scheduling, rental billing, and equipment life-cycle management.
+category: data
+tags: [gps, tracking, engine-hours, maintenance, fleet, ignition]
+
+actors:
+  - id: pipeline
+    name: Engine Hours Handler
+    type: system
+    description: Computes cumulative engine hours on each incoming position using ignition state and device timestamps
+  - id: device
+    name: GPS Device
+    type: external
+    description: Optionally transmits hardware engine hours; always reports ignition state for calculation fallback
+
+fields:
+  - name: hours
+    type: number
+    required: false
+    description: Cumulative engine running time in milliseconds stored on each position record
+  - name: ignition
+    type: boolean
+    required: false
+    description: Ignition state at the time of the position; used to gate hour accumulation
+  - name: device_time
+    type: datetime
+    required: true
+    description: Device clock timestamp used for interval calculation (preferred over server time for accuracy)
+
+rules:
+  - If the device transmits a hardware engine hours value, it is stored directly and used without modification
+  - If no hardware value is present, engine hours are calculated from the difference between current and previous device timestamps when ignition was on in both positions
+  - Hours are accumulated only when ignition = true in both the current and the previous position; idle-off periods are excluded
+  - Device time (not server time) is used for interval calculation to avoid accumulating server-processing delays
+  - The calculated engine hours value is stored on every position as a cumulative total, making it directly queryable for any time range
+  - Engine hours feed maintenance reminders; a maintenance reminder fires when the hours value crosses a configured threshold
+
+outcomes:
+  hours_calculated:
+    priority: 10
+    given:
+      - "current position does not carry a hardware hours value"
+      - "previous position exists and has an hours value"
+      - field: ignition
+        source: input
+        operator: eq
+        value: true
+      - "previous position also had ignition = true"
+    then:
+      - action: set_field
+        target: position.hours
+        description: "Previous hours + (current device_time - previous device_time) stored on the position"
+    result: Engine hours updated on the current position; cumulative running time increased by the ignition-on interval
+
+  ignition_off_interval_skipped:
+    priority: 8
+    given:
+      - any:
+          - field: ignition
+            source: input
+            operator: eq
+            value: false
+          - "previous position had ignition = false"
+    then:
+      - action: set_field
+        target: position.hours
+        description: Hours value carried forward unchanged from the previous position
+    result: No hours added; engine was off during this interval
+
+  hardware_hours_used:
+    priority: 9
+    given:
+      - "device transmits a non-zero hardware hours value in position attributes"
+    then:
+      - action: set_field
+        target: position.hours
+        description: Hardware hours stored directly without recalculation
+    result: Hardware hours recorded as authoritative; calculation fallback is not applied
+
+errors:
+  - code: HOURS_DEVICE_NOT_FOUND
+    message: The device referenced does not exist
+
+events:
+  - name: engine_hours.threshold_reached
+    description: Cumulative engine hours crossed a maintenance-relevant threshold
+    payload: [device_id, hours_ms, position_id]
+
+related:
+  - feature: ignition-detection
+    relationship: required
+    description: Ignition state gates engine hour accumulation
+  - feature: gps-position-ingestion
+    relationship: required
+    description: Position records carry device timestamps and ignition attributes
+  - feature: maintenance-reminders
+    relationship: recommended
+    description: Engine hours thresholds trigger scheduled maintenance events
+
+extensions:
+  source:
+    repo: https://github.com/traccar/traccar
+    project: Traccar GPS Tracking Server
+    tech_stack: Java 17, Netty
+    files_traced: 3
+    entry_points:
+      - src/main/java/org/traccar/handler/EngineHoursHandler.java
+      - src/main/java/org/traccar/model/Position.java

@@ -39,12 +39,16 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 ## States
 
-**State field:** `undefined`
+**State field:** `script_state`
 
 **Values:**
 
 | State | Initial | Terminal |
 |-------|---------|----------|
+| `not_cached` | Yes |  |
+| `cached` |  |  |
+| `executing` |  |  |
+| `completed` |  | Yes |
 
 ## Rules
 
@@ -56,8 +60,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 **Given:**
 - EVAL script numkeys [key ...] [arg ...]
-- `script` (input) eq
-- `numkeys` (input) eq
+- `script` (input) exists
+- `numkeys` (input) exists
 
 **Then:**
 - **set_field** target: `script_source`
@@ -178,7 +182,7 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 **Given:**
 - SCRIPT LOAD script
-- `script` (input) eq
+- `script` (input) exists
 
 **Then:**
 - **set_field** target: `script_sha` — compute SHA1 digest
@@ -191,7 +195,7 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 **Given:**
 - SCRIPT EXISTS sha1 [sha1 ...]
-- `shas` (input) eq
+- `shas` (input) exists
 
 **Then:**
 - **emit_event** event: `script.exists_checked`
@@ -202,7 +206,7 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 **Given:**
 - SCRIPT FLUSH [ASYNC|SYNC]
-- `mode` (input) eq
+- `mode` (input) exists
 
 **Then:**
 - **set_field** target: `script_state` value: `not_cached`
@@ -286,34 +290,34 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `NOSCRIPT` |  | NOSCRIPT No matching script. Please use EVAL. | No |
-| `SCRIPT_ERROR` |  | ERR Error running script: <details> | No |
-| `SCRIPT_KILLED` |  | SCRIPT KILLED Script killed by user with SCRIPT KILL... | No |
+| `NOSCRIPT` | 404 | No matching script. Please use EVAL. | No |
+| `SCRIPT_ERROR` | 500 | Error running script | No |
+| `SCRIPT_KILLED` | 500 | Script killed by user with SCRIPT KILL | No |
 
 ## Events
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
-| `undefined` |  |  |
+| `script.executed` |  |  |
+| `script.executed_cached` |  |  |
+| `script.not_found` |  |  |
+| `script.result_string` |  |  |
+| `script.result_number` |  |  |
+| `script.result_array` |  |  |
+| `script.result_error` |  |  |
+| `script.runtime_error` |  |  |
+| `script.redis_call_error` |  |  |
+| `script.redis_pcall_error` |  |  |
+| `script.redis_command_executed` |  |  |
+| `script.loaded` |  |  |
+| `script.exists_checked` |  |  |
+| `script.cache_flushed` |  |  |
+| `script.killed` |  |  |
+| `script.call_denied` |  |  |
+| `script.sandbox_violation` |  |  |
+| `script.stdlib_used` |  |  |
+| `script.atomic_abort` |  |  |
+| `script.isolation_maintained` |  |  |
 
 ## Related Blueprints
 

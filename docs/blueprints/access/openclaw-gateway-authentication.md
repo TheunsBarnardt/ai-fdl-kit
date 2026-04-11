@@ -169,7 +169,7 @@ Invalid: log warning, deny all requests
 
 **Given:**
 - `is_loopback` (computed) eq `true`
-- `exempt_loopback` (config) eq `true`
+- `exempt_loopback` (system) eq `true`
 
 **Then:**
 - **set_field** target: `authenticated` value: `true`
@@ -181,7 +181,7 @@ Invalid: log warning, deny all requests
 
 **Given:**
 - Authorization header present
-- `auth_mode` (config) eq `token`
+- `auth_mode` (system) eq `token`
 - token header matches config.auth.token
 
 **Then:**
@@ -193,7 +193,7 @@ Invalid: log warning, deny all requests
 ### Password_authenticated (Priority: 1)
 
 **Given:**
-- `auth_mode` (config) eq `password`
+- `auth_mode` (system) eq `password`
 - password POST body matches config.auth.password
 
 **Then:**
@@ -205,7 +205,7 @@ Invalid: log warning, deny all requests
 ### Device_authenticated (Priority: 1)
 
 **Given:**
-- `auth_mode` (config) eq `device-token`
+- `auth_mode` (system) eq `device-token`
 - deviceId:deviceToken valid in config/device-tokens.json
 
 **Then:**

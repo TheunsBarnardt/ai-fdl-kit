@@ -21,35 +21,30 @@
     {
       "name": "key",
       "type": "text",
-      "description": "Unique identifier for the string",
       "required": true,
       "label": "Key"
     },
     {
       "name": "value",
       "type": "text",
-      "description": "String data (stored as-is or internally optimized as integer when parseable)",
       "required": false,
       "label": "Value"
     },
     {
       "name": "ttl_milliseconds",
       "type": "number",
-      "description": "Time-to-live before auto-expiration (optional)",
       "required": false,
       "label": "Ttl Milliseconds"
     },
     {
       "name": "is_numeric",
       "type": "boolean",
-      "description": "Internal hint—value can be represented as 64-bit signed integer",
       "required": false,
       "label": "Is Numeric"
     },
     {
       "name": "old_value",
       "type": "text",
-      "description": "Value before modification (for atomic operations)",
       "required": false,
       "label": "Old Value"
     },
@@ -57,11 +52,19 @@
       "name": "encoding",
       "type": "select",
       "options": [
-        "raw",
-        "integer",
-        "embedded"
+        {
+          "value": "raw",
+          "label": "Raw"
+        },
+        {
+          "value": "integer",
+          "label": "Integer"
+        },
+        {
+          "value": "embedded",
+          "label": "Embedded"
+        }
       ],
-      "description": "Internal storage format—transparent to user but affects performance",
       "required": false,
       "label": "Encoding"
     }
@@ -77,40 +80,25 @@
       "SET with NX (if-not-exists) and XX (if-exists) conditions are mutually exclusive"
     ]
   },
-  "states": [
-    {
-      "field": "existence",
-      "values": [
-        {
-          "value": "absent",
-          "initial": true,
-          "description": "Key does not exist"
-        },
-        {
-          "value": "present",
-          "description": "Key exists with string value"
-        },
-        {
-          "value": "expired",
-          "terminal": true,
-          "description": "TTL elapsed; key auto-deleted"
-        }
-      ]
-    },
-    {
-      "field": "modification",
-      "values": [
-        {
-          "value": "unmodified",
-          "initial": true
-        },
-        {
-          "value": "recently_modified",
-          "description": "Value changed in current transaction/command"
-        }
-      ]
-    }
-  ],
+  "states": {
+    "field": "existence",
+    "values": [
+      {
+        "name": "absent",
+        "initial": true,
+        "description": "Key does not exist"
+      },
+      {
+        "name": "present",
+        "description": "Key exists with string value"
+      },
+      {
+        "name": "expired",
+        "terminal": true,
+        "description": "TTL elapsed; key auto-deleted"
+      }
+    ]
+  },
   "outcomes": {
     "read_existing_string": {
       "priority": 1,
@@ -158,16 +146,12 @@
       "then": [
         {
           "action": "set_field",
-          "target": "ttl_milliseconds",
-          "when": "EX|PX|EXAT|PXAT flag provided",
-          "description": "set new TTL on read"
+          "target": "ttl_milliseconds"
         },
         {
           "action": "set_field",
           "target": "ttl_milliseconds",
-          "value": null,
-          "when": "PERSIST flag provided",
-          "description": "remove TTL on read"
+          "value": null
         },
         {
           "action": "emit_event",
@@ -195,9 +179,7 @@
         {
           "action": "set_field",
           "target": "ttl_milliseconds",
-          "value": null,
-          "when": "no KEEPTTL flag",
-          "description": "discard old TTL unless KEEPTTL"
+          "value": null
         },
         {
           "action": "set_field",
@@ -231,8 +213,7 @@
             "IFNE",
             "IFDEQ",
             "IFDNE"
-          ],
-          "description": "Conditional set flags"
+          ]
         },
         {
           "field": "condition_met",
@@ -318,7 +299,7 @@
         {
           "field": "value",
           "source": "input",
-          "description": "suffix to append"
+          "operator": "exists"
         }
       ],
       "then": [
@@ -421,13 +402,12 @@
           "field": "value",
           "source": "db",
           "operator": "matches",
-          "value": "^-?[0-9]{1,19}$",
-          "description": "value is valid 64-bit signed integer"
+          "value": "^-?[0-9]{1,19}$"
         },
         {
           "field": "increment_amount",
           "source": "computed",
-          "description": "change is within [-2^63, 2^63-1] range"
+          "operator": "exists"
         }
       ],
       "then": [
@@ -453,13 +433,7 @@
       "priority": 31,
       "error": "NOT_AN_INTEGER",
       "given": [
-        {
-          "field": "value",
-          "source": "db",
-          "operator": "not_matches",
-          "value": "^-?[0-9]{1,19}$",
-          "description": "value is not a valid integer"
-        }
+        "value is not a valid 64-bit signed integer string"
       ],
       "then": [],
       "result": "error returned; value unchanged"
@@ -487,7 +461,7 @@
         {
           "field": "value",
           "source": "db",
-          "description": "interpreted as long double"
+          "operator": "exists"
         },
         {
           "field": "result",
@@ -661,52 +635,105 @@
   "errors": [
     {
       "code": "NOT_AN_INTEGER",
-      "message": "value is not an integer or out of range",
-      "user_safe": true
+      "message": "Value is not an integer or out of range",
+      "status": 400
     },
     {
       "code": "INCREMENT_OVERFLOW",
-      "message": "increment or decrement would overflow",
-      "user_safe": true
+      "message": "Increment or decrement would overflow",
+      "status": 400
     },
     {
       "code": "CONDITION_NOT_MET",
-      "message": "SET condition not met (returned as nil, not error)",
-      "user_safe": true
+      "message": "SET condition not met",
+      "status": 409
     },
     {
       "code": "INVALID_OFFSET",
-      "message": "offset is out of range",
-      "user_safe": true
+      "message": "Offset is out of range",
+      "status": 400
     },
     {
       "code": "STRING_TOO_LARGE",
-      "message": "string exceeds maximum allowed size",
-      "user_safe": true
+      "message": "String exceeds maximum allowed size",
+      "status": 413
     },
     {
       "code": "FLOAT_INVALID",
-      "message": "float increment resulted in NaN or Infinity",
-      "user_safe": true
+      "message": "Float increment resulted in NaN or Infinity",
+      "status": 400
+    },
+    {
+      "code": "KEY_EXISTS",
+      "message": "One or more keys already exist",
+      "status": 409
     }
   ],
   "events": [
-    "string.read",
-    "string.miss",
-    "string.set",
-    "string.set_conditional",
-    "string.set_expiring",
-    "string.appended",
-    "string.range_read",
-    "string.range_written",
-    "string.incr",
-    "string.incrbyfloat",
-    "string.getset",
-    "string.getdel",
-    "string.mget",
-    "string.mset",
-    "string.msetnx_success",
-    "string.msetnx_rejected"
+    {
+      "name": "string.read",
+      "payload": []
+    },
+    {
+      "name": "string.miss",
+      "payload": []
+    },
+    {
+      "name": "string.set",
+      "payload": []
+    },
+    {
+      "name": "string.set_conditional",
+      "payload": []
+    },
+    {
+      "name": "string.set_expiring",
+      "payload": []
+    },
+    {
+      "name": "string.appended",
+      "payload": []
+    },
+    {
+      "name": "string.range_read",
+      "payload": []
+    },
+    {
+      "name": "string.range_written",
+      "payload": []
+    },
+    {
+      "name": "string.incr",
+      "payload": []
+    },
+    {
+      "name": "string.incrbyfloat",
+      "payload": []
+    },
+    {
+      "name": "string.getset",
+      "payload": []
+    },
+    {
+      "name": "string.getdel",
+      "payload": []
+    },
+    {
+      "name": "string.mget",
+      "payload": []
+    },
+    {
+      "name": "string.mset",
+      "payload": []
+    },
+    {
+      "name": "string.msetnx_success",
+      "payload": []
+    },
+    {
+      "name": "string.msetnx_rejected",
+      "payload": []
+    }
   ],
   "related": [
     {
