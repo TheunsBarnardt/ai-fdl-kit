@@ -7,8 +7,8 @@
 # ============================================================
 
 feature: cart-checkout
-version: "1.0.0"
-description: "Shopping cart and checkout flow with stock reservation, guest cart merge, multi-step checkout, tax, promo codes, and order placement."
+version: 1.0.0
+description: Shopping cart and checkout flow with stock reservation, guest cart merge, multi-step checkout, tax, promo codes, and order placement.
 category: payment
 tags:
   - cart
@@ -17,7 +17,6 @@ tags:
   - orders
   - stock-reservation
   - promo-codes
-
 fields:
   - name: cart_id
     type: text
@@ -25,8 +24,8 @@ fields:
     required: true
     validation:
       - type: pattern
-        value: "^cart_[a-zA-Z0-9]+$"
-        message: "Cart ID must match the required format"
+        value: ^cart_[a-zA-Z0-9]+$
+        message: Cart ID must match the required format
   - name: customer_id
     type: text
     label: Customer ID
@@ -42,7 +41,7 @@ fields:
     validation:
       - type: min
         value: 0
-        message: "Subtotal must be zero or greater"
+        message: Subtotal must be zero or greater
   - name: tax
     type: number
     label: Tax Amount
@@ -50,7 +49,7 @@ fields:
     validation:
       - type: min
         value: 0
-        message: "Tax amount must be zero or greater"
+        message: Tax amount must be zero or greater
   - name: shipping_cost
     type: number
     label: Shipping Cost
@@ -58,7 +57,7 @@ fields:
     validation:
       - type: min
         value: 0
-        message: "Shipping cost must be zero or greater"
+        message: Shipping cost must be zero or greater
   - name: discount
     type: number
     label: Discount Amount
@@ -66,7 +65,7 @@ fields:
     validation:
       - type: min
         value: 0
-        message: "Discount amount must be zero or greater"
+        message: Discount amount must be zero or greater
   - name: total
     type: number
     label: Order Total
@@ -74,7 +73,7 @@ fields:
     validation:
       - type: min
         value: 0
-        message: "Order total must be zero or greater"
+        message: Order total must be zero or greater
   - name: promo_code
     type: text
     label: Promo Code
@@ -84,12 +83,18 @@ fields:
     label: Checkout Step
     required: true
     options:
-      - {value: "cart", label: "Cart"}
-      - {value: "address", label: "Address"}
-      - {value: "shipping", label: "Shipping"}
-      - {value: "payment", label: "Payment"}
-      - {value: "review", label: "Review"}
-      - {value: "confirmed", label: "Confirmed"}
+      - value: cart
+        label: Cart
+      - value: address
+        label: Address
+      - value: shipping
+        label: Shipping
+      - value: payment
+        label: Payment
+      - value: review
+        label: Review
+      - value: confirmed
+        label: Confirmed
   - name: shipping_address
     type: json
     label: Shipping Address
@@ -110,7 +115,6 @@ fields:
     type: text
     label: Order ID
     required: false
-
 states:
   field: checkout_step
   values:
@@ -154,53 +158,43 @@ states:
       actor: customer
       description: Customer places the order
       condition: Payment authorized, stock confirmed
-    - from: [address, shipping, payment, review]
+    - from:
+        - address
+        - shipping
+        - payment
+        - review
       to: cart
       actor: customer
       description: Customer returns to cart to modify items
-
 rules:
   stock_reservation:
-    description: >
-      When an item is added to cart, inventory is soft-reserved for
-      15 minutes. Reservation refreshes on cart activity. If the cart
-      is inactive for 15 minutes, reservations are released.
+    description: |
+      When an item is added to cart, inventory is soft-reserved for 15 minutes. Reservation refreshes on cart activity. If the cart is inactive for 15 minutes, reservations are released.
   cart_expiry:
-    description: >
-      Abandoned carts expire after 30 days. Guest carts expire after
-      7 days. Expiry releases all stock reservations.
+    description: |
+      Abandoned carts expire after 30 days. Guest carts expire after 7 days. Expiry releases all stock reservations.
   guest_cart_merge:
-    description: >
-      When a guest user logs in, their guest cart merges into their
-      account cart. Duplicate items have quantities summed. Conflicts
-      (e.g., stock limits) are resolved in favor of the newest item.
+    description: |
+      When a guest user logs in, their guest cart merges into their account cart. Duplicate items have quantities summed. Conflicts (e.g., stock limits) are resolved in favor of the newest item.
   quantity_validation:
-    description: >
-      Item quantity must be at least 1 and cannot exceed available
-      stock. Attempting to add more than available stock shows the
-      maximum available quantity.
+    description: |
+      Item quantity must be at least 1 and cannot exceed available stock. Attempting to add more than available stock shows the maximum available quantity.
   total_calculation:
-    description: >
-      Order total = subtotal + tax + shipping_cost - discount.
-      Recalculated on every cart or checkout modification.
+    description: |
+      Order total = subtotal + tax + shipping_cost - discount. Recalculated on every cart or checkout modification.
   promo_code_validation:
-    description: >
-      Promo codes are validated against active promotions. A code
-      may be percentage-based or fixed-amount. Only one promo code
-      per order. Invalid or expired codes return an error.
+    description: |
+      Promo codes are validated against active promotions. A code may be percentage-based or fixed-amount. Only one promo code per order. Invalid or expired codes return an error.
   tax_calculation:
-    description: >
-      Tax calculated based on shipping destination, product tax
-      category, and applicable tax rules. Recalculated when
-      address or items change.
-
+    description: |
+      Tax calculated based on shipping destination, product tax category, and applicable tax rules. Recalculated when address or items change.
 outcomes:
   item_added_to_cart:
     priority: 1
     given:
-      - "customer adds a product to cart"
-      - "product is in stock"
-      - "requested quantity is available"
+      - customer adds a product to cart
+      - product is in stock
+      - requested quantity is available
     then:
       - action: set_field
         target: items
@@ -210,14 +204,18 @@ outcomes:
         description: Recalculated from item line totals
       - action: emit_event
         event: cart.item_added
-        payload: [cart_id, product_id, quantity, unit_price]
-    result: "Item added to cart, subtotal updated, stock reserved for 15 minutes"
-
+        payload:
+          - cart_id
+          - product_id
+          - quantity
+          - unit_price
+    result: Item added to cart, subtotal updated, stock reserved for 15 minutes
+    error: CART_STOCK_RESERVATION_EXPIRED
   item_removed_from_cart:
     priority: 2
     given:
-      - "customer removes an item from cart"
-      - "item exists in cart"
+      - customer removes an item from cart
+      - item exists in cart
     then:
       - action: set_field
         target: items
@@ -227,14 +225,16 @@ outcomes:
         description: Recalculated from remaining items
       - action: emit_event
         event: cart.item_removed
-        payload: [cart_id, product_id, quantity_released]
-    result: "Item removed from cart, stock reservation released, totals recalculated"
-
+        payload:
+          - cart_id
+          - product_id
+          - quantity_released
+    result: Item removed from cart, stock reservation released, totals recalculated
   item_quantity_updated:
     priority: 3
     given:
-      - "customer updates item quantity in cart"
-      - "new quantity is between 1 and available stock"
+      - customer updates item quantity in cart
+      - new quantity is between 1 and available stock
     then:
       - action: set_field
         target: items
@@ -242,14 +242,13 @@ outcomes:
       - action: set_field
         target: subtotal
         description: Recalculated with new quantity
-    result: "Cart item quantity updated, totals recalculated"
-
+    result: Cart item quantity updated, totals recalculated
   promo_code_applied:
     priority: 4
     given:
-      - "customer enters a promo code"
-      - "promo code is valid and active"
-      - "cart meets minimum requirements for the promotion"
+      - customer enters a promo code
+      - promo code is valid and active
+      - cart meets minimum requirements for the promotion
     then:
       - action: set_field
         target: promo_code
@@ -260,13 +259,12 @@ outcomes:
       - action: set_field
         target: total
         description: Recalculated with discount applied
-    result: "Promo code applied, discount reflected in order total"
-
+    result: Promo code applied, discount reflected in order total
   checkout_started:
     priority: 5
     given:
-      - "customer proceeds from cart to checkout"
-      - "cart has at least one item"
+      - customer proceeds from cart to checkout
+      - cart has at least one item
     then:
       - action: transition_state
         field: checkout_step
@@ -274,17 +272,20 @@ outcomes:
         to: address
       - action: emit_event
         event: checkout.started
-        payload: [cart_id, customer_id, item_count, subtotal]
-    result: "Checkout flow initiated, customer enters address step"
-
+        payload:
+          - cart_id
+          - customer_id
+          - item_count
+          - subtotal
+    result: Checkout flow initiated, customer enters address step
   order_placed:
     priority: 6
     given:
       - field: checkout_step
         operator: eq
         value: review
-      - "payment is authorized"
-      - "all items are in stock"
+      - payment is authorized
+      - all items are in stock
     then:
       - action: transition_state
         field: checkout_step
@@ -299,19 +300,26 @@ outcomes:
         description: Generated order ID assigned
       - action: emit_event
         event: checkout.completed
-        payload: [cart_id, order_id, total]
+        payload:
+          - cart_id
+          - order_id
+          - total
       - action: emit_event
         event: order.placed
-        payload: [order_id, customer_id, items, total, shipping_method]
-    result: "Order placed, payment captured, stock committed, confirmation sent"
+        payload:
+          - order_id
+          - customer_id
+          - items
+          - total
+          - shipping_method
+    result: Order placed, payment captured, stock committed, confirmation sent
     transaction: true
-
   guest_cart_merged:
     priority: 7
     given:
-      - "guest user logs in"
-      - "guest cart has items"
-      - "user has an existing account cart"
+      - guest user logs in
+      - guest cart has items
+      - user has an existing account cart
     then:
       - action: set_field
         target: items
@@ -319,45 +327,41 @@ outcomes:
       - action: set_field
         target: subtotal
         description: Recalculated from merged items
-    result: "Guest cart merged into account cart, duplicates consolidated"
-
+    result: Guest cart merged into account cart, duplicates consolidated
   cart_empty:
     priority: 1
     error: CART_EMPTY
     given:
-      - "customer attempts to checkout"
+      - customer attempts to checkout
       - field: items
         operator: not_exists
     then:
       - action: notify
         channel: ui
         description: Inform customer that cart is empty
-    result: "Cannot proceed to checkout with an empty cart"
-
+    result: Cannot proceed to checkout with an empty cart
   item_out_of_stock:
     priority: 2
     error: CART_ITEM_OUT_OF_STOCK
     given:
-      - "customer adds an item to cart"
-      - "requested quantity exceeds available stock"
+      - customer adds an item to cart
+      - requested quantity exceeds available stock
     then:
       - action: notify
         channel: ui
         description: Show available stock quantity
-    result: "Item cannot be added, insufficient stock"
-
+    result: Item cannot be added, insufficient stock
   promo_code_invalid:
     priority: 3
     error: CART_PROMO_INVALID
     given:
-      - "customer enters a promo code"
-      - "code is invalid, expired, or already used"
+      - customer enters a promo code
+      - code is invalid, expired, or already used
     then:
       - action: notify
         channel: ui
         description: Inform customer the promo code is not valid
-    result: "Promo code rejected"
-
+    result: Promo code rejected
 errors:
   - code: CART_EMPTY
     message: Your cart is empty. Add items before proceeding to checkout.
@@ -377,24 +381,41 @@ errors:
   - code: CHECKOUT_ADDRESS_INVALID
     message: The shipping address is incomplete or invalid.
     status: 400
-
 events:
   - name: cart.item_added
     description: Item added to shopping cart
-    payload: [cart_id, product_id, quantity, unit_price]
+    payload:
+      - cart_id
+      - product_id
+      - quantity
+      - unit_price
   - name: cart.item_removed
     description: Item removed from shopping cart
-    payload: [cart_id, product_id, quantity_released]
+    payload:
+      - cart_id
+      - product_id
+      - quantity_released
   - name: checkout.started
     description: Customer initiated checkout flow
-    payload: [cart_id, customer_id, item_count, subtotal]
+    payload:
+      - cart_id
+      - customer_id
+      - item_count
+      - subtotal
   - name: checkout.completed
     description: Checkout completed and order placed
-    payload: [cart_id, order_id, total]
+    payload:
+      - cart_id
+      - order_id
+      - total
   - name: order.placed
     description: New order created from cart
-    payload: [order_id, customer_id, items, total, shipping_method]
-
+    payload:
+      - order_id
+      - customer_id
+      - items
+      - total
+      - shipping_method
 related:
   - feature: payment-methods
     type: required
@@ -411,17 +432,10 @@ related:
   - feature: subscription-billing
     type: optional
     reason: Cart may include subscription products
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_cart_checkout
-      description: Shopping cart and checkout flow with stock reservation, guest cart merge, multi-step checkout, tax, promo
-        codes, and order placement.
+      description: Shopping cart and checkout flow with stock reservation, guest cart merge, multi-step checkout, tax, promo codes, and order placement.
       success_metrics:
         - metric: policy_violation_rate
           target: 0%

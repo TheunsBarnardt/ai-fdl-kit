@@ -7,8 +7,8 @@
 # ============================================================
 
 feature: subscription-billing
-version: "1.0.0"
-description: "Recurring subscription lifecycle with plan tiers, billing cycles, trials, proration, dunning retries, and cancellation handling."
+version: 1.0.0
+description: Recurring subscription lifecycle with plan tiers, billing cycles, trials, proration, dunning retries, and cancellation handling.
 category: payment
 tags:
   - subscriptions
@@ -18,7 +18,6 @@ tags:
   - dunning
   - proration
   - saas
-
 fields:
   - name: subscription_id
     type: text
@@ -26,8 +25,8 @@ fields:
     required: true
     validation:
       - type: pattern
-        value: "^sub_[a-zA-Z0-9]+$"
-        message: "Subscription ID must match the required format"
+        value: ^sub_[a-zA-Z0-9]+$
+        message: Subscription ID must match the required format
   - name: customer_id
     type: text
     label: Customer ID
@@ -37,17 +36,23 @@ fields:
     label: Plan
     required: true
     options:
-      - {value: "free", label: "Free"}
-      - {value: "starter", label: "Starter"}
-      - {value: "pro", label: "Pro"}
-      - {value: "enterprise", label: "Enterprise"}
+      - value: free
+        label: Free
+      - value: starter
+        label: Starter
+      - value: pro
+        label: Pro
+      - value: enterprise
+        label: Enterprise
   - name: billing_cycle
     type: select
     label: Billing Cycle
     required: true
     options:
-      - {value: "monthly", label: "Monthly"}
-      - {value: "annual", label: "Annual"}
+      - value: monthly
+        label: Monthly
+      - value: annual
+        label: Annual
   - name: trial_ends_at
     type: datetime
     label: Trial End Date
@@ -65,11 +70,16 @@ fields:
     label: Subscription Status
     required: true
     options:
-      - {value: "trialing", label: "Trialing"}
-      - {value: "active", label: "Active"}
-      - {value: "past_due", label: "Past Due"}
-      - {value: "canceled", label: "Canceled"}
-      - {value: "unpaid", label: "Unpaid"}
+      - value: trialing
+        label: Trialing
+      - value: active
+        label: Active
+      - value: past_due
+        label: Past Due
+      - value: canceled
+        label: Canceled
+      - value: unpaid
+        label: Unpaid
   - name: cancel_at_period_end
     type: boolean
     label: Cancel at Period End
@@ -87,8 +97,7 @@ fields:
     validation:
       - type: max
         value: 3
-        message: "Dunning attempts cannot exceed 3"
-
+        message: Dunning attempts cannot exceed 3
 states:
   field: status
   values:
@@ -138,45 +147,34 @@ states:
       to: active
       actor: system
       description: Customer updates payment method and payment succeeds
-
 rules:
   trial_default_duration:
-    description: >
-      Free trial defaults to 14 days from subscription creation. Trial
-      can be skipped if customer opts out or plan does not offer trials.
+    description: |
+      Free trial defaults to 14 days from subscription creation. Trial can be skipped if customer opts out or plan does not offer trials.
   proration_on_plan_change:
-    description: >
-      When upgrading or downgrading mid-cycle, prorate the charge based
-      on remaining days in the current billing period. Upgrades charge
-      the difference immediately; downgrades credit toward next invoice.
+    description: |
+      When upgrading or downgrading mid-cycle, prorate the charge based on remaining days in the current billing period. Upgrades charge the difference immediately; downgrades credit toward next invoice.
   dunning_retry_schedule:
-    description: >
-      Failed payments are retried 3 times over 7 days (day 1, day 3,
-      day 7). Each retry sends an email notification to the customer.
+    description: |
+      Failed payments are retried 3 times over 7 days (day 1, day 3, day 7). Each retry sends an email notification to the customer.
   grace_period:
-    description: >
-      After entering past_due status, the customer retains access for
-      the remainder of the dunning window (7 days) before suspension.
+    description: |
+      After entering past_due status, the customer retains access for the remainder of the dunning window (7 days) before suspension.
   cancellation_modes:
-    description: >
-      Immediate cancellation revokes access at once. End-of-period
-      cancellation sets cancel_at_period_end to true and revokes access
-      when the current billing period expires.
+    description: |
+      Immediate cancellation revokes access at once. End-of-period cancellation sets cancel_at_period_end to true and revokes access when the current billing period expires.
   annual_discount:
-    description: >
-      Annual billing cycle applies a discount (typically 16-20% off the
-      equivalent monthly rate). The exact discount is configured per plan.
+    description: |
+      Annual billing cycle applies a discount (typically 16-20% off the equivalent monthly rate). The exact discount is configured per plan.
   one_subscription_per_customer:
-    description: >
-      A customer may hold only one active subscription at a time.
-      Upgrading or downgrading modifies the existing subscription.
-
+    description: |
+      A customer may hold only one active subscription at a time. Upgrading or downgrading modifies the existing subscription.
 outcomes:
   subscription_created:
     priority: 1
     given:
-      - "customer selects a plan and billing cycle"
-      - "customer provides a valid payment method"
+      - customer selects a plan and billing cycle
+      - customer provides a valid payment method
     then:
       - action: create_record
         type: subscription
@@ -185,23 +183,27 @@ outcomes:
       - action: set_field
         target: status
         value: trialing
-        when: "plan_id != \"free\""
+        when: plan_id != "free"
       - action: set_field
         target: trial_ends_at
         description: Set to 14 days from now
       - action: emit_event
         event: subscription.created
-        payload: [subscription_id, customer_id, plan_id, billing_cycle, status]
-    result: "Subscription created, trial period begins (or active if no trial)"
-
+        payload:
+          - subscription_id
+          - customer_id
+          - plan_id
+          - billing_cycle
+          - status
+    result: Subscription created, trial period begins (or active if no trial)
   trial_converted:
     priority: 2
     given:
       - field: status
         operator: eq
         value: trialing
-      - "trial_ends_at has passed"
-      - "valid payment method on file"
+      - trial_ends_at has passed
+      - valid payment method on file
     then:
       - action: transition_state
         field: status
@@ -212,16 +214,18 @@ outcomes:
         description: Set to trial end date
       - action: emit_event
         event: subscription.renewed
-        payload: [subscription_id, plan_id, billing_cycle]
-    result: "Trial converts to paid subscription, first charge processed"
-
+        payload:
+          - subscription_id
+          - plan_id
+          - billing_cycle
+    result: Trial converts to paid subscription, first charge processed
   subscription_upgraded:
     priority: 3
     given:
       - field: status
         operator: eq
         value: active
-      - "customer selects a higher-tier plan"
+      - customer selects a higher-tier plan
     then:
       - action: set_field
         target: plan_id
@@ -231,33 +235,39 @@ outcomes:
         description: Calculated based on remaining days in current period
       - action: emit_event
         event: subscription.upgraded
-        payload: [subscription_id, old_plan, new_plan, proration_amount]
-    result: "Plan upgraded, prorated charge applied immediately"
-
+        payload:
+          - subscription_id
+          - old_plan
+          - new_plan
+          - proration_amount
+    result: Plan upgraded, prorated charge applied immediately
   subscription_downgraded:
     priority: 4
     given:
       - field: status
         operator: eq
         value: active
-      - "customer selects a lower-tier plan"
+      - customer selects a lower-tier plan
     then:
       - action: set_field
         target: plan_id
         description: Scheduled to change at next billing period
       - action: emit_event
         event: subscription.downgraded
-        payload: [subscription_id, old_plan, new_plan, effective_date]
-    result: "Downgrade scheduled for next billing period, credit applied"
-
+        payload:
+          - subscription_id
+          - old_plan
+          - new_plan
+          - effective_date
+    result: Downgrade scheduled for next billing period, credit applied
   subscription_renewed:
     priority: 5
     given:
       - field: status
         operator: eq
         value: active
-      - "current_period_end has passed"
-      - "payment charge succeeds"
+      - current_period_end has passed
+      - payment charge succeeds
     then:
       - action: set_field
         target: current_period_start
@@ -267,16 +277,18 @@ outcomes:
         description: Advanced by one billing cycle
       - action: emit_event
         event: subscription.renewed
-        payload: [subscription_id, plan_id, amount_charged]
-    result: "Subscription renewed for a new billing period"
-
+        payload:
+          - subscription_id
+          - plan_id
+          - amount_charged
+    result: Subscription renewed for a new billing period
   payment_failed:
     priority: 6
     given:
       - field: status
         operator: eq
         value: active
-      - "recurring payment charge fails"
+      - recurring payment charge fails
     then:
       - action: transition_state
         field: status
@@ -287,19 +299,22 @@ outcomes:
         value: 1
       - action: emit_event
         event: subscription.payment_failed
-        payload: [subscription_id, customer_id, attempt_number, next_retry_date]
+        payload:
+          - subscription_id
+          - customer_id
+          - attempt_number
+          - next_retry_date
       - action: notify
         channel: email
         description: Notify customer of failed payment and upcoming retry
-    result: "Subscription enters past_due, dunning process begins"
-
+    result: Subscription enters past_due, dunning process begins
   dunning_retry_succeeded:
     priority: 7
     given:
       - field: status
         operator: eq
         value: past_due
-      - "payment retry succeeds within dunning window"
+      - payment retry succeeds within dunning window
     then:
       - action: transition_state
         field: status
@@ -310,9 +325,11 @@ outcomes:
         value: 0
       - action: emit_event
         event: subscription.renewed
-        payload: [subscription_id, plan_id, amount_charged]
-    result: "Payment recovered, subscription reactivated"
-
+        payload:
+          - subscription_id
+          - plan_id
+          - amount_charged
+    result: Payment recovered, subscription reactivated
   dunning_exhausted:
     priority: 8
     error: SUBSCRIPTION_DUNNING_EXHAUSTED
@@ -330,16 +347,18 @@ outcomes:
         to: unpaid
       - action: emit_event
         event: subscription.payment_failed
-        payload: [subscription_id, customer_id, final_attempt: true]
+        payload:
+          - subscription_id
+          - customer_id
+          - final_attempt: true
       - action: notify
         channel: email
         description: Final notice that subscription is suspended
-    result: "All retry attempts failed, subscription suspended"
-
+    result: All retry attempts failed, subscription suspended
   subscription_canceled:
     priority: 9
     given:
-      - "customer requests cancellation"
+      - customer requests cancellation
       - any:
           - field: status
             operator: eq
@@ -354,38 +373,43 @@ outcomes:
         description: For end-of-period cancellation
       - action: emit_event
         event: subscription.canceled
-        payload: [subscription_id, customer_id, effective_date, cancel_mode]
-    result: "Subscription marked for cancellation"
-
+        payload:
+          - subscription_id
+          - customer_id
+          - effective_date
+          - cancel_mode
+    result: Subscription marked for cancellation
+    error: SUBSCRIPTION_CANCELED
   trial_ending_notification:
     priority: 10
     given:
       - field: status
         operator: eq
         value: trialing
-      - "trial_ends_at is within 3 days"
+      - trial_ends_at is within 3 days
     then:
       - action: emit_event
         event: subscription.trial_ending
-        payload: [subscription_id, customer_id, trial_ends_at]
+        payload:
+          - subscription_id
+          - customer_id
+          - trial_ends_at
       - action: notify
         channel: email
         description: Remind customer that trial is ending soon
-    result: "Customer notified of upcoming trial expiration"
-
+    result: Customer notified of upcoming trial expiration
   no_payment_method:
     priority: 1
     error: SUBSCRIPTION_NO_PAYMENT_METHOD
     given:
-      - "customer attempts to subscribe to a paid plan"
+      - customer attempts to subscribe to a paid plan
       - field: payment_method_id
         operator: not_exists
     then:
       - action: notify
         channel: ui
         description: Prompt customer to add a payment method
-    result: "Subscription cannot proceed without a valid payment method"
-
+    result: Subscription cannot proceed without a valid payment method
 errors:
   - code: SUBSCRIPTION_NO_PAYMENT_METHOD
     message: A valid payment method is required to subscribe to a paid plan.
@@ -402,30 +426,55 @@ errors:
   - code: SUBSCRIPTION_CANCELED
     message: This subscription has been canceled and cannot be modified.
     status: 403
-
 events:
   - name: subscription.created
     description: New subscription created
-    payload: [subscription_id, customer_id, plan_id, billing_cycle, status]
+    payload:
+      - subscription_id
+      - customer_id
+      - plan_id
+      - billing_cycle
+      - status
   - name: subscription.upgraded
     description: Subscription plan upgraded to a higher tier
-    payload: [subscription_id, old_plan, new_plan, proration_amount]
+    payload:
+      - subscription_id
+      - old_plan
+      - new_plan
+      - proration_amount
   - name: subscription.downgraded
     description: Subscription plan downgraded to a lower tier
-    payload: [subscription_id, old_plan, new_plan, effective_date]
+    payload:
+      - subscription_id
+      - old_plan
+      - new_plan
+      - effective_date
   - name: subscription.canceled
     description: Subscription cancellation initiated
-    payload: [subscription_id, customer_id, effective_date, cancel_mode]
+    payload:
+      - subscription_id
+      - customer_id
+      - effective_date
+      - cancel_mode
   - name: subscription.renewed
     description: Subscription successfully renewed for a new period
-    payload: [subscription_id, plan_id, amount_charged]
+    payload:
+      - subscription_id
+      - plan_id
+      - amount_charged
   - name: subscription.payment_failed
     description: Recurring payment failed, dunning process initiated or continued
-    payload: [subscription_id, customer_id, attempt_number, next_retry_date]
+    payload:
+      - subscription_id
+      - customer_id
+      - attempt_number
+      - next_retry_date
   - name: subscription.trial_ending
     description: Trial period ending within 3 days
-    payload: [subscription_id, customer_id, trial_ends_at]
-
+    payload:
+      - subscription_id
+      - customer_id
+      - trial_ends_at
 related:
   - feature: payment-methods
     type: required
@@ -439,17 +488,10 @@ related:
   - feature: refunds-returns
     type: optional
     reason: Prorated refunds on mid-cycle cancellations
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_subscription_billing
-      description: Recurring subscription lifecycle with plan tiers, billing cycles, trials, proration, dunning retries, and
-        cancellation handling.
+      description: Recurring subscription lifecycle with plan tiers, billing cycles, trials, proration, dunning retries, and cancellation handling.
       success_metrics:
         - metric: policy_violation_rate
           target: 0%

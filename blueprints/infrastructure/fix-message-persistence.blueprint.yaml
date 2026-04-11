@@ -11,11 +11,16 @@
 # ============================================================
 
 feature: fix-message-persistence
-version: "1.0.0"
+version: 1.0.0
 description: Persists all sent and received FIX messages with sequence numbers for gap-fill recovery on reconnect; supports in-memory, file-based, and database-backed storage backends
 category: infrastructure
-tags: [fix-protocol, message-store, sequence-numbers, recovery, persistence, financial-messaging]
-
+tags:
+  - fix-protocol
+  - message-store
+  - sequence-numbers
+  - recovery
+  - persistence
+  - financial-messaging
 actors:
   - id: session_layer
     name: FIX Session Layer
@@ -33,161 +38,140 @@ actors:
     name: Memory Store
     type: system
     description: In-memory store for testing only; all data lost on process exit
-
 fields:
-  # Source: MessageStore.h — core persistence fields
-  # Composite key (BeginString:SenderCompID:TargetCompID) identifying the session whose messages are stored
   - name: session_id
     type: text
     required: true
-
-  # Sequence number of the stored message; used as primary key for retrieval
+    label: Session Id
   - name: msg_seq_num
     type: number
     required: true
-
-  # Raw FIX message string as transmitted over the wire
+    label: Msg Seq Num
   - name: message_body
     type: text
     required: true
-
-  # The next sequence number this session will assign to an outgoing message
+    label: Message Body
   - name: next_sender_seq_num
     type: number
     required: true
-
-  # The expected sequence number of the next incoming message
+    label: Next Sender Seq Num
   - name: next_target_seq_num
     type: number
     required: true
-
-  # UTC timestamp when this store was first created or last reset; used to detect stale sessions
+    label: Next Target Seq Num
   - name: creation_time
     type: datetime
     required: true
-
-  # Source: SessionSettings.h — file store configuration
-  # Directory path where file store writes message and sequence number files
+    label: Creation Time
   - name: file_store_path
     type: text
     required: false
-
-  # Source: SessionSettings.h — database store configuration
-  # Hostname of the database server
+    label: File Store Path
   - name: db_host
     type: text
     required: false
-
-  # TCP port of the database server
+    label: Db Host
   - name: db_port
     type: number
     required: false
-
-  # Database/schema name containing the message store tables
+    label: Db Port
   - name: db_name
     type: text
     required: false
-
-  # Database user with read/write access to message store tables
+    label: Db Name
   - name: db_user
     type: text
     required: false
-
-  # Password for the database user
+    label: Db User
   - name: db_password
     type: password
     required: false
-
-  # Enable database connection pooling for higher throughput
-  # Source: SessionSettings.h:MYSQL_STORE_USECONNECTIONPOOL / POSTGRESQL_STORE_USECONNECTIONPOOL
+    label: Db Password
   - name: db_connection_pool
     type: boolean
     required: false
-
+    label: Db Connection Pool
 rules:
   message_ordering:
-    # Source: MessageStore.h — set(SEQNUM, string) / get(SEQNUM, SEQNUM, vector)
     - Messages are stored and retrieved by sequence number
     - Retrieval supports range queries (from_seq to to_seq) to fulfill ResendRequest
     - Gaps in sequence numbers are expected (PossGapFill messages are stored as placeholders)
-
   sequence_integrity:
-    # Source: MessageStore.h — incrNextSenderMsgSeqNum / incrNextTargetMsgSeqNum
     - Sender and target sequence numbers are atomically incremented after each message is accepted
     - Sequence numbers must survive process restart; file and database stores persist them immediately
     - Reset (sequence numbers → 1) is triggered by explicit reset() call or ResetSeqNumFlag in Logon
-
   session_recovery:
-    # Source: Session.cpp — on logon, store is refreshed and sequences compared
     - On session startup, the store is loaded and sequence numbers are restored from persistence
     - If the remote counterparty expects a lower sequence number, a ResendRequest is issued
     - If the remote expects a higher sequence number, a SequenceReset-GapFill is sent
-
   backend_selection:
-    # Source: MessageStoreFactory — factory pattern selects backend at startup
     - MemoryStoreFactory: appropriate only for unit tests; data is lost on process exit
     - FileStoreFactory: stores one binary file per session; suitable for single-process deployments
     - MySQLStoreFactory / PostgreSQLStoreFactory: stores in a relational database; suitable for clustered deployments
     - NullStoreFactory: discards all messages; for scenarios where recovery is not needed (no-resend mode)
-
   file_store_naming:
-    # Source: FileStore.cpp — filename convention
     - File store creates two files per session: .body (messages) and .seqnums (sequence numbers)
     - Files are named using the session ID so multiple sessions can share a directory
     - On reset(), both files are truncated and sequence numbers revert to 1
-
 outcomes:
   storage_write_failed:
     priority: 1
     given:
-      - "session layer attempts to persist a message"
-      - "store write operation fails (disk full, DB connection lost, etc.)"
+      - session layer attempts to persist a message
+      - store write operation fails (disk full, DB connection lost, etc.)
     then:
       - action: emit_event
         event: fix.store.error
-        payload: [session_id, msg_seq_num, error_detail]
+        payload:
+          - session_id
+          - msg_seq_num
+          - error_detail
     result: IOException raised; session is disconnected to preserve sequence integrity
     error: STORE_WRITE_FAILED
-
   sequence_restore_failed:
     priority: 2
     given:
-      - "session is starting up and loading persisted state"
-      - "stored sequence number files are missing or corrupt"
+      - session is starting up and loading persisted state
+      - stored sequence number files are missing or corrupt
     then:
       - action: emit_event
         event: fix.store.error
-        payload: [session_id, error_detail]
+        payload:
+          - session_id
+          - error_detail
     result: Store falls back to sequence 1 and resets; risk of sequence mismatch with counterparty
     error: SEQUENCE_RESTORE_FAILED
-
   message_persisted:
     priority: 9
     given:
-      - "a FIX message is about to be transmitted"
+      - a FIX message is about to be transmitted
     then:
       - action: set_field
         target: next_sender_seq_num
-        value: "next_sender_seq_num + 1"
+        value: next_sender_seq_num + 1
       - action: emit_event
         event: fix.store.message_persisted
-        payload: [session_id, msg_seq_num]
+        payload:
+          - session_id
+          - msg_seq_num
     result: Message stored durably before transmission; can be retrieved for resend
-
   resend_range_retrieved:
     priority: 10
     given:
-      - "ResendRequest received for sequence number range [begin, end]"
+      - ResendRequest received for sequence number range [begin, end]
     then:
       - action: emit_event
         event: fix.store.resend_range_retrieved
-        payload: [session_id, begin_seq_no, end_seq_no, message_count]
+        payload:
+          - session_id
+          - begin_seq_no
+          - end_seq_no
+          - message_count
     result: Messages in range returned to session for retransmission; gaps filled with SequenceReset-GapFill
-
   store_reset:
     priority: 11
     given:
-      - "reset() called (logout, ResetSeqNumFlag=Y, or operator action)"
+      - reset() called (logout, ResetSeqNumFlag=Y, or operator action)
     then:
       - action: set_field
         target: next_sender_seq_num
@@ -200,61 +184,57 @@ outcomes:
         value: current_utc_time
       - action: emit_event
         event: fix.store.reset
-        payload: [session_id]
+        payload:
+          - session_id
     result: All stored messages cleared and sequence numbers reset to 1
-
 errors:
-  # Disk, database, or network error prevented message from being written
   - code: STORE_WRITE_FAILED
     status: 500
     message: Failed to persist message to store
-  # Store files or database records are missing, corrupt, or inaccessible
   - code: SEQUENCE_RESTORE_FAILED
     status: 500
     message: Failed to restore sequence numbers from store
-  # Error reading stored messages during resend operation
   - code: STORE_READ_FAILED
     status: 500
     message: Failed to retrieve messages from store
-
 events:
   - name: fix.store.message_persisted
     description: A message was successfully persisted to the store
-    payload: [session_id, msg_seq_num]
+    payload:
+      - session_id
+      - msg_seq_num
   - name: fix.store.resend_range_retrieved
     description: A range of messages was retrieved from the store for resend
-    payload: [session_id, begin_seq_no, end_seq_no, message_count]
+    payload:
+      - session_id
+      - begin_seq_no
+      - end_seq_no
+      - message_count
   - name: fix.store.reset
     description: Store was reset; sequence numbers set to 1 and messages cleared
-    payload: [session_id, reset_time]
+    payload:
+      - session_id
+      - reset_time
   - name: fix.store.error
     description: A store operation failed
-    payload: [session_id, operation, error_detail]
-
+    payload:
+      - session_id
+      - operation
+      - error_detail
 related:
-  # Session layer calls the store on every sent/received message to maintain sequence integrity
   - feature: fix-session-management
     type: required
     reason: Session layer calls the store on every sent/received message to maintain sequence integrity
-  # Raw FIX message strings from the message builder are the unit of persistence
   - feature: fix-message-building
     type: required
     reason: Raw FIX message strings from the message builder are the unit of persistence
-  # Database-backed store variants reuse the same database connection and schema patterns
   - feature: database-persistence
     type: optional
     reason: Database-backed store variants reuse the same database connection and schema patterns
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_fix_message_persistence
-      description: Persists all sent and received FIX messages with sequence numbers for gap-fill recovery on reconnect;
-        supports in-memory, file-based, and database-backed storage backends
+      description: Persists all sent and received FIX messages with sequence numbers for gap-fill recovery on reconnect; supports in-memory, file-based, and database-backed storage backends
       success_metrics:
         - metric: success_rate
           target: ">= 99%"
@@ -303,7 +283,6 @@ agi:
       - capability: fix_message_building
         from: fix-message-building
         fallback: fail
-
 extensions:
   tech_stack:
     language: C++

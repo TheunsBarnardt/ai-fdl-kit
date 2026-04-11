@@ -1,12 +1,13 @@
 {
   "feature": "dataset-pipeline",
-  "version": "1.0.0",
-  "description": "Build efficient input data pipelines for ML training and inference using tf.data with batching, shuffling, caching, prefetching, and parallel preprocessing",
+  "version": "1.1.0",
+  "description": "Build efficient input data pipelines for ML training and inference — covers tf.data (caching, prefetching, AUTOTUNE) and PyTorch DataLoader (multi-process workers, samplers, collate) patterns",
   "category": "ai",
   "tags": [
     "ai",
     "data-pipeline",
     "preprocessing",
+    "pytorch",
     "tensorflow",
     "etl",
     "performance"
@@ -40,7 +41,15 @@
       "options": [
         {
           "value": "tensor_slices",
-          "label": "In-Memory Tensors (from_tensor_slices)"
+          "label": "In-Memory Tensors (TF: from_tensor_slices / PyTorch: TensorDataset)"
+        },
+        {
+          "value": "map_style",
+          "label": "PyTorch Map-Style Dataset (implements __len__ + __getitem__)"
+        },
+        {
+          "value": "iterable_style",
+          "label": "PyTorch Iterable Dataset (implements __iter__, stream data)"
         },
         {
           "value": "file_pattern",
@@ -48,7 +57,7 @@
         },
         {
           "value": "tfrecord",
-          "label": "TFRecord Files (binary, recommended for large datasets)"
+          "label": "TFRecord Files (TF binary, recommended for large datasets)"
         },
         {
           "value": "csv",
@@ -119,7 +128,65 @@
       "name": "drop_remainder",
       "type": "boolean",
       "required": false,
-      "label": "Drop Incomplete Final Batch"
+      "label": "Drop Incomplete Final Batch (PyTorch: drop_last; required for TPU fixed shapes)"
+    },
+    {
+      "name": "num_workers",
+      "type": "number",
+      "required": false,
+      "label": "PyTorch: Number of Worker Subprocesses (0 = main process only, default)"
+    },
+    {
+      "name": "pin_memory",
+      "type": "boolean",
+      "required": false,
+      "label": "PyTorch: Pin Host Memory for Faster GPU Transfer (enable when using CUDA)"
+    },
+    {
+      "name": "persistent_workers",
+      "type": "boolean",
+      "required": false,
+      "label": "PyTorch: Keep Workers Alive Between Epochs (avoids fork overhead)"
+    },
+    {
+      "name": "prefetch_factor",
+      "type": "number",
+      "required": false,
+      "label": "PyTorch: Batches Prefetched per Worker (default 2 when num_workers > 0)"
+    },
+    {
+      "name": "worker_timeout_s",
+      "type": "number",
+      "required": false,
+      "label": "PyTorch: Timeout in Seconds for Collecting a Batch from Workers (0 = no timeout)"
+    },
+    {
+      "name": "sampler_type",
+      "type": "select",
+      "required": false,
+      "label": "PyTorch: Sampler Strategy",
+      "options": [
+        {
+          "value": "sequential",
+          "label": "Sequential (same order every epoch)"
+        },
+        {
+          "value": "random",
+          "label": "Random (shuffle without replacement)"
+        },
+        {
+          "value": "weighted_random",
+          "label": "WeightedRandom (class imbalance — sample with probability weights)"
+        },
+        {
+          "value": "subset_random",
+          "label": "SubsetRandom (random sample from given index list)"
+        },
+        {
+          "value": "distributed",
+          "label": "DistributedSampler (one shard per process for DDP)"
+        }
+      ]
     },
     {
       "name": "compression_type",
@@ -172,6 +239,13 @@
     },
     "serialization": {
       "tfrecord_format": "TFRecord is the recommended format for datasets larger than RAM:\n- Binary encoding: faster than CSV/JSON parsing\n- Supports sharding across multiple files for parallel reads\n- Features encoded as tf.train.Feature:\n    bytes_list (images, text), float_list, int64_list\n- MUST define a feature_description dict for tf.io.parse_single_example\n# Source: tensorflow/python/lib/io/tf_record.py\n"
+    },
+    "pytorch_dataloader": {
+      "iterable_multiworker": "CRITICAL: IterableDataset with num_workers > 0 returns DUPLICATE data\nunless each worker independently partitions the data range.\nIn __iter__, call get_worker_info() to get worker id and num_workers,\nthen yield only the slice belonging to this worker.\nIf using worker_init_fn for sharding instead, apply the same partition logic.\n# Source: torch/utils/data/dataset.py — IterableDataset docstring examples\n",
+      "map_vs_iterable": "Map-style Dataset (implements __len__ + __getitem__):\n  - Supports random access by index\n  - Compatible with all samplers (random, weighted, subset)\n  - Required for DistributedSampler in DDP\nIterable-style Dataset (implements __iter__):\n  - Suited for streaming data (no known length)\n  - shuffle=True on DataLoader is silently ignored — must shuffle internally\n  - With num_workers > 0, MUST partition data manually per worker\n# Source: torch/utils/data/dataset.py — Dataset vs IterableDataset\n",
+      "pin_memory": "Enable pin_memory=True when transferring to CUDA devices.\nPinned (page-locked) host memory allows async DMA transfers from the\nDataLoader workers to GPU, overlapping with compute.\nDo NOT enable for CPU-only training or MPS (Apple Silicon) — no benefit.\n# Source: torch/utils/data/dataloader.py — DataLoader docstring\n",
+      "num_workers": "num_workers=0 (default): data loaded in the main process.\nnum_workers > 0: spawns subprocesses; requires all objects to be picklable.\nGuideline: start with num_workers = number of CPU cores / 2.\npersistent_workers=True avoids the per-epoch fork cost for large datasets.\n# Source: torch/utils/data/dataloader.py — DataLoader docstring\n",
+      "weighted_sampler": "Use WeightedRandomSampler to address class imbalance:\n  - Provide a weight per sample (not per class)\n  - replacement=True (default) allows re-sampling\n  - num_samples controls epoch length regardless of dataset size\nMutually exclusive with shuffle=True.\n# Source: torch/utils/data/sampler.py — WeightedRandomSampler\n"
     }
   },
   "outcomes": {
@@ -358,12 +432,16 @@
   "extensions": {
     "tech_stack": {
       "language": "Python",
-      "framework": "TensorFlow tf.data",
+      "frameworks": [
+        "TensorFlow tf.data — pipeline composition, AUTOTUNE, TFRecord, caching",
+        "PyTorch DataLoader — multi-process workers, pin_memory, samplers, collate_fn"
+      ],
       "patterns": [
-        "tf.data.Dataset pipeline composition",
-        "AUTOTUNE buffer sizing",
-        "TFRecord binary format for large-scale datasets",
-        "Dataset sharding for distributed training"
+        "tf.data: cache → shuffle → map(AUTOTUNE) → batch → prefetch(AUTOTUNE)",
+        "PyTorch: DataLoader with num_workers + persistent_workers for throughput",
+        "PyTorch IterableDataset: manually partition data per worker via get_worker_info()",
+        "PyTorch WeightedRandomSampler for class imbalance",
+        "DistributedSampler for DDP / multi-process distributed training"
       ]
     }
   }

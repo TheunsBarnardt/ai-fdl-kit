@@ -70,6 +70,7 @@ const blueprintJsonSchema = {
         "trading",
         "infrastructure",
         "observability",
+        "security",
       ],
     },
     tags: {

@@ -9,11 +9,15 @@
 # ============================================================
 
 feature: fix-session-management
-version: "1.0.0"
+version: 1.0.0
 description: Manages stateful FIX protocol sessions including logon/logout lifecycle, heartbeat monitoring, sequence number integrity, and time-window enforcement
 category: trading
-tags: [fix-protocol, session, heartbeat, sequence-numbers, financial-messaging]
-
+tags:
+  - fix-protocol
+  - session
+  - heartbeat
+  - sequence-numbers
+  - financial-messaging
 actors:
   - id: initiator
     name: Session Initiator
@@ -27,20 +31,15 @@ actors:
     name: Application Layer
     type: system
     description: Business application that implements callbacks for session lifecycle events and message handling
-
 fields:
-  # Source: SessionSettings.h — session identity fields
-  # Identifies the sender of this message (SenderCompID, tag 49)
   - name: sender_comp_id
     type: text
     required: true
-
-  # Identifies the target recipient of this message (TargetCompID, tag 56)
+    label: Sender Comp Id
   - name: target_comp_id
     type: text
     required: true
-
-  # FIX version identifier (BeginString, tag 8); determines message structure and validation rules
+    label: Target Comp Id
   - name: begin_string
     type: select
     required: true
@@ -57,51 +56,39 @@ fields:
         label: FIX 4.4
       - value: FIXT.1.1
         label: FIXT 1.1
-
-  # Optional qualifier to disambiguate sessions with the same SenderCompID/TargetCompID pair
+    label: Begin String
   - name: session_qualifier
     type: text
     required: false
-
-  # Heartbeat interval in seconds (HeartBtInt, tag 108); both sides must use the same value
-  # Source: SessionSettings.h:HEARTBTINT — required for session liveness detection
+    label: Session Qualifier
   - name: heartbeat_interval
     type: number
     required: true
-
-  # Seconds to wait for logon response before disconnecting (default 10)
-  # Source: SessionState.h — m_logonTimeout defaults to 10
+    label: Heartbeat Interval
   - name: logon_timeout
     type: number
     required: false
-
-  # Seconds to wait for logout response before disconnecting (default 2)
-  # Source: SessionState.h — m_logoutTimeout defaults to 2
+    label: Logon Timeout
   - name: logout_timeout
     type: number
     required: false
-
-  # Expected sequence number of the next outgoing message
+    label: Logout Timeout
   - name: next_sender_seq_num
     type: number
     required: false
-
-  # Expected sequence number of the next incoming message
+    label: Next Sender Seq Num
   - name: next_target_seq_num
     type: number
     required: false
-
-  # When true, both parties reset sequence numbers to 1 on logon
-  # Source: Session.cpp — logon message field ResetSeqNumFlag
+    label: Next Target Seq Num
   - name: reset_seq_num_flag
     type: boolean
     required: false
-
-  # Default application version for FIXT.1.1 sessions (separates transport and application protocols)
+    label: Reset Seq Num Flag
   - name: default_appl_ver_id
     type: text
     required: false
-
+    label: Default Appl Ver Id
 states:
   field: connection_state
   values:
@@ -150,97 +137,91 @@ states:
       to: disconnected
       actor: system
       description: Heartbeat timeout or network error forces disconnect
-
 rules:
   session_identity:
-    # Source: SessionSettings.h:CHECK_COMPID — validate sender/target match
     - Both SenderCompID and TargetCompID must match configured session identity on every received message
     - A SessionQualifier can be added to distinguish parallel sessions between the same counterparties
-
   sequence_numbers:
-    # Source: Session.cpp — sequence number verification before message delivery
     - All messages are numbered sequentially starting at 1; gaps trigger a ResendRequest
     - Out-of-sequence messages are queued until a Resend fills the gap
     - ResetSeqNumFlag=Y in a Logon message causes both parties to reset to sequence number 1
     - Application may manually set next sender or target sequence number before logon
-
   heartbeat:
-    # Source: Session.cpp — generateHeartbeat(), generateTestRequest()
     - Heartbeat messages are sent at the configured interval when no other messages are sent
     - If no message is received within heartbeat_interval seconds, a TestRequest is sent
     - If no response to TestRequest arrives within heartbeat_interval, the session disconnects
     - Heartbeat interval is negotiated during Logon (sent by initiator, may be overridden by acceptor)
-
   logon_time_window:
-    # Source: SessionSettings.h:START_TIME/END_TIME/START_DAY/END_DAY
     - Sessions can be restricted to a time window (e.g., market hours) via StartTime/EndTime
     - A session received outside its valid logon window is immediately disconnected
     - NonStopSession=Y disables time-window enforcement for 24/7 operation
-
   session_recovery:
-    # Source: SessionSettings.h:RESET_ON_LOGON/LOGOUT/DISCONNECT
     - ResetOnLogon: reset sequence numbers each time a logon occurs
     - ResetOnLogout: reset when a logout is processed
     - ResetOnDisconnect: reset whenever the TCP connection drops
-
 sla:
-  logon_timeout: 10s   # Source: SessionState.h — default logonTimeout
-  logout_timeout: 2s   # Source: SessionState.h — default logoutTimeout
-  max_latency: 120s    # Source: SessionSettings.h:MAX_LATENCY — default; messages older than this are rejected
-
+  logon_timeout: 10s
+  logout_timeout: 2s
+  max_latency: 120s
 outcomes:
   session_disabled:
     priority: 1
     given:
-      - "session enabled flag is false"
+      - session enabled flag is false
     then:
       - action: emit_event
         event: fix.session.logon_rejected
-        payload: [session_id, reason]
+        payload:
+          - session_id
+          - reason
     result: Logon request is ignored; disconnect is triggered
     error: SESSION_DISABLED
-
   logon_outside_time_window:
     priority: 2
     given:
-      - "logon is received"
-      - "current time is outside configured logon time window"
+      - logon is received
+      - current time is outside configured logon time window
     then:
       - action: emit_event
         event: fix.session.logon_rejected
-        payload: [session_id, current_time, logon_window]
+        payload:
+          - session_id
+          - current_time
+          - logon_window
     result: Connection is immediately terminated
     error: LOGON_OUTSIDE_TIME_WINDOW
-
   logon_rejected_by_application:
     priority: 3
     given:
-      - "logon is received"
-      - "application throws RejectLogon exception in fromAdmin callback"
+      - logon is received
+      - application throws RejectLogon exception in fromAdmin callback
     then:
       - action: emit_event
         event: fix.session.logon_rejected
-        payload: [session_id, reason]
+        payload:
+          - session_id
+          - reason
     result: Logout message sent, then disconnected
     error: LOGON_REJECTED
-
   comp_id_mismatch:
     priority: 4
     given:
-      - "message received"
-      - "SenderCompID or TargetCompID does not match configured session values"
+      - message received
+      - SenderCompID or TargetCompID does not match configured session values
     then:
       - action: emit_event
         event: fix.session.message_rejected
-        payload: [session_id, msg_seq_num, reject_reason]
+        payload:
+          - session_id
+          - msg_seq_num
+          - reject_reason
     result: Message rejected with SessionReject; may force logout
     error: COMP_ID_MISMATCH
-
   logon_timeout_elapsed:
     priority: 5
     given:
-      - "logon request was sent"
-      - "no logon response received within logon_timeout seconds"
+      - logon request was sent
+      - no logon response received within logon_timeout seconds
     then:
       - action: transition_state
         field: connection_state
@@ -248,16 +229,17 @@ outcomes:
         to: disconnected
       - action: emit_event
         event: fix.session.disconnected
-        payload: [session_id, reason]
+        payload:
+          - session_id
+          - reason
     result: Session disconnected; initiator will attempt reconnect after interval
     error: LOGON_TIMEOUT
-
   heartbeat_timeout:
     priority: 6
     given:
-      - "session is in logged_on state"
-      - "no message received for heartbeat_interval seconds"
-      - "TestRequest was sent but no response after heartbeat_interval more seconds"
+      - session is in logged_on state
+      - no message received for heartbeat_interval seconds
+      - TestRequest was sent but no response after heartbeat_interval more seconds
     then:
       - action: transition_state
         field: connection_state
@@ -265,27 +247,31 @@ outcomes:
         to: disconnected
       - action: emit_event
         event: fix.session.disconnected
-        payload: [session_id, reason]
+        payload:
+          - session_id
+          - reason
     result: Session terminated due to heartbeat timeout
     error: HEARTBEAT_TIMEOUT
-
   sequence_gap_detected:
     priority: 7
     given:
-      - "message received with sequence number higher than expected"
+      - message received with sequence number higher than expected
     then:
       - action: emit_event
         event: fix.session.resend_requested
-        payload: [session_id, begin_seq_no, end_seq_no]
+        payload:
+          - session_id
+          - begin_seq_no
+          - end_seq_no
     result: ResendRequest sent for the missing range; message queued until gap filled
-
+    error: SEQUENCE_GAP
   logon_successful:
     priority: 10
     given:
-      - "session is enabled"
-      - "current time is within logon time window"
-      - "Logon message contains valid SenderCompID and TargetCompID"
-      - "application does not throw RejectLogon"
+      - session is enabled
+      - current time is within logon time window
+      - Logon message contains valid SenderCompID and TargetCompID
+      - application does not throw RejectLogon
     then:
       - action: transition_state
         field: connection_state
@@ -293,14 +279,17 @@ outcomes:
         to: logged_on
       - action: emit_event
         event: fix.session.logged_on
-        payload: [session_id, sender_comp_id, target_comp_id, begin_string]
+        payload:
+          - session_id
+          - sender_comp_id
+          - target_comp_id
+          - begin_string
     result: Session is fully established; application receives onLogon callback
-
   logout_successful:
     priority: 11
     given:
-      - "Logout message received or application calls logout()"
-      - "session is in logged_on state"
+      - Logout message received or application calls logout()
+      - session is in logged_on state
     then:
       - action: transition_state
         field: connection_state
@@ -308,9 +297,10 @@ outcomes:
         to: disconnected
       - action: emit_event
         event: fix.session.logged_out
-        payload: [session_id, reason]
+        payload:
+          - session_id
+          - reason
     result: Session cleanly terminated; application receives onLogout callback
-
 flows:
   logon_flow:
     description: FIX session establishment between initiator and acceptor
@@ -325,7 +315,6 @@ flows:
         action: Receive Logon response; call application.onLogon(); session is now active
       - actor: acceptor
         action: Call application.onLogon(); session is now active
-
   heartbeat_flow:
     description: Keepalive mechanism to detect dead connections
     steps:
@@ -337,85 +326,80 @@ flows:
         action: If heartbeat_interval elapsed since last incoming message, send TestRequest
       - actor: system
         action: If TestRequest response not received within heartbeat_interval, disconnect
-
 errors:
-  # logon() has not been called or logout() was called
   - code: SESSION_DISABLED
     status: 503
     message: Session is not enabled for logon
-  # Logon message arrived outside StartTime/EndTime window
   - code: LOGON_OUTSIDE_TIME_WINDOW
     status: 503
     message: Received logon outside of valid logon time
-  # Application threw RejectLogon in fromAdmin callback
   - code: LOGON_REJECTED
     status: 403
     message: Logon rejected by application
-  # Received message has wrong CompID for this session; potential spoofing
   - code: COMP_ID_MISMATCH
     status: 400
     message: SenderCompID/TargetCompID mismatch
-  # Initiator did not receive Logon reply within logon_timeout seconds
   - code: LOGON_TIMEOUT
     status: 503
     message: Timed out waiting for logon response
-  # No message received and TestRequest went unanswered
   - code: HEARTBEAT_TIMEOUT
     status: 503
     message: Timed out waiting for heartbeat
-  # Incoming message has higher sequence number than expected; resend requested
   - code: SEQUENCE_GAP
     status: 500
     message: Message sequence gap detected
-
 events:
   - name: fix.session.logged_on
     description: FIX session successfully established after Logon exchange
-    payload: [session_id, sender_comp_id, target_comp_id, begin_string]
+    payload:
+      - session_id
+      - sender_comp_id
+      - target_comp_id
+      - begin_string
   - name: fix.session.logged_out
     description: Session cleanly terminated via Logout exchange
-    payload: [session_id, reason]
+    payload:
+      - session_id
+      - reason
   - name: fix.session.disconnected
     description: Session terminated due to error, timeout, or network failure
-    payload: [session_id, reason]
+    payload:
+      - session_id
+      - reason
   - name: fix.session.logon_rejected
     description: Incoming Logon was refused
-    payload: [session_id, reason]
+    payload:
+      - session_id
+      - reason
   - name: fix.session.resend_requested
     description: Sequence gap detected; ResendRequest sent for missing messages
-    payload: [session_id, begin_seq_no, end_seq_no]
+    payload:
+      - session_id
+      - begin_seq_no
+      - end_seq_no
   - name: fix.session.message_rejected
     description: A message was rejected due to validation failure
-    payload: [session_id, msg_seq_num, reject_reason]
-
+    payload:
+      - session_id
+      - msg_seq_num
+      - reject_reason
 related:
-  # Session sends and receives FIX messages structured by the message-building feature
   - feature: fix-message-building
     type: required
     reason: Session sends and receives FIX messages structured by the message-building feature
-  # Session requires an active TCP connection managed by the connection layer
   - feature: fix-connection-management
     type: required
     reason: Session requires an active TCP connection managed by the connection layer
-  # All sent and received messages are persisted for sequence number recovery
   - feature: fix-message-persistence
     type: required
     reason: All sent and received messages are persisted for sequence number recovery
-  # Incoming messages are validated against a DataDictionary before delivery
   - feature: fix-protocol-validation
     type: recommended
     reason: Incoming messages are validated against a DataDictionary before delivery
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_fix_session_management
-      description: Manages stateful FIX protocol sessions including logon/logout lifecycle, heartbeat monitoring, sequence
-        number integrity, and time-window enforcement
+      description: Manages stateful FIX protocol sessions including logon/logout lifecycle, heartbeat monitoring, sequence number integrity, and time-window enforcement
       success_metrics:
         - metric: policy_violation_rate
           target: 0%
@@ -474,7 +458,6 @@ agi:
       - capability: fix_message_persistence
         from: fix-message-persistence
         fallback: fail
-
 extensions:
   tech_stack:
     language: C++

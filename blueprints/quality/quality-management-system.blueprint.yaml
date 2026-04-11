@@ -7,11 +7,9 @@
 # ============================================================
 
 feature: quality-management-system
-version: "1.0.0"
-description: >
-  Quality management with goals, periodic reviews, hierarchical
-  procedures, feedback collection, and corrective/preventive
-  action tracking for continuous improvement.
+version: 1.0.0
+description: |
+  Quality management with goals, periodic reviews, hierarchical procedures, feedback collection, and corrective/preventive action tracking for continuous improvement.
 category: quality
 tags:
   - quality-management
@@ -22,7 +20,6 @@ tags:
   - preventive-action
   - feedback
   - continuous-improvement
-
 fields:
   - name: goal
     type: text
@@ -33,12 +30,17 @@ fields:
     label: Review Frequency
     required: false
     options:
-      - {value: "None", label: "None"}
-      - {value: "Daily", label: "Daily"}
-      - {value: "Weekly", label: "Weekly"}
-      - {value: "Monthly", label: "Monthly"}
-      - {value: "Quarterly", label: "Quarterly"}
-    default: "None"
+      - value: None
+        label: None
+      - value: Daily
+        label: Daily
+      - value: Weekly
+        label: Weekly
+      - value: Monthly
+        label: Monthly
+      - value: Quarterly
+        label: Quarterly
+    default: None
   - name: objectives
     type: json
     label: Quality Objectives
@@ -56,9 +58,12 @@ fields:
     label: Review Status
     required: false
     options:
-      - {value: "Open", label: "Open"}
-      - {value: "Passed", label: "Passed"}
-      - {value: "Failed", label: "Failed"}
+      - value: Open
+        label: Open
+      - value: Passed
+        label: Passed
+      - value: Failed
+        label: Failed
   - name: reviews
     type: json
     label: Review Results
@@ -89,8 +94,10 @@ fields:
     label: Feedback Document Type
     required: false
     options:
-      - {value: "User", label: "User"}
-      - {value: "Customer", label: "Customer"}
+      - value: User
+        label: User
+      - value: Customer
+        label: Customer
   - name: feedback_template
     type: text
     label: Feedback Template
@@ -104,191 +111,208 @@ fields:
     label: Action Type
     required: false
     options:
-      - {value: "Corrective", label: "Corrective"}
-      - {value: "Preventive", label: "Preventive"}
+      - value: Corrective
+        label: Corrective
+      - value: Preventive
+        label: Preventive
   - name: action_status
     type: select
     label: Action Status
     required: false
     options:
-      - {value: "Open", label: "Open"}
-      - {value: "Completed", label: "Completed"}
+      - value: Open
+        label: Open
+      - value: Completed
+        label: Completed
   - name: resolutions
     type: json
     label: Resolutions
     required: false
-
 rules:
   reviews_auto_created:
-    description: >
-      Quality reviews are auto-created by a scheduled job based on the
-      goal frequency setting (Daily, Weekly, Monthly, Quarterly).
+    description: |
+      Quality reviews are auto-created by a scheduled job based on the goal frequency setting (Daily, Weekly, Monthly, Quarterly).
   review_status_aggregated:
-    description: >
-      Review status is aggregated from child objective statuses. All
-      objectives must pass for the review to pass.
+    description: |
+      Review status is aggregated from child objective statuses. All objectives must pass for the review to pass.
   procedure_tree_structure:
-    description: >
-      Quality procedures form a nested hierarchy (tree structure) via
-      parent_procedure references. Group procedures contain children.
+    description: |
+      Quality procedures form a nested hierarchy (tree structure) via parent_procedure references. Group procedures contain children.
   feedback_from_template:
-    description: >
-      Feedback parameters are populated from the selected feedback
-      template, defining which aspects to rate.
+    description: |
+      Feedback parameters are populated from the selected feedback template, defining which aspects to rate.
   action_status_aggregated:
-    description: >
-      Quality action status is aggregated from its resolution statuses.
-      The action is Completed only when all resolutions are Completed.
+    description: |
+      Quality action status is aggregated from its resolution statuses. The action is Completed only when all resolutions are Completed.
   quarterly_review_schedule:
-    description: >
-      Quarterly reviews are triggered in January, April, July, and
-      October when frequency is set to Quarterly.
-
+    description: |
+      Quarterly reviews are triggered in January, April, July, and October when frequency is set to Quarterly.
 outcomes:
   create_quality_goal:
     given:
-      - "goal description and objectives with targets are provided"
+      - goal description and objectives with targets are provided
     then:
       - action: create_record
         type: quality_goal
         target: quality_goal
-        description: "Quality goal created with objectives"
+        description: Quality goal created with objectives
       - action: emit_event
         event: goal.created
-        payload: [goal, frequency, objectives]
-    result: "Quality goal created with measurable objectives and review schedule"
-
+        payload:
+          - goal
+          - frequency
+          - objectives
+    result: Quality goal created with measurable objectives and review schedule
+    priority: 10
   auto_create_review:
     given:
-      - "quality goal exists with frequency other than None"
-      - "scheduled review date has arrived"
+      - quality goal exists with frequency other than None
+      - scheduled review date has arrived
     then:
       - action: create_record
         type: quality_review
         target: quality_review
-        description: "Review auto-created with objectives from goal"
+        description: Review auto-created with objectives from goal
       - action: emit_event
         event: review.auto_created
-        payload: [review_goal, review_date, objectives]
-    result: "Quality review auto-created with target values from goal"
-
+        payload:
+          - review_goal
+          - review_date
+          - objectives
+    result: Quality review auto-created with target values from goal
+    priority: 11
   evaluate_review:
     given:
-      - "quality review exists with actual values entered for all objectives"
+      - quality review exists with actual values entered for all objectives
     then:
       - action: set_field
         target: review_status
-        description: "Status set based on objective pass/fail evaluation"
+        description: Status set based on objective pass/fail evaluation
       - action: emit_event
         event: review.passed
-        payload: [review_goal, review_date]
-        when: "review_status == \"Passed\""
+        payload:
+          - review_goal
+          - review_date
+        when: review_status == "Passed"
       - action: emit_event
         event: review.failed
-        payload: [review_goal, review_date]
-        when: "review_status == \"Failed\""
-    result: "Review evaluated and status determined from objective results"
+        payload:
+          - review_goal
+          - review_date
+        when: review_status == "Failed"
+    result: Review evaluated and status determined from objective results
     error: QMS_REVIEW_GOAL_NOT_FOUND
-
+    priority: 12
   create_procedure_hierarchy:
     given:
-      - "procedure_name and process_owner are provided"
+      - procedure_name and process_owner are provided
     then:
       - action: create_record
         type: quality_procedure
         target: quality_procedure
-        description: "Quality procedure created in hierarchy"
-    result: "Quality procedure created, nested under parent if specified"
+        description: Quality procedure created in hierarchy
+    result: Quality procedure created, nested under parent if specified
     error: QMS_PROCEDURE_PARENT_CONFLICT
-
+    priority: 13
   collect_feedback:
     given:
-      - "document_type is specified"
-      - "feedback_template exists if provided"
+      - document_type is specified
+      - feedback_template exists if provided
     then:
       - action: create_record
         type: quality_feedback
         target: quality_feedback
-        description: "Feedback record created with parameters from template"
+        description: Feedback record created with parameters from template
       - action: emit_event
         event: feedback.submitted
-        payload: [document_type, parameters]
-    result: "Feedback collected with ratings per parameter"
-
+        payload:
+          - document_type
+          - parameters
+    result: Feedback collected with ratings per parameter
+    priority: 14
   create_corrective_action:
     given:
-      - "corrective_preventive is set to Corrective"
-      - "at least one resolution is defined"
+      - corrective_preventive is set to Corrective
+      - at least one resolution is defined
     then:
       - action: create_record
         type: quality_action
         target: quality_action
-        description: "Corrective action created with Open status"
+        description: Corrective action created with Open status
       - action: emit_event
         event: action.completed
-        payload: [corrective_preventive, resolutions]
-        when: "action_status == \"Completed\""
-    result: "Corrective action created to address identified quality issue"
-
+        payload:
+          - corrective_preventive
+          - resolutions
+        when: action_status == "Completed"
+    result: Corrective action created to address identified quality issue
+    priority: 15
   create_preventive_action:
     given:
-      - "corrective_preventive is set to Preventive"
-      - "at least one resolution is defined"
+      - corrective_preventive is set to Preventive
+      - at least one resolution is defined
     then:
       - action: create_record
         type: quality_action
         target: quality_action
-        description: "Preventive action created with Open status"
+        description: Preventive action created with Open status
       - action: emit_event
         event: action.completed
-        payload: [corrective_preventive, resolutions]
-        when: "action_status == \"Completed\""
-    result: "Preventive action created to prevent potential quality issues"
-
+        payload:
+          - corrective_preventive
+          - resolutions
+        when: action_status == "Completed"
+    result: Preventive action created to prevent potential quality issues
+    priority: 16
 errors:
   - code: QMS_PROCEDURE_PARENT_CONFLICT
-    message: "A procedure cannot be its own parent or create a circular hierarchy."
+    message: A procedure cannot be its own parent or create a circular hierarchy.
     status: 400
   - code: QMS_REVIEW_GOAL_NOT_FOUND
-    message: "The referenced quality goal for this review does not exist."
+    message: The referenced quality goal for this review does not exist.
     status: 404
-
 events:
   - name: goal.created
     description: Fired when a quality goal is created
-    payload: [goal, frequency, objectives]
+    payload:
+      - goal
+      - frequency
+      - objectives
   - name: review.auto_created
     description: Fired when a review is auto-created by schedule
-    payload: [review_goal, review_date, objectives]
+    payload:
+      - review_goal
+      - review_date
+      - objectives
   - name: review.passed
     description: Fired when a quality review passes
-    payload: [review_goal, review_date]
+    payload:
+      - review_goal
+      - review_date
   - name: review.failed
     description: Fired when a quality review fails
-    payload: [review_goal, review_date]
+    payload:
+      - review_goal
+      - review_date
   - name: action.completed
     description: Fired when a corrective or preventive action is completed
-    payload: [corrective_preventive, resolutions]
+    payload:
+      - corrective_preventive
+      - resolutions
   - name: feedback.submitted
     description: Fired when quality feedback is submitted
-    payload: [document_type, parameters]
-
+    payload:
+      - document_type
+      - parameters
 related:
   - feature: quality-inspection
     type: recommended
-    reason: "Inspections feed into quality goals and trigger corrective actions"
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
+    reason: Inspections feed into quality goals and trigger corrective actions
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_quality_management_system
-      description: >
-        Quality management with goals, periodic reviews, hierarchical procedures, feedback collection, and
-        corrective/preventive action tracking for continuous improvement.
+      description: |
+        Quality management with goals, periodic reviews, hierarchical procedures, feedback collection, and corrective/preventive action tracking for continuous improvement.
       success_metrics:
         - metric: policy_violation_rate
           target: 0%
@@ -324,9 +348,8 @@ agi:
     - prefer: thoroughness
       over: speed
       reason: quality checks must be comprehensive to catch defects early
-
 extensions:
   source:
-    repo: "https://github.com/frappe/erpnext"
-    project: "ERP system"
-    tech_stack: "Python/Frappe Framework"
+    repo: https://github.com/frappe/erpnext
+    project: ERP system
+    tech_stack: Python/Frappe Framework

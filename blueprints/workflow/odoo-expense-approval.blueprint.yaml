@@ -9,10 +9,9 @@
 # ============================================================
 
 feature: expense-approval
-version: "1.0.0"
-description: >
-  Employee expense submission and approval workflow with multi-level authorization, reimbursement tracking, accounting
-  journal entry generation, and payment processing.
+version: 1.0.0
+description: |
+  Employee expense submission and approval workflow with multi-level authorization, reimbursement tracking, accounting journal entry generation, and payment processing.
 category: workflow
 tags:
   - expenses
@@ -20,7 +19,6 @@ tags:
   - reimbursement
   - employee-expenses
   - accounting-integration
-
 actors:
   - id: employee
     name: Employee
@@ -38,7 +36,6 @@ actors:
     name: Expense System
     type: system
     description: Computes amounts, generates journal entries, tracks payment state
-
 fields:
   - name: expense_description
     type: text
@@ -69,7 +66,9 @@ fields:
     label: Quantity
     required: true
     validation:
-      - {type: "min", value: 0, message: "Quantity must be zero or greater"}
+      - type: min
+        value: 0
+        message: Quantity must be zero or greater
   - name: unit_price
     type: number
     label: Unit Price
@@ -91,29 +90,42 @@ fields:
     label: Payment Mode
     required: true
     options:
-      - {value: "own_account", label: "Own Account"}
-      - {value: "company_account", label: "Company Account"}
+      - value: own_account
+        label: Own Account
+      - value: company_account
+        label: Company Account
   - name: approval_state
     type: select
     label: Approval Status
     required: true
     options:
-      - {value: "draft", label: "Draft"}
-      - {value: "submitted", label: "Submitted"}
-      - {value: "approved", label: "Approved"}
-      - {value: "refused", label: "Refused"}
+      - value: draft
+        label: Draft
+      - value: submitted
+        label: Submitted
+      - value: approved
+        label: Approved
+      - value: refused
+        label: Refused
   - name: expense_state
     type: select
     label: Overall State
     required: true
     options:
-      - {value: "draft", label: "Draft"}
-      - {value: "submitted", label: "Submitted"}
-      - {value: "approved", label: "Approved"}
-      - {value: "posted", label: "Posted"}
-      - {value: "in_payment", label: "In Payment"}
-      - {value: "paid", label: "Paid"}
-      - {value: "refused", label: "Refused"}
+      - value: draft
+        label: Draft
+      - value: submitted
+        label: Submitted
+      - value: approved
+        label: Approved
+      - value: posted
+        label: Posted
+      - value: in_payment
+        label: In Payment
+      - value: paid
+        label: Paid
+      - value: refused
+        label: Refused
   - name: account_id
     type: text
     label: Expense Account
@@ -134,7 +146,6 @@ fields:
     type: file
     label: Receipt
     required: false
-
 states:
   field: expense_state
   values:
@@ -164,9 +175,8 @@ states:
       to: approved
       actor: expense_manager
       description: Manager approves the expense
-      condition: >
-        Approver must be the employee's manager, expense manager, or
-        department manager. Cannot approve own expenses.
+      condition: |
+        Approver must be the employee's manager, expense manager, or department manager. Cannot approve own expenses.
     - from: submitted
       to: refused
       actor: expense_manager
@@ -183,42 +193,33 @@ states:
       to: paid
       actor: system
       description: Payment fully reconciled
-
 rules:
   cannot_approve_own_expenses:
-    description: >
-      An employee cannot approve their own expenses, regardless of their
-      role. A different authorized approver must review.
+    description: |
+      An employee cannot approve their own expenses, regardless of their role. A different authorized approver must review.
   approver_authorization_levels:
-    description: >
-      Three authorization levels for expense approval: (1) direct manager
-      of the employee, (2) designated expense manager, (3) department
-      manager. At least one must approve.
+    description: |
+      Three authorization levels for expense approval: (1) direct manager of the employee, (2) designated expense manager, (3) department manager. At least one must approve.
   editable_until_posted:
-    description: >
-      Expenses are editable in draft, submitted, and approved states by
-      authorized users. Once posted to accounting, they cannot be modified.
+    description: |
+      Expenses are editable in draft, submitted, and approved states by authorized users. Once posted to accounting, they cannot be modified.
   one_payment_per_expense:
     description: Each expense generates at most one payment record for reimbursement
   account_derived_from_category:
-    description: >
-      The expense account is automatically determined from the expense
-      category (product). Can be overridden manually.
+    description: |
+      The expense account is automatically determined from the expense category (product). Can be overridden manually.
   currency_conversion_at_expense_date:
-    description: >
-      Multi-currency expenses are converted to company currency at the
-      exchange rate on the expense date.
+    description: |
+      Multi-currency expenses are converted to company currency at the exchange rate on the expense date.
   duplicate_detection:
-    description: >
-      System detects potential duplicate expenses based on similar amount,
-      date, and description, and warns the approver.
-
+    description: |
+      System detects potential duplicate expenses based on similar amount, date, and description, and warns the approver.
 outcomes:
   expense_submitted:
     priority: 1
     given:
-      - "employee has a draft expense with valid details"
-      - "employee clicks submit"
+      - employee has a draft expense with valid details
+      - employee clicks submit
     then:
       - action: transition_state
         field: expense_state
@@ -232,14 +233,16 @@ outcomes:
         description: Activity created for the employee's manager to review
       - action: emit_event
         event: expense.submitted
-        payload: [expense_id, employee_id, total_amount]
-    result: "Expense appears in approver's queue"
-
+        payload:
+          - expense_id
+          - employee_id
+          - total_amount
+    result: Expense appears in approver's queue
   expense_approved:
     priority: 2
     given:
-      - "expense is in submitted state"
-      - "authorized approver reviews and approves"
+      - expense is in submitted state
+      - authorized approver reviews and approves
     then:
       - action: transition_state
         field: expense_state
@@ -250,14 +253,16 @@ outcomes:
         description: Timestamp of approval recorded
       - action: emit_event
         event: expense.approved
-        payload: [expense_id, approver_id, total_amount]
-    result: "Expense approved, ready for accounting posting"
-
+        payload:
+          - expense_id
+          - approver_id
+          - total_amount
+    result: Expense approved, ready for accounting posting
   expense_refused:
     priority: 3
     given:
-      - "expense is in submitted state"
-      - "authorized approver refuses the expense"
+      - expense is in submitted state
+      - authorized approver refuses the expense
     then:
       - action: transition_state
         field: expense_state
@@ -271,35 +276,38 @@ outcomes:
         description: Employee notified of refusal
       - action: emit_event
         event: expense.refused
-        payload: [expense_id, approver_id, reason]
-    result: "Expense rejected, employee notified"
-
+        payload:
+          - expense_id
+          - approver_id
+          - reason
+    result: Expense rejected, employee notified
   expense_posted:
     priority: 4
     given:
-      - "expense is approved"
-      - "accountant posts to accounting"
+      - expense is approved
+      - accountant posts to accounting
     then:
       - action: create_record
         type: journal_entry
         target: journal_entry
-        description: >
-          Journal entry created with debit to expense account and credit
-          to payable account (own_account) or vendor account (company_account)
+        description: |
+          Journal entry created with debit to expense account and credit to payable account (own_account) or vendor account (company_account)
       - action: transition_state
         field: expense_state
         from: approved
         to: posted
       - action: emit_event
         event: expense.posted
-        payload: [expense_id, journal_entry_id]
-    result: "Expense recorded in accounting, payment can proceed"
-
+        payload:
+          - expense_id
+          - journal_entry_id
+    result: Expense recorded in accounting, payment can proceed
+    error: EXPENSE_ALREADY_POSTED
   expense_paid:
     priority: 5
     given:
-      - "expense is posted"
-      - "reimbursement payment is processed and reconciled"
+      - expense is posted
+      - reimbursement payment is processed and reconciled
     then:
       - action: transition_state
         field: expense_state
@@ -310,20 +318,21 @@ outcomes:
         value: 0
       - action: emit_event
         event: expense.paid
-        payload: [expense_id, payment_id, amount]
-    result: "Employee fully reimbursed, expense cycle complete"
-
+        payload:
+          - expense_id
+          - payment_id
+          - amount
+    result: Employee fully reimbursed, expense cycle complete
   self_approval_blocked:
     priority: 1
     error: EXPENSE_SELF_APPROVAL
     given:
-      - "user attempts to approve their own expense"
+      - user attempts to approve their own expense
     then:
       - action: notify
         channel: ui
         description: Show error that self-approval is not allowed
-    result: "Approval rejected, different approver required"
-
+    result: Approval rejected, different approver required
 errors:
   - code: EXPENSE_SELF_APPROVAL
     message: You cannot approve your own expenses. Please ask another authorized approver.
@@ -337,24 +346,36 @@ errors:
   - code: EXPENSE_DUPLICATE_DETECTED
     message: A similar expense already exists. Please verify this is not a duplicate.
     status: 400
-
 events:
   - name: expense.submitted
     description: Employee submitted an expense for approval
-    payload: [expense_id, employee_id, total_amount]
+    payload:
+      - expense_id
+      - employee_id
+      - total_amount
   - name: expense.approved
     description: Expense approved by manager
-    payload: [expense_id, approver_id, total_amount]
+    payload:
+      - expense_id
+      - approver_id
+      - total_amount
   - name: expense.refused
     description: Expense refused by manager
-    payload: [expense_id, approver_id, reason]
+    payload:
+      - expense_id
+      - approver_id
+      - reason
   - name: expense.posted
     description: Expense posted to accounting
-    payload: [expense_id, journal_entry_id]
+    payload:
+      - expense_id
+      - journal_entry_id
   - name: expense.paid
     description: Employee reimbursement completed
-    payload: [expense_id, payment_id, amount]
-
+    payload:
+      - expense_id
+      - payment_id
+      - amount
 related:
   - feature: invoicing-payments
     type: required
@@ -362,18 +383,11 @@ related:
   - feature: automation-rules
     type: optional
     reason: Automate expense routing (e.g., auto-approve under threshold)
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_expense_approval
-      description: >
-        Employee expense submission and approval workflow with multi-level authorization, reimbursement tracking,
-        accounting journal entry generation, and payment processing.
+      description: |
+        Employee expense submission and approval workflow with multi-level authorization, reimbursement tracking, accounting journal entry generation, and payment processing.
       success_metrics:
         - metric: processing_time
           target: < 5s
@@ -415,13 +429,12 @@ agi:
       - capability: invoicing_payments
         from: invoicing-payments
         fallback: degrade
-
 extensions:
   source:
-    repo: "https://github.com/odoo/odoo.git"
-    project: "ERP system"
-    tech_stack: "Python + JavaScript/OWL"
+    repo: https://github.com/odoo/odoo.git
+    project: ERP system
+    tech_stack: Python + JavaScript/OWL
     files_traced: 15
     entry_points:
-      - "addons/hr_expense/models/hr_expense.py"
-      - "addons/hr_expense/models/hr_expense_sheet.py"
+      - addons/hr_expense/models/hr_expense.py
+      - addons/hr_expense/models/hr_expense_sheet.py

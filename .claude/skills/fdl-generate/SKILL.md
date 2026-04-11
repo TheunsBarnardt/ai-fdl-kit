@@ -700,6 +700,127 @@ Also verify:
 - If `states` exists, transitions are enforced
 - If `actors` exist, authorization checks match
 
+## Step 7: Score & Improve Loop (MANDATORY)
+
+After the Self-Check passes, run the **quantitative coverage scorer** to measure how much of the blueprint actually made it into the generated code. This is an autoresearch-style keep-or-reset loop — apply patches, re-score, keep only if the score improves.
+
+### 7.1 — Run the scorer
+
+For each blueprint that was generated, run:
+
+```bash
+node scripts/project-score.js <blueprint.yaml> <project-dir> --gaps --json
+```
+
+The scorer measures 9 dimensions (100 pts total):
+
+| Dimension | Points | What it checks |
+|---|---|---|
+| `fields` | 20 | Every blueprint `fields[].name` appears in source (snake/camel/pascal/kebab-case) |
+| `outcomes` | 20 | Every outcome has reachable evidence (error code, event, then-action, or name reference) |
+| `errors` | 15 | Every `errors[].code` appears literally in source |
+| `rules` | 15 | Security keywords derived from rules (bcrypt, rate_limit, constant_time, jwt, csrf, ...) are present |
+| `events` | 10 | Every `events[].name` appears literally in source |
+| `validation` | 8 | Fields that declare `validation[]` are referenced near validator calls |
+| `relationships` | 5 | Related features (signup, password-reset, ...) are imported/linked/routed |
+| `audit_trail` | 4 | Generated files carry the `// FDL: feature=<name>` audit comment |
+| `tests` | 3 | At least one test file references the feature |
+
+Record the baseline score from stdout. The scorer exits **0 if ≥ 70**, **1 if < 70**.
+
+### 7.2 — Report the score
+
+Always surface the score in your output to the user, even if it passed:
+
+```
+COVERAGE:
+  ✓ login         87/100  (fields 20/20 · outcomes 18/20 · errors 13/15 · rules 14/15 · ...)
+  ⚠ signup        62/100  (improving...)
+```
+
+### 7.3 — Improve loop (only when score < 70)
+
+If the score is below 70, enter the keep-or-reset improvement loop. **Do not re-generate the whole project** — patch only the specific gaps the scorer reported.
+
+**The loop:**
+
+1. Read the `gaps` array from the scorer's JSON output. Each gap has `dimension` and `items[]` — this is the surgical list of what to add.
+2. For each gap, identify the **smallest possible patch** that would close it:
+   - `fields` missing → add the field to the model/schema/form/types in the smallest file where fields are defined
+   - `errors` missing → add the error code constant + a throw/return site in the flow that should emit it
+   - `events` missing → add an emit/publish call at the location the blueprint's `then.emit_event` action targets
+   - `outcomes` missing → add the guard clause + the branch body described in the outcome's `given`/`then`
+   - `rules` missing → add the specific security library call (e.g., install + import rate-limit middleware) — **never fake it with a comment**
+   - `relationships` missing → add the import/route/link for the related feature
+   - `audit_trail` missing → add the `// FDL: feature=<name>  blueprint=<path>` comment to generated files
+   - `tests` missing → add a minimal test file in the framework's test location (only if Step 5 ran)
+3. Apply the patches.
+4. **Re-score** with the same command.
+5. **Keep if and only if the new score is strictly greater than the previous score.** If not, revert the patches (or the specific ones that caused regression) — the scorer will tell you because the dimension that regressed will drop in points.
+6. GOTO 1.
+
+### 7.4 — Hard cap: 3 iterations
+
+Same rule as Step 6: the loop MUST stop after 3 improvement iterations regardless of outcome. Unbounded patching burns tokens and usually means the blueprint is asking for something the framework can't express locally.
+
+When the cap is hit:
+
+```
+After 3 improvement iterations, coverage is {final_score}/100.
+Remaining gaps (not fixed automatically — needs human judgment):
+  - Outcomes: {list}
+  - Rules: {list}
+Likely cause: {short explanation, e.g., "requires external service setup"}.
+```
+
+Then continue to Step 8 (Output) with the final score surfaced.
+
+### 7.5 — What NOT to do
+
+- **Never lower the threshold** to avoid looping. 70 is the floor.
+- **Never edit the blueprint** to make the score go up. The blueprint is the spec; the generated code is the variable under test.
+- **Never modify the scorer itself** (`scripts/project-score.js`) during a generate run. That's cheating at your own exam.
+- **Never patch pre-existing project files** — only patch files `/fdl-generate` created this run (identified by the `FDL:` audit comment or created timestamps).
+- **Never fake evidence.** Adding a comment that says `// uses bcrypt` does not count as implementing bcrypt. The scorer looks for actual identifiers, but the rule is intent, not just regex — the code must actually do the thing.
+- **Never suppress the scorer's exit code** to claim success. If it exited 1, coverage is insufficient; say so.
+
+### 7.6 — Score thresholds
+
+| Score | Status | Action |
+|---|---|---|
+| ≥ 85 | Excellent | Surface in summary, no loop needed |
+| 70–84 | Acceptable | Surface in summary, optional opportunistic patches |
+| 50–69 | **Loop mandatory** | Enter improvement loop until ≥ 70 or cap hit |
+| < 50 | **Loop mandatory + escalate** | Something is structurally wrong — run loop, then tell the user the generation was incomplete and why |
+
+### 7.7 — Example run
+
+```
+$ /fdl-generate login nextjs
+
+[Steps 0-6 complete]
+
+$ node scripts/project-score.js blueprints/auth/login.blueprint.yaml ./my-app --gaps --json
+→ baseline: 62/100  (outcomes 13/20, errors 8/15, events 5/10, relationships 0/5)
+
+Iteration 1: patch errors + events
+  + add LOGIN_EMAIL_NOT_VERIFIED, LOGIN_ACCOUNT_DISABLED, LOGIN_VALIDATION_ERROR constants
+  + add emitEvent('login.locked') and emitEvent('login.unverified') call sites
+→ rescored: 74/100  ✓ KEEP (+12)
+
+Iteration 2: patch missing outcome branches
+  + add email_not_verified guard clause before session creation
+  + add account_disabled guard clause before password comparison
+→ rescored: 81/100  ✓ KEEP (+7)
+
+Iteration 3: patch relationships
+  + add Link to /signup in below_form position (blueprint ui_hints)
+  + add Link to /password-reset below password field
+→ rescored: 87/100  ✓ KEEP (+6)
+
+Final: 87/100 — PASS
+```
+
 ## Output to User
 
 Show a clean summary (no YAML, no implementation details). Every block below is **conditionally included** — only show a block when its step actually produced something. Empty headings are forbidden.
@@ -751,6 +872,11 @@ POST-PROCESSING:
   ✓ Tests emitted   — 6 test cases across 6 outcomes (Vitest)
   ✓ Verify loop     — 2/2 iterations, all green (12/12 passing)
 
+COVERAGE:
+  ✓ login           87/100  (fields 20/20 · outcomes 18/20 · errors 13/15 · rules 14/15 · events 9/10 · validation 8/8 · relationships 5/5)
+  ✓ dashboard-analytics  82/100
+  (run `node scripts/project-score.js <blueprint> .` to re-verify anytime)
+
 NEEDS YOUR WORK:
   ⚠ Run `npx create-next-app@latest` before using the generated files
   ⚠ Run the shadcn install commands in STACK COMPANIONS above
@@ -769,6 +895,7 @@ DEMO CREDENTIALS (mock data):
 - **`DATA SOURCES` block** — list every hit from Step 0c. One line for the skill URL, one indented line for install, one for OAuth/setup if applicable, one for required env vars. **Only include this block when Step 0c produced at least one hit.**
 - **`USER-PROVIDED SKILLS` block** — list every entry the user pasted in Step 0e. One line for the name + URL, one indented line for the install command, one indented line noting that FDL doesn't auto-wire imports for these. **Only include this block when Step 0e produced at least one parsed entry.**
 - **`POST-PROCESSING` block** — list Step 5 (tests) and Step 6 (verify loop) only if they ran. When the verify loop stopped at the 3-iteration cap, show it as `⚠ Verify loop   — stopped at 3 iterations, {N} tests still failing` and include the failing test names under `NEEDS YOUR WORK`.
+- **`COVERAGE` block** — **always include** (Step 7 is mandatory). One line per blueprint showing `feature  score/100  (dimension breakdown)`. Mark ✓ for ≥ 70, ⚠ for 50–69, ✗ for < 50. If the improvement loop ran, append `(improved +N from baseline M)`. When the 3-iteration cap was hit and the score is still below 70, the blueprint must ALSO be listed under `NEEDS YOUR WORK` with its remaining gaps.
 - **`FILES` block** — tag cross-cutting glue files (middleware, layouts, .env.example) with a short suffix so the user can see which files are feature-owned vs multi-feature glue.
 - **Never show empty blocks.** The absence of a block tells the user the step didn't run — don't emit `STACK COMPANIONS: (none)`.
 - **Never auto-execute install commands.** They always go in the summary for the user to run themselves. This is a safety boundary for third-party code execution.
@@ -868,3 +995,4 @@ Generated code **must** implement both MUST rules above. It **should** implement
 3. **Use blueprint values, not your own** — `max_attempts: 5` means 5, not 3 or 10.
 4. **Add `// FDL: {path}` comments** — so developers can trace code back to the blueprint.
 5. **Outcomes > flows** — when both exist, implement from outcomes. Flows are for documentation.
+6. **Step 7 (Score & Improve Loop) is mandatory** — never output a `COVERAGE` block that was faked. Always run `scripts/project-score.js` for real and surface the actual number. If the score is below 70, enter the keep-or-reset loop until it passes or the 3-iteration cap is hit. Never tamper with the scorer to raise the score.

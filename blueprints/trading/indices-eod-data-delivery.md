@@ -14,74 +14,74 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 
 ## Fields
 
-- **market_number** *(text, required)*
-- **contract_type** *(text, required)*
-- **instrument_type** *(text, required)*
-- **record_type** *(text, required)*
-- **record_sub_type** *(text, required)*
-- **sequence_number** *(text, required)*
-- **run_date** *(date, required)*
-- **filler** *(text, optional)*
-- **index_code** *(text, optional)*
-- **index_name** *(text, optional)*
-- **index_value_prior** *(number, optional)*
-- **index_value_current** *(number, optional)*
-- **index_change** *(number, optional)*
-- **index_change_percentage** *(number, optional)*
-- **index_high** *(number, optional)*
-- **index_low** *(number, optional)*
-- **index_ytd_change** *(number, optional)*
-- **index_divisor** *(number, optional)*
-- **index_capital_value** *(number, optional)*
-- **index_total_return** *(number, optional)*
-- **total_return_index_value** *(number, optional)*
-- **price_return_index_value** *(number, optional)*
-- **net_total_return_index_value** *(number, optional)*
-- **instrument_alpha_code** *(text, optional)*
-- **instrument_isin** *(text, optional)*
-- **instrument_short_name** *(text, optional)*
-- **number_of_shares_in_issue** *(number, optional)*
-- **free_float_factor** *(number, optional)*
-- **capping_factor** *(number, optional)*
-- **investability_weight** *(number, optional)*
-- **sector_code** *(text, optional)*
-- **sub_sector_code** *(text, optional)*
-- **icb_industry** *(text, optional)*
-- **icb_supersector** *(text, optional)*
-- **icb_sector** *(text, optional)*
-- **icb_subsector** *(text, optional)*
-- **constituent_weight** *(number, optional)*
-- **constituent_index_weight** *(number, optional)*
-- **closing_price** *(number, optional)*
-- **market_cap** *(number, optional)*
-- **free_float_market_cap** *(number, optional)*
-- **tracker_index_code** *(text, optional)*
-- **tracker_date** *(date, optional)*
-- **opening_index_value** *(number, optional)*
-- **closing_index_value** *(number, optional)*
-- **index_level_change** *(number, optional)*
-- **total_return_index_level** *(number, optional)*
-- **amendment_effective_date** *(date, optional)*
-- **amendment_type** *(text, optional)*
-- **old_shares_in_issue** *(number, optional)*
-- **new_shares_in_issue** *(number, optional)*
-- **old_free_float** *(number, optional)*
-- **new_free_float** *(number, optional)*
-- **old_capping_factor** *(number, optional)*
-- **new_capping_factor** *(number, optional)*
-- **amendment_reason** *(text, optional)*
-- **ex_dividend_date** *(date, optional)*
-- **dividend_amount** *(number, optional)*
-- **dividend_currency** *(text, optional)*
-- **dividend_type** *(select, optional)*
-- **dividend_withholding_tax** *(number, optional)*
-- **opening_shares** *(number, optional)*
-- **opening_free_float** *(number, optional)*
-- **opening_capping** *(number, optional)*
-- **opening_price** *(number, optional)*
-- **five_day_amendment_date** *(date, optional)*
-- **five_day_effective_date** *(date, optional)*
-- **five_day_amendment_description** *(text, optional)*
+- **market_number** *(text, required)* — Market Number
+- **contract_type** *(text, required)* — Contract Type
+- **instrument_type** *(text, required)* — Instrument Type
+- **record_type** *(text, required)* — Record Type
+- **record_sub_type** *(text, required)* — Record Sub Type
+- **sequence_number** *(text, required)* — Sequence Number
+- **run_date** *(date, required)* — Run Date
+- **filler** *(text, optional)* — Filler
+- **index_code** *(text, optional)* — Index Code
+- **index_name** *(text, optional)* — Index Name
+- **index_value_prior** *(number, optional)* — Index Value Prior
+- **index_value_current** *(number, optional)* — Index Value Current
+- **index_change** *(number, optional)* — Index Change
+- **index_change_percentage** *(number, optional)* — Index Change Percentage
+- **index_high** *(number, optional)* — Index High
+- **index_low** *(number, optional)* — Index Low
+- **index_ytd_change** *(number, optional)* — Index Ytd Change
+- **index_divisor** *(number, optional)* — Index Divisor
+- **index_capital_value** *(number, optional)* — Index Capital Value
+- **index_total_return** *(number, optional)* — Index Total Return
+- **total_return_index_value** *(number, optional)* — Total Return Index Value
+- **price_return_index_value** *(number, optional)* — Price Return Index Value
+- **net_total_return_index_value** *(number, optional)* — Net Total Return Index Value
+- **instrument_alpha_code** *(text, optional)* — Instrument Alpha Code
+- **instrument_isin** *(text, optional)* — Instrument Isin
+- **instrument_short_name** *(text, optional)* — Instrument Short Name
+- **number_of_shares_in_issue** *(number, optional)* — Number Of Shares In Issue
+- **free_float_factor** *(number, optional)* — Free Float Factor
+- **capping_factor** *(number, optional)* — Capping Factor
+- **investability_weight** *(number, optional)* — Investability Weight
+- **sector_code** *(text, optional)* — Sector Code
+- **sub_sector_code** *(text, optional)* — Sub Sector Code
+- **icb_industry** *(text, optional)* — Icb Industry
+- **icb_supersector** *(text, optional)* — Icb Supersector
+- **icb_sector** *(text, optional)* — Icb Sector
+- **icb_subsector** *(text, optional)* — Icb Subsector
+- **constituent_weight** *(number, optional)* — Constituent Weight
+- **constituent_index_weight** *(number, optional)* — Constituent Index Weight
+- **closing_price** *(number, optional)* — Closing Price
+- **market_cap** *(number, optional)* — Market Cap
+- **free_float_market_cap** *(number, optional)* — Free Float Market Cap
+- **tracker_index_code** *(text, optional)* — Tracker Index Code
+- **tracker_date** *(date, optional)* — Tracker Date
+- **opening_index_value** *(number, optional)* — Opening Index Value
+- **closing_index_value** *(number, optional)* — Closing Index Value
+- **index_level_change** *(number, optional)* — Index Level Change
+- **total_return_index_level** *(number, optional)* — Total Return Index Level
+- **amendment_effective_date** *(date, optional)* — Amendment Effective Date
+- **amendment_type** *(text, optional)* — Amendment Type
+- **old_shares_in_issue** *(number, optional)* — Old Shares In Issue
+- **new_shares_in_issue** *(number, optional)* — New Shares In Issue
+- **old_free_float** *(number, optional)* — Old Free Float
+- **new_free_float** *(number, optional)* — New Free Float
+- **old_capping_factor** *(number, optional)* — Old Capping Factor
+- **new_capping_factor** *(number, optional)* — New Capping Factor
+- **amendment_reason** *(text, optional)* — Amendment Reason
+- **ex_dividend_date** *(date, optional)* — Ex Dividend Date
+- **dividend_amount** *(number, optional)* — Dividend Amount
+- **dividend_currency** *(text, optional)* — Dividend Currency
+- **dividend_type** *(select, optional)* — Dividend Type
+- **dividend_withholding_tax** *(number, optional)* — Dividend Withholding Tax
+- **opening_shares** *(number, optional)* — Opening Shares
+- **opening_free_float** *(number, optional)* — Opening Free Float
+- **opening_capping** *(number, optional)* — Opening Capping
+- **opening_price** *(number, optional)* — Opening Price
+- **five_day_amendment_date** *(date, optional)* — Five Day Amendment Date
+- **five_day_effective_date** *(date, optional)* — Five Day Effective Date
+- **five_day_amendment_description** *(text, optional)* — Five Day Amendment Description
 
 ## What must be true
 
@@ -120,6 +120,29 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - **equities-eod-data-delivery** *(recommended)*
 - **equity-derivatives-eod-data-delivery** *(optional)*
 - **currency-derivatives-eod-data-delivery** *(optional)*
+
+## Quality fitness 🟢 75/100
+
+Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
+
+| Dimension | Score | Points |
+|-----------|-------|--------|
+| Description | `██████████` | 10/10 |
+| Rules | `█████████░` | 9/10 |
+| Outcomes | `████████████████████░░░░░` | 20/25 |
+| Structured conditions | `████████░░` | 8/10 |
+| Error binding | `██████░░░░` | 6/10 |
+| Field validation | `█████░░░░░` | 5/10 |
+| Relationships | `███████░░░` | 7/10 |
+| Events | `██░░░` | 2/5 |
+| AGI readiness | `████░` | 4/5 |
+| Simplicity | `████░` | 4/5 |
+
+📈 **+4** since baseline (71 → 75)
+
+**Recent auto-improvements** *(via autoresearch-style keep-or-reset loop — applied only because they raised the fitness score)*
+
+- `T3` **auto-field-labels** — added labels to 68 fields
 
 ---
 

@@ -11,94 +11,81 @@
 # ============================================================
 
 feature: component-registry
-version: "1.0.0"
+version: 1.0.0
 description: Pluggable component registration system with config-driven fields, slots, lifecycle hooks, and permissions
 category: ui
-tags: [component-system, registry, plugin, visual-editor, configuration]
-
+tags:
+  - component-system
+  - registry
+  - plugin
+  - visual-editor
+  - configuration
 actors:
   - id: developer
     name: Developer
     type: human
     description: Person who registers component types with the editor via configuration
-
   - id: editor_user
     name: Editor User
     type: human
     description: Person who uses the visual editor to place and configure components
-
   - id: resolver
     name: Data Resolver
     type: system
     description: System that runs lifecycle hooks to dynamically compute component data, fields, and permissions
-
 fields:
   - name: component_type
     type: text
     required: true
-    label: "Component Type"
+    label: Component Type
     validation:
       - type: required
-        message: "Component type is required"
-
+        message: Component type is required
   - name: component_label
     type: text
     required: false
-    label: "Display Label"
-
+    label: Display Label
   - name: default_props
     type: json
     required: false
-    label: "Default Properties"
-
+    label: Default Properties
   - name: field_definitions
     type: json
     required: false
-    label: "Field Definitions"
-
+    label: Field Definitions
   - name: instance_id
     type: text
     required: true
-    label: "Instance ID"
+    label: Instance ID
     validation:
       - type: required
-        message: "Instance ID is required"
-
+        message: Instance ID is required
   - name: instance_props
     type: json
     required: true
-    label: "Instance Properties"
-
+    label: Instance Properties
   - name: slot_content
     type: json
     required: false
-    label: "Slot Content"
-
+    label: Slot Content
   - name: read_only_flags
     type: json
     required: false
-    label: "Read-Only Flags"
-
+    label: Read-Only Flags
   - name: component_metadata
     type: json
     required: false
-    label: "Component Metadata"
-
+    label: Component Metadata
   - name: inline_editing
     type: boolean
     required: false
-    label: "Inline Editing"
+    label: Inline Editing
     default: false
-
 rules:
   registration:
     render_required: true
-    # Every component must define a render function
     unique_types: true
-    # Component type names must be unique within a configuration
     config_immutable_at_runtime: true
-    # Component config cannot change after editor initialization
-
   field_types:
     supported:
       - text
@@ -112,249 +99,247 @@ rules:
       - external
       - custom
       - slot
-    # 11 built-in field types for component property editing
-
   slots:
     allow_list: true
-    # Slots can define which component types are allowed as children
     disallow_list: true
-    # Slots can define which component types are forbidden as children
     nested_unlimited: true
-    # Components can be nested to arbitrary depth via slots
     storage_inline: true
-    # Slot content stored as arrays in the component's own props
-
   instance_management:
     auto_id_generation: true
-    # Instance IDs generated automatically on insert
     recursive_id_generation: true
-    # When duplicating, all nested component IDs are regenerated
-    zone_compound_format: "parentId:slotName"
-    # Zone identifiers follow parentId:slotName format
-
+    zone_compound_format: parentId:slotName
   categories:
     grouping: true
-    # Components can be grouped into named categories for palette organization
     visibility_toggle: true
-    # Categories can be shown/hidden
     default_expanded_toggle: true
-    # Categories can start expanded or collapsed
-
   lifecycle_hooks:
     resolve_data: true
-    # Async hook to transform/fetch component data on insert, edit, move, or load
     resolve_fields: true
-    # Async hook to show/hide/modify fields based on current data
     resolve_permissions: true
-    # Async hook to compute permissions based on current data and context
-    triggers: [insert, replace, move, load, force]
-    # The events that trigger lifecycle resolution
-
+    triggers:
+      - insert
+      - replace
+      - move
+      - load
+      - force
   permissions:
-    granularity: "per-component-instance"
-    # Permissions resolved individually for each component instance
-    permission_types: [drag, duplicate, delete, edit, insert]
-    # Five permission dimensions
+    granularity: per-component-instance
+    permission_types:
+      - drag
+      - duplicate
+      - delete
+      - edit
+      - insert
     caching: true
-    # Permission results cached to prevent redundant async resolution
-
 outcomes:
   register_component:
     priority: 1
     given:
-      - "developer provides a component configuration with a render function"
-      - "component type name is unique within the configuration"
+      - developer provides a component configuration with a render function
+      - component type name is unique within the configuration
     then:
       - action: create_record
         type: component_type
         target: component_registry
-        description: "Component type is registered with its config, fields, default props, and lifecycle hooks"
-    result: "Component appears in the editor palette and can be placed on pages"
-
+        description: Component type is registered with its config, fields, default props, and lifecycle hooks
+    result: Component appears in the editor palette and can be placed on pages
   insert_component_instance:
     priority: 2
     given:
-      - "component type exists in the registry"
-      - "destination zone exists and accepts this component type"
+      - component type exists in the registry
+      - destination zone exists and accepts this component type
     then:
       - action: create_record
         type: component_instance
         target: component_instance
-        description: "Create new instance with auto-generated unique ID and default props"
+        description: Create new instance with auto-generated unique ID and default props
       - action: call_service
         target: resolve_data
-        description: "Run resolveData hook with trigger 'insert' to allow dynamic initialization"
+        description: Run resolveData hook with trigger 'insert' to allow dynamic initialization
       - action: call_service
         target: resolve_fields
-        description: "Run resolveFields hook to determine which fields to show"
+        description: Run resolveFields hook to determine which fields to show
       - action: call_service
         target: resolve_permissions
-        description: "Run resolvePermissions hook to set initial permissions"
+        description: Run resolvePermissions hook to set initial permissions
       - action: emit_event
         event: component.instance.created
-        payload: [instance_id, component_type, zone, index]
-    result: "New component instance exists in the content tree with resolved data"
-
+        payload:
+          - instance_id
+          - component_type
+          - zone
+          - index
+    result: New component instance exists in the content tree with resolved data
   edit_component_props:
     priority: 3
     given:
-      - "editor user selects a component on the canvas"
-      - "component has editable fields"
+      - editor user selects a component on the canvas
+      - component has editable fields
     then:
       - action: set_field
         target: instance_props
-        description: "Update the modified property value"
+        description: Update the modified property value
       - action: call_service
         target: resolve_data
-        description: "Run resolveData hook with trigger 'replace' and changed prop flags"
+        description: Run resolveData hook with trigger 'replace' and changed prop flags
       - action: call_service
         target: resolve_fields
-        description: "Run resolveFields to update visible fields based on new data"
+        description: Run resolveFields to update visible fields based on new data
       - action: emit_event
         event: component.props.changed
-        payload: [instance_id, changed_fields]
-    result: "Component re-renders with new property values, field panel updates"
-
+        payload:
+          - instance_id
+          - changed_fields
+    result: Component re-renders with new property values, field panel updates
   duplicate_component:
     priority: 4
     given:
-      - "editor user triggers duplicate on a selected component"
-      - "component permissions allow duplication"
+      - editor user triggers duplicate on a selected component
+      - component permissions allow duplication
     then:
       - action: create_record
         type: component_instance
         target: component_instance
-        description: "Clone component with all props but regenerate all IDs (parent + all nested children)"
+        description: Clone component with all props but regenerate all IDs (parent + all nested children)
       - action: set_field
         target: content_tree
-        description: "Insert clone immediately after the original"
+        description: Insert clone immediately after the original
       - action: emit_event
         event: component.instance.duplicated
-        payload: [original_id, clone_id, zone, index]
-    result: "Identical copy appears next to original with unique IDs throughout"
-
+        payload:
+          - original_id
+          - clone_id
+          - zone
+          - index
+    result: Identical copy appears next to original with unique IDs throughout
   remove_component:
     priority: 5
     given:
-      - "editor user triggers delete on a selected component"
-      - "component permissions allow deletion"
+      - editor user triggers delete on a selected component
+      - component permissions allow deletion
     then:
       - action: delete_record
         type: component_instance
         target: component_instance
-        description: "Remove component and all its descendants from the content tree"
+        description: Remove component and all its descendants from the content tree
       - action: emit_event
         event: component.instance.removed
-        payload: [instance_id, component_type, zone]
-    result: "Component and all nested children removed from the page"
-
+        payload:
+          - instance_id
+          - component_type
+          - zone
+    result: Component and all nested children removed from the page
   resolve_data_on_context_change:
     priority: 6
     given:
-      - "component has a resolveData lifecycle hook defined"
+      - component has a resolveData lifecycle hook defined
       - "trigger event occurs: insert, replace, move, load, or force"
     then:
       - action: call_service
         target: resolve_data
-        description: "Call resolveData with current data, changed flags, last data, trigger type, and parent reference"
+        description: Call resolveData with current data, changed flags, last data, trigger type, and parent reference
       - action: set_field
         target: instance_props
-        description: "Merge returned props into component data if changed"
+        description: Merge returned props into component data if changed
       - action: emit_event
         event: component.data.resolved
-        payload: [instance_id, trigger, did_change]
-    result: "Component data updated with dynamically computed values"
-
+        payload:
+          - instance_id
+          - trigger
+          - did_change
+    result: Component data updated with dynamically computed values
+    error: RESOLVE_DATA_FAILED
   slot_accepts_component:
     priority: 7
     given:
-      - "a slot field is defined on the component"
-      - "the slot has an allow list"
-      - "the component being dropped is in the allow list"
+      - a slot field is defined on the component
+      - the slot has an allow list
+      - the component being dropped is in the allow list
     then:
       - action: set_field
         target: slot_content
-        description: "Component added to the slot's content array"
-    result: "Child component renders inside the parent's slot"
-
+        description: Component added to the slot's content array
+    result: Child component renders inside the parent's slot
   slot_rejects_component:
     priority: 8
     error: SLOT_TYPE_REJECTED
     given:
-      - "a slot field is defined with an allow list"
-      - "the component being dropped is NOT in the allow list"
-      - "OR the component is in the disallow list"
+      - a slot field is defined with an allow list
+      - the component being dropped is NOT in the allow list
+      - OR the component is in the disallow list
     then:
       - action: emit_event
         event: component.slot.rejected
-        payload: [parent_id, slot_name, rejected_type]
-    result: "Component cannot be dropped into this slot"
-
+        payload:
+          - parent_id
+          - slot_name
+          - rejected_type
+    result: Component cannot be dropped into this slot
 errors:
   - code: COMPONENT_TYPE_NOT_FOUND
     status: 404
-    message: "Component type does not exist in the registry"
-
+    message: Component type does not exist in the registry
   - code: SLOT_TYPE_REJECTED
     status: 400
-    message: "This slot does not accept that component type"
-
+    message: This slot does not accept that component type
   - code: PERMISSION_DENIED
     status: 403
-    message: "This action is not permitted on this component"
-
+    message: This action is not permitted on this component
   - code: RESOLVE_DATA_FAILED
     status: 500
-    message: "Failed to resolve component data"
-
+    message: Failed to resolve component data
 events:
   - name: component.instance.created
-    description: "A new component instance was placed on the page"
-    payload: [instance_id, component_type, zone, index]
-
+    description: A new component instance was placed on the page
+    payload:
+      - instance_id
+      - component_type
+      - zone
+      - index
   - name: component.instance.duplicated
-    description: "A component was cloned with new IDs"
-    payload: [original_id, clone_id, zone, index]
-
+    description: A component was cloned with new IDs
+    payload:
+      - original_id
+      - clone_id
+      - zone
+      - index
   - name: component.instance.removed
-    description: "A component and its descendants were deleted"
-    payload: [instance_id, component_type, zone]
-
+    description: A component and its descendants were deleted
+    payload:
+      - instance_id
+      - component_type
+      - zone
   - name: component.props.changed
-    description: "A component's properties were edited"
-    payload: [instance_id, changed_fields]
-
+    description: A component's properties were edited
+    payload:
+      - instance_id
+      - changed_fields
   - name: component.data.resolved
-    description: "A component's data was dynamically resolved via lifecycle hook"
-    payload: [instance_id, trigger, did_change]
-
+    description: A component's data was dynamically resolved via lifecycle hook
+    payload:
+      - instance_id
+      - trigger
+      - did_change
   - name: component.slot.rejected
-    description: "A component was rejected from a slot due to type constraints"
-    payload: [parent_id, slot_name, rejected_type]
-
+    description: A component was rejected from a slot due to type constraints
+    payload:
+      - parent_id
+      - slot_name
+      - rejected_type
 related:
   - feature: drag-drop-editor
     type: required
-    reason: "Components are placed via drag-and-drop from the registry palette"
-
+    reason: Components are placed via drag-and-drop from the registry palette
   - feature: content-tree
     type: required
-    reason: "Component instances are stored and managed in the content tree"
-
+    reason: Component instances are stored and managed in the content tree
   - feature: field-transforms
     type: recommended
-    reason: "Field transforms enable dynamic field rendering and computed properties"
-
+    reason: Field transforms enable dynamic field rendering and computed properties
   - feature: plugin-overrides
     type: optional
-    reason: "Override system can customize how components and fields are rendered"
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
+    reason: Override system can customize how components and fields are rendered
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_component_registry
       description: Pluggable component registration system with config-driven fields, slots, lifecycle hooks, and permissions
@@ -403,16 +388,15 @@ agi:
       - capability: content_tree
         from: content-tree
         fallback: degrade
-
 extensions:
   source:
-    repo: "https://github.com/puckeditor/puck"
-    project: "Page editor"
-    tech_stack: "TypeScript + React"
+    repo: https://github.com/puckeditor/puck
+    project: Page editor
+    tech_stack: TypeScript + React
     files_traced: 30
     entry_points:
-      - "types/Config.tsx"
-      - "components/ComponentList/"
-      - "lib/resolve-component-data.ts"
-      - "reducer/actions/insert.ts"
-      - "types/Fields.ts"
+      - types/Config.tsx
+      - components/ComponentList/
+      - lib/resolve-component-data.ts
+      - reducer/actions/insert.ts
+      - types/Fields.ts

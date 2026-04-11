@@ -11,107 +11,94 @@
 # ============================================================
 
 feature: form-builder
-version: "1.0.0"
+version: 1.0.0
 description: Dynamic form creation and rendering with drag-and-drop field placement, conditional visibility, multi-step forms, validation rules, and versioning
 category: ui
-tags: [forms, builder, drag-and-drop, validation, dynamic-forms, multi-step, conditional-logic]
-
-# ─── FIELDS ───────────────────────────────────────────────
-
+tags:
+  - forms
+  - builder
+  - drag-and-drop
+  - validation
+  - dynamic-forms
+  - multi-step
+  - conditional-logic
 fields:
   - name: form_id
     type: text
     required: true
-    label: "Form ID"
+    label: Form ID
     validation:
       - type: required
-        message: "Form ID is required"
-
+        message: Form ID is required
   - name: name
     type: text
     required: true
-    label: "Form Name"
+    label: Form Name
     validation:
       - type: required
-        message: "Form name is required"
+        message: Form name is required
       - type: maxLength
         value: 200
-        message: "Form name must be less than 200 characters"
-
+        message: Form name must be less than 200 characters
   - name: form_fields
     type: json
     required: true
-    label: "Form Fields"
-    # Array of field definitions: type, label, required, validation, conditions
+    label: Form Fields
     validation:
       - type: required
-        message: "At least one field is required"
-
+        message: At least one field is required
   - name: layout
     type: json
     required: false
-    label: "Form Layout"
-    # Grid or column layout definition for field placement
-
+    label: Form Layout
   - name: version
     type: number
     required: true
-    label: "Form Version"
+    label: Form Version
     default: 1
     validation:
       - type: required
-        message: "Version is required"
-
+        message: Version is required
   - name: status
     type: select
     required: true
-    label: "Form Status"
+    label: Form Status
     validation:
       - type: required
-        message: "Status is required"
+        message: Status is required
     options:
-      - label: "Draft"
-        value: "draft"
-      - label: "Published"
-        value: "published"
-
+      - label: Draft
+        value: draft
+      - label: Published
+        value: published
   - name: steps
     type: json
     required: false
-    label: "Multi-Step Configuration"
-    # Array of step definitions for multi-step forms
-
+    label: Multi-Step Configuration
   - name: submission_config
     type: json
     required: false
-    label: "Submission Configuration"
-    # Endpoint, method, success/error handling
-
-# ─── STATES ──────────────────────────────────────────────
-
+    label: Submission Configuration
 states:
   field: status
   values:
     - value: draft
       initial: true
-      description: "Form is being designed, not available for submissions"
+      description: Form is being designed, not available for submissions
     - value: published
       terminal: false
-      description: "Form is live and accepting submissions"
+      description: Form is live and accepting submissions
   transitions:
     - from: draft
       to: published
       actor: form_author
-      condition: "Form has at least one field and passes validation"
-      description: "Publish form for use"
+      condition: Form has at least one field and passes validation
+      description: Publish form for use
     - from: published
       to: draft
       actor: form_author
-      condition: "Author reverts to draft for editing"
-      description: "Unpublish form, creates new version on next publish"
-
-# ─── RULES ────────────────────────────────────────────────
-
+      condition: Author reverts to draft for editing
+      description: Unpublish form, creates new version on next publish
 rules:
   field_types:
     registry:
@@ -130,8 +117,6 @@ rules:
       - hidden
       - rich_text
       - textarea
-    # Extensible field type registry — implementations may add custom types
-
   validation_expressions:
     supported_rules:
       - required
@@ -143,96 +128,96 @@ rules:
       - email
       - url
       - custom
-    # Validation rules can reference other field values for cross-field validation
-
   conditional_logic:
-    supported_operators: [eq, neq, gt, gte, lt, lte, in, not_in, exists, not_exists]
-    # Show/hide fields based on other field values
-    evaluation_order: "top-to-bottom"
-    # Conditions evaluated in field order to prevent circular dependencies
+    supported_operators:
+      - eq
+      - neq
+      - gt
+      - gte
+      - lt
+      - lte
+      - in
+      - not_in
+      - exists
+      - not_exists
+    evaluation_order: top-to-bottom
     max_conditions_per_field: 10
-    # Prevent overly complex condition chains
-
   limits:
     max_fields_per_form: 100
-    # Hard limit to prevent performance degradation
     max_steps: 20
-    # Maximum number of steps in a multi-step form
     max_nested_groups: 3
-    # Maximum nesting depth for field groups
-
   versioning:
     auto_increment: true
-    # Version number auto-increments on each publish
     preserve_submissions: true
-    # Submissions reference the form version they were created with
-
-# ─── OUTCOMES ─────────────────────────────────────────────
-
 outcomes:
   form_created:
     priority: 1
     given:
-      - "user provides a form name"
-      - "form name is unique within the account"
+      - user provides a form name
+      - form name is unique within the account
     then:
       - action: create_record
         type: form
         target: form
-        description: "Create new form in draft status with version 1"
+        description: Create new form in draft status with version 1
       - action: emit_event
         event: form.created
-        payload: [form_id, name, created_by, timestamp]
-    result: "New form exists in draft status, ready for field configuration"
-
+        payload:
+          - form_id
+          - name
+          - created_by
+          - timestamp
+    result: New form exists in draft status, ready for field configuration
   field_added:
     priority: 2
     given:
-      - "form is in draft status"
-      - "field count is below 100"
-      - "field type is in the supported registry"
+      - form is in draft status
+      - field count is below 100
+      - field type is in the supported registry
     then:
       - action: set_field
         target: form_fields
-        description: "Append new field definition to form fields array"
+        description: Append new field definition to form fields array
       - action: emit_event
         event: form.field_added
-        payload: [form_id, field_name, field_type]
-    result: "Field appears in the form builder canvas at the specified position"
-
+        payload:
+          - form_id
+          - field_name
+          - field_type
+    result: Field appears in the form builder canvas at the specified position
   field_removed:
     priority: 3
     given:
-      - "form is in draft status"
-      - "field exists in the form"
+      - form is in draft status
+      - field exists in the form
     then:
       - action: set_field
         target: form_fields
-        description: "Remove field and any conditions referencing it"
+        description: Remove field and any conditions referencing it
       - action: emit_event
         event: form.field_removed
-        payload: [form_id, field_name]
-    result: "Field removed from form, dependent conditions cleaned up"
-
+        payload:
+          - form_id
+          - field_name
+    result: Field removed from form, dependent conditions cleaned up
   conditional_visibility_applied:
     priority: 4
     given:
-      - "a condition is defined on a field"
-      - "the referenced source field exists in the form"
-      - "the operator is valid for the source field type"
+      - a condition is defined on a field
+      - the referenced source field exists in the form
+      - the operator is valid for the source field type
     then:
       - action: set_field
         target: form_fields
-        description: "Update field visibility condition"
-    result: "Field shows or hides dynamically based on the condition at render time"
-
+        description: Update field visibility condition
+    result: Field shows or hides dynamically based on the condition at render time
   form_published:
     priority: 5
     given:
-      - "form is in draft status"
-      - "form has at least one field"
-      - "all field validations are properly configured"
-      - "all conditional references point to existing fields"
+      - form is in draft status
+      - form has at least one field
+      - all field validations are properly configured
+      - all conditional references point to existing fields
     then:
       - action: transition_state
         field: status
@@ -240,42 +225,50 @@ outcomes:
         to: published
       - action: set_field
         target: version
-        description: "Increment version number"
+        description: Increment version number
       - action: emit_event
         event: form.published
-        payload: [form_id, version, published_by, timestamp]
-    result: "Form is live and available for submissions"
-
+        payload:
+          - form_id
+          - version
+          - published_by
+          - timestamp
+    result: Form is live and available for submissions
+    error: FORM_NOT_PUBLISHED
   form_submitted:
     priority: 6
     given:
-      - "form is in published status"
-      - "all required fields have values"
-      - "all field validations pass"
+      - form is in published status
+      - all required fields have values
+      - all field validations pass
     then:
       - action: create_record
         type: submission
         target: submission
-        description: "Store submission data with reference to form version"
+        description: Store submission data with reference to form version
       - action: emit_event
         event: form.submitted
-        payload: [form_id, submission_id, version, timestamp]
-    result: "Submission recorded and confirmation shown to the user"
-
+        payload:
+          - form_id
+          - submission_id
+          - version
+          - timestamp
+    result: Submission recorded and confirmation shown to the user
   form_submission_invalid:
     priority: 7
     error: FORM_VALIDATION_FAILED
     given:
-      - "form is in published status"
+      - form is in published status
       - any:
-          - "one or more required fields are empty"
-          - "one or more field validations fail"
+          - one or more required fields are empty
+          - one or more field validations fail
     then:
       - action: emit_event
         event: form.submission_failed
-        payload: [form_id, errors]
-    result: "Validation errors displayed inline next to the relevant fields"
-
+        payload:
+          - form_id
+          - errors
+    result: Validation errors displayed inline next to the relevant fields
   max_fields_exceeded:
     priority: 8
     error: FORM_MAX_FIELDS_EXCEEDED
@@ -284,101 +277,95 @@ outcomes:
         source: computed
         operator: gte
         value: 100
-        description: "Form already has 100 fields"
+        description: Form already has 100 fields
     then:
       - action: emit_event
         event: form.limit_reached
-        payload: [form_id, field_count]
-    result: "User informed that the maximum field limit has been reached"
-
-# ─── ERRORS ───────────────────────────────────────────────
-
+        payload:
+          - form_id
+          - field_count
+    result: User informed that the maximum field limit has been reached
 errors:
   - code: FORM_VALIDATION_FAILED
     status: 422
-    message: "Please fix the highlighted errors before submitting"
+    message: Please fix the highlighted errors before submitting
     retry: true
-
   - code: FORM_MAX_FIELDS_EXCEEDED
     status: 400
-    message: "Maximum of 100 fields per form has been reached"
+    message: Maximum of 100 fields per form has been reached
     retry: false
-
   - code: FORM_NOT_FOUND
     status: 404
-    message: "The requested form does not exist"
+    message: The requested form does not exist
     retry: false
-
   - code: FORM_NOT_PUBLISHED
     status: 400
-    message: "This form is not currently accepting submissions"
+    message: This form is not currently accepting submissions
     retry: false
-
   - code: FORM_FIELD_TYPE_INVALID
     status: 400
-    message: "The specified field type is not supported"
+    message: The specified field type is not supported
     retry: false
-
-# ─── EVENTS ───────────────────────────────────────────────
-
 events:
   - name: form.created
-    description: "A new form was created in draft status"
-    payload: [form_id, name, created_by, timestamp]
-
+    description: A new form was created in draft status
+    payload:
+      - form_id
+      - name
+      - created_by
+      - timestamp
   - name: form.published
-    description: "A form was published and is now accepting submissions"
-    payload: [form_id, version, published_by, timestamp]
-
+    description: A form was published and is now accepting submissions
+    payload:
+      - form_id
+      - version
+      - published_by
+      - timestamp
   - name: form.submitted
-    description: "A form submission was received and stored"
-    payload: [form_id, submission_id, version, timestamp]
-
+    description: A form submission was received and stored
+    payload:
+      - form_id
+      - submission_id
+      - version
+      - timestamp
   - name: form.field_added
-    description: "A field was added to a form"
-    payload: [form_id, field_name, field_type]
-
+    description: A field was added to a form
+    payload:
+      - form_id
+      - field_name
+      - field_type
   - name: form.field_removed
-    description: "A field was removed from a form"
-    payload: [form_id, field_name]
-
+    description: A field was removed from a form
+    payload:
+      - form_id
+      - field_name
   - name: form.submission_failed
-    description: "A form submission failed validation"
-    payload: [form_id, errors]
-
+    description: A form submission failed validation
+    payload:
+      - form_id
+      - errors
   - name: form.limit_reached
-    description: "A form reached its maximum field count"
-    payload: [form_id, field_count]
-
-# ─── RELATIONSHIPS ────────────────────────────────────────
-
+    description: A form reached its maximum field count
+    payload:
+      - form_id
+      - field_count
 related:
   - feature: drag-drop-editor
     type: recommended
-    reason: "Drag-and-drop provides intuitive field placement in the form builder"
-
+    reason: Drag-and-drop provides intuitive field placement in the form builder
   - feature: wizard-stepper
     type: optional
-    reason: "Multi-step forms use the wizard/stepper pattern for step navigation"
-
+    reason: Multi-step forms use the wizard/stepper pattern for step navigation
   - feature: accessibility
     type: recommended
-    reason: "Form fields must meet WCAG 2.1 AA accessibility requirements"
-
+    reason: Form fields must meet WCAG 2.1 AA accessibility requirements
   - feature: internationalization
     type: optional
-    reason: "Form labels and validation messages may need translation"
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
+    reason: Form labels and validation messages may need translation
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_form_builder
-      description: Dynamic form creation and rendering with drag-and-drop field placement, conditional visibility, multi-step
-        forms, validation rules, and versioning
+      description: Dynamic form creation and rendering with drag-and-drop field placement, conditional visibility, multi-step forms, validation rules, and versioning
       success_metrics:
         - metric: success_rate
           target: ">= 99%"

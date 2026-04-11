@@ -8,377 +8,340 @@
 # ============================================================
 
 feature: payload-job-queue
-version: "1.0.0"
-description: "Built-in job queue with tasks, workflows, cron scheduling, retry with backoff, concurrency control, and sub-task orchestration"
+version: 1.0.0
+description: Built-in job queue with tasks, workflows, cron scheduling, retry with backoff, concurrency control, and sub-task orchestration
 category: workflow
-tags: [cms, jobs, queue, tasks, workflows, cron, retry, concurrency, scheduling, payload]
-
+tags:
+  - cms
+  - jobs
+  - queue
+  - tasks
+  - workflows
+  - cron
+  - retry
+  - concurrency
+  - scheduling
+  - payload
 actors:
   - id: queue_client
     name: Queue Client
     type: system
-    description: "Application code or API endpoint that enqueues jobs"
+    description: Application code or API endpoint that enqueues jobs
   - id: job_runner
     name: Job Runner
     type: system
-    description: "Worker that picks up and executes queued jobs"
+    description: Worker that picks up and executes queued jobs
   - id: scheduler
     name: Cron Scheduler
     type: system
-    description: "Cron-based trigger that creates jobs on a schedule"
-
+    description: Cron-based trigger that creates jobs on a schedule
 fields:
   - name: task_slug
     type: text
     required: false
-    label: "Task Slug"
-    # Source: queues/ — identifies which task to run (mutually exclusive with workflow_slug)
-
+    label: Task Slug
   - name: workflow_slug
     type: text
     required: false
-    label: "Workflow Slug"
-    # Source: queues/ — identifies which workflow to run
-
+    label: Workflow Slug
   - name: input
     type: json
     required: false
-    label: "Job Input"
-    # Source: queues/ — input data passed to the task/workflow handler
-
+    label: Job Input
   - name: task_status
     type: json
     required: false
-    label: "Task Status Map"
-    # Source: queues/ — maps taskID -> {complete, input, output, totalTried}
-
+    label: Task Status Map
   - name: completed_at
     type: datetime
     required: false
-    label: "Completion Timestamp"
-
+    label: Completion Timestamp
   - name: total_tried
     type: number
     required: false
     default: 0
-    label: "Total Attempts"
-
+    label: Total Attempts
   - name: has_error
     type: boolean
     required: false
     default: false
-    label: "Has Error"
-
+    label: Has Error
   - name: error
     type: json
     required: false
-    label: "Error Details"
-    # Source: queues/ — stored error information from failed execution
-
+    label: Error Details
   - name: log
     type: json
     required: false
-    label: "Execution Log"
-    # Source: queues/ — task execution history
-
+    label: Execution Log
   - name: queue
     type: text
     required: false
-    default: "default"
-    label: "Queue Name"
-    # Source: queues/ — allows routing to different queues
-
+    default: default
+    label: Queue Name
   - name: wait_until
     type: datetime
     required: false
-    label: "Delay Until"
-    # Source: queues/ — for delayed execution and retry backoff
-
+    label: Delay Until
   - name: processing
     type: boolean
     required: false
     default: false
-    label: "Currently Processing"
-
+    label: Currently Processing
   - name: concurrency_key
     type: text
     required: false
-    label: "Concurrency Key"
-    # Source: queues/ — groups jobs for concurrency control
-
+    label: Concurrency Key
 states:
   field: processing
   values:
     - name: queued
-      description: "Job is waiting to be picked up"
+      description: Job is waiting to be picked up
       initial: true
     - name: processing
-      description: "Job is currently being executed"
+      description: Job is currently being executed
     - name: completed
-      description: "Job finished successfully"
+      description: Job finished successfully
       terminal: true
     - name: failed
-      description: "Job failed after all retry attempts"
+      description: Job failed after all retry attempts
       terminal: true
     - name: cancelled
-      description: "Job was cancelled before completion"
+      description: Job was cancelled before completion
       terminal: true
   transitions:
     - from: queued
       to: processing
       actor: job_runner
-      description: "Runner picks up the job"
+      description: Runner picks up the job
     - from: processing
       to: completed
       actor: job_runner
-      description: "Job finishes successfully"
+      description: Job finishes successfully
     - from: processing
       to: queued
       actor: job_runner
-      condition: "retries remaining and backoff wait calculated"
-      description: "Job failed but will be retried"
+      condition: retries remaining and backoff wait calculated
+      description: Job failed but will be retried
     - from: processing
       to: failed
       actor: job_runner
-      condition: "no retries remaining"
-      description: "Job failed permanently"
+      condition: no retries remaining
+      description: Job failed permanently
     - from: queued
       to: cancelled
       actor: queue_client
-      description: "Job cancelled before execution"
-
+      description: Job cancelled before execution
 rules:
   execution:
-    processing_order: "FIFO by default, configurable per queue"
-    # Source: queues/ — supports custom sort order
-
+    processing_order: FIFO by default, configurable per queue
     retry:
-      max_attempts: "configurable per task/workflow"
+      max_attempts: configurable per task/workflow
       backoff_strategies:
         - fixed
         - exponential
-      # Source: queues/ — RetryConfig with backoff options
-      restore_logic: "configurable — can restore job state before retry"
-
+      restore_logic: configurable — can restore job state before retry
     concurrency:
       modes:
         - exclusive
         - supersedes
-      # Source: queues/ — ConcurrencyConfig
-      # exclusive: only one job with same key runs at a time
-      # supersedes: new job cancels older pending jobs with same key
       requires_opt_in: true
-      # Source: enableConcurrencyControl must be true
-
     sub_tasks:
       inline_execution: true
-      # Source: queues/ — tasks can call other tasks inline
       independent_retry: true
       independent_concurrency: true
-
     auto_run:
       cron_based: true
-      # Source: queues/ — autorun config
       not_for_serverless: true
-      # Auto-run not compatible with serverless platforms
-
   scheduling:
     cron_expressions: true
-    # Source: queues/ — ScheduleConfig with cron patterns
     before_schedule_hooks: true
     after_schedule_hooks: true
     stats_tracking: true
-    # Source: payload-jobs-stats global tracks last run timestamps
-
   access:
-    queue_permission: "access.queue — controls who can add jobs"
-    run_permission: "access.run — controls who can trigger job execution"
-    cancel_permission: "access.cancel — controls who can cancel jobs"
-    default: "authenticated users only"
-
+    queue_permission: access.queue — controls who can add jobs
+    run_permission: access.run — controls who can trigger job execution
+    cancel_permission: access.cancel — controls who can cancel jobs
+    default: authenticated users only
 outcomes:
   queue_job:
     priority: 10
     given:
-      - "user has queue access"
-      - "task or workflow slug is valid"
-      - "input matches task input schema (if defined)"
+      - user has queue access
+      - task or workflow slug is valid
+      - input matches task input schema (if defined)
     then:
       - action: create_record
         type: job
-        target: "payload-jobs collection"
-        description: "Job record created with queued status"
-      - "waitUntil set if delayed execution requested"
-    result: "Job ID returned, job queued for execution"
-
+        target: payload-jobs collection
+        description: Job record created with queued status
+      - waitUntil set if delayed execution requested
+    result: Job ID returned, job queued for execution
   run_jobs:
     priority: 10
     given:
-      - "user has run access (or endpoint called by cron)"
-      - "pending jobs exist in the specified queue"
+      - user has run access (or endpoint called by cron)
+      - pending jobs exist in the specified queue
     then:
-      - "jobs picked up in processing order"
-      - "processing flag set to true"
-      - "task/workflow handler executed with job context"
+      - jobs picked up in processing order
+      - processing flag set to true
+      - task/workflow handler executed with job context
       - "on success: completedAt set, processing cleared"
       - "on failure: retry logic evaluated, error stored"
-    result: "Jobs executed, results stored in task_status"
-
+    result: Jobs executed, results stored in task_status
   run_job_by_id:
     priority: 10
     given:
-      - "user has run access"
-      - "job ID exists and is not completed"
+      - user has run access
+      - job ID exists and is not completed
     then:
-      - "specific job executed regardless of queue order"
-    result: "Single job executed and result returned"
-
+      - specific job executed regardless of queue order
+    result: Single job executed and result returned
+    error: JOB_INVALID_INPUT
   cancel_job:
     priority: 10
     given:
-      - "user has cancel access"
-      - "job is in queued state (not yet processing)"
+      - user has cancel access
+      - job is in queued state (not yet processing)
     then:
       - action: set_field
         target: has_error
         value: true
-        description: "Mark as errored to prevent execution"
-    result: "Job cancelled, will not be retried"
-
+        description: Mark as errored to prevent execution
+    result: Job cancelled, will not be retried
   job_retry:
     priority: 5
     given:
-      - "job handler throws an error"
-      - "retry attempts remaining (totalTried < maxRetries)"
+      - job handler throws an error
+      - retry attempts remaining (totalTried < maxRetries)
     then:
-      - "backoff wait time calculated (fixed or exponential)"
+      - backoff wait time calculated (fixed or exponential)
       - action: set_field
         target: wait_until
-        value: "now + backoff_duration"
+        value: now + backoff_duration
       - action: set_field
         target: total_tried
-        value: "total_tried + 1"
-      - "job returns to queued state"
-    result: "Job scheduled for retry after backoff period"
-
+        value: total_tried + 1
+      - job returns to queued state
+    result: Job scheduled for retry after backoff period
   job_failed_permanently:
     priority: 3
     given:
-      - "job handler throws an error"
-      - "no retry attempts remaining"
+      - job handler throws an error
+      - no retry attempts remaining
     then:
       - action: set_field
         target: has_error
         value: true
-      - "error details stored in error field"
-      - "onFail callback executed if configured"
-    result: "Job marked as permanently failed"
-
+      - error details stored in error field
+      - onFail callback executed if configured
+    result: Job marked as permanently failed
   job_success:
     priority: 10
     given:
-      - "job handler completes without error"
+      - job handler completes without error
     then:
       - action: set_field
         target: completed_at
         value: now
-      - "output stored in task_status"
-      - "onSuccess callback executed if configured"
-    result: "Job marked as completed"
-
+      - output stored in task_status
+      - onSuccess callback executed if configured
+    result: Job marked as completed
   handle_schedules:
     priority: 10
     given:
-      - "cron expression matches current time"
-      - "schedule is enabled"
+      - cron expression matches current time
+      - schedule is enabled
     then:
-      - "beforeSchedule hook executed"
-      - "new job created in queue"
-      - "afterSchedule hook executed"
-      - "stats global updated with last run timestamp"
-    result: "Scheduled job created and queued"
-
+      - beforeSchedule hook executed
+      - new job created in queue
+      - afterSchedule hook executed
+      - stats global updated with last run timestamp
+    result: Scheduled job created and queued
   concurrency_exclusive:
     priority: 3
     given:
-      - "concurrency control enabled"
-      - "another job with same concurrency key is processing"
-      - "mode is exclusive"
-    result: "New job waits in queue until running job completes"
-
+      - concurrency control enabled
+      - another job with same concurrency key is processing
+      - mode is exclusive
+    result: New job waits in queue until running job completes
   concurrency_supersedes:
     priority: 3
     given:
-      - "concurrency control enabled"
-      - "older pending jobs exist with same concurrency key"
-      - "mode is supersedes"
+      - concurrency control enabled
+      - older pending jobs exist with same concurrency key
+      - mode is supersedes
     then:
-      - "older pending jobs cancelled"
-    result: "Only the newest job runs, older ones cancelled"
-
+      - older pending jobs cancelled
+    result: Only the newest job runs, older ones cancelled
 errors:
   - code: JOB_NOT_FOUND
     status: 404
-    message: "The requested job was not found"
+    message: The requested job was not found
     retry: false
-
   - code: JOB_ACCESS_DENIED
     status: 403
-    message: "You do not have permission to perform this job operation"
+    message: You do not have permission to perform this job operation
     retry: false
-
   - code: JOB_INVALID_INPUT
     status: 400
-    message: "The job input does not match the expected schema"
+    message: The job input does not match the expected schema
     retry: false
-
   - code: JOB_EXECUTION_ERROR
     status: 500
-    message: "An error occurred while executing the job"
+    message: An error occurred while executing the job
     retry: true
-
 events:
   - name: job.queued
-    payload: [job_id, task_slug, workflow_slug, queue, user_id]
-    description: "Emitted when a new job is added to the queue"
-
+    payload:
+      - job_id
+      - task_slug
+      - workflow_slug
+      - queue
+      - user_id
+    description: Emitted when a new job is added to the queue
   - name: job.started
-    payload: [job_id, task_slug, timestamp]
-    description: "Emitted when a job begins execution"
-
+    payload:
+      - job_id
+      - task_slug
+      - timestamp
+    description: Emitted when a job begins execution
   - name: job.completed
-    payload: [job_id, task_slug, timestamp, output]
-    description: "Emitted when a job completes successfully"
-
+    payload:
+      - job_id
+      - task_slug
+      - timestamp
+      - output
+    description: Emitted when a job completes successfully
   - name: job.failed
-    payload: [job_id, task_slug, timestamp, error, total_tried]
-    description: "Emitted when a job fails (may retry or permanently fail)"
-
+    payload:
+      - job_id
+      - task_slug
+      - timestamp
+      - error
+      - total_tried
+    description: Emitted when a job fails (may retry or permanently fail)
   - name: job.cancelled
-    payload: [job_id, task_slug, user_id, timestamp]
-    description: "Emitted when a job is cancelled"
-
+    payload:
+      - job_id
+      - task_slug
+      - user_id
+      - timestamp
+    description: Emitted when a job is cancelled
 related:
   - feature: payload-versions
     type: optional
-    reason: "Scheduled publishing uses the job queue to publish/unpublish at future times"
+    reason: Scheduled publishing uses the job queue to publish/unpublish at future times
   - feature: payload-access-control
     type: required
-    reason: "Queue, run, and cancel operations are access-controlled"
+    reason: Queue, run, and cancel operations are access-controlled
   - feature: payload-collections
     type: required
-    reason: "Jobs stored in the payload-jobs auto-created collection"
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
+    reason: Jobs stored in the payload-jobs auto-created collection
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_payload_job_queue
-      description: Built-in job queue with tasks, workflows, cron scheduling, retry with backoff, concurrency control, and
-        sub-task orchestration
+      description: Built-in job queue with tasks, workflows, cron scheduling, retry with backoff, concurrency control, and sub-task orchestration
       success_metrics:
         - metric: processing_time
           target: < 5s
@@ -429,24 +392,23 @@ agi:
       - capability: payload_collections
         from: payload-collections
         fallback: degrade
-
 extensions:
   tech_stack:
-    language: "TypeScript"
-    framework: "Payload CMS 3.x"
-    database: "Multi-adapter (MongoDB, PostgreSQL, SQLite, D1)"
+    language: TypeScript
+    framework: Payload CMS 3.x
+    database: Multi-adapter (MongoDB, PostgreSQL, SQLite, D1)
   rest_endpoints:
     - method: GET
-      path: "/api/payload-jobs/run"
+      path: /api/payload-jobs/run
       operation: run_jobs
-      description: "Execute pending jobs — designed for cron triggers (e.g., Vercel cron)"
+      description: Execute pending jobs — designed for cron triggers (e.g., Vercel cron)
     - method: POST
-      path: "/api/payload-job-schedules/handle"
+      path: /api/payload-job-schedules/handle
       operation: handle_schedules
   auto_created_entities:
-    - name: "payload-jobs"
-      type: "collection"
-      description: "Stores all job instances"
-    - name: "payload-jobs-stats"
-      type: "global"
-      description: "Tracks scheduled job run timestamps per queue/task/workflow"
+    - name: payload-jobs
+      type: collection
+      description: Stores all job instances
+    - name: payload-jobs-stats
+      type: global
+      description: Tracks scheduled job run timestamps per queue/task/workflow

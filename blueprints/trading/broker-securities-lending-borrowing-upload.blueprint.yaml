@@ -10,134 +10,159 @@
 # ============================================================
 
 feature: broker-securities-lending-borrowing-upload
-version: "1.0.0"
-description: "Broker securities lending and borrowing (SLB) upload to central back-office via fixed-width records for loan, collateral, loan confirmation/return, and collateral confirmation/return"
+version: 1.0.0
+description: Broker securities lending and borrowing (SLB) upload to central back-office via fixed-width records for loan, collateral, loan confirmation/return, and collateral confirmation/return
 category: trading
-tags: [back-office, broker, upload, slb, securities-lending, borrowing, collateral, fixed-width, card-codes]
-
+tags:
+  - back-office
+  - broker
+  - upload
+  - slb
+  - securities-lending
+  - borrowing
+  - collateral
+  - fixed-width
+  - card-codes
 actors:
   - id: participating_broker
-    name: "Participating Broker"
+    name: Participating Broker
     type: external
   - id: back_office_system
-    name: "Back Office System"
+    name: Back Office System
     type: system
   - id: slb_counterparty
-    name: "SLB Counterparty"
+    name: SLB Counterparty
     type: external
-    description: "Lending or borrowing counterparty"
-
+    description: Lending or borrowing counterparty
 fields:
-  # ── Header/Trailer (Card Code 000/999) ──
   - name: card_code
     type: text
     required: true
+    label: Card Code
   - name: broker_code
     type: text
     required: true
+    label: Broker Code
   - name: upload_date
     type: date
     required: true
-
-  # ── Loan Upload Record (Layout 025) ──
+    label: Upload Date
   - name: loan_reference
     type: text
     required: false
+    label: Loan Reference
   - name: loan_trade_date
     type: date
     required: false
+    label: Loan Trade Date
   - name: loan_start_date
     type: date
     required: false
+    label: Loan Start Date
   - name: loan_end_date
     type: date
     required: false
+    label: Loan End Date
   - name: loan_account_code
     type: text
     required: false
+    label: Loan Account Code
   - name: loan_instrument_code
     type: text
     required: false
+    label: Loan Instrument Code
   - name: loan_isin
     type: text
     required: false
+    label: Loan Isin
   - name: loan_quantity
     type: number
     required: false
+    label: Loan Quantity
   - name: loan_rate
     type: number
     required: false
+    label: Loan Rate
   - name: loan_fee
     type: number
     required: false
+    label: Loan Fee
   - name: loan_counterparty
     type: text
     required: false
+    label: Loan Counterparty
   - name: loan_type
     type: select
     required: false
-    # Open, Term, Call
+    label: Loan Type
   - name: loan_direction
     type: select
     required: false
-    # Lend, Borrow
-
-  # ── Collateral Upload Record (Layout 026) ──
+    label: Loan Direction
   - name: collateral_reference
     type: text
     required: false
+    label: Collateral Reference
   - name: collateral_trade_date
     type: date
     required: false
+    label: Collateral Trade Date
   - name: collateral_type
     type: select
     required: false
-    # Cash, Securities
+    label: Collateral Type
   - name: collateral_instrument
     type: text
     required: false
+    label: Collateral Instrument
   - name: collateral_quantity
     type: number
     required: false
+    label: Collateral Quantity
   - name: collateral_value
     type: number
     required: false
+    label: Collateral Value
   - name: collateral_currency
     type: text
     required: false
+    label: Collateral Currency
   - name: collateral_haircut
     type: number
     required: false
+    label: Collateral Haircut
   - name: collateral_linked_loan_reference
     type: text
     required: false
-
-  # ── Loan Confirmation/Return Record (Layout 027) ──
+    label: Collateral Linked Loan Reference
   - name: confirmation_type
     type: select
     required: false
-    # Confirmation, Return
+    label: Confirmation Type
   - name: confirmation_date
     type: date
     required: false
+    label: Confirmation Date
   - name: return_quantity
     type: number
     required: false
+    label: Return Quantity
   - name: return_amount
     type: number
     required: false
-
-  # ── Collateral Confirmation/Return Record (Layout 028) ──
+    label: Return Amount
   - name: collateral_confirmation_type
     type: select
     required: false
+    label: Collateral Confirmation Type
   - name: collateral_return_quantity
     type: number
     required: false
+    label: Collateral Return Quantity
   - name: collateral_return_value
     type: number
     required: false
-
+    label: Collateral Return Value
 rules:
   submission:
     - "MUST: Support automated upload submission via FTP"
@@ -162,28 +187,26 @@ rules:
     - "MUST: Support open-ended and fixed-term loan types"
     - "MUST: Allow partial or full return of loans and collateral"
     - "MUST: Update loan status on confirmation and return"
-
 errors:
   - code: SLB_UPLOAD_INVALID_LOAN_REF
     status: 422
-    message: "Loan reference is invalid or duplicate"
+    message: Loan reference is invalid or duplicate
   - code: SLB_UPLOAD_COLLATERAL_NOT_LINKED
     status: 422
-    message: "Collateral record references non-existent loan"
+    message: Collateral record references non-existent loan
   - code: SLB_UPLOAD_INVALID_COUNTERPARTY
     status: 422
-    message: "SLB counterparty not found in master data"
+    message: SLB counterparty not found in master data
   - code: SLB_UPLOAD_INSTRUMENT_NOT_FOUND
     status: 422
-    message: "Referenced instrument does not exist"
+    message: Referenced instrument does not exist
   - code: SLB_UPLOAD_PROCESSING_FAILED
     status: 500
-    message: "SLB upload processing failed"
-
+    message: SLB upload processing failed
 outcomes:
   automated_loan_upload:
     priority: 1
-    description: "Broker submits loan upload records (Layout 025)"
+    description: Broker submits loan upload records (Layout 025)
     given:
       - field: card_code
         source: input
@@ -196,13 +219,18 @@ outcomes:
     then:
       - action: create_record
         type: slb_loan_upload
-        fields: [broker_code, loan_reference, counterparty, quantity, rate]
+        fields:
+          - broker_code
+          - loan_reference
+          - counterparty
+          - quantity
+          - rate
       - action: emit_event
         event: slb_upload.loan.received
-
+    error: SLB_UPLOAD_INVALID_LOAN_REF
   automated_collateral_upload:
     priority: 2
-    description: "Broker submits collateral upload records (Layout 026)"
+    description: Broker submits collateral upload records (Layout 026)
     given:
       - field: card_code
         source: input
@@ -213,10 +241,10 @@ outcomes:
         type: slb_collateral_upload
       - action: emit_event
         event: slb_upload.collateral.received
-
+    error: SLB_UPLOAD_COLLATERAL_NOT_LINKED
   loan_confirmation_return:
     priority: 3
-    description: "Broker submits loan confirmation or return (Layout 027)"
+    description: Broker submits loan confirmation or return (Layout 027)
     given:
       - field: card_code
         source: input
@@ -225,14 +253,13 @@ outcomes:
     then:
       - action: transition_state
         field: loan_status
-        from: "open"
-        to: "confirmed_or_returned"
+        from: open
+        to: confirmed_or_returned
       - action: emit_event
         event: slb_upload.loan.confirmed
-
   collateral_confirmation_return:
     priority: 4
-    description: "Broker submits collateral confirmation or return (Layout 028)"
+    description: Broker submits collateral confirmation or return (Layout 028)
     given:
       - field: card_code
         source: input
@@ -241,14 +268,13 @@ outcomes:
     then:
       - action: transition_state
         field: collateral_status
-        from: "posted"
-        to: "confirmed_or_returned"
+        from: posted
+        to: confirmed_or_returned
       - action: emit_event
         event: slb_upload.collateral.confirmed
-
   validate_collateral_link:
     priority: 5
-    description: "Validate collateral record is linked to existing loan"
+    description: Validate collateral record is linked to existing loan
     given:
       - field: card_code
         source: input
@@ -261,12 +287,11 @@ outcomes:
     then:
       - action: emit_event
         event: slb_upload.collateral.unlinked
-
   generate_response_dataset:
     priority: 6
-    description: "Generate SLB upload response dataset"
+    description: Generate SLB upload response dataset
     given:
-      - "upload processing complete"
+      - upload processing complete
     then:
       - action: create_record
         type: slb_response_dataset
@@ -274,17 +299,10 @@ outcomes:
         channel: email
       - action: emit_event
         event: slb_upload.response.delivered
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_broker_securities_lending_borrowing_upload
-      description: Broker securities lending and borrowing (SLB) upload to central back-office via fixed-width records for
-        loan, collateral, loan confirmation/return, and collateral confirmation/return
+      description: Broker securities lending and borrowing (SLB) upload to central back-office via fixed-width records for loan, collateral, loan confirmation/return, and collateral confirmation/return
       success_metrics:
         - metric: policy_violation_rate
           target: 0%
@@ -324,51 +342,49 @@ agi:
   verification:
     invariants:
       - error messages never expose internal system details
-
 extensions:
   card_codes:
-    "000":
-      name: "Header Record"
-    "025":
-      name: "Loan Upload Record"
-      purpose: "Create new securities lending/borrowing loan"
-    "026":
-      name: "Collateral Upload Record"
-      purpose: "Post collateral against loan"
-    "027":
-      name: "Loan Confirmation/Return Record"
-      purpose: "Confirm or return existing loan"
-    "028":
-      name: "Collateral Confirmation/Return Record"
-      purpose: "Confirm or return posted collateral"
     "999":
-      name: "Trailer Record"
+      name: Trailer Record
+    "000":
+      name: Header Record
+    "025":
+      name: Loan Upload Record
+      purpose: Create new securities lending/borrowing loan
+    "026":
+      name: Collateral Upload Record
+      purpose: Post collateral against loan
+    "027":
+      name: Loan Confirmation/Return Record
+      purpose: Confirm or return existing loan
+    "028":
+      name: Collateral Confirmation/Return Record
+      purpose: Confirm or return posted collateral
   loan_types:
-    - "Open (no fixed end date)"
-    - "Term (fixed end date)"
-    - "Call (callable on demand)"
+    - Open (no fixed end date)
+    - Term (fixed end date)
+    - Call (callable on demand)
   collateral_types:
-    - "Cash"
-    - "Securities"
+    - Cash
+    - Securities
   lifecycle_states:
     loan:
-      - "open"
-      - "confirmed"
-      - "returned"
-      - "cancelled"
+      - open
+      - confirmed
+      - returned
+      - cancelled
     collateral:
-      - "posted"
-      - "confirmed"
-      - "returned"
-      - "cancelled"
+      - posted
+      - confirmed
+      - returned
+      - cancelled
   workflow:
-    - "1. Email address set-up"
-    - "2. Loan upload (Layout 025)"
-    - "3. Collateral upload (Layout 026)"
-    - "4. Loan confirmation/return (Layout 027)"
-    - "5. Collateral confirmation/return (Layout 028)"
-    - "6. Response dataset and archiving"
-
+    - 1. Email address set-up
+    - 2. Loan upload (Layout 025)
+    - 3. Collateral upload (Layout 026)
+    - 4. Loan confirmation/return (Layout 027)
+    - 5. Collateral confirmation/return (Layout 028)
+    - 6. Response dataset and archiving
 related:
   - feature: broker-back-office-dissemination
     type: recommended

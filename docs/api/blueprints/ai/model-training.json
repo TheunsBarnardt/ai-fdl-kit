@@ -1,14 +1,14 @@
 {
   "feature": "model-training",
-  "version": "1.0.0",
-  "description": "Train, evaluate, and checkpoint ML models using the Keras fit API with configurable optimizers, loss functions, callbacks, and distributed strategies",
+  "version": "1.1.0",
+  "description": "Train, evaluate, and checkpoint ML models with configurable optimizers, LR schedulers, mixed precision, and distributed strategies — covers Keras fit API and PyTorch training loop",
   "category": "ai",
   "tags": [
     "ai",
     "machine-learning",
     "training",
-    "keras",
     "deep-learning",
+    "pytorch",
     "tensorflow"
   ],
   "actors": [
@@ -58,13 +58,105 @@
         },
         {
           "value": "adamw",
-          "label": "AdamW (Adam + weight decay)"
+          "label": "AdamW (Adam + decoupled weight decay)"
         },
         {
           "value": "adagrad",
           "label": "Adagrad (per-parameter learning rates)"
+        },
+        {
+          "value": "nadam",
+          "label": "NAdam (Adam with Nesterov momentum)"
+        },
+        {
+          "value": "radam",
+          "label": "RAdam (rectified Adam, variance-corrected warmup)"
+        },
+        {
+          "value": "adafactor",
+          "label": "Adafactor (memory-efficient, no second moment storage)"
         }
       ]
+    },
+    {
+      "name": "optimizer_betas",
+      "type": "json",
+      "required": false,
+      "label": "Adam Beta Coefficients [beta1, beta2] (PyTorch)"
+    },
+    {
+      "name": "optimizer_eps",
+      "type": "number",
+      "required": false,
+      "label": "Optimizer Epsilon for Numerical Stability (default: 1e-8)"
+    },
+    {
+      "name": "optimizer_weight_decay",
+      "type": "number",
+      "required": false,
+      "label": "Weight Decay (L2 penalty)"
+    },
+    {
+      "name": "optimizer_amsgrad",
+      "type": "boolean",
+      "required": false,
+      "label": "Use AMSGrad Variant of Adam (PyTorch)"
+    },
+    {
+      "name": "optimizer_fused",
+      "type": "boolean",
+      "required": false,
+      "label": "Use Fused Kernel Implementation (PyTorch, CUDA only, fastest — requires floating point params)"
+    },
+    {
+      "name": "lr_scheduler",
+      "type": "select",
+      "required": false,
+      "label": "Learning Rate Scheduler",
+      "options": [
+        {
+          "value": "none",
+          "label": "None (constant learning rate)"
+        },
+        {
+          "value": "step",
+          "label": "StepLR (decay by gamma every step_size epochs)"
+        },
+        {
+          "value": "cosine",
+          "label": "CosineAnnealingLR (cosine decay to eta_min)"
+        },
+        {
+          "value": "cosine_warm_restarts",
+          "label": "CosineAnnealingWarmRestarts (periodic restarts)"
+        },
+        {
+          "value": "one_cycle",
+          "label": "OneCycleLR (super-convergence, 1-cycle policy)"
+        },
+        {
+          "value": "reduce_on_plateau",
+          "label": "ReduceLROnPlateau (reduce when metric stops improving)"
+        },
+        {
+          "value": "exponential",
+          "label": "ExponentialLR (decay by gamma every epoch)"
+        },
+        {
+          "value": "polynomial",
+          "label": "PolynomialLR (polynomial decay to zero)"
+        },
+        {
+          "value": "lambda",
+          "label": "LambdaLR (custom lambda function)"
+        }
+      ]
+    },
+    {
+      "name": "mixed_precision",
+      "type": "boolean",
+      "required": false,
+      "label": "Enable Mixed Precision Training (fp16/bf16 forward, fp32 optimizer state)"
     },
     {
       "name": "learning_rate",
@@ -178,11 +270,15 @@
         },
         {
           "value": "mirrored",
-          "label": "MirroredStrategy (multi-GPU, same machine)"
+          "label": "MirroredStrategy / DDP (multi-GPU, same machine)"
         },
         {
           "value": "multi_worker",
-          "label": "MultiWorkerMirroredStrategy (multi-node cluster)"
+          "label": "MultiWorkerMirrored / DDP multi-node (multi-node cluster)"
+        },
+        {
+          "value": "fsdp",
+          "label": "FSDP (Fully Sharded Data Parallel — large model sharding)"
         },
         {
           "value": "tpu",
@@ -300,6 +396,14 @@
     "distributed_training": {
       "strategy_scope": "MUST create model and optimizer inside strategy.scope() when using\nMirroredStrategy or MultiWorkerMirroredStrategy.\nAll variables created inside scope are mirrored across all replicas.\nEffective batch size = batch_size × number_of_replicas.\n# Source: tensorflow/python/distribute/mirrored_strategy.py\n",
       "tpu_requirements": "TPUStrategy requires:\n- Connecting to TPU cluster before strategy creation\n- Dynamic shapes NOT supported — use fixed-shape inputs\n- Effective batch size MUST be divisible by number of TPU cores (8 or 128)\n# Source: tensorflow/python/distribute/tpu_strategy.py\n"
+    },
+    "pytorch_training_loop": {
+      "loop_order": "PyTorch requires explicit training loop management (unlike Keras model.fit).\nThe canonical step order per batch:\n  1. optimizer.zero_grad(set_to_none=True)   — clear gradients\n  2. output = model(inputs)                  — forward pass\n  3. loss = criterion(output, targets)        — compute loss\n  4. loss.backward()                         — accumulate gradients\n  5. torch.nn.utils.clip_grad_norm_(params, max_norm)  — optional clip\n  6. optimizer.step()                        — update parameters\n  7. scheduler.step()                        — update LR (after optimizer)\nCall model.train() before the loop and model.eval() for validation.\n# Source: torch/optim/optimizer.py — _use_grad_for_differentiable\n",
+      "zero_grad": "SHOULD call optimizer.zero_grad(set_to_none=True) rather than the default\nset_to_none=False. Setting gradients to None instead of zeroing avoids\na memory write and reduces memory bandwidth, which is measurably faster\non large models.\n# Source: torch/optim/optimizer.py — zero_grad docstring\n",
+      "optimizer_performance": "PyTorch optimizers offer three implementation tiers (fastest first):\n  1. fused=True    — vertical+horizontal kernel fusion; CUDA only; requires\n                     floating point params (float16/32/64/bfloat16).\n                     Cannot be combined with foreach=True or differentiable=True.\n  2. foreach=True  — horizontal fusion via tensorlist ops; uses ~sizeof(params)\n                     extra peak memory; CUDA recommended.\n  3. default       — single-tensor for-loop; works everywhere; slowest.\nWhen neither flag is set PyTorch defaults to foreach on CUDA.\n# Source: torch/optim/optimizer.py — _default_to_fused_or_foreach,\n#          torch/optim/adam.py — Adam.__init__ fused/foreach validation\n",
+      "mixed_precision": "PyTorch mixed precision (AMP) uses:\n  - torch.amp.autocast(device_type='cuda') wrapping the forward pass\n  - torch.amp.GradScaler to scale loss before backward, preventing\n    fp16 underflow in gradients. Unscale before gradient clipping.\nCorrect order:\n  with autocast():\n      loss = model(inputs)\n  scaler.scale(loss).backward()\n  scaler.unscale_(optimizer)\n  clip_grad_norm_(...)\n  scaler.step(optimizer)\n  scaler.update()\n",
+      "lr_scheduler": "MUST call scheduler.step() AFTER optimizer.step(), not before.\nPyTorch warns if called in the wrong order (detected via _opt_called flag).\nWhen resuming from checkpoint: restore scheduler BEFORE calling\noptimizer.load_state_dict() to avoid overwriting loaded LRs.\n# Source: torch/optim/lr_scheduler.py — LRScheduler.__init__,\n#          EPOCH_DEPRECATION_WARNING\n",
+      "adam_validation": "Adam raises ValueError on construction for invalid hyperparameters:\n  - lr must be >= 0\n  - eps must be >= 0\n  - betas[0] and betas[1] must be in [0, 1)\n  - weight_decay must be >= 0\n  - fused and foreach cannot both be True\n# Source: torch/optim/adam.py — Adam.__init__\n"
     }
   },
   "outcomes": {
@@ -550,12 +654,17 @@
   "extensions": {
     "tech_stack": {
       "language": "Python",
-      "framework": "TensorFlow / Keras",
+      "frameworks": [
+        "TensorFlow / Keras — Model.fit() loop, callbacks, tf.distribute.Strategy",
+        "PyTorch — manual training loop, torch.optim, torch.amp, DDP/FSDP"
+      ],
       "patterns": [
-        "Keras Model.fit() training loop",
-        "ModelCheckpoint + EarlyStopping callbacks",
-        "tf.distribute.Strategy for multi-device training",
-        "tf.random.set_seed for reproducibility"
+        "Keras Model.fit() with ModelCheckpoint + EarlyStopping callbacks",
+        "PyTorch: zero_grad → forward → loss → backward → clip → step",
+        "PyTorch AMP: autocast + GradScaler for mixed precision",
+        "PyTorch LR schedulers: CosineAnnealingLR, OneCycleLR, ReduceLROnPlateau",
+        "fused/foreach optimizer kernels for CUDA performance",
+        "tf.distribute.Strategy / DDP / FSDP for distributed training"
       ]
     }
   }

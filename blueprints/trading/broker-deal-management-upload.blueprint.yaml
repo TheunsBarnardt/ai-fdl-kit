@@ -9,120 +9,148 @@
 # ============================================================
 
 feature: broker-deal-management-upload
-version: "1.0.0"
-description: "Broker deal management upload to central back-office - deal allocations, same-day allocations, and deals uploads with manual and automated FTP submission modes, external account code mapping"
+version: 1.0.0
+description: Broker deal management upload to central back-office - deal allocations, same-day allocations, and deals uploads with manual and automated FTP submission modes, external account code mapping
 category: trading
-tags: [back-office, broker, upload, deal-allocation, t+3, trades, fixed-width]
-
+tags:
+  - back-office
+  - broker
+  - upload
+  - deal-allocation
+  - t+3
+  - trades
+  - fixed-width
 actors:
   - id: participating_broker
-    name: "Participating Broker"
+    name: Participating Broker
     type: external
   - id: back_office_system
-    name: "Back Office System"
+    name: Back Office System
     type: system
   - id: broker_dealing_room
-    name: "Broker Dealing Room"
+    name: Broker Dealing Room
     type: human
-
 fields:
-  # ── Header/Trailer ──
   - name: record_type
     type: text
     required: true
+    label: Record Type
   - name: broker_code
     type: text
     required: true
+    label: Broker Code
   - name: upload_date
     type: date
     required: true
-
-  # ── Deal Allocation Fields ──
+    label: Upload Date
   - name: deal_reference
     type: text
     required: true
+    label: Deal Reference
   - name: order_reference
     type: text
     required: false
+    label: Order Reference
   - name: trade_date
     type: date
     required: true
+    label: Trade Date
   - name: settlement_date
     type: date
     required: false
+    label: Settlement Date
   - name: buy_sell_indicator
     type: select
     required: true
-    # B or S
+    label: Buy Sell Indicator
   - name: instrument_code
     type: text
     required: true
+    label: Instrument Code
   - name: isin
     type: text
     required: false
+    label: Isin
   - name: quantity
     type: number
     required: true
+    label: Quantity
   - name: price
     type: number
     required: true
+    label: Price
   - name: consideration
     type: number
     required: false
+    label: Consideration
   - name: trade_time
     type: text
     required: false
+    label: Trade Time
   - name: client_account
     type: text
     required: true
+    label: Client Account
   - name: external_account_code
     type: text
     required: false
+    label: External Account Code
   - name: commission_amount
     type: number
     required: false
+    label: Commission Amount
   - name: charges_amount
     type: number
     required: false
+    label: Charges Amount
   - name: vat_amount
     type: number
     required: false
+    label: Vat Amount
   - name: stt_amount
     type: number
     required: false
-    # Securities Transfer Tax
+    label: Stt Amount
   - name: allocation_reference
     type: text
     required: false
+    label: Allocation Reference
   - name: partner_code
     type: text
     required: false
+    label: Partner Code
   - name: branch_code
     type: text
     required: false
+    label: Branch Code
   - name: portfolio_code
     type: text
     required: false
+    label: Portfolio Code
   - name: dealer_code
     type: text
     required: false
+    label: Dealer Code
   - name: trade_type
     type: select
     required: false
-    # Normal, Cross, Principal, Agency, Same-Day, T+3
+    label: Trade Type
   - name: execution_venue
     type: text
     required: false
+    label: Execution Venue
   - name: counter_party_code
     type: text
     required: false
+    label: Counter Party Code
   - name: principal_indicator
     type: select
     required: false
+    label: Principal Indicator
   - name: cancellation_indicator
     type: select
     required: false
-
+    label: Cancellation Indicator
 rules:
   submission_modes:
     - "MUST: Support manual submission of deal allocations via FTP process"
@@ -144,89 +172,90 @@ rules:
   format:
     - "MUST: Use fixed-width upload file format"
     - "MUST: Include Header and Trailer records in every upload"
-
 errors:
   - code: DEAL_UPLOAD_INVALID_EXTERNAL_ACCOUNT
     status: 422
-    message: "External account code cannot be mapped to a client account"
+    message: External account code cannot be mapped to a client account
   - code: DEAL_UPLOAD_INVALID_TRADE_DATE
     status: 422
-    message: "Trade date is invalid or outside allowed window"
+    message: Trade date is invalid or outside allowed window
   - code: DEAL_UPLOAD_INSTRUMENT_NOT_FOUND
     status: 422
-    message: "Referenced instrument does not exist"
+    message: Referenced instrument does not exist
   - code: DEAL_UPLOAD_ALLOCATION_CUTOFF_EXCEEDED
     status: 422
-    message: "Same-day allocation submitted after cutoff time"
+    message: Same-day allocation submitted after cutoff time
   - code: DEAL_UPLOAD_DUPLICATE_DEAL
     status: 409
-    message: "Deal reference already exists"
-
+    message: Deal reference already exists
 outcomes:
   manual_deal_allocation_upload:
     priority: 1
-    description: "Broker manually submits deal allocations via FTP"
+    description: Broker manually submits deal allocations via FTP
     given:
       - field: submission_mode
         source: input
         operator: eq
-        value: "manual_ftp"
+        value: manual_ftp
     then:
       - action: create_record
         type: deal_allocation_upload
-        fields: [broker_code, file_name, deal_count, submission_timestamp]
+        fields:
+          - broker_code
+          - file_name
+          - deal_count
+          - submission_timestamp
       - action: emit_event
         event: deal_upload.manual.received
-
+    error: DEAL_UPLOAD_INVALID_EXTERNAL_ACCOUNT
   automated_deal_allocation_upload:
     priority: 2
-    description: "Automated deal allocation upload via FTP"
+    description: Automated deal allocation upload via FTP
     given:
       - field: submission_mode
         source: input
         operator: eq
-        value: "automated_ftp"
+        value: automated_ftp
     then:
       - action: create_record
         type: deal_allocation_upload_auto
       - action: emit_event
         event: deal_upload.automated.received
-
+    error: DEAL_UPLOAD_INVALID_TRADE_DATE
   same_day_allocation_upload:
     priority: 3
-    description: "Same-day allocation upload with intraday processing"
+    description: Same-day allocation upload with intraday processing
     given:
       - field: allocation_type
         source: input
         operator: eq
-        value: "same_day"
+        value: same_day
       - field: submission_time
         source: system
         operator: lt
-        value: "cutoff_time"
+        value: cutoff_time
     then:
       - action: create_record
         type: same_day_allocation
       - action: emit_event
         event: deal_upload.same_day.received
-
   deals_upload:
     priority: 4
-    description: "Automated deals upload"
+    description: Automated deals upload
     given:
       - field: upload_type
         source: input
         operator: eq
-        value: "deals"
+        value: deals
     then:
       - action: create_record
         type: deals_upload
       - action: emit_event
         event: deal_upload.deals.received
-
+    error: DEAL_UPLOAD_INSTRUMENT_NOT_FOUND
   external_account_mapping:
     priority: 5
-    description: "Map external account code to internal client account"
+    description: Map external account code to internal client account
     given:
       - field: external_account_code
         source: input
@@ -236,7 +265,6 @@ outcomes:
         target: external_account_mapper
       - action: emit_event
         event: deal_upload.external_account.mapped
-
   allocation_cutoff_exceeded:
     priority: 6
     error: DEAL_UPLOAD_ALLOCATION_CUTOFF_EXCEEDED
@@ -244,25 +272,18 @@ outcomes:
       - field: allocation_type
         source: input
         operator: eq
-        value: "same_day"
+        value: same_day
       - field: submission_time
         source: system
         operator: gte
-        value: "cutoff_time"
+        value: cutoff_time
     then:
       - action: emit_event
         event: deal_upload.cutoff_exceeded
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_broker_deal_management_upload
-      description: Broker deal management upload to central back-office - deal allocations, same-day allocations, and deals
-        uploads with manual and automated FTP submission modes, external account code mapping
+      description: Broker deal management upload to central back-office - deal allocations, same-day allocations, and deals uploads with manual and automated FTP submission modes, external account code mapping
       success_metrics:
         - metric: policy_violation_rate
           target: 0%
@@ -302,32 +323,30 @@ agi:
   verification:
     invariants:
       - error messages never expose internal system details
-
 extensions:
   upload_types:
     manual_deal_allocation:
-      description: "Manual submission of deal allocations via FTP"
+      description: Manual submission of deal allocations via FTP
       member_setup_required: true
     automated_deal_allocation:
-      description: "Automated FTP submission of deal allocations"
+      description: Automated FTP submission of deal allocations
     same_day_allocation:
-      description: "Same-day allocations with intraday cutoff"
+      description: Same-day allocations with intraday cutoff
     deals_upload:
-      description: "Automated deals upload"
+      description: Automated deals upload
   submission_workflow:
-    - "1. Member setup and FTP process configuration"
-    - "2. Email address set-up"
-    - "3. Upload file creation per layout"
-    - "4. FTP or online submission"
-    - "5. Error reporting"
-    - "6. Response processing"
+    - 1. Member setup and FTP process configuration
+    - 2. Email address set-up
+    - 3. Upload file creation per layout
+    - 4. FTP or online submission
+    - 5. Error reporting
+    - 6. Response processing
   external_account_mapping:
-    description: "External account codes provided by broker trading systems are mapped to internal account numbers by back-office"
+    description: External account codes provided by broker trading systems are mapped to internal account numbers by back-office
   settlement_cycles:
-    - "T+3 standard settlement"
-    - "T+2 settlement (where applicable)"
-    - "Same-day settlement"
-
+    - T+3 standard settlement
+    - T+2 settlement (where applicable)
+    - Same-day settlement
 related:
   - feature: broker-back-office-dissemination
     type: recommended

@@ -7,10 +7,9 @@
 # ============================================================
 
 feature: report-generation
-version: "1.0.0"
-description: >
-  Scheduled and on-demand report generation with PDF, Excel, and CSV output,
-  background processing, caching, email delivery, and cron scheduling.
+version: 1.0.0
+description: |
+  Scheduled and on-demand report generation with PDF, Excel, and CSV output, background processing, caching, email delivery, and cron scheduling.
 category: workflow
 tags:
   - reports
@@ -20,7 +19,6 @@ tags:
   - scheduled-jobs
   - data-export
   - background-processing
-
 actors:
   - id: report_requester
     name: Report Requester
@@ -34,7 +32,6 @@ actors:
     name: Scheduler
     type: system
     description: Triggers scheduled report generation based on cron expressions
-
 fields:
   - name: report_id
     type: text
@@ -42,8 +39,8 @@ fields:
     required: true
     validation:
       - type: pattern
-        value: "^[a-z0-9-]+$"
-        message: "Report ID must be lowercase alphanumeric with hyphens"
+        value: ^[a-z0-9-]+$
+        message: Report ID must be lowercase alphanumeric with hyphens
   - name: name
     type: text
     label: Report Name
@@ -51,10 +48,10 @@ fields:
     validation:
       - type: minLength
         value: 1
-        message: "Report name is required"
+        message: Report name is required
       - type: maxLength
         value: 200
-        message: "Report name must be 200 characters or fewer"
+        message: Report name must be 200 characters or fewer
   - name: template
     type: text
     label: Report Template
@@ -72,17 +69,20 @@ fields:
     label: Output Format
     required: true
     options:
-      - {value: "pdf", label: "PDF"}
-      - {value: "xlsx", label: "Excel (XLSX)"}
-      - {value: "csv", label: "CSV"}
+      - value: pdf
+        label: PDF
+      - value: xlsx
+        label: Excel (XLSX)
+      - value: csv
+        label: CSV
   - name: schedule
     type: text
     label: Cron Schedule
     required: false
     validation:
       - type: pattern
-        value: "^[0-9*,/-]+ [0-9*,/-]+ [0-9*,/-]+ [0-9*,/-]+ [0-9*,/-]+$"
-        message: "Schedule must be a valid five-field cron expression"
+        value: ^[0-9*,/-]+ [0-9*,/-]+ [0-9*,/-]+ [0-9*,/-]+ [0-9*,/-]+$
+        message: Schedule must be a valid five-field cron expression
   - name: recipients
     type: json
     label: Email Recipients
@@ -92,11 +92,16 @@ fields:
     label: Status
     required: true
     options:
-      - {value: "pending", label: "Pending"}
-      - {value: "processing", label: "Processing"}
-      - {value: "completed", label: "Completed"}
-      - {value: "failed", label: "Failed"}
-      - {value: "cached", label: "Cached"}
+      - value: pending
+        label: Pending
+      - value: processing
+        label: Processing
+      - value: completed
+        label: Completed
+      - value: failed
+        label: Failed
+      - value: cached
+        label: Cached
   - name: file_url
     type: url
     label: Generated File URL
@@ -113,43 +118,31 @@ fields:
     type: datetime
     label: Cache Expires At
     required: false
-
 rules:
   max_file_size:
-    description: >
-      Generated report files must not exceed 100 MB. If the output exceeds
-      this limit, the report fails with an error and suggests narrowing
-      parameters or splitting into multiple reports.
+    description: |
+      Generated report files must not exceed 100 MB. If the output exceeds this limit, the report fails with an error and suggests narrowing parameters or splitting into multiple reports.
   background_processing:
-    description: >
-      Reports that are estimated to take longer than 5 seconds must be
-      processed in a background job. The requester receives immediate
-      acknowledgment with a report ID for status polling.
+    description: |
+      Reports that are estimated to take longer than 5 seconds must be processed in a background job. The requester receives immediate acknowledgment with a report ID for status polling.
   cache_recent_reports:
-    description: >
-      Completed reports are cached for 1 hour. Requests with identical
-      template, data source, and parameters within the cache window return
-      the cached file instead of regenerating.
+    description: |
+      Completed reports are cached for 1 hour. Requests with identical template, data source, and parameters within the cache window return the cached file instead of regenerating.
   parameterized_queries_only:
-    description: >
-      All data source queries must use parameterized inputs to prevent
-      injection attacks. Raw user input must never be interpolated into
-      query strings.
+    description: |
+      All data source queries must use parameterized inputs to prevent injection attacks. Raw user input must never be interpolated into query strings.
   schedule_validation:
-    description: >
-      Cron schedule expressions must be valid five-field cron format.
-      Minimum allowed interval is 15 minutes to prevent excessive load.
+    description: |
+      Cron schedule expressions must be valid five-field cron format. Minimum allowed interval is 15 minutes to prevent excessive load.
   recipient_notification:
-    description: >
-      When recipients are configured, the generated report is emailed as
-      an attachment (under 25 MB) or as a download link (over 25 MB).
-
+    description: |
+      When recipients are configured, the generated report is emailed as an attachment (under 25 MB) or as a download link (over 25 MB).
 outcomes:
   on_demand_report_generated:
     priority: 1
     given:
-      - "user requests a report with template, data source, and parameters"
-      - "no cached report exists for the same parameters"
+      - user requests a report with template, data source, and parameters
+      - no cached report exists for the same parameters
     then:
       - action: transition_state
         field: status
@@ -173,32 +166,38 @@ outcomes:
         description: Set cache expiry to 1 hour from generation
       - action: emit_event
         event: report.generated
-        payload: [report_id, name, format, file_url, file_size_bytes]
-    result: "Report generated in background and download URL provided to requester"
-
+        payload:
+          - report_id
+          - name
+          - format
+          - file_url
+          - file_size_bytes
+    result: Report generated in background and download URL provided to requester
   cached_report_returned:
     priority: 2
     given:
-      - "user requests a report with template, data source, and parameters"
-      - "a cached report exists for identical parameters"
+      - user requests a report with template, data source, and parameters
+      - a cached report exists for identical parameters
       - field: expires_at
         source: db
         operator: gt
-        value: "now"
-        description: "Cache has not expired"
+        value: now
+        description: Cache has not expired
     then:
       - action: set_field
         target: status
-        value: "cached"
+        value: cached
       - action: emit_event
         event: report.cache_hit
-        payload: [report_id, generated_at, expires_at]
-    result: "Cached report returned immediately without regeneration"
-
+        payload:
+          - report_id
+          - generated_at
+          - expires_at
+    result: Cached report returned immediately without regeneration
   scheduled_report_triggered:
     priority: 3
     given:
-      - "cron schedule fires for a configured report"
+      - cron schedule fires for a configured report
       - field: schedule
         source: db
         operator: exists
@@ -211,13 +210,17 @@ outcomes:
         description: Send report to all configured recipients
       - action: emit_event
         event: report.scheduled.completed
-        payload: [report_id, name, format, recipient_count]
-    result: "Scheduled report generated and delivered to all recipients"
-
+        payload:
+          - report_id
+          - name
+          - format
+          - recipient_count
+    result: Scheduled report generated and delivered to all recipients
+    error: REPORT_INVALID_SCHEDULE
   report_delivered_to_recipients:
     priority: 4
     given:
-      - "report generation completes successfully"
+      - report generation completes successfully
       - field: recipients
         source: db
         operator: exists
@@ -227,13 +230,15 @@ outcomes:
         description: Email report as attachment or download link based on file size
       - action: emit_event
         event: report.delivered
-        payload: [report_id, recipients, delivery_method]
-    result: "Report delivered to all configured recipients via email"
-
+        payload:
+          - report_id
+          - recipients
+          - delivery_method
+    result: Report delivered to all configured recipients via email
   report_exceeds_size_limit:
     priority: 5
     given:
-      - "report generation produces output exceeding 100 MB"
+      - report generation produces output exceeding 100 MB
     then:
       - action: transition_state
         field: status
@@ -241,14 +246,16 @@ outcomes:
         to: failed
       - action: emit_event
         event: report.failed
-        payload: [report_id, reason, file_size_bytes]
-    result: "Report generation fails with size limit exceeded error"
+        payload:
+          - report_id
+          - reason
+          - file_size_bytes
+    result: Report generation fails with size limit exceeded error
     error: REPORT_SIZE_EXCEEDED
-
   report_generation_fails:
     priority: 6
     given:
-      - "report engine encounters an error during generation"
+      - report engine encounters an error during generation
     then:
       - action: transition_state
         field: status
@@ -256,10 +263,12 @@ outcomes:
         to: failed
       - action: emit_event
         event: report.failed
-        payload: [report_id, reason, error_details]
-    result: "Report generation fails and requester is notified with error details"
+        payload:
+          - report_id
+          - reason
+          - error_details
+    result: Report generation fails and requester is notified with error details
     error: REPORT_GENERATION_FAILED
-
 errors:
   - code: REPORT_SIZE_EXCEEDED
     message: Generated report exceeds the 100 MB size limit. Narrow parameters or split into multiple reports.
@@ -279,24 +288,40 @@ errors:
   - code: REPORT_INVALID_PARAMETERS
     message: One or more query parameters are invalid or missing required values.
     status: 400
-
 events:
   - name: report.generated
     description: A report was successfully generated
-    payload: [report_id, name, format, file_url, file_size_bytes]
+    payload:
+      - report_id
+      - name
+      - format
+      - file_url
+      - file_size_bytes
   - name: report.cache_hit
     description: A cached report was returned instead of regenerating
-    payload: [report_id, generated_at, expires_at]
+    payload:
+      - report_id
+      - generated_at
+      - expires_at
   - name: report.scheduled.completed
     description: A scheduled report was generated and delivered
-    payload: [report_id, name, format, recipient_count]
+    payload:
+      - report_id
+      - name
+      - format
+      - recipient_count
   - name: report.delivered
     description: A report was delivered to recipients via email
-    payload: [report_id, recipients, delivery_method]
+    payload:
+      - report_id
+      - recipients
+      - delivery_method
   - name: report.failed
     description: Report generation failed due to an error
-    payload: [report_id, reason, error_details]
-
+    payload:
+      - report_id
+      - reason
+      - error_details
 related:
   - feature: automation-rules
     type: optional
@@ -307,18 +332,11 @@ related:
   - feature: dashboard-analytics
     type: recommended
     reason: Dashboard widgets may offer report export functionality
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_report_generation
-      description: >
-        Scheduled and on-demand report generation with PDF, Excel, and CSV output, background processing, caching, email
-        delivery, and cron scheduling.
+      description: |
+        Scheduled and on-demand report generation with PDF, Excel, and CSV output, background processing, caching, email delivery, and cron scheduling.
       success_metrics:
         - metric: processing_time
           target: < 5s

@@ -1,7 +1,7 @@
 {
   "feature": "model-serving",
-  "version": "1.0.0",
-  "description": "Export trained ML models in SavedModel format, version them for rollback, load them into a serving runtime, and execute real-time or batch inference via REST or gRPC",
+  "version": "1.1.0",
+  "description": "Export trained ML models for production inference — covers TF SavedModel/TF Serving versioning and PyTorch export patterns (torch.export, ONNX, torch.compile)",
   "category": "ai",
   "tags": [
     "ai",
@@ -9,7 +9,9 @@
     "inference",
     "savedmodel",
     "deployment",
-    "versioning"
+    "versioning",
+    "pytorch",
+    "onnx"
   ],
   "actors": [
     {
@@ -52,7 +54,7 @@
       "options": [
         {
           "value": "saved_model",
-          "label": "TensorFlow SavedModel (recommended for production)"
+          "label": "TensorFlow SavedModel (recommended for TF production)"
         },
         {
           "value": "keras_h5",
@@ -63,8 +65,78 @@
           "label": "TensorFlow Lite (.tflite, mobile/edge devices)"
         },
         {
+          "value": "torch_export",
+          "label": "torch.export — ExportedProgram (PyTorch 2.x preferred)"
+        },
+        {
+          "value": "torch_compile",
+          "label": "torch.compile — compiled model graph (inductor backend)"
+        },
+        {
           "value": "onnx",
-          "label": "ONNX (cross-framework interoperability)"
+          "label": "ONNX (cross-framework, torch.onnx.export with dynamo=True)"
+        },
+        {
+          "value": "torchscript",
+          "label": "TorchScript — DEPRECATED in PyTorch 2.5; use torch.export"
+        }
+      ]
+    },
+    {
+      "name": "onnx_opset_version",
+      "type": "number",
+      "required": false,
+      "label": "ONNX Opset Version (e.g. 17; higher = newer ops)"
+    },
+    {
+      "name": "onnx_dynamic_shapes",
+      "type": "json",
+      "required": false,
+      "label": "ONNX Dynamic Shape Axes (e.g. {\"input\": {0: \"batch\", 2: \"height\"}})"
+    },
+    {
+      "name": "onnx_external_data",
+      "type": "boolean",
+      "required": false,
+      "label": "ONNX: Store Weights as External Data Files (required for models >2GB)"
+    },
+    {
+      "name": "compile_backend",
+      "type": "select",
+      "required": false,
+      "label": "torch.compile Backend",
+      "options": [
+        {
+          "value": "inductor",
+          "label": "inductor (default — Triton kernels, best for CUDA)"
+        },
+        {
+          "value": "eager",
+          "label": "eager (no compilation, useful for debugging)"
+        },
+        {
+          "value": "aot_eager",
+          "label": "aot_eager (ahead-of-time tracing without Triton)"
+        }
+      ]
+    },
+    {
+      "name": "compile_mode",
+      "type": "select",
+      "required": false,
+      "label": "torch.compile Mode",
+      "options": [
+        {
+          "value": "default",
+          "label": "default (balanced compile time vs runtime)"
+        },
+        {
+          "value": "reduce-overhead",
+          "label": "reduce-overhead (minimize launch overhead, e.g. small models)"
+        },
+        {
+          "value": "max-autotune",
+          "label": "max-autotune (maximum perf, longest compile time)"
         }
       ]
     },
@@ -210,6 +282,12 @@
       "input_validation": "MUST validate input tensor dtype and shape against input_signature\nbefore executing inference. Return INFERENCE_SHAPE_MISMATCH (400)\nif inputs are incompatible; do not allow TF to raise a C++ error.\n",
       "batching": "SHOULD configure TF Serving's built-in batching for throughput:\n- Groups concurrent requests into a single forward pass\n- max_batch_size: limits GPU memory usage per batch\n- batch_timeout_micros: max wait time before dispatching partial batch\n- Use batching_parameters_file to pass config to TF Serving\nNever accept requests with batch size > max_batch_size.\n",
       "warmup": "SHOULD run warmup_requests dummy inferences after model loads:\n- JIT-compiles TensorFlow XLA ops (first real call would be slow)\n- Pre-allocates GPU memory to avoid latency spike on first request\n- TF Serving supports SavedModel warmup assets:\n    assets.extra/tf_serving_warmup_requests (WarmupData proto)\n# Source: tensorflow_serving/servables/tensorflow/saved_model_warmup.cc\n"
+    },
+    "pytorch_export": {
+      "export_hierarchy": "PyTorch 2.x export priority (most to least recommended):\n  1. torch.export.export() → ExportedProgram\n       - Full graph capture with symbolic shapes\n       - Suitable for AOT compilation and deployment\n       - Accepts dynamic_shapes dict for variable dimensions\n  2. torch.onnx.export(..., dynamo=True) — default since PyTorch 2.x\n       - Builds on torch.export internally\n       - Supports external_data=True for models > 2GB\n       - Use dynamic_shapes for variable batch/sequence dims\n  3. torch.compile() — JIT compilation at runtime\n       - No offline export artifact; model must be Python-accessible\n       - inductor backend generates Triton CUDA kernels\n  4. TorchScript (torch.jit.script / trace) — DEPRECATED in PyTorch 2.5\n       - Use torch.compile as a drop-in replacement\n# Source: torch/jit/__init__.py — annotate() deprecation note\n#          torch/onnx/__init__.py — export() dynamo=True default\n",
+      "inference_modes": "MUST call model.eval() before inference to disable Dropout and\nbatch norm running-stat updates. Three no-gradient context options:\n  - torch.no_grad()          — disables gradient tracking (most compatible)\n  - torch.inference_mode()   — stricter; also disables view tracking,\n                               slightly faster than no_grad\nUse inference_mode for pure inference; use no_grad when you need\ntensor operations that create views after the inference block.\n# Source: torch/jit/__init__.py — optimize_for_inference\n",
+      "onnx_opset": "Choose opset_version based on deployment target:\n  - opset 9–11: maximum compatibility (older runtimes, mobile)\n  - opset 17+: latest ops, required for newer model architectures\ndynamic_shapes (dict) overrides static shapes captured during export,\nenabling variable batch size or sequence length at runtime.\n# Source: torch/onnx/__init__.py — export() dynamic_shapes parameter\n",
+      "torchscript_deprecation": "TorchScript (torch.jit.script and torch.jit.trace) is deprecated\nas of PyTorch 2.5. Existing TorchScript models continue to work\nbut new code should use torch.compile or torch.export instead.\n# Source: torch/jit/__init__.py — annotate() docstring: \"deprecated since 2.5\"\n"
     },
     "security": {
       "model_integrity": "SHOULD verify model checksum after loading to detect corruption.\nDo NOT load models from untrusted sources without integrity verification.\nModel weights can contain malicious operations via custom ops.\n"
@@ -462,13 +540,17 @@
   "extensions": {
     "tech_stack": {
       "language": "Python",
-      "framework": "TensorFlow SavedModel + TF Serving",
+      "frameworks": [
+        "TensorFlow SavedModel + TF Serving",
+        "PyTorch — torch.export, torch.onnx (dynamo), torch.compile"
+      ],
       "patterns": [
-        "SavedModel versioned directory structure",
-        "tf.TensorSpec input/output signatures",
-        "TF Serving batching configuration",
-        "Zero-downtime rolling version deployment",
-        "SavedModel warmup assets for JIT pre-compilation"
+        "TF SavedModel versioned directory structure with zero-downtime rollback",
+        "TF Serving batching + warmup assets for JIT pre-compilation",
+        "PyTorch torch.export → ExportedProgram (preferred 2.x export)",
+        "PyTorch ONNX export with dynamo=True + dynamic_shapes",
+        "torch.compile(backend='inductor') for runtime graph optimization",
+        "model.eval() + torch.inference_mode() for pure inference"
       ]
     }
   }

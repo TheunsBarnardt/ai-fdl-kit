@@ -9,179 +9,139 @@
 # ============================================================
 
 feature: api-key-management
-version: "1.0.0"
+version: 1.0.0
 description: Create, rotate, revoke, and scope API keys for programmatic access
 category: auth
-tags: [authentication, api-key, security, programmatic-access, developer]
-
-# ─── FIELDS ───────────────────────────────────────────────
-
+tags:
+  - authentication
+  - api-key
+  - security
+  - programmatic-access
+  - developer
 fields:
   - name: key_id
     type: text
     required: true
-    label: "Key ID"
+    label: Key ID
     sensitive: false
-    # Public identifier for the key (e.g., "key_abc123")
     validation:
       - type: required
-        message: "Key ID is required"
-
+        message: Key ID is required
   - name: key_hash
     type: hidden
     required: true
-    label: "Key Hash"
+    label: Key Hash
     sensitive: true
-    # SHA-256 hash of the full key — NEVER store plaintext
-    # Only the hash is persisted; full key shown once at creation
-
   - name: key_prefix
     type: text
     required: true
-    label: "Key Prefix"
+    label: Key Prefix
     sensitive: false
-    # First 8 characters of the key for identification
-    # e.g., "sk_live_" prefix + first 4 chars of random part
     validation:
       - type: maxLength
         value: 12
-        message: "Key prefix is too long"
-
+        message: Key prefix is too long
   - name: name
     type: text
     required: true
-    label: "Key Name"
-    placeholder: "My API Key"
+    label: Key Name
+    placeholder: My API Key
     sensitive: false
     validation:
       - type: required
-        message: "Key name is required"
+        message: Key name is required
       - type: maxLength
         value: 128
-        message: "Key name must be less than 128 characters"
+        message: Key name must be less than 128 characters
       - type: minLength
         value: 1
-        message: "Key name cannot be empty"
-
+        message: Key name cannot be empty
   - name: scopes
     type: multiselect
     required: true
-    label: "Permissions"
+    label: Permissions
     sensitive: false
-    # Scopes define what the key can access
-    # e.g., ["read:users", "write:users", "read:billing"]
     validation:
       - type: required
-        message: "At least one permission scope is required"
-
+        message: At least one permission scope is required
   - name: expires_at
     type: datetime
     required: false
-    label: "Expiration Date"
+    label: Expiration Date
     sensitive: false
-    # Optional — keys can be non-expiring but rotation is recommended
-
   - name: last_used_at
     type: datetime
     required: false
-    label: "Last Used"
+    label: Last Used
     sensitive: false
-
   - name: last_used_ip
     type: text
     required: false
-    label: "Last Used IP"
+    label: Last Used IP
     sensitive: false
-
   - name: created_by
     type: text
     required: true
-    label: "Created By"
+    label: Created By
     sensitive: false
-    # User ID of the key creator
     validation:
       - type: required
-        message: "Creator user ID is required"
-
+        message: Creator user ID is required
   - name: created_at
     type: datetime
     required: true
-    label: "Created At"
+    label: Created At
     sensitive: false
-
   - name: revoked_at
     type: datetime
     required: false
-    label: "Revoked At"
+    label: Revoked At
     sensitive: false
-
   - name: environment
     type: select
     required: true
-    label: "Environment"
+    label: Environment
     options:
-      - { value: "live", label: "Live" }
-      - { value: "test", label: "Test" }
+      - value: live
+        label: Live
+      - value: test
+        label: Test
     default: test
     validation:
       - type: required
-        message: "Environment is required"
+        message: Environment is required
       - type: oneOf
-        value: [live, test]
-        message: "Environment must be live or test"
-
-# ─── RULES ────────────────────────────────────────────────
-
+        value:
+          - live
+          - test
+        message: Environment must be live or test
 rules:
   security:
     key_generation:
       algorithm: cryptographic_random
       length_bytes: 32
-      # 256-bit random key
-      format: "sk_{environment}_{random}"
-      # e.g., sk_live_a1b2c3d4e5f6... or sk_test_x9y8z7...
-      prefix_live: "sk_live_"
-      prefix_test: "sk_test_"
+      format: sk_{environment}_{random}
+      prefix_live: sk_live_
+      prefix_test: sk_test_
       show_once: true
-      # CRITICAL: full key is displayed only at creation
-      # After that, only the prefix + last 4 chars are shown
-
     storage:
       hash_algorithm: sha256
-      # Store SHA-256 hash of the full key
       never_store_plaintext: true
-      # MANDATORY: plaintext key must never be persisted
-
     rate_limit_per_key:
       default_window_seconds: 60
       default_max_requests: 100
-      # Individual rate limits per API key
       burst_allowance: 20
-      # Allow brief bursts above the rate limit
-
     max_keys_per_user: 25
-    # Prevent key sprawl
-
     rate_limit:
       window_seconds: 60
       max_requests: 10
       scope: per_user
-      # Rate limit on management operations (create/revoke)
-
   rotation:
     grace_period_hours: 24
-    # After rotation, old key remains valid for 24 hours
-    # Allows time to update all integrations
     notify_on_rotation: true
-
   expiration:
     warn_before_days: 7
-    # Notify key owner 7 days before expiry
     auto_revoke_on_expiry: true
-    # Automatically revoke expired keys
-
-# ─── OUTCOMES ─────────────────────────────────────────────
-
 outcomes:
   rate_limited:
     priority: 1
@@ -191,9 +151,8 @@ outcomes:
         source: computed
         operator: gt
         value: 10
-        description: "More than 10 key management requests in 60 seconds"
+        description: More than 10 key management requests in 60 seconds
     result: show "Too many requests. Please wait a moment."
-
   max_keys_exceeded:
     priority: 2
     error: API_KEY_LIMIT_EXCEEDED
@@ -202,9 +161,8 @@ outcomes:
         source: db
         operator: gte
         value: 25
-        description: "User already has 25 active API keys"
+        description: User already has 25 active API keys
     result: show "Maximum number of API keys reached. Please revoke unused keys."
-
   create_key:
     priority: 5
     transaction: true
@@ -212,26 +170,33 @@ outcomes:
       - field: name
         source: input
         operator: exists
-        description: "Key name provided"
+        description: Key name provided
       - field: scopes
         source: input
         operator: exists
-        description: "At least one scope selected"
+        description: At least one scope selected
       - field: active_key_count
         source: db
         operator: lt
         value: 25
-        description: "User has not exceeded key limit"
+        description: User has not exceeded key limit
     then:
       - action: create_record
         type: api_key
         target: api_key
-        description: "Generate cryptographic random key, store hash only"
+        description: Generate cryptographic random key, store hash only
       - action: emit_event
         event: api_key.created
-        payload: [user_id, key_id, key_prefix, name, scopes, environment, timestamp]
+        payload:
+          - user_id
+          - key_id
+          - key_prefix
+          - name
+          - scopes
+          - environment
+          - timestamp
     result: show full key ONCE — warn user to copy it now as it cannot be retrieved again
-
+    error: API_KEY_PER_KEY_RATE_LIMITED
   rotate_key:
     priority: 6
     transaction: true
@@ -239,30 +204,34 @@ outcomes:
       - field: target_key
         source: db
         operator: exists
-        description: "Target key exists"
+        description: Target key exists
       - field: target_key_revoked_at
         source: db
         operator: not_exists
-        description: "Target key is not already revoked"
+        description: Target key is not already revoked
       - field: target_key_created_by
         source: db
         operator: eq
         value: current_user_id
-        description: "User owns the target key"
+        description: User owns the target key
     then:
       - action: create_record
         type: api_key
         target: new_api_key
-        description: "Generate new key with same name, scopes, and environment"
+        description: Generate new key with same name, scopes, and environment
       - action: set_field
         target: old_key_grace_expiry
-        value: "now + 24h"
-        description: "Old key remains valid for 24-hour grace period"
+        value: now + 24h
+        description: Old key remains valid for 24-hour grace period
       - action: emit_event
         event: api_key.rotated
-        payload: [user_id, old_key_id, new_key_id, key_prefix, timestamp]
+        payload:
+          - user_id
+          - old_key_id
+          - new_key_id
+          - key_prefix
+          - timestamp
     result: show new key ONCE — old key valid for 24 more hours
-
   revoke_key:
     priority: 7
     transaction: true
@@ -270,67 +239,76 @@ outcomes:
       - field: target_key
         source: db
         operator: exists
-        description: "Target key exists"
+        description: Target key exists
       - field: target_key_revoked_at
         source: db
         operator: not_exists
-        description: "Key is not already revoked"
+        description: Key is not already revoked
       - field: target_key_created_by
         source: db
         operator: eq
         value: current_user_id
-        description: "User owns the target key"
+        description: User owns the target key
     then:
       - action: set_field
         target: revoked_at
-        value: "now"
+        value: now
       - action: invalidate
         target: api_key
-        description: "Immediately invalidate the key hash"
+        description: Immediately invalidate the key hash
       - action: emit_event
         event: api_key.revoked
-        payload: [user_id, key_id, key_prefix, name, timestamp]
+        payload:
+          - user_id
+          - key_id
+          - key_prefix
+          - name
+          - timestamp
     result: key revoked — all requests using this key will be rejected immediately
-
+    error: API_KEY_REVOKED
   authenticate_with_key:
     priority: 8
     given:
       - field: api_key
         source: request
         operator: exists
-        description: "API key provided in request header"
+        description: API key provided in request header
       - field: api_key_hash
         source: computed
         operator: eq
         value: stored_key_hash
-        description: "Key hash matches a stored hash"
+        description: Key hash matches a stored hash
       - field: key_revoked_at
         source: db
         operator: not_exists
-        description: "Key has not been revoked"
+        description: Key has not been revoked
       - all:
           - any:
               - field: key_expires_at
                 source: db
                 operator: not_exists
-                description: "Key has no expiration"
+                description: Key has no expiration
               - field: key_expires_at
                 source: db
                 operator: gt
                 value: now
-                description: "Key has not expired"
+                description: Key has not expired
     then:
       - action: set_field
         target: last_used_at
-        value: "now"
+        value: now
       - action: set_field
         target: last_used_ip
         value: request_ip
       - action: emit_event
         event: api_key.used
-        payload: [key_id, key_prefix, timestamp, ip_address, endpoint]
+        payload:
+          - key_id
+          - key_prefix
+          - timestamp
+          - ip_address
+          - endpoint
     result: request authenticated — enforce scopes on subsequent authorization checks
-
   key_expired:
     priority: 9
     error: API_KEY_EXPIRED
@@ -339,22 +317,24 @@ outcomes:
         source: computed
         operator: eq
         value: stored_key_hash
-        description: "Key hash matches"
+        description: Key hash matches
       - field: key_expires_at
         source: db
         operator: lte
         value: now
-        description: "Key has expired"
+        description: Key has expired
     then:
       - action: set_field
         target: revoked_at
-        value: "now"
-        description: "Auto-revoke expired key"
+        value: now
+        description: Auto-revoke expired key
       - action: emit_event
         event: api_key.expired
-        payload: [key_id, key_prefix, timestamp]
+        payload:
+          - key_id
+          - key_prefix
+          - timestamp
     result: show "API key has expired. Please generate a new key."
-
   invalid_key:
     priority: 10
     error: API_KEY_INVALID
@@ -366,106 +346,106 @@ outcomes:
         source: computed
         operator: neq
         value: stored_key_hash
-        description: "Key hash does not match any stored hash"
+        description: Key hash does not match any stored hash
     then:
       - action: emit_event
         event: api_key.invalid_attempt
-        payload: [key_prefix, timestamp, ip_address]
+        payload:
+          - key_prefix
+          - timestamp
+          - ip_address
     result: return 401 Unauthorized (generic message — do not reveal whether key exists)
-
-# ─── ERRORS ───────────────────────────────────────────────
-
 errors:
   - code: API_KEY_RATE_LIMITED
     status: 429
-    message: "Too many requests. Please wait a moment."
+    message: Too many requests. Please wait a moment.
     retry: true
-
   - code: API_KEY_LIMIT_EXCEEDED
     status: 409
-    message: "Maximum number of API keys reached. Please revoke unused keys."
+    message: Maximum number of API keys reached. Please revoke unused keys.
     retry: false
-
   - code: API_KEY_INVALID
     status: 401
-    message: "Invalid API key"
+    message: Invalid API key
     retry: false
-
   - code: API_KEY_EXPIRED
     status: 401
-    message: "API key has expired"
+    message: API key has expired
     retry: false
-
   - code: API_KEY_REVOKED
     status: 401
-    message: "API key has been revoked"
+    message: API key has been revoked
     retry: false
-
   - code: API_KEY_INSUFFICIENT_SCOPE
     status: 403
-    message: "API key does not have the required permissions"
+    message: API key does not have the required permissions
     retry: false
-
   - code: API_KEY_NOT_FOUND
     status: 404
-    message: "API key not found"
+    message: API key not found
     retry: false
-
   - code: API_KEY_PER_KEY_RATE_LIMITED
     status: 429
-    message: "Rate limit exceeded for this API key"
+    message: Rate limit exceeded for this API key
     retry: true
-
-# ─── EVENTS ───────────────────────────────────────────────
-
 events:
   - name: api_key.created
-    description: "New API key generated"
-    payload: [user_id, key_id, key_prefix, name, scopes, environment, timestamp]
-
+    description: New API key generated
+    payload:
+      - user_id
+      - key_id
+      - key_prefix
+      - name
+      - scopes
+      - environment
+      - timestamp
   - name: api_key.rotated
-    description: "API key rotated — new key issued, old key in grace period"
-    payload: [user_id, old_key_id, new_key_id, key_prefix, timestamp]
-
+    description: API key rotated — new key issued, old key in grace period
+    payload:
+      - user_id
+      - old_key_id
+      - new_key_id
+      - key_prefix
+      - timestamp
   - name: api_key.revoked
-    description: "API key permanently revoked"
-    payload: [user_id, key_id, key_prefix, name, timestamp]
-
+    description: API key permanently revoked
+    payload:
+      - user_id
+      - key_id
+      - key_prefix
+      - name
+      - timestamp
   - name: api_key.used
-    description: "API key used to authenticate a request"
-    payload: [key_id, key_prefix, timestamp, ip_address, endpoint]
-
+    description: API key used to authenticate a request
+    payload:
+      - key_id
+      - key_prefix
+      - timestamp
+      - ip_address
+      - endpoint
   - name: api_key.expired
-    description: "API key auto-revoked due to expiration"
-    payload: [key_id, key_prefix, timestamp]
-
+    description: API key auto-revoked due to expiration
+    payload:
+      - key_id
+      - key_prefix
+      - timestamp
   - name: api_key.invalid_attempt
-    description: "Request made with an invalid API key"
-    payload: [key_prefix, timestamp, ip_address]
-
-# ─── RELATIONSHIPS ────────────────────────────────────────
-
+    description: Request made with an invalid API key
+    payload:
+      - key_prefix
+      - timestamp
+      - ip_address
 related:
   - feature: login
     type: required
-    reason: "User must be authenticated to manage API keys"
-
+    reason: User must be authenticated to manage API keys
   - feature: session-management
     type: recommended
-    reason: "API key management requires an active session"
-
+    reason: API key management requires an active session
   - feature: multi-factor-auth
     type: recommended
-    reason: "MFA should be required before creating live API keys"
-
-# ─── UI HINTS ─────────────────────────────────────────────
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
+    reason: MFA should be required before creating live API keys
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_api_key_management
       description: Create, rotate, revoke, and scope API keys for programmatic access
@@ -523,56 +503,43 @@ agi:
       - capability: login
         from: login
         fallback: fail
-
 ui_hints:
   layout: single_column
   max_width: 720px
-
   key_list:
     show_name: true
     show_prefix: true
-    # Show "sk_live_a1b2...x9y8" (prefix + last 4 chars)
     show_scopes: true
     show_last_used: true
     show_created_at: true
     show_expires_at: true
     show_environment_badge: true
-    # "LIVE" or "TEST" badge with color coding
     sort_by: created_at
     sort_order: descending
-
   key_creation:
     show_key_once_warning: true
-    # Prominent warning: "This key will only be shown once"
     copy_button: true
-    # One-click copy to clipboard
     show_scopes_checklist: true
     confirm_before_create: true
-
   key_display:
     mask_key: true
-    # Show only prefix + last 4 characters after creation
-    # "sk_live_a1b2...x9y8"
-
   actions:
     primary:
-      label: "Create API Key"
+      label: Create API Key
       type: button
     per_key:
       rotate:
-        label: "Rotate"
+        label: Rotate
         type: button
         confirm: true
       revoke:
-        label: "Revoke"
+        label: Revoke
         type: button
         style: danger
         confirm: true
-
   accessibility:
     aria_live_region: true
-    copy_confirmation: "API key copied to clipboard"
-
+    copy_confirmation: API key copied to clipboard
   loading:
     show_skeleton: true
     disable_button: true

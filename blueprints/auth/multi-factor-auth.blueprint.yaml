@@ -9,136 +9,113 @@
 # ============================================================
 
 feature: multi-factor-auth
-version: "1.0.0"
+version: 1.0.0
 description: Second-factor authentication via TOTP, SMS OTP, or backup codes
 category: auth
-tags: [authentication, mfa, totp, otp, security, 2fa, backup-codes]
-
-# ─── FIELDS ───────────────────────────────────────────────
-
+tags:
+  - authentication
+  - mfa
+  - totp
+  - otp
+  - security
+  - 2fa
+  - backup-codes
 fields:
   - name: mfa_method
     type: select
     required: true
-    label: "MFA Method"
+    label: MFA Method
     options:
-      - { value: "totp", label: "TOTP" }
-      - { value: "sms", label: "SMS" }
+      - value: totp
+        label: TOTP
+      - value: sms
+        label: SMS
     validation:
       - type: required
-        message: "Please select an MFA method"
+        message: Please select an MFA method
       - type: oneOf
-        value: [totp, sms]
-        message: "Invalid MFA method"
-
+        value:
+          - totp
+          - sms
+        message: Invalid MFA method
   - name: totp_secret
     type: hidden
     required: false
-    label: "TOTP Secret"
+    label: TOTP Secret
     sensitive: true
-    # Base32-encoded secret for authenticator apps
-    # NEVER expose after initial setup
-
   - name: totp_code
     type: text
     required: false
-    label: "Authenticator Code"
+    label: Authenticator Code
     placeholder: "000000"
     sensitive: false
     validation:
       - type: pattern
-        value: "^[0-9]{6}$"
-        message: "Code must be exactly 6 digits"
-
+        value: ^[0-9]{6}$
+        message: Code must be exactly 6 digits
   - name: sms_code
     type: text
     required: false
-    label: "SMS Code"
+    label: SMS Code
     placeholder: "000000"
     sensitive: false
     validation:
       - type: pattern
-        value: "^[0-9]{6}$"
-        message: "Code must be exactly 6 digits"
-
+        value: ^[0-9]{6}$
+        message: Code must be exactly 6 digits
   - name: phone_number
     type: phone
     required: false
-    label: "Phone Number"
+    label: Phone Number
     sensitive: false
     validation:
       - type: pattern
-        value: "^\\+[1-9]\\d{1,14}$"
-        message: "Phone number must be in E.164 format"
-
+        value: ^\+[1-9]\d{1,14}$
+        message: Phone number must be in E.164 format
   - name: backup_code
     type: text
     required: false
-    label: "Backup Code"
-    placeholder: "xxxx-xxxx"
+    label: Backup Code
+    placeholder: xxxx-xxxx
     sensitive: true
     validation:
       - type: pattern
-        value: "^[a-z0-9]{4}-[a-z0-9]{4}$"
-        message: "Backup code must be in xxxx-xxxx format"
-
+        value: ^[a-z0-9]{4}-[a-z0-9]{4}$
+        message: Backup code must be in xxxx-xxxx format
   - name: recovery_email
     type: email
     required: false
-    label: "Recovery Email"
+    label: Recovery Email
     sensitive: false
-
-# ─── RULES ────────────────────────────────────────────────
-
 rules:
   security:
     totp:
       algorithm: SHA1
-      # SHA1 is the standard for RFC 6238 TOTP
       digits: 6
       period_seconds: 30
       window_tolerance: 1
-      # Accept codes from one period before/after current
-      # Balances clock drift against security
-
     sms:
       code_length: 6
       expiry_seconds: 300
-      # 5-minute expiry for SMS codes
       max_resend_attempts: 3
       resend_cooldown_seconds: 60
-
     backup_codes:
       count: 10
-      format: "xxxx-xxxx"
-      # 8 alphanumeric characters with dash separator
+      format: xxxx-xxxx
       single_use: true
-      # Each code is invalidated immediately after use
       hash_storage: true
-      # Store hashed — never store plaintext backup codes
-
     max_verification_attempts: 3
     lockout_duration_minutes: 15
-
     rate_limit:
       window_seconds: 60
       max_requests: 5
       scope: per_user
-      # 5 MFA verification attempts per minute per user
-
     secret_storage:
       encryption: aes_256_gcm
-      # Encrypt TOTP secrets at rest
-
   setup:
     require_password_confirmation: true
-    # User must re-enter password before enabling MFA
-    qr_code_format: "otpauth://totp/{issuer}:{email}?secret={secret}&issuer={issuer}&algorithm=SHA1&digits=6&period=30"
+    qr_code_format: otpauth://totp/{issuer}:{email}?secret={secret}&issuer={issuer}&algorithm=SHA1&digits=6&period=30
     require_verification_before_enable: true
-    # User must successfully verify one code before MFA is activated
-
-# ─── OUTCOMES ─────────────────────────────────────────────
-
 outcomes:
   rate_limited:
     priority: 1
@@ -148,9 +125,8 @@ outcomes:
         source: computed
         operator: gt
         value: 5
-        description: "More than 5 MFA attempts in 60 seconds"
+        description: More than 5 MFA attempts in 60 seconds
     result: show "Too many verification attempts. Please wait a moment."
-
   account_locked:
     priority: 2
     error: MFA_ACCOUNT_LOCKED
@@ -159,14 +135,13 @@ outcomes:
         source: db
         operator: gte
         value: 3
-        description: "3 consecutive failed MFA attempts"
+        description: 3 consecutive failed MFA attempts
       - field: mfa_locked_until
         source: db
         operator: gt
         value: now
-        description: "Lockout period has not expired"
+        description: Lockout period has not expired
     result: show "MFA verification locked. Please try again later."
-
   setup_totp_success:
     priority: 5
     transaction: true
@@ -179,26 +154,28 @@ outcomes:
         source: db
         operator: eq
         value: false
-        description: "MFA is not yet enabled for this user"
+        description: MFA is not yet enabled for this user
       - field: password_confirmed
         source: session
         operator: eq
         value: true
-        description: "User re-entered password to confirm identity"
+        description: User re-entered password to confirm identity
     then:
       - action: create_record
         type: totp_secret
         target: totp_secret
-        description: "Generate and store encrypted TOTP secret"
+        description: Generate and store encrypted TOTP secret
       - action: create_record
         type: backup_codes
         target: backup_codes
-        description: "Generate 10 hashed single-use backup codes"
+        description: Generate 10 hashed single-use backup codes
       - action: emit_event
         event: mfa.setup_initiated
-        payload: [user_id, method, timestamp]
+        payload:
+          - user_id
+          - method
+          - timestamp
     result: show QR code and backup codes — user must verify one TOTP code to activate
-
   setup_sms_success:
     priority: 6
     transaction: true
@@ -218,22 +195,25 @@ outcomes:
       - field: phone_number
         source: input
         operator: matches
-        value: "^\\+[1-9]\\d{1,14}$"
-        description: "Valid E.164 phone number provided"
+        value: ^\+[1-9]\d{1,14}$
+        description: Valid E.164 phone number provided
     then:
       - action: create_record
         type: sms_verification
         target: sms_code
-        description: "Generate and send SMS verification code"
+        description: Generate and send SMS verification code
       - action: create_record
         type: backup_codes
         target: backup_codes
-        description: "Generate 10 hashed single-use backup codes"
+        description: Generate 10 hashed single-use backup codes
       - action: emit_event
         event: mfa.setup_initiated
-        payload: [user_id, method, phone_number_masked, timestamp]
+        payload:
+          - user_id
+          - method
+          - phone_number_masked
+          - timestamp
     result: send SMS code — user must verify to activate
-
   verify_totp_success:
     priority: 7
     transaction: true
@@ -246,22 +226,24 @@ outcomes:
         source: input
         operator: eq
         value: computed_totp
-        description: "Code matches TOTP for current or adjacent time window"
+        description: Code matches TOTP for current or adjacent time window
     then:
       - action: set_field
         target: mfa_failed_attempts
         value: 0
-        description: "Reset failed attempt counter"
+        description: Reset failed attempt counter
       - action: set_field
         target: mfa_enabled
         value: true
-        when: "mfa_enabled == false"
-        description: "Activate MFA on first successful verification during setup"
+        when: mfa_enabled == false
+        description: Activate MFA on first successful verification during setup
       - action: emit_event
         event: mfa.verified
-        payload: [user_id, method, timestamp]
+        payload:
+          - user_id
+          - method
+          - timestamp
     result: MFA verification successful — proceed to application
-
   verify_sms_success:
     priority: 8
     transaction: true
@@ -274,12 +256,12 @@ outcomes:
         source: input
         operator: eq
         value: stored_sms_code
-        description: "Code matches the sent SMS code"
+        description: Code matches the sent SMS code
       - field: sms_code_expires_at
         source: db
         operator: gt
         value: now
-        description: "SMS code has not expired"
+        description: SMS code has not expired
     then:
       - action: set_field
         target: mfa_failed_attempts
@@ -287,16 +269,18 @@ outcomes:
       - action: set_field
         target: mfa_enabled
         value: true
-        when: "mfa_enabled == false"
+        when: mfa_enabled == false
       - action: delete_record
         type: sms_code
         target: sms_code
-        description: "Invalidate used SMS code"
+        description: Invalidate used SMS code
       - action: emit_event
         event: mfa.verified
-        payload: [user_id, method, timestamp]
+        payload:
+          - user_id
+          - method
+          - timestamp
     result: MFA verification successful — proceed to application
-
   verify_backup_code_success:
     priority: 9
     transaction: true
@@ -308,20 +292,23 @@ outcomes:
         source: input
         operator: eq
         value: stored_backup_hash
-        description: "Backup code matches a stored hash"
+        description: Backup code matches a stored hash
     then:
       - action: delete_record
         type: backup_code
         target: used_backup_code
-        description: "Invalidate the used backup code (single-use)"
+        description: Invalidate the used backup code (single-use)
       - action: set_field
         target: mfa_failed_attempts
         value: 0
       - action: emit_event
         event: mfa.backup_used
-        payload: [user_id, timestamp, remaining_codes]
+        payload:
+          - user_id
+          - timestamp
+          - remaining_codes
     result: MFA verification successful via backup code — warn user about remaining codes
-
+    error: MFA_NO_BACKUP_CODES
   verification_failed:
     priority: 10
     error: MFA_INVALID_CODE
@@ -332,31 +319,34 @@ outcomes:
             source: input
             operator: neq
             value: computed_totp
-            description: "TOTP code does not match"
+            description: TOTP code does not match
           - field: sms_code
             source: input
             operator: neq
             value: stored_sms_code
-            description: "SMS code does not match"
+            description: SMS code does not match
           - field: backup_code
             source: input
             operator: neq
             value: stored_backup_hash
-            description: "Backup code does not match"
+            description: Backup code does not match
     then:
       - action: set_field
         target: mfa_failed_attempts
-        value: "increment"
-        description: "Increment failed MFA attempt counter"
+        value: increment
+        description: Increment failed MFA attempt counter
       - action: emit_event
         event: mfa.failed
-        payload: [user_id, method, timestamp, attempt_count]
+        payload:
+          - user_id
+          - method
+          - timestamp
+          - attempt_count
       - action: set_field
         target: mfa_locked_until
-        value: "now + 15m"
-        when: "mfa_failed_attempts >= 3"
+        value: now + 15m
+        when: mfa_failed_attempts >= 3
     result: show "Invalid verification code. Please try again."
-
   disable_mfa:
     priority: 11
     transaction: true
@@ -369,7 +359,7 @@ outcomes:
         source: session
         operator: eq
         value: true
-        description: "User re-entered password to confirm identity"
+        description: User re-entered password to confirm identity
     then:
       - action: set_field
         target: mfa_enabled
@@ -377,113 +367,101 @@ outcomes:
       - action: delete_record
         type: totp_secret
         target: totp_secret
-        description: "Remove stored TOTP secret"
+        description: Remove stored TOTP secret
       - action: delete_record
         type: backup_codes
         target: backup_codes
-        description: "Invalidate all remaining backup codes"
+        description: Invalidate all remaining backup codes
       - action: emit_event
         event: mfa.disabled
-        payload: [user_id, timestamp]
+        payload:
+          - user_id
+          - timestamp
     result: MFA disabled — user returns to single-factor authentication
-
-# ─── ERRORS ───────────────────────────────────────────────
-
 errors:
   - code: MFA_INVALID_CODE
     status: 401
-    message: "Invalid verification code"
+    message: Invalid verification code
     retry: true
-
   - code: MFA_ACCOUNT_LOCKED
     status: 423
-    message: "MFA verification locked. Please try again later."
+    message: MFA verification locked. Please try again later.
     retry: false
-
   - code: MFA_RATE_LIMITED
     status: 429
-    message: "Too many verification attempts. Please wait a moment."
+    message: Too many verification attempts. Please wait a moment.
     retry: true
-
   - code: MFA_ALREADY_ENABLED
     status: 409
-    message: "MFA is already enabled for this account"
+    message: MFA is already enabled for this account
     retry: false
-
   - code: MFA_NOT_ENABLED
     status: 400
-    message: "MFA is not enabled for this account"
+    message: MFA is not enabled for this account
     retry: false
-
   - code: MFA_SETUP_INCOMPLETE
     status: 400
-    message: "Please complete MFA setup by verifying a code"
+    message: Please complete MFA setup by verifying a code
     retry: true
-
   - code: MFA_NO_BACKUP_CODES
     status: 400
-    message: "No backup codes remaining. Please reconfigure MFA."
+    message: No backup codes remaining. Please reconfigure MFA.
     retry: false
-
   - code: MFA_SMS_EXPIRED
     status: 401
-    message: "SMS code has expired. Please request a new one."
+    message: SMS code has expired. Please request a new one.
     retry: true
-
-# ─── EVENTS ───────────────────────────────────────────────
-
 events:
   - name: mfa.enabled
-    description: "MFA successfully activated for a user"
-    payload: [user_id, method, timestamp]
-
+    description: MFA successfully activated for a user
+    payload:
+      - user_id
+      - method
+      - timestamp
   - name: mfa.verified
-    description: "MFA code successfully verified"
-    payload: [user_id, method, timestamp]
-
+    description: MFA code successfully verified
+    payload:
+      - user_id
+      - method
+      - timestamp
   - name: mfa.failed
-    description: "MFA verification attempt failed"
-    payload: [user_id, method, timestamp, attempt_count]
-
+    description: MFA verification attempt failed
+    payload:
+      - user_id
+      - method
+      - timestamp
+      - attempt_count
   - name: mfa.backup_used
-    description: "Backup code used for MFA verification"
-    payload: [user_id, timestamp, remaining_codes]
-
+    description: Backup code used for MFA verification
+    payload:
+      - user_id
+      - timestamp
+      - remaining_codes
   - name: mfa.disabled
-    description: "MFA disabled for a user"
-    payload: [user_id, timestamp]
-
+    description: MFA disabled for a user
+    payload:
+      - user_id
+      - timestamp
   - name: mfa.setup_initiated
-    description: "User began MFA setup process"
-    payload: [user_id, method, timestamp]
-
-# ─── RELATIONSHIPS ────────────────────────────────────────
-
+    description: User began MFA setup process
+    payload:
+      - user_id
+      - method
+      - timestamp
 related:
   - feature: login
     type: required
-    reason: "MFA is a second factor after primary authentication"
-
+    reason: MFA is a second factor after primary authentication
   - feature: signup
     type: required
-    reason: "User account must exist before enabling MFA"
-
+    reason: User account must exist before enabling MFA
   - feature: password-reset
     type: recommended
-    reason: "Password reset may need to bypass or reset MFA"
-
+    reason: Password reset may need to bypass or reset MFA
   - feature: session-management
     type: recommended
-    reason: "MFA verification status tracked per session"
-
-# ─── UI HINTS ─────────────────────────────────────────────
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
+    reason: MFA verification status tracked per session
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_multi_factor_auth
       description: Second-factor authentication via TOTP, SMS OTP, or backup codes
@@ -546,41 +524,34 @@ agi:
       - capability: signup
         from: signup
         fallback: fail
-
 ui_hints:
   layout: single_column_centered
   max_width: 480px
-
   setup:
     show_qr_code: true
     show_secret_text: true
-    # Allow manual entry for users who cannot scan QR
     show_backup_codes_download: true
-    # Let users download or print backup codes
     require_code_verification: true
-
   verification:
-    fields_order: [totp_code]
+    fields_order:
+      - totp_code
     autofocus: totp_code
     show_backup_code_link: true
-
   actions:
     primary:
-      label: "Verify"
+      label: Verify
       type: submit
       full_width: true
     secondary:
-      label: "Use backup code"
+      label: Use backup code
       type: link
       position: below_form
-
   accessibility:
     autofocus: totp_code
     autocomplete:
       totp_code: one-time-code
       sms_code: one-time-code
     aria_live_region: true
-
   loading:
     disable_button: true
     show_spinner: true

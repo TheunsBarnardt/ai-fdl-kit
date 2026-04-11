@@ -12,82 +12,75 @@
 # ============================================================
 
 feature: dashboard-analytics
-version: "1.0.0"
+version: 1.0.0
 description: Configurable analytics dashboard with widget grid system, KPI cards, charts, date range selection, auto-refresh, and drill-down capabilities
 category: ui
-tags: [dashboard, analytics, widgets, kpi, charts, grid-layout, data-visualization, reporting]
-
-# ─── FIELDS ───────────────────────────────────────────────
-
+tags:
+  - dashboard
+  - analytics
+  - widgets
+  - kpi
+  - charts
+  - grid-layout
+  - data-visualization
+  - reporting
 fields:
   - name: dashboard_id
     type: text
     required: true
-    label: "Dashboard ID"
+    label: Dashboard ID
     validation:
       - type: required
-        message: "Dashboard ID is required"
-
+        message: Dashboard ID is required
   - name: name
     type: text
     required: true
-    label: "Dashboard Name"
+    label: Dashboard Name
     validation:
       - type: required
-        message: "Dashboard name is required"
+        message: Dashboard name is required
       - type: maxLength
         value: 200
-        message: "Dashboard name must be less than 200 characters"
-
+        message: Dashboard name must be less than 200 characters
   - name: widgets
     type: json
     required: false
-    label: "Widget Definitions"
-    # Array of {id, type, data_source, position, size, config}
-
+    label: Widget Definitions
   - name: date_range
     type: json
     required: false
-    label: "Date Range"
-    # {start, end, preset} — presets: today, 7d, 30d, 90d, ytd, custom
-
+    label: Date Range
   - name: refresh_interval
     type: number
     required: false
-    label: "Auto-Refresh Interval (seconds)"
+    label: Auto-Refresh Interval (seconds)
     default: 300
     validation:
       - type: min
         value: 30
-        message: "Refresh interval must be at least 30 seconds"
-
+        message: Refresh interval must be at least 30 seconds
   - name: layout_columns
     type: number
     required: false
-    label: "Grid Column Count"
+    label: Grid Column Count
     default: 12
     validation:
       - type: min
         value: 1
-        message: "At least 1 column required"
+        message: At least 1 column required
       - type: max
         value: 12
-        message: "Maximum 12 columns"
-
+        message: Maximum 12 columns
   - name: owner
     type: text
     required: true
-    label: "Dashboard Owner"
+    label: Dashboard Owner
     validation:
       - type: required
-        message: "Owner is required"
-
-# ─── RULES ────────────────────────────────────────────────
-
+        message: Owner is required
 rules:
   widgets:
     max_per_dashboard: 20
-    # Hard limit to prevent performance degradation
     types:
       - metric_card
       - chart
@@ -95,73 +88,69 @@ rules:
       - list
       - progress_bar
       - text_block
-    # Built-in widget type library
-
   grid:
     columns: 12
-    # 12-column responsive grid system
     responsive_breakpoints:
       mobile: 1
       tablet: 6
       desktop: 12
-    # Widgets reflow based on viewport width
     min_widget_width_cols: 2
     min_widget_height_rows: 1
-
   performance:
     lazy_load_offscreen: true
-    # Widgets below the fold load only when scrolled into view
     cache_ttl_seconds: 300
-    # Widget data cached for 5 minutes
     parallel_fetch: true
-    # Fetch data for all visible widgets in parallel
     stale_while_revalidate: true
-    # Show cached data while fetching fresh data
-
   date_range:
-    presets: [today, 7d, 30d, 90d, ytd, custom]
-    # Built-in date range presets
+    presets:
+      - today
+      - 7d
+      - 30d
+      - 90d
+      - ytd
+      - custom
     max_range_days: 365
-    # Maximum custom date range to prevent expensive queries
     timezone_aware: true
-    # All date calculations respect user timezone
-
-# ─── OUTCOMES ─────────────────────────────────────────────
-
 outcomes:
   dashboard_created:
     priority: 1
     given:
-      - "user provides a dashboard name"
-      - "user is authenticated"
+      - user provides a dashboard name
+      - user is authenticated
     then:
       - action: create_record
         type: dashboard
         target: dashboard
-        description: "Create empty dashboard with 12-column grid layout"
+        description: Create empty dashboard with 12-column grid layout
       - action: emit_event
         event: dashboard.created
-        payload: [dashboard_id, name, owner, timestamp]
-    result: "Empty dashboard ready for widget configuration"
-
+        payload:
+          - dashboard_id
+          - name
+          - owner
+          - timestamp
+    result: Empty dashboard ready for widget configuration
   widget_added:
     priority: 2
     given:
-      - "dashboard has fewer than 20 widgets"
-      - "widget type is in the supported library"
-      - "widget data source is configured"
+      - dashboard has fewer than 20 widgets
+      - widget type is in the supported library
+      - widget data source is configured
     then:
       - action: set_field
         target: widgets
-        description: "Add widget to the dashboard at the specified grid position"
+        description: Add widget to the dashboard at the specified grid position
       - action: call_service
         target: widget_data_fetcher
-        description: "Fetch initial data for the new widget"
+        description: Fetch initial data for the new widget
       - action: emit_event
         event: dashboard.widget_added
-        payload: [dashboard_id, widget_id, widget_type, position]
-    result: "Widget renders at the specified position with live data"
-
+        payload:
+          - dashboard_id
+          - widget_id
+          - widget_type
+          - position
+    result: Widget renders at the specified position with live data
   widget_limit_reached:
     priority: 3
     error: DASHBOARD_MAX_WIDGETS
@@ -170,141 +159,143 @@ outcomes:
         source: computed
         operator: gte
         value: 20
-        description: "Dashboard already has 20 widgets"
-    result: "User informed that the maximum widget limit has been reached"
-
+        description: Dashboard already has 20 widgets
+    result: User informed that the maximum widget limit has been reached
   date_range_changed:
     priority: 4
     given:
-      - "user selects a new date range preset or custom range"
-      - "date range is within the maximum 365-day limit"
+      - user selects a new date range preset or custom range
+      - date range is within the maximum 365-day limit
     then:
       - action: set_field
         target: date_range
-        description: "Update the dashboard date range"
+        description: Update the dashboard date range
       - action: call_service
         target: widget_data_fetcher
-        description: "Refresh all widget data with the new date range"
+        description: Refresh all widget data with the new date range
       - action: emit_event
         event: dashboard.date_range_changed
-        payload: [dashboard_id, date_range]
-    result: "All widgets refresh to display data for the new date range"
-
+        payload:
+          - dashboard_id
+          - date_range
+    result: All widgets refresh to display data for the new date range
+    error: DASHBOARD_DATE_RANGE_INVALID
   auto_refreshed:
     priority: 5
     given:
-      - "refresh interval has elapsed"
-      - "dashboard tab is visible (not background)"
+      - refresh interval has elapsed
+      - dashboard tab is visible (not background)
     then:
       - action: call_service
         target: widget_data_fetcher
-        description: "Fetch fresh data for all visible widgets"
+        description: Fetch fresh data for all visible widgets
       - action: emit_event
         event: dashboard.refreshed
-        payload: [dashboard_id, timestamp, widget_count]
-    result: "All visible widgets show updated data without page reload"
-
+        payload:
+          - dashboard_id
+          - timestamp
+          - widget_count
+    result: All visible widgets show updated data without page reload
   widget_drill_down:
     priority: 6
     given:
-      - "user clicks a data point or KPI value in a widget"
-      - "widget has drill-down configured"
+      - user clicks a data point or KPI value in a widget
+      - widget has drill-down configured
     then:
       - action: emit_event
         event: dashboard.drill_down
-        payload: [dashboard_id, widget_id, dimension, value]
-    result: "Detailed view opens showing the underlying data for the selected metric"
-
+        payload:
+          - dashboard_id
+          - widget_id
+          - dimension
+          - value
+    result: Detailed view opens showing the underlying data for the selected metric
   data_source_error:
     priority: 7
     error: DASHBOARD_DATA_SOURCE_ERROR
     given:
-      - "widget data source returns an error or times out"
+      - widget data source returns an error or times out
     then:
       - action: emit_event
         event: dashboard.widget_error
-        payload: [dashboard_id, widget_id, error]
-    result: "Widget displays error state with retry option, other widgets unaffected"
-
-# ─── ERRORS ───────────────────────────────────────────────
-
+        payload:
+          - dashboard_id
+          - widget_id
+          - error
+    result: Widget displays error state with retry option, other widgets unaffected
 errors:
   - code: DASHBOARD_MAX_WIDGETS
     status: 400
-    message: "Maximum of 20 widgets per dashboard has been reached"
+    message: Maximum of 20 widgets per dashboard has been reached
     retry: false
-
   - code: DASHBOARD_DATA_SOURCE_ERROR
     status: 503
-    message: "Failed to load widget data. Please try again."
+    message: Failed to load widget data. Please try again.
     retry: true
-
   - code: DASHBOARD_NOT_FOUND
     status: 404
-    message: "The requested dashboard does not exist"
+    message: The requested dashboard does not exist
     retry: false
-
   - code: DASHBOARD_DATE_RANGE_INVALID
     status: 400
-    message: "Date range must not exceed 365 days"
+    message: Date range must not exceed 365 days
     retry: true
-
-# ─── EVENTS ───────────────────────────────────────────────
-
 events:
   - name: dashboard.created
-    description: "A new dashboard was created"
-    payload: [dashboard_id, name, owner, timestamp]
-
+    description: A new dashboard was created
+    payload:
+      - dashboard_id
+      - name
+      - owner
+      - timestamp
   - name: dashboard.widget_added
-    description: "A widget was added to a dashboard"
-    payload: [dashboard_id, widget_id, widget_type, position]
-
+    description: A widget was added to a dashboard
+    payload:
+      - dashboard_id
+      - widget_id
+      - widget_type
+      - position
   - name: dashboard.refreshed
-    description: "Dashboard data was auto-refreshed"
-    payload: [dashboard_id, timestamp, widget_count]
-
+    description: Dashboard data was auto-refreshed
+    payload:
+      - dashboard_id
+      - timestamp
+      - widget_count
   - name: dashboard.date_range_changed
-    description: "Dashboard date range was changed"
-    payload: [dashboard_id, date_range]
-
+    description: Dashboard date range was changed
+    payload:
+      - dashboard_id
+      - date_range
   - name: dashboard.drill_down
-    description: "User drilled down into a widget data point"
-    payload: [dashboard_id, widget_id, dimension, value]
-
+    description: User drilled down into a widget data point
+    payload:
+      - dashboard_id
+      - widget_id
+      - dimension
+      - value
   - name: dashboard.widget_error
-    description: "A widget failed to load data"
-    payload: [dashboard_id, widget_id, error]
-
-# ─── RELATIONSHIPS ────────────────────────────────────────
-
+    description: A widget failed to load data
+    payload:
+      - dashboard_id
+      - widget_id
+      - error
 related:
   - feature: charts-visualization
     type: required
-    reason: "Dashboard chart widgets use the charts-visualization feature for rendering"
-
+    reason: Dashboard chart widgets use the charts-visualization feature for rendering
   - feature: data-table
     type: recommended
-    reason: "Dashboard table widgets use the data-table feature for tabular data display"
-
+    reason: Dashboard table widgets use the data-table feature for tabular data display
   - feature: accessibility
     type: recommended
-    reason: "Dashboard widgets must be keyboard navigable and screen reader compatible"
-
+    reason: Dashboard widgets must be keyboard navigable and screen reader compatible
   - feature: dark-mode
     type: optional
-    reason: "Dashboard should support light and dark themes"
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
+    reason: Dashboard should support light and dark themes
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_dashboard_analytics
-      description: Configurable analytics dashboard with widget grid system, KPI cards, charts, date range selection,
-        auto-refresh, and drill-down capabilities
+      description: Configurable analytics dashboard with widget grid system, KPI cards, charts, date range selection, auto-refresh, and drill-down capabilities
       success_metrics:
         - metric: success_rate
           target: ">= 99%"

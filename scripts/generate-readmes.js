@@ -19,7 +19,7 @@
  *   node scripts/generate-readmes.js blueprints/auth/login.blueprint.yaml  # one
  */
 
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, basename, dirname } from 'path';
 import { glob } from 'glob';
 import YAML from 'yaml';
@@ -28,6 +28,195 @@ const ROOT = dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$
 const PROJECT_ROOT = join(ROOT, '..');
 const REPO_SLUG = 'TheunsBarnardt/ai-fdl-kit';
 const DOCS_BASE_URL = 'https://theunsbarnardt.github.io/ai-fdl-kit';
+
+// ─── Load fitness data ──────────────────────────────────────
+// Optional — if .fitness-changelog.json and .fitness-baseline.json exist,
+// the readme includes a "Quality fitness" section showing the current score
+// and (if applicable) what the auto-improver changed.
+
+const CHANGELOG_PATH = join(PROJECT_ROOT, '.fitness-changelog.json');
+const BASELINE_PATH = join(PROJECT_ROOT, '.fitness-baseline.json');
+const CHANGELOG = existsSync(CHANGELOG_PATH)
+  ? JSON.parse(readFileSync(CHANGELOG_PATH, 'utf-8'))
+  : null;
+const BASELINE = existsSync(BASELINE_PATH)
+  ? JSON.parse(readFileSync(BASELINE_PATH, 'utf-8'))
+  : null;
+const BASELINE_MAP = BASELINE
+  ? new Map((BASELINE.results || []).map((r) => [r.file, r.percent]))
+  : null;
+
+// ─── Fitness scorer (inline — same weights as scripts/fitness.js) ──
+
+const FITNESS_WEIGHTS = {
+  description: 10,
+  rules: 10,
+  outcomes: 25,
+  structure: 10,
+  error_binding: 10,
+  fields: 10,
+  relationships: 10,
+  events: 5,
+  agi: 5,
+  simplicity: 5,
+};
+
+function scoreFitness(bp) {
+  const sd = () => {
+    const d = bp.description;
+    if (!d || typeof d !== 'string') return 0;
+    let s = 0;
+    if (d.length >= 15) s += 3;
+    if (d.length >= 40) s += 3;
+    if (d.length >= 70) s += 2;
+    const w = d.split(/\s+/).length;
+    if (w >= 6) s += 1;
+    if (w >= 10) s += 1;
+    return s;
+  };
+  const sr = () => {
+    if (!bp.rules || typeof bp.rules !== 'object' || Array.isArray(bp.rules)) return 0;
+    const cats = Object.keys(bp.rules);
+    if (cats.length === 0) return 0;
+    let s = 3;
+    if (cats.length >= 2) s += 1;
+    if (cats.length >= 3) s += 1;
+    if (cats.length >= 4) s += 1;
+    let nt = 0;
+    for (const c of cats) {
+      const v = bp.rules[c];
+      if (Array.isArray(v) && v.length >= 2) nt++;
+      else if (v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length >= 2) nt++;
+    }
+    s += Math.round((nt / cats.length) * 4);
+    return s;
+  };
+  const so = () => {
+    const hasFlows = bp.flows && typeof bp.flows === 'object' && Object.keys(bp.flows).length > 0;
+    if (!bp.outcomes || typeof bp.outcomes !== 'object' || Object.keys(bp.outcomes).length === 0) {
+      return hasFlows ? 10 : 0;
+    }
+    const names = Object.keys(bp.outcomes);
+    const out = Object.values(bp.outcomes);
+    let s = 3;
+    if (names.some((n) => /success|valid|ok|complete|approved|confirmed|created|updated|granted/i.test(n))) s += 2;
+    if (names.some((n) => /fail|invalid|denied|error|rejected|expired|missing|declined|unauthorized|forbidden|not_found|limit|lock/i.test(n))) s += 2;
+    if (out.length >= 2) s += 1;
+    if (out.length >= 3) s += 1;
+    if (out.length >= 4) s += 1;
+    if (out.length >= 5) s += 1;
+    s += Math.round((out.filter((o) => typeof o?.priority === 'number').length / out.length) * 4);
+    s += Math.round((out.filter((o) => Array.isArray(o?.then) && o.then.length > 0).length / out.length) * 4);
+    s += Math.round((out.filter((o) => Array.isArray(o?.given) && o.given.length > 0).length / out.length) * 3);
+    s += Math.round((out.filter((o) => o?.result || o?.error).length / out.length) * 2);
+    return s;
+  };
+  const ss = () => {
+    if (!bp.outcomes || typeof bp.outcomes !== 'object') return 0;
+    let total = 0, structured = 0;
+    for (const o of Object.values(bp.outcomes)) {
+      if (Array.isArray(o?.given)) for (const g of o.given) { total++; if (g && typeof g === 'object') structured++; }
+      if (Array.isArray(o?.then)) for (const t of o.then) { total++; if (t && typeof t === 'object' && t.action) structured++; }
+    }
+    if (total === 0) return 0;
+    return Math.round((structured / total) * FITNESS_WEIGHTS.structure);
+  };
+  const se = () => {
+    const errs = Array.isArray(bp.errors) ? bp.errors : [];
+    if (errs.length === 0) return FITNESS_WEIGHTS.error_binding;
+    const codes = new Set(errs.map((e) => (typeof e === 'string' ? e : e?.code)).filter(Boolean));
+    if (codes.size === 0) return 0;
+    const ref = new Set();
+    if (bp.outcomes) for (const o of Object.values(bp.outcomes)) if (o?.error) ref.add(o.error);
+    const refCount = [...codes].filter((c) => ref.has(c)).length;
+    let s = Math.round((refCount / codes.size) * 8);
+    const withMsg = errs.filter((e) => typeof e === 'object' && e?.message).length;
+    if (withMsg === errs.length) s += 2;
+    return s;
+  };
+  const sf = () => {
+    const fs_ = Array.isArray(bp.fields) ? bp.fields : [];
+    if (fs_.length === 0) return FITNESS_WEIGHTS.fields;
+    let wv = 0, wl = 0, wt = 0;
+    for (const f of fs_) {
+      if (!f || typeof f !== 'object') continue;
+      if (f.type) wt++;
+      if (f.label) wl++;
+      if (Array.isArray(f.validation) && f.validation.length > 0) wv++;
+      else if (f.required === true) wv += 0.3;
+    }
+    return Math.round((wt / fs_.length) * 3 + (wl / fs_.length) * 2 + (wv / fs_.length) * 5);
+  };
+  const srel = () => {
+    const rel = Array.isArray(bp.related) ? bp.related : [];
+    if (rel.length === 0) return 0;
+    let s = 3;
+    if (rel.length >= 2) s += 1;
+    if (rel.length >= 3) s += 1;
+    if (rel.length >= 4) s += 1;
+    let typed = 0, wr = 0;
+    for (const r of rel) { if (!r || typeof r !== 'object') continue; if (r.type) typed++; if (r.reason) wr++; }
+    s += Math.round((typed / rel.length) * 2 + (wr / rel.length) * 2);
+    return s;
+  };
+  const sev = () => {
+    const evs = Array.isArray(bp.events) ? bp.events : [];
+    if (evs.length === 0) return 2;
+    let s = 2;
+    if (evs.length >= 2) s += 1;
+    const wp = evs.filter((e) => Array.isArray(e?.payload) && e.payload.length > 0).length;
+    s += Math.round((wp / evs.length) * 2);
+    return s;
+  };
+  const sa = () => {
+    if (!bp.agi || typeof bp.agi !== 'object') return 0;
+    let s = 0;
+    if (Array.isArray(bp.agi.goals) && bp.agi.goals.length > 0) s += 1;
+    if (bp.agi.autonomy) s += 1;
+    if (bp.agi.verification && (Array.isArray(bp.agi.verification.invariants) || Array.isArray(bp.agi.verification.acceptance_tests))) s += 2;
+    if (Array.isArray(bp.agi.capabilities) && bp.agi.capabilities.length > 0) s += 1;
+    return s;
+  };
+  const ssimp = () => {
+    let s = FITNESS_WEIGHTS.simplicity;
+    const out = bp.outcomes ? Object.values(bp.outcomes) : [];
+    const dead = out.filter((o) => o && typeof o === 'object' && (!Array.isArray(o.then) || o.then.length === 0) && !o.result).length;
+    if (dead > 0) s -= Math.min(2, dead);
+    const fs_ = Array.isArray(bp.fields) ? bp.fields : [];
+    const df = fs_.filter((f) => f && typeof f === 'object' && !f.label && (!Array.isArray(f.validation) || f.validation.length === 0)).length;
+    if (df > 0) s -= Math.min(2, df);
+    if (Array.isArray(bp.errors) && bp.outcomes) {
+      const codes = new Set(bp.errors.map((e) => (typeof e === 'string' ? e : e?.code)).filter(Boolean));
+      const used = new Set();
+      for (const o of Object.values(bp.outcomes)) if (o?.error) used.add(o.error);
+      const orphans = [...codes].filter((c) => !used.has(c)).length;
+      if (orphans > 0) s -= Math.min(1, orphans * 0.3);
+    }
+    return Math.max(0, Math.round(s));
+  };
+  const dims = {
+    description: { score: sd(), max: FITNESS_WEIGHTS.description },
+    rules: { score: sr(), max: FITNESS_WEIGHTS.rules },
+    outcomes: { score: so(), max: FITNESS_WEIGHTS.outcomes },
+    structure: { score: ss(), max: FITNESS_WEIGHTS.structure },
+    error_binding: { score: se(), max: FITNESS_WEIGHTS.error_binding },
+    fields: { score: sf(), max: FITNESS_WEIGHTS.fields },
+    relationships: { score: srel(), max: FITNESS_WEIGHTS.relationships },
+    events: { score: sev(), max: FITNESS_WEIGHTS.events },
+    agi: { score: sa(), max: FITNESS_WEIGHTS.agi },
+    simplicity: { score: ssimp(), max: FITNESS_WEIGHTS.simplicity },
+  };
+  const total = Object.values(dims).reduce((s, d) => s + d.score, 0);
+  const max = Object.values(dims).reduce((s, d) => s + d.max, 0);
+  return { total, max, percent: Math.round((total / max) * 100), dims };
+}
+
+function fitnessBadge(percent) {
+  if (percent >= 90) return '🟢';
+  if (percent >= 75) return '🟢';
+  if (percent >= 60) return '🟡';
+  return '🔴';
+}
 
 // ─── Helpers ────────────────────────────────────────────────
 
@@ -279,6 +468,63 @@ function renderRelatedList(related) {
   return md + '\n';
 }
 
+function renderFitness(bp, relPath) {
+  const fit = scoreFitness(bp);
+  const badge = fitnessBadge(fit.percent);
+  const normPath = relPath.replace(/\\/g, '/');
+
+  // Per-dimension rows: only show the ones that matter (skip full-credit ones
+  // for optional sections to keep the section compact)
+  const labels = {
+    description: 'Description',
+    rules: 'Rules',
+    outcomes: 'Outcomes',
+    structure: 'Structured conditions',
+    error_binding: 'Error binding',
+    fields: 'Field validation',
+    relationships: 'Relationships',
+    events: 'Events',
+    agi: 'AGI readiness',
+    simplicity: 'Simplicity',
+  };
+
+  const rows = Object.entries(fit.dims).map(([key, d]) => {
+    const pct = Math.round((d.score / d.max) * 100);
+    const bar = '█'.repeat(Math.round(d.score)) + '░'.repeat(d.max - Math.round(d.score));
+    return `| ${labels[key]} | \`${bar}\` | ${d.score}/${d.max} |`;
+  });
+
+  let md = `## Quality fitness ${badge} ${fit.percent}/100\n\n`;
+  md += `Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. `;
+  md += `Regenerated by \`npm run fitness\` — see [\`scripts/fitness.js\`](../../scripts/fitness.js) for the scoring model.\n\n`;
+  md += `| Dimension | Score | Points |\n`;
+  md += `|-----------|-------|--------|\n`;
+  md += rows.join('\n') + '\n\n';
+
+  // Baseline delta (from saved baseline)
+  if (BASELINE_MAP) {
+    const baselineScore = BASELINE_MAP.get(normPath);
+    if (typeof baselineScore === 'number' && baselineScore !== fit.percent) {
+      const delta = fit.percent - baselineScore;
+      const sign = delta >= 0 ? '+' : '';
+      const trend = delta > 0 ? '📈' : delta < 0 ? '📉' : '➡️';
+      md += `${trend} **${sign}${delta}** since baseline (${baselineScore} → ${fit.percent})\n\n`;
+    }
+  }
+
+  // Auto-improver transformations
+  const logEntry = CHANGELOG?.entries?.[normPath];
+  if (logEntry && Array.isArray(logEntry.transformations) && logEntry.transformations.length > 0) {
+    md += `**Recent auto-improvements** *(via autoresearch-style keep-or-reset loop — applied only because they raised the fitness score)*\n\n`;
+    for (const t of logEntry.transformations) {
+      md += `- \`${t.id}\` **${t.name || ''}** — ${t.note}\n`;
+    }
+    md += `\n`;
+  }
+
+  return md;
+}
+
 function renderFooter(bp, category) {
   const yamlFile = `${bp.feature}.blueprint.yaml`;
   const siteUrl = `${DOCS_BASE_URL}/blueprints/${category}/${bp.feature}/`;
@@ -301,6 +547,7 @@ function renderBlueprint(bp, relPath) {
   md += renderFlowsProse(bp.flows);
   md += renderErrorsList(bp.errors);
   md += renderRelatedList(bp.related);
+  md += renderFitness(bp, relPath);
   md += renderFooter(bp, category);
   return md;
 }

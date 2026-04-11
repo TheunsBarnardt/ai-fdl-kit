@@ -11,265 +11,254 @@
 # ============================================================
 
 feature: data-table
-version: "1.0.0"
+version: 1.0.0
 description: Sortable, filterable, paginated data table with column management, row selection, inline editing, bulk actions, and CSV export
 category: ui
-tags: [table, data-grid, sorting, filtering, pagination, inline-editing, bulk-actions, export]
-
-# ─── FIELDS ───────────────────────────────────────────────
-
+tags:
+  - table
+  - data-grid
+  - sorting
+  - filtering
+  - pagination
+  - inline-editing
+  - bulk-actions
+  - export
 fields:
   - name: columns
     type: json
     required: true
-    label: "Column Definitions"
-    # Array of {key, label, sortable, filterable, width, type, editable}
+    label: Column Definitions
     validation:
       - type: required
-        message: "At least one column definition is required"
-
+        message: At least one column definition is required
   - name: data_source
     type: json
     required: true
-    label: "Data Source Configuration"
-    # URL, query params, or static data reference
+    label: Data Source Configuration
     validation:
       - type: required
-        message: "Data source is required"
-
+        message: Data source is required
   - name: page_size
     type: number
     required: false
-    label: "Page Size"
+    label: Page Size
     default: 25
     validation:
       - type: min
         value: 1
-        message: "Page size must be at least 1"
+        message: Page size must be at least 1
       - type: max
         value: 100
-        message: "Page size must not exceed 100"
-
+        message: Page size must not exceed 100
   - name: current_page
     type: number
     required: false
-    label: "Current Page"
+    label: Current Page
     default: 1
-
   - name: selected_rows
     type: json
     required: false
-    label: "Selected Row IDs"
-    # Array of row identifiers for single or multi-select
-
+    label: Selected Row IDs
   - name: sort_by
     type: text
     required: false
-    label: "Sort Column Key"
-
+    label: Sort Column Key
   - name: sort_order
     type: select
     required: false
-    label: "Sort Order"
-    default: "asc"
+    label: Sort Order
+    default: asc
     options:
-      - label: "Ascending"
-        value: "asc"
-      - label: "Descending"
-        value: "desc"
-
+      - label: Ascending
+        value: asc
+      - label: Descending
+        value: desc
   - name: filters
     type: json
     required: false
-    label: "Active Filters"
-    # Array of {column, operator, value}
-
+    label: Active Filters
   - name: selection_mode
     type: select
     required: false
-    label: "Selection Mode"
-    default: "none"
+    label: Selection Mode
+    default: none
     options:
-      - label: "None"
-        value: "none"
-      - label: "Single"
-        value: "single"
-      - label: "Multiple"
-        value: "multi"
-
-# ─── RULES ────────────────────────────────────────────────
-
+      - label: None
+        value: none
+      - label: Single
+        value: single
+      - label: Multiple
+        value: multi
 rules:
   columns:
     max_columns: 50
-    # Hard limit to prevent layout overflow and performance issues
     resizable: true
-    # Users can drag column borders to resize
     reorderable: true
-    # Users can drag column headers to reorder
     min_width_px: 50
-    # Minimum column width to prevent collapse
-
   performance:
     virtual_scrolling_threshold: 1000
-    # Enable virtual scrolling when total rows exceed 1000
     debounce_filter_ms: 300
-    # Debounce filter input to prevent excessive server requests
     debounce_search_ms: 300
-    # Debounce global search input
-
   persistence:
     column_preferences_per_user: true
-    # Save column widths, order, and visibility per user
     filter_state_in_url: true
-    # Serialize active filters, sort, and page into URL query params
-    storage: "localStorage"
-    # Fallback storage for column preferences
-
+    storage: localStorage
   pagination:
     server_side: true
-    # Pagination handled server-side by default
-    page_size_options: [10, 25, 50, 100]
-    # Selectable page sizes
+    page_size_options:
+      - 10
+      - 25
+      - 50
+      - 100
     show_total_count: true
-    # Display total record count
-
   export:
-    formats: [csv]
-    # Supported export formats
+    formats:
+      - csv
     max_export_rows: 10000
-    # Limit export to prevent memory issues
     include_filtered_only: true
-    # Export respects active filters
-
-# ─── OUTCOMES ─────────────────────────────────────────────
-
 outcomes:
   table_rendered:
     priority: 1
     given:
-      - "column definitions are provided"
-      - "data source is configured and returns data"
+      - column definitions are provided
+      - data source is configured and returns data
     then:
       - action: set_field
         target: current_page
         value: 1
-        description: "Initialize to first page"
+        description: Initialize to first page
       - action: emit_event
         event: table.rendered
-        payload: [total_rows, page_size, column_count]
-    result: "Data table displays with columns, rows, and pagination controls"
-
+        payload:
+          - total_rows
+          - page_size
+          - column_count
+    result: Data table displays with columns, rows, and pagination controls
+    error: TABLE_COLUMN_NOT_SORTABLE
   column_sorted:
     priority: 2
     given:
-      - "user clicks a sortable column header"
+      - user clicks a sortable column header
     then:
       - action: set_field
         target: sort_by
-        description: "Set sort column to clicked column key"
+        description: Set sort column to clicked column key
       - action: set_field
         target: sort_order
-        description: "Toggle between asc and desc, or set to asc for new column"
+        description: Toggle between asc and desc, or set to asc for new column
       - action: set_field
         target: current_page
         value: 1
-        description: "Reset to first page on sort change"
+        description: Reset to first page on sort change
       - action: emit_event
         event: table.sorted
-        payload: [sort_by, sort_order]
-    result: "Table re-renders with data sorted by the selected column"
-
+        payload:
+          - sort_by
+          - sort_order
+    result: Table re-renders with data sorted by the selected column
   filter_applied:
     priority: 3
     given:
-      - "user enters a filter value on a filterable column"
-      - "filter debounce period (300ms) has elapsed"
+      - user enters a filter value on a filterable column
+      - filter debounce period (300ms) has elapsed
     then:
       - action: set_field
         target: filters
-        description: "Add or update filter for the column"
+        description: Add or update filter for the column
       - action: set_field
         target: current_page
         value: 1
-        description: "Reset to first page on filter change"
+        description: Reset to first page on filter change
       - action: emit_event
         event: table.filtered
-        payload: [filters, result_count]
-    result: "Table displays only rows matching the filter criteria"
-
+        payload:
+          - filters
+          - result_count
+    result: Table displays only rows matching the filter criteria
   row_selected:
     priority: 4
     given:
-      - "selection mode is single or multi"
-      - "user clicks a row or selection checkbox"
+      - selection mode is single or multi
+      - user clicks a row or selection checkbox
     then:
       - action: set_field
         target: selected_rows
-        description: "Add or remove row ID from selection array"
+        description: Add or remove row ID from selection array
       - action: emit_event
         event: table.row_selected
-        payload: [row_id, selected_rows, selection_count]
-    result: "Row visually highlighted, selection state updated"
-
+        payload:
+          - row_id
+          - selected_rows
+          - selection_count
+    result: Row visually highlighted, selection state updated
   bulk_action_executed:
     priority: 5
     given:
-      - "one or more rows are selected"
-      - "user triggers a bulk action (delete, export, status change)"
+      - one or more rows are selected
+      - user triggers a bulk action (delete, export, status change)
     then:
       - action: call_service
         target: bulk_action_handler
-        description: "Execute the selected action on all selected rows"
+        description: Execute the selected action on all selected rows
       - action: set_field
         target: selected_rows
-        description: "Clear selection after action completes"
+        description: Clear selection after action completes
       - action: emit_event
         event: table.bulk_action
-        payload: [action_type, affected_row_ids, result]
-    result: "Bulk action applied to all selected rows, selection cleared"
-
+        payload:
+          - action_type
+          - affected_row_ids
+          - result
+    result: Bulk action applied to all selected rows, selection cleared
   inline_edit_saved:
     priority: 6
     given:
-      - "user double-clicks an editable cell"
-      - "user modifies the value and confirms (Enter or blur)"
-      - "new value passes column validation"
+      - user double-clicks an editable cell
+      - user modifies the value and confirms (Enter or blur)
+      - new value passes column validation
     then:
       - action: set_field
         target: data_source
-        description: "Update the cell value in the data source"
+        description: Update the cell value in the data source
       - action: emit_event
         event: table.cell_edited
-        payload: [row_id, column_key, old_value, new_value]
-    result: "Cell value updated, row refreshed"
-
+        payload:
+          - row_id
+          - column_key
+          - old_value
+          - new_value
+    result: Cell value updated, row refreshed
   inline_edit_invalid:
     priority: 7
     error: TABLE_CELL_VALIDATION_FAILED
     given:
-      - "user modifies a cell value"
-      - "new value fails column validation rules"
+      - user modifies a cell value
+      - new value fails column validation rules
     then:
       - action: emit_event
         event: table.cell_edit_failed
-        payload: [row_id, column_key, value, error]
-    result: "Validation error shown inline, cell reverts to original value"
-
+        payload:
+          - row_id
+          - column_key
+          - value
+          - error
+    result: Validation error shown inline, cell reverts to original value
   export_completed:
     priority: 8
     given:
-      - "user triggers CSV export"
-      - "total exportable rows are within the 10000 limit"
+      - user triggers CSV export
+      - total exportable rows are within the 10000 limit
     then:
       - action: call_service
         target: export_handler
-        description: "Generate CSV from visible columns and filtered data"
+        description: Generate CSV from visible columns and filtered data
       - action: emit_event
         event: table.exported
-        payload: [format, row_count, column_count]
-    result: "CSV file downloaded to the user's device"
-
+        payload:
+          - format
+          - row_count
+          - column_count
+    result: CSV file downloaded to the user's device
   export_too_large:
     priority: 9
     error: TABLE_EXPORT_TOO_LARGE
@@ -278,104 +267,102 @@ outcomes:
         source: computed
         operator: gt
         value: 10000
-        description: "Filtered result set exceeds export limit"
+        description: Filtered result set exceeds export limit
     then:
       - action: emit_event
         event: table.export_failed
-        payload: [total_rows, max_allowed]
-    result: "User informed to apply filters to reduce the data set before exporting"
-
-# ─── ERRORS ───────────────────────────────────────────────
-
+        payload:
+          - total_rows
+          - max_allowed
+    result: User informed to apply filters to reduce the data set before exporting
 errors:
   - code: TABLE_CELL_VALIDATION_FAILED
     status: 422
-    message: "The entered value is not valid for this column"
+    message: The entered value is not valid for this column
     retry: true
-
   - code: TABLE_EXPORT_TOO_LARGE
     status: 400
-    message: "Too many rows to export. Please apply filters to reduce the data set."
+    message: Too many rows to export. Please apply filters to reduce the data set.
     retry: true
-
   - code: TABLE_DATA_SOURCE_ERROR
     status: 500
-    message: "Failed to load table data from the data source"
+    message: Failed to load table data from the data source
     retry: true
-
   - code: TABLE_COLUMN_NOT_SORTABLE
     status: 400
-    message: "This column does not support sorting"
+    message: This column does not support sorting
     retry: false
-
-# ─── EVENTS ───────────────────────────────────────────────
-
 events:
   - name: table.rendered
-    description: "Data table rendered with initial data"
-    payload: [total_rows, page_size, column_count]
-
+    description: Data table rendered with initial data
+    payload:
+      - total_rows
+      - page_size
+      - column_count
   - name: table.sorted
-    description: "Table data sorted by a column"
-    payload: [sort_by, sort_order]
-
+    description: Table data sorted by a column
+    payload:
+      - sort_by
+      - sort_order
   - name: table.filtered
-    description: "Table data filtered"
-    payload: [filters, result_count]
-
+    description: Table data filtered
+    payload:
+      - filters
+      - result_count
   - name: table.row_selected
-    description: "A row was selected or deselected"
-    payload: [row_id, selected_rows, selection_count]
-
+    description: A row was selected or deselected
+    payload:
+      - row_id
+      - selected_rows
+      - selection_count
   - name: table.bulk_action
-    description: "A bulk action was executed on selected rows"
-    payload: [action_type, affected_row_ids, result]
-
+    description: A bulk action was executed on selected rows
+    payload:
+      - action_type
+      - affected_row_ids
+      - result
   - name: table.cell_edited
-    description: "A cell value was edited inline"
-    payload: [row_id, column_key, old_value, new_value]
-
+    description: A cell value was edited inline
+    payload:
+      - row_id
+      - column_key
+      - old_value
+      - new_value
   - name: table.cell_edit_failed
-    description: "An inline cell edit failed validation"
-    payload: [row_id, column_key, value, error]
-
+    description: An inline cell edit failed validation
+    payload:
+      - row_id
+      - column_key
+      - value
+      - error
   - name: table.exported
-    description: "Table data was exported"
-    payload: [format, row_count, column_count]
-
+    description: Table data was exported
+    payload:
+      - format
+      - row_count
+      - column_count
   - name: table.export_failed
-    description: "Table export failed due to row limit"
-    payload: [total_rows, max_allowed]
-
-# ─── RELATIONSHIPS ────────────────────────────────────────
-
+    description: Table export failed due to row limit
+    payload:
+      - total_rows
+      - max_allowed
 related:
   - feature: pagination
     type: required
-    reason: "Data tables require pagination for large data sets"
-
+    reason: Data tables require pagination for large data sets
   - feature: search-and-filtering
     type: recommended
-    reason: "Server-side filtering integrates with the search and filtering feature"
-
+    reason: Server-side filtering integrates with the search and filtering feature
   - feature: accessibility
     type: recommended
-    reason: "Tables must be keyboard navigable and screen reader compatible"
-
+    reason: Tables must be keyboard navigable and screen reader compatible
   - feature: internationalization
     type: optional
-    reason: "Column headers, filter labels, and pagination text may need translation"
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
+    reason: Column headers, filter labels, and pagination text may need translation
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_data_table
-      description: Sortable, filterable, paginated data table with column management, row selection, inline editing, bulk
-        actions, and CSV export
+      description: Sortable, filterable, paginated data table with column management, row selection, inline editing, bulk actions, and CSV export
       success_metrics:
         - metric: success_rate
           target: ">= 99%"

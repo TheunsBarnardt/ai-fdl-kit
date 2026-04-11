@@ -10,11 +10,15 @@
 # ============================================================
 
 feature: fix-protocol-validation
-version: "1.0.0"
+version: 1.0.0
 description: Validates FIX messages against version-specific DataDictionary specifications; enforces field presence, type correctness, value ranges, repeating group structure, and message completeness
 category: trading
-tags: [fix-protocol, validation, data-dictionary, field-validation, financial-messaging]
-
+tags:
+  - fix-protocol
+  - validation
+  - data-dictionary
+  - field-validation
+  - financial-messaging
 actors:
   - id: data_dictionary
     name: Data Dictionary
@@ -28,274 +32,258 @@ actors:
     name: Application Layer
     type: system
     description: May perform additional application-level validation and reject messages via exceptions
-
 fields:
-  # Source: SessionSettings.h — validation control flags
-  # When enabled, verifies FIX frame integrity (BodyLength and CheckSum); disable only for debugging
-  # Source: SessionSettings.h:VALIDATE_LENGTH_AND_CHECKSUM
   - name: validate_length_and_checksum
     type: boolean
     required: false
-
-  # When enabled, rejects messages where fields appear in the wrong section (header field in body, etc.)
-  # Source: SessionSettings.h:VALIDATE_FIELDS_OUT_OF_ORDER
+    label: Validate Length And Checksum
   - name: validate_fields_out_of_order
     type: boolean
     required: false
-
-  # When enabled, rejects messages that contain a field tag with an empty value
-  # Source: SessionSettings.h:VALIDATE_FIELDS_HAVE_VALUES
+    label: Validate Fields Out Of Order
   - name: validate_fields_have_values
     type: boolean
     required: false
-
-  # When enabled, validates custom fields (tag 5000+) against user-extended dictionary entries
-  # Source: SessionSettings.h:VALIDATE_USER_DEFINED_FIELDS
+    label: Validate Fields Have Values
   - name: validate_user_defined_fields
     type: boolean
     required: false
-
-  # When enabled, unknown fields are silently ignored rather than causing rejection
-  # Source: SessionSettings.h:ALLOW_UNKNOWN_MSG_FIELDS
+    label: Validate User Defined Fields
   - name: allow_unknown_msg_fields
     type: boolean
     required: false
-
-  # Path to the FIX XML specification file for session-level message validation (e.g. FIX42.xml)
+    label: Allow Unknown Msg Fields
   - name: data_dictionary_path
     type: text
     required: false
-
-  # Path to transport-layer FIX spec (used with FIXT.1.1 to validate header/trailer separately)
+    label: Data Dictionary Path
   - name: transport_data_dictionary_path
     type: text
     required: false
-
-  # Path to application-layer FIX spec (FIXT.1.1 sessions only; validates message body)
+    label: Transport Data Dictionary Path
   - name: app_data_dictionary_path
     type: text
     required: false
-
-  # FIX version this dictionary applies to; loaded automatically based on session BeginString
+    label: App Data Dictionary Path
   - name: begin_string
     type: text
     required: true
-
+    label: Begin String
 rules:
   field_presence:
-    # Source: DataDictionary.cpp — isMsgField, isRequiredField
     - Every message type has a defined set of required fields; missing required fields cause RequiredTagMissing
     - Optional fields are allowed but must conform to their type constraints if present
     - Fields that do not belong to a message type are flagged as TagNotDefinedForMessage (unless AllowUnknownMsgFields=Y)
-
   field_types:
-    # Source: DataDictionary.cpp — FieldTypes map; Exceptions.h:IncorrectDataFormat
     - Each field tag has a declared type (STRING, INT, PRICE, QTY, BOOLEAN, UTCTIMESTAMP, etc.)
     - Field values are checked against their declared types; type mismatches produce IncorrectDataFormat
     - Enumerated fields (e.g. Side, OrdType) are validated against their allowed value set; unknown values produce IncorrectTagValue
-
   group_validation:
-    # Source: DataDictionary.cpp — checkGroupCount, delimiter enforcement
     - Repeating groups must include a count field immediately before the first group instance
     - The first field of each group instance must be the declared delimiter field
     - Actual count of instances must match the declared count field; mismatch produces RepeatingGroupCountMismatch
     - Nested groups are recursively validated
-
   message_type_validation:
-    # Source: DataDictionary.cpp — isMsgType
     - MsgType (tag 35) must be a known type in the dictionary for this FIX version
     - Admin message types (0,1,2,3,4,5,A) are always known; application types must be in the spec
     - Unknown MsgType produces InvalidMessageType; UnsupportedMessageType if known but not implemented
-
   version_specific_validation:
-    # Source: DataDictionaryProvider.h — per-version dictionary lookup
     - Each FIX version has its own DataDictionary; FIX.4.2 fields are not valid in FIX.4.0 messages
     - FIXT.1.1 uses two dictionaries: transport (header/trailer) and application (body)
     - ApplVerID in message header selects the application-level dictionary for FIXT.1.1 validation
-
 outcomes:
   dictionary_not_found:
     priority: 1
     given:
-      - "message received with BeginString or ApplVerID"
-      - "no data dictionary is loaded for that version"
+      - message received with BeginString or ApplVerID
+      - no data dictionary is loaded for that version
     then:
       - action: emit_event
         event: fix.validation.error
-        payload: [begin_string, appl_ver_id]
+        payload:
+          - begin_string
+          - appl_ver_id
     result: Session configuration error; DataDictionaryNotFound exception raised
     error: DICTIONARY_NOT_FOUND
-
   invalid_message_type:
     priority: 2
     given:
-      - "message received"
-      - "MsgType is not present in the loaded data dictionary"
+      - message received
+      - MsgType is not present in the loaded data dictionary
     then:
       - action: emit_event
         event: fix.validation.rejected
-        payload: [msg_seq_num, msg_type, reject_reason]
+        payload:
+          - msg_seq_num
+          - msg_type
+          - reject_reason
     result: Message rejected with InvalidMessageType; session Reject sent
     error: INVALID_MESSAGE_TYPE
-
   required_tag_missing:
     priority: 3
     given:
-      - "message received"
-      - "one or more required fields for this MsgType are absent"
+      - message received
+      - one or more required fields for this MsgType are absent
     then:
       - action: emit_event
         event: fix.validation.rejected
-        payload: [msg_seq_num, missing_tag, reject_reason]
+        payload:
+          - msg_seq_num
+          - missing_tag
+          - reject_reason
     result: Message rejected with RequiredTagMissing; session Reject sent
     error: REQUIRED_TAG_MISSING
-
   tag_not_defined_for_message:
     priority: 4
     given:
-      - "message received"
-      - "a field tag is present that is not defined for this MsgType"
-      - "AllowUnknownMsgFields is false"
+      - message received
+      - a field tag is present that is not defined for this MsgType
+      - AllowUnknownMsgFields is false
     then:
       - action: emit_event
         event: fix.validation.rejected
-        payload: [msg_seq_num, unknown_tag, reject_reason]
+        payload:
+          - msg_seq_num
+          - unknown_tag
+          - reject_reason
     result: Message rejected with TagNotDefinedForMessage
     error: TAG_NOT_DEFINED_FOR_MESSAGE
-
   incorrect_data_format:
     priority: 5
     given:
-      - "message received"
-      - "a field value cannot be parsed as its declared type (e.g. text in an INT field)"
+      - message received
+      - a field value cannot be parsed as its declared type (e.g. text in an INT field)
     then:
       - action: emit_event
         event: fix.validation.rejected
-        payload: [msg_seq_num, field_tag, reject_reason]
+        payload:
+          - msg_seq_num
+          - field_tag
+          - reject_reason
     result: Message rejected with IncorrectDataFormat
     error: INCORRECT_DATA_FORMAT
-
   incorrect_tag_value:
     priority: 6
     given:
-      - "message received"
-      - "a field value is not in the allowed set for an enumerated field"
+      - message received
+      - a field value is not in the allowed set for an enumerated field
     then:
       - action: emit_event
         event: fix.validation.rejected
-        payload: [msg_seq_num, field_tag, invalid_value, reject_reason]
+        payload:
+          - msg_seq_num
+          - field_tag
+          - invalid_value
+          - reject_reason
     result: Message rejected with IncorrectTagValue
     error: INCORRECT_TAG_VALUE
-
   no_tag_value:
     priority: 7
     given:
-      - "message received"
-      - "ValidateFieldsHaveValues is enabled"
-      - "a field tag appears with an empty value"
+      - message received
+      - ValidateFieldsHaveValues is enabled
+      - a field tag appears with an empty value
     then:
       - action: emit_event
         event: fix.validation.rejected
-        payload: [msg_seq_num, field_tag, reject_reason]
+        payload:
+          - msg_seq_num
+          - field_tag
+          - reject_reason
     result: Message rejected with NoTagValue
     error: NO_TAG_VALUE
-
   group_count_mismatch:
     priority: 8
     given:
-      - "message contains a repeating group"
-      - "number of group instances does not match count field value"
+      - message contains a repeating group
+      - number of group instances does not match count field value
     then:
       - action: emit_event
         event: fix.validation.rejected
-        payload: [msg_seq_num, count_tag, declared_count, actual_count]
+        payload:
+          - msg_seq_num
+          - count_tag
+          - declared_count
+          - actual_count
     result: Message rejected with RepeatingGroupCountMismatch
     error: GROUP_COUNT_MISMATCH
-
   message_valid:
     priority: 10
     given:
-      - "message received"
-      - "all fields present are of correct type"
-      - "all required fields are present"
-      - "no unknown fields (or AllowUnknownMsgFields=Y)"
-      - "all group counts match"
-      - "checksum and length valid (or ValidateLengthAndChecksum=N)"
+      - message received
+      - all fields present are of correct type
+      - all required fields are present
+      - no unknown fields (or AllowUnknownMsgFields=Y)
+      - all group counts match
+      - checksum and length valid (or ValidateLengthAndChecksum=N)
     then:
       - action: emit_event
         event: fix.validation.passed
-        payload: [session_id, msg_type, msg_seq_num]
+        payload:
+          - session_id
+          - msg_type
+          - msg_seq_num
     result: Message passes validation and is delivered to the application
-
 errors:
-  # No specification file is loaded for the BeginString or ApplVerID in the message
   - code: DICTIONARY_NOT_FOUND
     status: 500
     message: Could not find data dictionary for FIX version
-  # Tag 35 value is not defined in the loaded data dictionary
   - code: INVALID_MESSAGE_TYPE
     status: 400
     message: MsgType is not a known message type
-  # A field defined as required for this MsgType is not present
   - code: REQUIRED_TAG_MISSING
     status: 400
     message: Required field is absent from message
-  # A field present in the message is not part of this MsgType definition
   - code: TAG_NOT_DEFINED_FOR_MESSAGE
     status: 400
     message: Field tag is not defined for this message type
-  # Type mismatch between the field value and the dictionary-declared type
   - code: INCORRECT_DATA_FORMAT
     status: 400
     message: Field value cannot be parsed as its declared type
-  # Enumerated field has a value not listed in the specification
   - code: INCORRECT_TAG_VALUE
     status: 400
     message: Field value is not in the allowed set
-  # A field tag appears in the message but has no value after the equals sign
   - code: NO_TAG_VALUE
     status: 400
     message: Field tag present with empty value
-  # The actual number of group instances differs from the declared count field value
   - code: GROUP_COUNT_MISMATCH
     status: 400
     message: Repeating group instance count does not match count field
-  # Field tag is not a valid FIX tag number for this version
   - code: INVALID_TAG_NUMBER
     status: 400
     message: Tag number does not exist in specification
-
 events:
   - name: fix.validation.passed
     description: Message passed all validation checks
-    payload: [session_id, msg_type, msg_seq_num]
+    payload:
+      - session_id
+      - msg_type
+      - msg_seq_num
   - name: fix.validation.rejected
     description: Message failed validation; Reject will be sent to counterparty
-    payload: [session_id, msg_seq_num, reject_reason, ref_tag_id, ref_msg_type]
+    payload:
+      - session_id
+      - msg_seq_num
+      - reject_reason
+      - ref_tag_id
+      - ref_msg_type
   - name: fix.validation.error
     description: Validation configuration error (missing dictionary, etc.)
-    payload: [begin_string, appl_ver_id, error_detail]
-
+    payload:
+      - begin_string
+      - appl_ver_id
+      - error_detail
 related:
-  # Message structures that are built and parsed are validated by this feature
   - feature: fix-message-building
     type: required
     reason: Message structures that are built and parsed are validated by this feature
-  # Session layer invokes validation on every incoming message before application delivery
   - feature: fix-session-management
     type: required
     reason: Session layer invokes validation on every incoming message before application delivery
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_fix_protocol_validation
-      description: Validates FIX messages against version-specific DataDictionary specifications; enforces field presence,
-        type correctness, value ranges, repeating group structure, and message completeness
+      description: Validates FIX messages against version-specific DataDictionary specifications; enforces field presence, type correctness, value ranges, repeating group structure, and message completeness
       success_metrics:
         - metric: policy_violation_rate
           target: 0%
@@ -350,7 +338,6 @@ agi:
       - capability: fix_session_management
         from: fix-session-management
         fallback: fail
-
 extensions:
   tech_stack:
     language: C++

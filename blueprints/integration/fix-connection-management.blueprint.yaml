@@ -12,11 +12,17 @@
 # ============================================================
 
 feature: fix-connection-management
-version: "1.0.0"
+version: 1.0.0
 description: Manages TCP connections for FIX protocol engines including server-side acceptors, client-side initiators, SSL/TLS encryption, automatic reconnection, and socket configuration
 category: integration
-tags: [fix-protocol, tcp, acceptor, initiator, ssl, reconnection, financial-messaging]
-
+tags:
+  - fix-protocol
+  - tcp
+  - acceptor
+  - initiator
+  - ssl
+  - reconnection
+  - financial-messaging
 actors:
   - id: socket_acceptor
     name: Socket Acceptor
@@ -34,10 +40,7 @@ actors:
     name: Application Layer
     type: system
     description: Business application that receives connection lifecycle events
-
 fields:
-  # Source: SessionSettings.h — connection configuration fields
-  # Whether this endpoint initiates or accepts connections
   - name: connection_type
     type: select
     required: true
@@ -46,64 +49,47 @@ fields:
         label: Initiator
       - value: acceptor
         label: Acceptor
-
-  # TCP port to listen on (acceptor only); e.g. 5001
+    label: Connection Type
   - name: socket_accept_port
     type: number
     required: false
-
-  # Target hostname or IP address to connect to (initiator only)
+    label: Socket Accept Port
   - name: socket_connect_host
     type: text
     required: false
-
-  # Target TCP port to connect to (initiator only)
+    label: Socket Connect Host
   - name: socket_connect_port
     type: number
     required: false
-
-  # Local interface to bind to when initiating connections (optional)
+    label: Socket Connect Port
   - name: socket_connect_source_host
     type: text
     required: false
-
-  # Local port to bind to when initiating connections (optional)
+    label: Socket Connect Source Host
   - name: socket_connect_source_port
     type: number
     required: false
-
-  # Seconds between reconnection attempts when connection is lost (initiator only)
-  # Source: SessionSettings.h:RECONNECT_INTERVAL
+    label: Socket Connect Source Port
   - name: reconnect_interval
     type: number
     required: false
-
-  # Enable TCP_NODELAY (disable Nagle algorithm) for lower-latency message delivery
-  # Source: SessionSettings.h:SOCKET_NODELAY
+    label: Reconnect Interval
   - name: socket_nodelay
     type: boolean
     required: false
-
-  # Socket send buffer size in bytes; tune for high-throughput scenarios
-  # Source: SessionSettings.h:SOCKET_SEND_BUFFER_SIZE
+    label: Socket Nodelay
   - name: socket_send_buffer_size
     type: number
     required: false
-
-  # Socket receive buffer size in bytes
-  # Source: SessionSettings.h:SOCKET_RECEIVE_BUFFER_SIZE
+    label: Socket Send Buffer Size
   - name: socket_receive_buffer_size
     type: number
     required: false
-
-  # Enable SO_REUSEADDR to allow quick rebinding after restart
-  # Source: SessionSettings.h:SOCKET_REUSE_ADDRESS
+    label: Socket Receive Buffer Size
   - name: socket_reuse_address
     type: boolean
     required: false
-
-  # How to choose among multiple connect hosts when failover hosts are configured
-  # Source: SessionSettings.h:HOST_SELECTION_POLICY
+    label: Socket Reuse Address
   - name: host_selection_policy
     type: select
     required: false
@@ -114,25 +100,19 @@ fields:
         label: Round Robin
       - value: priority_with_failover
         label: Priority with Failover
-
-  # Path to SSL certificate file for encrypted connections (SSL acceptors/initiators)
-  # Source: SessionSettings.h:SSL_CERTIFICATE
+    label: Host Selection Policy
   - name: ssl_certificate
     type: text
     required: false
-
-  # Path to SSL private key file
-  # Source: SessionSettings.h:SSL_PRIVATE_KEY
+    label: Ssl Certificate
   - name: ssl_private_key
     type: text
     required: false
-
-  # Path to CA certificate for peer verification
-  # Source: SessionSettings.h:SSL_CA_CERTIFICATE
+    label: Ssl Private Key
   - name: ssl_ca_certificate
     type: text
     required: false
-
+    label: Ssl Ca Certificate
 states:
   field: connection_state
   values:
@@ -171,60 +151,49 @@ states:
       to: pending
       actor: socket_initiator
       description: Reconnect interval elapsed; initiator attempts reconnection
-
 rules:
   acceptor_binding:
-    # Source: SocketAcceptor.cpp — SocketServer bind and accept loop
     - Acceptor binds to SocketAcceptPort and listens for incoming connections
     - Each accepted connection is mapped to a session based on SenderCompID/TargetCompID in the Logon message
     - SocketReuseAddress=Y allows the acceptor to restart without waiting for OS port release
-
   initiator_reconnection:
-    # Source: SocketInitiator.cpp — reconnect logic with m_reconnectInterval
     - On connection loss, initiator waits ReconnectInterval seconds before reattempting
     - Multiple target hosts can be configured (SocketConnectHost1, SocketConnectHost2, etc.) for failover
     - HostSelectionPolicy controls which host is tried first and how priority-based failover works
-
   ssl_security:
-    # Source: SSLSocketAcceptor.h, SSLSocketInitiator.h
     - SSL sessions use the same configuration as plain sessions but wrap the socket in TLS
     - Certificate and private key paths must be configured before starting
     - CA certificate path enables mutual TLS (mTLS) peer verification
     - SSL and non-SSL sessions cannot mix on the same port
-
   socket_tuning:
-    # Source: SocketInitiator.cpp — m_noDelay, m_sendBufSize, m_rcvBufSize
     - TCP_NODELAY disables Nagle's algorithm for sub-millisecond message delivery; recommended for low-latency trading
     - Buffer sizes should be tuned based on expected message throughput; larger buffers reduce system calls
-
   threading:
-    # Source: SocketAcceptor.cpp, SocketInitiator.cpp — threaded I/O model
     - Each connection runs I/O on a dedicated thread pool; session callbacks are invoked from I/O threads
     - Applications sharing state across sessions must synchronize access or use SynchronizedApplication wrapper
-
 sla:
-  reconnect_interval: 30s  # Source: SessionSettings.h — default ReconnectInterval
-  connection_timeout: 10s  # Source: Session.h — logonTimeout used as connection-level timeout
-
+  reconnect_interval: 30s
+  connection_timeout: 10s
 outcomes:
   port_bind_failed:
     priority: 1
     given:
-      - "acceptor is starting"
-      - "configured SocketAcceptPort is already in use"
+      - acceptor is starting
+      - configured SocketAcceptPort is already in use
     then:
       - action: emit_event
         event: fix.connection.error
-        payload: [port, error_detail]
+        payload:
+          - port
+          - error_detail
     result: Acceptor startup fails with ConfigError; application is notified
     error: PORT_BIND_FAILED
-
   ssl_handshake_failed:
     priority: 2
     given:
-      - "TCP connection established"
-      - "SSL/TLS is enabled"
-      - "certificate verification or cipher negotiation fails"
+      - TCP connection established
+      - SSL/TLS is enabled
+      - certificate verification or cipher negotiation fails
     then:
       - action: transition_state
         field: connection_state
@@ -232,15 +201,16 @@ outcomes:
         to: disconnected
       - action: emit_event
         event: fix.connection.error
-        payload: [remote_host, error_detail]
+        payload:
+          - remote_host
+          - error_detail
     result: Connection dropped; initiator will retry after reconnect interval
     error: SSL_HANDSHAKE_FAILED
-
   connection_refused:
     priority: 3
     given:
-      - "initiator is attempting to connect"
-      - "target host refuses the connection or is unreachable"
+      - initiator is attempting to connect
+      - target host refuses the connection or is unreachable
     then:
       - action: transition_state
         field: connection_state
@@ -248,15 +218,17 @@ outcomes:
         to: disconnected
       - action: emit_event
         event: fix.connection.failed
-        payload: [remote_host, remote_port, error_detail]
+        payload:
+          - remote_host
+          - remote_port
+          - error_detail
     result: Connection attempt fails; initiator waits ReconnectInterval before retrying
     error: CONNECTION_REFUSED
-
   connection_lost:
     priority: 4
     given:
-      - "session is in connected or logged_on state"
-      - "TCP socket receives error or zero-byte read (peer closed connection)"
+      - session is in connected or logged_on state
+      - TCP socket receives error or zero-byte read (peer closed connection)
     then:
       - action: transition_state
         field: connection_state
@@ -264,15 +236,16 @@ outcomes:
         to: disconnected
       - action: emit_event
         event: fix.connection.lost
-        payload: [session_id, remote_host]
+        payload:
+          - session_id
+          - remote_host
     result: Session is disconnected; initiator begins reconnect cycle
     error: CONNECTION_LOST
-
   connection_established:
     priority: 9
     given:
-      - "initiator completes TCP handshake OR acceptor accepts incoming connection"
-      - "SSL handshake succeeds (if SSL is enabled)"
+      - initiator completes TCP handshake OR acceptor accepts incoming connection
+      - SSL handshake succeeds (if SSL is enabled)
     then:
       - action: transition_state
         field: connection_state
@@ -280,78 +253,77 @@ outcomes:
         to: connected
       - action: emit_event
         event: fix.connection.established
-        payload: [remote_host, remote_port, session_id]
+        payload:
+          - remote_host
+          - remote_port
+          - session_id
     result: TCP connection ready; FIX session logon can begin
-
   graceful_stop:
     priority: 10
     given:
-      - "application calls stop() on acceptor or initiator"
+      - application calls stop() on acceptor or initiator
     then:
       - action: emit_event
         event: fix.connection.stopped
-        payload: [connection_type]
+        payload:
+          - connection_type
     result: All sessions are logged out and sockets closed cleanly
-
 errors:
-  # Acceptor cannot start because the port is unavailable
   - code: PORT_BIND_FAILED
     status: 500
     message: Failed to bind to configured port
-  # Certificate or cipher negotiation error during SSL connection setup
   - code: SSL_HANDSHAKE_FAILED
     status: 500
     message: SSL/TLS handshake failed
-  # Target host rejected the TCP connection attempt
   - code: CONNECTION_REFUSED
     status: 503
     message: Connection refused by remote host
-  # TCP connection dropped during an active session
   - code: CONNECTION_LOST
     status: 503
     message: Connection lost unexpectedly
-  # Required settings (port, host, certs) are missing or malformed
   - code: CONFIG_ERROR
     status: 500
     message: Connection configuration is invalid
-
 events:
   - name: fix.connection.established
     description: TCP connection (and optional TLS) successfully established
-    payload: [remote_host, remote_port, session_id, is_ssl]
+    payload:
+      - remote_host
+      - remote_port
+      - session_id
+      - is_ssl
   - name: fix.connection.lost
     description: Active connection dropped unexpectedly
-    payload: [session_id, remote_host, error_detail]
+    payload:
+      - session_id
+      - remote_host
+      - error_detail
   - name: fix.connection.failed
     description: Outbound connection attempt failed
-    payload: [remote_host, remote_port, error_detail]
+    payload:
+      - remote_host
+      - remote_port
+      - error_detail
   - name: fix.connection.stopped
     description: Connection layer stopped cleanly
-    payload: [connection_type]
+    payload:
+      - connection_type
   - name: fix.connection.error
     description: Non-fatal connection-level error
-    payload: [remote_host, error_detail]
-
+    payload:
+      - remote_host
+      - error_detail
 related:
-  # FIX sessions are established on top of connections managed here
   - feature: fix-session-management
     type: required
     reason: FIX sessions are established on top of connections managed here
-  # Message store maintains sequences across connection drops and recoveries
   - feature: fix-message-persistence
     type: recommended
     reason: Message store maintains sequences across connection drops and recoveries
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_fix_connection_management
-      description: Manages TCP connections for FIX protocol engines including server-side acceptors, client-side initiators,
-        SSL/TLS encryption, automatic reconnection, and socket configuration
+      description: Manages TCP connections for FIX protocol engines including server-side acceptors, client-side initiators, SSL/TLS encryption, automatic reconnection, and socket configuration
       success_metrics:
         - metric: success_rate
           target: ">= 99.5%"
@@ -391,7 +363,6 @@ agi:
       - capability: fix_session_management
         from: fix-session-management
         fallback: degrade
-
 extensions:
   tech_stack:
     language: C++

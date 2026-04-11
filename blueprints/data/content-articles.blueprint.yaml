@@ -1,5 +1,5 @@
 feature: content-articles
-version: "1.0.0"
+version: 1.0.0
 description: Blog and news article system for advisors and portfolio managers to publish market insights, product updates, and investment articles to clients
 category: data
 tags:
@@ -9,28 +9,23 @@ tags:
   - news
   - market-insights
   - wealth-management
-
 actors:
   - id: ifa
     name: Independent Financial Advisor
     type: human
     role: IFA
-
   - id: portfolio_manager
     name: Portfolio Manager
     type: human
     role: Portfolio Manager
-
   - id: client
     name: Client
     type: human
     role: Client
-
   - id: admin
     name: Administrator
     type: human
     role: Admin
-
 fields:
   - name: article_id
     type: text
@@ -38,7 +33,7 @@ fields:
     validation:
       - type: required
         message: Article ID is required
-
+    label: Article Id
   - name: title
     type: text
     required: true
@@ -48,15 +43,15 @@ fields:
       - type: maxLength
         value: 300
         message: Title must not exceed 300 characters
-
+    label: Title
   - name: slug
     type: text
     required: true
     validation:
       - type: pattern
-        value: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        value: ^[a-z0-9]+(?:-[a-z0-9]+)*$
         message: Slug must be URL-safe
-
+    label: Slug
   - name: excerpt
     type: text
     required: true
@@ -64,26 +59,26 @@ fields:
       - type: maxLength
         value: 500
         message: Excerpt must not exceed 500 characters
-
+    label: Excerpt
   - name: body
     type: rich_text
     required: true
     validation:
       - type: required
         message: Article body is required
-
+    label: Body
   - name: cover_image_url
     type: url
     required: false
-
+    label: Cover Image Url
   - name: author_id
     type: text
     required: true
-
+    label: Author Id
   - name: author_name
     type: text
     required: true
-
+    label: Author Name
   - name: author_role
     type: select
     required: true
@@ -94,7 +89,7 @@ fields:
         label: Portfolio Manager
       - value: admin
         label: Administrator
-
+    label: Author Role
   - name: category
     type: select
     required: true
@@ -111,17 +106,15 @@ fields:
         label: Regulatory Update
       - value: general
         label: General
-
+    label: Category
   - name: tags
     type: json
     required: false
     label: Article Tags
-
   - name: related_product_ids
     type: json
     required: false
     label: Related Products
-
   - name: target_audience
     type: select
     required: true
@@ -132,7 +125,7 @@ fields:
         label: My Clients Only
       - value: product_holders
         label: Holders of Related Products
-
+    label: Target Audience
   - name: status
     type: select
     required: true
@@ -143,33 +136,30 @@ fields:
         label: Published
       - value: archived
         label: Archived
-
+    label: Status
   - name: published_at
     type: datetime
     required: false
-
+    label: Published At
   - name: is_featured
     type: boolean
     required: false
-
+    label: Is Featured
 rules:
   permissions:
-    - "IFA and Portfolio Manager can create, edit, and publish articles"
-    - "Admin can manage all articles"
-    - "Clients can only read published articles visible to them"
-    - "Authors can only edit their own articles unless admin"
-
+    - IFA and Portfolio Manager can create, edit, and publish articles
+    - Admin can manage all articles
+    - Clients can only read published articles visible to them
+    - Authors can only edit their own articles unless admin
   visibility:
-    - "all_clients articles are visible to every authenticated client"
-    - "my_clients articles are visible only to the author's assigned clients"
-    - "product_holders articles are visible only to clients holding related products"
-    - "Draft articles are only visible to the author and admins"
-
+    - all_clients articles are visible to every authenticated client
+    - my_clients articles are visible only to the author's assigned clients
+    - product_holders articles are visible only to clients holding related products
+    - Draft articles are only visible to the author and admins
   content:
-    - "Articles support rich text with images and embedded charts"
-    - "Related products link articles to investment products"
-    - "Featured articles appear at top of client news feed"
-
+    - Articles support rich text with images and embedded charts
+    - Related products link articles to investment products
+    - Featured articles appear at top of client news feed
 outcomes:
   create_article:
     priority: 10
@@ -177,7 +167,10 @@ outcomes:
       - field: user.role
         source: session
         operator: in
-        value: [IFA, Portfolio Manager, Admin]
+        value:
+          - IFA
+          - Portfolio Manager
+          - Admin
       - field: title
         source: input
         operator: exists
@@ -193,9 +186,11 @@ outcomes:
         value: draft
       - action: emit_event
         event: article.created
-        payload: [article_id, author_id, timestamp]
+        payload:
+          - article_id
+          - author_id
+          - timestamp
     result: Article created in draft status
-
   publish_article:
     priority: 20
     given:
@@ -224,13 +219,18 @@ outcomes:
         value: now
       - action: emit_event
         event: article.published
-        payload: [article_id, author_id, target_audience, timestamp]
+        payload:
+          - article_id
+          - author_id
+          - target_audience
+          - timestamp
       - action: notify
-        channel: [in_app]
+        channel:
+          - in_app
         target: target_clients
         template: new_article_published
     result: Article published and target clients notified
-
+    error: ARTICLE_ALREADY_PUBLISHED
   list_articles_client:
     priority: 30
     given:
@@ -241,22 +241,28 @@ outcomes:
     then:
       - action: emit_event
         event: article.listed
-        payload: [client_id, timestamp]
+        payload:
+          - client_id
+          - timestamp
     result: Return published articles visible to this client based on audience rules
-
   list_articles_author:
     priority: 31
     given:
       - field: user.role
         source: session
         operator: in
-        value: [IFA, Portfolio Manager, Admin]
+        value:
+          - IFA
+          - Portfolio Manager
+          - Admin
     then:
       - action: emit_event
         event: article.listed
-        payload: [author_id, timestamp]
+        payload:
+          - author_id
+          - timestamp
     result: Return all articles by this author including drafts
-
+    error: ARTICLE_UNAUTHORIZED
   update_article:
     priority: 40
     given:
@@ -278,9 +284,11 @@ outcomes:
         value: now
       - action: emit_event
         event: article.updated
-        payload: [article_id, author_id, timestamp]
+        payload:
+          - article_id
+          - author_id
+          - timestamp
     result: Article updated
-
   archive_article:
     priority: 50
     given:
@@ -306,73 +314,70 @@ outcomes:
         value: archived
       - action: emit_event
         event: article.archived
-        payload: [article_id, timestamp]
+        payload:
+          - article_id
+          - timestamp
     result: Article archived and no longer visible to clients
-
 errors:
   - code: ARTICLE_NOT_FOUND
     status: 404
     message: Article not found
     retry: false
-
   - code: ARTICLE_UNAUTHORIZED
     status: 403
     message: You do not have permission to modify this article
     retry: false
-
   - code: ARTICLE_ALREADY_PUBLISHED
     status: 400
     message: Article is already published
     retry: false
-
 events:
   - name: article.created
     description: Article created
-    payload: [article_id, author_id, timestamp]
-
+    payload:
+      - article_id
+      - author_id
+      - timestamp
   - name: article.published
     description: Article published
-    payload: [article_id, author_id, target_audience, timestamp]
-
+    payload:
+      - article_id
+      - author_id
+      - target_audience
+      - timestamp
   - name: article.updated
     description: Article updated
-    payload: [article_id, author_id, timestamp]
-
+    payload:
+      - article_id
+      - author_id
+      - timestamp
   - name: article.archived
     description: Article archived
-    payload: [article_id, timestamp]
-
+    payload:
+      - article_id
+      - timestamp
   - name: article.listed
     description: Articles listed
-    payload: [user_id, timestamp]
-
+    payload:
+      - user_id
+      - timestamp
 related:
   - feature: product-configurator
     type: recommended
     reason: Articles can be linked to specific investment products
-
   - feature: in-app-notifications
     type: recommended
     reason: Clients notified when new articles are published
-
   - feature: ifa-portal
     type: recommended
     reason: IFAs publish articles through their portal
-
   - feature: portfolio-management
     type: optional
     reason: Articles may reference portfolio strategies
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_content_articles
-      description: Blog and news article system for advisors and portfolio managers to publish market insights, product
-        updates, and investment articles to clients
+      description: Blog and news article system for advisors and portfolio managers to publish market insights, product updates, and investment articles to clients
       success_metrics:
         - metric: data_accuracy
           target: 100%
@@ -408,7 +413,6 @@ agi:
     - prefer: data_integrity
       over: performance
       reason: data consistency must be maintained across all operations
-
 ui_hints:
   layout: card_grid
   list_view: blog_feed

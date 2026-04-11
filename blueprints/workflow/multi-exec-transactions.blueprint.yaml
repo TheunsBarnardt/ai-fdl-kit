@@ -8,50 +8,60 @@
 # ============================================================
 
 feature: multi-exec-transactions
-version: "1.0.0"
+version: 1.0.0
 description: Atomic multi-command execution with optional optimistic locking via WATCH; commands queued and executed sequentially without interruption
 category: workflow
-tags: [transactions, atomic-operations, optimistic-locking, rollback, isolation]
-
+tags:
+  - transactions
+  - atomic-operations
+  - optimistic-locking
+  - rollback
+  - isolation
 actors:
   - id: client
     name: Client
     type: human
     description: Application executing transactions
-
 fields:
   - name: transaction_state
     type: select
-    options: [idle, queuing, executing]
+    options:
+      - idle
+      - queuing
+      - executing
     description: Current phase of transaction
     required: false
+    label: Transaction State
   - name: queued_commands
     type: json
     description: Array of commands queued for execution
     required: false
+    label: Queued Commands
   - name: command_results
     type: json
     description: Results of each command after EXEC
     required: false
+    label: Command Results
   - name: watched_keys
     type: json
     description: Array of keys being watched for changes
     required: false
+    label: Watched Keys
   - name: abort_transaction
     type: boolean
     description: Flag to abort transaction at EXEC (EXECABORT)
     required: false
-
+    label: Abort Transaction
 rules:
-  - MULTI marks start of transaction; client queues commands instead of executing
-  - All queued commands execute sequentially without interleaving from other clients
-  - Syntax errors during queueing set EXECABORT flag; EXEC fails entirely
-  - Runtime errors during execution do not abort other commands (partial success possible)
-  - WATCH monitors keys; if ANY watched key modified by other client before EXEC, transaction aborts
-  - Atomicity guarantee: Either all commands execute or none (in case of WATCH violation)
-  - No nested MULTI (attempt to MULTI while in transaction returns error)
-  - Transactions provide isolation: Other clients cannot see partial state
-
+  general:
+    - MULTI marks start of transaction; client queues commands instead of executing
+    - All queued commands execute sequentially without interleaving from other clients
+    - Syntax errors during queueing set EXECABORT flag; EXEC fails entirely
+    - Runtime errors during execution do not abort other commands (partial success possible)
+    - WATCH monitors keys; if ANY watched key modified by other client before EXEC, transaction aborts
+    - Atomicity guarantee: Either all commands execute or none (in case of WATCH violation)
+    - No nested MULTI (attempt to MULTI while in transaction returns error)
+    - Transactions provide isolation: Other clients cannot see partial state
 states:
   - field: transaction_state
     values:
@@ -65,15 +75,12 @@ states:
       - value: aborted
         terminal: true
         description: Transaction rolled back due to error or WATCH violation
-
 outcomes:
-  # ========== MULTI/EXEC ==========
-
   multi_start:
     priority: 10
     description: Begin transaction
     given:
-      - "MULTI command"
+      - MULTI command
       - field: already_in_transaction
         source: db
         operator: eq
@@ -88,8 +95,7 @@ outcomes:
       - action: emit_event
         event: transaction.started
         payload: []
-    result: "client receives OK; enters queuing mode"
-
+    result: client receives OK; enters queuing mode
   nested_multi_error:
     priority: 11
     error: NESTED_TRANSACTION
@@ -99,8 +105,7 @@ outcomes:
         operator: eq
         value: true
     then: []
-    result: "error returned; transaction state unchanged"
-
+    result: error returned; transaction state unchanged
   queue_command:
     priority: 12
     description: Queue command for transaction
@@ -112,16 +117,21 @@ outcomes:
       - field: command
         source: input
         operator: not_in
-        value: [EXEC, DISCARD, WATCH, UNWATCH]
+        value:
+          - EXEC
+          - DISCARD
+          - WATCH
+          - UNWATCH
     then:
       - action: set_field
         target: queued_commands
-        description: "add to queue"
+        description: add to queue
       - action: emit_event
         event: transaction.command_queued
-        payload: [command, arg_count]
-    result: "client receives QUEUED; command not executed yet"
-
+        payload:
+          - command
+          - arg_count
+    result: client receives QUEUED; command not executed yet
   queue_syntax_error:
     priority: 13
     error: EXECABORT
@@ -137,14 +147,14 @@ outcomes:
         value: true
       - action: emit_event
         event: transaction.syntax_error
-        payload: [error_message]
-    result: "error returned; EXECABORT flag set; EXEC will fail"
-
+        payload:
+          - error_message
+    result: error returned; EXECABORT flag set; EXEC will fail
   exec_transaction:
     priority: 14
     description: Execute all queued commands atomically
     given:
-      - "EXEC command"
+      - EXEC command
       - field: abort_transaction
         source: db
         operator: eq
@@ -159,15 +169,16 @@ outcomes:
         to: executing
       - action: set_field
         target: command_results
-        description: "execute all commands in order, store results"
+        description: execute all commands in order, store results
       - action: transition_state
         field: transaction_state
         to: idle
       - action: emit_event
         event: transaction.executed
-        payload: [command_count, error_count]
-    result: "array of results (one per queued command; errors as error objects)"
-
+        payload:
+          - command_count
+          - error_count
+    result: array of results (one per queued command; errors as error objects)
   exec_abort_syntax:
     priority: 15
     error: EXECABORT
@@ -184,8 +195,7 @@ outcomes:
       - action: emit_event
         event: transaction.aborted_syntax
         payload: []
-    result: "error returned; transaction discarded; client back to idle"
-
+    result: error returned; transaction discarded; client back to idle
   exec_watch_violation:
     priority: 16
     error: WATCH_VIOLATION
@@ -201,14 +211,14 @@ outcomes:
         to: aborted
       - action: emit_event
         event: transaction.aborted_watch
-        payload: [modified_keys]
-    result: "nil returned; transaction rolled back; watched keys unchanged"
-
+        payload:
+          - modified_keys
+    result: nil returned; transaction rolled back; watched keys unchanged
   discard_transaction:
     priority: 17
     description: Abort without executing
     given:
-      - "DISCARD command"
+      - DISCARD command
       - field: transaction_state
         source: db
         operator: eq
@@ -223,8 +233,7 @@ outcomes:
       - action: emit_event
         event: transaction.discarded
         payload: []
-    result: "client receives OK; queued commands discarded"
-
+    result: client receives OK; queued commands discarded
   discard_without_transaction:
     priority: 18
     error: NO_TRANSACTION
@@ -232,35 +241,36 @@ outcomes:
       - field: transaction_state
         source: db
         operator: not_in
-        value: [queuing]
+        value:
+          - queuing
     then: []
-    result: "error returned"
-
-  # ========== WATCH/UNWATCH ==========
-
+    result: error returned
   watch_keys:
     priority: 20
     description: Monitor keys for modifications
     given:
-      - "WATCH key [key ...]"
+      - WATCH key [key ...]
       - field: transaction_state
         source: db
         operator: in
-        value: [idle, queuing]
+        value:
+          - idle
+          - queuing
     then:
       - action: set_field
         target: watched_keys
-        description: "add to watch list"
+        description: add to watch list
       - action: emit_event
         event: transaction.keys_watched
-        payload: [keys_count, total_watched]
-    result: "client receives OK; keys now monitored"
-
+        payload:
+          - keys_count
+          - total_watched
+    result: client receives OK; keys now monitored
   unwatch_keys:
     priority: 21
     description: Clear watch list
     given:
-      - "UNWATCH command"
+      - UNWATCH command
     then:
       - action: set_field
         target: watched_keys
@@ -268,8 +278,7 @@ outcomes:
       - action: emit_event
         event: transaction.watch_cleared
         payload: []
-    result: "client receives OK; watch list cleared"
-
+    result: client receives OK; watch list cleared
   watch_violation_detected:
     priority: 22
     description: Another client modified watched key
@@ -280,48 +289,48 @@ outcomes:
         value: true
       - field: modifier_client
         source: system
-        description: "different client modified the key"
+        description: different client modified the key
     then:
       - action: set_field
         target: watch_violation
         value: true
       - action: emit_event
         event: transaction.watch_violated
-        payload: [modified_key]
-    result: "next EXEC returns nil (abort)"
-
-  # ========== OPTIMISTIC LOCKING PATTERN ==========
-
+        payload:
+          - modified_key
+    result: next EXEC returns nil (abort)
   optimistic_lock_read:
     priority: 30
     description: Read value outside transaction
     given:
-      - "GET key (before MULTI)"
-      - "WATCH key"
+      - GET key (before MULTI)
+      - WATCH key
     then:
       - action: emit_event
         event: transaction.optimistic_read
-        payload: [key, value]
-    result: "value retrieved; key now watched"
-
+        payload:
+          - key
+          - value
+    result: value retrieved; key now watched
   optimistic_lock_compute:
     priority: 31
     description: Compute new value based on read
     given:
       - field: new_value
         source: computed
-        description: "calculated from read value"
+        description: calculated from read value
     then:
       - action: emit_event
         event: transaction.value_computed
-        payload: [old_value, new_value]
-    result: "application prepares new value"
-
+        payload:
+          - old_value
+          - new_value
+    result: application prepares new value
   optimistic_lock_execute:
     priority: 32
     description: Attempt to update if no concurrent modification
     given:
-      - "MULTI ... SET key new_value ... EXEC"
+      - MULTI ... SET key new_value ... EXEC
       - field: key_unchanged
         source: db
         operator: eq
@@ -329,9 +338,10 @@ outcomes:
     then:
       - action: emit_event
         event: transaction.lock_acquired
-        payload: [key, new_value]
-    result: "EXEC succeeds; new value set"
-
+        payload:
+          - key
+          - new_value
+    result: EXEC succeeds; new value set
   optimistic_lock_retry:
     priority: 33
     description: Retry if concurrent modification detected
@@ -343,11 +353,9 @@ outcomes:
     then:
       - action: emit_event
         event: transaction.lock_failed
-        payload: [key]
-    result: "EXEC returns nil; application retries (GET, compute, MULTI/EXEC)"
-
-  # ========== RUNTIME ERRORS ==========
-
+        payload:
+          - key
+    result: EXEC returns nil; application retries (GET, compute, MULTI/EXEC)
   command_runtime_error:
     priority: 40
     description: Command fails during execution (e.g., INCR on non-integer)
@@ -361,9 +369,10 @@ outcomes:
     then:
       - action: emit_event
         event: transaction.command_error
-        payload: [command_index, error_message]
-    result: "error stored in results array for that command; other commands still execute"
-
+        payload:
+          - command_index
+          - error_message
+    result: error stored in results array for that command; other commands still execute
   partial_execution:
     priority: 41
     description: Some commands succeed, some fail
@@ -375,23 +384,23 @@ outcomes:
     then:
       - action: emit_event
         event: transaction.partial_success
-        payload: [success_count, error_count]
-    result: "EXEC returns array with mix of values and error objects"
-
+        payload:
+          - success_count
+          - error_count
+    result: EXEC returns array with mix of values and error objects
 errors:
   - code: NESTED_TRANSACTION
-    message: "MULTI calls can not be nested"
+    message: MULTI calls can not be nested
     user_safe: true
   - code: EXECABORT
-    message: "EXECABORT Transaction discarded because of previous errors"
+    message: EXECABORT Transaction discarded because of previous errors
     user_safe: true
   - code: NO_TRANSACTION
-    message: "DISCARD without MULTI"
+    message: DISCARD without MULTI
     user_safe: true
   - code: WATCH_VIOLATION
-    message: "WATCH violation (returned as nil, not error)"
+    message: WATCH violation (returned as nil, not error)
     user_safe: true
-
 events:
   - transaction.started
   - transaction.command_queued
@@ -409,7 +418,6 @@ events:
   - transaction.lock_failed
   - transaction.command_error
   - transaction.partial_success
-
 related:
   - feature: string-key-value
     type: optional
@@ -417,17 +425,10 @@ related:
   - feature: lua-scripting
     type: optional
     reason: Both provide atomicity; scripting more powerful for complex logic
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_multi_exec_transactions
-      description: Atomic multi-command execution with optional optimistic locking via WATCH; commands queued and executed
-        sequentially without interruption
+      description: Atomic multi-command execution with optional optimistic locking via WATCH; commands queued and executed sequentially without interruption
       success_metrics:
         - metric: processing_time
           target: < 5s
@@ -487,12 +488,11 @@ agi:
     - prefer: reliability
       over: speed
       reason: workflow steps must complete correctly before proceeding
-
 extensions:
   source:
-    repo: "https://github.com/redis/redis"
-    project: "Redis"
-    tech_stack: "C"
+    repo: https://github.com/redis/redis
+    project: Redis
+    tech_stack: C
     files_traced: 1
     entry_points:
-      - "src/multi.c"
+      - src/multi.c

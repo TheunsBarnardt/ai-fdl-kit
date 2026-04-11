@@ -8,11 +8,9 @@
 # ============================================================
 
 feature: self-order-kiosk
-version: "1.0.0"
-description: >
-  Customer self-ordering system supporting kiosk terminals and mobile QR-code
-  ordering, with menu browsing, cart management, payment processing, and
-  real-time order status updates.
+version: 1.0.0
+description: |
+  Customer self-ordering system supporting kiosk terminals and mobile QR-code ordering, with menu browsing, cart management, payment processing, and real-time order status updates.
 category: ui
 tags:
   - self-service
@@ -20,7 +18,6 @@ tags:
   - qr-code
   - mobile-ordering
   - restaurant
-
 actors:
   - id: customer
     name: Customer
@@ -38,34 +35,36 @@ actors:
     name: Order System
     type: system
     description: Validates orders, processes payments, sends notifications
-
 fields:
-  # How the customer interacts — mobile (QR scan), kiosk (terminal), or view-only
   - name: ordering_mode
     type: select
     label: Ordering Mode
     required: true
     options:
-      - {value: "mobile", label: "Mobile"}
-      - {value: "kiosk", label: "Kiosk"}
-      - {value: "consultation", label: "Consultation"}
-  # Whether customer picks up at counter or is served at table
+      - value: mobile
+        label: Mobile
+      - value: kiosk
+        label: Kiosk
+      - value: consultation
+        label: Consultation
   - name: service_mode
     type: select
     label: Service Mode
     required: true
     options:
-      - {value: "counter", label: "Counter"}
-      - {value: "table", label: "Table"}
-  # Pay per order immediately, or pay after full meal
+      - value: counter
+        label: Counter
+      - value: table
+        label: Table
   - name: pay_after
     type: select
     label: Payment Timing
     required: true
     options:
-      - {value: "each", label: "Each"}
-      - {value: "meal", label: "Meal"}
-  # Unique 8-character code embedded in QR for table identification
+      - value: each
+        label: Each
+      - value: meal
+        label: Meal
   - name: table_identifier
     type: text
     label: Table Identifier
@@ -75,8 +74,10 @@ fields:
     label: Order Source
     required: true
     options:
-      - {value: "mobile", label: "Mobile"}
-      - {value: "kiosk", label: "Kiosk"}
+      - value: mobile
+        label: Mobile
+      - value: kiosk
+        label: Kiosk
   - name: customer_name
     type: text
     label: Customer Name
@@ -89,12 +90,10 @@ fields:
     type: phone
     label: Customer Phone
     required: false
-  # Customer-selected interface language
   - name: selected_language
     type: select
     label: Display Language
     required: false
-  # Array of selected products with quantity, customizations, and notes
   - name: cart_items
     type: json
     label: Cart Items
@@ -112,20 +111,20 @@ fields:
     label: Service Preset
     required: false
     options:
-      - {value: "dine_in", label: "Dine In"}
-      - {value: "takeaway", label: "Takeaway"}
-      - {value: "delivery", label: "Delivery"}
-  # Config-level token for authenticating self-order requests
+      - value: dine_in
+        label: Dine In
+      - value: takeaway
+        label: Takeaway
+      - value: delivery
+        label: Delivery
   - name: access_token
     type: token
     label: Access Token
     required: true
-  # Per-order token for customer to track/cancel their specific order
   - name: order_access_token
     type: token
     label: Order Access Token
     required: true
-
 states:
   field: order_status
   values:
@@ -176,7 +175,6 @@ states:
       actor: customer
       description: Customer abandons the order
       condition: Order must still be in draft (unpaid) state
-
 rules:
   kiosk_no_cash:
     description: Kiosk mode only allows card and digital payment methods — no cash
@@ -187,33 +185,29 @@ rules:
   pay_meal_requires_table:
     description: Pay-after-meal option only available with table service mode
   category_operating_hours:
-    description: >
-      Product categories can have operating hour restrictions (e.g., lunch menu
-      11:00-14:00). Products outside their category's hours are hidden.
+    description: |
+      Product categories can have operating hour restrictions (e.g., lunch menu 11:00-14:00). Products outside their category's hours are hidden.
   overnight_hours_support:
-    description: >
-      Operating hours where start > end (e.g., 22:00-02:00) are treated as
-      overnight and span across midnight.
+    description: |
+      Operating hours where start > end (e.g., 22:00-02:00) are treated as overnight and span across midnight.
   product_must_be_self_order_enabled:
     description: Only products explicitly marked as available for self-ordering are shown
   server_side_price_recomputation:
-    description: >
-      All prices are recomputed server-side on order submission — frontend
-      prices are display-only and cannot be manipulated.
+    description: |
+      All prices are recomputed server-side on order submission — frontend prices are display-only and cannot be manipulated.
   active_session_required:
     description: Self-ordering is only available when a POS session is active
   constant_time_token_check:
     description: Access tokens are compared using constant-time comparison to prevent timing attacks
   kiosk_inactivity_timeout:
     description: Kiosk resets to landing page after 30 seconds of inactivity on confirmation screen
-
 outcomes:
   mobile_order_placed:
     priority: 1
     given:
-      - "customer scans table QR code containing table identifier and access token"
-      - "an active POS session exists"
-      - "customer selects products from the available menu"
+      - customer scans table QR code containing table identifier and access token
+      - an active POS session exists
+      - customer selects products from the available menu
     then:
       - action: create_record
         type: order
@@ -221,18 +215,22 @@ outcomes:
         description: Order created in draft state linked to the table
       - action: emit_event
         event: self_order.order.submitted
-        payload: [order_id, table_id, order_source, cart_items]
+        payload:
+          - order_id
+          - table_id
+          - order_source
+          - cart_items
       - action: notify
         channel: pos_terminal
         description: POS operator notified of new order
-    result: "Order appears on POS terminal and is sent to kitchen"
-
+    result: Order appears on POS terminal and is sent to kitchen
+    error: SELF_ORDER_ORDER_NOT_FOUND
   kiosk_order_with_payment:
     priority: 2
     given:
-      - "customer uses kiosk terminal to select products"
-      - "customer initiates payment via card or digital method"
-      - "payment is processed successfully"
+      - customer uses kiosk terminal to select products
+      - customer initiates payment via card or digital method
+      - payment is processed successfully
     then:
       - action: transition_state
         field: order_status
@@ -240,17 +238,19 @@ outcomes:
         to: confirmed
       - action: emit_event
         event: self_order.payment.completed
-        payload: [order_id, payment_method, amount]
+        payload:
+          - order_id
+          - payment_method
+          - amount
       - action: notify
         channel: kitchen
         description: Kitchen receives the confirmed order
-    result: "Order confirmed, receipt printed, kiosk resets after timeout"
-
+    result: Order confirmed, receipt printed, kiosk resets after timeout
   item_unavailable_during_browse:
     priority: 3
     given:
-      - "customer has items in cart"
-      - "one or more items become unavailable (out of stock or outside operating hours)"
+      - customer has items in cart
+      - one or more items become unavailable (out of stock or outside operating hours)
     then:
       - action: notify
         channel: customer_device
@@ -258,13 +258,12 @@ outcomes:
       - action: set_field
         target: cart_items
         description: Unavailable items removed from cart
-    result: "Customer sees which items were removed and can adjust their order"
-
+    result: Customer sees which items were removed and can adjust their order
   order_cancelled_by_customer:
     priority: 4
     given:
-      - "customer decides to cancel before payment"
-      - "order is still in draft state"
+      - customer decides to cancel before payment
+      - order is still in draft state
     then:
       - action: transition_state
         field: order_status
@@ -272,43 +271,41 @@ outcomes:
         to: cancelled
       - action: emit_event
         event: self_order.order.cancelled
-        payload: [order_id, order_source]
-    result: "Order removed, customer returns to landing page"
-
+        payload:
+          - order_id
+          - order_source
+    result: Order removed, customer returns to landing page
   session_closed_during_ordering:
     priority: 1
     error: SELF_ORDER_SESSION_CLOSED
     given:
-      - "POS operator closes the session while customers are ordering"
+      - POS operator closes the session while customers are ordering
     then:
       - action: notify
         channel: customer_device
         description: Display closed message, disable ordering
-    result: "Customer cannot submit orders until a new session opens"
-
+    result: Customer cannot submit orders until a new session opens
   invalid_access_token:
     priority: 1
     error: SELF_ORDER_UNAUTHORIZED
     given:
-      - "request contains an invalid or expired access token"
+      - request contains an invalid or expired access token
     then:
       - action: notify
         channel: customer_device
         description: Generic unauthorized error displayed
-    result: "Request rejected, no order data exposed"
-
+    result: Request rejected, no order data exposed
   payment_failed:
     priority: 2
     error: SELF_ORDER_PAYMENT_FAILED
     given:
-      - "customer initiates payment on kiosk"
-      - "payment provider returns failure"
+      - customer initiates payment on kiosk
+      - payment provider returns failure
     then:
       - action: notify
         channel: customer_device
         description: Payment error shown with retry option
-    result: "Customer can retry payment or cancel the order"
-
+    result: Customer can retry payment or cancel the order
 errors:
   - code: SELF_ORDER_SESSION_CLOSED
     message: We're currently closed. Please try again later.
@@ -328,27 +325,40 @@ errors:
   - code: SELF_ORDER_PRODUCT_UNAVAILABLE
     message: One or more selected products are no longer available.
     status: 400
-
 events:
   - name: self_order.order.submitted
     description: Customer submitted an order from mobile or kiosk
-    payload: [order_id, table_id, order_source, cart_items]
+    payload:
+      - order_id
+      - table_id
+      - order_source
+      - cart_items
   - name: self_order.payment.completed
     description: Payment successfully processed for a self-order
-    payload: [order_id, payment_method, amount]
+    payload:
+      - order_id
+      - payment_method
+      - amount
   - name: self_order.order.cancelled
     description: Customer cancelled their self-order
-    payload: [order_id, order_source]
+    payload:
+      - order_id
+      - order_source
   - name: self_order.order.ready
     description: Kitchen marks the order as ready for pickup/delivery
-    payload: [order_id, table_id]
+    payload:
+      - order_id
+      - table_id
   - name: self_order.product.unavailable
     description: A product became unavailable while customers are browsing
-    payload: [product_id, reason]
+    payload:
+      - product_id
+      - reason
   - name: self_order.session.status_changed
     description: POS session status changed (opened/closed) affecting self-ordering availability
-    payload: [session_id, new_status]
-
+    payload:
+      - session_id
+      - new_status
 related:
   - feature: pos-core
     type: required
@@ -356,18 +366,11 @@ related:
   - feature: loyalty-coupons
     type: optional
     reason: Customers can apply loyalty rewards during self-ordering
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_self_order_kiosk
-      description: >
-        Customer self-ordering system supporting kiosk terminals and mobile QR-code ordering, with menu browsing, cart
-        management, payment processing, and real-time order status updates.
+      description: |
+        Customer self-ordering system supporting kiosk terminals and mobile QR-code ordering, with menu browsing, cart management, payment processing, and real-time order status updates.
       success_metrics:
         - metric: success_rate
           target: ">= 99%"
@@ -418,14 +421,13 @@ agi:
       - capability: pos_core
         from: pos-core
         fallback: degrade
-
 extensions:
   source:
-    repo: "https://github.com/odoo/odoo.git"
-    project: "Odoo"
-    tech_stack: "Python + JavaScript/OWL"
+    repo: https://github.com/odoo/odoo.git
+    project: Odoo
+    tech_stack: Python + JavaScript/OWL
     files_traced: 30
     entry_points:
-      - "addons/pos_self_order/controllers/orders.py"
-      - "addons/pos_self_order/models/pos_config.py"
-      - "addons/pos_self_order/models/pos_order.py"
+      - addons/pos_self_order/controllers/orders.py
+      - addons/pos_self_order/models/pos_config.py
+      - addons/pos_self_order/models/pos_order.py

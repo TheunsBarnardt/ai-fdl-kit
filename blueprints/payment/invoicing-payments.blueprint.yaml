@@ -8,10 +8,9 @@
 # ============================================================
 
 feature: invoicing-payments
-version: "1.0.0"
-description: >
-  Invoicing and payment lifecycle: customer invoices, vendor bills, credit
-  notes, receipts, payment registration, multi-currency, and follow-up.
+version: 1.0.0
+description: |
+  Invoicing and payment lifecycle: customer invoices, vendor bills, credit notes, receipts, payment registration, multi-currency, and follow-up.
 category: payment
 tags:
   - invoicing
@@ -20,7 +19,6 @@ tags:
   - credit-notes
   - multi-currency
   - accounting
-
 actors:
   - id: accountant
     name: Accountant
@@ -38,39 +36,54 @@ actors:
     name: Accounting System
     type: system
     description: Computes balances, reconciles payments, tracks due dates
-
 fields:
   - name: move_type
     type: select
     label: Document Type
     required: true
     options:
-      - {value: "entry", label: "Entry"}
-      - {value: "out_invoice", label: "Out Invoice"}
-      - {value: "out_refund", label: "Out Refund"}
-      - {value: "in_invoice", label: "In Invoice"}
-      - {value: "in_refund", label: "In Refund"}
-      - {value: "out_receipt", label: "Out Receipt"}
-      - {value: "in_receipt", label: "In Receipt"}
+      - value: entry
+        label: Entry
+      - value: out_invoice
+        label: Out Invoice
+      - value: out_refund
+        label: Out Refund
+      - value: in_invoice
+        label: In Invoice
+      - value: in_refund
+        label: In Refund
+      - value: out_receipt
+        label: Out Receipt
+      - value: in_receipt
+        label: In Receipt
   - name: invoice_state
     type: select
     label: State
     required: true
     options:
-      - {value: "draft", label: "Draft"}
-      - {value: "posted", label: "Posted"}
-      - {value: "cancel", label: "Cancel"}
+      - value: draft
+        label: Draft
+      - value: posted
+        label: Posted
+      - value: cancel
+        label: Cancel
   - name: payment_state
     type: select
     label: Payment State
     required: true
     options:
-      - {value: "not_paid", label: "Not Paid"}
-      - {value: "in_payment", label: "In Payment"}
-      - {value: "paid", label: "Paid"}
-      - {value: "partial", label: "Partial"}
-      - {value: "reversed", label: "Reversed"}
-      - {value: "blocked", label: "Blocked"}
+      - value: not_paid
+        label: Not Paid
+      - value: in_payment
+        label: In Payment
+      - value: paid
+        label: Paid
+      - value: partial
+        label: Partial
+      - value: reversed
+        label: Reversed
+      - value: blocked
+        label: Blocked
   - name: partner_id
     type: text
     label: Customer/Vendor
@@ -128,15 +141,18 @@ fields:
     label: Payment Method
     required: true
     options:
-      - {value: "manual", label: "Manual"}
-      - {value: "bank_transfer", label: "Bank Transfer"}
-      - {value: "check", label: "Check"}
-      - {value: "online", label: "Online"}
+      - value: manual
+        label: Manual
+      - value: bank_transfer
+        label: Bank Transfer
+      - value: check
+        label: Check
+      - value: online
+        label: Online
   - name: payment_reference
     type: text
     label: Payment Reference
     required: false
-
 states:
   field: invoice_state
   values:
@@ -159,11 +175,12 @@ states:
       actor: accountant
       description: Reset to draft for corrections (clears attachments)
       condition: Must not be in a state requiring cancellation request
-    - from: [draft, posted]
+    - from:
+        - draft
+        - posted
       to: cancel
       actor: accountant
       description: Cancel the invoice
-
 rules:
   balanced_journal_entry:
     description: Total debits must equal total credits in every journal entry
@@ -176,20 +193,18 @@ rules:
   fiscal_position_maps_taxes:
     description: Fiscal position automatically remaps tax lines based on customer jurisdiction
   multi_currency_rate_at_date:
-    description: >
-      Multi-currency invoices use the exchange rate at invoice date for
-      conversion. Payment reconciliation computes exchange differences.
+    description: |
+      Multi-currency invoices use the exchange rate at invoice date for conversion. Payment reconciliation computes exchange differences.
   lock_date_prevents_posting:
     description: Cannot post entries dated before the company accounting lock date
   sequence_numbering:
     description: Posted invoices receive a sequential number that cannot be reused
-
 outcomes:
   invoice_posted:
     priority: 1
     given:
-      - "accountant creates a draft invoice with lines"
-      - "all lines have valid accounts and amounts"
+      - accountant creates a draft invoice with lines
+      - all lines have valid accounts and amounts
     then:
       - action: transition_state
         field: invoice_state
@@ -200,14 +215,18 @@ outcomes:
         description: Sequential number assigned from journal sequence
       - action: emit_event
         event: account.invoice.posted
-        payload: [invoice_id, move_type, partner_id, amount_total]
-    result: "Invoice posted to accounting, number assigned, available on customer portal"
-
+        payload:
+          - invoice_id
+          - move_type
+          - partner_id
+          - amount_total
+    result: Invoice posted to accounting, number assigned, available on customer portal
+    error: INVOICE_ALREADY_POSTED
   payment_registered:
     priority: 2
     given:
-      - "invoice is posted with outstanding balance"
-      - "accountant registers a payment"
+      - invoice is posted with outstanding balance
+      - accountant registers a payment
     then:
       - action: create_record
         type: payment
@@ -221,26 +240,31 @@ outcomes:
         description: Updated to partial, in_payment, or paid based on remaining balance
       - action: emit_event
         event: account.payment.registered
-        payload: [payment_id, invoice_id, amount, payment_method]
-    result: "Payment recorded, invoice balance updated accordingly"
-
+        payload:
+          - payment_id
+          - invoice_id
+          - amount
+          - payment_method
+    result: Payment recorded, invoice balance updated accordingly
   invoice_fully_paid:
     priority: 3
     given:
-      - "total payments match or exceed invoice amount"
+      - total payments match or exceed invoice amount
     then:
       - action: set_field
         target: payment_state
         value: paid
       - action: emit_event
         event: account.invoice.paid
-        payload: [invoice_id, partner_id, amount_total]
-    result: "Invoice marked as fully paid, no remaining balance"
-
+        payload:
+          - invoice_id
+          - partner_id
+          - amount_total
+    result: Invoice marked as fully paid, no remaining balance
   credit_note_created:
     priority: 4
     given:
-      - "accountant reverses a posted invoice"
+      - accountant reverses a posted invoice
     then:
       - action: create_record
         type: credit_note
@@ -248,31 +272,34 @@ outcomes:
         description: Credit note (out_refund or in_refund) created referencing original
       - action: emit_event
         event: account.credit_note.created
-        payload: [credit_note_id, original_invoice_id, amount]
-    result: "Credit note created and optionally reconciled against original invoice"
-
+        payload:
+          - credit_note_id
+          - original_invoice_id
+          - amount
+    result: Credit note created and optionally reconciled against original invoice
   payment_link_sent:
     priority: 5
     given:
-      - "invoice is posted with outstanding balance"
-      - "accountant generates a payment link"
+      - invoice is posted with outstanding balance
+      - accountant generates a payment link
     then:
       - action: emit_event
         event: account.payment_link.sent
-        payload: [invoice_id, payment_link_url, partner_id]
-    result: "Customer receives link to pay online via portal"
-
+        payload:
+          - invoice_id
+          - payment_link_url
+          - partner_id
+    result: Customer receives link to pay online via portal
   posting_blocked_lock_date:
     priority: 1
     error: INVOICE_BEFORE_LOCK_DATE
     given:
-      - "invoice date is before the company accounting lock date"
+      - invoice date is before the company accounting lock date
     then:
       - action: notify
         channel: ui
         description: Show lock date and prevent posting
-    result: "Invoice cannot be posted until date is after lock date"
-
+    result: Invoice cannot be posted until date is after lock date
 errors:
   - code: INVOICE_BEFORE_LOCK_DATE
     message: Cannot post an entry dated before the accounting lock date.
@@ -289,24 +316,39 @@ errors:
   - code: PAYMENT_EXCEEDS_BALANCE
     message: Payment amount exceeds the remaining balance on this invoice.
     status: 400
-
 events:
   - name: account.invoice.posted
     description: Invoice validated and posted to the ledger
-    payload: [invoice_id, move_type, partner_id, amount_total]
+    payload:
+      - invoice_id
+      - move_type
+      - partner_id
+      - amount_total
   - name: account.invoice.paid
     description: Invoice fully paid
-    payload: [invoice_id, partner_id, amount_total]
+    payload:
+      - invoice_id
+      - partner_id
+      - amount_total
   - name: account.payment.registered
     description: Payment recorded against an invoice
-    payload: [payment_id, invoice_id, amount, payment_method]
+    payload:
+      - payment_id
+      - invoice_id
+      - amount
+      - payment_method
   - name: account.credit_note.created
     description: Credit note created to reverse an invoice
-    payload: [credit_note_id, original_invoice_id, amount]
+    payload:
+      - credit_note_id
+      - original_invoice_id
+      - amount
   - name: account.payment_link.sent
     description: Payment link generated and sent to customer
-    payload: [invoice_id, payment_link_url, partner_id]
-
+    payload:
+      - invoice_id
+      - payment_link_url
+      - partner_id
 related:
   - feature: tax-engine
     type: required
@@ -320,18 +362,11 @@ related:
   - feature: pos-core
     type: optional
     reason: POS session closing generates accounting entries
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_invoicing_payments
-      description: >
-        Invoicing and payment lifecycle: customer invoices, vendor bills, credit notes, receipts, payment registration,
-        multi-currency, and follow-up.
+      description: |
+        Invoicing and payment lifecycle: customer invoices, vendor bills, credit notes, receipts, payment registration, multi-currency, and follow-up.
       success_metrics:
         - metric: policy_violation_rate
           target: 0%
@@ -381,15 +416,14 @@ agi:
       - capability: bank_reconciliation
         from: bank-reconciliation
         fallback: fail
-
 extensions:
   source:
-    repo: "https://github.com/odoo/odoo.git"
-    project: "Odoo"
-    tech_stack: "Python + JavaScript/OWL"
+    repo: https://github.com/odoo/odoo.git
+    project: Odoo
+    tech_stack: Python + JavaScript/OWL
     files_traced: 40
     entry_points:
-      - "addons/account/models/account_move.py"
-      - "addons/account/models/account_payment.py"
-      - "addons/account_payment/models/account_payment.py"
-      - "addons/account/models/account_move_line.py"
+      - addons/account/models/account_move.py
+      - addons/account/models/account_payment.py
+      - addons/account_payment/models/account_payment.py
+      - addons/account/models/account_move_line.py

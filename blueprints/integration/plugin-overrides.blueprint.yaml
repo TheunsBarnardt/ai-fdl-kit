@@ -11,63 +11,58 @@
 # ============================================================
 
 feature: plugin-overrides
-version: "1.0.0"
+version: 1.0.0
 description: Extensible plugin architecture with 12 UI override points, wrapping composition, field type customization, and sidebar panels
 category: integration
-tags: [plugin, override, extensibility, customization, editor-plugins]
-
+tags:
+  - plugin
+  - override
+  - extensibility
+  - customization
+  - editor-plugins
 actors:
   - id: plugin_author
     name: Plugin Author
     type: human
     description: Developer who creates plugins to extend editor behavior
-
   - id: plugin_loader
     name: Plugin Loader
     type: system
     description: System that merges and composes plugin overrides at initialization
-
   - id: editor_user
     name: Editor User
     type: human
     description: Person using the editor with plugins active
-
 fields:
   - name: plugin_name
     type: text
     required: false
-    label: "Plugin Name"
-
+    label: Plugin Name
   - name: plugin_label
     type: text
     required: false
-    label: "Plugin Label"
-
+    label: Plugin Label
   - name: plugin_icon
     type: text
     required: false
-    label: "Plugin Icon"
-
+    label: Plugin Icon
   - name: overrides
     type: json
     required: false
-    label: "Override Definitions"
-
+    label: Override Definitions
   - name: field_transforms
     type: json
     required: false
-    label: "Field Transforms"
-
+    label: Field Transforms
   - name: mobile_panel_height
     type: select
     required: false
-    label: "Mobile Panel Height"
+    label: Mobile Panel Height
     options:
-      - label: "Toggle"
-        value: "toggle"
-      - label: "Min Content"
-        value: "min-content"
-
+      - label: Toggle
+        value: toggle
+      - label: Min Content
+        value: min-content
 rules:
   override_points:
     available_overrides:
@@ -84,180 +79,164 @@ rules:
       - component_overlay
       - iframe
       - action_bar
-    # 13 override points (field_types is per-type, so effectively more)
     total_count: 13
-
   override_composition:
     wrapping_pattern: true
-    # Each override wraps the previous one's output as children
-    # Plugin 1 wraps Plugin 2 wraps default → nested composition
     array_order: true
-    # Plugins applied in array order (first plugin = outermost wrapper)
     children_passthrough_required: true
-    # Overrides MUST render children to maintain the composition chain
     immutable_plugins: true
-    # Plugin objects are not mutated during merge — new objects created
-
   field_type_overrides:
     per_type: true
-    # Each field type (text, number, select, etc.) can be individually overridden
     same_wrapping_pattern: true
-    # Field type overrides use the same wrapping composition as UI overrides
-
   built_in_plugins:
     blocks_plugin: true
-    # Component palette sidebar panel
     fields_plugin: true
-    # Properties editing sidebar panel (configurable: left or right sidebar)
     outline_plugin: true
-    # Component hierarchy tree sidebar panel
     legacy_sidebar_plugin: true
-    # Deprecated combined blocks + outline panel
-
   plugin_structure:
     render_function: true
-    # Plugin can define a render function for a sidebar panel
     overrides_map: true
-    # Plugin can define overrides for any of the 13 override points
     field_transforms_map: true
-    # Plugin can define custom field type transformations
     name_and_label: true
-    # Plugin can have a name (programmatic) and label (display)
     icon: true
-    # Plugin can have an icon for the sidebar tab
-
   override_data_shapes:
-    header_receives: [actions, children]
-    header_actions_receives: [children]
-    fields_receives: [children, is_loading, item_selector]
-    field_label_receives: [children, icon, label, element_type, read_only]
-    component_overlay_receives: [children, hover, is_selected, component_id, component_type]
-    iframe_receives: [children, document]
-    action_bar_receives: [label, children, parent_action]
-    drawer_item_receives: [children, name]
-    # Each override point receives specific props
-
+    header_receives:
+      - actions
+      - children
+    header_actions_receives:
+      - children
+    fields_receives:
+      - children
+      - is_loading
+      - item_selector
+    field_label_receives:
+      - children
+      - icon
+      - label
+      - element_type
+      - read_only
+    component_overlay_receives:
+      - children
+      - hover
+      - is_selected
+      - component_id
+      - component_type
+    iframe_receives:
+      - children
+      - document
+    action_bar_receives:
+      - label
+      - children
+      - parent_action
+    drawer_item_receives:
+      - children
+      - name
   default_fallback:
     passthrough_default: true
-    # If no override is provided, a passthrough component renders children unchanged
-
 outcomes:
   load_plugins:
     priority: 1
     given:
-      - "editor initializes with a plugins array"
+      - editor initializes with a plugins array
     then:
       - action: call_service
         target: plugin_loader
-        description: "Iterate through plugins array, collect overrides from each"
+        description: Iterate through plugins array, collect overrides from each
       - action: call_service
         target: override_composer
         description: "For each override point, compose a chain: plugin1(plugin2(plugin3(default)))"
       - action: set_field
         target: loaded_overrides
-        description: "Store the composed override functions for use by all editor components"
+        description: Store the composed override functions for use by all editor components
       - action: emit_event
         event: plugin.loaded
-        payload: [plugin_count, override_count]
-    result: "All plugin overrides composed and ready for rendering"
-
+        payload:
+          - plugin_count
+          - override_count
+    result: All plugin overrides composed and ready for rendering
+    error: PLUGIN_LOAD_FAILED
   render_with_override:
     priority: 2
     given:
-      - "an editor component renders at an override point"
-      - "one or more plugins have overrides for this point"
+      - an editor component renders at an override point
+      - one or more plugins have overrides for this point
     then:
       - action: call_service
         target: loaded_overrides
-        description: "Call the composed override function with the override point's props and default children"
-    result: "Plugin-customized UI renders in place of or wrapping the default"
-
+        description: Call the composed override function with the override point's props and default children
+    result: Plugin-customized UI renders in place of or wrapping the default
+    error: OVERRIDE_RENDER_FAILED
   render_custom_field_type:
     priority: 3
     given:
-      - "a component field has a specific type (e.g., text, select)"
-      - "a plugin overrides that field type's rendering"
+      - a component field has a specific type (e.g., text, select)
+      - a plugin overrides that field type's rendering
     then:
       - action: call_service
         target: field_type_override
-        description: "Call the composed field type override with field props, value, onChange, and default children"
-    result: "Custom field editor renders for this field type"
-
+        description: Call the composed field type override with field props, value, onChange, and default children
+    result: Custom field editor renders for this field type
   render_plugin_panel:
     priority: 4
     given:
-      - "a plugin defines a render function and a label"
+      - a plugin defines a render function and a label
     then:
       - action: call_service
         target: plugin_panel_renderer
-        description: "Render plugin's panel in the sidebar with its icon and label as a tab"
-    result: "Plugin panel appears as a sidebar tab that users can switch to"
-
+        description: Render plugin's panel in the sidebar with its icon and label as a tab
+    result: Plugin panel appears as a sidebar tab that users can switch to
   apply_field_transforms:
     priority: 5
     given:
-      - "a plugin defines field transform functions"
+      - a plugin defines field transform functions
     then:
       - action: call_service
         target: transform_merger
-        description: "Merge plugin's field transforms with existing transforms (plugin transforms override defaults)"
-    result: "Custom data transformation applied during field resolution"
-
+        description: Merge plugin's field transforms with existing transforms (plugin transforms override defaults)
+    result: Custom data transformation applied during field resolution
   override_passthrough:
     priority: 6
     given:
-      - "no plugin provides an override for a specific point"
+      - no plugin provides an override for a specific point
     then:
       - action: call_service
         target: default_override
-        description: "Render default passthrough component that simply renders children"
-    result: "Default editor UI renders unchanged"
-
+        description: Render default passthrough component that simply renders children
+    result: Default editor UI renders unchanged
 errors:
   - code: PLUGIN_LOAD_FAILED
     status: 500
-    message: "Failed to load plugin"
-
+    message: Failed to load plugin
   - code: OVERRIDE_RENDER_FAILED
     status: 500
-    message: "Plugin override failed to render"
-
+    message: Plugin override failed to render
   - code: CHILDREN_NOT_PASSED
     status: 500
-    message: "Plugin override must pass children to maintain the composition chain"
-
+    message: Plugin override must pass children to maintain the composition chain
 events:
   - name: plugin.loaded
-    description: "Plugins were loaded and overrides composed"
-    payload: [plugin_count, override_count]
-
+    description: Plugins were loaded and overrides composed
+    payload:
+      - plugin_count
+      - override_count
   - name: plugin.panel.activated
-    description: "User switched to a plugin's sidebar panel"
-    payload: [plugin_name]
-
+    description: User switched to a plugin's sidebar panel
+    payload:
+      - plugin_name
 related:
   - feature: component-registry
     type: required
-    reason: "Plugins can customize component rendering and field editing"
-
+    reason: Plugins can customize component rendering and field editing
   - feature: field-transforms
     type: recommended
-    reason: "Plugins can provide custom field transform functions"
-
+    reason: Plugins can provide custom field transform functions
   - feature: editor-state
     type: required
-    reason: "Plugin state and loaded overrides stored in the central store"
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
+    reason: Plugin state and loaded overrides stored in the central store
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_plugin_overrides
-      description: Extensible plugin architecture with 12 UI override points, wrapping composition, field type customization,
-        and sidebar panels
+      description: Extensible plugin architecture with 12 UI override points, wrapping composition, field type customization, and sidebar panels
       success_metrics:
         - metric: success_rate
           target: ">= 99.5%"
@@ -302,16 +281,15 @@ agi:
       - capability: editor_state
         from: editor-state
         fallback: degrade
-
 extensions:
   source:
-    repo: "https://github.com/puckeditor/puck"
-    project: "Page editor"
-    tech_stack: "TypeScript + React"
+    repo: https://github.com/puckeditor/puck
+    project: Page editor
+    tech_stack: TypeScript + React
     files_traced: 25
     entry_points:
-      - "types/API/Overrides.ts"
-      - "lib/load-overrides.ts"
-      - "lib/use-loaded-overrides.ts"
-      - "plugins/"
-      - "types/API/index.ts"
+      - types/API/Overrides.ts
+      - lib/load-overrides.ts
+      - lib/use-loaded-overrides.ts
+      - plugins/
+      - types/API/index.ts

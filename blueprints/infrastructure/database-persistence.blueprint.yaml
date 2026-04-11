@@ -8,11 +8,16 @@
 # ============================================================
 
 feature: database-persistence
-version: "1.0.0"
+version: 1.0.0
 description: Data durability via RDB snapshots and/or AOF journaling; recover to point-in-time or exact command sequence after crash
 category: infrastructure
-tags: [persistence, durability, rdb-snapshots, aof-journal, crash-recovery, backup]
-
+tags:
+  - persistence
+  - durability
+  - rdb-snapshots
+  - aof-journal
+  - crash-recovery
+  - backup
 actors:
   - id: database
     name: Database
@@ -26,46 +31,56 @@ actors:
     name: Storage
     type: system
     description: Disk or filesystem for persisted data
-
 fields:
   - name: persistence_mode
     type: select
-    options: [rdb_only, aof_only, rdb_and_aof]
+    options:
+      - rdb_only
+      - aof_only
+      - rdb_and_aof
     description: Which persistence strategies enabled
     required: false
+    label: Persistence Mode
   - name: rdb_file
     type: text
     description: RDB snapshot file path and size
     required: false
+    label: Rdb File
   - name: aof_file
     type: text
     description: AOF journal file path and size
     required: false
+    label: Aof File
   - name: last_save_time
     type: number
     description: Unix timestamp of last successful save
     required: false
+    label: Last Save Time
   - name: fsync_policy
     type: select
-    options: [always, everysec, no]
+    options:
+      - always
+      - everysec
+      - no
     description: AOF fsync frequency
     required: false
+    label: Fsync Policy
   - name: recovery_point
     type: text
-    description: "Point to recover to (RDB time, AOF offset, or exact command)"
+    description: Point to recover to (RDB time, AOF offset, or exact command)
     required: false
-
+    label: Recovery Point
 rules:
-  - RDB snapshots are point-in-time; commands after snapshot are lost on crash
-  - AOF journaling logs every write command; replaying recovers to exact state before crash
-  - RDB snapshots smaller but slower to load; AOF larger but can replay incrementally
-  - Fsync policy determines durability vs. performance tradeoff (always=safe, no=fast)
-  - RDB snapshot created via fork; uses copy-on-write to minimize memory overhead
-  - AOF rewrite compacts journal into snapshot + recent commands (background process)
-  - RDB + AOF together: fastest load (RDB) + maximum durability (AOF)
-  - Persistence operations are transparent; do not block client commands (background)
-  - Files are atomic; writes to temp files then renamed
-
+  general:
+    - RDB snapshots are point-in-time; commands after snapshot are lost on crash
+    - AOF journaling logs every write command; replaying recovers to exact state before crash
+    - RDB snapshots smaller but slower to load; AOF larger but can replay incrementally
+    - Fsync policy determines durability vs. performance tradeoff (always=safe, no=fast)
+    - RDB snapshot created via fork; uses copy-on-write to minimize memory overhead
+    - AOF rewrite compacts journal into snapshot + recent commands (background process)
+    - RDB + AOF together: fastest load (RDB) + maximum durability (AOF)
+    - Persistence operations are transparent; do not block client commands (background)
+    - Files are atomic; writes to temp files then renamed
 states:
   - field: rdb_save_state
     values:
@@ -87,29 +102,26 @@ states:
       - value: rewritten
         description: AOF rewrite completed
       - value: rewrite_failed
-
 outcomes:
-  # ========== RDB SNAPSHOTS ==========
-
   rdb_save_sync:
     priority: 10
     description: Block and save snapshot synchronously
     given:
-      - "SAVE command"
+      - SAVE command
     then:
       - action: transition_state
         field: rdb_save_state
         to: saving
       - action: emit_event
         event: rdb.save_started
-        payload: [blocking_mode]
-    result: "server blocks; snapshot written to disk; client receives OK"
-
+        payload:
+          - blocking_mode
+    result: server blocks; snapshot written to disk; client receives OK
   rdb_bgsave:
     priority: 11
     description: Save snapshot in background
     given:
-      - "BGSAVE command"
+      - BGSAVE command
       - field: no_other_save_in_progress
         source: system
         operator: eq
@@ -120,9 +132,9 @@ outcomes:
         to: saving
       - action: emit_event
         event: rdb.bgsave_started
-        payload: [child_pid]
-    result: "background process started; client receives OK immediately"
-
+        payload:
+          - child_pid
+    result: background process started; client receives OK immediately
   rdb_save_complete:
     priority: 12
     given:
@@ -138,9 +150,10 @@ outcomes:
         to: saved
       - action: emit_event
         event: rdb.save_complete
-        payload: [file_size, duration_ms]
-    result: "snapshot available for recovery"
-
+        payload:
+          - file_size
+          - duration_ms
+    result: snapshot available for recovery
   rdb_save_failed:
     priority: 13
     error: BGSAVE_FAILED
@@ -151,34 +164,33 @@ outcomes:
         value: true
       - field: failure_reason
         source: system
-        description: "disk full, write error, fork failure, etc."
+        description: disk full, write error, fork failure, etc.
     then:
       - action: transition_state
         field: rdb_save_state
         to: save_failed
       - action: emit_event
         event: rdb.save_failed
-        payload: [reason, error_code]
-    result: "save aborted; existing snapshot unchanged; server continues"
-
+        payload:
+          - reason
+          - error_code
+    result: save aborted; existing snapshot unchanged; server continues
   rdb_lastsave:
     priority: 14
     description: Query last save time
     given:
-      - "LASTSAVE command"
+      - LASTSAVE command
     then:
       - action: emit_event
         event: rdb.lastsave_queried
-        payload: [timestamp]
-    result: "Unix timestamp of last successful save (or 0 if never saved)"
-
-  # ========== AOF JOURNALING ==========
-
+        payload:
+          - timestamp
+    result: Unix timestamp of last successful save (or 0 if never saved)
   aof_write_command:
     priority: 20
     description: Append command to journal
     given:
-      - "any write command (SET, DEL, LPUSH, etc.)"
+      - any write command (SET, DEL, LPUSH, etc.)
       - field: aof_enabled
         source: system
         operator: eq
@@ -186,9 +198,10 @@ outcomes:
     then:
       - action: emit_event
         event: aof.command_logged
-        payload: [command, serialized_length]
-    result: "command written to AOF buffer (fsync per policy)"
-
+        payload:
+          - command
+          - serialized_length
+    result: command written to AOF buffer (fsync per policy)
   aof_fsync_always:
     priority: 21
     description: Sync after every write
@@ -200,9 +213,9 @@ outcomes:
     then:
       - action: emit_event
         event: aof.fsync
-        payload: [duration_ms]
-    result: "AOF durability guaranteed; write latency increased"
-
+        payload:
+          - duration_ms
+    result: AOF durability guaranteed; write latency increased
   aof_fsync_everysec:
     priority: 22
     description: Sync every 1 second
@@ -214,9 +227,10 @@ outcomes:
     then:
       - action: emit_event
         event: aof.periodic_fsync
-        payload: [period_seconds, buffered_commands]
-    result: "good balance of durability and performance"
-
+        payload:
+          - period_seconds
+          - buffered_commands
+    result: good balance of durability and performance
   aof_fsync_no:
     priority: 23
     description: OS decides when to sync
@@ -228,14 +242,14 @@ outcomes:
     then:
       - action: emit_event
         event: aof.os_fsync
-        payload: [buffered_commands]
-    result: "fastest but least durable; data loss possible on crash"
-
+        payload:
+          - buffered_commands
+    result: fastest but least durable; data loss possible on crash
   aof_rewrite:
     priority: 24
     description: Compact AOF by rewriting
     given:
-      - "BGREWRITEAOF command"
+      - BGREWRITEAOF command
       - field: no_rewrite_in_progress
         source: system
         operator: eq
@@ -246,9 +260,10 @@ outcomes:
         to: rewriting
       - action: emit_event
         event: aof.rewrite_started
-        payload: [child_pid, aof_size_before]
-    result: "background rewrite process started"
-
+        payload:
+          - child_pid
+          - aof_size_before
+    result: background rewrite process started
   aof_rewrite_complete:
     priority: 25
     given:
@@ -262,9 +277,12 @@ outcomes:
         to: rewritten
       - action: emit_event
         event: aof.rewrite_complete
-        payload: [old_size, new_size, reduction_percent, duration_ms]
-    result: "AOF compacted; future appends continue on new AOF"
-
+        payload:
+          - old_size
+          - new_size
+          - reduction_percent
+          - duration_ms
+    result: AOF compacted; future appends continue on new AOF
   aof_rewrite_failed:
     priority: 26
     error: BGREWRITEAOF_FAILED
@@ -277,11 +295,9 @@ outcomes:
         to: rewrite_failed
       - action: emit_event
         event: aof.rewrite_failed
-        payload: [reason]
-    result: "rewrite aborted; old AOF continues"
-
-  # ========== CRASH RECOVERY ==========
-
+        payload:
+          - reason
+    result: rewrite aborted; old AOF continues
   recovery_rdb_only:
     priority: 30
     description: Recover from RDB snapshot
@@ -290,13 +306,14 @@ outcomes:
         source: system
         operator: eq
         value: rdb_only
-      - "server startup"
+      - server startup
     then:
       - action: emit_event
         event: persistence.recovery_rdb
-        payload: [snapshot_age_seconds, recovery_time_ms]
-    result: "database loaded from RDB; commands after snapshot lost"
-
+        payload:
+          - snapshot_age_seconds
+          - recovery_time_ms
+    result: database loaded from RDB; commands after snapshot lost
   recovery_aof_only:
     priority: 31
     description: Recover from AOF by replaying
@@ -308,9 +325,11 @@ outcomes:
     then:
       - action: emit_event
         event: persistence.recovery_aof
-        payload: [commands_replayed, recovery_time_ms, aof_size]
-    result: "database recovered to exact state before crash"
-
+        payload:
+          - commands_replayed
+          - recovery_time_ms
+          - aof_size
+    result: database recovered to exact state before crash
   recovery_rdb_and_aof:
     priority: 32
     description: Recover RDB then replay AOF
@@ -322,9 +341,11 @@ outcomes:
     then:
       - action: emit_event
         event: persistence.recovery_hybrid
-        payload: [rdb_load_time, aof_replay_time, total_recovery_time]
-    result: "fast load (RDB) with exact state (AOF replay)"
-
+        payload:
+          - rdb_load_time
+          - aof_replay_time
+          - total_recovery_time
+    result: fast load (RDB) with exact state (AOF replay)
   recovery_aof_truncated:
     priority: 33
     description: AOF has incomplete last command
@@ -336,9 +357,9 @@ outcomes:
     then:
       - action: emit_event
         event: persistence.aof_truncated
-        payload: [truncated_bytes]
-    result: "incomplete command skipped; recovery continues with earlier commands"
-
+        payload:
+          - truncated_bytes
+    result: incomplete command skipped; recovery continues with earlier commands
   recovery_aof_corruption:
     priority: 34
     error: CORRUPTED_AOF
@@ -350,11 +371,10 @@ outcomes:
     then:
       - action: emit_event
         event: persistence.aof_corrupt
-        payload: [corrupted_offset, error_message]
-    result: "admin must use redis-check-aof tool to fix; recovery manual"
-
-  # ========== BACKUP & STRATEGIES ==========
-
+        payload:
+          - corrupted_offset
+          - error_message
+    result: admin must use redis-check-aof tool to fix; recovery manual
   backup_via_rdb:
     priority: 40
     description: Use RDB for backup
@@ -362,13 +382,15 @@ outcomes:
       - field: strategy
         source: system
         operator: eq
-        value: "snapshot-based"
+        value: snapshot-based
     then:
       - action: emit_event
         event: persistence.backup_rdb
-        payload: [backup_time, file_size, disk_space_saved]
-    result: "small backup files; fast restore; acceptable data loss window"
-
+        payload:
+          - backup_time
+          - file_size
+          - disk_space_saved
+    result: small backup files; fast restore; acceptable data loss window
   backup_via_replication:
     priority: 41
     description: Replica holds backup snapshots
@@ -376,13 +398,14 @@ outcomes:
       - field: strategy
         source: system
         operator: eq
-        value: "replica-based"
+        value: replica-based
     then:
       - action: emit_event
         event: persistence.backup_replica
-        payload: [replica_count, replication_lag_seconds]
-    result: "replicas take RDB snapshots while staying up-to-date"
-
+        payload:
+          - replica_count
+          - replication_lag_seconds
+    result: replicas take RDB snapshots while staying up-to-date
   backup_hybrid:
     priority: 42
     description: RDB + AOF for maximum safety
@@ -394,20 +417,21 @@ outcomes:
     then:
       - action: emit_event
         event: persistence.backup_hybrid
-        payload: [rdb_size, aof_size, total_disk_usage]
-    result: "maximum durability; largest disk footprint"
-
+        payload:
+          - rdb_size
+          - aof_size
+          - total_disk_usage
+    result: maximum durability; largest disk footprint
 errors:
   - code: BGSAVE_FAILED
-    message: "Background save failed"
+    message: Background save failed
     user_safe: true
   - code: BGREWRITEAOF_FAILED
-    message: "Background AOF rewrite failed"
+    message: Background AOF rewrite failed
     user_safe: true
   - code: CORRUPTED_AOF
-    message: "The AOF file is corrupted"
+    message: The AOF file is corrupted
     user_safe: true
-
 events:
   - rdb.save_started
   - rdb.bgsave_started
@@ -429,7 +453,6 @@ events:
   - persistence.backup_rdb
   - persistence.backup_replica
   - persistence.backup_hybrid
-
 related:
   - feature: master-replica-replication
     type: optional
@@ -437,17 +460,10 @@ related:
   - feature: key-expiration
     type: optional
     reason: Expired keys may or may not be persisted
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_database_persistence
-      description: Data durability via RDB snapshots and/or AOF journaling; recover to point-in-time or exact command sequence
-        after crash
+      description: Data durability via RDB snapshots and/or AOF journaling; recover to point-in-time or exact command sequence after crash
       success_metrics:
         - metric: success_rate
           target: ">= 99%"
@@ -513,13 +529,12 @@ agi:
     invariants:
       - error messages never expose internal system details
       - state transitions follow the defined state machine — no illegal transitions
-
 extensions:
   source:
-    repo: "https://github.com/redis/redis"
-    project: "Redis"
-    tech_stack: "C"
+    repo: https://github.com/redis/redis
+    project: Redis
+    tech_stack: C
     files_traced: 2
     entry_points:
-      - "src/rdb.c"
-      - "src/aof.c"
+      - src/rdb.c
+      - src/aof.c

@@ -9,82 +9,98 @@
 # ============================================================
 
 feature: broker-dematerialisation-upload
-version: "1.0.0"
-description: "Broker dematerialisation (DEMAT) position upload to central back-office via fixed-width card code file with automated submission, error reporting, and response codes"
+version: 1.0.0
+description: Broker dematerialisation (DEMAT) position upload to central back-office via fixed-width card code file with automated submission, error reporting, and response codes
 category: trading
-tags: [back-office, broker, upload, demat, dematerialisation, positions, card-codes, fixed-width]
-
+tags:
+  - back-office
+  - broker
+  - upload
+  - demat
+  - dematerialisation
+  - positions
+  - card-codes
+  - fixed-width
 actors:
   - id: participating_broker
-    name: "Participating Broker"
+    name: Participating Broker
     type: external
   - id: back_office_system
-    name: "Back Office System"
+    name: Back Office System
     type: system
   - id: csdp
-    name: "Central Security Depository Participant"
+    name: Central Security Depository Participant
     type: external
-    description: "CSDP holding dematerialised positions"
-
+    description: CSDP holding dematerialised positions
 fields:
-  # ── Header (Card Code 000) ──
   - name: card_code
     type: text
     required: true
+    label: Card Code
   - name: broker_code
     type: text
     required: true
+    label: Broker Code
   - name: upload_date
     type: date
     required: true
-
-  # ── DEMAT Share Upload (Card Code 030) ──
+    label: Upload Date
   - name: account_number
     type: text
     required: true
+    label: Account Number
   - name: instrument_code
     type: text
     required: true
+    label: Instrument Code
   - name: isin
     type: text
     required: false
+    label: Isin
   - name: demat_quantity
     type: number
     required: true
+    label: Demat Quantity
   - name: csdp_account_number
     type: text
     required: false
+    label: Csdp Account Number
   - name: csdp_code
     type: text
     required: false
+    label: Csdp Code
   - name: effective_date
     type: date
     required: false
+    label: Effective Date
   - name: reference_number
     type: text
     required: false
+    label: Reference Number
   - name: cost_value
     type: number
     required: false
+    label: Cost Value
   - name: market_value
     type: number
     required: false
+    label: Market Value
   - name: position_type
     type: select
     required: false
-    # Beneficial, Nominee, Own
+    label: Position Type
   - name: pledge_indicator
     type: select
     required: false
+    label: Pledge Indicator
   - name: restriction_indicator
     type: select
     required: false
-
-  # ── Trailer (Card Code 999) ──
+    label: Restriction Indicator
   - name: record_count
     type: number
     required: false
-
+    label: Record Count
 rules:
   subscription:
     - "MUST: Require broker subscription to DEMAT upload service before use"
@@ -103,28 +119,26 @@ rules:
     - "MUST: Start file with Header Record (Card Code 000)"
     - "MUST: End file with Trailer Record (Card Code 999)"
     - "MUST: Use Card Code 030 for demat share position records"
-
 errors:
   - code: DEMAT_UPLOAD_NOT_SUBSCRIBED
     status: 403
-    message: "Broker not subscribed to DEMAT upload service"
+    message: Broker not subscribed to DEMAT upload service
   - code: DEMAT_UPLOAD_INVALID_CSDP
     status: 422
-    message: "CSDP account or code is invalid"
+    message: CSDP account or code is invalid
   - code: DEMAT_UPLOAD_INSTRUMENT_NOT_FOUND
     status: 422
-    message: "Referenced instrument does not exist"
+    message: Referenced instrument does not exist
   - code: DEMAT_UPLOAD_ACCOUNT_NOT_FOUND
     status: 422
-    message: "Referenced client account does not exist"
+    message: Referenced client account does not exist
   - code: DEMAT_UPLOAD_PROCESSING_FAILED
     status: 500
-    message: "DEMAT upload processing failed"
-
+    message: DEMAT upload processing failed
 outcomes:
   automated_demat_upload:
     priority: 1
-    description: "Broker uploads DEMAT positions via automated FTP"
+    description: Broker uploads DEMAT positions via automated FTP
     given:
       - field: broker_subscribed
         source: db
@@ -137,10 +151,14 @@ outcomes:
     then:
       - action: create_record
         type: demat_upload
-        fields: [broker_code, file_name, record_count, submission_timestamp]
+        fields:
+          - broker_code
+          - file_name
+          - record_count
+          - submission_timestamp
       - action: emit_event
         event: demat_upload.received
-
+    error: DEMAT_UPLOAD_INVALID_CSDP
   not_subscribed:
     priority: 2
     error: DEMAT_UPLOAD_NOT_SUBSCRIBED
@@ -152,10 +170,9 @@ outcomes:
     then:
       - action: emit_event
         event: demat_upload.not_subscribed
-
   validate_csdp_reference:
     priority: 3
-    description: "Validate CSDP account and code on Card Code 030"
+    description: Validate CSDP account and code on Card Code 030
     given:
       - field: card_code
         source: input
@@ -166,12 +183,11 @@ outcomes:
         target: csdp_validator
       - action: emit_event
         event: demat_upload.csdp.validated
-
   generate_response_dataset:
     priority: 4
-    description: "Generate response dataset with per-record response codes"
+    description: Generate response dataset with per-record response codes
     given:
-      - "upload processing complete"
+      - upload processing complete
     then:
       - action: create_record
         type: demat_response_dataset
@@ -179,31 +195,23 @@ outcomes:
         channel: email
       - action: emit_event
         event: demat_upload.response.delivered
-
   archive_upload:
     priority: 5
-    description: "Archive processed DEMAT upload"
+    description: Archive processed DEMAT upload
     given:
       - field: processing_status
         source: system
         operator: eq
-        value: "completed"
+        value: completed
     then:
       - action: call_service
         target: archive_storage
       - action: emit_event
         event: demat_upload.archived
-
-
-# ─── AGI READINESS ─────────────────────────────────────────
-
 agi:
-  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
-
   goals:
     - id: reliable_broker_dematerialisation_upload
-      description: Broker dematerialisation (DEMAT) position upload to central back-office via fixed-width card code file with
-        automated submission, error reporting, and response codes
+      description: Broker dematerialisation (DEMAT) position upload to central back-office via fixed-width card code file with automated submission, error reporting, and response codes
       success_metrics:
         - metric: policy_violation_rate
           target: 0%
@@ -241,27 +249,25 @@ agi:
   verification:
     invariants:
       - error messages never expose internal system details
-
 extensions:
   card_codes:
-    "000":
-      name: "Header Record"
-    "030":
-      name: "Demat Share Upload"
-      purpose: "Dematerialised share position records"
     "999":
-      name: "Trailer Record"
+      name: Trailer Record
+    "000":
+      name: Header Record
+    "030":
+      name: Demat Share Upload
+      purpose: Dematerialised share position records
   workflow:
-    - "1. Broker subscription to DEMAT upload service"
-    - "2. Email address set-up"
-    - "3. Upload file creation per Card Code 030"
-    - "4. FTP submission"
-    - "5. Processing with validation rules"
-    - "6. Response dataset with response codes"
-    - "7. Archiving"
+    - 1. Broker subscription to DEMAT upload service
+    - 2. Email address set-up
+    - 3. Upload file creation per Card Code 030
+    - 4. FTP submission
+    - 5. Processing with validation rules
+    - 6. Response dataset with response codes
+    - 7. Archiving
   submission_methods:
-    - "Automated FTP upload"
-
+    - Automated FTP upload
 related:
   - feature: broker-back-office-dissemination
     type: recommended
