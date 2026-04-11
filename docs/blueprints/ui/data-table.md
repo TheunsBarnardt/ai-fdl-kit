@@ -59,7 +59,7 @@ description: "Sortable, filterable, paginated data table with column management,
 
 ## Outcomes
 
-### Table_rendered (Priority: 1)
+### Table_rendered (Priority: 1) — Error: `TABLE_COLUMN_NOT_SORTABLE`
 
 **Given:**
 - column definitions are provided

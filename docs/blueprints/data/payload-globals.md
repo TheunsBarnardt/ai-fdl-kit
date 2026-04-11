@@ -31,8 +31,8 @@ description: "Singleton document management for site-wide settings, navigation, 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
 | `slug` | text | Yes | Global Slug | Validations: required, pattern |
-| `created_at` | datetime | Yes |  |  |
-| `updated_at` | datetime | Yes |  |  |
+| `created_at` | datetime | Yes | Created At |  |
+| `updated_at` | datetime | Yes | Updated At |  |
 
 ## Rules
 

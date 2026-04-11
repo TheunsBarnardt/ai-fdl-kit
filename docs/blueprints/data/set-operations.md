@@ -29,10 +29,10 @@ description: "Unordered collection of unique elements with set algebra operation
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `key` | text | Yes |  |  |
-| `members` | json | No |  |  |
-| `cardinality` | number | No |  |  |
-| `destination_key` | text | No |  |  |
+| `key` | text | Yes | Key |  |
+| `members` | json | No | Members |  |
+| `cardinality` | number | No | Cardinality |  |
+| `destination_key` | text | No | Destination Key |  |
 
 ## States
 
@@ -45,14 +45,7 @@ description: "Unordered collection of unique elements with set algebra operation
 
 ## Rules
 
-- Set elements are unique; adding duplicate element replaces (no effect on cardinality)
-- Set membership is unordered (no indices or ranges)
-- Set algebra operations (intersection, union, difference) can accept multiple source sets
-- Intersection of multiple sets returns elements present in ALL sets
-- Union of multiple sets returns elements present in ANY set
-- Difference of first set minus others returns elements in first but not in any other
-- Store variants (*STORE) create destination set atomically; overwrite if exists
-- All operations are atomic with respect to individual keys
+- **general:** Set elements are unique; adding duplicate element replaces (no effect on cardinality), Set membership is unordered (no indices or ranges), Set algebra operations (intersection, union, difference) can accept multiple source sets, Intersection of multiple sets returns elements present in ALL sets, Union of multiple sets returns elements present in ANY set, Difference of first set minus others returns elements in first but not in any other, Store variants (*STORE) create destination set atomically; overwrite if exists, All operations are atomic with respect to individual keys
 
 ## Outcomes
 

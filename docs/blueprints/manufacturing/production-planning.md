@@ -96,7 +96,7 @@ description: "Production planning tool that consolidates demand from sales order
 
 ## Outcomes
 
-### Fetch_sales_orders (Priority: 1)
+### Fetch_sales_orders (Priority: 1) — Error: `PP_INVALID_SALES_ORDER`
 
 **Given:**
 - `get_items_from` (input) eq `sales_order`

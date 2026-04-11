@@ -79,8 +79,6 @@ Automated quality score measuring outcome coverage, rule structure, error bindin
 | AGI readiness | `████░` | 4/5 |
 | Simplicity | `█████` | 5/5 |
 
-📈 **+1** since baseline (86 → 87)
-
 **Recent auto-improvements** *(via autoresearch-style keep-or-reset loop — applied only because they raised the fitness score)*
 
 - `T3` **auto-field-labels** — added labels to 1 fields

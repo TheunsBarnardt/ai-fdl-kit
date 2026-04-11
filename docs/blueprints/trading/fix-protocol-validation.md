@@ -31,15 +31,15 @@ description: "Validates FIX messages against version-specific DataDictionary spe
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `validate_length_and_checksum` | boolean | No |  |  |
-| `validate_fields_out_of_order` | boolean | No |  |  |
-| `validate_fields_have_values` | boolean | No |  |  |
-| `validate_user_defined_fields` | boolean | No |  |  |
-| `allow_unknown_msg_fields` | boolean | No |  |  |
-| `data_dictionary_path` | text | No |  |  |
-| `transport_data_dictionary_path` | text | No |  |  |
-| `app_data_dictionary_path` | text | No |  |  |
-| `begin_string` | text | Yes |  |  |
+| `validate_length_and_checksum` | boolean | No | Validate Length And Checksum |  |
+| `validate_fields_out_of_order` | boolean | No | Validate Fields Out Of Order |  |
+| `validate_fields_have_values` | boolean | No | Validate Fields Have Values |  |
+| `validate_user_defined_fields` | boolean | No | Validate User Defined Fields |  |
+| `allow_unknown_msg_fields` | boolean | No | Allow Unknown Msg Fields |  |
+| `data_dictionary_path` | text | No | Data Dictionary Path |  |
+| `transport_data_dictionary_path` | text | No | Transport Data Dictionary Path |  |
+| `app_data_dictionary_path` | text | No | App Data Dictionary Path |  |
+| `begin_string` | text | Yes | Begin String |  |
 
 ## Rules
 

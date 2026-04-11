@@ -107,7 +107,7 @@ description: "Project and task management with hierarchical tasks, dependency tr
 
 ## Outcomes
 
-### Create_project
+### Create_project (Priority: 10)
 
 **Given:**
 - project_name and company are provided
@@ -118,7 +118,7 @@ description: "Project and task management with hierarchical tasks, dependency tr
 
 **Result:** New project created and ready for task assignment
 
-### Create_from_template — Error: `PROJECT_TEMPLATE_NOT_FOUND`
+### Create_from_template (Priority: 11) — Error: `PROJECT_TEMPLATE_NOT_FOUND`
 
 **Given:**
 - project_name and company are provided
@@ -131,7 +131,7 @@ description: "Project and task management with hierarchical tasks, dependency tr
 
 **Result:** Project created with pre-defined tasks from template
 
-### Create_task
+### Create_task (Priority: 12)
 
 **Given:**
 - subject is provided
@@ -143,7 +143,7 @@ description: "Project and task management with hierarchical tasks, dependency tr
 
 **Result:** Task created and linked to project
 
-### Assign_task
+### Assign_task (Priority: 13)
 
 **Given:**
 - task exists and is not Completed or Cancelled
@@ -154,7 +154,7 @@ description: "Project and task management with hierarchical tasks, dependency tr
 
 **Result:** Task assigned to team member
 
-### Log_time — Error: `TIMESHEET_OVERLAP`
+### Log_time (Priority: 14) — Error: `TIMESHEET_OVERLAP`
 
 **Given:**
 - employee and time_logs with from_time and to_time are provided
@@ -166,7 +166,7 @@ description: "Project and task management with hierarchical tasks, dependency tr
 
 **Result:** Time logged against project and task
 
-### Complete_task — Error: `TASK_DEPENDENCY_INCOMPLETE`
+### Complete_task (Priority: 15) — Error: `TASK_DEPENDENCY_INCOMPLETE`
 
 **Given:**
 - task exists and is in Open, Working, or Pending Review status
@@ -179,7 +179,7 @@ description: "Project and task management with hierarchical tasks, dependency tr
 
 **Result:** Task marked as Completed and project progress updated
 
-### Complete_project
+### Complete_project (Priority: 16)
 
 **Given:**
 - project exists and is in Open status

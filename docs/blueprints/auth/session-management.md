@@ -110,7 +110,7 @@ description: "Active session listing, device tracking, and session revocation. 1
 
 **Result:** session created with device tracking metadata
 
-### Revoke_single_session (Priority: 7) | Transaction: atomic
+### Revoke_single_session (Priority: 7) — Error: `SESSION_ALREADY_REVOKED` | Transaction: atomic
 
 **Given:**
 - `target_session` (db) exists
@@ -124,7 +124,7 @@ description: "Active session listing, device tracking, and session revocation. 1
 
 **Result:** session revoked — device is signed out
 
-### Revoke_all_other_sessions (Priority: 8) | Transaction: atomic
+### Revoke_all_other_sessions (Priority: 8) — Error: `SESSION_CANNOT_REVOKE_CURRENT` | Transaction: atomic
 
 **Given:**
 - `user_id` (session) exists
@@ -137,7 +137,7 @@ description: "Active session listing, device tracking, and session revocation. 1
 
 **Result:** all other sessions revoked — user remains signed in on current device only
 
-### Session_expired (Priority: 9)
+### Session_expired (Priority: 9) — Error: `SESSION_EXPIRED`
 
 **Given:**
 - ANY: `last_active_at` (db) lt `now - 30m` OR `created_at` (db) lt `now - 24h`

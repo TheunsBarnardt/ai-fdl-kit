@@ -86,7 +86,7 @@ description: "Maintenance scheduling and visit management with auto-generated vi
 
 ## Outcomes
 
-### Generate_schedule — Error: `SCHEDULE_NO_VISITS_GENERATED`
+### Generate_schedule (Priority: 10) — Error: `SCHEDULE_NO_VISITS_GENERATED`
 
 **Given:**
 - customer, company, and items with date ranges and periodicity are provided
@@ -98,7 +98,7 @@ description: "Maintenance scheduling and visit management with auto-generated vi
 
 **Result:** Maintenance schedule generated with visit dates
 
-### Submit_schedule — Error: `SCHEDULE_DATE_RANGE_TOO_SHORT`
+### Submit_schedule (Priority: 11) — Error: `SCHEDULE_DATE_RANGE_TOO_SHORT`
 
 **Given:**
 - schedule exists in Draft status
@@ -110,7 +110,7 @@ description: "Maintenance scheduling and visit management with auto-generated vi
 
 **Result:** Schedule submitted and locked for execution
 
-### Create_calendar_events
+### Create_calendar_events (Priority: 12)
 
 **Given:**
 - schedule is in Submitted status
@@ -121,7 +121,7 @@ description: "Maintenance scheduling and visit management with auto-generated vi
 
 **Result:** Calendar events created and assigned to service personnel
 
-### Record_visit — Error: `VISIT_DATE_OUT_OF_RANGE`
+### Record_visit (Priority: 13) — Error: `VISIT_DATE_OUT_OF_RANGE`
 
 **Given:**
 - visit_date and visit_customer are provided
@@ -132,7 +132,7 @@ description: "Maintenance scheduling and visit management with auto-generated vi
 
 **Result:** Maintenance visit recorded with work details
 
-### Complete_visit
+### Complete_visit (Priority: 14)
 
 **Given:**
 - maintenance visit exists
@@ -145,7 +145,7 @@ description: "Maintenance scheduling and visit management with auto-generated vi
 
 **Result:** Visit marked complete and schedule updated
 
-### Update_warranty_status
+### Update_warranty_status (Priority: 15)
 
 **Given:**
 - visit is completed

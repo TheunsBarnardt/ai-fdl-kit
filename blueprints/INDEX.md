@@ -2,10 +2,10 @@
 
 # Blueprint Index
 
-Fast lookup for all **207** blueprints across **19** categories.
+Fast lookup for all **215** blueprints across **20** categories.
 Each entry links to the human-friendly summary (`.md`) and the underlying spec (`.blueprint.yaml`).
 
-**Jump to a category:** [Access](#access) (10) · [Ai](#ai) (6) · [Asset](#asset) (2) · [Auth](#auth) (18) · [Crm](#crm) (4) · [Data](#data) (36) · [Infrastructure](#infrastructure) (8) · [Integration](#integration) (25) · [Inventory](#inventory) (5) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (7) · [Observability](#observability) (3) · [Payment](#payment) (13) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Trading](#trading) (20) · [Ui](#ui) (21) · [Workflow](#workflow) (20)
+**Jump to a category:** [Access](#access) (10) · [Ai](#ai) (6) · [Asset](#asset) (2) · [Auth](#auth) (18) · [Crm](#crm) (4) · [Data](#data) (36) · [Infrastructure](#infrastructure) (8) · [Integration](#integration) (25) · [Inventory](#inventory) (5) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (7) · [Observability](#observability) (3) · [Payment](#payment) (13) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Trading](#trading) (20) · [Ui](#ui) (21) · [Workflow](#workflow) (20)
 
 ---
 
@@ -234,6 +234,19 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**maintenance-scheduling**](./quality/maintenance-scheduling.md) | Maintenance scheduling and visit management with auto-generated visit dates, holiday avoidance, calendar events, and warranty status tracking for customer equipment. | 1.0.0 | [yaml](./quality/maintenance-scheduling.blueprint.yaml) |
 | [**quality-inspection**](./quality/quality-inspection.md) | Quality inspection for incoming, outgoing, and in-process materials with numeric range checks, formula-based acceptance criteria, and template-driven reading parameters. | 1.0.0 | [yaml](./quality/quality-inspection.blueprint.yaml) |
 | [**quality-management-system**](./quality/quality-management-system.md) | Quality management with goals, periodic reviews, hierarchical procedures, feedback collection, and corrective/preventive action tracking for continuous improvement. | 1.0.0 | [yaml](./quality/quality-management-system.blueprint.yaml) |
+
+## Security
+
+| Feature | Description | Version | Spec |
+|---------|-------------|---------|------|
+| [**ai-response-harm-scorer**](./security/ai-response-harm-scorer.md) | Evaluate AI model responses for harm or policy violation using a pluggable scorer — binary, float-scale, LLM-as-judge, or human review. Results are stored for audit. | 1.0.0 | [yaml](./security/ai-response-harm-scorer.blueprint.yaml) |
+| [**llm-attack-probe-library**](./security/llm-attack-probe-library.md) | Registry of modular attack probes for testing AI model vulnerabilities — each probe targets a category (jailbreak, prompt injection, data leakage, toxicity) and pairs with a detector. | 1.0.0 | [yaml](./security/llm-attack-probe-library.blueprint.yaml) |
+| [**llm-vulnerability-scan**](./security/llm-vulnerability-scan.md) | Orchestrate end-to-end vulnerability scanning of an AI model — run attack probes, collect responses, detect failures, and emit a structured report. | 1.0.0 | [yaml](./security/llm-vulnerability-scan.blueprint.yaml) |
+| [**multi-turn-attack-orchestration**](./security/multi-turn-attack-orchestration.md) | Orchestrate automated multi-turn adversarial conversations that incrementally steer an AI model toward a harmful objective using crescendo, TAP, or red-team-LLM strategies. | 1.0.0 | [yaml](./security/multi-turn-attack-orchestration.blueprint.yaml) |
+| [**prompt-attack-augmentation**](./security/prompt-attack-augmentation.md) | Post-process probe attempts with obfuscation transforms (encoding, rephrasing, suffix injection) before submission so attacks bypass surface-level safety filters. | 1.0.0 | [yaml](./security/prompt-attack-augmentation.blueprint.yaml) |
+| [**prompt-obfuscation-pipeline**](./security/prompt-obfuscation-pipeline.md) | Chain converters to transform a prompt into an obfuscated form designed to bypass AI safety filters — supports encoding, character substitution, language translation, and 40+ transforms. | 1.0.0 | [yaml](./security/prompt-obfuscation-pipeline.blueprint.yaml) |
+| [**redteam-conversation-memory**](./security/redteam-conversation-memory.md) | Persist all red-team prompts, model responses, scores, and attack metadata to a queryable store — enables session replay, cross-run analysis, and compliance reporting. | 1.0.0 | [yaml](./security/redteam-conversation-memory.blueprint.yaml) |
+| [**security-scan-report**](./security/security-scan-report.md) | Generate, persist, and export a structured AI vulnerability scan report with per-probe pass rates, confidence intervals, attempt-level detail, and AVID-compatible export. | 1.0.0 | [yaml](./security/security-scan-report.blueprint.yaml) |
 
 ## Trading
 

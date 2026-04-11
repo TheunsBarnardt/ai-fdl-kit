@@ -66,7 +66,7 @@ description: "Quality management with goals, periodic reviews, hierarchical proc
 
 ## Outcomes
 
-### Create_quality_goal
+### Create_quality_goal (Priority: 10)
 
 **Given:**
 - goal description and objectives with targets are provided
@@ -77,7 +77,7 @@ description: "Quality management with goals, periodic reviews, hierarchical proc
 
 **Result:** Quality goal created with measurable objectives and review schedule
 
-### Auto_create_review
+### Auto_create_review (Priority: 11)
 
 **Given:**
 - quality goal exists with frequency other than None
@@ -89,7 +89,7 @@ description: "Quality management with goals, periodic reviews, hierarchical proc
 
 **Result:** Quality review auto-created with target values from goal
 
-### Evaluate_review — Error: `QMS_REVIEW_GOAL_NOT_FOUND`
+### Evaluate_review (Priority: 12) — Error: `QMS_REVIEW_GOAL_NOT_FOUND`
 
 **Given:**
 - quality review exists with actual values entered for all objectives
@@ -101,7 +101,7 @@ description: "Quality management with goals, periodic reviews, hierarchical proc
 
 **Result:** Review evaluated and status determined from objective results
 
-### Create_procedure_hierarchy — Error: `QMS_PROCEDURE_PARENT_CONFLICT`
+### Create_procedure_hierarchy (Priority: 13) — Error: `QMS_PROCEDURE_PARENT_CONFLICT`
 
 **Given:**
 - procedure_name and process_owner are provided
@@ -111,7 +111,7 @@ description: "Quality management with goals, periodic reviews, hierarchical proc
 
 **Result:** Quality procedure created, nested under parent if specified
 
-### Collect_feedback
+### Collect_feedback (Priority: 14)
 
 **Given:**
 - document_type is specified
@@ -123,7 +123,7 @@ description: "Quality management with goals, periodic reviews, hierarchical proc
 
 **Result:** Feedback collected with ratings per parameter
 
-### Create_corrective_action
+### Create_corrective_action (Priority: 15)
 
 **Given:**
 - corrective_preventive is set to Corrective
@@ -135,7 +135,7 @@ description: "Quality management with goals, periodic reviews, hierarchical proc
 
 **Result:** Corrective action created to address identified quality issue
 
-### Create_preventive_action
+### Create_preventive_action (Priority: 16)
 
 **Given:**
 - corrective_preventive is set to Preventive

@@ -32,59 +32,59 @@ description: "Back-office data dissemination from central broker administration 
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `card_code` | text | Yes |  |  |
-| `layout_number` | text | Yes |  |  |
-| `broker_code` | text | Yes |  |  |
-| `dissemination_date` | date | Yes |  |  |
-| `record_count` | number | No |  |  |
-| `account_number` | text | Yes |  |  |
-| `account_name` | text | Yes |  |  |
-| `branch_code` | text | No |  |  |
-| `partner_code` | text | No |  |  |
-| `portfolio_indicator` | select | No |  |  |
-| `date_deactivated` | date | No |  |  |
-| `dividend_advice_note_indicator` | select | No |  |  |
-| `it3b_exclusion` | select | No |  |  |
-| `it3c_exclusion` | select | No |  |  |
-| `fatca_status` | text | No |  |  |
-| `ret_exempt_code` | text | No |  |  |
-| `wti_exempt_code` | text | No |  |  |
-| `undocumented_reason_code` | text | No |  |  |
-| `general_compliance_reason_code` | text | No |  |  |
-| `tax_identification_type_code` | text | No |  |  |
-| `balance_amount` | number | No |  |  |
-| `available_balance` | number | No |  |  |
-| `gl_account_code` | text | No |  |  |
-| `gl_balance` | number | No |  |  |
-| `gl_designation_code` | text | No |  |  |
-| `transaction_reference` | text | No |  |  |
-| `transaction_date` | date | No |  |  |
-| `transaction_amount` | number | No |  |  |
-| `transaction_origin_user` | text | No |  |  |
-| `reason_code` | text | No |  |  |
-| `time_stamp` | datetime | No |  |  |
-| `instrument_code` | text | No |  |  |
-| `isin` | text | No |  |  |
-| `quantity` | number | No |  |  |
-| `portfolio_cost` | number | No |  |  |
-| `charge_structure_code` | text | No |  |  |
-| `instrument_name` | text | No |  |  |
-| `icb_sector_code` | text | No |  |  |
-| `instrument_type` | text | No |  |  |
-| `bee_instrument_code` | text | No |  |  |
-| `bee_effective_date` | date | No |  |  |
-| `slb_trade_date` | date | No |  |  |
-| `slb_loan_reference` | text | No |  |  |
-| `collateral_reference` | text | No |  |  |
-| `freed_indicator` | select | No |  |  |
-| `dividend_declaration_date` | date | No |  |  |
-| `ex_dividend_date` | date | No |  |  |
-| `dividend_amount` | number | No |  |  |
-| `withholding_tax_amount` | number | No |  |  |
-| `communication_by_issuer` | text | No |  |  |
-| `event_reference` | text | No |  |  |
-| `event_type_code` | text | No |  |  |
-| `event_effective_date` | date | No |  |  |
+| `card_code` | text | Yes | Card Code |  |
+| `layout_number` | text | Yes | Layout Number |  |
+| `broker_code` | text | Yes | Broker Code |  |
+| `dissemination_date` | date | Yes | Dissemination Date |  |
+| `record_count` | number | No | Record Count |  |
+| `account_number` | text | Yes | Account Number |  |
+| `account_name` | text | Yes | Account Name |  |
+| `branch_code` | text | No | Branch Code |  |
+| `partner_code` | text | No | Partner Code |  |
+| `portfolio_indicator` | select | No | Portfolio Indicator |  |
+| `date_deactivated` | date | No | Date Deactivated |  |
+| `dividend_advice_note_indicator` | select | No | Dividend Advice Note Indicator |  |
+| `it3b_exclusion` | select | No | It3b Exclusion |  |
+| `it3c_exclusion` | select | No | It3c Exclusion |  |
+| `fatca_status` | text | No | Fatca Status |  |
+| `ret_exempt_code` | text | No | Ret Exempt Code |  |
+| `wti_exempt_code` | text | No | Wti Exempt Code |  |
+| `undocumented_reason_code` | text | No | Undocumented Reason Code |  |
+| `general_compliance_reason_code` | text | No | General Compliance Reason Code |  |
+| `tax_identification_type_code` | text | No | Tax Identification Type Code |  |
+| `balance_amount` | number | No | Balance Amount |  |
+| `available_balance` | number | No | Available Balance |  |
+| `gl_account_code` | text | No | Gl Account Code |  |
+| `gl_balance` | number | No | Gl Balance |  |
+| `gl_designation_code` | text | No | Gl Designation Code |  |
+| `transaction_reference` | text | No | Transaction Reference |  |
+| `transaction_date` | date | No | Transaction Date |  |
+| `transaction_amount` | number | No | Transaction Amount |  |
+| `transaction_origin_user` | text | No | Transaction Origin User |  |
+| `reason_code` | text | No | Reason Code |  |
+| `time_stamp` | datetime | No | Time Stamp |  |
+| `instrument_code` | text | No | Instrument Code |  |
+| `isin` | text | No | Isin |  |
+| `quantity` | number | No | Quantity |  |
+| `portfolio_cost` | number | No | Portfolio Cost |  |
+| `charge_structure_code` | text | No | Charge Structure Code |  |
+| `instrument_name` | text | No | Instrument Name |  |
+| `icb_sector_code` | text | No | Icb Sector Code |  |
+| `instrument_type` | text | No | Instrument Type |  |
+| `bee_instrument_code` | text | No | Bee Instrument Code |  |
+| `bee_effective_date` | date | No | Bee Effective Date |  |
+| `slb_trade_date` | date | No | Slb Trade Date |  |
+| `slb_loan_reference` | text | No | Slb Loan Reference |  |
+| `collateral_reference` | text | No | Collateral Reference |  |
+| `freed_indicator` | select | No | Freed Indicator |  |
+| `dividend_declaration_date` | date | No | Dividend Declaration Date |  |
+| `ex_dividend_date` | date | No | Ex Dividend Date |  |
+| `dividend_amount` | number | No | Dividend Amount |  |
+| `withholding_tax_amount` | number | No | Withholding Tax Amount |  |
+| `communication_by_issuer` | text | No | Communication By Issuer |  |
+| `event_reference` | text | No | Event Reference |  |
+| `event_type_code` | text | No | Event Type Code |  |
+| `event_effective_date` | date | No | Event Effective Date |  |
 
 ## Rules
 
@@ -96,7 +96,7 @@ description: "Back-office data dissemination from central broker administration 
 
 ## Outcomes
 
-### Schedule_dissemination_request (Priority: 1)
+### Schedule_dissemination_request (Priority: 1) — Error: `DISSEM_INVALID_SCHEDULE`
 
 **Given:**
 - `user_has_access` (db) eq `true`
@@ -106,7 +106,7 @@ description: "Back-office data dissemination from central broker administration 
 - **create_record**
 - **emit_event** event: `broker_dissem.schedule.created`
 
-### Generate_eod_dissemination_file (Priority: 2)
+### Generate_eod_dissemination_file (Priority: 2) — Error: `DISSEM_FROZEN_FILE_UNAVAILABLE`
 
 **Given:**
 - EOD batch process triggered

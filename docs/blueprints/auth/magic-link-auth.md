@@ -77,7 +77,7 @@ description: "Passwordless email login via single-use magic links. 6 fields. 8 o
 
 **Result:** show "Too many requests. Please wait a moment."
 
-### Send_magic_link (Priority: 5) | Transaction: atomic
+### Send_magic_link (Priority: 5) — Error: `MAGIC_LINK_VALIDATION_ERROR` | Transaction: atomic
 
 **Given:**
 - `email` (input) matches `^[^\s@]+@[^\s@]+\.[^\s@]+$`
@@ -92,7 +92,7 @@ description: "Passwordless email login via single-use magic links. 6 fields. 8 o
 
 **Result:** show "If an account exists with this email, we sent a sign-in link." (same message always)
 
-### Send_magic_link_no_account (Priority: 6)
+### Send_magic_link_no_account (Priority: 6) — Error: `MAGIC_LINK_ACCOUNT_DISABLED`
 
 **Given:**
 - `email` (input) matches `^[^\s@]+@[^\s@]+\.[^\s@]+$`

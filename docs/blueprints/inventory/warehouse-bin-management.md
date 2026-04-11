@@ -117,7 +117,7 @@ description: "Warehouse hierarchy and bin management with nested trees, quantity
 
 **Result:** Bin quantities and values reflect the latest stock position
 
-### Apply_putaway_rule (Priority: 3)
+### Apply_putaway_rule (Priority: 3) — Error: `PUTAWAY_DUPLICATE_RULE`
 
 **Given:**
 - incoming stock receipt has putaway rules defined for the item

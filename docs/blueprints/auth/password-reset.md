@@ -186,7 +186,7 @@ Too many reset requests
 
 **Result:** show "Please choose a password you haven't used recently"
 
-### Password_reset_success (Priority: 10) | Transaction: atomic
+### Password_reset_success (Priority: 10) — Error: `RESET_PASSWORD_WEAK` | Transaction: atomic
 
 **Given:**
 - `token` (input) exists

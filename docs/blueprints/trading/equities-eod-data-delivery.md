@@ -31,66 +31,66 @@ description: "End-of-day equity market data delivery via FTP file dissemination 
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `sector_code` | text | Yes |  |  |
-| `instrument_alpha_code` | text | Yes |  |  |
-| `record_type` | text | Yes |  |  |
-| `sub_type` | text | Yes |  |  |
-| `continuation_sequence_number` | number | Yes |  |  |
-| `run_date` | date | Yes |  |  |
-| `board` | text | Yes |  |  |
-| `market` | text | Yes |  |  |
-| `exchange` | text | Yes |  |  |
-| `instrument_numeric_code` | number | Yes |  |  |
-| `traded_indicator` | boolean | No |  |  |
-| `closing_price` | number | No |  |  |
-| `volume_traded` | number | No |  |  |
-| `high_trade_price` | number | No |  |  |
-| `low_trade_price` | number | No |  |  |
-| `dividend_yield` | number | No |  |  |
-| `earnings_yield` | number | No |  |  |
-| `last_best_bid` | number | No |  |  |
-| `last_best_offer` | number | No |  |  |
-| `closing_price_change_cents` | number | No |  |  |
-| `closing_price_change_pct` | number | No |  |  |
-| `gain_loss_indicator` | text | No |  |  |
-| `share_price_type` | select | No |  |  |
-| `index_constituent` | boolean | No |  |  |
-| `instrument_status` | text | No |  |  |
-| `instrument_type_code` | text | No |  |  |
-| `earnings_yield_sign` | text | No |  |  |
-| `interest_payment_yield` | number | No |  |  |
-| `capital_payment_yield` | number | No |  |  |
-| `reit_distribution_yield` | number | No |  |  |
-| `value_traded` | number | No |  |  |
-| `value_traded_with_decimals` | number | No |  |  |
-| `price_earnings_ratio` | number | No |  |  |
-| `last_traded_price` | number | No |  |  |
-| `number_of_trades` | number | No |  |  |
-| `last_deal_traded_price` | number | No |  |  |
-| `opening_trade_price` | number | No |  |  |
-| `moving_12m_high_price` | number | No |  |  |
-| `moving_12m_high_price_date` | date | No |  |  |
-| `moving_12m_low_price` | number | No |  |  |
-| `moving_12m_low_price_date` | date | No |  |  |
-| `ex_dividend_indicator` | boolean | No |  |  |
-| `dividend_yield_indicator` | text | No |  |  |
-| `tradability_indicator_alpha` | select | No |  |  |
-| `tradability_indicator_numeric` | select | No |  |  |
-| `price_earnings_ratio_sign` | text | No |  |  |
-| `market_capitalisation` | number | No |  |  |
-| `dividend_cover` | number | No |  |  |
-| `new_high_indicator` | boolean | No |  |  |
-| `new_low_indicator` | boolean | No |  |  |
-| `avg_value_traded_12m` | number | No |  |  |
-| `avg_days_traded_12m` | number | No |  |  |
-| `avg_volume_traded_12m` | number | No |  |  |
-| `closing_price_year_ago` | number | No |  |  |
-| `closing_price_3m_ago` | number | No |  |  |
-| `total_shares_listed` | number | No |  |  |
-| `dividend_cover_sign` | text | No |  |  |
-| `delivery_channel` | select | Yes |  |  |
-| `dataset_name` | text | Yes |  |  |
-| `user_id` | text | Yes |  |  |
+| `sector_code` | text | Yes | Sector Code |  |
+| `instrument_alpha_code` | text | Yes | Instrument Alpha Code |  |
+| `record_type` | text | Yes | Record Type |  |
+| `sub_type` | text | Yes | Sub Type |  |
+| `continuation_sequence_number` | number | Yes | Continuation Sequence Number |  |
+| `run_date` | date | Yes | Run Date |  |
+| `board` | text | Yes | Board |  |
+| `market` | text | Yes | Market |  |
+| `exchange` | text | Yes | Exchange |  |
+| `instrument_numeric_code` | number | Yes | Instrument Numeric Code |  |
+| `traded_indicator` | boolean | No | Traded Indicator |  |
+| `closing_price` | number | No | Closing Price |  |
+| `volume_traded` | number | No | Volume Traded |  |
+| `high_trade_price` | number | No | High Trade Price |  |
+| `low_trade_price` | number | No | Low Trade Price |  |
+| `dividend_yield` | number | No | Dividend Yield |  |
+| `earnings_yield` | number | No | Earnings Yield |  |
+| `last_best_bid` | number | No | Last Best Bid |  |
+| `last_best_offer` | number | No | Last Best Offer |  |
+| `closing_price_change_cents` | number | No | Closing Price Change Cents |  |
+| `closing_price_change_pct` | number | No | Closing Price Change Pct |  |
+| `gain_loss_indicator` | text | No | Gain Loss Indicator |  |
+| `share_price_type` | select | No | Share Price Type |  |
+| `index_constituent` | boolean | No | Index Constituent |  |
+| `instrument_status` | text | No | Instrument Status |  |
+| `instrument_type_code` | text | No | Instrument Type Code |  |
+| `earnings_yield_sign` | text | No | Earnings Yield Sign |  |
+| `interest_payment_yield` | number | No | Interest Payment Yield |  |
+| `capital_payment_yield` | number | No | Capital Payment Yield |  |
+| `reit_distribution_yield` | number | No | Reit Distribution Yield |  |
+| `value_traded` | number | No | Value Traded |  |
+| `value_traded_with_decimals` | number | No | Value Traded With Decimals |  |
+| `price_earnings_ratio` | number | No | Price Earnings Ratio |  |
+| `last_traded_price` | number | No | Last Traded Price |  |
+| `number_of_trades` | number | No | Number Of Trades |  |
+| `last_deal_traded_price` | number | No | Last Deal Traded Price |  |
+| `opening_trade_price` | number | No | Opening Trade Price |  |
+| `moving_12m_high_price` | number | No | Moving 12m High Price |  |
+| `moving_12m_high_price_date` | date | No | Moving 12m High Price Date |  |
+| `moving_12m_low_price` | number | No | Moving 12m Low Price |  |
+| `moving_12m_low_price_date` | date | No | Moving 12m Low Price Date |  |
+| `ex_dividend_indicator` | boolean | No | Ex Dividend Indicator |  |
+| `dividend_yield_indicator` | text | No | Dividend Yield Indicator |  |
+| `tradability_indicator_alpha` | select | No | Tradability Indicator Alpha |  |
+| `tradability_indicator_numeric` | select | No | Tradability Indicator Numeric |  |
+| `price_earnings_ratio_sign` | text | No | Price Earnings Ratio Sign |  |
+| `market_capitalisation` | number | No | Market Capitalisation |  |
+| `dividend_cover` | number | No | Dividend Cover |  |
+| `new_high_indicator` | boolean | No | New High Indicator |  |
+| `new_low_indicator` | boolean | No | New Low Indicator |  |
+| `avg_value_traded_12m` | number | No | Avg Value Traded 12m |  |
+| `avg_days_traded_12m` | number | No | Avg Days Traded 12m |  |
+| `avg_volume_traded_12m` | number | No | Avg Volume Traded 12m |  |
+| `closing_price_year_ago` | number | No | Closing Price Year Ago |  |
+| `closing_price_3m_ago` | number | No | Closing Price 3m Ago |  |
+| `total_shares_listed` | number | No | Total Shares Listed |  |
+| `dividend_cover_sign` | text | No | Dividend Cover Sign |  |
+| `delivery_channel` | select | Yes | Delivery Channel |  |
+| `dataset_name` | text | Yes | Dataset Name |  |
+| `user_id` | text | Yes | User Id |  |
 
 ## States
 

@@ -126,8 +126,6 @@ Automated quality score measuring outcome coverage, rule structure, error bindin
 | AGI readiness | `████░` | 4/5 |
 | Simplicity | `████░` | 4/5 |
 
-📈 **+1** since baseline (83 → 84)
-
 **Recent auto-improvements** *(via autoresearch-style keep-or-reset loop — applied only because they raised the fitness score)*
 
 - `T5` **bind-orphan-errors** — bound 1 orphan error codes to outcomes

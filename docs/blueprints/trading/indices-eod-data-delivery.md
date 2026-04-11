@@ -32,74 +32,74 @@ description: "End-of-day FTSE-JSE indices market data delivery via FTP — fixed
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `market_number` | text | Yes |  |  |
-| `contract_type` | text | Yes |  |  |
-| `instrument_type` | text | Yes |  |  |
-| `record_type` | text | Yes |  |  |
-| `record_sub_type` | text | Yes |  |  |
-| `sequence_number` | text | Yes |  |  |
-| `run_date` | date | Yes |  |  |
-| `filler` | text | No |  |  |
-| `index_code` | text | No |  |  |
-| `index_name` | text | No |  |  |
-| `index_value_prior` | number | No |  |  |
-| `index_value_current` | number | No |  |  |
-| `index_change` | number | No |  |  |
-| `index_change_percentage` | number | No |  |  |
-| `index_high` | number | No |  |  |
-| `index_low` | number | No |  |  |
-| `index_ytd_change` | number | No |  |  |
-| `index_divisor` | number | No |  |  |
-| `index_capital_value` | number | No |  |  |
-| `index_total_return` | number | No |  |  |
-| `total_return_index_value` | number | No |  |  |
-| `price_return_index_value` | number | No |  |  |
-| `net_total_return_index_value` | number | No |  |  |
-| `instrument_alpha_code` | text | No |  |  |
-| `instrument_isin` | text | No |  |  |
-| `instrument_short_name` | text | No |  |  |
-| `number_of_shares_in_issue` | number | No |  |  |
-| `free_float_factor` | number | No |  |  |
-| `capping_factor` | number | No |  |  |
-| `investability_weight` | number | No |  |  |
-| `sector_code` | text | No |  |  |
-| `sub_sector_code` | text | No |  |  |
-| `icb_industry` | text | No |  |  |
-| `icb_supersector` | text | No |  |  |
-| `icb_sector` | text | No |  |  |
-| `icb_subsector` | text | No |  |  |
-| `constituent_weight` | number | No |  |  |
-| `constituent_index_weight` | number | No |  |  |
-| `closing_price` | number | No |  |  |
-| `market_cap` | number | No |  |  |
-| `free_float_market_cap` | number | No |  |  |
-| `tracker_index_code` | text | No |  |  |
-| `tracker_date` | date | No |  |  |
-| `opening_index_value` | number | No |  |  |
-| `closing_index_value` | number | No |  |  |
-| `index_level_change` | number | No |  |  |
-| `total_return_index_level` | number | No |  |  |
-| `amendment_effective_date` | date | No |  |  |
-| `amendment_type` | text | No |  |  |
-| `old_shares_in_issue` | number | No |  |  |
-| `new_shares_in_issue` | number | No |  |  |
-| `old_free_float` | number | No |  |  |
-| `new_free_float` | number | No |  |  |
-| `old_capping_factor` | number | No |  |  |
-| `new_capping_factor` | number | No |  |  |
-| `amendment_reason` | text | No |  |  |
-| `ex_dividend_date` | date | No |  |  |
-| `dividend_amount` | number | No |  |  |
-| `dividend_currency` | text | No |  |  |
-| `dividend_type` | select | No |  |  |
-| `dividend_withholding_tax` | number | No |  |  |
-| `opening_shares` | number | No |  |  |
-| `opening_free_float` | number | No |  |  |
-| `opening_capping` | number | No |  |  |
-| `opening_price` | number | No |  |  |
-| `five_day_amendment_date` | date | No |  |  |
-| `five_day_effective_date` | date | No |  |  |
-| `five_day_amendment_description` | text | No |  |  |
+| `market_number` | text | Yes | Market Number |  |
+| `contract_type` | text | Yes | Contract Type |  |
+| `instrument_type` | text | Yes | Instrument Type |  |
+| `record_type` | text | Yes | Record Type |  |
+| `record_sub_type` | text | Yes | Record Sub Type |  |
+| `sequence_number` | text | Yes | Sequence Number |  |
+| `run_date` | date | Yes | Run Date |  |
+| `filler` | text | No | Filler |  |
+| `index_code` | text | No | Index Code |  |
+| `index_name` | text | No | Index Name |  |
+| `index_value_prior` | number | No | Index Value Prior |  |
+| `index_value_current` | number | No | Index Value Current |  |
+| `index_change` | number | No | Index Change |  |
+| `index_change_percentage` | number | No | Index Change Percentage |  |
+| `index_high` | number | No | Index High |  |
+| `index_low` | number | No | Index Low |  |
+| `index_ytd_change` | number | No | Index Ytd Change |  |
+| `index_divisor` | number | No | Index Divisor |  |
+| `index_capital_value` | number | No | Index Capital Value |  |
+| `index_total_return` | number | No | Index Total Return |  |
+| `total_return_index_value` | number | No | Total Return Index Value |  |
+| `price_return_index_value` | number | No | Price Return Index Value |  |
+| `net_total_return_index_value` | number | No | Net Total Return Index Value |  |
+| `instrument_alpha_code` | text | No | Instrument Alpha Code |  |
+| `instrument_isin` | text | No | Instrument Isin |  |
+| `instrument_short_name` | text | No | Instrument Short Name |  |
+| `number_of_shares_in_issue` | number | No | Number Of Shares In Issue |  |
+| `free_float_factor` | number | No | Free Float Factor |  |
+| `capping_factor` | number | No | Capping Factor |  |
+| `investability_weight` | number | No | Investability Weight |  |
+| `sector_code` | text | No | Sector Code |  |
+| `sub_sector_code` | text | No | Sub Sector Code |  |
+| `icb_industry` | text | No | Icb Industry |  |
+| `icb_supersector` | text | No | Icb Supersector |  |
+| `icb_sector` | text | No | Icb Sector |  |
+| `icb_subsector` | text | No | Icb Subsector |  |
+| `constituent_weight` | number | No | Constituent Weight |  |
+| `constituent_index_weight` | number | No | Constituent Index Weight |  |
+| `closing_price` | number | No | Closing Price |  |
+| `market_cap` | number | No | Market Cap |  |
+| `free_float_market_cap` | number | No | Free Float Market Cap |  |
+| `tracker_index_code` | text | No | Tracker Index Code |  |
+| `tracker_date` | date | No | Tracker Date |  |
+| `opening_index_value` | number | No | Opening Index Value |  |
+| `closing_index_value` | number | No | Closing Index Value |  |
+| `index_level_change` | number | No | Index Level Change |  |
+| `total_return_index_level` | number | No | Total Return Index Level |  |
+| `amendment_effective_date` | date | No | Amendment Effective Date |  |
+| `amendment_type` | text | No | Amendment Type |  |
+| `old_shares_in_issue` | number | No | Old Shares In Issue |  |
+| `new_shares_in_issue` | number | No | New Shares In Issue |  |
+| `old_free_float` | number | No | Old Free Float |  |
+| `new_free_float` | number | No | New Free Float |  |
+| `old_capping_factor` | number | No | Old Capping Factor |  |
+| `new_capping_factor` | number | No | New Capping Factor |  |
+| `amendment_reason` | text | No | Amendment Reason |  |
+| `ex_dividend_date` | date | No | Ex Dividend Date |  |
+| `dividend_amount` | number | No | Dividend Amount |  |
+| `dividend_currency` | text | No | Dividend Currency |  |
+| `dividend_type` | select | No | Dividend Type |  |
+| `dividend_withholding_tax` | number | No | Dividend Withholding Tax |  |
+| `opening_shares` | number | No | Opening Shares |  |
+| `opening_free_float` | number | No | Opening Free Float |  |
+| `opening_capping` | number | No | Opening Capping |  |
+| `opening_price` | number | No | Opening Price |  |
+| `five_day_amendment_date` | date | No | Five Day Amendment Date |  |
+| `five_day_effective_date` | date | No | Five Day Effective Date |  |
+| `five_day_amendment_description` | text | No | Five Day Amendment Description |  |
 
 ## Rules
 

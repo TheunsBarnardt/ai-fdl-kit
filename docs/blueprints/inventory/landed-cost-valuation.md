@@ -79,7 +79,7 @@ description: "Landed cost allocation, stock reconciliation, and valuation repost
 
 ## Outcomes
 
-### Create_landed_cost — Error: `LCV_RECEIPT_NOT_SUBMITTED`
+### Create_landed_cost (Priority: 10) — Error: `LCV_RECEIPT_NOT_SUBMITTED`
 
 **Given:**
 - posting_date, company, and purchase_receipts are provided
@@ -90,7 +90,7 @@ description: "Landed cost allocation, stock reconciliation, and valuation repost
 
 **Result:** Landed cost voucher created with items from purchase receipts
 
-### Distribute_charges — Error: `LCV_CHARGES_MISMATCH`
+### Distribute_charges (Priority: 11) — Error: `LCV_CHARGES_MISMATCH`
 
 **Given:**
 - landed cost voucher exists with items and taxes
@@ -101,7 +101,7 @@ description: "Landed cost allocation, stock reconciliation, and valuation repost
 
 **Result:** Charges distributed across items proportionally
 
-### Update_item_valuation — Error: `LCV_WRONG_COMPANY`
+### Update_item_valuation (Priority: 12) — Error: `LCV_WRONG_COMPANY`
 
 **Given:**
 - landed cost voucher is submitted
@@ -115,7 +115,7 @@ description: "Landed cost allocation, stock reconciliation, and valuation repost
 
 **Result:** Item valuation updated with landed costs and GL entries posted
 
-### Reconcile_stock — Error: `RECON_SERIAL_NOT_FOUND`
+### Reconcile_stock (Priority: 13) — Error: `RECON_SERIAL_NOT_FOUND`
 
 **Given:**
 - reconciliation_items with target qty and valuation_rate are provided
@@ -127,7 +127,7 @@ description: "Landed cost allocation, stock reconciliation, and valuation repost
 
 **Result:** Stock quantities and valuations adjusted to target values
 
-### Repost_valuation — Error: `REPOST_PERIOD_CLOSED`
+### Repost_valuation (Priority: 14) — Error: `REPOST_PERIOD_CLOSED`
 
 **Given:**
 - based_on, posting_date, and item/warehouse or voucher are specified
@@ -140,7 +140,7 @@ description: "Landed cost allocation, stock reconciliation, and valuation repost
 
 **Result:** Valuation repost queued for asynchronous recalculation
 
-### Recalculate_gl_entries — Error: `REPOST_ACCOUNTING_FROZEN`
+### Recalculate_gl_entries (Priority: 15) — Error: `REPOST_ACCOUNTING_FROZEN`
 
 **Given:**
 - repost valuation job is in progress

@@ -32,11 +32,11 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `channel_name` | text | Yes |  |  |
-| `pattern` | text | No |  |  |
-| `message` | text | No |  |  |
-| `subscriber_count` | number | No |  |  |
-| `pattern_subscriber_count` | number | No |  |  |
+| `channel_name` | text | Yes | Channel Name |  |
+| `pattern` | text | No | Pattern |  |
+| `message` | text | No | Message |  |
+| `subscriber_count` | number | No | Subscriber Count |  |
+| `pattern_subscriber_count` | number | No | Pattern Subscriber Count |  |
 
 ## States
 
@@ -49,16 +49,7 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 ## Rules
 
-- Messages are fire-and-forget (no persistence, no replay)
-- Subscribers must be connected when message published to receive it
-- Offline subscribers miss all messages published while disconnected
-- No message ordering guarantee across multiple subscribers
-- Subscriber enters "subscription mode" and can only use subscription commands
-- Pattern subscriptions use glob matching (* = any, ? = single char, [abc] = set)
-- Sharded pub/sub messages routed by slot (like hash sharding)
-- Sharded pub/sub only reaches nodes owning the shard
-- Subscriber can have multiple channel and pattern subscriptions
-- Unsubscribe with empty list = unsubscribe from all
+- **general:** Messages are fire-and-forget (no persistence, no replay), Subscribers must be connected when message published to receive it, Offline subscribers miss all messages published while disconnected, No message ordering guarantee across multiple subscribers, Subscriber enters "subscription mode" and can only use subscription commands, Pattern subscriptions use glob matching (* = any, ? = single char, [abc] = set), Sharded pub/sub messages routed by slot (like hash sharding), Sharded pub/sub only reaches nodes owning the shard, Subscriber can have multiple channel and pattern subscriptions, Unsubscribe with empty list = unsubscribe from all
 
 ## Outcomes
 

@@ -29,13 +29,13 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `script_source` | text | No |  |  |
-| `script_sha` | text | No |  |  |
-| `num_keys` | number | No |  |  |
-| `keys_array` | json | No |  |  |
-| `argv_array` | json | No |  |  |
-| `script_result` | text | No |  |  |
-| `execution_time_ms` | number | No |  |  |
+| `script_source` | text | No | Script Source |  |
+| `script_sha` | text | No | Script Sha |  |
+| `num_keys` | number | No | Num Keys |  |
+| `keys_array` | json | No | Keys Array |  |
+| `argv_array` | json | No | Argv Array |  |
+| `script_result` | text | No | Script Result |  |
+| `execution_time_ms` | number | No | Execution Time Ms |  |
 
 ## States
 
@@ -48,15 +48,7 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 ## Rules
 
-- Scripts execute atomically; no other commands interleave during execution
-- Script has access to all Redis commands via redis.call() or redis.pcall()
-- redis.call() raises error if command fails; redis.pcall() returns error table
-- Scripts are sandboxed; no file I/O, network access, or dangerous Lua operations
-- Replicas execute scripts read-only (writes not allowed on replicas)
-- Scripts are cached by SHA1; same script executed multiple times via EVALSHA
-- Script cache persists for server lifetime or until FLUSHDB/FLUSHALL
-- Numeric types preserved; float operations return integers where possible
-- Long-running scripts can be SCRIPT KILL if timeout exceeded
+- **general:** Scripts execute atomically; no other commands interleave during execution, Script has access to all Redis commands via redis.call() or redis.pcall(), redis.call() raises error if command fails; redis.pcall() returns error table, Scripts are sandboxed; no file I/O, network access, or dangerous Lua operations, Replicas execute scripts read-only (writes not allowed on replicas), Scripts are cached by SHA1; same script executed multiple times via EVALSHA, Script cache persists for server lifetime or until FLUSHDB/FLUSHALL, Numeric types preserved; float operations return integers where possible, Long-running scripts can be SCRIPT KILL if timeout exceeded
 
 ## Outcomes
 

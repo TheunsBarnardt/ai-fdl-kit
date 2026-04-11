@@ -32,43 +32,43 @@ description: "Consume and distribute real-time and delayed market data including
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `instrument_code` | text | Yes |  |  |
-| `instrument_name` | text | Yes |  |  |
-| `current_price` | number | Yes |  |  |
-| `previous_close_price` | number | Yes |  |  |
-| `price_movement` | number | No |  |  |
-| `price_movement_percentage` | number | No |  |  |
-| `bid_price` | number | No |  |  |
-| `ask_price` | number | No |  |  |
-| `last_trade_price` | number | No |  |  |
-| `last_trade_time` | datetime | No |  |  |
-| `volume` | number | No |  |  |
-| `volume_weighted_average_price` | number | No |  |  |
-| `quote_date` | date | Yes |  |  |
-| `quote_time` | datetime | No |  |  |
-| `is_live_data` | boolean | Yes |  |  |
-| `data_source` | text | Yes |  |  |
-| `index_level` | number | No |  |  |
-| `index_change` | number | No |  |  |
-| `commodity_price` | number | No |  |  |
-| `commodity_unit` | text | No |  |  |
-| `forex_rate` | number | No |  |  |
-| `forex_pair` | text | No |  |  |
-| `watchlist_id` | number | Yes |  |  |
-| `watchlist_name` | text | Yes |  |  |
-| `watchlist_owner_id` | text | Yes |  |  |
-| `created_date` | datetime | Yes |  |  |
-| `watchlist_description` | text | No |  |  |
-| `trade_id` | text | Yes |  |  |
-| `trade_date` | date | Yes |  |  |
-| `trade_time` | datetime | Yes |  |  |
-| `instrument_code_traded` | text | Yes |  |  |
-| `trade_quantity` | number | Yes |  |  |
-| `trade_price` | number | Yes |  |  |
-| `trade_type` | text | Yes |  |  |
-| `trade_status` | text | Yes |  |  |
-| `settlement_date` | date | Yes |  |  |
-| `trade_fees` | number | No |  |  |
+| `instrument_code` | text | Yes | Instrument Code |  |
+| `instrument_name` | text | Yes | Instrument Name |  |
+| `current_price` | number | Yes | Current Price |  |
+| `previous_close_price` | number | Yes | Previous Close Price |  |
+| `price_movement` | number | No | Price Movement |  |
+| `price_movement_percentage` | number | No | Price Movement Percentage |  |
+| `bid_price` | number | No | Bid Price |  |
+| `ask_price` | number | No | Ask Price |  |
+| `last_trade_price` | number | No | Last Trade Price |  |
+| `last_trade_time` | datetime | No | Last Trade Time |  |
+| `volume` | number | No | Volume |  |
+| `volume_weighted_average_price` | number | No | Volume Weighted Average Price |  |
+| `quote_date` | date | Yes | Quote Date |  |
+| `quote_time` | datetime | No | Quote Time |  |
+| `is_live_data` | boolean | Yes | Is Live Data |  |
+| `data_source` | text | Yes | Data Source |  |
+| `index_level` | number | No | Index Level |  |
+| `index_change` | number | No | Index Change |  |
+| `commodity_price` | number | No | Commodity Price |  |
+| `commodity_unit` | text | No | Commodity Unit |  |
+| `forex_rate` | number | No | Forex Rate |  |
+| `forex_pair` | text | No | Forex Pair |  |
+| `watchlist_id` | number | Yes | Watchlist Id |  |
+| `watchlist_name` | text | Yes | Watchlist Name |  |
+| `watchlist_owner_id` | text | Yes | Watchlist Owner Id |  |
+| `created_date` | datetime | Yes | Created Date |  |
+| `watchlist_description` | text | No | Watchlist Description |  |
+| `trade_id` | text | Yes | Trade Id |  |
+| `trade_date` | date | Yes | Trade Date |  |
+| `trade_time` | datetime | Yes | Trade Time |  |
+| `instrument_code_traded` | text | Yes | Instrument Code Traded |  |
+| `trade_quantity` | number | Yes | Trade Quantity |  |
+| `trade_price` | number | Yes | Trade Price |  |
+| `trade_type` | text | Yes | Trade Type |  |
+| `trade_status` | text | Yes | Trade Status |  |
+| `settlement_date` | date | Yes | Settlement Date |  |
+| `trade_fees` | number | No | Trade Fees |  |
 
 ## States
 

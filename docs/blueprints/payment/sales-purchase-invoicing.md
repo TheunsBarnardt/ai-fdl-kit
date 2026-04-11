@@ -31,19 +31,19 @@ description: "Create, submit, and manage sales and purchase invoices with double
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `invoice_type` | select | Yes |  |  |
-| `customer_or_supplier` | text | Yes |  | Validations: minLength |
-| `posting_date` | date | Yes |  |  |
-| `items` | json | Yes |  |  |
-| `currency` | text | Yes |  | Validations: pattern |
-| `conversion_rate` | number | Yes |  | Validations: min |
-| `taxes` | json | No |  |  |
-| `grand_total` | number | Yes |  | Validations: min |
-| `outstanding_amount` | number | Yes |  | Validations: min |
-| `status` | select | Yes |  |  |
-| `is_return` | boolean | No |  |  |
-| `return_against` | text | No |  |  |
-| `payment_terms` | json | No |  |  |
+| `invoice_type` | select | Yes | Invoice Type |  |
+| `customer_or_supplier` | text | Yes | Customer Or Supplier | Validations: minLength |
+| `posting_date` | date | Yes | Posting Date |  |
+| `items` | json | Yes | Items |  |
+| `currency` | text | Yes | Currency | Validations: pattern |
+| `conversion_rate` | number | Yes | Conversion Rate | Validations: min |
+| `taxes` | json | No | Taxes |  |
+| `grand_total` | number | Yes | Grand Total | Validations: min |
+| `outstanding_amount` | number | Yes | Outstanding Amount | Validations: min |
+| `status` | select | Yes | Status |  |
+| `is_return` | boolean | No | Is Return |  |
+| `return_against` | text | No | Return Against |  |
+| `payment_terms` | json | No | Payment Terms |  |
 
 ## States
 
@@ -121,7 +121,7 @@ description: "Create, submit, and manage sales and purchase invoices with double
 
 **Result:** Invoice submission is blocked due to credit limit breach
 
-### Submit_invoice | Transaction: atomic
+### Submit_invoice (Priority: 10) | Transaction: atomic
 
 **Given:**
 - invoice is in Draft status
@@ -135,7 +135,7 @@ description: "Create, submit, and manage sales and purchase invoices with double
 
 **Result:** Invoice is submitted with GL entries posted and outstanding amount set to grand total
 
-### Receive_payment
+### Receive_payment (Priority: 11)
 
 **Given:**
 - invoice is in Submitted or Partly Paid status
@@ -147,7 +147,7 @@ description: "Create, submit, and manage sales and purchase invoices with double
 
 **Result:** Outstanding amount is reduced and status transitions to Paid or Partly Paid accordingly
 
-### Create_return — Error: `INVOICE_RETURN_QTY_EXCEEDED`
+### Create_return (Priority: 12) — Error: `INVOICE_RETURN_QTY_EXCEEDED`
 
 **Given:**
 - original invoice is in Submitted or Paid status
@@ -160,7 +160,7 @@ description: "Create, submit, and manage sales and purchase invoices with double
 
 **Result:** Return invoice is created, reversing GL entries and adjusting outstanding on original invoice
 
-### Cancel_invoice — Error: `INVOICE_ALREADY_CANCELLED`
+### Cancel_invoice (Priority: 13) — Error: `INVOICE_ALREADY_CANCELLED`
 
 **Given:**
 - invoice is in Draft or Submitted status

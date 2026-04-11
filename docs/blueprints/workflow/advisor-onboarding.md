@@ -32,17 +32,17 @@ description: "Registration and onboarding process for independent financial advi
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `onboarding_id` | number | Yes |  | Validations: required |
-| `identification_number` | text | Yes |  | Validations: required, unique |
-| `passport_number` | text | No |  |  |
-| `first_name` | text | Yes |  | Validations: required, maxLength |
-| `last_name` | text | Yes |  | Validations: required, maxLength |
-| `email` | email | Yes |  | Validations: required, email |
-| `mobile_phone` | phone | Yes |  | Validations: required, phone |
-| `advisor_code` | text | Yes |  | Validations: required, pattern |
-| `status` | select | Yes |  | Validations: required |
-| `cancellation_reason` | text | No |  |  |
-| `envelope_id` | text | No |  |  |
+| `onboarding_id` | number | Yes | Onboarding Id | Validations: required |
+| `identification_number` | text | Yes | Identification Number | Validations: required, unique |
+| `passport_number` | text | No | Passport Number |  |
+| `first_name` | text | Yes | First Name | Validations: required, maxLength |
+| `last_name` | text | Yes | Last Name | Validations: required, maxLength |
+| `email` | email | Yes | Email | Validations: required, email |
+| `mobile_phone` | phone | Yes | Mobile Phone | Validations: required, phone |
+| `advisor_code` | text | Yes | Advisor Code | Validations: required, pattern |
+| `status` | select | Yes | Status | Validations: required |
+| `cancellation_reason` | text | No | Cancellation Reason |  |
+| `envelope_id` | text | No | Envelope Id |  |
 
 ## States
 

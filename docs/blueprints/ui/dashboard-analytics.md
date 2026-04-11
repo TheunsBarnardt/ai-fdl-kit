@@ -89,7 +89,7 @@ description: "Configurable analytics dashboard with widget grid system, KPI card
 
 **Result:** User informed that the maximum widget limit has been reached
 
-### Date_range_changed (Priority: 4)
+### Date_range_changed (Priority: 4) — Error: `DASHBOARD_DATE_RANGE_INVALID`
 
 **Given:**
 - user selects a new date range preset or custom range

@@ -69,7 +69,7 @@ description: "Quality inspection for incoming, outgoing, and in-process material
 
 ## Outcomes
 
-### Create_inspection — Error: `QI_INSPECTION_NOT_REQUIRED`
+### Create_inspection (Priority: 10) — Error: `QI_INSPECTION_NOT_REQUIRED`
 
 **Given:**
 - item_code and inspection_type are provided
@@ -81,7 +81,7 @@ description: "Quality inspection for incoming, outgoing, and in-process material
 
 **Result:** Quality inspection created and ready for readings
 
-### Populate_from_template — Error: `QI_TEMPLATE_NOT_FOUND`
+### Populate_from_template (Priority: 11) — Error: `QI_TEMPLATE_NOT_FOUND`
 
 **Given:**
 - quality_inspection_template is provided and exists
@@ -91,7 +91,7 @@ description: "Quality inspection for incoming, outgoing, and in-process material
 
 **Result:** Inspection readings pre-populated from template specifications
 
-### Evaluate_readings — Error: `QI_FORMULA_INVALID`
+### Evaluate_readings (Priority: 12) — Error: `QI_FORMULA_INVALID`
 
 **Given:**
 - all readings have reading_value entered
@@ -101,7 +101,7 @@ description: "Quality inspection for incoming, outgoing, and in-process material
 
 **Result:** All readings evaluated against acceptance criteria
 
-### Accept_inspection
+### Accept_inspection (Priority: 13)
 
 **Given:**
 - all readings have status Accepted
@@ -113,7 +113,7 @@ description: "Quality inspection for incoming, outgoing, and in-process material
 
 **Result:** Inspection accepted, material cleared for use
 
-### Reject_inspection
+### Reject_inspection (Priority: 14)
 
 **Given:**
 - one or more readings have status Rejected

@@ -34,18 +34,18 @@ description: "Full authentication system with JWT sessions, API keys, account lo
 | `email` | email | Yes | Email | Validations: required, email, unique |
 | `username` | text | No | Username |  |
 | `password` | password | Yes | Password | Validations: minLength |
-| `salt` | hidden | No |  |  |
-| `hash` | hidden | No |  |  |
-| `reset_password_token` | token | No |  |  |
-| `reset_password_expiration` | datetime | No |  |  |
-| `login_attempts` | number | No |  |  |
-| `lock_until` | datetime | No |  |  |
-| `verification_token` | token | No |  |  |
-| `verified` | boolean | No |  |  |
-| `sessions` | json | No |  |  |
-| `enable_api_key` | boolean | No |  |  |
-| `api_key` | token | No |  |  |
-| `api_key_index` | hidden | No |  |  |
+| `salt` | hidden | No | Salt |  |
+| `hash` | hidden | No | Hash |  |
+| `reset_password_token` | token | No | Reset Password Token |  |
+| `reset_password_expiration` | datetime | No | Reset Password Expiration |  |
+| `login_attempts` | number | No | Login Attempts |  |
+| `lock_until` | datetime | No | Lock Until |  |
+| `verification_token` | token | No | Verification Token |  |
+| `verified` | boolean | No | Verified |  |
+| `sessions` | json | No | Sessions |  |
+| `enable_api_key` | boolean | No | Enable Api Key |  |
+| `api_key` | token | No | Api Key |  |
+| `api_key_index` | hidden | No | Api Key Index |  |
 
 ## Rules
 
@@ -242,7 +242,7 @@ description: "Full authentication system with JWT sessions, API keys, account lo
 
 **Result:** Returns current user object, token expiration, and strategy name
 
-### Api_key_auth (Priority: 10)
+### Api_key_auth (Priority: 10) — Error: `AUTH_UNAUTHORIZED`
 
 **Given:**
 - Authorization header contains '{collectionSlug} API-Key {key}'

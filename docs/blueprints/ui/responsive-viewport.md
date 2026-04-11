@@ -142,7 +142,7 @@ description: "Multi-viewport responsive preview with auto-zoom, manual zoom cont
 
 **Result:** Preview content renders directly in the editor DOM without isolation
 
-### Style_sync_update (Priority: 7)
+### Style_sync_update (Priority: 7) — Error: `STYLE_SYNC_FAILED`
 
 **Given:**
 - a stylesheet changes in the parent document

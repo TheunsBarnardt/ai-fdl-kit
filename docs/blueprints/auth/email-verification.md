@@ -23,7 +23,7 @@ description: "Verify user email ownership via a one-time token link. 2 fields. 7
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `token` | token | Yes |  | Validations: required |
+| `token` | token | Yes | Token | Validations: required |
 | `email` | email | Yes | Email Address | Validations: required, email |
 
 ## Rules

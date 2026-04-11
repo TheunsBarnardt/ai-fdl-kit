@@ -23,24 +23,24 @@ description: "Manage hierarchical chart of accounts and post double-entry genera
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `account_name` | text | Yes |  | Validations: minLength, maxLength |
-| `account_number` | text | No |  | Validations: pattern |
-| `parent_account` | text | No |  |  |
-| `is_group` | boolean | Yes |  |  |
-| `account_type` | select | No |  |  |
-| `root_type` | select | Yes |  |  |
-| `account_currency` | text | Yes |  | Validations: pattern |
-| `disabled` | boolean | No |  |  |
-| `freeze_account` | boolean | No |  |  |
-| `account` | text | Yes |  |  |
-| `debit` | number | Yes |  | Validations: min |
-| `credit` | number | Yes |  | Validations: min |
-| `posting_date` | date | Yes |  |  |
-| `voucher_type` | text | Yes |  |  |
-| `voucher_no` | text | Yes |  |  |
-| `party_type` | select | No |  |  |
-| `party` | text | No |  |  |
-| `cost_center` | text | No |  |  |
+| `account_name` | text | Yes | Account Name | Validations: minLength, maxLength |
+| `account_number` | text | No | Account Number | Validations: pattern |
+| `parent_account` | text | No | Parent Account |  |
+| `is_group` | boolean | Yes | Is Group |  |
+| `account_type` | select | No | Account Type |  |
+| `root_type` | select | Yes | Root Type |  |
+| `account_currency` | text | Yes | Account Currency | Validations: pattern |
+| `disabled` | boolean | No | Disabled |  |
+| `freeze_account` | boolean | No | Freeze Account |  |
+| `account` | text | Yes | Account |  |
+| `debit` | number | Yes | Debit | Validations: min |
+| `credit` | number | Yes | Credit | Validations: min |
+| `posting_date` | date | Yes | Posting Date |  |
+| `voucher_type` | text | Yes | Voucher Type |  |
+| `voucher_no` | text | Yes | Voucher No |  |
+| `party_type` | select | No | Party Type |  |
+| `party` | text | No | Party |  |
+| `cost_center` | text | No | Cost Center |  |
 
 ## Rules
 
@@ -71,7 +71,7 @@ description: "Manage hierarchical chart of accounts and post double-entry genera
 
 ## Outcomes
 
-### Create_account
+### Create_account (Priority: 10)
 
 **Given:**
 - `account_name` exists
@@ -83,7 +83,7 @@ description: "Manage hierarchical chart of accounts and post double-entry genera
 
 **Result:** New account is created in the chart of accounts under the specified parent
 
-### Post_gl_entry — Error: `GL_BALANCE_MISMATCH` | Transaction: atomic
+### Post_gl_entry (Priority: 11) — Error: `GL_BALANCE_MISMATCH` | Transaction: atomic
 
 **Given:**
 - `account` exists
@@ -96,7 +96,7 @@ description: "Manage hierarchical chart of accounts and post double-entry genera
 
 **Result:** GL entries are posted with balanced debit and credit totals
 
-### Reverse_gl_entries | Transaction: atomic
+### Reverse_gl_entries (Priority: 12) | Transaction: atomic
 
 **Given:**
 - `voucher_no` exists
@@ -108,7 +108,7 @@ description: "Manage hierarchical chart of accounts and post double-entry genera
 
 **Result:** Original GL entries are reversed with offsetting debit and credit entries
 
-### Create_journal_entry — Error: `GL_BALANCE_MISMATCH` | Transaction: atomic
+### Create_journal_entry (Priority: 13) — Error: `GL_BALANCE_MISMATCH` | Transaction: atomic
 
 **Given:**
 - at least two account lines are provided
@@ -122,7 +122,7 @@ description: "Manage hierarchical chart of accounts and post double-entry genera
 
 **Result:** Journal entry is created and GL entries are posted for all account lines
 
-### Freeze_account
+### Freeze_account (Priority: 14)
 
 **Given:**
 - `account_name` exists

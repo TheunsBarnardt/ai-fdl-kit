@@ -88,7 +88,7 @@ description: "Full-text search with faceted filters, sorting, relevance scoring,
 
 **Result:** Empty result set returned with suggestions (spelling corrections, relaxed filters)
 
-### Search_saved (Priority: 3)
+### Search_saved (Priority: 3) — Error: `SAVED_SEARCH_LIMIT_REACHED`
 
 **Given:**
 - user submits a saved search request with a name

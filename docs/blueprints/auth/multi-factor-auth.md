@@ -136,7 +136,7 @@ description: "Second-factor authentication via TOTP, SMS OTP, or backup codes. 7
 
 **Result:** MFA verification successful — proceed to application
 
-### Verify_backup_code_success (Priority: 9) | Transaction: atomic
+### Verify_backup_code_success (Priority: 9) — Error: `MFA_NO_BACKUP_CODES` | Transaction: atomic
 
 **Given:**
 - `backup_code` (input) exists

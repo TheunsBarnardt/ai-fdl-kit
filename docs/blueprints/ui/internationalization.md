@@ -76,7 +76,7 @@ description: "Internationalization with locale switching, translation keys, plur
 
 **Result:** use fallback locale and log warning
 
-### Missing_translation_key (Priority: 2)
+### Missing_translation_key (Priority: 2) — Error: `I18N_MISSING_KEY`
 
 **Given:**
 - `translation_key` (input) exists
@@ -122,7 +122,7 @@ description: "Internationalization with locale switching, translation keys, plur
 
 **Result:** load locale bundle, update all translated strings, persist preference in cookie
 
-### Bundle_loaded (Priority: 6)
+### Bundle_loaded (Priority: 6) — Error: `I18N_BUNDLE_LOAD_FAILED`
 
 **Given:**
 - `locale` (input) exists

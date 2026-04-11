@@ -167,7 +167,7 @@ description: "Loyalty and promotion engine supporting points, coupons, gift card
 
 **Result:** Coupon discount reflected on the order total
 
-### Gift_card_redeemed (Priority: 5)
+### Gift_card_redeemed (Priority: 5) — Error: `LOYALTY_GIFT_CARD_EMPTY`
 
 **Given:**
 - customer enters a gift card code

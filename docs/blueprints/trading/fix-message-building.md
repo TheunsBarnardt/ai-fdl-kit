@@ -31,18 +31,18 @@ description: "Constructs, parses, and serializes FIX protocol messages with head
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `begin_string` | text | Yes |  |  |
-| `body_length` | number | Yes |  |  |
-| `msg_type` | text | Yes |  |  |
-| `sender_comp_id` | text | Yes |  |  |
-| `target_comp_id` | text | Yes |  |  |
-| `msg_seq_num` | number | Yes |  |  |
-| `sending_time` | datetime | Yes |  |  |
-| `orig_sending_time` | datetime | No |  |  |
-| `poss_dup_flag` | boolean | No |  |  |
-| `poss_resend` | boolean | No |  |  |
-| `checksum` | text | Yes |  |  |
-| `appl_ver_id` | text | No |  |  |
+| `begin_string` | text | Yes | Begin String |  |
+| `body_length` | number | Yes | Body Length |  |
+| `msg_type` | text | Yes | Msg Type |  |
+| `sender_comp_id` | text | Yes | Sender Comp Id |  |
+| `target_comp_id` | text | Yes | Target Comp Id |  |
+| `msg_seq_num` | number | Yes | Msg Seq Num |  |
+| `sending_time` | datetime | Yes | Sending Time |  |
+| `orig_sending_time` | datetime | No | Orig Sending Time |  |
+| `poss_dup_flag` | boolean | No | Poss Dup Flag |  |
+| `poss_resend` | boolean | No | Poss Resend |  |
+| `checksum` | text | Yes | Checksum |  |
+| `appl_ver_id` | text | No | Appl Ver Id |  |
 
 ## Rules
 

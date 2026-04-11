@@ -31,12 +31,12 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `key` | text | Yes |  |  |
-| `entry_id` | text | No |  |  |
-| `fields` | json | No |  |  |
-| `group_name` | text | No |  |  |
-| `consumer_name` | text | No |  |  |
-| `pending_entries` | json | No |  |  |
+| `key` | text | Yes | Key |  |
+| `entry_id` | text | No | Entry Id |  |
+| `fields` | json | No | Fields |  |
+| `group_name` | text | No | Group Name |  |
+| `consumer_name` | text | No | Consumer Name |  |
+| `pending_entries` | json | No | Pending Entries |  |
 
 ## States
 
@@ -49,14 +49,7 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 ## Rules
 
-- Stream entry IDs are globally ordered; new IDs always > previous IDs
-- Entry IDs auto-generated based on millisecond timestamp and sequence counter
-- Consumer groups track position with last_id (messages after this are new)
-- Consumer groups maintain Pending Entry List (PEL) of unacknowledged messages
-- Messages in PEL tracked by both group and consumer (dual indexing)
-- Idle messages in PEL can be claimed by other consumers
-- All stream operations are atomic with respect to the stream key
-- Entry deletion leaves tombstone (space not reclaimed)
+- **general:** Stream entry IDs are globally ordered; new IDs always > previous IDs, Entry IDs auto-generated based on millisecond timestamp and sequence counter, Consumer groups track position with last_id (messages after this are new), Consumer groups maintain Pending Entry List (PEL) of unacknowledged messages, Messages in PEL tracked by both group and consumer (dual indexing), Idle messages in PEL can be claimed by other consumers, All stream operations are atomic with respect to the stream key, Entry deletion leaves tombstone (space not reclaimed)
 
 ## Outcomes
 

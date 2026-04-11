@@ -1,0 +1,398 @@
+{
+  "feature": "multi-turn-attack-orchestration",
+  "version": "1.0.0",
+  "description": "Orchestrate automated multi-turn adversarial conversations that incrementally steer an AI model toward a harmful objective using crescendo, TAP, or red-team-LLM strategies.",
+  "category": "security",
+  "tags": [
+    "llm",
+    "multi-turn",
+    "crescendo",
+    "tap",
+    "red-team",
+    "jailbreak",
+    "orchestration",
+    "ai-safety"
+  ],
+  "actors": [
+    {
+      "id": "attack_orchestrator",
+      "name": "Attack Orchestrator",
+      "type": "system",
+      "description": "Manages the multi-turn conversation loop, strategy selection, and backtracking."
+    },
+    {
+      "id": "adversarial_model",
+      "name": "Adversarial Model",
+      "type": "external",
+      "description": "An AI model that generates adaptive attack prompts based on prior responses."
+    },
+    {
+      "id": "target_model",
+      "name": "Target AI Model",
+      "type": "external",
+      "description": "The AI model under test — receives attack prompts and returns responses."
+    },
+    {
+      "id": "harm_scorer",
+      "name": "Harm Scorer",
+      "type": "system",
+      "description": "Evaluates each target response to determine if the attack objective was achieved."
+    },
+    {
+      "id": "red_team_operator",
+      "name": "Red-Team Operator",
+      "type": "human",
+      "description": "Configures the attack strategy and objective; reviews results."
+    }
+  ],
+  "fields": [
+    {
+      "name": "attack_id",
+      "type": "token",
+      "required": true,
+      "label": "Attack Run ID"
+    },
+    {
+      "name": "objective",
+      "type": "rich_text",
+      "required": true,
+      "label": "Attack Objective"
+    },
+    {
+      "name": "strategy",
+      "type": "select",
+      "required": true,
+      "label": "Attack Strategy"
+    },
+    {
+      "name": "max_turns",
+      "type": "number",
+      "required": true,
+      "label": "Max Turns"
+    },
+    {
+      "name": "max_backtracks",
+      "type": "number",
+      "required": false,
+      "label": "Max Backtracks"
+    },
+    {
+      "name": "current_turn",
+      "type": "number",
+      "required": false,
+      "label": "Current Turn"
+    },
+    {
+      "name": "attack_status",
+      "type": "select",
+      "required": true,
+      "label": "Attack Status"
+    },
+    {
+      "name": "attack_outcome",
+      "type": "select",
+      "required": false,
+      "label": "Final Outcome"
+    }
+  ],
+  "states": {
+    "field": "attack_status",
+    "values": [
+      {
+        "id": "initialised",
+        "description": "Attack configured; not yet started.",
+        "initial": true
+      },
+      {
+        "id": "running",
+        "description": "Active conversation turns being executed."
+      },
+      {
+        "id": "backtracking",
+        "description": "Orchestrator detected a refusal and is generating a softer follow-up."
+      },
+      {
+        "id": "succeeded",
+        "description": "Objective achieved — target model produced the targeted harmful response.",
+        "terminal": true
+      },
+      {
+        "id": "failed",
+        "description": "Objective not achieved within the allowed turns or backtracks.",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "initialised",
+        "to": "running",
+        "actor": "attack_orchestrator",
+        "description": "First attack prompt is sent to the target model."
+      },
+      {
+        "from": "running",
+        "to": "backtracking",
+        "actor": "attack_orchestrator",
+        "description": "Target refused the last prompt and backtrack limit not yet reached."
+      },
+      {
+        "from": "backtracking",
+        "to": "running",
+        "actor": "attack_orchestrator",
+        "description": "Softer follow-up prompt generated and sent."
+      },
+      {
+        "from": "running",
+        "to": "succeeded",
+        "actor": "attack_orchestrator",
+        "description": "Harm scorer returns harmful for the target's response."
+      },
+      {
+        "from": "running",
+        "to": "failed",
+        "actor": "attack_orchestrator",
+        "description": "Max turns or max backtracks reached without success."
+      }
+    ]
+  },
+  "rules": {
+    "per_turn": {
+      "prompts_per_turn": "one",
+      "score_response_before_next_turn": true
+    },
+    "crescendo": {
+      "start": "benign_requests",
+      "escalation": "gradual_toward_objective",
+      "on_refusal": "backtrack_with_softer_prompt",
+      "backtrack_limit": "max_backtracks_field"
+    },
+    "tree_of_attacks": {
+      "branches": "parallel",
+      "pruning": "prune_lowest_harm_score_branches"
+    },
+    "adversarial_prompt_generation": {
+      "inputs": [
+        "objective",
+        "conversation_history",
+        "last_target_response"
+      ],
+      "no_identical_consecutive_prompts": true
+    },
+    "success_criterion": {
+      "requires": "definitive_harmful_score"
+    },
+    "audit": {
+      "store_all_turns": "required"
+    }
+  },
+  "outcomes": {
+    "objective_achieved": {
+      "priority": 5,
+      "transaction": true,
+      "given": [
+        "harm scorer returns harmful for the target model's response"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "attack_status",
+          "from": "running",
+          "to": "succeeded"
+        },
+        {
+          "action": "set_field",
+          "target": "attack_outcome",
+          "description": "Set to success."
+        },
+        {
+          "action": "emit_event",
+          "event": "security.attack.objective_achieved",
+          "payload": [
+            "attack_id",
+            "strategy",
+            "current_turn",
+            "objective"
+          ]
+        }
+      ],
+      "result": "Attack succeeds; conversation history and final harmful response are stored."
+    },
+    "refusal_detected": {
+      "priority": 6,
+      "given": [
+        "harm scorer indicates a refusal",
+        {
+          "field": "current_turn",
+          "source": "computed",
+          "operator": "lt",
+          "value": "max_turns"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "attack_status",
+          "from": "running",
+          "to": "backtracking"
+        },
+        {
+          "action": "emit_event",
+          "event": "security.attack.refusal_detected",
+          "payload": [
+            "attack_id",
+            "strategy",
+            "current_turn"
+          ]
+        }
+      ],
+      "result": "Orchestrator backtracks and generates a softer follow-up prompt."
+    },
+    "backtrack_limit_reached": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "current_turn",
+          "source": "computed",
+          "operator": "gte",
+          "value": "max_backtracks"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "attack_status",
+          "from": "backtracking",
+          "to": "failed"
+        },
+        {
+          "action": "set_field",
+          "target": "attack_outcome",
+          "description": "Set to backtrack_limit_reached."
+        },
+        {
+          "action": "emit_event",
+          "event": "security.attack.failed",
+          "payload": [
+            "attack_id",
+            "strategy",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Attack fails; result is recorded as backtrack limit reached."
+    },
+    "max_turns_reached": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "current_turn",
+          "source": "computed",
+          "operator": "gte",
+          "value": "max_turns"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "attack_status",
+          "from": "running",
+          "to": "failed"
+        },
+        {
+          "action": "set_field",
+          "target": "attack_outcome",
+          "description": "Set to max_turns_reached."
+        },
+        {
+          "action": "emit_event",
+          "event": "security.attack.failed",
+          "payload": [
+            "attack_id",
+            "strategy",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Attack fails; result is recorded as max turns reached without success."
+    }
+  },
+  "errors": [
+    {
+      "code": "ATTACK_ADVERSARIAL_MODEL_UNAVAILABLE",
+      "status": 503,
+      "message": "The adversarial model could not be reached. Attack cannot proceed."
+    },
+    {
+      "code": "ATTACK_TARGET_UNAVAILABLE",
+      "status": 503,
+      "message": "The target model could not be reached. Attack cannot proceed."
+    },
+    {
+      "code": "ATTACK_INVALID_STRATEGY",
+      "status": 400,
+      "message": "The specified attack strategy is not recognised."
+    }
+  ],
+  "events": [
+    {
+      "name": "security.attack.objective_achieved",
+      "description": "Emitted when the multi-turn attack successfully elicits the harmful objective.",
+      "payload": [
+        "attack_id",
+        "strategy",
+        "turn_count",
+        "objective"
+      ]
+    },
+    {
+      "name": "security.attack.refusal_detected",
+      "description": "Emitted when the target model refuses a prompt and backtracking begins.",
+      "payload": [
+        "attack_id",
+        "strategy",
+        "current_turn"
+      ]
+    },
+    {
+      "name": "security.attack.failed",
+      "description": "Emitted when the attack exhausts its allowed turns or backtracks.",
+      "payload": [
+        "attack_id",
+        "strategy",
+        "reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "ai-response-harm-scorer",
+      "type": "required",
+      "reason": "Scores each target response to determine attack progress."
+    },
+    {
+      "feature": "prompt-obfuscation-pipeline",
+      "type": "optional",
+      "reason": "Converter chain applied to each turn's prompt before submission."
+    },
+    {
+      "feature": "redteam-conversation-memory",
+      "type": "required",
+      "reason": "Persists all conversation turns and scores for audit and replay."
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/microsoft/PyRIT",
+      "project": "PyRIT — Python Risk Identification Tool",
+      "tech_stack": "Python 3.10+",
+      "files_traced": 20,
+      "entry_points": [
+        "pyrit/executor/attack/multi_turn/crescendo.py",
+        "pyrit/executor/attack/multi_turn/tree_of_attacks.py",
+        "pyrit/executor/attack/multi_turn/red_teaming.py",
+        "pyrit/executor/attack/multi_turn/multi_turn_attack_strategy.py",
+        "pyrit/scenario/core/scenario.py"
+      ]
+    }
+  }
+}

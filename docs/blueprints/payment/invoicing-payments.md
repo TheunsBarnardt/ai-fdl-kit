@@ -94,7 +94,7 @@ description: "Invoicing and payment lifecycle: customer invoices, vendor bills, 
 
 ## Outcomes
 
-### Invoice_posted (Priority: 1)
+### Invoice_posted (Priority: 1) — Error: `INVOICE_ALREADY_POSTED`
 
 **Given:**
 - accountant creates a draft invoice with lines

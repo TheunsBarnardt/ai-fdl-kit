@@ -72,7 +72,7 @@ description: "Event-driven automation engine that triggers actions based on reco
 
 ## Outcomes
 
-### Rule_triggered_on_create (Priority: 1)
+### Rule_triggered_on_create (Priority: 1) — Error: `AUTOMATION_CODE_EXECUTION_ERROR`
 
 **Given:**
 - a new record is created matching the target model
@@ -135,7 +135,7 @@ description: "Event-driven automation engine that triggers actions based on reco
 
 **Result:** External event triggers internal automation
 
-### Rule_triggered_on_message (Priority: 6)
+### Rule_triggered_on_message (Priority: 6) — Error: `AUTOMATION_MESSAGE_TRIGGER_INVALID`
 
 **Given:**
 - a message is received on (or sent from) a record

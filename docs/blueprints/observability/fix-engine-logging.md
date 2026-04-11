@@ -32,20 +32,20 @@ description: "Provides per-session and global logging of all incoming messages, 
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `file_log_path` | text | No |  |  |
-| `file_log_backup_path` | text | No |  |  |
-| `screen_log_show_incoming` | boolean | No |  |  |
-| `screen_log_show_outgoing` | boolean | No |  |  |
-| `screen_log_show_events` | boolean | No |  |  |
-| `db_host` | text | No |  |  |
-| `db_port` | number | No |  |  |
-| `db_name` | text | No |  |  |
-| `db_user` | text | No |  |  |
-| `db_password` | password | No |  |  |
-| `db_connection_pool` | boolean | No |  |  |
-| `db_incoming_table` | text | No |  |  |
-| `db_outgoing_table` | text | No |  |  |
-| `db_event_table` | text | No |  |  |
+| `file_log_path` | text | No | File Log Path |  |
+| `file_log_backup_path` | text | No | File Log Backup Path |  |
+| `screen_log_show_incoming` | boolean | No | Screen Log Show Incoming |  |
+| `screen_log_show_outgoing` | boolean | No | Screen Log Show Outgoing |  |
+| `screen_log_show_events` | boolean | No | Screen Log Show Events |  |
+| `db_host` | text | No | Db Host |  |
+| `db_port` | number | No | Db Port |  |
+| `db_name` | text | No | Db Name |  |
+| `db_user` | text | No | Db User |  |
+| `db_password` | password | No | Db Password |  |
+| `db_connection_pool` | boolean | No | Db Connection Pool |  |
+| `db_incoming_table` | text | No | Db Incoming Table |  |
+| `db_outgoing_table` | text | No | Db Outgoing Table |  |
+| `db_event_table` | text | No | Db Event Table |  |
 
 ## Rules
 

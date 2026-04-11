@@ -97,7 +97,7 @@ description: "Fixed asset lifecycle management covering registration, multi-book
 
 ## Outcomes
 
-### Register_asset
+### Register_asset (Priority: 10)
 
 **Given:**
 - asset_name, item_code, company, purchase_date, and gross_purchase_amount are provided
@@ -109,7 +109,7 @@ description: "Fixed asset lifecycle management covering registration, multi-book
 
 **Result:** Asset registered in Draft status with depreciation schedule calculated
 
-### Calculate_depreciation
+### Calculate_depreciation (Priority: 11)
 
 **Given:**
 - asset is in Submitted status
@@ -120,7 +120,7 @@ description: "Fixed asset lifecycle management covering registration, multi-book
 
 **Result:** Depreciation schedule calculated with entries for each period
 
-### Post_depreciation_entry
+### Post_depreciation_entry (Priority: 12)
 
 **Given:**
 - scheduled depreciation date has arrived
@@ -133,7 +133,7 @@ description: "Fixed asset lifecycle management covering registration, multi-book
 
 **Result:** Depreciation entry posted and asset value updated
 
-### Move_asset
+### Move_asset (Priority: 13)
 
 **Given:**
 - asset exists and is not in Draft status
@@ -146,7 +146,7 @@ description: "Fixed asset lifecycle management covering registration, multi-book
 
 **Result:** Asset movement recorded and current assignment updated
 
-### Adjust_value
+### Adjust_value (Priority: 14)
 
 **Given:**
 - asset exists and is not Sold or Scrapped
@@ -159,7 +159,7 @@ description: "Fixed asset lifecycle management covering registration, multi-book
 
 **Result:** Asset value adjusted with corresponding GL entries
 
-### Sell_asset — Error: `ASSET_ALREADY_SCRAPPED`
+### Sell_asset (Priority: 15) — Error: `ASSET_ALREADY_SCRAPPED`
 
 **Given:**
 - asset exists and status is not Sold or Scrapped
@@ -172,7 +172,7 @@ description: "Fixed asset lifecycle management covering registration, multi-book
 
 **Result:** Asset marked as Sold with disposal GL entries created
 
-### Scrap_asset — Error: `ASSET_ALREADY_SOLD`
+### Scrap_asset (Priority: 16) — Error: `ASSET_ALREADY_SOLD`
 
 **Given:**
 - asset exists and status is not Sold or Scrapped
@@ -185,7 +185,7 @@ description: "Fixed asset lifecycle management covering registration, multi-book
 
 **Result:** Asset marked as Scrapped with write-off GL entries
 
-### Capitalize_items
+### Capitalize_items (Priority: 17)
 
 **Given:**
 - items or expenses to capitalize are specified

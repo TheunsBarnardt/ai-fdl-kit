@@ -31,37 +31,37 @@ description: "End-of-day interest rate derivatives data delivery via FTP — fix
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `market_number` | number | Yes |  |  |
-| `contract_type` | text | Yes |  |  |
-| `instrument_type` | text | Yes |  |  |
-| `record_type` | text | Yes |  |  |
-| `record_sub_type` | text | Yes |  |  |
-| `run_date` | date | Yes |  |  |
-| `filler_header` | text | No |  |  |
-| `instrument` | text | No |  |  |
-| `date` | date | No |  |  |
-| `strike_price` | number | No |  |  |
-| `option_type` | text | No |  |  |
-| `spot_price` | number | No |  |  |
-| `closing_bid` | number | No |  |  |
-| `closing_offer` | number | No |  |  |
-| `mtm` | number | No |  |  |
-| `first_price` | number | No |  |  |
-| `last_price` | number | No |  |  |
-| `high_price` | number | No |  |  |
-| `low_price` | number | No |  |  |
-| `number_of_deals` | number | No |  |  |
-| `volume` | number | No |  |  |
-| `value_traded` | number | No |  |  |
-| `open_interest` | number | No |  |  |
-| `volatility` | number | No |  |  |
-| `traded_indicator` | boolean | No |  |  |
-| `total_contracts` | number | No |  |  |
-| `total_deals` | number | No |  |  |
-| `total_value` | number | No |  |  |
-| `total_open_interest` | number | No |  |  |
-| `total_margin_on_deposit` | number | No |  |  |
-| `interest_on_initial_margin` | number | No |  |  |
+| `market_number` | number | Yes | Market Number |  |
+| `contract_type` | text | Yes | Contract Type |  |
+| `instrument_type` | text | Yes | Instrument Type |  |
+| `record_type` | text | Yes | Record Type |  |
+| `record_sub_type` | text | Yes | Record Sub Type |  |
+| `run_date` | date | Yes | Run Date |  |
+| `filler_header` | text | No | Filler Header |  |
+| `instrument` | text | No | Instrument |  |
+| `date` | date | No | Date |  |
+| `strike_price` | number | No | Strike Price |  |
+| `option_type` | text | No | Option Type |  |
+| `spot_price` | number | No | Spot Price |  |
+| `closing_bid` | number | No | Closing Bid |  |
+| `closing_offer` | number | No | Closing Offer |  |
+| `mtm` | number | No | Mtm |  |
+| `first_price` | number | No | First Price |  |
+| `last_price` | number | No | Last Price |  |
+| `high_price` | number | No | High Price |  |
+| `low_price` | number | No | Low Price |  |
+| `number_of_deals` | number | No | Number Of Deals |  |
+| `volume` | number | No | Volume |  |
+| `value_traded` | number | No | Value Traded |  |
+| `open_interest` | number | No | Open Interest |  |
+| `volatility` | number | No | Volatility |  |
+| `traded_indicator` | boolean | No | Traded Indicator |  |
+| `total_contracts` | number | No | Total Contracts |  |
+| `total_deals` | number | No | Total Deals |  |
+| `total_value` | number | No | Total Value |  |
+| `total_open_interest` | number | No | Total Open Interest |  |
+| `total_margin_on_deposit` | number | No | Total Margin On Deposit |  |
+| `interest_on_initial_margin` | number | No | Interest On Initial Margin |  |
 
 ## Rules
 
@@ -96,7 +96,7 @@ description: "End-of-day interest rate derivatives data delivery via FTP — fix
 
 ## Outcomes
 
-### Successful_delivery
+### Successful_delivery (Priority: 10)
 
 **Given:**
 - subscriber is licensed and provisioned with IDP credentials
@@ -109,7 +109,7 @@ description: "End-of-day interest rate derivatives data delivery via FTP — fix
 
 **Result:** subscriber receives complete end-of-day interest rate derivatives data
 
-### Subscriber_provisioned
+### Subscriber_provisioned (Priority: 11)
 
 **Given:**
 - prospective subscriber has contacted Market Data Department in writing

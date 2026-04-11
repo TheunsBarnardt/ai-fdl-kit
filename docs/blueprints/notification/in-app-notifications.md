@@ -84,7 +84,7 @@ description: "Real-time in-app notification center with read state, grouping, de
 
 **Result:** remove oldest notification and proceed with creation
 
-### Notification_created (Priority: 10) | Transaction: atomic
+### Notification_created (Priority: 10) — Error: `NOTIFICATION_NOT_FOUND` | Transaction: atomic
 
 **Given:**
 - `recipient_user_id` (db) exists

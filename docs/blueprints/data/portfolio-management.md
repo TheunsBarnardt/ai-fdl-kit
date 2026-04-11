@@ -32,41 +32,41 @@ description: "Retrieve, manage, and report on investment portfolio holdings, pos
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `account_number` | text | Yes |  |  |
-| `market_value` | number | Yes |  |  |
-| `valuation_date` | date | Yes |  |  |
-| `previous_market_value` | number | No |  |  |
-| `previous_valuation_date` | date | No |  |  |
-| `portfolio_movement` | number | No |  |  |
-| `total_cash` | number | Yes |  |  |
-| `unsettled_positions` | number | No |  |  |
-| `reporting_currency` | text | Yes |  |  |
-| `last_update_date` | datetime | Yes |  |  |
-| `valuation_message` | text | No |  |  |
-| `instrument_code` | text | Yes |  |  |
-| `instrument_name` | text | Yes |  |  |
-| `instrument_type` | text | Yes |  |  |
-| `instrument_isin` | text | No |  |  |
-| `quantity` | number | Yes |  |  |
-| `instrument_price` | number | Yes |  |  |
-| `cost_price` | number | Yes |  |  |
-| `position_market_value` | number | Yes |  |  |
-| `position_weighting` | number | Yes |  |  |
-| `unrealised_pnl` | number | Yes |  |  |
-| `asset_class` | text | No |  |  |
-| `sector` | text | No |  |  |
-| `sub_sector` | text | No |  |  |
-| `currency` | text | Yes |  |  |
-| `fx_rate` | number | Yes |  |  |
-| `reporting_market_value` | number | Yes |  |  |
-| `share_traded_today` | boolean | No |  |  |
-| `is_live_data` | boolean | No |  |  |
-| `feed_source` | text | No |  |  |
-| `external_account` | text | No |  |  |
-| `transaction_date` | date | Yes |  |  |
-| `transaction_type` | text | Yes |  |  |
-| `transaction_amount` | number | Yes |  |  |
-| `transaction_quantity` | number | No |  |  |
+| `account_number` | text | Yes | Account Number |  |
+| `market_value` | number | Yes | Market Value |  |
+| `valuation_date` | date | Yes | Valuation Date |  |
+| `previous_market_value` | number | No | Previous Market Value |  |
+| `previous_valuation_date` | date | No | Previous Valuation Date |  |
+| `portfolio_movement` | number | No | Portfolio Movement |  |
+| `total_cash` | number | Yes | Total Cash |  |
+| `unsettled_positions` | number | No | Unsettled Positions |  |
+| `reporting_currency` | text | Yes | Reporting Currency |  |
+| `last_update_date` | datetime | Yes | Last Update Date |  |
+| `valuation_message` | text | No | Valuation Message |  |
+| `instrument_code` | text | Yes | Instrument Code |  |
+| `instrument_name` | text | Yes | Instrument Name |  |
+| `instrument_type` | text | Yes | Instrument Type |  |
+| `instrument_isin` | text | No | Instrument Isin |  |
+| `quantity` | number | Yes | Quantity |  |
+| `instrument_price` | number | Yes | Instrument Price |  |
+| `cost_price` | number | Yes | Cost Price |  |
+| `position_market_value` | number | Yes | Position Market Value |  |
+| `position_weighting` | number | Yes | Position Weighting |  |
+| `unrealised_pnl` | number | Yes | Unrealised Pnl |  |
+| `asset_class` | text | No | Asset Class |  |
+| `sector` | text | No | Sector |  |
+| `sub_sector` | text | No | Sub Sector |  |
+| `currency` | text | Yes | Currency |  |
+| `fx_rate` | number | Yes | Fx Rate |  |
+| `reporting_market_value` | number | Yes | Reporting Market Value |  |
+| `share_traded_today` | boolean | No | Share Traded Today |  |
+| `is_live_data` | boolean | No | Is Live Data |  |
+| `feed_source` | text | No | Feed Source |  |
+| `external_account` | text | No | External Account |  |
+| `transaction_date` | date | Yes | Transaction Date |  |
+| `transaction_type` | text | Yes | Transaction Type |  |
+| `transaction_amount` | number | Yes | Transaction Amount |  |
+| `transaction_quantity` | number | No | Transaction Quantity |  |
 
 ## States
 
@@ -136,7 +136,7 @@ description: "Retrieve, manage, and report on investment portfolio holdings, pos
 
 **Result:** 404 Not Found - account does not exist
 
-### Portfolio_exported_to_excel (Priority: 3)
+### Portfolio_exported_to_excel (Priority: 3) — Error: `PORTFOLIO_EXPORT_FAILURE`
 
 **Given:**
 - user is authenticated

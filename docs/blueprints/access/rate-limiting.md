@@ -91,7 +91,7 @@ description: "Configurable request throttling with multiple scopes and algorithm
 
 **Result:** allow request using burst allowance and set headers
 
-### Rate_limit_warning (Priority: 3)
+### Rate_limit_warning (Priority: 3) — Error: `RATE_LIMIT_CONFIG_INVALID`
 
 **Given:**
 - `current_count` (computed) gte `limit * 0.8`

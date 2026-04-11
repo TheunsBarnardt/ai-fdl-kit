@@ -31,23 +31,23 @@ description: "Broker dematerialisation (DEMAT) position upload to central back-o
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `card_code` | text | Yes |  |  |
-| `broker_code` | text | Yes |  |  |
-| `upload_date` | date | Yes |  |  |
-| `account_number` | text | Yes |  |  |
-| `instrument_code` | text | Yes |  |  |
-| `isin` | text | No |  |  |
-| `demat_quantity` | number | Yes |  |  |
-| `csdp_account_number` | text | No |  |  |
-| `csdp_code` | text | No |  |  |
-| `effective_date` | date | No |  |  |
-| `reference_number` | text | No |  |  |
-| `cost_value` | number | No |  |  |
-| `market_value` | number | No |  |  |
-| `position_type` | select | No |  |  |
-| `pledge_indicator` | select | No |  |  |
-| `restriction_indicator` | select | No |  |  |
-| `record_count` | number | No |  |  |
+| `card_code` | text | Yes | Card Code |  |
+| `broker_code` | text | Yes | Broker Code |  |
+| `upload_date` | date | Yes | Upload Date |  |
+| `account_number` | text | Yes | Account Number |  |
+| `instrument_code` | text | Yes | Instrument Code |  |
+| `isin` | text | No | Isin |  |
+| `demat_quantity` | number | Yes | Demat Quantity |  |
+| `csdp_account_number` | text | No | Csdp Account Number |  |
+| `csdp_code` | text | No | Csdp Code |  |
+| `effective_date` | date | No | Effective Date |  |
+| `reference_number` | text | No | Reference Number |  |
+| `cost_value` | number | No | Cost Value |  |
+| `market_value` | number | No | Market Value |  |
+| `position_type` | select | No | Position Type |  |
+| `pledge_indicator` | select | No | Pledge Indicator |  |
+| `restriction_indicator` | select | No | Restriction Indicator |  |
+| `record_count` | number | No | Record Count |  |
 
 ## Rules
 
@@ -58,7 +58,7 @@ description: "Broker dematerialisation (DEMAT) position upload to central back-o
 
 ## Outcomes
 
-### Automated_demat_upload (Priority: 1)
+### Automated_demat_upload (Priority: 1) — Error: `DEMAT_UPLOAD_INVALID_CSDP`
 
 **Given:**
 - `broker_subscribed` (db) eq `true`

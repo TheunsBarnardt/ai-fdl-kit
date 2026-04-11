@@ -83,8 +83,6 @@ Automated quality score measuring outcome coverage, rule structure, error bindin
 | AGI readiness | `██░░░` | 2/5 |
 | Simplicity | `████░` | 4/5 |
 
-📈 **+11** since baseline (60 → 71)
-
 **Recent auto-improvements** *(via autoresearch-style keep-or-reset loop — applied only because they raised the fitness score)*
 
 - `T1` **flat-rules-to-categorized** — rules: flat array (8) → rules.general

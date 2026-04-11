@@ -140,7 +140,7 @@ description: "Pluggable component registration system with config-driven fields,
 
 **Result:** Component and all nested children removed from the page
 
-### Resolve_data_on_context_change (Priority: 6)
+### Resolve_data_on_context_change (Priority: 6) — Error: `RESOLVE_DATA_FAILED`
 
 **Given:**
 - component has a resolveData lifecycle hook defined

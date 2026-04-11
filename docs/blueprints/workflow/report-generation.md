@@ -99,7 +99,7 @@ description: "Scheduled and on-demand report generation with PDF, Excel, and CSV
 
 **Result:** Cached report returned immediately without regeneration
 
-### Scheduled_report_triggered (Priority: 3)
+### Scheduled_report_triggered (Priority: 3) — Error: `REPORT_INVALID_SCHEDULE`
 
 **Given:**
 - cron schedule fires for a configured report

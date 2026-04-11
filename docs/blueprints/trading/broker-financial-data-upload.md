@@ -31,31 +31,31 @@ description: "Broker financial data upload to central back-office via fixed-widt
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `layout_number` | text | Yes |  |  |
-| `broker_code` | text | Yes |  |  |
-| `upload_date` | date | Yes |  |  |
-| `record_count` | number | No |  |  |
-| `receipt_reference` | text | No |  |  |
-| `receipt_date` | date | No |  |  |
-| `receipt_account` | text | No |  |  |
-| `receipt_amount` | number | No |  |  |
-| `receipt_description` | text | No |  |  |
-| `receipt_bank_account` | text | No |  |  |
-| `receipt_currency` | text | No |  |  |
-| `payment_reference` | text | No |  |  |
-| `payment_date` | date | No |  |  |
-| `payment_account` | text | No |  |  |
-| `payment_amount` | number | No |  |  |
-| `payment_description` | text | No |  |  |
-| `payment_bank_account` | text | No |  |  |
-| `payment_currency` | text | No |  |  |
-| `journal_reference` | text | No |  |  |
-| `journal_date` | date | No |  |  |
-| `journal_debit_account` | text | No |  |  |
-| `journal_credit_account` | text | No |  |  |
-| `journal_amount` | number | No |  |  |
-| `journal_description` | text | No |  |  |
-| `journal_vat_code` | text | No |  |  |
+| `layout_number` | text | Yes | Layout Number |  |
+| `broker_code` | text | Yes | Broker Code |  |
+| `upload_date` | date | Yes | Upload Date |  |
+| `record_count` | number | No | Record Count |  |
+| `receipt_reference` | text | No | Receipt Reference |  |
+| `receipt_date` | date | No | Receipt Date |  |
+| `receipt_account` | text | No | Receipt Account |  |
+| `receipt_amount` | number | No | Receipt Amount |  |
+| `receipt_description` | text | No | Receipt Description |  |
+| `receipt_bank_account` | text | No | Receipt Bank Account |  |
+| `receipt_currency` | text | No | Receipt Currency |  |
+| `payment_reference` | text | No | Payment Reference |  |
+| `payment_date` | date | No | Payment Date |  |
+| `payment_account` | text | No | Payment Account |  |
+| `payment_amount` | number | No | Payment Amount |  |
+| `payment_description` | text | No | Payment Description |  |
+| `payment_bank_account` | text | No | Payment Bank Account |  |
+| `payment_currency` | text | No | Payment Currency |  |
+| `journal_reference` | text | No | Journal Reference |  |
+| `journal_date` | date | No | Journal Date |  |
+| `journal_debit_account` | text | No | Journal Debit Account |  |
+| `journal_credit_account` | text | No | Journal Credit Account |  |
+| `journal_amount` | number | No | Journal Amount |  |
+| `journal_description` | text | No | Journal Description |  |
+| `journal_vat_code` | text | No | Journal Vat Code |  |
 
 ## Rules
 

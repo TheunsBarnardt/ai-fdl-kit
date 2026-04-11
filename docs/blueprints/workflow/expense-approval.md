@@ -156,7 +156,7 @@ description: "Employee expense submission and approval workflow with multi-level
 
 **Result:** Expense rejected, employee notified
 
-### Expense_posted (Priority: 4)
+### Expense_posted (Priority: 4) — Error: `EXPENSE_ALREADY_POSTED`
 
 **Given:**
 - expense is approved

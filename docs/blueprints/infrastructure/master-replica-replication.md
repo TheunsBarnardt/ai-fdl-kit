@@ -31,12 +31,12 @@ description: "One-way data synchronization from master to replicas; full or part
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `repl_state` | select | No |  |  |
-| `repl_id` | text | No |  |  |
-| `repl_offset` | number | No |  |  |
-| `repl_backlog` | json | No |  |  |
-| `backlog_size_mb` | number | No |  |  |
-| `replication_lag_seconds` | number | No |  |  |
+| `repl_state` | select | No | Repl State |  |
+| `repl_id` | text | No | Repl Id |  |
+| `repl_offset` | number | No | Repl Offset |  |
+| `repl_backlog` | json | No | Repl Backlog |  |
+| `backlog_size_mb` | number | No | Backlog Size Mb |  |
+| `replication_lag_seconds` | number | No | Replication Lag Seconds |  |
 
 ## States
 
@@ -49,16 +49,7 @@ description: "One-way data synchronization from master to replicas; full or part
 
 ## Rules
 
-- Master sends ALL write commands to connected replicas
-- Replicas apply commands in order (FIFO); cannot apply out-of-order
-- Replicas are read-only (writes rejected or ignored)
-- Replication is asynchronous (master doesn't wait for replica ack)
-- Full sync copies RDB snapshot then streams commands
-- Partial sync only sends commands within replication backlog window
-- Replication ID identifies master generation (changes on election or failover)
-- Replica track master offset to enable partial resync after disconnect
-- If offset falls outside backlog window, full sync required
-- Replication backlog is circular (overwrites old entries)
+- **general:** Master sends ALL write commands to connected replicas, Replicas apply commands in order (FIFO); cannot apply out-of-order, Replicas are read-only (writes rejected or ignored), Replication is asynchronous (master doesn't wait for replica ack), Full sync copies RDB snapshot then streams commands, Partial sync only sends commands within replication backlog window, Replication ID identifies master generation (changes on election or failover), Replica track master offset to enable partial resync after disconnect, If offset falls outside backlog window, full sync required, Replication backlog is circular (overwrites old entries)
 
 ## Outcomes
 

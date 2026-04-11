@@ -59,7 +59,7 @@ description: "Manage object storage across cloud providers with upload, download
 
 **Result:** Object stored with server-side encryption; etag returned for verification
 
-### Multipart_upload_completed (Priority: 2)
+### Multipart_upload_completed (Priority: 2) — Error: `MULTIPART_UPLOAD_FAILED`
 
 **Given:**
 - Object size exceeds 100MB

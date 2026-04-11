@@ -133,7 +133,7 @@ description: "Send SMS messages for OTP codes, alerts, and marketing with provid
 
 **Result:** update delivery log with confirmed delivery
 
-### Sms_failed (Priority: 12)
+### Sms_failed (Priority: 12) — Error: `SMS_DELIVERY_FAILED`
 
 **Given:**
 - `delivery_status` (system) eq `failed`

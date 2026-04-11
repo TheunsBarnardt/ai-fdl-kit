@@ -113,7 +113,7 @@ description: "Multi-tenant organization and team management with member invitati
 
 **Result:** show "Your plan's member limit has been reached. Upgrade to add more members."
 
-### Invite_accepted (Priority: 5) | Transaction: atomic
+### Invite_accepted (Priority: 5) — Error: `INVITE_ALREADY_ACCEPTED` | Transaction: atomic
 
 **Given:**
 - `invite_token` (input) exists

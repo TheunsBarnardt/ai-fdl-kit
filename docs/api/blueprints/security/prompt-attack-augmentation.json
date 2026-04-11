@@ -1,0 +1,202 @@
+{
+  "feature": "prompt-attack-augmentation",
+  "version": "1.0.0",
+  "description": "Post-process probe attempts with obfuscation transforms (encoding, rephrasing, suffix injection) before submission so attacks bypass surface-level safety filters.",
+  "category": "security",
+  "tags": [
+    "llm",
+    "augmentation",
+    "obfuscation",
+    "encoding",
+    "jailbreak",
+    "bypass",
+    "red-team"
+  ],
+  "actors": [
+    {
+      "id": "augmentation_engine",
+      "name": "Augmentation Engine",
+      "type": "system",
+      "description": "Applies one or more transforms to a probe attempt before it is sent."
+    },
+    {
+      "id": "probe",
+      "name": "Source Probe",
+      "type": "system",
+      "description": "Generates the original probe attempt that augmentations are applied to."
+    },
+    {
+      "id": "target_model",
+      "name": "Target AI Model",
+      "type": "external",
+      "description": "Receives the augmented (transformed) probe prompt."
+    }
+  ],
+  "fields": [
+    {
+      "name": "augmentation_id",
+      "type": "text",
+      "required": true,
+      "label": "Augmentation ID"
+    },
+    {
+      "name": "source_attempt",
+      "type": "json",
+      "required": true,
+      "label": "Source Attempt"
+    },
+    {
+      "name": "transform_type",
+      "type": "select",
+      "required": true,
+      "label": "Transform Type"
+    },
+    {
+      "name": "transformed_attempt",
+      "type": "json",
+      "required": false,
+      "label": "Transformed Attempt"
+    },
+    {
+      "name": "origin_attempt_id",
+      "type": "token",
+      "required": true,
+      "label": "Origin Attempt ID"
+    }
+  ],
+  "rules": {
+    "ordering": {
+      "apply_after_probe_generation": true,
+      "apply_before_model_submission": true
+    },
+    "chaining": {
+      "multiple_augmentations_per_attempt": true,
+      "chain_order": "declared",
+      "preserve_semantic_intent": true
+    },
+    "traceability": {
+      "origin_attempt_id": "required"
+    },
+    "on_failure": {
+      "action": "passthrough"
+    },
+    "evaluation": {
+      "detector": "same_as_source_probe"
+    },
+    "modality": {
+      "cross_modal_transforms": "declared_only"
+    },
+    "language_specific_augmentations": {
+      "target_language": "required",
+      "skip_on_language_locked_probes": true
+    }
+  },
+  "outcomes": {
+    "augmentation_not_applicable": {
+      "priority": 2,
+      "given": [
+        "augmentation type does not support the probe's input modality"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "transformed_attempt",
+          "description": "Pass through unchanged — original attempt is used."
+        }
+      ],
+      "result": "Original attempt is submitted; augmentation skip is logged."
+    },
+    "augmentation_applied": {
+      "priority": 10,
+      "given": [
+        "augmentation type supports the probe's input modality",
+        "transform completes without error"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "transformed_attempt",
+          "description": "Augmented prompt replaces the original in the attempt."
+        },
+        {
+          "action": "set_field",
+          "target": "origin_attempt_id",
+          "description": "Original attempt ID stored for traceability."
+        },
+        {
+          "action": "emit_event",
+          "event": "security.augmentation.applied",
+          "payload": [
+            "augmentation_id",
+            "transform_type",
+            "origin_attempt_id"
+          ]
+        }
+      ],
+      "result": "Augmented attempt is ready for submission to the target model."
+    }
+  },
+  "errors": [
+    {
+      "code": "AUGMENTATION_UNSUPPORTED_MODALITY",
+      "status": 422,
+      "message": "This augmentation does not support the probe's input modality."
+    },
+    {
+      "code": "AUGMENTATION_TRANSFORM_FAILED",
+      "status": 500,
+      "message": "The augmentation transform could not be applied. The original attempt will be used."
+    }
+  ],
+  "events": [
+    {
+      "name": "security.augmentation.applied",
+      "description": "Emitted when an augmentation successfully transforms a probe attempt.",
+      "payload": [
+        "augmentation_id",
+        "transform_type",
+        "origin_attempt_id"
+      ]
+    },
+    {
+      "name": "security.augmentation.skipped",
+      "description": "Emitted when an augmentation is skipped due to modality mismatch or error.",
+      "payload": [
+        "augmentation_id",
+        "transform_type",
+        "origin_attempt_id",
+        "reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "llm-attack-probe-library",
+      "type": "required",
+      "reason": "Source probes that augmentations are applied to."
+    },
+    {
+      "feature": "llm-vulnerability-scan",
+      "type": "required",
+      "reason": "The scan pipeline that configures and applies augmentations."
+    },
+    {
+      "feature": "prompt-obfuscation-pipeline",
+      "type": "optional",
+      "reason": "Complementary converter-based obfuscation pipeline from PyRIT."
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/NVIDIA/garak",
+      "project": "garak — LLM vulnerability scanner",
+      "tech_stack": "Python 3.10+",
+      "files_traced": 10,
+      "entry_points": [
+        "garak/buffs/base.py",
+        "garak/buffs/encoding.py",
+        "garak/buffs/paraphrase.py"
+      ]
+    }
+  }
+}

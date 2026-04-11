@@ -32,119 +32,119 @@ description: "Bonds reference data and corporate actions delivery via FTP — CS
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `universal_instrument_master_id` | text | Yes |  |  |
-| `jse_alpha_code` | text | Yes |  |  |
-| `isin` | text | Yes |  |  |
-| `issuer_name` | text | Yes |  |  |
-| `lei_code` | text | No |  |  |
-| `issue_type` | select | Yes |  |  |
-| `cfi_code` | text | No |  |  |
-| `fisn_code` | text | No |  |  |
-| `issue_date` | date | Yes |  |  |
-| `listed_unlisted_flag` | boolean | Yes |  |  |
-| `instrument_status` | select | Yes |  |  |
-| `status_reason` | text | No |  |  |
-| `nominal_amount` | number | Yes |  |  |
-| `amount_authorised` | number | No |  |  |
-| `issue_price_format` | select | No |  |  |
-| `issue_price` | number | No |  |  |
-| `maturity_date` | date | Yes |  |  |
-| `legal_final_maturity_date` | date | No |  |  |
-| `pricing_redemption_date` | date | No |  |  |
-| `most_recent_redemption_date` | date | No |  |  |
-| `pricing_method` | select | No |  |  |
-| `bond_calculator_indicator` | boolean | No |  |  |
-| `settlement_method` | select | No |  |  |
-| `settlement_provider` | select | No |  |  |
-| `sa_bond_category` | select | No |  |  |
-| `sub_sector` | text | No |  |  |
-| `sector` | text | No |  |  |
-| `major_division` | text | No |  |  |
-| `guarantee_ranking` | select | No |  |  |
-| `redemption_reimbursement_type` | select | No |  |  |
-| `specified_denomination` | number | No |  |  |
-| `underlying_foreign_issuer_indicator` | boolean | No |  |  |
-| `inward_listed` | boolean | No |  |  |
-| `country_of_issuance` | text | No |  |  |
-| `companion_bond_alpha_code` | text | No |  |  |
-| `companion_bond_instrument_type` | text | No |  |  |
-| `notes` | rich_text | No |  |  |
-| `aps_url_link` | url | No |  |  |
-| `pricing_class_code` | select | No |  |  |
-| `foreign_issuer` | boolean | No |  |  |
-| `compounded_calculated_coupon_rate` | number | No |  |  |
-| `coupon_rate` | number | No |  |  |
-| `coupon_currency` | text | No |  |  |
-| `coupon_withholding_tax` | boolean | No |  |  |
-| `business_day_convention` | select | No |  |  |
-| `coupon_frequency` | select | No |  |  |
-| `coupon_payment_type` | select | No |  |  |
-| `reference_rate` | select | No |  |  |
-| `basis_points` | number | No |  |  |
-| `over_under` | select | No |  |  |
-| `rate_of_reference_rate` | number | No |  |  |
-| `books_closed_period` | number | No |  |  |
-| `coupon_rate_floor` | number | No |  |  |
-| `coupon_rate_cap` | number | No |  |  |
-| `customised_coupon` | select | No |  |  |
-| `day_count_convention` | select | No |  |  |
-| `first_accrual_date` | date | No |  |  |
-| `first_interest_coupon_date` | date | No |  |  |
-| `first_books_close_date` | date | No |  |  |
-| `date_of_listing_reference_rate` | date | No |  |  |
-| `broken_first_coupon` | boolean | No |  |  |
-| `last_day_to_register_for_maturity_amount` | date | No |  |  |
-| `base_cpi_ref` | number | No |  |  |
-| `linked_reference_index` | select | No |  |  |
-| `previous_coupon_rate` | number | No |  |  |
-| `previous_rate_of_reference_rate` | number | No |  |  |
-| `previous_coupon_payment_date` | date | No |  |  |
-| `lookback_period` | text | No |  |  |
-| `interest_coupon_date` | date | No |  |  |
-| `actual_payment_date` | date | No |  |  |
-| `last_day_to_register` | date | No |  |  |
-| `coupon_determination_date` | date | No |  |  |
-| `call_indicator` | boolean | No |  |  |
-| `callable_step_up_date` | date | No |  |  |
-| `step_up_down_coupon_rate` | number | No |  |  |
-| `step_up_down_reference_rate` | text | No |  |  |
-| `step_up_down_basis_points` | number | No |  |  |
-| `exchange` | text | No |  |  |
-| `mic_code` | text | No |  |  |
-| `listing_date` | date | No |  |  |
-| `primary_market_indicator` | boolean | No |  |  |
-| `trading_currency` | text | No |  |  |
-| `bond_etp_indicator` | boolean | No |  |  |
-| `instrument_delisting_date` | date | No |  |  |
-| `redemption_date` | date | No |  |  |
-| `redemption_amount` | number | No |  |  |
-| `split_maturity_date` | date | No |  |  |
-| `split_maturity_date_notes` | rich_text | No |  |  |
-| `index_code` | text | No |  |  |
-| `reference_index_alpha_code` | text | No |  |  |
-| `instrument_name` | text | No |  |  |
-| `instrument_type` | text | No |  |  |
-| `mixed_rate_note_leg` | text | No |  |  |
-| `reference_instrument_alpha_code` | text | No |  |  |
-| `reference_instrument_isin` | text | No |  |  |
-| `institution_name` | text | No |  |  |
-| `guarantor_alpha_code` | text | No |  |  |
-| `entity_role_type` | text | No |  |  |
-| `leg_number` | number | No |  |  |
-| `leg_start_date` | date | No |  |  |
-| `leg_end_date` | date | No |  |  |
-| `leg_coupon_frequency` | select | No |  |  |
-| `leg_business_day_convention` | select | No |  |  |
-| `leg_coupon_rate` | number | No |  |  |
-| `leg_coupon_payment_type` | select | No |  |  |
-| `leg_basis_points` | number | No |  |  |
-| `leg_over_under` | select | No |  |  |
-| `leg_reference_rate` | text | No |  |  |
-| `leg_books_closed_period` | number | No |  |  |
-| `leg_day_count_convention` | select | No |  |  |
-| `leg_customised_coupon` | select | No |  |  |
-| `leg_underlying_index_code` | text | No |  |  |
-| `mixed_rate_conversion_determination_date` | date | No |  |  |
+| `universal_instrument_master_id` | text | Yes | Universal Instrument Master Id |  |
+| `jse_alpha_code` | text | Yes | Jse Alpha Code |  |
+| `isin` | text | Yes | Isin |  |
+| `issuer_name` | text | Yes | Issuer Name |  |
+| `lei_code` | text | No | Lei Code |  |
+| `issue_type` | select | Yes | Issue Type |  |
+| `cfi_code` | text | No | Cfi Code |  |
+| `fisn_code` | text | No | Fisn Code |  |
+| `issue_date` | date | Yes | Issue Date |  |
+| `listed_unlisted_flag` | boolean | Yes | Listed Unlisted Flag |  |
+| `instrument_status` | select | Yes | Instrument Status |  |
+| `status_reason` | text | No | Status Reason |  |
+| `nominal_amount` | number | Yes | Nominal Amount |  |
+| `amount_authorised` | number | No | Amount Authorised |  |
+| `issue_price_format` | select | No | Issue Price Format |  |
+| `issue_price` | number | No | Issue Price |  |
+| `maturity_date` | date | Yes | Maturity Date |  |
+| `legal_final_maturity_date` | date | No | Legal Final Maturity Date |  |
+| `pricing_redemption_date` | date | No | Pricing Redemption Date |  |
+| `most_recent_redemption_date` | date | No | Most Recent Redemption Date |  |
+| `pricing_method` | select | No | Pricing Method |  |
+| `bond_calculator_indicator` | boolean | No | Bond Calculator Indicator |  |
+| `settlement_method` | select | No | Settlement Method |  |
+| `settlement_provider` | select | No | Settlement Provider |  |
+| `sa_bond_category` | select | No | Sa Bond Category |  |
+| `sub_sector` | text | No | Sub Sector |  |
+| `sector` | text | No | Sector |  |
+| `major_division` | text | No | Major Division |  |
+| `guarantee_ranking` | select | No | Guarantee Ranking |  |
+| `redemption_reimbursement_type` | select | No | Redemption Reimbursement Type |  |
+| `specified_denomination` | number | No | Specified Denomination |  |
+| `underlying_foreign_issuer_indicator` | boolean | No | Underlying Foreign Issuer Indicator |  |
+| `inward_listed` | boolean | No | Inward Listed |  |
+| `country_of_issuance` | text | No | Country Of Issuance |  |
+| `companion_bond_alpha_code` | text | No | Companion Bond Alpha Code |  |
+| `companion_bond_instrument_type` | text | No | Companion Bond Instrument Type |  |
+| `notes` | rich_text | No | Notes |  |
+| `aps_url_link` | url | No | Aps Url Link |  |
+| `pricing_class_code` | select | No | Pricing Class Code |  |
+| `foreign_issuer` | boolean | No | Foreign Issuer |  |
+| `compounded_calculated_coupon_rate` | number | No | Compounded Calculated Coupon Rate |  |
+| `coupon_rate` | number | No | Coupon Rate |  |
+| `coupon_currency` | text | No | Coupon Currency |  |
+| `coupon_withholding_tax` | boolean | No | Coupon Withholding Tax |  |
+| `business_day_convention` | select | No | Business Day Convention |  |
+| `coupon_frequency` | select | No | Coupon Frequency |  |
+| `coupon_payment_type` | select | No | Coupon Payment Type |  |
+| `reference_rate` | select | No | Reference Rate |  |
+| `basis_points` | number | No | Basis Points |  |
+| `over_under` | select | No | Over Under |  |
+| `rate_of_reference_rate` | number | No | Rate Of Reference Rate |  |
+| `books_closed_period` | number | No | Books Closed Period |  |
+| `coupon_rate_floor` | number | No | Coupon Rate Floor |  |
+| `coupon_rate_cap` | number | No | Coupon Rate Cap |  |
+| `customised_coupon` | select | No | Customised Coupon |  |
+| `day_count_convention` | select | No | Day Count Convention |  |
+| `first_accrual_date` | date | No | First Accrual Date |  |
+| `first_interest_coupon_date` | date | No | First Interest Coupon Date |  |
+| `first_books_close_date` | date | No | First Books Close Date |  |
+| `date_of_listing_reference_rate` | date | No | Date Of Listing Reference Rate |  |
+| `broken_first_coupon` | boolean | No | Broken First Coupon |  |
+| `last_day_to_register_for_maturity_amount` | date | No | Last Day To Register For Maturity Amount |  |
+| `base_cpi_ref` | number | No | Base Cpi Ref |  |
+| `linked_reference_index` | select | No | Linked Reference Index |  |
+| `previous_coupon_rate` | number | No | Previous Coupon Rate |  |
+| `previous_rate_of_reference_rate` | number | No | Previous Rate Of Reference Rate |  |
+| `previous_coupon_payment_date` | date | No | Previous Coupon Payment Date |  |
+| `lookback_period` | text | No | Lookback Period |  |
+| `interest_coupon_date` | date | No | Interest Coupon Date |  |
+| `actual_payment_date` | date | No | Actual Payment Date |  |
+| `last_day_to_register` | date | No | Last Day To Register |  |
+| `coupon_determination_date` | date | No | Coupon Determination Date |  |
+| `call_indicator` | boolean | No | Call Indicator |  |
+| `callable_step_up_date` | date | No | Callable Step Up Date |  |
+| `step_up_down_coupon_rate` | number | No | Step Up Down Coupon Rate |  |
+| `step_up_down_reference_rate` | text | No | Step Up Down Reference Rate |  |
+| `step_up_down_basis_points` | number | No | Step Up Down Basis Points |  |
+| `exchange` | text | No | Exchange |  |
+| `mic_code` | text | No | Mic Code |  |
+| `listing_date` | date | No | Listing Date |  |
+| `primary_market_indicator` | boolean | No | Primary Market Indicator |  |
+| `trading_currency` | text | No | Trading Currency |  |
+| `bond_etp_indicator` | boolean | No | Bond Etp Indicator |  |
+| `instrument_delisting_date` | date | No | Instrument Delisting Date |  |
+| `redemption_date` | date | No | Redemption Date |  |
+| `redemption_amount` | number | No | Redemption Amount |  |
+| `split_maturity_date` | date | No | Split Maturity Date |  |
+| `split_maturity_date_notes` | rich_text | No | Split Maturity Date Notes |  |
+| `index_code` | text | No | Index Code |  |
+| `reference_index_alpha_code` | text | No | Reference Index Alpha Code |  |
+| `instrument_name` | text | No | Instrument Name |  |
+| `instrument_type` | text | No | Instrument Type |  |
+| `mixed_rate_note_leg` | text | No | Mixed Rate Note Leg |  |
+| `reference_instrument_alpha_code` | text | No | Reference Instrument Alpha Code |  |
+| `reference_instrument_isin` | text | No | Reference Instrument Isin |  |
+| `institution_name` | text | No | Institution Name |  |
+| `guarantor_alpha_code` | text | No | Guarantor Alpha Code |  |
+| `entity_role_type` | text | No | Entity Role Type |  |
+| `leg_number` | number | No | Leg Number |  |
+| `leg_start_date` | date | No | Leg Start Date |  |
+| `leg_end_date` | date | No | Leg End Date |  |
+| `leg_coupon_frequency` | select | No | Leg Coupon Frequency |  |
+| `leg_business_day_convention` | select | No | Leg Business Day Convention |  |
+| `leg_coupon_rate` | number | No | Leg Coupon Rate |  |
+| `leg_coupon_payment_type` | select | No | Leg Coupon Payment Type |  |
+| `leg_basis_points` | number | No | Leg Basis Points |  |
+| `leg_over_under` | select | No | Leg Over Under |  |
+| `leg_reference_rate` | text | No | Leg Reference Rate |  |
+| `leg_books_closed_period` | number | No | Leg Books Closed Period |  |
+| `leg_day_count_convention` | select | No | Leg Day Count Convention |  |
+| `leg_customised_coupon` | select | No | Leg Customised Coupon |  |
+| `leg_underlying_index_code` | text | No | Leg Underlying Index Code |  |
+| `mixed_rate_conversion_determination_date` | date | No | Mixed Rate Conversion Determination Date |  |
 
 ## Rules
 
@@ -156,7 +156,7 @@ description: "Bonds reference data and corporate actions delivery via FTP — CS
 
 ## Outcomes
 
-### Generate_bonds_instrument_reference_daily (Priority: 1)
+### Generate_bonds_instrument_reference_daily (Priority: 1) — Error: `BONDS_REF_SUBSCRIBER_NOT_PROVISIONED`
 
 **Given:**
 - scheduled dissemination time reached

@@ -344,7 +344,7 @@ description: "Transform a local Ubuntu PC into a fully functional, hardened, pub
 
 **Result:** Admin urgently notified — manual intervention required before certificate expires
 
-### Ddns_updated (Priority: 13)
+### Ddns_updated (Priority: 13) — Error: `DNS_UPDATE_FAILED`
 
 **Given:**
 - `ddns_enabled` (db) eq `true`
