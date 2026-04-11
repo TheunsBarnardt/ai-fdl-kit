@@ -1,0 +1,234 @@
+# ============================================================
+# VEHICLE EXPENSE TRACKING — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/frappe/erpnext
+# Source project: ERPNext (Python + Frappe Framework)
+# Files traced: 2
+# ============================================================
+
+feature: vehicle-expense-tracking
+version: "1.0.0"
+description: Record and categorise all costs attributable to individual fleet vehicles — fuel, maintenance, insurance, tolls, fines, and depreciation — and generate per-vehicle cost reports with budget variance.
+category: workflow
+tags: [fleet, vehicle, expenses, cost, reporting, budget, finance]
+
+actors:
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: Records and categorises vehicle expenses; reviews cost reports
+  - id: finance_manager
+    name: Finance Manager
+    type: human
+    description: Reviews per-vehicle cost reports; sets budgets; approves high-value expenses
+  - id: driver
+    name: Driver
+    type: human
+    description: Submits expense claims such as tolls, parking, and fuel purchases
+  - id: system
+    name: System
+    type: system
+    description: Auto-creates expense records from fuel log, maintenance log, and depreciation events
+
+fields:
+  - name: vehicle
+    type: text
+    required: true
+    label: Vehicle
+  - name: expense_date
+    type: date
+    required: true
+    label: Expense Date
+  - name: expense_category
+    type: select
+    required: true
+    label: Expense Category
+  - name: expense_description
+    type: text
+    required: true
+    label: Description
+  - name: amount
+    type: number
+    required: true
+    label: Amount
+  - name: currency
+    type: text
+    required: false
+    label: Currency
+  - name: payment_method
+    type: select
+    required: false
+    label: Payment Method
+  - name: vendor
+    type: text
+    required: false
+    label: Vendor / Payee
+  - name: reference_document
+    type: text
+    required: false
+    label: Source Document Reference
+  - name: source_type
+    type: select
+    required: false
+    label: Source Type
+  - name: receipt_attachment
+    type: file
+    required: false
+    label: Receipt / Invoice
+  - name: recorded_by
+    type: text
+    required: false
+    label: Recorded By
+  - name: budget_code
+    type: text
+    required: false
+    label: Budget Code
+  - name: approved_by
+    type: text
+    required: false
+    label: Approved By
+
+rules:
+  amount_positive:
+    description: Expense amount must be a positive value
+  date_not_future:
+    description: Expense date cannot be in the future
+  high_value_approval:
+    description: High-value expenses above a configurable threshold require finance manager approval before being posted
+  auto_generated_not_deletable:
+    description: Auto-generated expenses from fuel log, maintenance log, and depreciation cannot be manually deleted — they must be corrected via the originating record
+  cost_report_aggregation:
+    description: Per-vehicle cost reports aggregate all expense categories for a vehicle within a specified date range
+  budget_variance:
+    description: Budget variance is calculated when a monthly or annual budget is configured per vehicle or fleet category
+
+outcomes:
+  expense_recorded:
+    priority: 10
+    given:
+      - "vehicle exists in the fleet"
+      - "expense_date is not in the future"
+      - field: amount
+        source: input
+        operator: gt
+        value: 0
+        description: Amount is positive
+      - "expense_category is valid"
+    then:
+      - action: set_field
+        target: source_type
+        value: manual
+        description: Set when created manually; auto-generated entries are flagged differently
+      - action: emit_event
+        event: expense.recorded
+        payload: [vehicle, expense_date, expense_category, amount, vendor]
+    result: Expense is attributed to the vehicle and available for cost reporting
+
+  high_value_approval_required:
+    priority: 9
+    given:
+      - "amount exceeds the configured approval threshold"
+      - "source_type is manual"
+      - "approved_by is not set"
+    then:
+      - action: notify
+        channel: in_app
+        description: Send approval request to finance manager
+      - action: emit_event
+        event: expense.approval_requested
+        payload: [vehicle, expense_category, amount, recorded_by]
+    result: Expense is held pending finance manager approval
+
+  expense_approved:
+    priority: 8
+    given:
+      - "high-value expense is pending approval"
+      - "finance manager reviews and approves"
+    then:
+      - action: set_field
+        target: approved_by
+        value: current_user
+      - action: emit_event
+        event: expense.approved
+        payload: [vehicle, expense_category, amount, approved_by]
+    result: Expense is posted and included in cost reports
+
+  cost_report_generated:
+    priority: 7
+    given:
+      - "vehicle filter and date range are provided"
+    then:
+      - action: emit_event
+        event: expense.report_generated
+        payload: [vehicle, date_from, date_to, total_by_category, grand_total, budget_variance]
+    result: Per-vehicle cost report is available showing spend by category with optional budget comparison
+
+  budget_threshold_exceeded:
+    priority: 6
+    given:
+      - "monthly or annual budget is configured for the vehicle or fleet category"
+      - "cumulative expenses in the current period exceed the budget threshold percentage"
+    then:
+      - action: notify
+        channel: in_app
+        description: Alert fleet manager and finance manager of budget overrun
+      - action: emit_event
+        event: expense.budget_exceeded
+        payload: [vehicle, period, budget_amount, actual_amount, variance_pct]
+    result: Budget overrun alert is sent to stakeholders
+
+errors:
+  - code: EXPENSE_INVALID_AMOUNT
+    message: Expense amount must be greater than zero.
+    status: 400
+  - code: EXPENSE_FUTURE_DATE
+    message: Expense date cannot be in the future.
+    status: 400
+  - code: EXPENSE_APPROVAL_REQUIRED
+    message: This expense exceeds the approval limit and requires finance manager authorisation.
+    status: 422
+
+events:
+  - name: expense.recorded
+    description: A cost has been attributed to a fleet vehicle
+    payload: [vehicle, expense_date, expense_category, amount, vendor]
+  - name: expense.approval_requested
+    description: A high-value expense is awaiting finance manager approval
+    payload: [vehicle, expense_category, amount, recorded_by]
+  - name: expense.approved
+    description: A high-value expense has been approved by a finance manager
+    payload: [vehicle, expense_category, amount, approved_by]
+  - name: expense.report_generated
+    description: A per-vehicle expense report has been generated for a specified period
+    payload: [vehicle, date_from, date_to, total_by_category, grand_total, budget_variance]
+  - name: expense.budget_exceeded
+    description: A vehicle's expenses have exceeded the configured budget threshold
+    payload: [vehicle, period, budget_amount, actual_amount, variance_pct]
+
+related:
+  - feature: fuel-log
+    type: recommended
+    reason: Fuel log totals are auto-posted as fuel expense records
+  - feature: vehicle-maintenance-log
+    type: recommended
+    reason: Service costs from maintenance records are auto-posted as maintenance expense records
+  - feature: vehicle-insurance
+    type: recommended
+    reason: Insurance premium amounts can be recorded as insurance expense records
+  - feature: vehicle-depreciation
+    type: recommended
+    reason: Periodic depreciation amounts can be posted as depreciation expense records
+  - feature: vehicle-incident-log
+    type: recommended
+    reason: Incident repair costs and insurance shortfalls roll into vehicle expense records
+
+extensions:
+  source:
+    repo: "https://github.com/frappe/erpnext"
+    project: "ERPNext"
+    tech_stack: "Python + Frappe Framework"
+    files_traced: 2
+    entry_points:
+      - "erpnext/assets/doctype/asset_repair/asset_repair.py"
+      - "erpnext/assets/doctype/asset/asset.py"

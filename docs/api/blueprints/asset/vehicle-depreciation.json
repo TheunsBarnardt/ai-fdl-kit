@@ -1,0 +1,503 @@
+{
+  "feature": "vehicle-depreciation",
+  "version": "1.0.0",
+  "description": "Calculate and record periodic depreciation for fleet vehicles using configurable methods, track book value over time, and generate depreciation schedules per finance book.",
+  "category": "asset",
+  "tags": [
+    "fleet",
+    "vehicle",
+    "depreciation",
+    "finance",
+    "accounting",
+    "book-value"
+  ],
+  "actors": [
+    {
+      "id": "finance_manager",
+      "name": "Finance Manager",
+      "type": "human",
+      "description": "Configures depreciation parameters, approves schedules, and posts depreciation entries"
+    },
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Provides acquisition cost and useful life estimates"
+    },
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Calculates depreciation schedules and runs periodic posting jobs"
+    }
+  ],
+  "fields": [
+    {
+      "name": "vehicle",
+      "type": "text",
+      "required": true,
+      "label": "Vehicle"
+    },
+    {
+      "name": "acquisition_cost",
+      "type": "number",
+      "required": true,
+      "label": "Acquisition Cost"
+    },
+    {
+      "name": "additional_costs",
+      "type": "number",
+      "required": false,
+      "label": "Additional Capitalised Costs"
+    },
+    {
+      "name": "salvage_value",
+      "type": "number",
+      "required": true,
+      "label": "Salvage / Residual Value"
+    },
+    {
+      "name": "useful_life_years",
+      "type": "number",
+      "required": true,
+      "label": "Useful Life (years)"
+    },
+    {
+      "name": "depreciation_method",
+      "type": "select",
+      "required": true,
+      "label": "Depreciation Method"
+    },
+    {
+      "name": "depreciation_frequency_months",
+      "type": "number",
+      "required": true,
+      "label": "Depreciation Frequency (months)"
+    },
+    {
+      "name": "depreciation_start_date",
+      "type": "date",
+      "required": true,
+      "label": "Depreciation Start Date"
+    },
+    {
+      "name": "opening_accumulated_depreciation",
+      "type": "number",
+      "required": false,
+      "label": "Opening Accumulated Depreciation"
+    },
+    {
+      "name": "current_book_value",
+      "type": "number",
+      "required": false,
+      "label": "Current Book Value"
+    },
+    {
+      "name": "accumulated_depreciation",
+      "type": "number",
+      "required": false,
+      "label": "Accumulated Depreciation"
+    },
+    {
+      "name": "rate_of_depreciation",
+      "type": "number",
+      "required": false,
+      "label": "Depreciation Rate (%)"
+    },
+    {
+      "name": "daily_prorata",
+      "type": "boolean",
+      "required": false,
+      "label": "Daily Pro-Rata"
+    },
+    {
+      "name": "is_fully_depreciated",
+      "type": "boolean",
+      "required": false,
+      "label": "Fully Depreciated"
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "required": true,
+      "label": "Status"
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "draft",
+        "initial": true,
+        "description": "Depreciation parameters set; schedule not yet generated"
+      },
+      {
+        "name": "active",
+        "description": "Depreciation is running; periodic postings are being made"
+      },
+      {
+        "name": "partially_depreciated",
+        "description": "Some depreciation has been posted; book value > salvage value"
+      },
+      {
+        "name": "fully_depreciated",
+        "terminal": true,
+        "description": "Book value has reached the salvage value; no further postings"
+      },
+      {
+        "name": "disposed",
+        "terminal": true,
+        "description": "Vehicle has been sold or scrapped; final disposal entries posted"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "draft",
+        "to": "active",
+        "actor": "finance_manager",
+        "description": "Schedule generated and approved; depreciation begins"
+      },
+      {
+        "from": "active",
+        "to": "partially_depreciated",
+        "actor": "system",
+        "description": "First depreciation posting made"
+      },
+      {
+        "from": "partially_depreciated",
+        "to": "fully_depreciated",
+        "actor": "system",
+        "description": "Book value has reached salvage value"
+      },
+      {
+        "from": "active",
+        "to": "disposed",
+        "actor": "finance_manager",
+        "description": "Vehicle disposed of before full depreciation"
+      },
+      {
+        "from": "partially_depreciated",
+        "to": "disposed",
+        "actor": "finance_manager",
+        "description": "Vehicle disposed of while partially depreciated"
+      }
+    ]
+  },
+  "rules": {
+    "salvage_less_than_cost": {
+      "description": "Salvage value must be less than acquisition cost"
+    },
+    "useful_life_positive": {
+      "description": "Useful life in years must be a positive number greater than zero"
+    },
+    "start_date_after_acquisition": {
+      "description": "Depreciation start date must not precede the acquisition date"
+    },
+    "book_value_floor": {
+      "description": "Book value cannot fall below salvage value — depreciation stops when book value equals salvage value"
+    },
+    "straight_line_formula": {
+      "description": "Straight Line: periodic amount = (acquisition_cost - salvage_value) / total_periods"
+    },
+    "wdv_formula": {
+      "description": "Written Down Value: periodic amount = current_book_value × (rate_of_depreciation / periods_per_year)"
+    },
+    "ddb_formula": {
+      "description": "Double Declining Balance: rate = 2 / useful_life_years; amount = current_book_value × rate; floor at salvage value"
+    },
+    "manual_method": {
+      "description": "Manual method: amounts are entered directly per period by the finance manager"
+    },
+    "capitalised_repair_recalculation": {
+      "description": "When a repair capitalises additional cost, the depreciation base increases and the schedule is recalculated"
+    },
+    "disposal_reversal": {
+      "description": "Depreciation postings for periods beyond the disposal date are reversed on disposal"
+    },
+    "opening_depreciation_reduction": {
+      "description": "Opening accumulated depreciation reduces the net depreciable amount"
+    }
+  },
+  "outcomes": {
+    "schedule_generated": {
+      "priority": 10,
+      "given": [
+        "vehicle exists in the fleet",
+        "acquisition_cost, salvage_value, useful_life_years, and depreciation_method are provided",
+        "depreciation_start_date is valid",
+        {
+          "field": "salvage_value",
+          "source": "input",
+          "operator": "lt",
+          "value": "acquisition_cost",
+          "description": "Salvage value is less than acquisition cost"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "active"
+        },
+        {
+          "action": "set_field",
+          "target": "current_book_value",
+          "description": "Compute acquisition_cost + additional_costs - opening_accumulated_depreciation"
+        },
+        {
+          "action": "emit_event",
+          "event": "depreciation.schedule_generated",
+          "payload": [
+            "vehicle",
+            "depreciation_method",
+            "total_periods",
+            "period_amount",
+            "depreciation_start_date"
+          ]
+        }
+      ],
+      "result": "A full depreciation schedule is generated showing the amount and date for each posting period"
+    },
+    "depreciation_posted": {
+      "priority": 9,
+      "given": [
+        "status is active or partially_depreciated",
+        "current period posting date has been reached",
+        "current_book_value is greater than salvage_value"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "accumulated_depreciation",
+          "description": "Increment by period_amount"
+        },
+        {
+          "action": "set_field",
+          "target": "current_book_value",
+          "description": "Reduce by period_amount; floor at salvage_value"
+        },
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "partially_depreciated"
+        },
+        {
+          "action": "emit_event",
+          "event": "depreciation.period_posted",
+          "payload": [
+            "vehicle",
+            "posting_date",
+            "period_amount",
+            "accumulated_depreciation",
+            "current_book_value"
+          ]
+        }
+      ],
+      "result": "Periodic depreciation amount is posted and book value is updated"
+    },
+    "fully_depreciated": {
+      "priority": 8,
+      "given": [
+        "current_book_value equals or is less than salvage_value after the latest posting"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "is_fully_depreciated",
+          "value": true
+        },
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "fully_depreciated"
+        },
+        {
+          "action": "emit_event",
+          "event": "depreciation.fully_depreciated",
+          "payload": [
+            "vehicle",
+            "depreciation_date",
+            "salvage_value",
+            "total_depreciation_posted"
+          ]
+        }
+      ],
+      "result": "Vehicle is flagged as fully depreciated; no further periodic postings are made"
+    },
+    "disposal_entries_posted": {
+      "priority": 7,
+      "given": [
+        "vehicle is being disposed of (sold or scrapped)",
+        "disposal date and method are provided"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "disposed"
+        },
+        {
+          "action": "emit_event",
+          "event": "depreciation.disposal_posted",
+          "payload": [
+            "vehicle",
+            "disposal_date",
+            "current_book_value",
+            "disposal_proceeds",
+            "gain_or_loss"
+          ]
+        }
+      ],
+      "result": "Final disposal accounting entries are posted; gain or loss on disposal is computed"
+    },
+    "schedule_recalculated_after_repair": {
+      "priority": 6,
+      "given": [
+        "a capitalised repair has increased the vehicle's asset base",
+        "repair increases useful life (months extension provided)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "acquisition_cost",
+          "description": "Increase by capitalised repair cost"
+        },
+        {
+          "action": "set_field",
+          "target": "current_book_value",
+          "description": "Increase by capitalised repair cost"
+        },
+        {
+          "action": "emit_event",
+          "event": "depreciation.schedule_recalculated",
+          "payload": [
+            "vehicle",
+            "new_book_value",
+            "new_total_periods",
+            "capitalised_repair_amount"
+          ]
+        }
+      ],
+      "result": "Depreciation schedule is recalculated from the current book value over the revised remaining life"
+    },
+    "invalid_salvage_value": {
+      "priority": 1,
+      "error": "DEPRECIATION_INVALID_SALVAGE",
+      "given": [
+        {
+          "field": "salvage_value",
+          "source": "input",
+          "operator": "gte",
+          "value": "acquisition_cost",
+          "description": "Salvage value is equal to or greater than acquisition cost"
+        }
+      ],
+      "then": [],
+      "result": "Schedule generation is rejected; user must provide a salvage value less than acquisition cost"
+    }
+  },
+  "errors": [
+    {
+      "code": "DEPRECIATION_INVALID_SALVAGE",
+      "message": "Salvage value must be less than the acquisition cost.",
+      "status": 400
+    },
+    {
+      "code": "DEPRECIATION_INVALID_START_DATE",
+      "message": "Depreciation start date cannot be before the vehicle's acquisition date.",
+      "status": 400
+    }
+  ],
+  "events": [
+    {
+      "name": "depreciation.schedule_generated",
+      "description": "A full depreciation schedule has been computed for a vehicle",
+      "payload": [
+        "vehicle",
+        "depreciation_method",
+        "total_periods",
+        "period_amount",
+        "depreciation_start_date"
+      ]
+    },
+    {
+      "name": "depreciation.period_posted",
+      "description": "A periodic depreciation amount has been posted for a vehicle",
+      "payload": [
+        "vehicle",
+        "posting_date",
+        "period_amount",
+        "accumulated_depreciation",
+        "current_book_value"
+      ]
+    },
+    {
+      "name": "depreciation.fully_depreciated",
+      "description": "A vehicle's book value has reached its salvage value",
+      "payload": [
+        "vehicle",
+        "depreciation_date",
+        "salvage_value",
+        "total_depreciation_posted"
+      ]
+    },
+    {
+      "name": "depreciation.disposal_posted",
+      "description": "Final accounting entries for vehicle disposal have been posted",
+      "payload": [
+        "vehicle",
+        "disposal_date",
+        "current_book_value",
+        "disposal_proceeds",
+        "gain_or_loss"
+      ]
+    },
+    {
+      "name": "depreciation.schedule_recalculated",
+      "description": "The depreciation schedule was revised following a capitalised repair or useful-life extension",
+      "payload": [
+        "vehicle",
+        "new_book_value",
+        "new_total_periods",
+        "capitalised_repair_amount"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vehicle-master-data",
+      "type": "required",
+      "reason": "Acquisition cost and date from the vehicle master seed the depreciation calculation"
+    },
+    {
+      "feature": "vehicle-disposal",
+      "type": "required",
+      "reason": "Disposal workflow triggers the final depreciation entries and gain/loss calculation"
+    },
+    {
+      "feature": "vehicle-expense-tracking",
+      "type": "recommended",
+      "reason": "Periodic depreciation amounts can be posted as expense records for management reporting"
+    },
+    {
+      "feature": "vehicle-maintenance-log",
+      "type": "optional",
+      "reason": "Capitalised repairs from the maintenance log can increase the depreciable base and trigger schedule recalculation"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/frappe/erpnext",
+      "project": "ERPNext",
+      "tech_stack": "Python + Frappe Framework",
+      "files_traced": 5,
+      "entry_points": [
+        "erpnext/assets/doctype/asset/asset.py",
+        "erpnext/assets/doctype/asset/depreciation.py",
+        "erpnext/assets/doctype/asset_depreciation_schedule/asset_depreciation_schedule.py",
+        "erpnext/assets/doctype/asset_finance_book/asset_finance_book.py",
+        "erpnext/assets/doctype/asset_value_adjustment/asset_value_adjustment.py"
+      ]
+    }
+  }
+}

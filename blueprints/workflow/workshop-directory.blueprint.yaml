@@ -1,0 +1,294 @@
+# ============================================================
+# WORKSHOP DIRECTORY — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/frappe/erpnext
+# Source project: ERPNext (Python + Frappe Framework)
+# Files traced: 2
+# ============================================================
+# Note: ERPNext has no dedicated workshop/service provider directory.
+# Service providers are modelled generically as Suppliers, and the
+# AssetMaintenanceTeam covers internal teams only. This blueprint
+# captures the external workshop management capability as a portable spec.
+# ============================================================
+
+feature: workshop-directory
+version: "1.0.0"
+description: Maintain a registry of approved external workshops and service providers for fleet maintenance, including contact details, service specialisations, pricing, performance ratings, and contract status.
+category: workflow
+tags: [fleet, vehicle, workshop, service-provider, maintenance, directory]
+
+actors:
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: Registers and manages approved workshops; records performance ratings
+  - id: procurement_manager
+    name: Procurement Manager
+    type: human
+    description: Negotiates and records service agreements and pricing
+  - id: technician
+    name: Technician
+    type: human
+    description: Selects a workshop when logging a service event
+  - id: system
+    name: System
+    type: system
+    description: Tracks contract expiry dates and triggers renewal reminders
+
+fields:
+  - name: workshop_name
+    type: text
+    required: true
+    label: Workshop Name
+  - name: legal_name
+    type: text
+    required: false
+    label: Legal / Registered Name
+  - name: registration_number
+    type: text
+    required: false
+    label: Business Registration Number
+  - name: contact_person
+    type: text
+    required: false
+    label: Primary Contact Person
+  - name: phone
+    type: phone
+    required: false
+    label: Phone Number
+  - name: email
+    type: email
+    required: false
+    label: Email Address
+  - name: address
+    type: text
+    required: false
+    label: Physical Address
+  - name: service_types
+    type: multiselect
+    required: true
+    label: Service Types Offered
+  - name: vehicle_categories_supported
+    type: multiselect
+    required: false
+    label: Vehicle Categories Supported
+  - name: standard_labour_rate
+    type: number
+    required: false
+    label: Standard Labour Rate (per hour)
+  - name: currency
+    type: text
+    required: false
+    label: Currency
+  - name: contract_start_date
+    type: date
+    required: false
+    label: Contract Start Date
+  - name: contract_end_date
+    type: date
+    required: false
+    label: Contract End Date
+  - name: average_rating
+    type: number
+    required: false
+    label: Average Performance Rating
+  - name: total_services_logged
+    type: number
+    required: false
+    label: Total Services Logged
+  - name: notes
+    type: text
+    required: false
+    label: Notes
+  - name: status
+    type: select
+    required: true
+    label: Status
+
+states:
+  field: status
+  values:
+    - name: active
+      initial: true
+      description: Workshop is approved and available for service booking
+    - name: contract_expiring
+      description: Service contract is within the renewal reminder window
+    - name: suspended
+      description: Temporarily suspended from receiving new work (e.g., under review)
+    - name: blacklisted
+      terminal: true
+      description: Permanently removed from the approved provider list
+    - name: inactive
+      terminal: true
+      description: Workshop has closed or voluntarily removed from the list
+  transitions:
+    - from: active
+      to: contract_expiring
+      actor: system
+      description: Contract end date falls within the configured notice window
+    - from: contract_expiring
+      to: active
+      actor: procurement_manager
+      description: Contract renewed; new end date recorded
+    - from: active
+      to: suspended
+      actor: fleet_manager
+      description: Workshop suspended pending review or performance investigation
+    - from: suspended
+      to: active
+      actor: fleet_manager
+      description: Suspension lifted after review
+    - from: suspended
+      to: blacklisted
+      actor: fleet_manager
+      description: Investigation concludes; workshop permanently removed
+    - from: active
+      to: inactive
+      actor: fleet_manager
+      description: Workshop closed or removed by request
+
+rules:
+  unique_name:
+    description: Workshop name must be unique in the directory
+  service_type_required:
+    description: At least one service type must be specified for a workshop to be registered
+  active_only_for_service:
+    description: Only workshops with Active status can be selected on maintenance log or service records
+  labour_rate_positive:
+    description: Standard labour rate must be positive if provided
+  blacklist_permanent:
+    description: A blacklisted workshop cannot be reactivated — a new record must be created if re-engagement is required
+  contract_dates_valid:
+    description: Contract end date must be after contract start date when both are provided
+  rating_scale:
+    description: Performance ratings are on a 1 to 5 scale; average_rating is computed from individual service ratings
+
+outcomes:
+  workshop_registered:
+    priority: 10
+    given:
+      - "workshop_name is unique"
+      - "at least one service_type is provided"
+    then:
+      - action: set_field
+        target: status
+        value: active
+      - action: set_field
+        target: total_services_logged
+        value: 0
+      - action: emit_event
+        event: workshop.registered
+        payload: [workshop_name, service_types, contract_end_date]
+    result: Workshop is added to the approved directory and available for service record selection
+
+  workshop_rated:
+    priority: 9
+    given:
+      - "a service log entry references this workshop"
+      - "a rating between 1 and 5 is submitted for the service"
+    then:
+      - action: set_field
+        target: total_services_logged
+        description: Increment by 1
+      - action: set_field
+        target: average_rating
+        description: Recalculate running average from all ratings
+      - action: emit_event
+        event: workshop.service_rated
+        payload: [workshop_name, service_rating, new_average_rating, total_services_logged]
+    result: New rating is incorporated into the workshop's average performance score
+
+  workshop_suspended:
+    priority: 8
+    given:
+      - "status is active"
+      - "fleet manager provides suspension reason"
+    then:
+      - action: set_field
+        target: status
+        value: suspended
+      - action: notify
+        channel: in_app
+        description: Notify procurement manager of the suspension
+      - action: emit_event
+        event: workshop.suspended
+        payload: [workshop_name, suspension_reason, suspended_by]
+    result: Workshop is marked suspended; technicians cannot select it for new service records
+
+  contract_expired:
+    priority: 7
+    given:
+      - "contract_end_date is set"
+      - "days until contract_end_date is less than or equal to advance_notice_days"
+    then:
+      - action: set_field
+        target: status
+        value: contract_expiring
+      - action: notify
+        channel: in_app
+        description: Notify procurement manager to renew the service agreement
+      - action: emit_event
+        event: workshop.contract_expiring
+        payload: [workshop_name, contract_end_date, days_remaining]
+    result: Procurement manager is reminded to renew or terminate the workshop contract
+
+  workshop_blacklisted:
+    priority: 6
+    given:
+      - "status is suspended"
+      - "fleet manager confirms permanent removal"
+    then:
+      - action: set_field
+        target: status
+        value: blacklisted
+      - action: emit_event
+        event: workshop.blacklisted
+        payload: [workshop_name, blacklist_reason, blacklisted_by]
+    result: Workshop is permanently removed from the approved list; any pending service records must be reassigned
+
+errors:
+  - code: WORKSHOP_DUPLICATE_NAME
+    message: A workshop with this name already exists in the directory.
+    status: 409
+  - code: WORKSHOP_NOT_ACTIVE
+    message: The selected workshop is not currently active. Please choose an approved service provider.
+    status: 422
+  - code: WORKSHOP_INVALID_RATING
+    message: Performance rating must be between 1 and 5.
+    status: 400
+
+events:
+  - name: workshop.registered
+    description: A new service provider has been added to the approved workshop directory
+    payload: [workshop_name, service_types, contract_end_date]
+  - name: workshop.service_rated
+    description: A performance rating has been recorded for a workshop service
+    payload: [workshop_name, service_rating, new_average_rating, total_services_logged]
+  - name: workshop.suspended
+    description: A workshop has been temporarily suspended from receiving new work
+    payload: [workshop_name, suspension_reason, suspended_by]
+  - name: workshop.contract_expiring
+    description: A workshop's service agreement is approaching its expiry date
+    payload: [workshop_name, contract_end_date, days_remaining]
+  - name: workshop.blacklisted
+    description: A workshop has been permanently removed from the approved provider list
+    payload: [workshop_name, blacklist_reason, blacklisted_by]
+
+related:
+  - feature: vehicle-maintenance-log
+    type: recommended
+    reason: Workshop records are referenced on each service log entry
+  - feature: scheduled-maintenance
+    type: optional
+    reason: Scheduled maintenance tasks can be pre-assigned to a preferred workshop
+
+extensions:
+  source:
+    repo: "https://github.com/frappe/erpnext"
+    project: "ERPNext"
+    tech_stack: "Python + Frappe Framework"
+    files_traced: 2
+    entry_points:
+      - "erpnext/assets/doctype/asset_maintenance_team/asset_maintenance_team.py"
+      - "erpnext/assets/doctype/asset_repair/asset_repair.py"

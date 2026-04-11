@@ -1,0 +1,455 @@
+{
+  "feature": "vehicle-renewal-reminders",
+  "version": "1.0.0",
+  "description": "Automatically generate and send renewal reminders for vehicle licenses, registrations, roadworthiness certificates, and insurance policies before they expire.",
+  "category": "notification",
+  "tags": [
+    "fleet",
+    "vehicle",
+    "reminders",
+    "compliance",
+    "renewal",
+    "notifications"
+  ],
+  "actors": [
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Receives and acknowledges renewal reminders, takes action to renew"
+    },
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Daily scan that detects upcoming expiries and dispatches reminders"
+    },
+    {
+      "id": "operations_supervisor",
+      "name": "Operations Supervisor",
+      "type": "human",
+      "description": "Receives escalated overdue reminders when the fleet manager has not acted"
+    }
+  ],
+  "fields": [
+    {
+      "name": "vehicle",
+      "type": "text",
+      "required": true,
+      "label": "Vehicle"
+    },
+    {
+      "name": "reminder_type",
+      "type": "select",
+      "required": true,
+      "label": "Reminder Type"
+    },
+    {
+      "name": "due_date",
+      "type": "date",
+      "required": true,
+      "label": "Due / Expiry Date"
+    },
+    {
+      "name": "advance_notice_days",
+      "type": "number",
+      "required": true,
+      "label": "Advance Notice (days)"
+    },
+    {
+      "name": "reminder_frequency_days",
+      "type": "number",
+      "required": false,
+      "label": "Reminder Frequency (days)"
+    },
+    {
+      "name": "assigned_to",
+      "type": "text",
+      "required": true,
+      "label": "Assigned To"
+    },
+    {
+      "name": "last_sent_date",
+      "type": "date",
+      "required": false,
+      "label": "Last Reminder Sent"
+    },
+    {
+      "name": "acknowledged_by",
+      "type": "text",
+      "required": false,
+      "label": "Acknowledged By"
+    },
+    {
+      "name": "acknowledged_date",
+      "type": "date",
+      "required": false,
+      "label": "Acknowledged Date"
+    },
+    {
+      "name": "completion_date",
+      "type": "date",
+      "required": false,
+      "label": "Completion Date"
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "required": true,
+      "label": "Status"
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "upcoming",
+        "initial": true,
+        "description": "Expiry is beyond the advance notice window — no reminders yet"
+      },
+      {
+        "name": "due_soon",
+        "description": "Within the advance notice window; reminders are being sent"
+      },
+      {
+        "name": "overdue",
+        "description": "Due date has passed and renewal has not been completed"
+      },
+      {
+        "name": "acknowledged",
+        "description": "Assignee has confirmed they are working on the renewal"
+      },
+      {
+        "name": "completed",
+        "terminal": true,
+        "description": "Renewal was successfully completed before or after due date"
+      },
+      {
+        "name": "waived",
+        "terminal": true,
+        "description": "Reminder closed without renewal action (e.g., vehicle disposed)"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "upcoming",
+        "to": "due_soon",
+        "actor": "system",
+        "description": "Days until due_date falls below advance_notice_days threshold"
+      },
+      {
+        "from": "due_soon",
+        "to": "acknowledged",
+        "actor": "fleet_manager",
+        "description": "Fleet manager acknowledges the reminder"
+      },
+      {
+        "from": "due_soon",
+        "to": "overdue",
+        "actor": "system",
+        "description": "Due date passed without acknowledgement or completion"
+      },
+      {
+        "from": "acknowledged",
+        "to": "completed",
+        "actor": "fleet_manager",
+        "description": "Renewal document updated and completion recorded"
+      },
+      {
+        "from": "acknowledged",
+        "to": "overdue",
+        "actor": "system",
+        "description": "Due date passed after acknowledgement without completion"
+      },
+      {
+        "from": "overdue",
+        "to": "completed",
+        "actor": "fleet_manager",
+        "description": "Late renewal completed"
+      },
+      {
+        "from": "any",
+        "to": "waived",
+        "actor": "fleet_manager",
+        "description": "Vehicle decommissioned or reminder no longer applicable"
+      }
+    ]
+  },
+  "rules": {
+    "daily_scan": {
+      "description": "System runs a daily check to identify all renewal items where due_date minus today is less than or equal to advance_notice_days"
+    },
+    "reminder_frequency": {
+      "description": "A reminder notification is sent once per reminder_frequency_days until status is completed or waived"
+    },
+    "escalation_after_three": {
+      "description": "Overdue items are escalated to the operations supervisor after 3 unanswered reminders"
+    },
+    "overdue_transition": {
+      "description": "An item transitions to overdue when due_date has passed and status is not completed or waived"
+    },
+    "new_cycle_on_completion": {
+      "description": "Completing a renewal must supply a new due_date for the next cycle — a new reminder record is created automatically"
+    },
+    "reminder_types": {
+      "description": "Reminder types include at minimum: vehicle_license, registration_certificate, roadworthiness, insurance_policy"
+    }
+  },
+  "outcomes": {
+    "reminder_triggered": {
+      "priority": 10,
+      "given": [
+        "system daily scan runs",
+        "due_date minus today is less than or equal to advance_notice_days",
+        "status is upcoming"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "due_soon"
+        },
+        {
+          "action": "notify",
+          "channel": "in_app",
+          "description": "Send reminder notification to assigned_to user"
+        },
+        {
+          "action": "set_field",
+          "target": "last_sent_date",
+          "value": "today"
+        },
+        {
+          "action": "emit_event",
+          "event": "reminder.vehicle_renewal_triggered",
+          "payload": [
+            "vehicle",
+            "reminder_type",
+            "due_date",
+            "days_remaining"
+          ]
+        }
+      ],
+      "result": "Assignee receives a notification with details of the upcoming expiry"
+    },
+    "reminder_resent": {
+      "priority": 9,
+      "given": [
+        "status is due_soon or overdue",
+        "today minus last_sent_date is greater than or equal to reminder_frequency_days",
+        "status is not completed or waived"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "in_app",
+          "description": "Re-send reminder notification to assigned_to user"
+        },
+        {
+          "action": "set_field",
+          "target": "last_sent_date",
+          "value": "today"
+        }
+      ],
+      "result": "Follow-up reminder is sent to the assignee"
+    },
+    "reminder_acknowledged": {
+      "priority": 8,
+      "given": [
+        "status is due_soon",
+        "fleet manager confirms they are working on the renewal"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "acknowledged"
+        },
+        {
+          "action": "set_field",
+          "target": "acknowledged_by",
+          "value": "current_user"
+        },
+        {
+          "action": "set_field",
+          "target": "acknowledged_date",
+          "value": "today"
+        }
+      ],
+      "result": "Reminder status is updated and escalation clock is paused"
+    },
+    "renewal_completed": {
+      "priority": 7,
+      "given": [
+        "status is acknowledged, due_soon, or overdue",
+        "completion_date is provided",
+        "new due_date for next cycle is provided"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "completed"
+        },
+        {
+          "action": "set_field",
+          "target": "completion_date",
+          "value": "completion_date"
+        },
+        {
+          "action": "create_record",
+          "type": "renewal_reminder",
+          "description": "Create new upcoming reminder record for the next renewal cycle with updated due_date"
+        },
+        {
+          "action": "emit_event",
+          "event": "reminder.vehicle_renewal_completed",
+          "payload": [
+            "vehicle",
+            "reminder_type",
+            "completion_date",
+            "next_due_date"
+          ]
+        }
+      ],
+      "result": "Current reminder is closed and a new reminder for the next cycle is created"
+    },
+    "escalation_triggered": {
+      "priority": 6,
+      "given": [
+        "status is due_soon or overdue",
+        "number of reminders sent is greater than or equal to 3",
+        "reminder has not been acknowledged"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "in_app",
+          "description": "Send escalation notification to operations supervisor"
+        },
+        {
+          "action": "emit_event",
+          "event": "reminder.vehicle_renewal_escalated",
+          "payload": [
+            "vehicle",
+            "reminder_type",
+            "due_date",
+            "reminders_sent"
+          ]
+        }
+      ],
+      "result": "Operations supervisor is notified of the unactioned renewal"
+    },
+    "item_turned_overdue": {
+      "priority": 5,
+      "given": [
+        "due_date has passed",
+        "status is not completed or waived"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "overdue"
+        },
+        {
+          "action": "notify",
+          "channel": "in_app",
+          "description": "Send overdue alert to fleet manager and operations supervisor"
+        },
+        {
+          "action": "emit_event",
+          "event": "reminder.vehicle_renewal_overdue",
+          "payload": [
+            "vehicle",
+            "reminder_type",
+            "due_date"
+          ]
+        }
+      ],
+      "result": "Item is marked overdue and stakeholders are alerted"
+    }
+  },
+  "errors": [
+    {
+      "code": "REMINDER_INVALID_DUE_DATE",
+      "message": "Due date must be a valid future date.",
+      "status": 400
+    },
+    {
+      "code": "REMINDER_MISSING_ASSIGNEE",
+      "message": "A renewal reminder must have an assigned responsible person.",
+      "status": 400
+    }
+  ],
+  "events": [
+    {
+      "name": "reminder.vehicle_renewal_triggered",
+      "description": "A renewal reminder has entered the advance notice window and the first notification was sent",
+      "payload": [
+        "vehicle",
+        "reminder_type",
+        "due_date",
+        "days_remaining"
+      ]
+    },
+    {
+      "name": "reminder.vehicle_renewal_completed",
+      "description": "A renewal action was completed and a new reminder cycle was started",
+      "payload": [
+        "vehicle",
+        "reminder_type",
+        "completion_date",
+        "next_due_date"
+      ]
+    },
+    {
+      "name": "reminder.vehicle_renewal_overdue",
+      "description": "A required renewal has not been completed by the due date",
+      "payload": [
+        "vehicle",
+        "reminder_type",
+        "due_date"
+      ]
+    },
+    {
+      "name": "reminder.vehicle_renewal_escalated",
+      "description": "Repeated unanswered reminders have triggered escalation to a supervisor",
+      "payload": [
+        "vehicle",
+        "reminder_type",
+        "due_date",
+        "reminders_sent"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vehicle-insurance",
+      "type": "required",
+      "reason": "Insurance policy expiry dates are a primary source of renewal reminders"
+    },
+    {
+      "feature": "vehicle-registration",
+      "type": "required",
+      "reason": "Registration expiry dates trigger renewal reminders"
+    },
+    {
+      "feature": "vehicle-documents",
+      "type": "recommended",
+      "reason": "Document expiry dates (permits, roadworthiness) are managed alongside renewal reminders"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/frappe/erpnext",
+      "project": "ERPNext",
+      "tech_stack": "Python + Frappe Framework",
+      "files_traced": 2,
+      "entry_points": [
+        "erpnext/setup/doctype/vehicle/vehicle.py",
+        "erpnext/setup/doctype/vehicle/vehicle.json"
+      ]
+    }
+  }
+}

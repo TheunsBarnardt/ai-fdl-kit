@@ -1,0 +1,206 @@
+# ============================================================
+# FUEL ANALYTICS — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/frappe/erpnext
+# Source project: ERPNext (Python + Frappe Framework)
+# Files traced: 1
+# ============================================================
+# Note: ERPNext computes efficiency per fuel log entry (in HRMS).
+# This blueprint captures fleet-level analytics as a portable spec.
+# ============================================================
+
+feature: fuel-analytics
+version: "1.0.0"
+description: Analyse fuel consumption, cost trends, and efficiency metrics across the fleet or per vehicle with configurable grouping periods, anomaly detection, and benchmark comparisons.
+category: ui
+tags: [fleet, fuel, analytics, reporting, efficiency, cost, trends]
+
+actors:
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: Reviews fleet-wide and per-vehicle fuel performance
+  - id: finance_manager
+    name: Finance Manager
+    type: human
+    description: Reviews fuel cost spend and budget variance
+  - id: system
+    name: System
+    type: system
+    description: Aggregates fuel log data and computes analytics on demand
+
+fields:
+  - name: vehicle_filter
+    type: text
+    required: false
+    label: Vehicle Filter
+  - name: date_from
+    type: date
+    required: true
+    label: From Date
+  - name: date_to
+    type: date
+    required: true
+    label: To Date
+  - name: grouping_period
+    type: select
+    required: false
+    label: Grouping Period
+  - name: total_fuel_quantity
+    type: number
+    required: false
+    label: Total Fuel Consumed
+  - name: total_fuel_cost
+    type: number
+    required: false
+    label: Total Fuel Cost
+  - name: total_distance
+    type: number
+    required: false
+    label: Total Distance (km)
+  - name: average_cost_per_km
+    type: number
+    required: false
+    label: Average Cost per km
+  - name: average_efficiency
+    type: number
+    required: false
+    label: Average Efficiency (units/100km)
+  - name: refuel_count
+    type: number
+    required: false
+    label: Number of Fill-ups
+  - name: efficiency_trend
+    type: select
+    required: false
+    label: Efficiency Trend
+  - name: comparison_baseline
+    type: select
+    required: false
+    label: Comparison Baseline
+  - name: anomaly_threshold_pct
+    type: number
+    required: false
+    label: Anomaly Threshold (%)
+
+rules:
+  valid_date_range:
+    description: Date range must be valid — date_to must be after date_from
+  cost_per_km_requires_distance:
+    description: cost_per_km is computed only when total_distance is greater than zero
+  trend_classification:
+    description: Efficiency trend is classified as improving when current period average is more than 5% better than comparison baseline; declining when more than 5% worse; stable otherwise
+  anomaly_detection:
+    description: An anomaly is flagged when a single vehicle's efficiency deviates from the fleet average by more than anomaly_threshold_pct
+  minimum_entries_for_trend:
+    description: Vehicles with fewer than two fuel entries in the period are excluded from trend calculations
+  base_currency:
+    description: All monetary values are presented in the fleet's base currency
+
+outcomes:
+  report_generated:
+    priority: 10
+    given:
+      - "date_from and date_to are provided"
+      - field: date_to
+        source: input
+        operator: gt
+        value: date_from
+        description: Date range is valid
+      - "at least one fuel log entry exists in the period"
+    then:
+      - action: set_field
+        target: total_fuel_quantity
+        description: Sum fuel_quantity from all entries in range
+      - action: set_field
+        target: total_fuel_cost
+        description: Sum total_cost from all entries in range
+      - action: set_field
+        target: total_distance
+        description: Sum distance_since_last from all entries in range
+      - action: set_field
+        target: average_cost_per_km
+        description: Divide total_fuel_cost by total_distance
+      - action: set_field
+        target: average_efficiency
+        description: Compute (total_fuel_quantity / total_distance) × 100
+      - action: set_field
+        target: efficiency_trend
+        description: Compare average_efficiency to comparison_baseline and classify
+      - action: emit_event
+        event: fuel_analytics.report_generated
+        payload: [vehicle_filter, date_from, date_to, total_fuel_cost, average_efficiency, efficiency_trend]
+    result: Analytics report is rendered with consumption totals, cost breakdown, efficiency metrics, and trend direction
+
+  no_data_in_period:
+    priority: 1
+    given:
+      - "no fuel log entries exist for the selected vehicle and date range"
+    then:
+      - action: emit_event
+        event: fuel_analytics.no_data
+        payload: [vehicle_filter, date_from, date_to]
+    result: Report displays a no-data message; user is advised to widen the date range or check filters
+
+  anomaly_detected:
+    priority: 9
+    given:
+      - "report_generated outcome has run"
+      - "a vehicle's efficiency deviates from fleet average by more than anomaly_threshold_pct"
+    then:
+      - action: emit_event
+        event: fuel_analytics.anomaly_detected
+        payload: [vehicle, deviation_pct, expected_efficiency, actual_efficiency]
+    result: Anomalous vehicle is highlighted in the report with the deviation percentage
+
+  invalid_date_range:
+    priority: 2
+    error: ANALYTICS_INVALID_DATE_RANGE
+    given:
+      - field: date_to
+        source: input
+        operator: lte
+        value: date_from
+        description: To date is not after from date
+    then: []
+    result: Report generation is blocked with a date validation error
+
+errors:
+  - code: ANALYTICS_INVALID_DATE_RANGE
+    message: The end date must be after the start date.
+    status: 400
+
+events:
+  - name: fuel_analytics.report_generated
+    description: A fuel analytics report has been computed for the specified filters and period
+    payload: [vehicle_filter, date_from, date_to, total_fuel_cost, average_efficiency, efficiency_trend]
+  - name: fuel_analytics.anomaly_detected
+    description: A vehicle's fuel efficiency deviates significantly from the fleet baseline
+    payload: [vehicle, deviation_pct, expected_efficiency, actual_efficiency]
+  - name: fuel_analytics.no_data
+    description: No fuel log entries exist for the requested vehicle and date range
+    payload: [vehicle_filter, date_from, date_to]
+
+related:
+  - feature: fuel-log
+    type: required
+    reason: Fuel log entries are the source data for all analytics computations
+  - feature: vehicle-master-data
+    type: required
+    reason: Vehicle specifications (fuel type, category) are used to group and filter analytics
+  - feature: odometer-tracking
+    type: recommended
+    reason: Validated odometer data improves distance and efficiency accuracy
+  - feature: vehicle-expense-tracking
+    type: recommended
+    reason: Fuel cost analytics feed into the broader per-vehicle expense reporting
+
+extensions:
+  source:
+    repo: "https://github.com/frappe/erpnext"
+    project: "ERPNext"
+    tech_stack: "Python + Frappe Framework"
+    files_traced: 1
+    entry_points:
+      - "erpnext/setup/doctype/vehicle/vehicle.py"

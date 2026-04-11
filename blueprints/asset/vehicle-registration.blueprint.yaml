@@ -1,0 +1,247 @@
+# ============================================================
+# VEHICLE REGISTRATION — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/frappe/erpnext
+# Source project: ERPNext (Python + Frappe Framework)
+# Files traced: 3
+# ============================================================
+
+feature: vehicle-registration
+version: "1.0.0"
+description: Register a vehicle into the fleet with legal identification, assign ownership, and track registration status and renewal dates.
+category: asset
+tags: [fleet, vehicle, registration, ownership, compliance]
+
+actors:
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: Registers, updates, and deregisters fleet vehicles
+  - id: finance_manager
+    name: Finance Manager
+    type: human
+    description: Approves vehicle acquisition cost and disposal
+  - id: system
+    name: System
+    type: system
+    description: Triggers renewal reminders and status transitions
+
+fields:
+  - name: license_plate
+    type: text
+    required: true
+    label: License Plate
+  - name: chassis_number
+    type: text
+    required: false
+    label: Chassis Number (VIN)
+  - name: registration_number
+    type: text
+    required: false
+    label: Registration Certificate Number
+  - name: registration_date
+    type: date
+    required: true
+    label: Registration Date
+  - name: registration_expiry
+    type: date
+    required: false
+    label: Registration Expiry Date
+  - name: registered_owner
+    type: text
+    required: true
+    label: Registered Owner
+  - name: company
+    type: text
+    required: false
+    label: Company
+  - name: acquisition_date
+    type: date
+    required: false
+    label: Acquisition Date
+  - name: vehicle_value
+    type: number
+    required: false
+    label: Declared Vehicle Value
+  - name: status
+    type: select
+    required: true
+    label: Status
+
+states:
+  field: status
+  values:
+    - name: draft
+      initial: true
+      description: Record created but not yet submitted
+    - name: active
+      description: Vehicle is registered and in service
+    - name: expiring_soon
+      description: Registration expires within the configured advance notice window
+    - name: expired
+      description: Registration certificate has lapsed
+    - name: transferred
+      description: Ownership transferred to another party
+    - name: decommissioned
+      terminal: true
+      description: Vehicle permanently removed from fleet
+  transitions:
+    - from: draft
+      to: active
+      actor: fleet_manager
+      description: Submit vehicle registration record
+    - from: active
+      to: expiring_soon
+      actor: system
+      description: System detects expiry within advance notice window
+    - from: expiring_soon
+      to: active
+      actor: fleet_manager
+      description: Registration renewed before expiry
+    - from: expiring_soon
+      to: expired
+      actor: system
+      description: Expiry date reached without renewal
+    - from: expired
+      to: active
+      actor: fleet_manager
+      description: Late renewal applied
+    - from: active
+      to: transferred
+      actor: fleet_manager
+      description: Ownership transfer processed
+    - from: active
+      to: decommissioned
+      actor: fleet_manager
+      description: Vehicle decommissioned from fleet
+
+rules:
+  unique_license_plate:
+    description: License plate must be unique across all registered vehicles in the system
+  unique_chassis_number:
+    description: Chassis number must be unique if provided
+  expiry_after_registration:
+    description: Registration expiry date must be after registration date
+  no_dispatch_when_expired:
+    description: A vehicle cannot be dispatched while its registration is in Expired status
+  transfer_requires_authorisation:
+    description: Ownership transfer requires sign-off by an authorised manager
+  registration_date_not_future:
+    description: Registration date cannot be a future date
+
+outcomes:
+  vehicle_registered:
+    priority: 10
+    given:
+      - "license plate is unique in the system"
+      - "required fields are populated"
+      - "registration date is not in the future"
+    then:
+      - action: set_field
+        target: status
+        value: active
+      - action: emit_event
+        event: vehicle.registered
+        payload: [license_plate, chassis_number, registered_owner, registration_date]
+    result: Vehicle is added to the fleet registry with active status
+
+  duplicate_plate_rejected:
+    priority: 1
+    error: VEHICLE_DUPLICATE_PLATE
+    given:
+      - "a vehicle with the same license plate already exists"
+    then: []
+    result: Registration is rejected and the user is notified of the conflict
+
+  duplicate_chassis_rejected:
+    priority: 2
+    error: VEHICLE_DUPLICATE_CHASSIS
+    given:
+      - "chassis number is provided"
+      - "a vehicle with the same chassis number already exists"
+    then: []
+    result: Registration is rejected and the user is notified of the duplicate VIN
+
+  registration_renewed:
+    priority: 8
+    given:
+      - "vehicle is in expiring_soon or expired status"
+      - "new registration expiry date is provided and is a future date"
+    then:
+      - action: set_field
+        target: registration_expiry
+        value: new_expiry_date
+      - action: set_field
+        target: status
+        value: active
+      - action: emit_event
+        event: vehicle.registration_renewed
+        payload: [license_plate, registration_expiry]
+    result: Registration is renewed and vehicle returns to active status
+
+  ownership_transferred:
+    priority: 7
+    given:
+      - "new registered owner is provided"
+      - "transfer is authorised by a manager"
+    then:
+      - action: set_field
+        target: registered_owner
+        value: new_owner
+      - action: set_field
+        target: status
+        value: transferred
+      - action: emit_event
+        event: vehicle.ownership_transferred
+        payload: [license_plate, previous_owner, new_owner]
+    result: Ownership record is updated and a transfer event is emitted
+
+errors:
+  - code: VEHICLE_DUPLICATE_PLATE
+    message: A vehicle with this license plate is already registered.
+    status: 409
+  - code: VEHICLE_DUPLICATE_CHASSIS
+    message: A vehicle with this chassis number already exists in the system.
+    status: 409
+  - code: VEHICLE_INVALID_DATE
+    message: The registration date cannot be in the future.
+    status: 400
+
+events:
+  - name: vehicle.registered
+    description: A new vehicle has been added to the fleet registry
+    payload: [license_plate, chassis_number, registered_owner, registration_date]
+  - name: vehicle.registration_renewed
+    description: Vehicle registration certificate has been renewed
+    payload: [license_plate, registration_expiry]
+  - name: vehicle.ownership_transferred
+    description: Vehicle ownership has changed
+    payload: [license_plate, previous_owner, new_owner]
+  - name: vehicle.registration_expired
+    description: Vehicle registration certificate has lapsed without renewal
+    payload: [license_plate, registration_expiry]
+
+related:
+  - feature: vehicle-master-data
+    type: required
+    reason: Vehicle master record contains the physical specifications tied to this registration
+  - feature: vehicle-renewal-reminders
+    type: recommended
+    reason: Generates advance notifications before registration expiry
+  - feature: vehicle-insurance
+    type: recommended
+    reason: Insurance policy is typically linked to a registered vehicle
+  - feature: vehicle-documents
+    type: recommended
+    reason: Registration certificate and permit documents are stored against the vehicle record
+
+extensions:
+  source:
+    repo: "https://github.com/frappe/erpnext"
+    project: "ERPNext"
+    tech_stack: "Python + Frappe Framework"
+    files_traced: 3
+    entry_points:
+      - "erpnext/setup/doctype/vehicle/vehicle.py"
+      - "erpnext/setup/doctype/vehicle/vehicle.json"

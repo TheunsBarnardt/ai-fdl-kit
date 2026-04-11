@@ -1,0 +1,310 @@
+# ============================================================
+# VEHICLE INCIDENT LOG — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/frappe/erpnext
+# Source project: ERPNext (Python + Frappe Framework)
+# Files traced: 3
+# ============================================================
+
+feature: vehicle-incident-log
+version: "1.0.0"
+description: Record vehicle accidents, breakdowns, and operational incidents with damage assessment, third-party details, injury reporting, police report linkage, and insurance claim lifecycle management.
+category: workflow
+tags: [fleet, vehicle, accident, incident, insurance, claim, safety]
+
+actors:
+  - id: driver
+    name: Driver
+    type: human
+    description: Reports the incident immediately after it occurs
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: Investigates the incident, authorises repair, and manages insurance claims
+  - id: insurance_assessor
+    name: Insurance Assessor
+    type: external
+    description: Assesses damage and approves claim settlement
+  - id: system
+    name: System
+    type: system
+    description: Tracks claim status and escalates unresolved incidents
+
+fields:
+  - name: vehicle
+    type: text
+    required: true
+    label: Vehicle
+  - name: incident_date
+    type: datetime
+    required: true
+    label: Incident Date and Time
+  - name: incident_type
+    type: select
+    required: true
+    label: Incident Type
+  - name: location
+    type: text
+    required: true
+    label: Location
+  - name: incident_description
+    type: rich_text
+    required: true
+    label: Incident Description
+  - name: driver_at_incident
+    type: text
+    required: false
+    label: Driver at Time of Incident
+  - name: injuries_reported
+    type: boolean
+    required: false
+    label: Injuries Reported
+  - name: injury_details
+    type: text
+    required: false
+    label: Injury Details
+  - name: third_party_involved
+    type: boolean
+    required: false
+    label: Third Party Involved
+  - name: third_party_details
+    type: text
+    required: false
+    label: Third Party Details
+  - name: damage_description
+    type: rich_text
+    required: false
+    label: Vehicle Damage Description
+  - name: estimated_repair_cost
+    type: number
+    required: false
+    label: Estimated Repair Cost
+  - name: actual_repair_cost
+    type: number
+    required: false
+    label: Actual Repair Cost
+  - name: police_report_number
+    type: text
+    required: false
+    label: Police Report Number
+  - name: insurance_claim_number
+    type: text
+    required: false
+    label: Insurance Claim Number
+  - name: claim_settlement_amount
+    type: number
+    required: false
+    label: Claim Settlement Amount
+  - name: photos
+    type: file
+    required: false
+    label: Incident Photos
+  - name: root_cause
+    type: text
+    required: false
+    label: Root Cause
+  - name: corrective_actions
+    type: text
+    required: false
+    label: Corrective Actions
+  - name: status
+    type: select
+    required: true
+    label: Status
+
+states:
+  field: status
+  values:
+    - name: reported
+      initial: true
+      description: Incident has been reported but investigation has not begun
+    - name: under_investigation
+      description: Fleet manager is gathering information and assessing damage
+    - name: repair_authorised
+      description: Damage assessed; repair approved; vehicle at workshop
+    - name: insurance_submitted
+      description: Claim submitted to the insurance provider
+    - name: insurance_settled
+      description: Insurance claim has been settled
+    - name: closed
+      terminal: true
+      description: Incident fully resolved — repair complete, claim settled if applicable
+    - name: cancelled
+      terminal: true
+      description: Incident record voided (e.g., false report)
+  transitions:
+    - from: reported
+      to: under_investigation
+      actor: fleet_manager
+      description: Fleet manager begins investigation
+    - from: under_investigation
+      to: repair_authorised
+      actor: fleet_manager
+      description: Damage assessment complete; repair approved
+    - from: under_investigation
+      to: insurance_submitted
+      actor: fleet_manager
+      description: Claim submitted before repair is authorised
+    - from: repair_authorised
+      to: insurance_submitted
+      actor: fleet_manager
+      description: Repair invoices submitted to insurer
+    - from: insurance_submitted
+      to: insurance_settled
+      actor: insurance_assessor
+      description: Insurer approves and settles the claim
+    - from: repair_authorised
+      to: closed
+      actor: fleet_manager
+      description: Repair completed; no insurance claim involved
+    - from: insurance_settled
+      to: closed
+      actor: fleet_manager
+      description: All costs resolved; incident closed
+    - from: reported
+      to: cancelled
+      actor: fleet_manager
+      description: Report determined to be erroneous or duplicate
+
+rules:
+  date_not_future:
+    description: Incident date cannot be in the future
+  injury_escalation:
+    description: When injuries_reported is true, incident must be escalated to fleet manager immediately
+  third_party_details_required:
+    description: When third_party_involved is true, third_party_details are required before the record can move past reported
+  insurance_requires_active_policy:
+    description: An insurance claim cannot be submitted if the vehicle has no active insurance policy
+  out_of_order_on_damage:
+    description: Vehicle status is set to Out of Order when an incident is reported with damage; cleared when repair is complete
+  police_report_before_claim:
+    description: Police report number is required for incidents involving third parties or injuries before insurance submission
+  closed_records_readonly:
+    description: Closed incidents are read-only; corrections require a linked amendment record
+
+outcomes:
+  incident_reported:
+    priority: 10
+    given:
+      - "vehicle exists in the fleet"
+      - "incident_date is not in the future"
+      - "incident_type, location, and incident_description are provided"
+    then:
+      - action: set_field
+        target: status
+        value: reported
+      - action: notify
+        channel: in_app
+        description: Immediately notify the fleet manager of the new incident report
+      - action: emit_event
+        event: incident.reported
+        payload: [vehicle, incident_type, incident_date, location, injuries_reported, driver_at_incident]
+    result: Incident is logged and the fleet manager is notified for follow-up
+
+  injury_escalated:
+    priority: 1
+    given:
+      - "incident_reported outcome has fired"
+      - "injuries_reported is true"
+    then:
+      - action: notify
+        channel: in_app
+        description: Send urgent escalation to operations supervisor and HR
+      - action: emit_event
+        event: incident.injury_reported
+        payload: [vehicle, incident_date, location, injury_details, driver_at_incident]
+    result: Injury incident is urgently escalated to senior management
+
+  insurance_claim_submitted:
+    priority: 9
+    given:
+      - "vehicle has an active insurance policy"
+      - "damage_description is provided"
+      - "police_report_number is provided if third_party_involved is true"
+    then:
+      - action: set_field
+        target: insurance_claim_number
+        description: Record the claim reference from the insurer
+      - action: set_field
+        target: status
+        value: insurance_submitted
+      - action: emit_event
+        event: incident.insurance_claim_submitted
+        payload: [vehicle, incident_date, insurance_claim_number, estimated_repair_cost]
+    result: Insurance claim is on record; fleet manager tracks settlement
+
+  repair_completed_and_closed:
+    priority: 8
+    given:
+      - "status is repair_authorised or insurance_settled"
+      - "actual_repair_cost is provided"
+      - "root_cause and corrective_actions are recorded"
+    then:
+      - action: set_field
+        target: status
+        value: closed
+      - action: emit_event
+        event: incident.closed
+        payload: [vehicle, incident_date, actual_repair_cost, claim_settlement_amount, root_cause]
+    result: Incident is fully resolved and closed with a complete record
+
+  missing_third_party_details:
+    priority: 2
+    error: INCIDENT_MISSING_THIRD_PARTY
+    given:
+      - "third_party_involved is true"
+      - "third_party_details is empty"
+      - "status transition past reported is requested"
+    then: []
+    result: Transition is blocked until third-party details are recorded
+
+errors:
+  - code: INCIDENT_FUTURE_DATE
+    message: Incident date cannot be in the future.
+    status: 400
+  - code: INCIDENT_MISSING_THIRD_PARTY
+    message: Third-party details are required when a third party is involved.
+    status: 422
+  - code: INCIDENT_NO_ACTIVE_INSURANCE
+    message: No active insurance policy found for this vehicle. Please add insurance before submitting a claim.
+    status: 422
+
+events:
+  - name: incident.reported
+    description: A vehicle incident has been recorded and reported
+    payload: [vehicle, incident_type, incident_date, location, injuries_reported, driver_at_incident]
+  - name: incident.injury_reported
+    description: An incident involving injuries has been escalated
+    payload: [vehicle, incident_date, location, injury_details, driver_at_incident]
+  - name: incident.insurance_claim_submitted
+    description: An insurance claim has been submitted for a vehicle incident
+    payload: [vehicle, incident_date, insurance_claim_number, estimated_repair_cost]
+  - name: incident.closed
+    description: A vehicle incident has been fully resolved and closed
+    payload: [vehicle, incident_date, actual_repair_cost, claim_settlement_amount, root_cause]
+
+related:
+  - feature: vehicle-insurance
+    type: required
+    reason: Active insurance policy is required for claim submission from an incident
+  - feature: vehicle-maintenance-log
+    type: recommended
+    reason: Repair work performed after an incident is logged in the maintenance history
+  - feature: vehicle-master-data
+    type: required
+    reason: Vehicle identification and assignment details are sourced from the master record
+  - feature: vehicle-expense-tracking
+    type: recommended
+    reason: Incident repair costs and insurance shortfalls roll into per-vehicle expense reporting
+
+extensions:
+  source:
+    repo: "https://github.com/frappe/erpnext"
+    project: "ERPNext"
+    tech_stack: "Python + Frappe Framework"
+    files_traced: 3
+    entry_points:
+      - "erpnext/assets/doctype/asset_repair/asset_repair.py"
+      - "erpnext/setup/doctype/vehicle/vehicle.py"
+      - "erpnext/setup/doctype/vehicle/vehicle.json"

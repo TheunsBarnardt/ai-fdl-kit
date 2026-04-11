@@ -1,0 +1,312 @@
+# ============================================================
+# SCHEDULED MAINTENANCE — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/frappe/erpnext
+# Source project: ERPNext (Python + Frappe Framework)
+# Files traced: 4
+# ============================================================
+
+feature: scheduled-maintenance
+version: "1.0.0"
+description: Define recurring maintenance schedules for vehicles based on calendar intervals or odometer milestones, track due dates, trigger work orders, and record completion to advance the schedule.
+category: workflow
+tags: [fleet, vehicle, maintenance, scheduling, reminders, odometer, preventive]
+
+actors:
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: Creates and manages maintenance schedules; receives overdue alerts
+  - id: technician
+    name: Technician
+    type: human
+    description: Completes the maintenance task and records it against the schedule
+  - id: system
+    name: System
+    type: system
+    description: Daily scan that recalculates due dates and transitions overdue tasks
+
+fields:
+  - name: vehicle
+    type: text
+    required: true
+    label: Vehicle
+  - name: task_name
+    type: text
+    required: true
+    label: Task Name
+  - name: maintenance_type
+    type: select
+    required: true
+    label: Maintenance Type
+  - name: trigger_type
+    type: select
+    required: true
+    label: Trigger Type
+  - name: interval_days
+    type: number
+    required: false
+    label: Calendar Interval (days)
+  - name: interval_km
+    type: number
+    required: false
+    label: Odometer Interval (km)
+  - name: start_date
+    type: date
+    required: true
+    label: Schedule Start Date
+  - name: end_date
+    type: date
+    required: false
+    label: Schedule End Date
+  - name: last_completed_date
+    type: date
+    required: false
+    label: Last Completed Date
+  - name: last_completed_odometer
+    type: number
+    required: false
+    label: Last Completed Odometer (km)
+  - name: next_due_date
+    type: date
+    required: false
+    label: Next Due Date
+  - name: next_due_odometer
+    type: number
+    required: false
+    label: Next Due Odometer (km)
+  - name: assigned_to
+    type: text
+    required: false
+    label: Assigned To
+  - name: advance_warning_days
+    type: number
+    required: false
+    label: Advance Warning (days)
+  - name: status
+    type: select
+    required: true
+    label: Status
+
+states:
+  field: status
+  values:
+    - name: active
+      initial: true
+      description: Schedule is running; not yet due
+    - name: due_soon
+      description: Within the advance warning window
+    - name: overdue
+      description: Next due date has passed without completion
+    - name: completed
+      description: Task was completed; schedule advances to the next cycle
+    - name: paused
+      description: Schedule temporarily suspended (e.g., vehicle off-road)
+    - name: cancelled
+      terminal: true
+      description: Schedule permanently removed
+  transitions:
+    - from: active
+      to: due_soon
+      actor: system
+      description: Days until next_due_date falls within advance_warning_days
+    - from: due_soon
+      to: overdue
+      actor: system
+      description: next_due_date passed without completion
+    - from: active
+      to: overdue
+      actor: system
+      description: next_due_date passed with no advance warning configured
+    - from: due_soon
+      to: completed
+      actor: technician
+      description: Task completed before it becomes overdue
+    - from: overdue
+      to: completed
+      actor: technician
+      description: Late completion recorded
+    - from: completed
+      to: active
+      actor: system
+      description: Next cycle computed and schedule resets to active
+    - from: active
+      to: paused
+      actor: fleet_manager
+      description: Fleet manager suspends the schedule
+    - from: paused
+      to: active
+      actor: fleet_manager
+      description: Schedule resumed
+
+rules:
+  interval_required:
+    description: At least one of interval_days or interval_km must be provided — a schedule with neither is invalid
+  date_based_next_due:
+    description: "When trigger_type is date-based, next_due_date = last_completed_date (or start_date) + interval_days"
+  odometer_based_next_due:
+    description: "When trigger_type is odometer-based, next_due_odometer = last_completed_odometer + interval_km"
+  both_trigger_earliest:
+    description: When trigger_type is both, the task becomes due when either threshold is first reached
+  auto_cancel_past_end_date:
+    description: If end_date is set and next_due_date exceeds end_date, the schedule is automatically cancelled
+  daily_job:
+    description: System runs a daily job to transition active → due_soon → overdue based on next_due_date
+  odometer_reevaluation:
+    description: Odometer-based due dates are re-evaluated whenever a new odometer reading is recorded for the vehicle
+  completion_requires_reference:
+    description: Task completion is only valid with a service log reference or completion date
+
+outcomes:
+  schedule_created:
+    priority: 10
+    given:
+      - "vehicle exists in the fleet"
+      - "task_name and maintenance_type are provided"
+      - "at least one of interval_days or interval_km is provided"
+      - "start_date is valid"
+    then:
+      - action: set_field
+        target: next_due_date
+        description: Compute start_date + interval_days for date-based schedules
+      - action: set_field
+        target: next_due_odometer
+        description: Compute vehicle last_odometer + interval_km for odometer-based schedules
+      - action: set_field
+        target: status
+        value: active
+      - action: emit_event
+        event: scheduled_maintenance.created
+        payload: [vehicle, task_name, maintenance_type, next_due_date, next_due_odometer]
+    result: Maintenance schedule is active with next due date and/or odometer computed
+
+  task_due_soon:
+    priority: 9
+    given:
+      - "system daily scan runs"
+      - "status is active"
+      - "days until next_due_date is less than or equal to advance_warning_days"
+    then:
+      - action: set_field
+        target: status
+        value: due_soon
+      - action: notify
+        channel: in_app
+        description: Send due-soon notification to assigned_to user and fleet manager
+      - action: emit_event
+        event: scheduled_maintenance.due_soon
+        payload: [vehicle, task_name, next_due_date, next_due_odometer]
+    result: Task transitions to due_soon and the assignee is notified
+
+  task_overdue:
+    priority: 8
+    given:
+      - "status is due_soon or active"
+      - "next_due_date has passed"
+    then:
+      - action: set_field
+        target: status
+        value: overdue
+      - action: notify
+        channel: in_app
+        description: Send overdue alert to fleet manager
+      - action: emit_event
+        event: scheduled_maintenance.overdue
+        payload: [vehicle, task_name, next_due_date]
+    result: Task is marked overdue and an alert is sent to the fleet manager
+
+  task_completed:
+    priority: 7
+    given:
+      - "status is due_soon, overdue, or active"
+      - "completion date and service log reference are provided"
+    then:
+      - action: set_field
+        target: last_completed_date
+        value: completion_date
+      - action: set_field
+        target: last_completed_odometer
+        value: odometer_at_completion
+      - action: set_field
+        target: status
+        value: completed
+      - action: set_field
+        target: next_due_date
+        description: Recompute next_due_date = last_completed_date + interval_days
+      - action: set_field
+        target: next_due_odometer
+        description: Recompute next_due_odometer = last_completed_odometer + interval_km
+      - action: set_field
+        target: status
+        value: active
+      - action: emit_event
+        event: scheduled_maintenance.completed
+        payload: [vehicle, task_name, last_completed_date, next_due_date, next_due_odometer]
+    result: Completion is recorded, schedule advances to the next cycle and becomes active
+
+  odometer_due_triggered:
+    priority: 6
+    given:
+      - "trigger_type includes odometer"
+      - "vehicle current odometer is >= next_due_odometer"
+      - "status is active"
+    then:
+      - action: set_field
+        target: status
+        value: due_soon
+      - action: notify
+        channel: in_app
+        description: Notify assignee that odometer threshold has been reached
+      - action: emit_event
+        event: scheduled_maintenance.odometer_threshold_reached
+        payload: [vehicle, task_name, next_due_odometer, current_odometer]
+    result: Task transitions to due_soon because the odometer threshold has been reached
+
+errors:
+  - code: SCHEDULE_NO_INTERVAL
+    message: A maintenance schedule must have either a calendar interval or an odometer interval.
+    status: 400
+  - code: SCHEDULE_INVALID_DATE
+    message: Schedule start date is invalid.
+    status: 400
+
+events:
+  - name: scheduled_maintenance.created
+    description: A recurring maintenance schedule has been set up for a vehicle
+    payload: [vehicle, task_name, maintenance_type, next_due_date, next_due_odometer]
+  - name: scheduled_maintenance.due_soon
+    description: A scheduled maintenance task is approaching its due date or odometer threshold
+    payload: [vehicle, task_name, next_due_date, next_due_odometer]
+  - name: scheduled_maintenance.overdue
+    description: A scheduled maintenance task has passed its due date without completion
+    payload: [vehicle, task_name, next_due_date]
+  - name: scheduled_maintenance.completed
+    description: A scheduled task was completed and the schedule has advanced to the next cycle
+    payload: [vehicle, task_name, last_completed_date, next_due_date, next_due_odometer]
+  - name: scheduled_maintenance.odometer_threshold_reached
+    description: A vehicle's current odometer has reached the next service threshold
+    payload: [vehicle, task_name, next_due_odometer, current_odometer]
+
+related:
+  - feature: vehicle-master-data
+    type: required
+    reason: Vehicle master provides last odometer reading for odometer-based interval calculations
+  - feature: vehicle-maintenance-log
+    type: required
+    reason: Completing a scheduled task creates a maintenance log record and advances the schedule
+  - feature: odometer-tracking
+    type: recommended
+    reason: Validated odometer readings trigger odometer-based due date re-evaluation
+
+extensions:
+  source:
+    repo: "https://github.com/frappe/erpnext"
+    project: "ERPNext"
+    tech_stack: "Python + Frappe Framework"
+    files_traced: 4
+    entry_points:
+      - "erpnext/assets/doctype/asset_maintenance/asset_maintenance.py"
+      - "erpnext/assets/doctype/asset_maintenance_task/asset_maintenance_task.py"
+      - "erpnext/assets/doctype/asset_maintenance_log/asset_maintenance_log.py"
+      - "erpnext/assets/doctype/asset/asset.py"

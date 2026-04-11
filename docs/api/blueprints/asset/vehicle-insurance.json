@@ -1,0 +1,419 @@
+{
+  "feature": "vehicle-insurance",
+  "version": "1.0.0",
+  "description": "Track insurance policies for fleet vehicles including coverage type, premium, excess, validity dates, and renewal lifecycle.",
+  "category": "asset",
+  "tags": [
+    "fleet",
+    "vehicle",
+    "insurance",
+    "compliance",
+    "policy"
+  ],
+  "actors": [
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Manages insurance policy records for fleet vehicles"
+    },
+    {
+      "id": "finance_manager",
+      "name": "Finance Manager",
+      "type": "human",
+      "description": "Approves premium payments and reviews coverage adequacy"
+    },
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Monitors policy expiry dates and triggers renewal reminders"
+    }
+  ],
+  "fields": [
+    {
+      "name": "vehicle",
+      "type": "text",
+      "required": true,
+      "label": "Vehicle"
+    },
+    {
+      "name": "insurance_provider",
+      "type": "text",
+      "required": true,
+      "label": "Insurance Provider"
+    },
+    {
+      "name": "policy_number",
+      "type": "text",
+      "required": true,
+      "label": "Policy Number"
+    },
+    {
+      "name": "policy_type",
+      "type": "select",
+      "required": true,
+      "label": "Policy Type"
+    },
+    {
+      "name": "coverage_type",
+      "type": "text",
+      "required": false,
+      "label": "Coverage Type"
+    },
+    {
+      "name": "insured_value",
+      "type": "number",
+      "required": false,
+      "label": "Insured Value"
+    },
+    {
+      "name": "premium_amount",
+      "type": "number",
+      "required": false,
+      "label": "Annual Premium"
+    },
+    {
+      "name": "excess_amount",
+      "type": "number",
+      "required": false,
+      "label": "Excess / Deductible"
+    },
+    {
+      "name": "start_date",
+      "type": "date",
+      "required": true,
+      "label": "Policy Start Date"
+    },
+    {
+      "name": "end_date",
+      "type": "date",
+      "required": true,
+      "label": "Policy End Date"
+    },
+    {
+      "name": "renewal_reminder_days",
+      "type": "number",
+      "required": false,
+      "label": "Renewal Reminder (days before expiry)"
+    },
+    {
+      "name": "notes",
+      "type": "text",
+      "required": false,
+      "label": "Notes"
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "required": true,
+      "label": "Status"
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "active",
+        "initial": true,
+        "description": "Policy is in force and vehicle is covered"
+      },
+      {
+        "name": "expiring_soon",
+        "description": "Policy expires within the configured reminder window"
+      },
+      {
+        "name": "expired",
+        "description": "Policy end date has passed without renewal"
+      },
+      {
+        "name": "cancelled",
+        "terminal": true,
+        "description": "Policy was cancelled before expiry"
+      },
+      {
+        "name": "renewed",
+        "description": "A new policy record has superseded this one"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "active",
+        "to": "expiring_soon",
+        "actor": "system",
+        "description": "System detects expiry within the reminder window"
+      },
+      {
+        "from": "expiring_soon",
+        "to": "renewed",
+        "actor": "fleet_manager",
+        "description": "New policy record is created and linked to this vehicle"
+      },
+      {
+        "from": "expiring_soon",
+        "to": "expired",
+        "actor": "system",
+        "description": "End date reached without renewal action"
+      },
+      {
+        "from": "active",
+        "to": "cancelled",
+        "actor": "fleet_manager",
+        "description": "Policy cancelled mid-term"
+      },
+      {
+        "from": "expired",
+        "to": "active",
+        "actor": "fleet_manager",
+        "description": "Backdated or late renewal applied"
+      }
+    ]
+  },
+  "rules": {
+    "end_date_after_start_date": {
+      "description": "Policy end date must be after policy start date"
+    },
+    "unique_policy_number": {
+      "description": "Policy number must be unique per insurance provider"
+    },
+    "no_dispatch_uninsured": {
+      "description": "A vehicle should not be dispatched while its insurance status is Expired or Cancelled"
+    },
+    "positive_monetary_values": {
+      "description": "Premium amount and insured value must be positive values if provided"
+    },
+    "excess_not_exceeds_insured": {
+      "description": "Excess amount must not exceed the insured value"
+    },
+    "one_active_policy_per_type": {
+      "description": "Only one active policy of each type should exist per vehicle at a time"
+    }
+  },
+  "outcomes": {
+    "policy_activated": {
+      "priority": 10,
+      "given": [
+        "vehicle exists in the fleet",
+        "policy number is unique for this provider",
+        "end_date is after start_date"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "active"
+        },
+        {
+          "action": "emit_event",
+          "event": "vehicle.insurance_activated",
+          "payload": [
+            "vehicle",
+            "policy_number",
+            "insurance_provider",
+            "start_date",
+            "end_date"
+          ]
+        }
+      ],
+      "result": "Insurance policy is recorded and the vehicle shows as insured"
+    },
+    "policy_end_date_invalid": {
+      "priority": 1,
+      "error": "INSURANCE_INVALID_DATE_RANGE",
+      "given": [
+        {
+          "field": "end_date",
+          "source": "input",
+          "operator": "lte",
+          "value": "start_date",
+          "description": "End date is on or before start date"
+        }
+      ],
+      "then": [],
+      "result": "Policy record is rejected with a date validation error"
+    },
+    "policy_renewed": {
+      "priority": 8,
+      "given": [
+        "vehicle has an expiring or expired policy",
+        "new policy details are provided with a valid future end date"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "renewed",
+          "description": "Mark old policy as renewed"
+        },
+        {
+          "action": "create_record",
+          "type": "insurance_policy",
+          "description": "Create new active policy record with updated dates and details"
+        },
+        {
+          "action": "emit_event",
+          "event": "vehicle.insurance_renewed",
+          "payload": [
+            "vehicle",
+            "old_policy_number",
+            "new_policy_number",
+            "new_end_date"
+          ]
+        }
+      ],
+      "result": "Old policy is marked renewed and a new active policy record exists"
+    },
+    "policy_cancelled": {
+      "priority": 7,
+      "given": [
+        "fleet manager initiates cancellation",
+        "policy is in active or expiring_soon status"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "cancelled"
+        },
+        {
+          "action": "emit_event",
+          "event": "vehicle.insurance_cancelled",
+          "payload": [
+            "vehicle",
+            "policy_number",
+            "cancellation_reason"
+          ]
+        }
+      ],
+      "result": "Policy is marked cancelled and a compliance warning is raised for the vehicle"
+    },
+    "expiry_reminder_triggered": {
+      "priority": 9,
+      "given": [
+        "days until end_date is less than or equal to renewal_reminder_days",
+        "policy is in active status"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "expiring_soon"
+        },
+        {
+          "action": "notify",
+          "channel": "in_app",
+          "description": "Send renewal reminder to fleet manager and assigned driver"
+        },
+        {
+          "action": "emit_event",
+          "event": "vehicle.insurance_expiring",
+          "payload": [
+            "vehicle",
+            "policy_number",
+            "end_date",
+            "days_remaining"
+          ]
+        }
+      ],
+      "result": "Policy transitions to expiring_soon and a reminder notification is sent"
+    }
+  },
+  "errors": [
+    {
+      "code": "INSURANCE_INVALID_DATE_RANGE",
+      "message": "Policy end date must be after the policy start date.",
+      "status": 400
+    },
+    {
+      "code": "INSURANCE_DUPLICATE_POLICY",
+      "message": "A policy with this number already exists for this provider.",
+      "status": 409
+    },
+    {
+      "code": "INSURANCE_VEHICLE_UNINSURED",
+      "message": "Vehicle cannot be dispatched — no active insurance policy on record.",
+      "status": 422
+    }
+  ],
+  "events": [
+    {
+      "name": "vehicle.insurance_activated",
+      "description": "A new insurance policy has been recorded for the vehicle",
+      "payload": [
+        "vehicle",
+        "policy_number",
+        "insurance_provider",
+        "start_date",
+        "end_date"
+      ]
+    },
+    {
+      "name": "vehicle.insurance_expiring",
+      "description": "An insurance policy is within the renewal reminder window",
+      "payload": [
+        "vehicle",
+        "policy_number",
+        "end_date",
+        "days_remaining"
+      ]
+    },
+    {
+      "name": "vehicle.insurance_renewed",
+      "description": "An insurance policy has been renewed with a new effective period",
+      "payload": [
+        "vehicle",
+        "old_policy_number",
+        "new_policy_number",
+        "new_end_date"
+      ]
+    },
+    {
+      "name": "vehicle.insurance_cancelled",
+      "description": "An insurance policy has been cancelled before its expiry date",
+      "payload": [
+        "vehicle",
+        "policy_number",
+        "cancellation_reason"
+      ]
+    },
+    {
+      "name": "vehicle.insurance_expired",
+      "description": "An insurance policy lapsed without renewal",
+      "payload": [
+        "vehicle",
+        "policy_number",
+        "end_date"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vehicle-registration",
+      "type": "required",
+      "reason": "Insurance is tied to a registered vehicle"
+    },
+    {
+      "feature": "vehicle-renewal-reminders",
+      "type": "recommended",
+      "reason": "Centralised reminder system can manage insurance renewal alongside other document renewals"
+    },
+    {
+      "feature": "vehicle-documents",
+      "type": "recommended",
+      "reason": "Policy documents and certificates of insurance are stored in the document management feature"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/frappe/erpnext",
+      "project": "ERPNext",
+      "tech_stack": "Python + Frappe Framework",
+      "files_traced": 3,
+      "entry_points": [
+        "erpnext/setup/doctype/vehicle/vehicle.py",
+        "erpnext/setup/doctype/vehicle/vehicle.json",
+        "erpnext/assets/doctype/asset/asset.json"
+      ]
+    }
+  }
+}

@@ -1,0 +1,362 @@
+{
+  "feature": "vehicle-master-data",
+  "version": "1.0.0",
+  "description": "Maintain the canonical specification record for a fleet vehicle including make, model, year, VIN, fuel type, physical dimensions, and current assignment.",
+  "category": "asset",
+  "tags": [
+    "fleet",
+    "vehicle",
+    "master-data",
+    "specifications",
+    "vin"
+  ],
+  "actors": [
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Creates and maintains vehicle specification records"
+    },
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Auto-populates computed fields and validates uniqueness"
+    }
+  ],
+  "fields": [
+    {
+      "name": "license_plate",
+      "type": "text",
+      "required": true,
+      "label": "License Plate"
+    },
+    {
+      "name": "make",
+      "type": "text",
+      "required": true,
+      "label": "Make"
+    },
+    {
+      "name": "manufacturer",
+      "type": "text",
+      "required": false,
+      "label": "Manufacturer"
+    },
+    {
+      "name": "model",
+      "type": "text",
+      "required": true,
+      "label": "Model"
+    },
+    {
+      "name": "year",
+      "type": "number",
+      "required": false,
+      "label": "Year of Manufacture"
+    },
+    {
+      "name": "vin",
+      "type": "text",
+      "required": false,
+      "label": "VIN (Chassis Number)"
+    },
+    {
+      "name": "fuel_type",
+      "type": "select",
+      "required": true,
+      "label": "Fuel Type"
+    },
+    {
+      "name": "fuel_uom",
+      "type": "text",
+      "required": true,
+      "label": "Fuel Unit of Measure"
+    },
+    {
+      "name": "color",
+      "type": "text",
+      "required": false,
+      "label": "Color"
+    },
+    {
+      "name": "doors",
+      "type": "number",
+      "required": false,
+      "label": "Number of Doors"
+    },
+    {
+      "name": "wheels",
+      "type": "number",
+      "required": false,
+      "label": "Number of Wheels"
+    },
+    {
+      "name": "seating_capacity",
+      "type": "number",
+      "required": false,
+      "label": "Seating Capacity"
+    },
+    {
+      "name": "gross_vehicle_weight",
+      "type": "number",
+      "required": false,
+      "label": "Gross Vehicle Weight (kg)"
+    },
+    {
+      "name": "acquisition_date",
+      "type": "date",
+      "required": false,
+      "label": "Acquisition Date"
+    },
+    {
+      "name": "acquisition_cost",
+      "type": "number",
+      "required": false,
+      "label": "Acquisition Cost"
+    },
+    {
+      "name": "last_odometer",
+      "type": "number",
+      "required": false,
+      "label": "Last Known Odometer (km)"
+    },
+    {
+      "name": "current_location",
+      "type": "text",
+      "required": false,
+      "label": "Current Location"
+    },
+    {
+      "name": "assigned_driver",
+      "type": "text",
+      "required": false,
+      "label": "Assigned Driver"
+    },
+    {
+      "name": "fleet_category",
+      "type": "select",
+      "required": false,
+      "label": "Fleet Category"
+    },
+    {
+      "name": "carbon_check_date",
+      "type": "date",
+      "required": false,
+      "label": "Last Emissions Test Date"
+    }
+  ],
+  "rules": {
+    "unique_license_plate": {
+      "description": "License plate must be unique across all vehicles"
+    },
+    "unique_vin": {
+      "description": "VIN must be unique if provided; standard VINs are 17 alphanumeric characters"
+    },
+    "year_not_future": {
+      "description": "Year of manufacture must not be in the future"
+    },
+    "acquisition_date_not_future": {
+      "description": "Acquisition date must not be in the future"
+    },
+    "odometer_non_negative": {
+      "description": "Last odometer value must be a non-negative integer"
+    },
+    "carbon_check_not_future": {
+      "description": "Carbon check date must not be a future date"
+    },
+    "fuel_fields_required": {
+      "description": "Fuel type and fuel unit of measure are required for accurate fuel efficiency calculations"
+    },
+    "acquisition_cost_positive": {
+      "description": "Acquisition cost must be positive if provided — it is the base value for depreciation"
+    }
+  },
+  "outcomes": {
+    "vehicle_record_created": {
+      "priority": 10,
+      "given": [
+        "license plate is unique",
+        "make, model, and fuel type are provided",
+        "year is not in the future if provided",
+        "VIN is unique if provided"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "last_odometer",
+          "value": 0
+        },
+        {
+          "action": "emit_event",
+          "event": "vehicle.master_record_created",
+          "payload": [
+            "license_plate",
+            "make",
+            "model",
+            "year",
+            "vin",
+            "fuel_type"
+          ]
+        }
+      ],
+      "result": "Vehicle specification record is saved and available for fleet operations"
+    },
+    "duplicate_vin_rejected": {
+      "priority": 1,
+      "error": "VEHICLE_DUPLICATE_VIN",
+      "given": [
+        "VIN is provided",
+        "another vehicle record already uses the same VIN"
+      ],
+      "then": [],
+      "result": "Record creation is blocked and the user is notified of the duplicate VIN"
+    },
+    "invalid_year_rejected": {
+      "priority": 2,
+      "error": "VEHICLE_INVALID_YEAR",
+      "given": [
+        "year of manufacture is provided",
+        {
+          "field": "year",
+          "source": "input",
+          "operator": "gt",
+          "value": "current_year",
+          "description": "Year is in the future"
+        }
+      ],
+      "then": [],
+      "result": "Validation fails and the user is prompted to correct the year"
+    },
+    "vehicle_record_updated": {
+      "priority": 9,
+      "given": [
+        "vehicle record exists",
+        "changed fields pass all validation rules"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "vehicle.master_record_updated",
+          "payload": [
+            "license_plate",
+            "changed_fields"
+          ]
+        }
+      ],
+      "result": "Vehicle specification is updated and the change is auditable"
+    },
+    "odometer_updated": {
+      "priority": 8,
+      "given": [
+        "new odometer value is provided",
+        {
+          "field": "new_odometer",
+          "source": "input",
+          "operator": "gte",
+          "value": "last_odometer",
+          "description": "New reading is at least equal to the last recorded reading"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "last_odometer",
+          "value": "new_odometer"
+        },
+        {
+          "action": "emit_event",
+          "event": "vehicle.odometer_updated",
+          "payload": [
+            "license_plate",
+            "previous_odometer",
+            "new_odometer"
+          ]
+        }
+      ],
+      "result": "Last known odometer is updated on the vehicle record"
+    }
+  },
+  "errors": [
+    {
+      "code": "VEHICLE_DUPLICATE_VIN",
+      "message": "A vehicle with this VIN already exists in the system.",
+      "status": 409
+    },
+    {
+      "code": "VEHICLE_INVALID_YEAR",
+      "message": "Year of manufacture cannot be in the future.",
+      "status": 400
+    },
+    {
+      "code": "VEHICLE_DUPLICATE_PLATE",
+      "message": "A vehicle with this license plate already exists.",
+      "status": 409
+    }
+  ],
+  "events": [
+    {
+      "name": "vehicle.master_record_created",
+      "description": "A new vehicle specification record has been added to the fleet",
+      "payload": [
+        "license_plate",
+        "make",
+        "model",
+        "year",
+        "vin",
+        "fuel_type"
+      ]
+    },
+    {
+      "name": "vehicle.master_record_updated",
+      "description": "One or more specification fields on a vehicle record were changed",
+      "payload": [
+        "license_plate",
+        "changed_fields"
+      ]
+    },
+    {
+      "name": "vehicle.odometer_updated",
+      "description": "The last known odometer reading on the vehicle record was updated",
+      "payload": [
+        "license_plate",
+        "previous_odometer",
+        "new_odometer"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vehicle-registration",
+      "type": "required",
+      "reason": "Legal registration details complement the physical specification record"
+    },
+    {
+      "feature": "odometer-tracking",
+      "type": "recommended",
+      "reason": "Detailed odometer history is maintained in the dedicated tracking feature"
+    },
+    {
+      "feature": "fuel-log",
+      "type": "recommended",
+      "reason": "Fuel entries update the last_odometer field on the master record"
+    },
+    {
+      "feature": "vehicle-depreciation",
+      "type": "recommended",
+      "reason": "Acquisition cost and date from master data seed the depreciation calculation"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/frappe/erpnext",
+      "project": "ERPNext",
+      "tech_stack": "Python + Frappe Framework",
+      "files_traced": 2,
+      "entry_points": [
+        "erpnext/setup/doctype/vehicle/vehicle.py",
+        "erpnext/setup/doctype/vehicle/vehicle.json"
+      ]
+    }
+  }
+}

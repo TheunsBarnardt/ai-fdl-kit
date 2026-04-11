@@ -26,6 +26,7 @@ UI component systems, visual editors, and developer tooling blueprints.
 | [Ecommerce Store]({{ site.baseurl }}/blueprints/ui/ecommerce-store/) | Full online storefront with product catalog, category browsing, attribute filtering, shopping cart, multi-step checkout, payment integration, wishlist, and pricelist support.  | 1.0.0 |
 | [Fleet Performance Dashboard]({{ site.baseurl }}/blueprints/ui/fleet-performance-dashboard/) | Configurable dashboards with widgets showing fleet KPIs, live driver map, order metrics, and performance analytics | 1.0.0 |
 | [Form Builder]({{ site.baseurl }}/blueprints/ui/form-builder/) | Dynamic form creation and rendering with drag-and-drop field placement, conditional visibility, multi-step forms, validation rules, and versioning | 1.0.0 |
+| [Fuel Analytics]({{ site.baseurl }}/blueprints/ui/fuel-analytics/) | Analyse fuel consumption, cost trends, and efficiency metrics across the fleet or per vehicle with configurable grouping periods, anomaly detection, and benchmark comparisons. | 1.0.0 |
 | [Internationalization]({{ site.baseurl }}/blueprints/ui/internationalization/) | Internationalization with locale switching, translation keys, pluralization, and RTL support | 1.0.0 |
 | [Navigation Menu]({{ site.baseurl }}/blueprints/ui/navigation-menu/) | Hierarchical navigation with sidebar, breadcrumb, mega menu, and mobile support | 1.0.0 |
 | [Responsive Layout]({{ site.baseurl }}/blueprints/ui/responsive-layout/) | Design responsive layouts using breakpoint variants to apply different styles at different screen sizes | 1.0.0 |

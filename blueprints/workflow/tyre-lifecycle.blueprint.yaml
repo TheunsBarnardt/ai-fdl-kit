@@ -1,0 +1,312 @@
+# ============================================================
+# TYRE LIFECYCLE — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/frappe/erpnext
+# Source project: ERPNext (Python + Frappe Framework)
+# Files traced: 1
+# ============================================================
+# Note: ERPNext has no tyre tracking capability. This blueprint is
+# designed based on the vehicle management data model patterns
+# observed in the codebase, extended with fleet industry best practice.
+# ============================================================
+
+feature: tyre-lifecycle
+version: "1.0.0"
+description: Track tyre fitment, rotation, tread depth assessments, and replacement across the fleet with a per-position history and automated low-tread warnings.
+category: workflow
+tags: [fleet, vehicle, tyre, lifecycle, maintenance, safety]
+
+actors:
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: Manages tyre procurement, fitment authorisation, and disposal decisions
+  - id: technician
+    name: Technician
+    type: human
+    description: Fits, inspects, rotates, and removes tyres; records condition and tread depth
+  - id: system
+    name: System
+    type: system
+    description: Monitors tread depth thresholds and km-since-fitted to trigger inspection alerts
+
+fields:
+  - name: vehicle
+    type: text
+    required: true
+    label: Vehicle
+  - name: tyre_position
+    type: select
+    required: true
+    label: Tyre Position
+  - name: brand
+    type: text
+    required: false
+    label: Brand
+  - name: model
+    type: text
+    required: false
+    label: Model / Pattern
+  - name: size
+    type: text
+    required: false
+    label: Size
+  - name: serial_number
+    type: text
+    required: false
+    label: Serial Number / DOT Code
+  - name: manufacture_year
+    type: number
+    required: false
+    label: Manufacture Year
+  - name: fitted_date
+    type: date
+    required: true
+    label: Fitted Date
+  - name: fitted_odometer
+    type: number
+    required: false
+    label: Odometer at Fitment (km)
+  - name: removed_date
+    type: date
+    required: false
+    label: Removed Date
+  - name: removed_odometer
+    type: number
+    required: false
+    label: Odometer at Removal (km)
+  - name: km_on_tyre
+    type: number
+    required: false
+    label: km on Tyre
+  - name: last_tread_depth_mm
+    type: number
+    required: false
+    label: Last Tread Depth (mm)
+  - name: last_inspection_date
+    type: date
+    required: false
+    label: Last Inspection Date
+  - name: condition_rating
+    type: select
+    required: false
+    label: Condition Rating
+  - name: reason_for_removal
+    type: select
+    required: false
+    label: Reason for Removal
+  - name: status
+    type: select
+    required: true
+    label: Status
+
+states:
+  field: status
+  values:
+    - name: in_storage
+      initial: true
+      description: Tyre is in stock; not yet fitted to a vehicle
+    - name: fitted
+      description: Tyre is currently mounted on the vehicle at the specified position
+    - name: inspection_due
+      description: Tread depth or mileage threshold reached; inspection required
+    - name: removed
+      description: Tyre has been dismounted; may be returned to storage or disposed
+    - name: disposed
+      terminal: true
+      description: Tyre has been scrapped or recycled
+  transitions:
+    - from: in_storage
+      to: fitted
+      actor: technician
+      description: Tyre mounted on a vehicle position
+    - from: fitted
+      to: inspection_due
+      actor: system
+      description: Tread depth drops below warning threshold or km target is reached
+    - from: inspection_due
+      to: fitted
+      actor: technician
+      description: Inspection completed; tread depth acceptable; tyre returned to service
+    - from: inspection_due
+      to: removed
+      actor: technician
+      description: Inspection reveals tyre must be replaced
+    - from: fitted
+      to: removed
+      actor: technician
+      description: Tyre removed for rotation, repair, or scheduled replacement
+    - from: removed
+      to: in_storage
+      actor: technician
+      description: Removed tyre is serviceable and placed back in stock
+    - from: removed
+      to: disposed
+      actor: fleet_manager
+      description: Removed tyre is scrapped or recycled
+
+rules:
+  one_tyre_per_position:
+    description: A vehicle position can have at most one tyre in fitted or inspection_due status at a time
+  removal_odometer_progression:
+    description: Removed tyre odometer must be >= fitted odometer
+  km_on_tyre_computation:
+    description: km_on_tyre is computed as removed_odometer minus fitted_odometer when removed
+  legal_minimum_tread:
+    description: A tyre with tread depth below the legal minimum (typically 1.6 mm) must not remain in fitted status
+  warning_threshold:
+    description: A warning is triggered when tread depth falls below a configurable warning threshold (e.g., 3 mm)
+  age_based_replacement:
+    description: Tyres older than a configurable maximum age (e.g., 5 years from manufacture year) should be flagged for replacement regardless of tread depth
+  inspection_requires_date:
+    description: Tread depth measurements must be recorded with a measurement date
+
+outcomes:
+  tyre_fitted:
+    priority: 10
+    given:
+      - "vehicle and position are valid"
+      - "no other tyre is currently fitted at the same position"
+      - "fitted_date is not in the future"
+    then:
+      - action: set_field
+        target: status
+        value: fitted
+      - action: emit_event
+        event: tyre.fitted
+        payload: [vehicle, tyre_position, brand, model, size, serial_number, fitted_date, fitted_odometer]
+    result: Tyre is recorded as fitted to the vehicle at the specified position
+
+  tyre_inspected:
+    priority: 9
+    given:
+      - "status is fitted or inspection_due"
+      - "last_tread_depth_mm is provided"
+      - "last_inspection_date is provided"
+    then:
+      - action: set_field
+        target: last_tread_depth_mm
+        value: measured_depth
+      - action: set_field
+        target: last_inspection_date
+        value: inspection_date
+      - action: set_field
+        target: condition_rating
+        description: Derive condition from tread depth thresholds
+      - action: emit_event
+        event: tyre.inspected
+        payload: [vehicle, tyre_position, last_tread_depth_mm, condition_rating, last_inspection_date]
+    result: Inspection result is recorded; status transitions if depth is below threshold
+
+  low_tread_warning:
+    priority: 8
+    given:
+      - "status is fitted or inspection_due"
+      - field: last_tread_depth_mm
+        source: input
+        operator: lte
+        value: warning_threshold_mm
+        description: Tread depth at or below warning threshold
+    then:
+      - action: set_field
+        target: status
+        value: inspection_due
+      - action: notify
+        channel: in_app
+        description: Send low tread alert to fleet manager
+      - action: emit_event
+        event: tyre.low_tread_warning
+        payload: [vehicle, tyre_position, last_tread_depth_mm, warning_threshold_mm]
+    result: Fleet manager is notified that the tyre is approaching the minimum legal tread depth
+
+  tyre_removed:
+    priority: 7
+    given:
+      - "status is fitted or inspection_due"
+      - "removed_date is provided"
+      - "reason_for_removal is provided"
+    then:
+      - action: set_field
+        target: removed_date
+        value: removed_date
+      - action: set_field
+        target: removed_odometer
+        value: current_odometer
+      - action: set_field
+        target: km_on_tyre
+        description: Compute removed_odometer minus fitted_odometer
+      - action: set_field
+        target: status
+        value: removed
+      - action: emit_event
+        event: tyre.removed
+        payload: [vehicle, tyre_position, reason_for_removal, km_on_tyre, removed_date]
+    result: Tyre removal is recorded with distance travelled; position is freed for a new tyre
+
+  tyre_disposed:
+    priority: 6
+    given:
+      - "status is removed"
+      - "disposal decision confirmed by fleet manager"
+    then:
+      - action: set_field
+        target: status
+        value: disposed
+      - action: emit_event
+        event: tyre.disposed
+        payload: [vehicle, tyre_position, serial_number, km_on_tyre]
+    result: Tyre is permanently closed out; lifecycle record retained for reporting
+
+  position_conflict_rejected:
+    priority: 1
+    error: TYRE_POSITION_CONFLICT
+    given:
+      - "another tyre is already fitted at the same vehicle position"
+    then: []
+    result: Fitment is rejected until the existing tyre is removed from that position
+
+errors:
+  - code: TYRE_POSITION_CONFLICT
+    message: Another tyre is already fitted at this position. Please remove the existing tyre first.
+    status: 409
+  - code: TYRE_INVALID_ODOMETER
+    message: Removal odometer cannot be less than the odometer at fitment.
+    status: 400
+
+events:
+  - name: tyre.fitted
+    description: A tyre has been mounted on a vehicle at a specific position
+    payload: [vehicle, tyre_position, brand, model, size, serial_number, fitted_date, fitted_odometer]
+  - name: tyre.inspected
+    description: A tread depth measurement has been recorded for a fitted tyre
+    payload: [vehicle, tyre_position, last_tread_depth_mm, condition_rating, last_inspection_date]
+  - name: tyre.low_tread_warning
+    description: A tyre's tread depth is at or below the configured warning threshold
+    payload: [vehicle, tyre_position, last_tread_depth_mm, warning_threshold_mm]
+  - name: tyre.removed
+    description: A tyre has been dismounted from a vehicle position
+    payload: [vehicle, tyre_position, reason_for_removal, km_on_tyre, removed_date]
+  - name: tyre.disposed
+    description: A removed tyre has been permanently scrapped or recycled
+    payload: [vehicle, tyre_position, serial_number, km_on_tyre]
+
+related:
+  - feature: vehicle-master-data
+    type: required
+    reason: Vehicle master provides current odometer for km-on-tyre calculations
+  - feature: odometer-tracking
+    type: recommended
+    reason: Validated odometer readings feed into km-on-tyre calculations and age-based alerts
+  - feature: vehicle-maintenance-log
+    type: recommended
+    reason: Tyre changes are typically recorded as service events in the maintenance log
+
+extensions:
+  source:
+    repo: "https://github.com/frappe/erpnext"
+    project: "ERPNext"
+    tech_stack: "Python + Frappe Framework"
+    files_traced: 1
+    entry_points:
+      - "erpnext/setup/doctype/vehicle/vehicle.py"

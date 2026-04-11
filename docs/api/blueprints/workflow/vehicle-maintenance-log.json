@@ -1,0 +1,398 @@
+{
+  "feature": "vehicle-maintenance-log",
+  "version": "1.0.0",
+  "description": "Record completed maintenance and service events for a vehicle including work performed, parts consumed, labour cost, technician details, and the next scheduled service.",
+  "category": "workflow",
+  "tags": [
+    "fleet",
+    "vehicle",
+    "maintenance",
+    "service",
+    "history",
+    "log"
+  ],
+  "actors": [
+    {
+      "id": "technician",
+      "name": "Technician",
+      "type": "human",
+      "description": "Performs the service and records work completed and parts used"
+    },
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Reviews service records, authorises cost, and schedules next service"
+    },
+    {
+      "id": "workshop",
+      "name": "Workshop / Service Provider",
+      "type": "external",
+      "description": "External service provider performing the maintenance work"
+    }
+  ],
+  "fields": [
+    {
+      "name": "vehicle",
+      "type": "text",
+      "required": true,
+      "label": "Vehicle"
+    },
+    {
+      "name": "service_date",
+      "type": "date",
+      "required": true,
+      "label": "Service Date"
+    },
+    {
+      "name": "odometer_at_service",
+      "type": "number",
+      "required": false,
+      "label": "Odometer at Service (km)"
+    },
+    {
+      "name": "service_type",
+      "type": "select",
+      "required": true,
+      "label": "Service Type"
+    },
+    {
+      "name": "service_description",
+      "type": "text",
+      "required": true,
+      "label": "Service Description"
+    },
+    {
+      "name": "actions_performed",
+      "type": "rich_text",
+      "required": false,
+      "label": "Work Performed"
+    },
+    {
+      "name": "technician_name",
+      "type": "text",
+      "required": false,
+      "label": "Technician / Assigned To"
+    },
+    {
+      "name": "workshop_name",
+      "type": "text",
+      "required": false,
+      "label": "Workshop / Service Provider"
+    },
+    {
+      "name": "labour_cost",
+      "type": "number",
+      "required": false,
+      "label": "Labour Cost"
+    },
+    {
+      "name": "parts_cost",
+      "type": "number",
+      "required": false,
+      "label": "Parts Cost"
+    },
+    {
+      "name": "other_cost",
+      "type": "number",
+      "required": false,
+      "label": "Other Costs"
+    },
+    {
+      "name": "total_cost",
+      "type": "number",
+      "required": false,
+      "label": "Total Cost"
+    },
+    {
+      "name": "next_service_date",
+      "type": "date",
+      "required": false,
+      "label": "Next Service Date"
+    },
+    {
+      "name": "next_service_odometer",
+      "type": "number",
+      "required": false,
+      "label": "Next Service Odometer (km)"
+    },
+    {
+      "name": "completion_certificate",
+      "type": "file",
+      "required": false,
+      "label": "Completion Certificate"
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "required": true,
+      "label": "Status"
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "draft",
+        "initial": true,
+        "description": "Record being prepared; service may be in progress"
+      },
+      {
+        "name": "in_progress",
+        "description": "Vehicle is at the workshop; service not yet complete"
+      },
+      {
+        "name": "completed",
+        "terminal": true,
+        "description": "Service finished, record confirmed"
+      },
+      {
+        "name": "cancelled",
+        "terminal": true,
+        "description": "Service record voided"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "draft",
+        "to": "in_progress",
+        "actor": "fleet_manager",
+        "description": "Vehicle dropped off at workshop"
+      },
+      {
+        "from": "in_progress",
+        "to": "completed",
+        "actor": "technician",
+        "description": "All work completed and recorded"
+      },
+      {
+        "from": "draft",
+        "to": "completed",
+        "actor": "technician",
+        "description": "Service completed in a single step (no staged workflow needed)"
+      },
+      {
+        "from": "draft",
+        "to": "cancelled",
+        "actor": "fleet_manager",
+        "description": "Service cancelled before it began"
+      },
+      {
+        "from": "in_progress",
+        "to": "cancelled",
+        "actor": "fleet_manager",
+        "description": "Service cancelled mid-way"
+      }
+    ]
+  },
+  "rules": {
+    "date_not_future": {
+      "description": "Service date cannot be in the future"
+    },
+    "total_cost_calculation": {
+      "description": "Total cost is auto-calculated as labour_cost + parts_cost + other_cost"
+    },
+    "odometer_progression": {
+      "description": "Odometer at service must be >= vehicle's last recorded odometer reading"
+    },
+    "next_service_odometer_greater": {
+      "description": "If next_service_odometer is provided it must be greater than odometer_at_service"
+    },
+    "certificate_required_for_statutory": {
+      "description": "A completion certificate attachment is required for statutory service types"
+    },
+    "completed_records_readonly": {
+      "description": "Completed records are read-only and cannot be edited; a correction record must be created"
+    },
+    "cancellation_reason_required": {
+      "description": "Cancelled records must have a cancellation reason recorded"
+    }
+  },
+  "outcomes": {
+    "service_completed": {
+      "priority": 10,
+      "given": [
+        "vehicle exists in the fleet",
+        "service_date is not in the future",
+        "service_type and service_description are provided",
+        "odometer_at_service is >= vehicle's last odometer if provided"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "total_cost",
+          "description": "Compute labour_cost + parts_cost + other_cost"
+        },
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "completed"
+        },
+        {
+          "action": "set_field",
+          "target": "vehicle.last_odometer",
+          "value": "odometer_at_service",
+          "description": "Update vehicle's last known odometer if provided"
+        },
+        {
+          "action": "emit_event",
+          "event": "maintenance.service_completed",
+          "payload": [
+            "vehicle",
+            "service_date",
+            "service_type",
+            "total_cost",
+            "next_service_date",
+            "next_service_odometer"
+          ]
+        }
+      ],
+      "result": "Service record is finalised, vehicle odometer is updated, and scheduled maintenance is notified"
+    },
+    "invalid_odometer": {
+      "priority": 1,
+      "error": "MAINTENANCE_ODOMETER_INVALID",
+      "given": [
+        "odometer_at_service is provided",
+        {
+          "field": "odometer_at_service",
+          "source": "input",
+          "operator": "lt",
+          "value": "last_odometer",
+          "description": "Service odometer is less than the vehicle's last recorded reading"
+        }
+      ],
+      "then": [],
+      "result": "Record cannot be saved until the odometer value is corrected"
+    },
+    "next_service_scheduled": {
+      "priority": 9,
+      "given": [
+        "service_completed outcome has fired",
+        "next_service_date or next_service_odometer is provided"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "maintenance.next_service_scheduled",
+          "payload": [
+            "vehicle",
+            "next_service_date",
+            "next_service_odometer"
+          ]
+        }
+      ],
+      "result": "A scheduled maintenance task is created or updated for the next service interval"
+    },
+    "cost_recorded": {
+      "priority": 8,
+      "given": [
+        "at least one of labour_cost, parts_cost, or other_cost is provided"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "maintenance.cost_incurred",
+          "payload": [
+            "vehicle",
+            "service_date",
+            "total_cost",
+            "service_type"
+          ]
+        }
+      ],
+      "result": "Service cost is available for per-vehicle expense reporting"
+    }
+  },
+  "errors": [
+    {
+      "code": "MAINTENANCE_ODOMETER_INVALID",
+      "message": "Odometer at service cannot be less than the vehicle's last recorded reading.",
+      "status": 400
+    },
+    {
+      "code": "MAINTENANCE_FUTURE_DATE",
+      "message": "Service date cannot be in the future.",
+      "status": 400
+    },
+    {
+      "code": "MAINTENANCE_MISSING_CERTIFICATE",
+      "message": "A completion certificate is required for statutory service records.",
+      "status": 422
+    }
+  ],
+  "events": [
+    {
+      "name": "maintenance.service_completed",
+      "description": "A maintenance service event has been completed and logged for a vehicle",
+      "payload": [
+        "vehicle",
+        "service_date",
+        "service_type",
+        "total_cost",
+        "next_service_date",
+        "next_service_odometer"
+      ]
+    },
+    {
+      "name": "maintenance.next_service_scheduled",
+      "description": "A next service date or odometer milestone has been recorded",
+      "payload": [
+        "vehicle",
+        "next_service_date",
+        "next_service_odometer"
+      ]
+    },
+    {
+      "name": "maintenance.cost_incurred",
+      "description": "A service event with a recorded cost has been finalised",
+      "payload": [
+        "vehicle",
+        "service_date",
+        "total_cost",
+        "service_type"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vehicle-master-data",
+      "type": "required",
+      "reason": "Vehicle master provides last odometer and fuel type context"
+    },
+    {
+      "feature": "scheduled-maintenance",
+      "type": "recommended",
+      "reason": "Maintenance log entries close out scheduled maintenance tasks and trigger the next cycle"
+    },
+    {
+      "feature": "parts-consumption",
+      "type": "recommended",
+      "reason": "Parts consumed during the service are recorded via the parts consumption feature"
+    },
+    {
+      "feature": "vehicle-expense-tracking",
+      "type": "recommended",
+      "reason": "Service costs roll up into per-vehicle expense reporting"
+    },
+    {
+      "feature": "workshop-directory",
+      "type": "optional",
+      "reason": "Workshop reference on the log entry links to the service provider directory"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/frappe/erpnext",
+      "project": "ERPNext",
+      "tech_stack": "Python + Frappe Framework",
+      "files_traced": 4,
+      "entry_points": [
+        "erpnext/assets/doctype/asset_maintenance_log/asset_maintenance_log.py",
+        "erpnext/assets/doctype/asset_maintenance/asset_maintenance.py",
+        "erpnext/assets/doctype/asset_maintenance_task/asset_maintenance_task.py",
+        "erpnext/assets/doctype/asset_repair/asset_repair.py"
+      ]
+    }
+  }
+}

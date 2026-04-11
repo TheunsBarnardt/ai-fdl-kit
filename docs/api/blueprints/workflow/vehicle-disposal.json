@@ -1,0 +1,519 @@
+{
+  "feature": "vehicle-disposal",
+  "version": "1.0.0",
+  "description": "Manage end-of-life decommissioning of fleet vehicles through inspection, management approval, method selection (sale, auction, scrap, trade-in), disposal value recording, and final asset closure.",
+  "category": "workflow",
+  "tags": [
+    "fleet",
+    "vehicle",
+    "disposal",
+    "decommissioning",
+    "scrap",
+    "sale",
+    "finance"
+  ],
+  "actors": [
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Initiates disposal, records inspection findings, and selects disposal method"
+    },
+    {
+      "id": "finance_manager",
+      "name": "Finance Manager",
+      "type": "human",
+      "description": "Reviews book value, approves disposal, and confirms accounting entries"
+    },
+    {
+      "id": "operations_manager",
+      "name": "Operations Manager",
+      "type": "human",
+      "description": "Approves decommissioning decisions for vehicles in active operational use"
+    },
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Calculates gain/loss on disposal and posts final accounting entries"
+    }
+  ],
+  "fields": [
+    {
+      "name": "vehicle",
+      "type": "text",
+      "required": true,
+      "label": "Vehicle"
+    },
+    {
+      "name": "disposal_reason",
+      "type": "select",
+      "required": true,
+      "label": "Disposal Reason"
+    },
+    {
+      "name": "current_book_value",
+      "type": "number",
+      "required": false,
+      "label": "Current Book Value"
+    },
+    {
+      "name": "disposal_method",
+      "type": "select",
+      "required": true,
+      "label": "Disposal Method"
+    },
+    {
+      "name": "disposal_date",
+      "type": "date",
+      "required": true,
+      "label": "Disposal Date"
+    },
+    {
+      "name": "disposal_value",
+      "type": "number",
+      "required": false,
+      "label": "Agreed Disposal Value"
+    },
+    {
+      "name": "proceeds_received",
+      "type": "number",
+      "required": false,
+      "label": "Proceeds Received"
+    },
+    {
+      "name": "buyer_details",
+      "type": "text",
+      "required": false,
+      "label": "Buyer / Recipient Details"
+    },
+    {
+      "name": "inspection_date",
+      "type": "date",
+      "required": false,
+      "label": "Inspection Date"
+    },
+    {
+      "name": "inspection_findings",
+      "type": "rich_text",
+      "required": false,
+      "label": "Inspection Findings"
+    },
+    {
+      "name": "approved_by",
+      "type": "text",
+      "required": false,
+      "label": "Approved By"
+    },
+    {
+      "name": "approval_date",
+      "type": "date",
+      "required": false,
+      "label": "Approval Date"
+    },
+    {
+      "name": "gain_or_loss",
+      "type": "number",
+      "required": false,
+      "label": "Gain / (Loss) on Disposal"
+    },
+    {
+      "name": "notes",
+      "type": "text",
+      "required": false,
+      "label": "Notes"
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "required": true,
+      "label": "Status"
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "initiated",
+        "initial": true,
+        "description": "Disposal request submitted; pending inspection"
+      },
+      {
+        "name": "inspection_done",
+        "description": "Vehicle condition assessed and documented"
+      },
+      {
+        "name": "pending_approval",
+        "description": "Awaiting finance/operations manager sign-off"
+      },
+      {
+        "name": "approved",
+        "description": "Disposal authorised; ready for execution"
+      },
+      {
+        "name": "disposed",
+        "terminal": true,
+        "description": "Vehicle has been physically transferred and accounting entries posted"
+      },
+      {
+        "name": "cancelled",
+        "terminal": true,
+        "description": "Disposal process abandoned; vehicle returned to active fleet"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "initiated",
+        "to": "inspection_done",
+        "actor": "fleet_manager",
+        "description": "Inspection completed and findings recorded"
+      },
+      {
+        "from": "inspection_done",
+        "to": "pending_approval",
+        "actor": "fleet_manager",
+        "description": "Disposal package submitted for approval"
+      },
+      {
+        "from": "pending_approval",
+        "to": "approved",
+        "actor": "finance_manager",
+        "description": "Finance manager reviews and approves disposal"
+      },
+      {
+        "from": "approved",
+        "to": "disposed",
+        "actor": "fleet_manager",
+        "description": "Vehicle physically transferred; proceeds recorded"
+      },
+      {
+        "from": "any",
+        "to": "cancelled",
+        "actor": "operations_manager",
+        "description": "Disposal cancelled; vehicle retained in fleet"
+      }
+    ]
+  },
+  "rules": {
+    "disposal_date_recency": {
+      "description": "Disposal date cannot be in the past more than 90 days without a documented reason"
+    },
+    "approval_required": {
+      "description": "Finance manager approval is required before executing any disposal"
+    },
+    "sale_requires_buyer": {
+      "description": "For sale or auction, disposal_value must be provided and buyer_details are required"
+    },
+    "gain_loss_computation": {
+      "description": "Gain or loss is computed as disposal_value minus current_book_value; negative result is a loss"
+    },
+    "auto_end_assignments": {
+      "description": "When the vehicle is disposed, all active driver assignments are automatically ended"
+    },
+    "cancel_maintenance_schedules": {
+      "description": "All active scheduled maintenance tasks for the vehicle are cancelled on disposal"
+    },
+    "flag_insurance_for_cancellation": {
+      "description": "Insurance policies for the vehicle are flagged for cancellation on disposal"
+    },
+    "disposal_records_permanent": {
+      "description": "Disposal records are permanent and cannot be deleted once the status reaches disposed"
+    }
+  },
+  "outcomes": {
+    "disposal_initiated": {
+      "priority": 10,
+      "given": [
+        "vehicle exists and is in active or decommissioned status",
+        "disposal_reason is provided"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "initiated"
+        },
+        {
+          "action": "notify",
+          "channel": "in_app",
+          "description": "Notify fleet manager and finance manager that disposal has been initiated"
+        },
+        {
+          "action": "emit_event",
+          "event": "disposal.initiated",
+          "payload": [
+            "vehicle",
+            "disposal_reason",
+            "initiated_by"
+          ]
+        }
+      ],
+      "result": "Disposal workflow is started; vehicle is flagged for decommissioning review"
+    },
+    "inspection_recorded": {
+      "priority": 9,
+      "given": [
+        "status is initiated",
+        "inspection_date and inspection_findings are provided"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "inspection_done"
+        },
+        {
+          "action": "emit_event",
+          "event": "disposal.inspection_recorded",
+          "payload": [
+            "vehicle",
+            "inspection_date",
+            "inspection_findings",
+            "current_book_value"
+          ]
+        }
+      ],
+      "result": "Inspection findings are recorded; disposal package can be submitted for approval"
+    },
+    "disposal_approved": {
+      "priority": 8,
+      "given": [
+        "status is pending_approval",
+        "finance manager or operations manager authorises disposal"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "approved_by",
+          "value": "current_user"
+        },
+        {
+          "action": "set_field",
+          "target": "approval_date",
+          "value": "today"
+        },
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "approved"
+        },
+        {
+          "action": "emit_event",
+          "event": "disposal.approved",
+          "payload": [
+            "vehicle",
+            "approved_by",
+            "disposal_method",
+            "disposal_value"
+          ]
+        }
+      ],
+      "result": "Disposal is authorised and the vehicle can be physically transferred"
+    },
+    "vehicle_disposed": {
+      "priority": 7,
+      "given": [
+        "status is approved",
+        "disposal_date is provided",
+        "disposal method is sale or auction and proceeds_received is provided"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "gain_or_loss",
+          "description": "Compute disposal_value minus current_book_value"
+        },
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "disposed"
+        },
+        {
+          "action": "set_field",
+          "target": "vehicle.status",
+          "value": "decommissioned",
+          "description": "Update vehicle master status to decommissioned"
+        },
+        {
+          "action": "emit_event",
+          "event": "disposal.completed",
+          "payload": [
+            "vehicle",
+            "disposal_date",
+            "disposal_method",
+            "proceeds_received",
+            "gain_or_loss"
+          ]
+        }
+      ],
+      "result": "Vehicle is formally removed from the active fleet; gain or loss on disposal is recorded; final accounting entries are posted"
+    },
+    "vehicle_scrapped": {
+      "priority": 6,
+      "given": [
+        "status is approved",
+        "disposal_method is scrap"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "gain_or_loss",
+          "description": "Negative of current_book_value since no proceeds"
+        },
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "disposed"
+        },
+        {
+          "action": "set_field",
+          "target": "vehicle.status",
+          "value": "decommissioned"
+        },
+        {
+          "action": "emit_event",
+          "event": "disposal.scrapped",
+          "payload": [
+            "vehicle",
+            "disposal_date",
+            "current_book_value",
+            "gain_or_loss"
+          ]
+        }
+      ],
+      "result": "Vehicle is scrapped; full book value is written off as a loss"
+    },
+    "disposal_cancelled": {
+      "priority": 5,
+      "given": [
+        "status is initiated, inspection_done, pending_approval, or approved",
+        "cancellation reason is provided"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "cancelled"
+        },
+        {
+          "action": "emit_event",
+          "event": "disposal.cancelled",
+          "payload": [
+            "vehicle",
+            "cancelled_by",
+            "cancellation_reason"
+          ]
+        }
+      ],
+      "result": "Disposal is abandoned; vehicle remains in active fleet"
+    }
+  },
+  "errors": [
+    {
+      "code": "DISPOSAL_APPROVAL_REQUIRED",
+      "message": "Disposal requires approval from a finance or operations manager before it can be executed.",
+      "status": 422
+    },
+    {
+      "code": "DISPOSAL_MISSING_BUYER",
+      "message": "Buyer details are required for sale or auction disposal.",
+      "status": 422
+    }
+  ],
+  "events": [
+    {
+      "name": "disposal.initiated",
+      "description": "A fleet vehicle has been submitted for decommissioning review",
+      "payload": [
+        "vehicle",
+        "disposal_reason",
+        "initiated_by"
+      ]
+    },
+    {
+      "name": "disposal.inspection_recorded",
+      "description": "Pre-disposal vehicle condition inspection has been completed",
+      "payload": [
+        "vehicle",
+        "inspection_date",
+        "inspection_findings",
+        "current_book_value"
+      ]
+    },
+    {
+      "name": "disposal.approved",
+      "description": "A vehicle disposal has been authorised by management",
+      "payload": [
+        "vehicle",
+        "approved_by",
+        "disposal_method",
+        "disposal_value"
+      ]
+    },
+    {
+      "name": "disposal.completed",
+      "description": "A fleet vehicle has been formally disposed of and removed from the active fleet",
+      "payload": [
+        "vehicle",
+        "disposal_date",
+        "disposal_method",
+        "proceeds_received",
+        "gain_or_loss"
+      ]
+    },
+    {
+      "name": "disposal.scrapped",
+      "description": "A fleet vehicle has been scrapped with no proceeds",
+      "payload": [
+        "vehicle",
+        "disposal_date",
+        "current_book_value",
+        "gain_or_loss"
+      ]
+    },
+    {
+      "name": "disposal.cancelled",
+      "description": "A vehicle disposal process was abandoned and the vehicle retained",
+      "payload": [
+        "vehicle",
+        "cancelled_by",
+        "cancellation_reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vehicle-depreciation",
+      "type": "required",
+      "reason": "Current book value at disposal is sourced from the depreciation record; final disposal entries are posted"
+    },
+    {
+      "feature": "vehicle-master-data",
+      "type": "required",
+      "reason": "Vehicle master status is set to decommissioned when disposal is complete"
+    },
+    {
+      "feature": "vehicle-insurance",
+      "type": "recommended",
+      "reason": "Active insurance policies are flagged for cancellation when a vehicle is disposed"
+    },
+    {
+      "feature": "driver-vehicle-assignment",
+      "type": "recommended",
+      "reason": "Active driver assignments are automatically ended when the vehicle is disposed"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/frappe/erpnext",
+      "project": "ERPNext",
+      "tech_stack": "Python + Frappe Framework",
+      "files_traced": 3,
+      "entry_points": [
+        "erpnext/assets/doctype/asset/asset.py",
+        "erpnext/assets/doctype/asset/depreciation.py",
+        "erpnext/assets/doctype/asset_activity/asset_activity.py"
+      ]
+    }
+  }
+}

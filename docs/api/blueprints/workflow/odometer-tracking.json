@@ -1,0 +1,469 @@
+{
+  "feature": "odometer-tracking",
+  "version": "1.0.0",
+  "description": "Maintain a complete, validated history of odometer readings for each vehicle, detecting rollbacks and anomalous jumps, with an approval workflow for corrections.",
+  "category": "workflow",
+  "tags": [
+    "fleet",
+    "vehicle",
+    "odometer",
+    "history",
+    "validation",
+    "mileage"
+  ],
+  "actors": [
+    {
+      "id": "driver",
+      "name": "Driver",
+      "type": "human",
+      "description": "Submits odometer readings at key events (fuel fill-up, service, trip end)"
+    },
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Reviews flagged anomalies and approves or rejects corrections"
+    },
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Validates each reading against the previous and flags anomalies"
+    }
+  ],
+  "fields": [
+    {
+      "name": "vehicle",
+      "type": "text",
+      "required": true,
+      "label": "Vehicle"
+    },
+    {
+      "name": "reading_date",
+      "type": "datetime",
+      "required": true,
+      "label": "Reading Date"
+    },
+    {
+      "name": "odometer_value",
+      "type": "number",
+      "required": true,
+      "label": "Odometer Value (km)"
+    },
+    {
+      "name": "reading_source",
+      "type": "select",
+      "required": true,
+      "label": "Reading Source"
+    },
+    {
+      "name": "reference_document",
+      "type": "text",
+      "required": false,
+      "label": "Reference Document"
+    },
+    {
+      "name": "recorded_by",
+      "type": "text",
+      "required": false,
+      "label": "Recorded By"
+    },
+    {
+      "name": "previous_reading",
+      "type": "number",
+      "required": false,
+      "label": "Previous Reading (km)"
+    },
+    {
+      "name": "distance_delta",
+      "type": "number",
+      "required": false,
+      "label": "Distance Delta (km)"
+    },
+    {
+      "name": "anomaly_reason",
+      "type": "text",
+      "required": false,
+      "label": "Anomaly Reason"
+    },
+    {
+      "name": "correction_approved_by",
+      "type": "text",
+      "required": false,
+      "label": "Correction Approved By"
+    },
+    {
+      "name": "is_validated",
+      "type": "boolean",
+      "required": false,
+      "label": "Validated"
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "required": true,
+      "label": "Status"
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "pending",
+        "initial": true,
+        "description": "Reading submitted, awaiting validation"
+      },
+      {
+        "name": "validated",
+        "description": "Reading passed all checks and is accepted"
+      },
+      {
+        "name": "flagged",
+        "description": "Reading failed validation — possible rollback or anomaly"
+      },
+      {
+        "name": "approved",
+        "terminal": true,
+        "description": "Fleet manager reviewed and approved a flagged/corrected reading"
+      },
+      {
+        "name": "rejected",
+        "terminal": true,
+        "description": "Flagged reading rejected as erroneous; excluded from history"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "pending",
+        "to": "validated",
+        "actor": "system",
+        "description": "Reading is >= previous reading and within anomaly thresholds"
+      },
+      {
+        "from": "pending",
+        "to": "flagged",
+        "actor": "system",
+        "description": "Reading is a rollback or exceeds the anomaly jump threshold"
+      },
+      {
+        "from": "flagged",
+        "to": "approved",
+        "actor": "fleet_manager",
+        "description": "Manager reviews and confirms the flagged reading is correct"
+      },
+      {
+        "from": "flagged",
+        "to": "rejected",
+        "actor": "fleet_manager",
+        "description": "Manager rejects the reading as erroneous"
+      }
+    ]
+  },
+  "rules": {
+    "reading_monotonic": {
+      "description": "Each reading must be >= the previous validated reading; a lower value is treated as a rollback"
+    },
+    "rollback_requires_approval": {
+      "description": "A rollback is automatically flagged and requires fleet manager approval before inclusion in history"
+    },
+    "anomaly_threshold": {
+      "description": "A distance delta greater than the configured maximum_daily_km threshold triggers an anomaly flag"
+    },
+    "date_not_future": {
+      "description": "Reading date cannot be in the future"
+    },
+    "date_progression": {
+      "description": "Reading date must be >= the date of the previous reading for the same vehicle"
+    },
+    "update_master_on_valid": {
+      "description": "The current odometer on the vehicle master is updated only from validated or approved readings"
+    },
+    "rejected_retained_for_audit": {
+      "description": "Rejected readings are retained in history for audit purposes but excluded from calculations"
+    }
+  },
+  "outcomes": {
+    "reading_validated": {
+      "priority": 10,
+      "given": [
+        {
+          "field": "odometer_value",
+          "source": "input",
+          "operator": "gte",
+          "value": "previous_reading",
+          "description": "New reading is at least equal to the last validated reading"
+        },
+        "distance_delta is within the configured anomaly threshold",
+        "reading_date is not in the future"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "distance_delta",
+          "description": "Compute odometer_value minus previous_reading"
+        },
+        {
+          "action": "set_field",
+          "target": "is_validated",
+          "value": true
+        },
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "validated"
+        },
+        {
+          "action": "set_field",
+          "target": "vehicle.last_odometer",
+          "value": "odometer_value"
+        },
+        {
+          "action": "emit_event",
+          "event": "odometer.reading_validated",
+          "payload": [
+            "vehicle",
+            "reading_date",
+            "odometer_value",
+            "distance_delta",
+            "reading_source"
+          ]
+        }
+      ],
+      "result": "Reading is accepted, vehicle last odometer is updated, odometer-based maintenance schedules are re-evaluated"
+    },
+    "rollback_flagged": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "odometer_value",
+          "source": "input",
+          "operator": "lt",
+          "value": "previous_reading",
+          "description": "Submitted reading is less than the last validated reading"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "flagged"
+        },
+        {
+          "action": "set_field",
+          "target": "anomaly_reason",
+          "value": "Odometer rollback detected"
+        },
+        {
+          "action": "notify",
+          "channel": "in_app",
+          "description": "Alert fleet manager of a suspected odometer rollback"
+        },
+        {
+          "action": "emit_event",
+          "event": "odometer.rollback_detected",
+          "payload": [
+            "vehicle",
+            "reading_date",
+            "odometer_value",
+            "previous_reading"
+          ]
+        }
+      ],
+      "result": "Reading is held in flagged status pending fleet manager review"
+    },
+    "anomaly_flagged": {
+      "priority": 2,
+      "given": [
+        "odometer_value is >= previous_reading",
+        "distance_delta exceeds the configured maximum_daily_km threshold"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "flagged"
+        },
+        {
+          "action": "set_field",
+          "target": "anomaly_reason",
+          "value": "Distance delta exceeds maximum daily threshold"
+        },
+        {
+          "action": "notify",
+          "channel": "in_app",
+          "description": "Alert fleet manager of an unusually large odometer jump"
+        },
+        {
+          "action": "emit_event",
+          "event": "odometer.anomaly_flagged",
+          "payload": [
+            "vehicle",
+            "reading_date",
+            "odometer_value",
+            "distance_delta",
+            "threshold"
+          ]
+        }
+      ],
+      "result": "Reading is flagged for manager review"
+    },
+    "correction_approved": {
+      "priority": 8,
+      "given": [
+        "status is flagged",
+        "fleet manager reviews and confirms the reading is valid"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "approved"
+        },
+        {
+          "action": "set_field",
+          "target": "correction_approved_by",
+          "value": "current_user"
+        },
+        {
+          "action": "set_field",
+          "target": "vehicle.last_odometer",
+          "value": "odometer_value"
+        },
+        {
+          "action": "emit_event",
+          "event": "odometer.correction_approved",
+          "payload": [
+            "vehicle",
+            "odometer_value",
+            "correction_approved_by"
+          ]
+        }
+      ],
+      "result": "Approved reading is included in the odometer history and updates the vehicle's last odometer"
+    },
+    "reading_rejected": {
+      "priority": 7,
+      "given": [
+        "status is flagged",
+        "fleet manager confirms the reading is erroneous"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "rejected"
+        },
+        {
+          "action": "emit_event",
+          "event": "odometer.reading_rejected",
+          "payload": [
+            "vehicle",
+            "reading_date",
+            "odometer_value",
+            "rejected_by"
+          ]
+        }
+      ],
+      "result": "Reading is excluded from calculations and marked as rejected in the audit trail"
+    }
+  },
+  "errors": [
+    {
+      "code": "ODOMETER_ROLLBACK",
+      "message": "This odometer reading is lower than the previous validated reading. Please verify and resubmit, or contact the fleet manager.",
+      "status": 400
+    },
+    {
+      "code": "ODOMETER_FUTURE_DATE",
+      "message": "Odometer reading date cannot be in the future.",
+      "status": 400
+    }
+  ],
+  "events": [
+    {
+      "name": "odometer.reading_validated",
+      "description": "An odometer reading passed validation and has been added to the vehicle history",
+      "payload": [
+        "vehicle",
+        "reading_date",
+        "odometer_value",
+        "distance_delta",
+        "reading_source"
+      ]
+    },
+    {
+      "name": "odometer.rollback_detected",
+      "description": "A submitted reading is lower than the last validated odometer value",
+      "payload": [
+        "vehicle",
+        "reading_date",
+        "odometer_value",
+        "previous_reading"
+      ]
+    },
+    {
+      "name": "odometer.anomaly_flagged",
+      "description": "An odometer jump exceeds the maximum daily threshold",
+      "payload": [
+        "vehicle",
+        "reading_date",
+        "odometer_value",
+        "distance_delta",
+        "threshold"
+      ]
+    },
+    {
+      "name": "odometer.correction_approved",
+      "description": "A fleet manager approved a flagged odometer reading",
+      "payload": [
+        "vehicle",
+        "odometer_value",
+        "correction_approved_by"
+      ]
+    },
+    {
+      "name": "odometer.reading_rejected",
+      "description": "A fleet manager rejected an erroneous odometer reading",
+      "payload": [
+        "vehicle",
+        "reading_date",
+        "odometer_value",
+        "rejected_by"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vehicle-master-data",
+      "type": "required",
+      "reason": "Vehicle master stores the last validated odometer which anchors each new reading"
+    },
+    {
+      "feature": "fuel-log",
+      "type": "recommended",
+      "reason": "Fuel log entries submit odometer readings that are validated by this feature"
+    },
+    {
+      "feature": "scheduled-maintenance",
+      "type": "recommended",
+      "reason": "Validated odometer readings trigger re-evaluation of odometer-based maintenance schedules"
+    },
+    {
+      "feature": "vehicle-maintenance-log",
+      "type": "recommended",
+      "reason": "Service records include odometer readings that feed into this validation history"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/frappe/erpnext",
+      "project": "ERPNext",
+      "tech_stack": "Python + Frappe Framework",
+      "files_traced": 2,
+      "entry_points": [
+        "erpnext/setup/doctype/vehicle/vehicle.py",
+        "erpnext/setup/doctype/vehicle/vehicle.json"
+      ]
+    }
+  }
+}

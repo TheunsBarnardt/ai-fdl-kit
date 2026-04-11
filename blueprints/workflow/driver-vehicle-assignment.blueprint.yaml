@@ -1,0 +1,238 @@
+# ============================================================
+# DRIVER-VEHICLE ASSIGNMENT — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/frappe/erpnext
+# Source project: ERPNext (Python + Frappe Framework)
+# Files traced: 3
+# ============================================================
+
+feature: driver-vehicle-assignment
+version: "1.0.0"
+description: Assign drivers to fleet vehicles for defined periods, maintain a full assignment history, and enforce constraints preventing double-assignment and unauthorised transfers.
+category: workflow
+tags: [fleet, vehicle, driver, assignment, history, scheduling]
+
+actors:
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: Creates, modifies, and ends driver-vehicle assignments
+  - id: driver
+    name: Driver
+    type: human
+    description: Is assigned to the vehicle; may view their current and historical assignments
+  - id: system
+    name: System
+    type: system
+    description: Enforces assignment constraints and auto-ends assignments when a new one is created
+
+fields:
+  - name: vehicle
+    type: text
+    required: true
+    label: Vehicle
+  - name: driver
+    type: text
+    required: true
+    label: Driver
+  - name: assignment_type
+    type: select
+    required: true
+    label: Assignment Type
+  - name: start_date
+    type: date
+    required: true
+    label: Start Date
+  - name: end_date
+    type: date
+    required: false
+    label: End Date
+  - name: assigned_by
+    type: text
+    required: false
+    label: Assigned By
+  - name: reason
+    type: text
+    required: false
+    label: Assignment Reason
+  - name: end_reason
+    type: text
+    required: false
+    label: End Reason
+  - name: actual_end_date
+    type: date
+    required: false
+    label: Actual End Date
+  - name: status
+    type: select
+    required: true
+    label: Status
+
+states:
+  field: status
+  values:
+    - name: draft
+      initial: true
+      description: Assignment prepared but not yet activated
+    - name: active
+      description: Assignment is in force; driver is currently assigned to the vehicle
+    - name: ended
+      terminal: true
+      description: Assignment has been completed or terminated
+    - name: cancelled
+      terminal: true
+      description: Assignment was voided before activation
+  transitions:
+    - from: draft
+      to: active
+      actor: fleet_manager
+      description: Assignment confirmed and takes effect from start_date
+    - from: active
+      to: ended
+      actor: fleet_manager
+      description: Assignment ended — reassignment or driver departure
+    - from: draft
+      to: cancelled
+      actor: fleet_manager
+      description: Assignment voided before it began
+
+rules:
+  no_double_permanent_assignment:
+    description: A vehicle cannot have two active permanent assignments simultaneously
+  no_overlapping_assignments:
+    description: A vehicle cannot have more than one active assignment per driver type at the same time (one permanent + temporary assignments are permitted if temporal ranges do not overlap)
+  end_date_after_start:
+    description: End date must be after start date when provided
+  permanent_ends_by_new:
+    description: A permanent assignment may only be ended by creating a new assignment for the same vehicle (which auto-ends the previous one)
+  end_reason_required:
+    description: Ending an assignment requires an end_reason
+  driver_must_be_active:
+    description: Driver must have Active status in the driver registry to receive a new assignment
+  start_date_not_past:
+    description: Start date cannot be in the past for new assignments (warn if creating a backdated record)
+  decommission_ends_all:
+    description: When a vehicle is decommissioned, all active assignments are automatically ended
+
+outcomes:
+  assignment_created:
+    priority: 10
+    given:
+      - "vehicle exists and is in active status"
+      - "driver exists and has Active status"
+      - "no conflicting active assignment exists for the vehicle and date range"
+      - "end_date is after start_date if provided"
+    then:
+      - action: set_field
+        target: status
+        value: active
+      - action: set_field
+        target: vehicle.assigned_driver
+        value: driver
+      - action: emit_event
+        event: assignment.created
+        payload: [vehicle, driver, assignment_type, start_date, end_date]
+    result: Driver is assigned to the vehicle; vehicle master record reflects the new driver
+
+  assignment_conflict_rejected:
+    priority: 1
+    error: ASSIGNMENT_CONFLICT
+    given:
+      - "an active permanent assignment already exists for this vehicle"
+      - "new assignment type is permanent"
+    then: []
+    result: New assignment is rejected; fleet manager must end the existing assignment first
+
+  previous_permanent_auto_ended:
+    priority: 9
+    given:
+      - "an active permanent assignment exists for the vehicle"
+      - "new assignment is being created as permanent"
+      - "fleet manager explicitly confirms the transition"
+    then:
+      - action: set_field
+        target: previous_assignment.status
+        value: ended
+      - action: set_field
+        target: previous_assignment.actual_end_date
+        value: today
+      - action: set_field
+        target: previous_assignment.end_reason
+        value: "Superseded by new assignment"
+      - action: emit_event
+        event: assignment.ended
+        payload: [vehicle, previous_driver, actual_end_date, end_reason]
+    result: Previous permanent assignment is auto-ended and the new one is activated
+
+  assignment_ended:
+    priority: 8
+    given:
+      - "status is active"
+      - "end_reason is provided"
+    then:
+      - action: set_field
+        target: actual_end_date
+        value: today
+      - action: set_field
+        target: status
+        value: ended
+      - action: set_field
+        target: vehicle.assigned_driver
+        value: null
+        description: Clear assigned driver from vehicle master if no replacement assigned
+      - action: emit_event
+        event: assignment.ended
+        payload: [vehicle, driver, actual_end_date, end_reason]
+    result: Assignment is ended; vehicle master's assigned driver is cleared
+
+  history_query:
+    priority: 7
+    given:
+      - "a vehicle or driver filter is provided"
+    then:
+      - action: emit_event
+        event: assignment.history_queried
+        payload: [filter_vehicle, filter_driver, date_range]
+    result: Full assignment history for the specified vehicle or driver is returned including ended and cancelled records
+
+errors:
+  - code: ASSIGNMENT_CONFLICT
+    message: This vehicle already has an active permanent assignment. End the existing assignment before creating a new one.
+    status: 409
+  - code: ASSIGNMENT_INACTIVE_DRIVER
+    message: The selected driver is not active. Only active drivers can be assigned to vehicles.
+    status: 422
+  - code: ASSIGNMENT_INVALID_DATE
+    message: The assignment end date must be after the start date.
+    status: 400
+
+events:
+  - name: assignment.created
+    description: A driver has been assigned to a fleet vehicle
+    payload: [vehicle, driver, assignment_type, start_date, end_date]
+  - name: assignment.ended
+    description: A driver-vehicle assignment has been terminated
+    payload: [vehicle, driver, actual_end_date, end_reason]
+  - name: assignment.history_queried
+    description: The assignment history for a vehicle or driver has been retrieved
+    payload: [filter_vehicle, filter_driver, date_range]
+
+related:
+  - feature: vehicle-master-data
+    type: required
+    reason: Vehicle master stores the currently assigned driver and must be updated on each assignment change
+  - feature: vehicle-expense-tracking
+    type: optional
+    reason: Costs can be attributed to the driver assigned during a given period via assignment history
+
+extensions:
+  source:
+    repo: "https://github.com/frappe/erpnext"
+    project: "ERPNext"
+    tech_stack: "Python + Frappe Framework"
+    files_traced: 3
+    entry_points:
+      - "erpnext/setup/doctype/driver/driver.py"
+      - "erpnext/setup/doctype/driver/driver.json"
+      - "erpnext/setup/doctype/vehicle/vehicle.py"

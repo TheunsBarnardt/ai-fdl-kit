@@ -1,0 +1,351 @@
+{
+  "feature": "fuel-log",
+  "version": "1.0.0",
+  "description": "Record fuel fill-up events for fleet vehicles capturing date, odometer, quantity, cost, and station details; each entry updates the vehicle's last known odometer.",
+  "category": "workflow",
+  "tags": [
+    "fleet",
+    "vehicle",
+    "fuel",
+    "odometer",
+    "cost",
+    "log"
+  ],
+  "actors": [
+    {
+      "id": "driver",
+      "name": "Driver",
+      "type": "human",
+      "description": "Records the fuel fill-up at the pump"
+    },
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Reviews and approves fuel entries; investigates anomalies"
+    },
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Validates odometer progression and computes derived metrics"
+    }
+  ],
+  "fields": [
+    {
+      "name": "vehicle",
+      "type": "text",
+      "required": true,
+      "label": "Vehicle"
+    },
+    {
+      "name": "fuel_date",
+      "type": "datetime",
+      "required": true,
+      "label": "Fuel Date"
+    },
+    {
+      "name": "odometer_reading",
+      "type": "number",
+      "required": true,
+      "label": "Odometer Reading (km)"
+    },
+    {
+      "name": "fuel_type",
+      "type": "select",
+      "required": true,
+      "label": "Fuel Type"
+    },
+    {
+      "name": "fuel_quantity",
+      "type": "number",
+      "required": true,
+      "label": "Quantity"
+    },
+    {
+      "name": "unit_of_measure",
+      "type": "text",
+      "required": true,
+      "label": "Unit of Measure"
+    },
+    {
+      "name": "cost_per_unit",
+      "type": "number",
+      "required": false,
+      "label": "Cost per Unit"
+    },
+    {
+      "name": "total_cost",
+      "type": "number",
+      "required": false,
+      "label": "Total Cost"
+    },
+    {
+      "name": "fuel_station",
+      "type": "text",
+      "required": false,
+      "label": "Fuel Station / Supplier"
+    },
+    {
+      "name": "payment_method",
+      "type": "select",
+      "required": false,
+      "label": "Payment Method"
+    },
+    {
+      "name": "receipt_reference",
+      "type": "text",
+      "required": false,
+      "label": "Receipt / Invoice Reference"
+    },
+    {
+      "name": "filled_by",
+      "type": "text",
+      "required": false,
+      "label": "Filled By"
+    },
+    {
+      "name": "notes",
+      "type": "text",
+      "required": false,
+      "label": "Notes"
+    },
+    {
+      "name": "distance_since_last",
+      "type": "number",
+      "required": false,
+      "label": "Distance Since Last Fill-up (km)"
+    },
+    {
+      "name": "efficiency",
+      "type": "number",
+      "required": false,
+      "label": "Fuel Efficiency (units/100km)"
+    }
+  ],
+  "rules": {
+    "odometer_monotonic": {
+      "description": "Odometer reading must be greater than or equal to the vehicle's last recorded odometer value"
+    },
+    "quantity_positive": {
+      "description": "Fuel quantity must be a positive number"
+    },
+    "total_cost_calculation": {
+      "description": "Total cost is auto-calculated as quantity × cost_per_unit if not manually provided; manual entry takes precedence"
+    },
+    "fuel_type_match": {
+      "description": "Fuel type on the log entry should match the vehicle's configured fuel type; a mismatch triggers a warning"
+    },
+    "tank_capacity_check": {
+      "description": "A single entry cannot record more fuel than the vehicle's tank capacity if tank capacity is configured"
+    },
+    "date_not_future": {
+      "description": "Fuel date cannot be in the future"
+    },
+    "distance_computation": {
+      "description": "Distance since last fill-up is computed as current odometer minus previous odometer"
+    },
+    "efficiency_computation": {
+      "description": "Fuel efficiency is computed as (fuel_quantity / distance_since_last) × 100 if distance > 0"
+    }
+  },
+  "outcomes": {
+    "fuel_entry_recorded": {
+      "priority": 10,
+      "given": [
+        "vehicle exists in the fleet",
+        "fuel_date is not in the future",
+        {
+          "field": "odometer_reading",
+          "source": "input",
+          "operator": "gte",
+          "value": "last_odometer",
+          "description": "Odometer reading is at least equal to last recorded value"
+        },
+        {
+          "field": "fuel_quantity",
+          "source": "input",
+          "operator": "gt",
+          "value": 0,
+          "description": "Fuel quantity is positive"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "distance_since_last",
+          "description": "Compute odometer_reading minus previous odometer"
+        },
+        {
+          "action": "set_field",
+          "target": "efficiency",
+          "description": "Compute fuel_quantity / distance_since_last × 100 if distance > 0"
+        },
+        {
+          "action": "set_field",
+          "target": "total_cost",
+          "description": "Set to quantity × cost_per_unit if not manually provided"
+        },
+        {
+          "action": "set_field",
+          "target": "vehicle.last_odometer",
+          "value": "odometer_reading"
+        },
+        {
+          "action": "emit_event",
+          "event": "fuel.entry_recorded",
+          "payload": [
+            "vehicle",
+            "fuel_date",
+            "odometer_reading",
+            "fuel_quantity",
+            "total_cost",
+            "efficiency"
+          ]
+        }
+      ],
+      "result": "Fuel entry is saved, vehicle's last odometer is updated, and efficiency is computed"
+    },
+    "odometer_rollback_rejected": {
+      "priority": 1,
+      "error": "FUEL_ODOMETER_ROLLBACK",
+      "given": [
+        {
+          "field": "odometer_reading",
+          "source": "input",
+          "operator": "lt",
+          "value": "last_odometer",
+          "description": "Submitted reading is less than last recorded odometer"
+        }
+      ],
+      "then": [],
+      "result": "Entry is rejected; user is prompted to verify the odometer reading"
+    },
+    "fuel_type_mismatch_warning": {
+      "priority": 2,
+      "given": [
+        "fuel_type on entry does not match the vehicle's configured fuel type"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "fuel.type_mismatch_detected",
+          "payload": [
+            "vehicle",
+            "expected_fuel_type",
+            "entered_fuel_type"
+          ]
+        }
+      ],
+      "result": "Warning is shown to the user; entry can still be saved after confirmation"
+    },
+    "full_tank_exceeded_warning": {
+      "priority": 3,
+      "given": [
+        "vehicle has a configured tank capacity",
+        {
+          "field": "fuel_quantity",
+          "source": "input",
+          "operator": "gt",
+          "value": "tank_capacity",
+          "description": "Quantity exceeds tank capacity"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "fuel.quantity_anomaly",
+          "payload": [
+            "vehicle",
+            "fuel_quantity",
+            "tank_capacity"
+          ]
+        }
+      ],
+      "result": "Warning is raised; entry is held for fleet manager review"
+    }
+  },
+  "errors": [
+    {
+      "code": "FUEL_ODOMETER_ROLLBACK",
+      "message": "Odometer reading cannot be less than the previous recorded reading.",
+      "status": 400
+    },
+    {
+      "code": "FUEL_INVALID_QUANTITY",
+      "message": "Fuel quantity must be greater than zero.",
+      "status": 400
+    },
+    {
+      "code": "FUEL_FUTURE_DATE",
+      "message": "Fuel date cannot be in the future.",
+      "status": 400
+    }
+  ],
+  "events": [
+    {
+      "name": "fuel.entry_recorded",
+      "description": "A fuel fill-up event has been logged for a vehicle",
+      "payload": [
+        "vehicle",
+        "fuel_date",
+        "odometer_reading",
+        "fuel_quantity",
+        "total_cost",
+        "efficiency"
+      ]
+    },
+    {
+      "name": "fuel.type_mismatch_detected",
+      "description": "The fuel type entered does not match the vehicle's configured fuel type",
+      "payload": [
+        "vehicle",
+        "expected_fuel_type",
+        "entered_fuel_type"
+      ]
+    },
+    {
+      "name": "fuel.quantity_anomaly",
+      "description": "Fuel quantity entered exceeds the vehicle's configured tank capacity",
+      "payload": [
+        "vehicle",
+        "fuel_quantity",
+        "tank_capacity"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vehicle-master-data",
+      "type": "required",
+      "reason": "Vehicle master provides last odometer, fuel type, and tank capacity"
+    },
+    {
+      "feature": "odometer-tracking",
+      "type": "recommended",
+      "reason": "Each fuel log odometer reading is also stored in the dedicated odometer history"
+    },
+    {
+      "feature": "fuel-analytics",
+      "type": "recommended",
+      "reason": "Fuel log entries are the source data for efficiency and cost analytics"
+    },
+    {
+      "feature": "vehicle-expense-tracking",
+      "type": "recommended",
+      "reason": "Fuel costs from this log roll up into per-vehicle expense reporting"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/frappe/erpnext",
+      "project": "ERPNext",
+      "tech_stack": "Python + Frappe Framework",
+      "files_traced": 2,
+      "entry_points": [
+        "erpnext/setup/doctype/vehicle/vehicle.py",
+        "erpnext/setup/doctype/vehicle/vehicle.json"
+      ]
+    }
+  }
+}

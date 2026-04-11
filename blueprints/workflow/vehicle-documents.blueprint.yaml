@@ -1,0 +1,269 @@
+# ============================================================
+# VEHICLE DOCUMENT MANAGEMENT — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/frappe/erpnext
+# Source project: ERPNext (Python + Frappe Framework)
+# Files traced: 2
+# ============================================================
+# Note: ERPNext has only generic file attachments on the Asset and
+# Vehicle doctypes and an attachment field for maintenance certificates.
+# This blueprint captures structured document management with expiry
+# tracking as a portable design.
+# ============================================================
+
+feature: vehicle-documents
+version: "1.0.0"
+description: Store, categorise, and manage fleet vehicle documents — permits, roadworthiness certificates, registration papers, inspection reports, photos — with expiry tracking and renewal reminders.
+category: workflow
+tags: [fleet, vehicle, documents, permits, compliance, certificates, files]
+
+actors:
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: Uploads documents, categorises them, and manages renewal actions
+  - id: driver
+    name: Driver
+    type: human
+    description: May upload photos or scan documents in the field via mobile
+  - id: system
+    name: System
+    type: system
+    description: Monitors expiry dates and triggers renewal reminders
+
+fields:
+  - name: vehicle
+    type: text
+    required: true
+    label: Vehicle
+  - name: document_type
+    type: select
+    required: true
+    label: Document Type
+  - name: document_title
+    type: text
+    required: true
+    label: Document Title
+  - name: document_number
+    type: text
+    required: false
+    label: Document Reference Number
+  - name: issuing_authority
+    type: text
+    required: false
+    label: Issuing Authority
+  - name: issue_date
+    type: date
+    required: false
+    label: Issue Date
+  - name: expiry_date
+    type: date
+    required: false
+    label: Expiry Date
+  - name: file_attachment
+    type: file
+    required: true
+    label: File Attachment
+  - name: uploaded_by
+    type: text
+    required: false
+    label: Uploaded By
+  - name: upload_date
+    type: date
+    required: false
+    label: Upload Date
+  - name: notes
+    type: text
+    required: false
+    label: Notes
+  - name: status
+    type: select
+    required: true
+    label: Status
+
+states:
+  field: status
+  values:
+    - name: active
+      initial: true
+      description: Document is current and valid
+    - name: expiring_soon
+      description: Document is within the renewal reminder window
+    - name: expired
+      description: Document expiry date has passed
+    - name: superseded
+      description: Document has been replaced by a newer version
+    - name: archived
+      terminal: true
+      description: Document is no longer active but retained for historical records
+  transitions:
+    - from: active
+      to: expiring_soon
+      actor: system
+      description: Expiry date falls within the configured reminder window
+    - from: expiring_soon
+      to: active
+      actor: fleet_manager
+      description: New document uploaded before expiry; old record superseded
+    - from: expiring_soon
+      to: expired
+      actor: system
+      description: Expiry date passed without a replacement being uploaded
+    - from: expired
+      to: active
+      actor: fleet_manager
+      description: Late renewal — new document uploaded and validated
+    - from: active
+      to: superseded
+      actor: fleet_manager
+      description: Newer version of the same document uploaded
+    - from: any
+      to: archived
+      actor: fleet_manager
+      description: Document manually archived
+
+rules:
+  file_required:
+    description: File attachment is mandatory — a document record without a file is invalid
+  expiry_after_issue:
+    description: If expiry_date is provided it must be after issue_date
+  auto_supersede_on_upload:
+    description: When a new document of the same type is uploaded for the same vehicle, the previous record is automatically set to superseded
+  auto_expire_daily:
+    description: Documents with expiry_date less than today are automatically transitioned to expired by the daily system job
+  compliance_blocks_dispatch:
+    description: Expired compliance documents (roadworthiness, operating_permit) block vehicle dispatch until replaced
+  photos_no_expiry:
+    description: Photos do not require expiry dates and are not subject to renewal reminders
+  archived_readonly:
+    description: Archived documents are read-only but remain retrievable for audits
+
+outcomes:
+  document_uploaded:
+    priority: 10
+    given:
+      - "vehicle exists in the fleet"
+      - "document_type and document_title are provided"
+      - "file_attachment is attached"
+      - "expiry_date is after issue_date if both provided"
+    then:
+      - action: set_field
+        target: status
+        value: active
+      - action: set_field
+        target: upload_date
+        value: today
+      - action: set_field
+        target: uploaded_by
+        value: current_user
+      - action: set_field
+        target: previous_document.status
+        value: superseded
+        description: If another active document of the same type exists, mark it superseded
+      - action: emit_event
+        event: vehicle_document.uploaded
+        payload: [vehicle, document_type, document_number, expiry_date, upload_date]
+    result: Document is stored and the vehicle's document register is updated; previous version is superseded
+
+  expiry_reminder_triggered:
+    priority: 9
+    given:
+      - "expiry_date is set"
+      - "days until expiry_date is less than or equal to configured advance_notice_days"
+      - "status is active"
+    then:
+      - action: set_field
+        target: status
+        value: expiring_soon
+      - action: notify
+        channel: in_app
+        description: Send expiry reminder to fleet manager
+      - action: emit_event
+        event: vehicle_document.expiring_soon
+        payload: [vehicle, document_type, expiry_date, days_remaining]
+    result: Fleet manager is notified that the document requires renewal
+
+  document_expired:
+    priority: 8
+    given:
+      - "expiry_date has passed"
+      - "status is not archived, superseded, or active with a current replacement"
+    then:
+      - action: set_field
+        target: status
+        value: expired
+      - action: notify
+        channel: in_app
+        description: Send overdue alert to fleet manager
+      - action: emit_event
+        event: vehicle_document.expired
+        payload: [vehicle, document_type, expiry_date]
+    result: Document is marked expired; compliance-critical document types block vehicle dispatch
+
+  document_archived:
+    priority: 7
+    given:
+      - "fleet manager requests archival"
+    then:
+      - action: set_field
+        target: status
+        value: archived
+      - action: emit_event
+        event: vehicle_document.archived
+        payload: [vehicle, document_type, document_number, archived_by]
+    result: Document is archived and no longer included in active document counts
+
+  invalid_file_rejected:
+    priority: 1
+    error: DOCUMENT_MISSING_FILE
+    given:
+      - "file_attachment is not provided"
+    then: []
+    result: Document record is rejected; a file attachment is mandatory
+
+errors:
+  - code: DOCUMENT_MISSING_FILE
+    message: A file attachment is required to save a document record.
+    status: 422
+  - code: DOCUMENT_INVALID_DATES
+    message: Document expiry date must be after the issue date.
+    status: 400
+  - code: DOCUMENT_EXPIRED_COMPLIANCE
+    message: This vehicle has an expired compliance document. Renew it before dispatching the vehicle.
+    status: 422
+
+events:
+  - name: vehicle_document.uploaded
+    description: A document has been uploaded and stored against a vehicle record
+    payload: [vehicle, document_type, document_number, expiry_date, upload_date]
+  - name: vehicle_document.expiring_soon
+    description: A vehicle document is within the renewal reminder window
+    payload: [vehicle, document_type, expiry_date, days_remaining]
+  - name: vehicle_document.expired
+    description: A vehicle document has passed its expiry date without renewal
+    payload: [vehicle, document_type, expiry_date]
+  - name: vehicle_document.archived
+    description: A vehicle document has been manually archived
+    payload: [vehicle, document_type, document_number, archived_by]
+
+related:
+  - feature: vehicle-registration
+    type: required
+    reason: Registration certificates are the primary document type managed for each vehicle
+  - feature: vehicle-renewal-reminders
+    type: recommended
+    reason: Document expiry dates feed the centralised renewal reminder system
+  - feature: vehicle-insurance
+    type: recommended
+    reason: Insurance certificates are stored as documents in the vehicle document register
+
+extensions:
+  source:
+    repo: "https://github.com/frappe/erpnext"
+    project: "ERPNext"
+    tech_stack: "Python + Frappe Framework"
+    files_traced: 2
+    entry_points:
+      - "erpnext/assets/doctype/asset_maintenance_log/asset_maintenance_log.py"
+      - "erpnext/setup/doctype/vehicle/vehicle.json"

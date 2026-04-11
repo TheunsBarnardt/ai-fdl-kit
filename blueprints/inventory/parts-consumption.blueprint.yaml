@@ -1,0 +1,274 @@
+# ============================================================
+# PARTS CONSUMPTION — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/frappe/erpnext
+# Source project: ERPNext (Python + Frappe Framework)
+# Files traced: 3
+# ============================================================
+
+feature: parts-consumption
+version: "1.0.0"
+description: Record parts and materials consumed during vehicle service or repair events, validate stock availability, trigger inventory deductions, and attribute parts cost to the service record.
+category: inventory
+tags: [fleet, vehicle, parts, inventory, consumption, service, stock]
+
+actors:
+  - id: technician
+    name: Technician
+    type: human
+    description: Records the parts used during a service; selects items from approved stock locations
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: Reviews parts consumption and approves high-value replacements
+  - id: stores_clerk
+    name: Stores Clerk
+    type: human
+    description: Confirms stock availability and processes the inventory issue
+  - id: system
+    name: System
+    type: system
+    description: Validates stock levels, computes costs, and triggers inventory deduction transactions
+
+fields:
+  - name: service_record
+    type: text
+    required: true
+    label: Service Record Reference
+  - name: vehicle
+    type: text
+    required: true
+    label: Vehicle
+  - name: item_code
+    type: text
+    required: true
+    label: Item Code
+  - name: item_description
+    type: text
+    required: false
+    label: Item Description
+  - name: warehouse
+    type: text
+    required: true
+    label: Source Warehouse
+  - name: quantity
+    type: number
+    required: true
+    label: Quantity
+  - name: unit_of_measure
+    type: text
+    required: true
+    label: Unit of Measure
+  - name: unit_cost
+    type: number
+    required: false
+    label: Unit Cost
+  - name: total_cost
+    type: number
+    required: false
+    label: Total Cost
+  - name: batch_number
+    type: text
+    required: false
+    label: Batch Number
+  - name: serial_number
+    type: text
+    required: false
+    label: Serial Number
+  - name: stock_entry_reference
+    type: text
+    required: false
+    label: Stock Entry Reference
+  - name: status
+    type: select
+    required: true
+    label: Status
+
+states:
+  field: status
+  values:
+    - name: draft
+      initial: true
+      description: Parts identified but stock has not been reserved or issued
+    - name: reserved
+      description: Stock has been reserved for this service; not yet physically issued
+    - name: issued
+      terminal: true
+      description: Parts physically issued from store; inventory deducted
+    - name: cancelled
+      terminal: true
+      description: Consumption line cancelled; reserved stock released
+  transitions:
+    - from: draft
+      to: reserved
+      actor: stores_clerk
+      description: Stock availability confirmed and quantity reserved
+    - from: reserved
+      to: issued
+      actor: stores_clerk
+      description: Parts physically handed over to technician; inventory deducted
+    - from: draft
+      to: issued
+      actor: stores_clerk
+      description: Direct issue without reservation for simple transactions
+    - from: draft
+      to: cancelled
+      actor: technician
+      description: Part no longer needed
+    - from: reserved
+      to: cancelled
+      actor: technician
+      description: Part no longer needed; reservation released
+
+rules:
+  quantity_positive:
+    description: Quantity must be greater than zero
+  item_must_exist:
+    description: Item must exist in the inventory catalogue
+  stock_availability:
+    description: Sufficient stock must be available in the specified warehouse before issuing; insufficient stock blocks the transaction
+  total_cost_computation:
+    description: Total cost is computed as quantity × unit_cost; unit_cost is sourced from inventory valuation if not manually entered
+  stock_deduction_on_issue:
+    description: On confirmation (status → issued), a stock deduction transaction is created automatically in the inventory system
+  cancellation_requires_return:
+    description: Cancelling an issued consumption requires a return transaction to restore the stock
+  serial_tracking:
+    description: Serial-tracked items require a valid serial number that is currently in stock at the specified warehouse
+  batch_tracking:
+    description: Batch-tracked items require a valid batch number that has sufficient quantity available
+
+outcomes:
+  parts_issued:
+    priority: 10
+    given:
+      - "item_code exists in the inventory catalogue"
+      - field: quantity
+        source: input
+        operator: gt
+        value: 0
+        description: Quantity is positive
+      - "sufficient stock is available in the specified warehouse"
+      - "serial/batch requirements are met if item is tracked"
+    then:
+      - action: set_field
+        target: unit_cost
+        description: Fetch current valuation rate from inventory if not manually provided
+      - action: set_field
+        target: total_cost
+        description: Compute quantity × unit_cost
+      - action: set_field
+        target: status
+        value: issued
+      - action: create_record
+        type: stock_entry
+        description: Create a stock deduction (material issue) transaction against the warehouse
+      - action: set_field
+        target: stock_entry_reference
+        description: Store the reference of the created stock deduction transaction
+      - action: emit_event
+        event: parts.issued
+        payload: [vehicle, service_record, item_code, quantity, total_cost, warehouse, stock_entry_reference]
+    result: Parts are recorded as consumed, inventory is decremented, and cost is attributed to the service record
+
+  insufficient_stock_blocked:
+    priority: 1
+    error: PARTS_INSUFFICIENT_STOCK
+    given:
+      - "requested quantity exceeds available stock in the specified warehouse"
+    then: []
+    result: Issue is blocked; technician is notified of the shortfall and must select an alternative warehouse or raise a purchase request
+
+  invalid_quantity_rejected:
+    priority: 2
+    error: PARTS_INVALID_QUANTITY
+    given:
+      - field: quantity
+        source: input
+        operator: lte
+        value: 0
+        description: Quantity is zero or negative
+    then: []
+    result: Consumption line is rejected with a quantity validation error
+
+  serial_number_invalid:
+    priority: 3
+    error: PARTS_INVALID_SERIAL
+    given:
+      - "item is serialised"
+      - "serial_number is not in stock at the specified warehouse"
+    then: []
+    result: Issue blocked; technician must provide a valid serial number available in stock
+
+  consumption_cancelled:
+    priority: 8
+    given:
+      - "status is draft or reserved"
+      - "cancellation requested by technician or fleet manager"
+    then:
+      - action: set_field
+        target: status
+        value: cancelled
+      - action: emit_event
+        event: parts.consumption_cancelled
+        payload: [vehicle, service_record, item_code, quantity]
+    result: Consumption line is cancelled; any reservation is released back to available stock
+
+  cost_attributed_to_service:
+    priority: 9
+    given:
+      - "parts_issued outcome has fired"
+      - "service_record is linked"
+    then:
+      - action: set_field
+        target: service_record.parts_cost
+        description: Add total_cost to the service record's parts cost total
+      - action: emit_event
+        event: parts.cost_attributed
+        payload: [vehicle, service_record, total_cost]
+    result: Service record's parts cost total is updated to include this consumption
+
+errors:
+  - code: PARTS_INSUFFICIENT_STOCK
+    message: Insufficient stock available. Please check the warehouse or raise a parts request.
+    status: 422
+  - code: PARTS_INVALID_QUANTITY
+    message: Quantity must be greater than zero.
+    status: 400
+  - code: PARTS_INVALID_SERIAL
+    message: The specified serial number is not available in this warehouse.
+    status: 422
+  - code: PARTS_ITEM_NOT_FOUND
+    message: The item code does not exist in the inventory catalogue.
+    status: 404
+
+events:
+  - name: parts.issued
+    description: Parts have been issued from stock for a vehicle service event
+    payload: [vehicle, service_record, item_code, quantity, total_cost, warehouse, stock_entry_reference]
+  - name: parts.cost_attributed
+    description: Parts cost from an issued consumption has been added to the linked service record
+    payload: [vehicle, service_record, total_cost]
+  - name: parts.consumption_cancelled
+    description: A parts consumption line has been cancelled and any reservation released
+    payload: [vehicle, service_record, item_code, quantity]
+
+related:
+  - feature: vehicle-maintenance-log
+    type: required
+    reason: Parts consumption is linked to a maintenance log record and contributes to service parts cost
+  - feature: scheduled-maintenance
+    type: optional
+    reason: Scheduled service tasks may have standard parts lists that pre-populate consumption lines
+
+extensions:
+  source:
+    repo: "https://github.com/frappe/erpnext"
+    project: "ERPNext"
+    tech_stack: "Python + Frappe Framework"
+    files_traced: 3
+    entry_points:
+      - "erpnext/assets/doctype/asset_repair/asset_repair.py"
+      - "erpnext/assets/doctype/asset_repair_consumed_item/asset_repair_consumed_item.py"
+      - "erpnext/assets/doctype/asset/asset.py"
