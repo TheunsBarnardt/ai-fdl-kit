@@ -1,0 +1,346 @@
+{
+  "feature": "realtime-driver-tracking",
+  "version": "1.0.0",
+  "description": "Real-time GPS location tracking for drivers and vehicles with position history and live map updates",
+  "category": "integration",
+  "tags": [
+    "fleet",
+    "gps",
+    "tracking",
+    "real-time",
+    "location",
+    "telematics"
+  ],
+  "actors": [
+    {
+      "id": "driver",
+      "name": "Driver",
+      "type": "human",
+      "description": "Driver whose location is being tracked"
+    },
+    {
+      "id": "dispatcher",
+      "name": "Dispatcher",
+      "type": "human",
+      "description": "Operations staff monitoring driver locations"
+    },
+    {
+      "id": "tracking_device",
+      "name": "Tracking Device",
+      "type": "system",
+      "description": "In-vehicle or mobile GPS device sending location updates"
+    },
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Location ingestion and broadcasting service"
+    }
+  ],
+  "fields": [
+    {
+      "name": "position_uuid",
+      "type": "text",
+      "label": "Position Record ID",
+      "required": true
+    },
+    {
+      "name": "subject_uuid",
+      "type": "text",
+      "label": "Subject (Driver/Vehicle)",
+      "required": true
+    },
+    {
+      "name": "subject_type",
+      "type": "text",
+      "label": "Subject Type",
+      "required": true
+    },
+    {
+      "name": "order_uuid",
+      "type": "text",
+      "label": "Active Order",
+      "required": false
+    },
+    {
+      "name": "destination_uuid",
+      "type": "text",
+      "label": "Current Destination",
+      "required": false
+    },
+    {
+      "name": "coordinates",
+      "type": "json",
+      "label": "GPS Coordinates",
+      "required": true
+    },
+    {
+      "name": "heading",
+      "type": "number",
+      "label": "Heading (degrees)",
+      "required": false
+    },
+    {
+      "name": "bearing",
+      "type": "number",
+      "label": "Bearing to Destination",
+      "required": false
+    },
+    {
+      "name": "speed",
+      "type": "number",
+      "label": "Speed",
+      "required": false
+    },
+    {
+      "name": "altitude",
+      "type": "number",
+      "label": "Altitude",
+      "required": false
+    },
+    {
+      "name": "device_id",
+      "type": "text",
+      "label": "Device ID",
+      "required": false
+    },
+    {
+      "name": "device_type",
+      "type": "select",
+      "label": "Device Type",
+      "required": false
+    },
+    {
+      "name": "data_frequency",
+      "type": "text",
+      "label": "Update Interval",
+      "required": false
+    }
+  ],
+  "rules": {
+    "valid_coordinates": "Location updates must include valid GPS coordinates (latitude within -90..90, longitude within -180..180)",
+    "immutable_positions": "Position records are immutable once stored; they form an audit trail of movement",
+    "update_frequency": "Driver location is updated at the configured device frequency (default every 30 seconds on active orders)",
+    "realtime_broadcast": "Location data is broadcast in real time to authorized dispatchers via WebSocket",
+    "retention_policy": "Position records are retained for the organization's configured retention period",
+    "stale_flag": "Stale positions older than 5 minutes should be flagged as potentially outdated on maps",
+    "geometry_storage": "GPS coordinates are stored as geospatial geometry for spatial query performance",
+    "org_isolation": "Location data is only visible to dispatchers within the same organization",
+    "driver_consent": "Drivers must consent to location tracking as part of onboarding",
+    "device_source_recorded": "Vehicle telematics devices can push location updates; position source is recorded"
+  },
+  "outcomes": {
+    "position_recorded": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "coordinates",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "subject_uuid",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "position"
+        },
+        {
+          "action": "set_field",
+          "target": "driver.location",
+          "value": "coordinates"
+        },
+        {
+          "action": "emit_event",
+          "event": "tracking.position_updated",
+          "payload": [
+            "subject_uuid",
+            "subject_type",
+            "coordinates",
+            "speed",
+            "heading",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Position recorded and broadcast to live map"
+    },
+    "driver_arrives_at_waypoint": {
+      "priority": 2,
+      "given": [
+        "driver coordinates are within arrival radius of current waypoint",
+        {
+          "field": "order_uuid",
+          "source": "db",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "tracking.arrived_at_waypoint",
+          "payload": [
+            "subject_uuid",
+            "order_uuid",
+            "destination_uuid",
+            "coordinates"
+          ]
+        }
+      ],
+      "result": "Geofence arrival detected and order status updated"
+    },
+    "driver_departed_from_location": {
+      "priority": 3,
+      "given": [
+        "driver was at a waypoint location",
+        "driver coordinates moved beyond departure radius"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "tracking.departed_from_waypoint",
+          "payload": [
+            "subject_uuid",
+            "order_uuid",
+            "destination_uuid",
+            "coordinates"
+          ]
+        }
+      ],
+      "result": "Driver departure from waypoint detected"
+    },
+    "invalid_coordinates": {
+      "priority": 1,
+      "given": [
+        {
+          "any": [
+            "latitude is outside range -90..90",
+            "longitude is outside range -180..180"
+          ]
+        }
+      ],
+      "then": [],
+      "result": "Position rejected — invalid GPS coordinates",
+      "error": "TRACKING_INVALID_COORDINATES"
+    },
+    "unauthorized_tracking": {
+      "priority": 2,
+      "given": [
+        "requestor does not belong to the same organization as the driver"
+      ],
+      "then": [],
+      "result": "Location data access denied",
+      "error": "TRACKING_ACCESS_DENIED"
+    }
+  },
+  "errors": [
+    {
+      "code": "TRACKING_INVALID_COORDINATES",
+      "status": 422,
+      "message": "Invalid GPS coordinates provided."
+    },
+    {
+      "code": "TRACKING_ACCESS_DENIED",
+      "status": 403,
+      "message": "You do not have permission to view this location."
+    },
+    {
+      "code": "TRACKING_SUBJECT_NOT_FOUND",
+      "status": 404,
+      "message": "Tracked subject not found."
+    }
+  ],
+  "events": [
+    {
+      "name": "tracking.position_updated",
+      "description": "Fired on every GPS position update",
+      "payload": [
+        "subject_uuid",
+        "subject_type",
+        "coordinates",
+        "speed",
+        "heading",
+        "order_uuid",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "tracking.arrived_at_waypoint",
+      "description": "Fired when driver enters the geofence radius of a waypoint",
+      "payload": [
+        "subject_uuid",
+        "order_uuid",
+        "destination_uuid",
+        "coordinates",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "tracking.departed_from_waypoint",
+      "description": "Fired when driver leaves a waypoint geofence",
+      "payload": [
+        "subject_uuid",
+        "order_uuid",
+        "destination_uuid",
+        "coordinates",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "tracking.device_online",
+      "description": "Fired when a tracking device comes online",
+      "payload": [
+        "subject_uuid",
+        "device_id",
+        "device_type"
+      ]
+    },
+    {
+      "name": "tracking.device_offline",
+      "description": "Fired when a tracking device goes offline",
+      "payload": [
+        "subject_uuid",
+        "device_id",
+        "last_known_position"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "driver-profile",
+      "type": "required",
+      "reason": "Driver profile holds the current location field"
+    },
+    {
+      "feature": "order-lifecycle",
+      "type": "required",
+      "reason": "Position updates are linked to active orders"
+    },
+    {
+      "feature": "route-planning",
+      "type": "required",
+      "reason": "Waypoint geofences are derived from the route"
+    },
+    {
+      "feature": "dispatch-driver-assignment",
+      "type": "recommended",
+      "reason": "Nearest-driver calculation requires real-time positions"
+    },
+    {
+      "feature": "fleet-performance-dashboard",
+      "type": "optional",
+      "reason": "Live map shows all driver positions on the dashboard"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/fleetbase/fleetbase",
+      "project": "Fleet Management Platform",
+      "tech_stack": "PHP (API), JavaScript/Ember.js (Console)"
+    }
+  }
+}

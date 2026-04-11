@@ -1,0 +1,226 @@
+feature: route-planning
+version: "1.0.0"
+description: "Plan multi-stop delivery routes with ordered waypoints, route optimization, and distance/time estimation"
+category: workflow
+tags: [fleet, route, waypoints, stops, navigation, optimization]
+
+actors:
+  - id: dispatcher
+    name: Dispatcher
+    type: human
+    description: "Operations staff defining delivery routes"
+  - id: driver
+    name: Driver
+    type: human
+    description: "Driver executing the route"
+  - id: system
+    name: Routing Engine
+    type: system
+    description: "Route calculation and optimization service"
+
+fields:
+  - name: route_uuid
+    type: text
+    label: Route ID
+    required: true
+  - name: order_uuid
+    type: text
+    label: Order
+    required: true
+  - name: payload_uuid
+    type: text
+    label: Payload
+    required: true
+  - name: pickup_uuid
+    type: text
+    label: Pickup Location
+    required: true
+  - name: dropoff_uuid
+    type: text
+    label: Dropoff Location
+    required: true
+  - name: return_uuid
+    type: text
+    label: Return Location
+    required: false
+  - name: current_waypoint_uuid
+    type: text
+    label: Current Waypoint
+    required: false
+  - name: waypoints
+    type: json
+    label: Waypoints
+    required: false
+  - name: total_distance
+    type: number
+    label: Total Distance (m)
+    required: false
+  - name: total_time
+    type: number
+    label: Total Time (s)
+    required: false
+  - name: is_route_optimized
+    type: boolean
+    label: Route Optimized
+    required: false
+  - name: route_details
+    type: json
+    label: Turn-by-Turn Details
+    required: false
+  - name: status
+    type: select
+    label: Status
+    required: true
+
+states:
+  field: status
+  values:
+    - name: draft
+      label: Draft
+      initial: true
+    - name: planned
+      label: Planned
+    - name: active
+      label: Active
+    - name: completed
+      label: Completed
+      terminal: true
+  transitions:
+    - from: draft
+      to: planned
+      actor: system
+      description: "Route calculated with distance and time estimates"
+    - from: planned
+      to: active
+      actor: driver
+      description: "Driver starts navigating the route"
+    - from: active
+      to: completed
+      actor: driver
+      description: "All waypoints visited and delivery complete"
+
+rules:
+  minimum_waypoints: "A route must have at least one pickup and one dropoff location"
+  sequential_waypoints: "Waypoints are ordered; the driver must visit them in sequence"
+  optimization_preserves_endpoints: "Route optimization reorders intermediate stops while preserving first pickup and last dropoff"
+  geospatial_calculation: "Distance and time estimates are calculated using a geospatial routing service"
+  waypoint_advancement: "When a waypoint is completed, current_waypoint_uuid advances to the next stop"
+  per_waypoint_tracking: "Each waypoint has its own tracking number for independent status updates"
+  dispatcher_approval_for_changes: "Adding or removing waypoints after dispatch requires dispatcher approval"
+  round_trip_support: "Round-trip routes include a return waypoint equal to the origin"
+  audit_route_details: "Route details including turn-by-turn data are stored for auditing and replay"
+  valid_coordinates: "Each place reference must have valid latitude and longitude coordinates"
+
+outcomes:
+  route_created:
+    priority: 1
+    given:
+      - field: pickup_uuid
+        source: input
+        operator: exists
+      - field: dropoff_uuid
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: route
+      - action: emit_event
+        event: route.created
+        payload: [route_uuid, order_uuid, total_distance, total_time]
+    result: "Route created with calculated distance and time"
+
+  route_optimized:
+    priority: 2
+    given:
+      - "route has 3 or more waypoints"
+      - "optimization has not been applied"
+    then:
+      - action: set_field
+        target: is_route_optimized
+        value: true
+      - action: set_field
+        target: waypoints
+        value: optimized_order
+      - action: emit_event
+        event: route.optimized
+        payload: [route_uuid, total_distance, total_time]
+    result: "Waypoint order optimized to minimize travel distance"
+
+  waypoint_completed:
+    priority: 3
+    given:
+      - "driver confirms arrival at current waypoint"
+    then:
+      - action: set_field
+        target: current_waypoint_uuid
+        value: next_waypoint
+      - action: emit_event
+        event: route.waypoint_completed
+        payload: [route_uuid, completed_waypoint_uuid, next_waypoint_uuid]
+    result: "Current waypoint marked complete; driver advances to next stop"
+
+  route_completed:
+    priority: 4
+    given:
+      - "all waypoints are completed"
+    then:
+      - action: set_field
+        target: status
+        value: completed
+      - action: emit_event
+        event: route.completed
+        payload: [route_uuid, order_uuid]
+    result: "All stops visited; route is complete"
+
+  missing_coordinates:
+    priority: 1
+    given:
+      - "a place reference has no valid coordinates"
+    then: []
+    result: "Route creation failed — location coordinates missing"
+    error: ROUTE_MISSING_COORDINATES
+
+errors:
+  - code: ROUTE_MISSING_COORDINATES
+    status: 422
+    message: "One or more locations are missing valid coordinates."
+  - code: ROUTE_CALCULATION_FAILED
+    status: 500
+    message: "Route could not be calculated. Please check all locations and try again."
+  - code: ROUTE_INVALID_WAYPOINT_ORDER
+    status: 422
+    message: "Waypoint sequence is invalid."
+
+events:
+  - name: route.created
+    description: "Fired when a route is calculated for an order"
+    payload: [route_uuid, order_uuid, total_distance, total_time, waypoint_count]
+  - name: route.optimized
+    description: "Fired when waypoint order is optimized"
+    payload: [route_uuid, total_distance, total_time]
+  - name: route.waypoint_completed
+    description: "Fired when a driver completes a waypoint stop"
+    payload: [route_uuid, completed_waypoint_uuid, next_waypoint_uuid]
+  - name: route.completed
+    description: "Fired when all route waypoints are completed"
+    payload: [route_uuid, order_uuid]
+
+related:
+  - feature: order-lifecycle
+    type: required
+    reason: "Routes are created for and attached to orders"
+  - feature: realtime-driver-tracking
+    type: recommended
+    reason: "Driver position is tracked against route progress"
+  - feature: order-sla-eta
+    type: recommended
+    reason: "Route time estimates feed into ETA calculations"
+  - feature: proof-of-delivery
+    type: optional
+    reason: "POD collected at final delivery waypoint"
+
+extensions:
+  source:
+    repo: "https://github.com/fleetbase/fleetbase"
+    project: "Fleet Management Platform"
+    tech_stack: "PHP (API), JavaScript/Ember.js (Console)"

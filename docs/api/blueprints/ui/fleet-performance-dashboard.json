@@ -1,0 +1,298 @@
+{
+  "feature": "fleet-performance-dashboard",
+  "version": "1.0.0",
+  "description": "Configurable dashboards with widgets showing fleet KPIs, live driver map, order metrics, and performance analytics",
+  "category": "ui",
+  "tags": [
+    "fleet",
+    "dashboard",
+    "analytics",
+    "KPIs",
+    "metrics",
+    "monitoring",
+    "map"
+  ],
+  "actors": [
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Primary user viewing fleet performance"
+    },
+    {
+      "id": "dispatcher",
+      "name": "Dispatcher",
+      "type": "human",
+      "description": "Dispatcher monitoring live operations"
+    },
+    {
+      "id": "system",
+      "name": "Analytics Engine",
+      "type": "system",
+      "description": "Aggregates metrics and feeds dashboard data"
+    }
+  ],
+  "fields": [
+    {
+      "name": "dashboard_id",
+      "type": "text",
+      "label": "Dashboard ID",
+      "required": true
+    },
+    {
+      "name": "name",
+      "type": "text",
+      "label": "Dashboard Name",
+      "required": true
+    },
+    {
+      "name": "owner_uuid",
+      "type": "text",
+      "label": "Owner",
+      "required": true
+    },
+    {
+      "name": "widgets",
+      "type": "json",
+      "label": "Widget Configurations",
+      "required": false
+    },
+    {
+      "name": "widget_type",
+      "type": "select",
+      "label": "Widget Type",
+      "required": true
+    },
+    {
+      "name": "widget_config",
+      "type": "json",
+      "label": "Widget Settings",
+      "required": false
+    },
+    {
+      "name": "date_range",
+      "type": "select",
+      "label": "Date Range",
+      "required": false
+    },
+    {
+      "name": "refresh_interval",
+      "type": "number",
+      "label": "Refresh Interval (seconds)",
+      "required": false
+    }
+  ],
+  "rules": {
+    "user_scoped": "Dashboard configurations are per-user and scoped to the user's organization",
+    "org_isolation": "All metric data is scoped to the user's organization; cross-tenant data is never shown",
+    "live_map_online_only": "The live driver map widget shows only online drivers with their current positions",
+    "auto_refresh": "Widget data is refreshed at the configured interval or on user interaction",
+    "kpi_date_range": "KPI counters reflect the selected date range and update automatically",
+    "historical_trends": "Charts support historical trend views with configurable time granularity",
+    "configurable_layout": "Dashboard widgets can be added, removed, and reordered by the user",
+    "export_available": "Report generation from dashboard data is available for export",
+    "realtime_websocket": "Real-time metrics use WebSocket subscriptions; historical metrics use REST API queries",
+    "state_persisted": "Dashboard state (widget layout, filters) is persisted per user"
+  },
+  "outcomes": {
+    "dashboard_created": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "name",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "dashboard"
+        },
+        {
+          "action": "emit_event",
+          "event": "dashboard.created",
+          "payload": [
+            "dashboard_id",
+            "owner_uuid"
+          ]
+        }
+      ],
+      "result": "New dashboard created with default widget layout"
+    },
+    "widget_added": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "widget_type",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "dashboard_id",
+          "source": "db",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "dashboard_widget"
+        },
+        {
+          "action": "emit_event",
+          "event": "dashboard.widget_added",
+          "payload": [
+            "dashboard_id",
+            "widget_type"
+          ]
+        }
+      ],
+      "result": "Widget added to dashboard and configured"
+    },
+    "live_map_loaded": {
+      "priority": 3,
+      "given": [
+        "user opens live map widget",
+        "drivers are online"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "dashboard.live_map_loaded",
+          "payload": [
+            "dashboard_id",
+            "online_driver_count"
+          ]
+        }
+      ],
+      "result": "Live map displays all online drivers with real-time positions"
+    },
+    "metrics_refreshed": {
+      "priority": 4,
+      "given": [
+        "refresh interval elapsed or user requests refresh"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "dashboard.metrics_refreshed",
+          "payload": [
+            "dashboard_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "All widgets updated with latest data"
+    },
+    "report_exported": {
+      "priority": 5,
+      "given": [
+        "user requests dashboard export"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "dashboard.report_exported",
+          "payload": [
+            "dashboard_id",
+            "date_range",
+            "format"
+          ]
+        }
+      ],
+      "result": "Dashboard data exported as CSV or PDF report"
+    }
+  },
+  "errors": [
+    {
+      "code": "DASHBOARD_NOT_FOUND",
+      "status": 404,
+      "message": "Dashboard not found."
+    },
+    {
+      "code": "DASHBOARD_WIDGET_INVALID",
+      "status": 422,
+      "message": "The selected widget type is not supported."
+    },
+    {
+      "code": "DASHBOARD_METRIC_UNAVAILABLE",
+      "status": 422,
+      "message": "This metric is not available for the selected date range."
+    }
+  ],
+  "events": [
+    {
+      "name": "dashboard.created",
+      "description": "Fired when a new dashboard is created",
+      "payload": [
+        "dashboard_id",
+        "owner_uuid",
+        "name"
+      ]
+    },
+    {
+      "name": "dashboard.widget_added",
+      "description": "Fired when a widget is added to a dashboard",
+      "payload": [
+        "dashboard_id",
+        "widget_type",
+        "widget_config"
+      ]
+    },
+    {
+      "name": "dashboard.live_map_loaded",
+      "description": "Fired when live driver map is rendered",
+      "payload": [
+        "dashboard_id",
+        "online_driver_count"
+      ]
+    },
+    {
+      "name": "dashboard.metrics_refreshed",
+      "description": "Fired when dashboard metrics are refreshed",
+      "payload": [
+        "dashboard_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "dashboard.report_exported",
+      "description": "Fired when a dashboard report is exported",
+      "payload": [
+        "dashboard_id",
+        "date_range",
+        "format"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "realtime-driver-tracking",
+      "type": "required",
+      "reason": "Live map widget requires driver position data"
+    },
+    {
+      "feature": "order-lifecycle",
+      "type": "required",
+      "reason": "Order KPIs are derived from order lifecycle data"
+    },
+    {
+      "feature": "vehicle-fleet-registry",
+      "type": "recommended",
+      "reason": "Vehicle status metrics appear on fleet dashboard"
+    },
+    {
+      "feature": "driver-profile",
+      "type": "recommended",
+      "reason": "Driver availability and performance metrics"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/fleetbase/fleetbase",
+      "project": "Fleet Management Platform",
+      "tech_stack": "PHP (API), JavaScript/Ember.js (Console)"
+    }
+  }
+}

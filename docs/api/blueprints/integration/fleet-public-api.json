@@ -1,0 +1,317 @@
+{
+  "feature": "fleet-public-api",
+  "version": "1.0.0",
+  "description": "RESTful public API with API key authentication and request logging for third-party integrations",
+  "category": "integration",
+  "tags": [
+    "fleet",
+    "api",
+    "rest",
+    "authentication",
+    "credentials",
+    "integration",
+    "third-party"
+  ],
+  "actors": [
+    {
+      "id": "developer",
+      "name": "Developer",
+      "type": "human",
+      "description": "Technical user creating and managing API credentials"
+    },
+    {
+      "id": "external_system",
+      "name": "External System",
+      "type": "external",
+      "description": "Third-party application consuming the API"
+    },
+    {
+      "id": "system",
+      "name": "API Gateway",
+      "type": "system",
+      "description": "Request authentication, rate limiting, and logging"
+    }
+  ],
+  "fields": [
+    {
+      "name": "credential_id",
+      "type": "text",
+      "label": "Credential ID",
+      "required": true
+    },
+    {
+      "name": "name",
+      "type": "text",
+      "label": "Credential Name",
+      "required": true
+    },
+    {
+      "name": "api_key",
+      "type": "token",
+      "label": "API Key",
+      "required": true
+    },
+    {
+      "name": "api_secret",
+      "type": "token",
+      "label": "API Secret",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "name": "test_mode",
+      "type": "boolean",
+      "label": "Test Mode",
+      "required": false
+    },
+    {
+      "name": "browser_origins",
+      "type": "json",
+      "label": "Allowed Browser Origins",
+      "required": false
+    },
+    {
+      "name": "last_used_at",
+      "type": "datetime",
+      "label": "Last Used At",
+      "required": false
+    },
+    {
+      "name": "expires_at",
+      "type": "datetime",
+      "label": "Expires At",
+      "required": false
+    },
+    {
+      "name": "api_version",
+      "type": "text",
+      "label": "API Version",
+      "required": false
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "label": "Status",
+      "required": true
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "active",
+        "label": "Active",
+        "initial": true
+      },
+      {
+        "name": "revoked",
+        "label": "Revoked",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "active",
+        "to": "revoked",
+        "actor": "developer",
+        "description": "Developer revokes the credential"
+      }
+    ]
+  },
+  "rules": {
+    "cryptographic_generation": "API key and secret are generated as cryptographically secure random tokens",
+    "secret_shown_once": "The API secret is only shown once at creation and is never retrievable afterward",
+    "auth_header": "API requests must include the API key in the Authorization header",
+    "immediate_revocation": "Revoked credentials are immediately invalid; all requests return 401",
+    "rate_limiting": "Rate limiting is enforced per credential to prevent abuse",
+    "request_audit": "All API requests are logged with timestamp, endpoint, method, status code, and credential",
+    "test_mode_isolation": "Test mode credentials operate against test data and do not affect live records",
+    "permission_scoping": "Credentials can be scoped to specific API resources via permissions",
+    "auto_expiry": "Expired credentials are automatically invalidated at the expiry timestamp",
+    "cors_restriction": "Browser origin restrictions prevent unauthorized web application usage"
+  },
+  "outcomes": {
+    "credential_created": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "name",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "api_credential"
+        },
+        {
+          "action": "emit_event",
+          "event": "api.credential_created",
+          "payload": [
+            "credential_id",
+            "name",
+            "test_mode"
+          ]
+        }
+      ],
+      "result": "API credential created; key and secret provided once"
+    },
+    "request_authenticated": {
+      "priority": 2,
+      "given": [
+        "Authorization header contains a valid API key",
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "eq",
+          "value": "active"
+        },
+        "credential is not expired"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "last_used_at",
+          "value": "now"
+        },
+        {
+          "action": "create_record",
+          "type": "api_request_log"
+        }
+      ],
+      "result": "Request authenticated; operation proceeds"
+    },
+    "credential_revoked": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "eq",
+          "value": "active"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "revoked"
+        },
+        {
+          "action": "emit_event",
+          "event": "api.credential_revoked",
+          "payload": [
+            "credential_id",
+            "name"
+          ]
+        }
+      ],
+      "result": "Credential revoked; all subsequent requests rejected"
+    },
+    "invalid_api_key": {
+      "priority": 1,
+      "given": [
+        "Authorization header is missing or API key is not found"
+      ],
+      "then": [],
+      "result": "Request rejected — invalid API key",
+      "error": "API_INVALID_KEY"
+    },
+    "rate_limit_exceeded": {
+      "priority": 2,
+      "given": [
+        "request rate for this credential exceeds configured limit"
+      ],
+      "then": [],
+      "result": "Request rejected — rate limit exceeded",
+      "error": "API_RATE_LIMIT_EXCEEDED"
+    },
+    "credential_expired": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "expires_at",
+          "source": "db",
+          "operator": "lt",
+          "value": "now"
+        }
+      ],
+      "then": [],
+      "result": "Request rejected — credential has expired",
+      "error": "API_CREDENTIAL_EXPIRED"
+    }
+  },
+  "errors": [
+    {
+      "code": "API_INVALID_KEY",
+      "status": 401,
+      "message": "Invalid or missing API key."
+    },
+    {
+      "code": "API_RATE_LIMIT_EXCEEDED",
+      "status": 429,
+      "message": "Too many requests. Please slow down and try again.",
+      "retry": true
+    },
+    {
+      "code": "API_CREDENTIAL_EXPIRED",
+      "status": 401,
+      "message": "Your API credential has expired. Please generate a new key."
+    },
+    {
+      "code": "API_PERMISSION_DENIED",
+      "status": 403,
+      "message": "You do not have permission to perform this action."
+    }
+  ],
+  "events": [
+    {
+      "name": "api.credential_created",
+      "description": "Fired when a new API credential is created",
+      "payload": [
+        "credential_id",
+        "name",
+        "test_mode"
+      ]
+    },
+    {
+      "name": "api.credential_revoked",
+      "description": "Fired when an API credential is revoked",
+      "payload": [
+        "credential_id",
+        "name"
+      ]
+    },
+    {
+      "name": "api.request_logged",
+      "description": "Fired for each authenticated API request",
+      "payload": [
+        "credential_id",
+        "endpoint",
+        "method",
+        "status_code",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "multi-tenant-organization",
+      "type": "required",
+      "reason": "API credentials are scoped to an organization"
+    },
+    {
+      "feature": "order-lifecycle-webhooks",
+      "type": "recommended",
+      "reason": "API credentials can be linked to webhook endpoints"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/fleetbase/fleetbase",
+      "project": "Fleet Management Platform",
+      "tech_stack": "PHP (API), JavaScript/Ember.js (Console)"
+    }
+  }
+}

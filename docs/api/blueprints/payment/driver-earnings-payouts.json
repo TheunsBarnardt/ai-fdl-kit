@@ -1,0 +1,423 @@
+{
+  "feature": "driver-earnings-payouts",
+  "version": "1.0.0",
+  "description": "Track driver earnings per trip, manage payout schedules, and process driver compensation",
+  "category": "payment",
+  "tags": [
+    "fleet",
+    "driver",
+    "earnings",
+    "payouts",
+    "compensation",
+    "settlement"
+  ],
+  "actors": [
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Administrator managing driver compensation"
+    },
+    {
+      "id": "driver",
+      "name": "Driver",
+      "type": "human",
+      "description": "Driver earning compensation for completed trips"
+    },
+    {
+      "id": "system",
+      "name": "Payroll Engine",
+      "type": "system",
+      "description": "Automated earnings calculation and payout processing"
+    }
+  ],
+  "fields": [
+    {
+      "name": "earning_id",
+      "type": "text",
+      "label": "Earning ID",
+      "required": true
+    },
+    {
+      "name": "driver_uuid",
+      "type": "text",
+      "label": "Driver",
+      "required": true
+    },
+    {
+      "name": "order_uuid",
+      "type": "text",
+      "label": "Order",
+      "required": false
+    },
+    {
+      "name": "amount",
+      "type": "number",
+      "label": "Gross Amount (minor units)",
+      "required": true
+    },
+    {
+      "name": "deductions",
+      "type": "number",
+      "label": "Deductions (minor units)",
+      "required": false
+    },
+    {
+      "name": "net_amount",
+      "type": "number",
+      "label": "Net Amount (minor units)",
+      "required": false
+    },
+    {
+      "name": "currency",
+      "type": "text",
+      "label": "Currency (ISO 4217)",
+      "required": true
+    },
+    {
+      "name": "earning_type",
+      "type": "select",
+      "label": "Earning Type",
+      "required": true
+    },
+    {
+      "name": "payout_uuid",
+      "type": "text",
+      "label": "Payout Batch",
+      "required": false
+    },
+    {
+      "name": "payout_method",
+      "type": "select",
+      "label": "Payout Method",
+      "required": false
+    },
+    {
+      "name": "payout_reference",
+      "type": "text",
+      "label": "Payout Reference",
+      "required": false
+    },
+    {
+      "name": "period_start",
+      "type": "date",
+      "label": "Period Start",
+      "required": false
+    },
+    {
+      "name": "period_end",
+      "type": "date",
+      "label": "Period End",
+      "required": false
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "label": "Status",
+      "required": true
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "pending",
+        "label": "Pending",
+        "initial": true
+      },
+      {
+        "name": "approved",
+        "label": "Approved"
+      },
+      {
+        "name": "processing",
+        "label": "Processing"
+      },
+      {
+        "name": "paid",
+        "label": "Paid",
+        "terminal": true
+      },
+      {
+        "name": "failed",
+        "label": "Failed",
+        "terminal": true
+      },
+      {
+        "name": "withheld",
+        "label": "Withheld"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "pending",
+        "to": "approved",
+        "actor": "fleet_manager",
+        "description": "Fleet manager approves earnings for payout"
+      },
+      {
+        "from": "approved",
+        "to": "processing",
+        "actor": "system",
+        "description": "Payout submitted to payment processor"
+      },
+      {
+        "from": "processing",
+        "to": "paid",
+        "actor": "system",
+        "description": "Payment processor confirms successful payout"
+      },
+      {
+        "from": "processing",
+        "to": "failed",
+        "actor": "system",
+        "description": "Payment processor reports failure"
+      },
+      {
+        "from": "pending",
+        "to": "withheld",
+        "actor": "fleet_manager",
+        "description": "Earning withheld pending investigation"
+      }
+    ]
+  },
+  "rules": {
+    "auto_create_on_completion": "Earnings are created automatically when an order is completed",
+    "configurable_commission": "The platform commission percentage is configurable per organization and driver tier",
+    "net_calculation": "Net amount is calculated as gross amount minus all applicable deductions",
+    "minor_currency_units": "All monetary values are stored in minor currency units",
+    "driver_earnings_visibility": "Drivers can view their earnings history and pending payout balance",
+    "batch_payouts": "Payouts are batched by configurable period (daily, weekly, or on-demand)",
+    "retry_failed": "Failed payouts must be retried or escalated to manual review",
+    "reverse_on_cancellation": "Earnings linked to cancelled or failed orders are automatically reversed",
+    "processor_reference": "Payout records must reference the external transaction ID from the payment processor",
+    "access_control": "Driver earnings are never accessible to other drivers or unauthorized parties"
+  },
+  "outcomes": {
+    "earning_created": {
+      "priority": 1,
+      "given": [
+        "order.completed event received",
+        {
+          "field": "driver_uuid",
+          "source": "db",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "earning"
+        },
+        {
+          "action": "emit_event",
+          "event": "earnings.created",
+          "payload": [
+            "earning_id",
+            "driver_uuid",
+            "order_uuid",
+            "amount",
+            "currency"
+          ]
+        }
+      ],
+      "result": "Trip earning record created for driver"
+    },
+    "earning_approved": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "eq",
+          "value": "pending"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "approved"
+        },
+        {
+          "action": "emit_event",
+          "event": "earnings.approved",
+          "payload": [
+            "earning_id",
+            "driver_uuid",
+            "net_amount",
+            "currency"
+          ]
+        }
+      ],
+      "result": "Earning approved and added to next payout batch"
+    },
+    "payout_processed": {
+      "priority": 3,
+      "given": [
+        "payout period end date reached or on-demand triggered",
+        "approved earnings exist for driver"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "paid"
+        },
+        {
+          "action": "emit_event",
+          "event": "earnings.payout_completed",
+          "payload": [
+            "driver_uuid",
+            "payout_uuid",
+            "net_amount",
+            "currency",
+            "payout_method"
+          ]
+        }
+      ],
+      "result": "Driver payout processed and funds transferred"
+    },
+    "payout_failed": {
+      "priority": 4,
+      "given": [
+        "payment processor returns failure during payout"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "failed"
+        },
+        {
+          "action": "emit_event",
+          "event": "earnings.payout_failed",
+          "payload": [
+            "driver_uuid",
+            "payout_uuid",
+            "error"
+          ]
+        }
+      ],
+      "result": "Payout failed; requires manual review",
+      "error": "EARNINGS_PAYOUT_FAILED"
+    },
+    "earning_reversed_on_cancellation": {
+      "priority": 1,
+      "given": [
+        "order.cancelled event received after earning was created"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "earning"
+        },
+        {
+          "action": "emit_event",
+          "event": "earnings.reversed",
+          "payload": [
+            "original_earning_id",
+            "driver_uuid",
+            "amount",
+            "currency"
+          ]
+        }
+      ],
+      "result": "Earning reversed due to order cancellation"
+    }
+  },
+  "errors": [
+    {
+      "code": "EARNINGS_PAYOUT_FAILED",
+      "status": 422,
+      "message": "Your payout could not be processed. Please check your bank details."
+    },
+    {
+      "code": "EARNINGS_INSUFFICIENT_BALANCE",
+      "status": 422,
+      "message": "Payout amount is below the minimum threshold."
+    },
+    {
+      "code": "EARNINGS_INVALID_BANK_DETAILS",
+      "status": 422,
+      "message": "Payout failed — invalid bank account details."
+    }
+  ],
+  "events": [
+    {
+      "name": "earnings.created",
+      "description": "Fired when a trip earning is created for a driver",
+      "payload": [
+        "earning_id",
+        "driver_uuid",
+        "order_uuid",
+        "amount",
+        "currency"
+      ]
+    },
+    {
+      "name": "earnings.approved",
+      "description": "Fired when an earning is approved for payout",
+      "payload": [
+        "earning_id",
+        "driver_uuid",
+        "net_amount",
+        "currency"
+      ]
+    },
+    {
+      "name": "earnings.payout_completed",
+      "description": "Fired when a payout is successfully processed",
+      "payload": [
+        "driver_uuid",
+        "payout_uuid",
+        "net_amount",
+        "currency",
+        "payout_method"
+      ]
+    },
+    {
+      "name": "earnings.payout_failed",
+      "description": "Fired when a payout fails",
+      "payload": [
+        "driver_uuid",
+        "payout_uuid",
+        "error"
+      ]
+    },
+    {
+      "name": "earnings.reversed",
+      "description": "Fired when an earning is reversed due to cancellation",
+      "payload": [
+        "original_earning_id",
+        "driver_uuid",
+        "amount",
+        "currency"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "order-lifecycle",
+      "type": "required",
+      "reason": "Earnings are triggered by order completion"
+    },
+    {
+      "feature": "trip-billing-invoicing",
+      "type": "required",
+      "reason": "Trip revenue is the basis for driver earnings"
+    },
+    {
+      "feature": "driver-profile",
+      "type": "required",
+      "reason": "Earnings are attributed to a specific driver"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/fleetbase/fleetbase",
+      "project": "Fleet Management Platform",
+      "tech_stack": "PHP (API), JavaScript/Ember.js (Console)"
+    }
+  }
+}

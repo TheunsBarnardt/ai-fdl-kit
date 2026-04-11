@@ -15,6 +15,7 @@ Checkout, invoicing, POS, and financial transaction blueprints.
 |-----------|-------------|----------|
 | [Cart Checkout]({{ site.baseurl }}/blueprints/payment/cart-checkout/) | Shopping cart and checkout flow with stock reservation, guest cart merge, multi-step checkout, tax, promo codes, and order placement. | 1.0.0 |
 | [Currency Conversion]({{ site.baseurl }}/blueprints/payment/currency-conversion/) | Convert amounts between currencies using live or cached exchange rates | 1.0.0 |
+| [Driver Earnings Payouts]({{ site.baseurl }}/blueprints/payment/driver-earnings-payouts/) | Track driver earnings per trip, manage payout schedules, and process driver compensation | 1.0.0 |
 | [Invoicing Payments]({{ site.baseurl }}/blueprints/payment/invoicing-payments/) | Invoicing and payment lifecycle: customer invoices, vendor bills, credit notes, receipts, payment registration, multi-currency, and follow-up.  | 1.0.0 |
 | [Loyalty Coupons]({{ site.baseurl }}/blueprints/payment/loyalty-coupons/) | Loyalty and promotion engine supporting points, coupons, gift cards, discount codes, buy-X-get-Y offers, e-wallets, and next-order rewards.  | 1.0.0 |
 | [Multi Currency Exchange]({{ site.baseurl }}/blueprints/payment/multi-currency-exchange/) | Manage exchange rates, perform multi-currency transactions, and revalue accounts for unrealized foreign exchange gains and losses | 1.0.0 |
@@ -26,3 +27,4 @@ Checkout, invoicing, POS, and financial transaction blueprints.
 | [Sales Purchase Invoicing]({{ site.baseurl }}/blueprints/payment/sales-purchase-invoicing/) | Create, submit, and manage sales and purchase invoices with double-entry accounting, tax calculation, returns, and credit limit enforcement | 1.0.0 |
 | [Shipping Calculation]({{ site.baseurl }}/blueprints/payment/shipping-calculation/) | Shipping rate calculation with zone-based pricing, dimensional weight, free shipping thresholds, carrier quotes, and delivery estimation. | 1.0.0 |
 | [Subscription Billing]({{ site.baseurl }}/blueprints/payment/subscription-billing/) | Recurring subscription lifecycle with plan tiers, billing cycles, trials, proration, dunning retries, and cancellation handling. | 1.0.0 |
+| [Trip Billing Invoicing]({{ site.baseurl }}/blueprints/payment/trip-billing-invoicing/) | Calculate and manage trip-based billing, service rates, and invoice generation for completed deliveries | 1.0.0 |

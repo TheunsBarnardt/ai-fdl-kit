@@ -24,6 +24,7 @@ UI component systems, visual editors, and developer tooling blueprints.
 | [Data Table]({{ site.baseurl }}/blueprints/ui/data-table/) | Sortable, filterable, paginated data table with column management, row selection, inline editing, bulk actions, and CSV export | 1.0.0 |
 | [Drag Drop Editor]({{ site.baseurl }}/blueprints/ui/drag-drop-editor/) | Drag-and-drop page composition system with nested zones, collision detection, and component reordering | 1.0.0 |
 | [Ecommerce Store]({{ site.baseurl }}/blueprints/ui/ecommerce-store/) | Full online storefront with product catalog, category browsing, attribute filtering, shopping cart, multi-step checkout, payment integration, wishlist, and pricelist support.  | 1.0.0 |
+| [Fleet Performance Dashboard]({{ site.baseurl }}/blueprints/ui/fleet-performance-dashboard/) | Configurable dashboards with widgets showing fleet KPIs, live driver map, order metrics, and performance analytics | 1.0.0 |
 | [Form Builder]({{ site.baseurl }}/blueprints/ui/form-builder/) | Dynamic form creation and rendering with drag-and-drop field placement, conditional visibility, multi-step forms, validation rules, and versioning | 1.0.0 |
 | [Internationalization]({{ site.baseurl }}/blueprints/ui/internationalization/) | Internationalization with locale switching, translation keys, pluralization, and RTL support | 1.0.0 |
 | [Navigation Menu]({{ site.baseurl }}/blueprints/ui/navigation-menu/) | Hierarchical navigation with sidebar, breadcrumb, mega menu, and mobile support | 1.0.0 |

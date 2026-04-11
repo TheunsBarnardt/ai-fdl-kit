@@ -1,0 +1,194 @@
+feature: proof-of-delivery
+version: "1.0.0"
+description: "Capture digital proof of delivery including signature, photo, and notes at delivery completion"
+category: workflow
+tags: [fleet, pod, delivery, signature, photo, confirmation]
+
+actors:
+  - id: driver
+    name: Driver
+    type: human
+    description: "Driver capturing delivery proof at the recipient location"
+  - id: recipient
+    name: Recipient
+    type: external
+    description: "Customer or recipient providing signature"
+  - id: system
+    name: System
+    type: system
+    description: "POD validation and storage"
+
+fields:
+  - name: proof_id
+    type: text
+    label: Proof ID
+    required: true
+  - name: order_uuid
+    type: text
+    label: Order
+    required: true
+  - name: subject_uuid
+    type: text
+    label: Subject (Waypoint/Entity)
+    required: false
+  - name: subject_type
+    type: text
+    label: Subject Type
+    required: false
+  - name: file_uuid
+    type: text
+    label: Photo File
+    required: false
+  - name: remarks
+    type: rich_text
+    label: Remarks
+    required: false
+  - name: raw_data
+    type: rich_text
+    label: Signature Raw Data
+    required: false
+  - name: data
+    type: json
+    label: Structured POD Data
+    required: false
+  - name: proof_type
+    type: select
+    label: Proof Type
+    required: true
+  - name: captured_at
+    type: datetime
+    label: Captured At
+    required: false
+
+rules:
+  pod_required_to_complete: "Proof of delivery is required to complete an order where pod_required is true"
+  at_least_one_method: "At least one proof method (signature, photo, or notes) must be captured per delivery"
+  signature_storage: "Signature is captured as raw vector or bitmap data and stored securely"
+  photo_format: "Photos must be a supported image format (JPEG, PNG) and within the configured size limit"
+  linked_to_order: "POD is linked to the order and optionally to a specific waypoint or entity"
+  gps_evidence: "Captured GPS coordinates are stored with each POD record as evidence of location"
+  immutable: "POD records are immutable once saved; tampering is prevented by audit logging"
+  retention: "POD is retained for the organization's configured retention period for legal compliance"
+  multiple_per_order: "Multiple proof records can exist per order (one per waypoint or entity)"
+  failed_photo_fallback: "Failed photo uploads must not block completion if notes or signature was captured"
+
+outcomes:
+  signature_captured:
+    priority: 1
+    given:
+      - field: proof_type
+        source: input
+        operator: eq
+        value: signature
+      - field: raw_data
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: proof
+      - action: emit_event
+        event: pod.signature_captured
+        payload: [proof_id, order_uuid, captured_at]
+    result: "Signature recorded and linked to order"
+
+  photo_captured:
+    priority: 2
+    given:
+      - field: proof_type
+        source: input
+        operator: eq
+        value: photo
+      - field: file_uuid
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: proof
+      - action: emit_event
+        event: pod.photo_captured
+        payload: [proof_id, order_uuid, file_uuid, captured_at]
+    result: "Delivery photo saved and linked to order"
+
+  notes_captured:
+    priority: 3
+    given:
+      - field: proof_type
+        source: input
+        operator: eq
+        value: notes
+      - field: remarks
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: proof
+      - action: emit_event
+        event: pod.notes_captured
+        payload: [proof_id, order_uuid, captured_at]
+    result: "Delivery notes recorded and linked to order"
+
+  pod_required_missing:
+    priority: 1
+    given:
+      - "order.pod_required is true"
+      - "no proof record exists for this order"
+    then: []
+    result: "Order completion blocked — proof of delivery required"
+    error: POD_REQUIRED_MISSING
+
+  invalid_photo_format:
+    priority: 2
+    given:
+      - field: proof_type
+        source: input
+        operator: eq
+        value: photo
+      - "uploaded file is not a supported image format"
+    then: []
+    result: "Photo upload rejected — unsupported file format"
+    error: POD_INVALID_PHOTO_FORMAT
+
+errors:
+  - code: POD_REQUIRED_MISSING
+    status: 422
+    message: "Proof of delivery is required to complete this order."
+  - code: POD_INVALID_PHOTO_FORMAT
+    status: 422
+    message: "Photo must be a JPEG or PNG image."
+  - code: POD_FILE_TOO_LARGE
+    status: 413
+    message: "Photo file size exceeds the maximum allowed limit."
+  - code: POD_NOT_FOUND
+    status: 404
+    message: "Proof of delivery record not found."
+
+events:
+  - name: pod.signature_captured
+    description: "Fired when a digital signature is captured"
+    payload: [proof_id, order_uuid, captured_at]
+  - name: pod.photo_captured
+    description: "Fired when a delivery photo is captured"
+    payload: [proof_id, order_uuid, file_uuid, captured_at]
+  - name: pod.notes_captured
+    description: "Fired when delivery notes are recorded"
+    payload: [proof_id, order_uuid, captured_at]
+  - name: pod.completed
+    description: "Fired when all required PODs for an order have been captured"
+    payload: [order_uuid, proof_count]
+
+related:
+  - feature: order-lifecycle
+    type: required
+    reason: "POD unlocks order completion when pod_required is true"
+  - feature: route-planning
+    type: recommended
+    reason: "POD is captured at specific route waypoints"
+  - feature: delivery-notifications
+    type: optional
+    reason: "Customer may receive POD confirmation notification"
+
+extensions:
+  source:
+    repo: "https://github.com/fleetbase/fleetbase"
+    project: "Fleet Management Platform"
+    tech_stack: "PHP (API), JavaScript/Ember.js (Console)"

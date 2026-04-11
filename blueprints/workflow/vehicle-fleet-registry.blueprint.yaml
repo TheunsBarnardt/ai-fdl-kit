@@ -1,0 +1,264 @@
+feature: vehicle-fleet-registry
+version: "1.0.0"
+description: "Register and manage fleet vehicles, track availability, maintenance status, and telematics data"
+category: workflow
+tags: [fleet, vehicle, registry, telematics, maintenance, VIN]
+
+actors:
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: "Administrator managing vehicle records"
+  - id: driver
+    name: Driver
+    type: human
+    description: "Driver operating a vehicle"
+  - id: system
+    name: System
+    type: system
+    description: "Telematics integration and status automation"
+
+fields:
+  - name: vehicle_id
+    type: text
+    label: Vehicle ID
+    required: true
+  - name: make
+    type: text
+    label: Make
+    required: true
+  - name: model
+    type: text
+    label: Model
+    required: true
+  - name: year
+    type: number
+    label: Year
+    required: true
+  - name: trim
+    type: text
+    label: Trim
+    required: false
+  - name: type
+    type: select
+    label: Vehicle Type
+    required: false
+  - name: plate_number
+    type: text
+    label: License Plate
+    required: true
+  - name: vin
+    type: text
+    label: VIN
+    required: false
+  - name: vin_data
+    type: json
+    label: VIN Decoded Data
+    required: false
+  - name: model_data
+    type: json
+    label: Model Specifications
+    required: false
+  - name: photo_uuid
+    type: text
+    label: Vehicle Photo
+    required: false
+  - name: location
+    type: json
+    label: Current Location
+    required: false
+  - name: speed
+    type: number
+    label: Current Speed
+    required: false
+  - name: heading
+    type: number
+    label: Heading (degrees)
+    required: false
+  - name: altitude
+    type: number
+    label: Altitude
+    required: false
+  - name: telematics
+    type: json
+    label: Telematics Data
+    required: false
+  - name: meta
+    type: json
+    label: Additional Metadata
+    required: false
+  - name: online
+    type: boolean
+    label: Telematics Online
+    required: false
+  - name: status
+    type: select
+    label: Status
+    required: true
+
+states:
+  field: status
+  values:
+    - name: active
+      label: Active
+      initial: true
+    - name: in_service
+      label: In Service
+    - name: maintenance
+      label: Under Maintenance
+    - name: decommissioned
+      label: Decommissioned
+      terminal: true
+  transitions:
+    - from: active
+      to: in_service
+      actor: driver
+      description: "Vehicle is assigned to an active order"
+    - from: in_service
+      to: active
+      actor: system
+      description: "Vehicle returned after order completion"
+    - from: active
+      to: maintenance
+      actor: fleet_manager
+      description: "Vehicle sent for maintenance"
+    - from: maintenance
+      to: active
+      actor: fleet_manager
+      description: "Vehicle cleared from maintenance"
+    - from: active
+      to: decommissioned
+      actor: fleet_manager
+      description: "Vehicle permanently removed from fleet"
+
+rules:
+  unique_plate: "A vehicle must have a unique plate number within the organization"
+  decommissioned_no_dispatch: "Decommissioned vehicles cannot be assigned to orders"
+  maintenance_no_dispatch: "Vehicles under maintenance cannot be dispatched"
+  vin_decoding: "VIN decoding populates model specifications automatically when a VIN is provided"
+  continuous_telematics: "Telematics data is updated continuously from connected tracking devices"
+  position_audit: "Vehicle location history is stored as position records for audit trails"
+  tenant_isolation: "A vehicle belongs to exactly one organization"
+  type_determines_capacity: "Vehicle type classification determines load capacity and route suitability"
+  photo_management: "Photo uploads must be processed and stored as managed file references"
+  plate_change_audit: "Plate number changes require fleet manager authorization and audit logging"
+
+outcomes:
+  vehicle_registered:
+    priority: 1
+    given:
+      - field: make
+        source: input
+        operator: exists
+      - field: model
+        source: input
+        operator: exists
+      - field: plate_number
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: vehicle
+      - action: emit_event
+        event: vehicle.registered
+        payload: [vehicle_id, make, model, year, plate_number]
+    result: "Vehicle registered in the fleet registry"
+
+  vehicle_sent_to_maintenance:
+    priority: 2
+    given:
+      - field: status
+        source: db
+        operator: eq
+        value: active
+    then:
+      - action: set_field
+        target: status
+        value: maintenance
+      - action: emit_event
+        event: vehicle.maintenance_started
+        payload: [vehicle_id, make, model]
+    result: "Vehicle status set to maintenance and removed from dispatch pool"
+
+  vehicle_cleared_from_maintenance:
+    priority: 3
+    given:
+      - field: status
+        source: db
+        operator: eq
+        value: maintenance
+    then:
+      - action: set_field
+        target: status
+        value: active
+      - action: emit_event
+        event: vehicle.maintenance_cleared
+        payload: [vehicle_id]
+    result: "Vehicle returned to active fleet after maintenance"
+
+  duplicate_plate_rejected:
+    priority: 1
+    given:
+      - "plate_number already exists in organization"
+    then: []
+    result: "Vehicle registration rejected due to duplicate plate number"
+    error: VEHICLE_DUPLICATE_PLATE
+
+  unavailable_for_dispatch:
+    priority: 2
+    given:
+      - field: status
+        source: db
+        operator: in
+        value: [maintenance, decommissioned]
+    then: []
+    result: "Vehicle cannot be assigned to an order"
+    error: VEHICLE_UNAVAILABLE
+
+errors:
+  - code: VEHICLE_DUPLICATE_PLATE
+    status: 409
+    message: "A vehicle with this plate number already exists."
+  - code: VEHICLE_UNAVAILABLE
+    status: 422
+    message: "This vehicle is not available for dispatch."
+  - code: VEHICLE_NOT_FOUND
+    status: 404
+    message: "Vehicle not found."
+
+events:
+  - name: vehicle.registered
+    description: "Fired when a new vehicle is added to the fleet"
+    payload: [vehicle_id, make, model, year, plate_number, type]
+  - name: vehicle.status_changed
+    description: "Fired when vehicle operational status changes"
+    payload: [vehicle_id, previous_status, new_status]
+  - name: vehicle.maintenance_started
+    description: "Fired when a vehicle enters maintenance"
+    payload: [vehicle_id, make, model]
+  - name: vehicle.maintenance_cleared
+    description: "Fired when a vehicle is cleared from maintenance"
+    payload: [vehicle_id]
+  - name: vehicle.location_updated
+    description: "Fired on GPS location updates from telematics"
+    payload: [vehicle_id, location, speed, heading, timestamp]
+
+related:
+  - feature: dispatch-driver-assignment
+    type: required
+    reason: "Vehicles must be registered to be dispatched"
+  - feature: vehicle-checkout
+    type: recommended
+    reason: "Check-in/out workflow manages vehicle allocation"
+  - feature: realtime-driver-tracking
+    type: recommended
+    reason: "Vehicle telemetry feeds real-time tracking"
+  - feature: field-incident-reporting
+    type: optional
+    reason: "Incidents are reported against specific vehicles"
+
+extensions:
+  source:
+    repo: "https://github.com/fleetbase/fleetbase"
+    project: "Fleet Management Platform"
+    tech_stack: "PHP (API), JavaScript/Ember.js (Console)"

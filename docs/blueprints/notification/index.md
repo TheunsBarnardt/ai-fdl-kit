@@ -13,6 +13,7 @@ Notification blueprints.
 
 | Blueprint | Description | Version |
 |-----------|-------------|----------|
+| [Delivery Notifications]({{ site.baseurl }}/blueprints/notification/delivery-notifications/) | Send automated SMS and email notifications to customers and drivers at each order status change | 1.0.0 |
 | [Device Alarm Notifications]({{ site.baseurl }}/blueprints/notification/device-alarm-notifications/) | Process hardware alarm codes embedded in device position transmissions, generate individual alert events per alarm type (SOS, tamper, vibration, accident, jamming, etc.), and route notifications to... | 1.0.0 |
 | [Device Power Alerts]({{ site.baseurl }}/blueprints/notification/device-power-alerts/) | Monitor battery voltage, battery level percentage, and external power supply state transmitted by GPS tracking hardware, and emit alerts when power conditions threaten continuous device operation (... | 1.0.0 |
 | [Email Notifications]({{ site.baseurl }}/blueprints/notification/email-notifications/) | Send transactional and system emails with template rendering, delivery tracking, and bounce handling | 1.0.0 |

@@ -1,0 +1,399 @@
+{
+  "feature": "order-sla-eta",
+  "version": "1.0.0",
+  "description": "Track estimated time of arrival and service level agreement compliance per delivery order",
+  "category": "workflow",
+  "tags": [
+    "fleet",
+    "sla",
+    "eta",
+    "delivery",
+    "time",
+    "compliance",
+    "tracking"
+  ],
+  "actors": [
+    {
+      "id": "system",
+      "name": "ETA Engine",
+      "type": "system",
+      "description": "Calculates and updates ETAs based on real-time position data"
+    },
+    {
+      "id": "dispatcher",
+      "name": "Dispatcher",
+      "type": "human",
+      "description": "Monitors SLA compliance and manages exceptions"
+    },
+    {
+      "id": "customer",
+      "name": "Customer",
+      "type": "external",
+      "description": "Recipient of ETA updates and SLA guarantees"
+    }
+  ],
+  "fields": [
+    {
+      "name": "sla_record_id",
+      "type": "text",
+      "label": "SLA Record ID",
+      "required": true
+    },
+    {
+      "name": "order_uuid",
+      "type": "text",
+      "label": "Order",
+      "required": true
+    },
+    {
+      "name": "scheduled_at",
+      "type": "datetime",
+      "label": "Scheduled Time",
+      "required": false
+    },
+    {
+      "name": "estimated_arrival",
+      "type": "datetime",
+      "label": "Estimated Arrival (ETA)",
+      "required": false
+    },
+    {
+      "name": "actual_arrival",
+      "type": "datetime",
+      "label": "Actual Arrival",
+      "required": false
+    },
+    {
+      "name": "sla_target",
+      "type": "datetime",
+      "label": "SLA Deadline",
+      "required": false
+    },
+    {
+      "name": "elapsed_time",
+      "type": "number",
+      "label": "Elapsed Time (s)",
+      "required": false
+    },
+    {
+      "name": "remaining_time",
+      "type": "number",
+      "label": "Remaining Time (s)",
+      "required": false
+    },
+    {
+      "name": "distance_remaining",
+      "type": "number",
+      "label": "Distance Remaining (m)",
+      "required": false
+    },
+    {
+      "name": "sla_status",
+      "type": "select",
+      "label": "SLA Status",
+      "required": true
+    },
+    {
+      "name": "breach_reason",
+      "type": "text",
+      "label": "Breach Reason",
+      "required": false
+    },
+    {
+      "name": "eta_accuracy",
+      "type": "number",
+      "label": "ETA Accuracy (%)",
+      "required": false
+    }
+  ],
+  "states": {
+    "field": "sla_status",
+    "values": [
+      {
+        "name": "on_time",
+        "label": "On Time",
+        "initial": true
+      },
+      {
+        "name": "at_risk",
+        "label": "At Risk"
+      },
+      {
+        "name": "breached",
+        "label": "Breached",
+        "terminal": true
+      },
+      {
+        "name": "met",
+        "label": "Met",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "on_time",
+        "to": "at_risk",
+        "actor": "system",
+        "description": "ETA exceeds SLA target within warning threshold"
+      },
+      {
+        "from": "at_risk",
+        "to": "breached",
+        "actor": "system",
+        "description": "SLA deadline passed without completion"
+      },
+      {
+        "from": "on_time",
+        "to": "met",
+        "actor": "system",
+        "description": "Order completed within SLA"
+      },
+      {
+        "from": "at_risk",
+        "to": "met",
+        "actor": "system",
+        "description": "Order completed just within SLA despite being at risk"
+      }
+    ]
+  },
+  "rules": {
+    "recalculate_on_position": "ETA is recalculated every time a new driver position update is received",
+    "eta_factors": "ETA calculation factors in remaining route distance, current speed, and traffic conditions",
+    "at_risk_threshold": "When ETA exceeds SLA target by more than the configured warning threshold, status transitions to at_risk",
+    "at_risk_notification": "Dispatcher is notified when an order transitions to at_risk status",
+    "breach_recording": "SLA breach is recorded when the order is not completed by the SLA deadline",
+    "milestone_notifications": "Customers receive ETA update notifications at configurable milestones (e.g., 30 min away)",
+    "accuracy_tracking": "Historical ETA accuracy is tracked per driver and route for model improvement",
+    "per_service_sla": "SLA configurations can be defined per service type, customer tier, or service area",
+    "scheduled_sla": "Scheduled orders have their SLA target set at the time of scheduling",
+    "breach_review": "Breached SLA records are flagged for review and compensation processing"
+  },
+  "outcomes": {
+    "eta_calculated": {
+      "priority": 1,
+      "given": [
+        "driver position update received for active order",
+        {
+          "field": "distance_remaining",
+          "source": "computed",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "estimated_arrival",
+          "value": "calculated_eta"
+        },
+        {
+          "action": "set_field",
+          "target": "remaining_time",
+          "value": "calculated"
+        },
+        {
+          "action": "emit_event",
+          "event": "sla.eta_updated",
+          "payload": [
+            "order_uuid",
+            "estimated_arrival",
+            "distance_remaining",
+            "remaining_time"
+          ]
+        }
+      ],
+      "result": "ETA updated based on current driver position"
+    },
+    "sla_at_risk": {
+      "priority": 2,
+      "given": [
+        "estimated_arrival exceeds sla_target by more than warning_threshold",
+        {
+          "field": "sla_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "on_time"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "sla_status",
+          "value": "at_risk"
+        },
+        {
+          "action": "emit_event",
+          "event": "sla.at_risk",
+          "payload": [
+            "order_uuid",
+            "estimated_arrival",
+            "sla_target"
+          ]
+        }
+      ],
+      "result": "SLA flagged as at-risk; dispatcher alerted"
+    },
+    "sla_breached": {
+      "priority": 3,
+      "given": [
+        "sla_target has passed",
+        "order is not yet completed"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "sla_status",
+          "value": "breached"
+        },
+        {
+          "action": "emit_event",
+          "event": "sla.breached",
+          "payload": [
+            "order_uuid",
+            "sla_target",
+            "breach_reason"
+          ]
+        }
+      ],
+      "result": "SLA breach recorded; review and compensation triggered"
+    },
+    "sla_met": {
+      "priority": 4,
+      "given": [
+        "order.completed event received",
+        "actual_arrival is before or at sla_target"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "sla_status",
+          "value": "met"
+        },
+        {
+          "action": "set_field",
+          "target": "actual_arrival",
+          "value": "now"
+        },
+        {
+          "action": "emit_event",
+          "event": "sla.met",
+          "payload": [
+            "order_uuid",
+            "actual_arrival",
+            "sla_target"
+          ]
+        }
+      ],
+      "result": "Delivery completed within SLA"
+    },
+    "eta_customer_notification": {
+      "priority": 5,
+      "given": [
+        "remaining_time crossed a configured notification milestone"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "sla.eta_milestone_reached",
+          "payload": [
+            "order_uuid",
+            "customer_uuid",
+            "estimated_arrival",
+            "remaining_time"
+          ]
+        }
+      ],
+      "result": "Customer notified of upcoming delivery ETA"
+    }
+  },
+  "errors": [
+    {
+      "code": "SLA_CALCULATION_FAILED",
+      "status": 500,
+      "message": "ETA could not be calculated at this time."
+    },
+    {
+      "code": "SLA_NO_TARGET_DEFINED",
+      "status": 422,
+      "message": "No SLA target is configured for this order type."
+    }
+  ],
+  "events": [
+    {
+      "name": "sla.eta_updated",
+      "description": "Fired each time ETA is recalculated",
+      "payload": [
+        "order_uuid",
+        "estimated_arrival",
+        "distance_remaining",
+        "remaining_time"
+      ]
+    },
+    {
+      "name": "sla.at_risk",
+      "description": "Fired when ETA exceeds SLA target warning threshold",
+      "payload": [
+        "order_uuid",
+        "estimated_arrival",
+        "sla_target"
+      ]
+    },
+    {
+      "name": "sla.breached",
+      "description": "Fired when SLA deadline is exceeded without completion",
+      "payload": [
+        "order_uuid",
+        "sla_target",
+        "breach_reason"
+      ]
+    },
+    {
+      "name": "sla.met",
+      "description": "Fired when order is completed within SLA",
+      "payload": [
+        "order_uuid",
+        "actual_arrival",
+        "sla_target"
+      ]
+    },
+    {
+      "name": "sla.eta_milestone_reached",
+      "description": "Fired when ETA crosses a configured notification milestone",
+      "payload": [
+        "order_uuid",
+        "customer_uuid",
+        "estimated_arrival",
+        "remaining_time"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "order-lifecycle",
+      "type": "required",
+      "reason": "SLA tracking is linked to order lifecycle events"
+    },
+    {
+      "feature": "realtime-driver-tracking",
+      "type": "required",
+      "reason": "Driver position feeds ETA recalculations"
+    },
+    {
+      "feature": "route-planning",
+      "type": "required",
+      "reason": "Remaining route distance is used for ETA calculation"
+    },
+    {
+      "feature": "delivery-notifications",
+      "type": "recommended",
+      "reason": "ETA milestones trigger customer notifications"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/fleetbase/fleetbase",
+      "project": "Fleet Management Platform",
+      "tech_stack": "PHP (API), JavaScript/Ember.js (Console)"
+    }
+  }
+}

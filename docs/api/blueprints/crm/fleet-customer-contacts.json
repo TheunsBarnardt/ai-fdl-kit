@@ -1,0 +1,306 @@
+{
+  "feature": "fleet-customer-contacts",
+  "version": "1.0.0",
+  "description": "Manage customers and contacts who place orders, including contact details, order history, and communication preferences",
+  "category": "crm",
+  "tags": [
+    "fleet",
+    "crm",
+    "customer",
+    "contacts",
+    "delivery",
+    "communication"
+  ],
+  "actors": [
+    {
+      "id": "dispatcher",
+      "name": "Dispatcher",
+      "type": "human",
+      "description": "Operations staff managing customer records"
+    },
+    {
+      "id": "customer",
+      "name": "Customer",
+      "type": "external",
+      "description": "Entity placing delivery orders"
+    },
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Automated contact linkage and history tracking"
+    }
+  ],
+  "fields": [
+    {
+      "name": "contact_id",
+      "type": "text",
+      "label": "Contact ID",
+      "required": true
+    },
+    {
+      "name": "internal_id",
+      "type": "text",
+      "label": "Internal Reference ID",
+      "required": false
+    },
+    {
+      "name": "user_uuid",
+      "type": "text",
+      "label": "Linked User Account",
+      "required": false
+    },
+    {
+      "name": "name",
+      "type": "text",
+      "label": "Full Name",
+      "required": true
+    },
+    {
+      "name": "title",
+      "type": "text",
+      "label": "Title",
+      "required": false
+    },
+    {
+      "name": "email",
+      "type": "email",
+      "label": "Email Address",
+      "required": false
+    },
+    {
+      "name": "phone",
+      "type": "phone",
+      "label": "Phone Number",
+      "required": false
+    },
+    {
+      "name": "type",
+      "type": "select",
+      "label": "Contact Type",
+      "required": false
+    },
+    {
+      "name": "photo_uuid",
+      "type": "text",
+      "label": "Profile Photo",
+      "required": false
+    },
+    {
+      "name": "meta",
+      "type": "json",
+      "label": "Additional Attributes",
+      "required": false
+    },
+    {
+      "name": "notification_preference",
+      "type": "select",
+      "label": "Notification Preference",
+      "required": false
+    }
+  ],
+  "rules": {
+    "minimum_contact_method": "Each contact must have at least a name and one contact method (email or phone)",
+    "unique_email": "Email addresses must be valid format and unique within the organization",
+    "org_scoped": "Contacts are scoped to the organization; cross-tenant access is forbidden",
+    "user_link_optional": "A contact can be linked to a user account for self-service order tracking",
+    "opt_out_respected": "Notification opt-out preferences must be respected by the notification service",
+    "order_history": "Contact history tracks all orders placed by or for this contact",
+    "duplicate_detection": "Duplicate detection warns when creating contacts with matching email or phone",
+    "soft_delete": "Contact records are soft-deleted and retained for historical order references",
+    "e164_phone": "Phone numbers must be stored in E.164 format for consistent SMS delivery",
+    "photo_management": "Photos must be processed and stored as managed file references"
+  },
+  "outcomes": {
+    "contact_created": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "name",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "any": [
+            {
+              "field": "email",
+              "source": "input",
+              "operator": "exists"
+            },
+            {
+              "field": "phone",
+              "source": "input",
+              "operator": "exists"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "contact"
+        },
+        {
+          "action": "emit_event",
+          "event": "contact.created",
+          "payload": [
+            "contact_id",
+            "name",
+            "email",
+            "phone",
+            "type"
+          ]
+        }
+      ],
+      "result": "Contact created and available for order assignment"
+    },
+    "contact_updated": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "contact_id",
+          "source": "db",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "contact.updated",
+          "payload": [
+            "contact_id",
+            "name"
+          ]
+        }
+      ],
+      "result": "Contact details updated"
+    },
+    "contact_linked_to_order": {
+      "priority": 3,
+      "given": [
+        "order is created with this contact as customer"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "contact.order_linked",
+          "payload": [
+            "contact_id",
+            "order_uuid"
+          ]
+        }
+      ],
+      "result": "Contact linked to order for history and notifications"
+    },
+    "duplicate_detected": {
+      "priority": 1,
+      "given": [
+        "a contact with the same email or phone already exists in the organization"
+      ],
+      "then": [],
+      "result": "Warning: possible duplicate contact detected",
+      "error": "CONTACT_POSSIBLE_DUPLICATE"
+    },
+    "missing_contact_method": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "email",
+          "source": "input",
+          "operator": "not_exists"
+        },
+        {
+          "field": "phone",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [],
+      "result": "Contact creation rejected — email or phone required",
+      "error": "CONTACT_MISSING_CONTACT_METHOD"
+    }
+  },
+  "errors": [
+    {
+      "code": "CONTACT_POSSIBLE_DUPLICATE",
+      "status": 409,
+      "message": "A contact with this email or phone number already exists."
+    },
+    {
+      "code": "CONTACT_MISSING_CONTACT_METHOD",
+      "status": 422,
+      "message": "A contact must have at least an email address or phone number."
+    },
+    {
+      "code": "CONTACT_NOT_FOUND",
+      "status": 404,
+      "message": "Contact not found."
+    },
+    {
+      "code": "CONTACT_INVALID_EMAIL",
+      "status": 422,
+      "message": "The email address provided is not valid."
+    }
+  ],
+  "events": [
+    {
+      "name": "contact.created",
+      "description": "Fired when a new contact is created",
+      "payload": [
+        "contact_id",
+        "name",
+        "email",
+        "phone",
+        "type"
+      ]
+    },
+    {
+      "name": "contact.updated",
+      "description": "Fired when contact information is updated",
+      "payload": [
+        "contact_id",
+        "name"
+      ]
+    },
+    {
+      "name": "contact.deleted",
+      "description": "Fired when a contact is soft-deleted",
+      "payload": [
+        "contact_id",
+        "name"
+      ]
+    },
+    {
+      "name": "contact.order_linked",
+      "description": "Fired when an order is linked to this contact",
+      "payload": [
+        "contact_id",
+        "order_uuid"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "order-lifecycle",
+      "type": "required",
+      "reason": "Contacts are assigned as customers on orders"
+    },
+    {
+      "feature": "delivery-notifications",
+      "type": "required",
+      "reason": "Contact email and phone used for delivery notifications"
+    },
+    {
+      "feature": "multi-tenant-organization",
+      "type": "required",
+      "reason": "Contacts are scoped to the organization"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/fleetbase/fleetbase",
+      "project": "Fleet Management Platform",
+      "tech_stack": "PHP (API), JavaScript/Ember.js (Console)"
+    }
+  }
+}

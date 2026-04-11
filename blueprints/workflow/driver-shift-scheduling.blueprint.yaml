@@ -1,0 +1,270 @@
+feature: driver-shift-scheduling
+version: "1.0.0"
+description: "Schedule and manage driver work shifts, availability windows, and hours-of-service compliance"
+category: workflow
+tags: [fleet, driver, shifts, scheduling, availability, hos, compliance]
+
+actors:
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: "Manager creating and managing shift schedules"
+  - id: driver
+    name: Driver
+    type: human
+    description: "Driver confirming and working their assigned shifts"
+  - id: system
+    name: Scheduling Engine
+    type: system
+    description: "Automated conflict detection and HOS enforcement"
+
+fields:
+  - name: shift_id
+    type: text
+    label: Shift ID
+    required: true
+  - name: driver_uuid
+    type: text
+    label: Driver
+    required: true
+  - name: start_time
+    type: datetime
+    label: Shift Start
+    required: true
+  - name: end_time
+    type: datetime
+    label: Shift End
+    required: true
+  - name: actual_start
+    type: datetime
+    label: Actual Clock-in
+    required: false
+  - name: actual_end
+    type: datetime
+    label: Actual Clock-out
+    required: false
+  - name: duration_hours
+    type: number
+    label: Duration (hours)
+    required: false
+  - name: break_duration_minutes
+    type: number
+    label: Break Duration (minutes)
+    required: false
+  - name: shift_type
+    type: select
+    label: Shift Type
+    required: false
+  - name: service_area_uuid
+    type: text
+    label: Assigned Service Area
+    required: false
+  - name: notes
+    type: text
+    label: Notes
+    required: false
+  - name: status
+    type: select
+    label: Status
+    required: true
+
+states:
+  field: status
+  values:
+    - name: scheduled
+      label: Scheduled
+      initial: true
+    - name: confirmed
+      label: Confirmed
+    - name: active
+      label: Active
+    - name: completed
+      label: Completed
+      terminal: true
+    - name: missed
+      label: Missed
+      terminal: true
+    - name: cancelled
+      label: Cancelled
+      terminal: true
+  transitions:
+    - from: scheduled
+      to: confirmed
+      actor: driver
+      description: "Driver confirms shift acceptance"
+    - from: confirmed
+      to: active
+      actor: driver
+      description: "Driver clocks in at shift start"
+    - from: active
+      to: completed
+      actor: driver
+      description: "Driver clocks out at end of shift"
+    - from: confirmed
+      to: missed
+      actor: system
+      description: "Driver did not clock in within grace period"
+    - from: scheduled
+      to: cancelled
+      actor: fleet_manager
+      description: "Shift cancelled before driver confirms"
+    - from: confirmed
+      to: cancelled
+      actor: fleet_manager
+      description: "Shift cancelled after confirmation"
+
+rules:
+  no_overlap: "Driver shifts must not overlap; a driver cannot have two concurrent active shifts"
+  minimum_rest: "Minimum rest period between consecutive shifts must be enforced per regulatory requirements"
+  max_duration: "Shifts longer than the configured maximum hours are rejected"
+  mandatory_breaks: "Break periods must comply with labor regulations (e.g., mandatory break every X hours)"
+  hos_enforcement: "Maximum weekly driving hours enforced; system warns before threshold"
+  shift_notifications: "Drivers receive notifications when a shift is assigned, confirmed, or cancelled"
+  dispatch_within_shift: "A driver can only be dispatched during their active shift window"
+  on_call_availability: "On-call shifts make the driver available but do not guarantee active deployment"
+  recurring_templates: "Shift templates can be created for recurring weekly schedules"
+  overtime_tracking: "Overtime calculation is tracked based on actual times vs scheduled times"
+
+outcomes:
+  shift_scheduled:
+    priority: 1
+    given:
+      - field: driver_uuid
+        source: input
+        operator: exists
+      - field: start_time
+        source: input
+        operator: exists
+      - field: end_time
+        source: input
+        operator: exists
+      - "no overlapping shift exists for this driver"
+    then:
+      - action: create_record
+        type: shift
+      - action: emit_event
+        event: shift.scheduled
+        payload: [shift_id, driver_uuid, start_time, end_time]
+    result: "Shift scheduled and driver notified"
+
+  shift_confirmed:
+    priority: 2
+    given:
+      - field: status
+        source: db
+        operator: eq
+        value: scheduled
+    then:
+      - action: set_field
+        target: status
+        value: confirmed
+      - action: emit_event
+        event: shift.confirmed
+        payload: [shift_id, driver_uuid, start_time]
+    result: "Driver confirmed shift"
+
+  driver_clocked_in:
+    priority: 3
+    given:
+      - field: status
+        source: db
+        operator: eq
+        value: confirmed
+      - "current time is within grace period of start_time"
+    then:
+      - action: set_field
+        target: status
+        value: active
+      - action: set_field
+        target: actual_start
+        value: now
+      - action: emit_event
+        event: shift.started
+        payload: [shift_id, driver_uuid, actual_start]
+    result: "Driver clocked in; shift is active"
+
+  driver_clocked_out:
+    priority: 4
+    given:
+      - field: status
+        source: db
+        operator: eq
+        value: active
+    then:
+      - action: set_field
+        target: status
+        value: completed
+      - action: set_field
+        target: actual_end
+        value: now
+      - action: emit_event
+        event: shift.completed
+        payload: [shift_id, driver_uuid, actual_start, actual_end]
+    result: "Driver clocked out; shift completed"
+
+  shift_overlap_rejected:
+    priority: 1
+    given:
+      - "driver has an overlapping scheduled shift"
+    then: []
+    result: "Shift creation rejected — overlapping shift exists"
+    error: SHIFT_OVERLAP
+
+  hos_limit_exceeded:
+    priority: 2
+    given:
+      - "scheduled shift would cause driver to exceed maximum weekly hours"
+    then: []
+    result: "Shift rejected — hours-of-service limit would be exceeded"
+    error: SHIFT_HOS_LIMIT_EXCEEDED
+
+errors:
+  - code: SHIFT_OVERLAP
+    status: 409
+    message: "This driver already has a shift during this time period."
+  - code: SHIFT_HOS_LIMIT_EXCEEDED
+    status: 422
+    message: "This shift would exceed the maximum allowed driving hours."
+  - code: SHIFT_INSUFFICIENT_REST
+    status: 422
+    message: "Insufficient rest period between consecutive shifts."
+  - code: SHIFT_NOT_FOUND
+    status: 404
+    message: "Shift not found."
+
+events:
+  - name: shift.scheduled
+    description: "Fired when a new shift is created for a driver"
+    payload: [shift_id, driver_uuid, start_time, end_time, shift_type]
+  - name: shift.confirmed
+    description: "Fired when driver confirms shift acceptance"
+    payload: [shift_id, driver_uuid, start_time]
+  - name: shift.started
+    description: "Fired when driver clocks in"
+    payload: [shift_id, driver_uuid, actual_start]
+  - name: shift.completed
+    description: "Fired when driver clocks out"
+    payload: [shift_id, driver_uuid, actual_start, actual_end, duration_hours]
+  - name: shift.missed
+    description: "Fired when driver fails to clock in within grace period"
+    payload: [shift_id, driver_uuid, start_time]
+  - name: shift.cancelled
+    description: "Fired when a shift is cancelled"
+    payload: [shift_id, driver_uuid, cancelled_by]
+
+related:
+  - feature: driver-profile
+    type: required
+    reason: "Shifts are assigned to driver profiles"
+  - feature: dispatch-driver-assignment
+    type: required
+    reason: "Drivers can only be dispatched during active shifts"
+  - feature: service-area-management
+    type: optional
+    reason: "Shifts can be scoped to specific service areas"
+
+extensions:
+  source:
+    repo: "https://github.com/fleetbase/fleetbase"
+    project: "Fleet Management Platform"
+    tech_stack: "PHP (API), JavaScript/Ember.js (Console)"

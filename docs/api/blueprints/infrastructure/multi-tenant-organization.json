@@ -1,0 +1,378 @@
+{
+  "feature": "multi-tenant-organization",
+  "version": "1.0.0",
+  "description": "Multi-tenant organization model with isolated data, user management, and role-based access control",
+  "category": "infrastructure",
+  "tags": [
+    "multi-tenant",
+    "organization",
+    "company",
+    "isolation",
+    "rbac",
+    "users"
+  ],
+  "actors": [
+    {
+      "id": "org_owner",
+      "name": "Organization Owner",
+      "type": "human",
+      "description": "Owner who created and controls the organization"
+    },
+    {
+      "id": "admin",
+      "name": "Administrator",
+      "type": "human",
+      "description": "Admin managing users and settings within the org"
+    },
+    {
+      "id": "member",
+      "name": "Member",
+      "type": "human",
+      "description": "Regular user within the organization"
+    },
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Platform-level enforcement of tenant isolation"
+    }
+  ],
+  "fields": [
+    {
+      "name": "org_id",
+      "type": "text",
+      "label": "Organization ID",
+      "required": true
+    },
+    {
+      "name": "name",
+      "type": "text",
+      "label": "Organization Name",
+      "required": true
+    },
+    {
+      "name": "slug",
+      "type": "text",
+      "label": "URL Slug",
+      "required": true
+    },
+    {
+      "name": "owner_uuid",
+      "type": "text",
+      "label": "Owner",
+      "required": true
+    },
+    {
+      "name": "description",
+      "type": "text",
+      "label": "Description",
+      "required": false
+    },
+    {
+      "name": "website_url",
+      "type": "url",
+      "label": "Website",
+      "required": false
+    },
+    {
+      "name": "phone",
+      "type": "phone",
+      "label": "Phone",
+      "required": false
+    },
+    {
+      "name": "currency",
+      "type": "text",
+      "label": "Default Currency",
+      "required": false
+    },
+    {
+      "name": "country",
+      "type": "text",
+      "label": "Country",
+      "required": false
+    },
+    {
+      "name": "timezone",
+      "type": "text",
+      "label": "Timezone",
+      "required": false
+    },
+    {
+      "name": "plan",
+      "type": "text",
+      "label": "Subscription Plan",
+      "required": false
+    },
+    {
+      "name": "options",
+      "type": "json",
+      "label": "Feature Flags",
+      "required": false
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "label": "Status",
+      "required": true
+    },
+    {
+      "name": "type",
+      "type": "text",
+      "label": "Organization Type",
+      "required": false
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "active",
+        "label": "Active",
+        "initial": true
+      },
+      {
+        "name": "suspended",
+        "label": "Suspended"
+      },
+      {
+        "name": "cancelled",
+        "label": "Cancelled",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "active",
+        "to": "suspended",
+        "actor": "system",
+        "description": "Account suspended due to policy violation or payment failure"
+      },
+      {
+        "from": "suspended",
+        "to": "active",
+        "actor": "admin",
+        "description": "Account reinstated"
+      },
+      {
+        "from": "suspended",
+        "to": "cancelled",
+        "actor": "org_owner",
+        "description": "Organization account permanently closed"
+      }
+    ]
+  },
+  "rules": {
+    "company_uuid_required": "Each record (order, driver, vehicle, etc.) must be associated with exactly one organization via company_uuid",
+    "no_cross_tenant": "API requests must always include a valid organization context; cross-tenant access is forbidden",
+    "unique_slug": "Organization slugs must be globally unique and URL-safe",
+    "owner_immutable": "The organization owner always has full access and cannot be removed",
+    "membership_tracking": "User membership is tracked via a company_users join record",
+    "rbac": "Role-based access control (RBAC) enforces per-resource permissions within the organization",
+    "suspended_no_api": "Suspended organizations lose API access and cannot create new records",
+    "data_isolation": "Data for one organization must never appear in API responses for another",
+    "invite_based_onboarding": "Invitation-based member onboarding requires an invite link with expiry",
+    "timezone_usage": "Timezone settings are used for all date/time displays and scheduled operations"
+  },
+  "outcomes": {
+    "org_created": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "name",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "owner_uuid",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "organization"
+        },
+        {
+          "action": "emit_event",
+          "event": "org.created",
+          "payload": [
+            "org_id",
+            "name",
+            "owner_uuid"
+          ]
+        }
+      ],
+      "result": "Organization created with owner as first admin member"
+    },
+    "member_invited": {
+      "priority": 2,
+      "given": [
+        "inviting user is admin of the organization",
+        "email provided"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "invite"
+        },
+        {
+          "action": "emit_event",
+          "event": "org.member_invited",
+          "payload": [
+            "org_id",
+            "invited_email",
+            "role"
+          ]
+        }
+      ],
+      "result": "Invitation sent to email address"
+    },
+    "member_joined": {
+      "priority": 3,
+      "given": [
+        "valid invite link accepted by user"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "company_user"
+        },
+        {
+          "action": "emit_event",
+          "event": "org.member_joined",
+          "payload": [
+            "org_id",
+            "user_uuid",
+            "role"
+          ]
+        }
+      ],
+      "result": "User added as a member of the organization"
+    },
+    "org_suspended": {
+      "priority": 4,
+      "given": [
+        "account policy violation or payment failure detected"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "suspended"
+        },
+        {
+          "action": "emit_event",
+          "event": "org.suspended",
+          "payload": [
+            "org_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Organization suspended; all API access revoked"
+    },
+    "cross_tenant_access_blocked": {
+      "priority": 1,
+      "given": [
+        "request references a resource belonging to a different organization"
+      ],
+      "then": [],
+      "result": "Access denied — resource not found in your organization",
+      "error": "ORG_CROSS_TENANT_ACCESS"
+    }
+  },
+  "errors": [
+    {
+      "code": "ORG_CROSS_TENANT_ACCESS",
+      "status": 404,
+      "message": "The requested resource was not found."
+    },
+    {
+      "code": "ORG_SUSPENDED",
+      "status": 403,
+      "message": "Your organization account is currently suspended. Please contact support."
+    },
+    {
+      "code": "ORG_DUPLICATE_SLUG",
+      "status": 409,
+      "message": "An organization with this name already exists."
+    },
+    {
+      "code": "ORG_INVITE_EXPIRED",
+      "status": 410,
+      "message": "This invitation link has expired or has already been used."
+    }
+  ],
+  "events": [
+    {
+      "name": "org.created",
+      "description": "Fired when a new organization is created",
+      "payload": [
+        "org_id",
+        "name",
+        "owner_uuid",
+        "plan"
+      ]
+    },
+    {
+      "name": "org.member_invited",
+      "description": "Fired when a member is invited to the organization",
+      "payload": [
+        "org_id",
+        "invited_email",
+        "role"
+      ]
+    },
+    {
+      "name": "org.member_joined",
+      "description": "Fired when a user accepts an invitation and joins",
+      "payload": [
+        "org_id",
+        "user_uuid",
+        "role"
+      ]
+    },
+    {
+      "name": "org.member_removed",
+      "description": "Fired when a member is removed from the organization",
+      "payload": [
+        "org_id",
+        "user_uuid"
+      ]
+    },
+    {
+      "name": "org.suspended",
+      "description": "Fired when an organization is suspended",
+      "payload": [
+        "org_id",
+        "reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "fleet-public-api",
+      "type": "required",
+      "reason": "API authentication is scoped to organization credentials"
+    },
+    {
+      "feature": "order-lifecycle-webhooks",
+      "type": "required",
+      "reason": "Webhooks are isolated per organization"
+    },
+    {
+      "feature": "fleet-customer-contacts",
+      "type": "recommended",
+      "reason": "Contacts are scoped to the organization"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/fleetbase/fleetbase",
+      "project": "Fleet Management Platform",
+      "tech_stack": "PHP (API), JavaScript/Ember.js (Console)"
+    }
+  }
+}

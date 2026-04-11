@@ -1,0 +1,192 @@
+feature: service-area-management
+version: "1.0.0"
+description: "Define and manage geographic service areas and zones that control where fleet operations are permitted"
+category: workflow
+tags: [fleet, geofence, service-area, zones, geography, operational]
+
+actors:
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: "Administrator defining operational regions"
+  - id: system
+    name: System
+    type: system
+    description: "Geospatial engine enforcing area boundaries"
+
+fields:
+  - name: area_id
+    type: text
+    label: Area ID
+    required: true
+  - name: name
+    type: text
+    label: Area Name
+    required: true
+  - name: type
+    type: select
+    label: Area Type
+    required: false
+  - name: country
+    type: text
+    label: Country
+    required: false
+  - name: border
+    type: json
+    label: Boundary (GeoJSON)
+    required: true
+  - name: color
+    type: text
+    label: Fill Color
+    required: false
+  - name: stroke_color
+    type: text
+    label: Border Color
+    required: false
+  - name: parent_uuid
+    type: text
+    label: Parent Area
+    required: false
+  - name: status
+    type: select
+    label: Status
+    required: true
+
+states:
+  field: status
+  values:
+    - name: active
+      label: Active
+      initial: true
+    - name: inactive
+      label: Inactive
+      terminal: true
+  transitions:
+    - from: active
+      to: inactive
+      actor: fleet_manager
+      description: "Area deactivated; no new orders permitted in this area"
+    - from: inactive
+      to: active
+      actor: fleet_manager
+      description: "Area reactivated"
+
+rules:
+  valid_boundary: "A service area must have a valid GeoJSON polygon with at least 3 coordinate pairs"
+  hierarchical_nesting: "Service areas can be nested within a parent area to create hierarchical zones"
+  inactive_excluded: "Inactive service areas are excluded from order creation and driver assignment"
+  outside_area_rejection: "Orders placed outside all active service areas are rejected unless global operations are enabled"
+  zone_support: "Each service area can have one or more zones as sub-regions with specific rules or rates"
+  geometry_storage: "Service area and zone boundaries are stored as geometry columns for spatial query performance"
+  fleet_scoping: "Fleet assignments can be scoped to specific service areas"
+  overlap_allowed: "Overlapping service areas are permitted; the most specific matching area takes precedence"
+  rate_binding: "Service rate structures can be bound to specific service areas and zones"
+  valid_colors: "Visualization colors must be valid hex color codes"
+
+outcomes:
+  area_created:
+    priority: 1
+    given:
+      - field: name
+        source: input
+        operator: exists
+      - field: border
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: service_area
+      - action: emit_event
+        event: service_area.created
+        payload: [area_id, name, type, country]
+    result: "Service area created and visible on operations map"
+
+  zone_added:
+    priority: 2
+    given:
+      - "parent service area exists and is active"
+      - field: border
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: zone
+      - action: emit_event
+        event: service_area.zone_added
+        payload: [area_id, zone_id, name]
+    result: "Sub-zone added to the service area"
+
+  area_deactivated:
+    priority: 3
+    given:
+      - field: status
+        source: db
+        operator: eq
+        value: active
+    then:
+      - action: set_field
+        target: status
+        value: inactive
+      - action: emit_event
+        event: service_area.deactivated
+        payload: [area_id, name]
+    result: "Service area deactivated; no new orders allowed within boundary"
+
+  order_outside_area:
+    priority: 1
+    given:
+      - "order origin or destination falls outside all active service areas"
+      - "organization does not permit global operations"
+    then: []
+    result: "Order rejected — location is outside operational service areas"
+    error: ORDER_OUTSIDE_SERVICE_AREA
+
+  invalid_boundary:
+    priority: 2
+    given:
+      - "border GeoJSON is malformed or has fewer than 3 coordinate pairs"
+    then: []
+    result: "Area creation rejected due to invalid boundary"
+    error: SERVICE_AREA_INVALID_BOUNDARY
+
+errors:
+  - code: ORDER_OUTSIDE_SERVICE_AREA
+    status: 422
+    message: "This location is outside our operational service area."
+  - code: SERVICE_AREA_INVALID_BOUNDARY
+    status: 422
+    message: "The provided boundary is invalid. Please draw a valid polygon."
+  - code: SERVICE_AREA_NOT_FOUND
+    status: 404
+    message: "Service area not found."
+
+events:
+  - name: service_area.created
+    description: "Fired when a new service area is created"
+    payload: [area_id, name, type, country]
+  - name: service_area.updated
+    description: "Fired when a service area boundary or settings change"
+    payload: [area_id, name]
+  - name: service_area.deactivated
+    description: "Fired when a service area is disabled"
+    payload: [area_id, name]
+  - name: service_area.zone_added
+    description: "Fired when a zone is added to a service area"
+    payload: [area_id, zone_id, name]
+
+related:
+  - feature: order-lifecycle
+    type: recommended
+    reason: "Orders are validated against service area boundaries"
+  - feature: vehicle-fleet-registry
+    type: recommended
+    reason: "Fleet assignments can be scoped to service areas"
+  - feature: trip-billing-invoicing
+    type: optional
+    reason: "Service rates are linked to specific areas and zones"
+
+extensions:
+  source:
+    repo: "https://github.com/fleetbase/fleetbase"
+    project: "Fleet Management Platform"
+    tech_stack: "PHP (API), JavaScript/Ember.js (Console)"

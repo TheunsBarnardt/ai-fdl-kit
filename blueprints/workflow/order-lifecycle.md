@@ -1,0 +1,102 @@
+<!-- AUTO-GENERATED FROM order-lifecycle.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Order Lifecycle
+
+> End-to-end delivery order lifecycle management from creation through completion or cancellation
+
+**Category:** Workflow · **Version:** 1.0.0 · **Tags:** fleet · delivery · order · logistics · dispatch
+
+## What this does
+
+End-to-end delivery order lifecycle management from creation through completion or cancellation
+
+Specifies 7 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **order_id** *(text, required)* — Order ID
+- **internal_id** *(text, optional)* — Internal Reference ID
+- **customer_uuid** *(text, required)* — Customer
+- **driver_assigned_uuid** *(text, optional)* — Assigned Driver
+- **vehicle_assigned_uuid** *(text, optional)* — Assigned Vehicle
+- **payload_uuid** *(text, required)* — Payload (Pickup/Dropoff)
+- **route_uuid** *(text, optional)* — Route
+- **scheduled_at** *(datetime, optional)* — Scheduled Time
+- **dispatched_at** *(datetime, optional)* — Dispatched At
+- **started_at** *(datetime, optional)* — Started At
+- **pod_required** *(boolean, optional)* — POD Required
+- **pod_method** *(select, optional)* — POD Method
+- **notes** *(rich_text, optional)* — Delivery Notes
+- **type** *(text, optional)* — Order Type
+- **status** *(select, required)* — Status
+- **distance** *(number, optional)* — Route Distance (m)
+- **time** *(number, optional)* — Estimated Time (s)
+- **adhoc** *(boolean, optional)* — Ad-hoc Order
+
+## What must be true
+
+- **dispatch_requires_driver_and_vehicle:** A driver and vehicle must be assigned before an order can be dispatched
+- **pod_required_before_completion:** Proof of delivery must be collected before completing when pod_required is true
+- **no_reactivation:** Cancelled or failed orders cannot be reactivated; a new order must be created
+- **valid_state_transitions:** Order status transitions must follow the defined state machine
+- **scheduled_dispatch_window:** Scheduled orders cannot be dispatched more than 30 minutes early without override
+- **audit_all_transitions:** Each status change is logged with timestamp, actor, and previous status
+- **driver_must_be_available:** An order can only be assigned to a driver whose status is available
+- **payload_required:** An order must have at least one pickup and one dropoff waypoint in the payload
+- **recalculate_on_route_change:** Distance and time estimates must be recalculated whenever the route changes
+- **tenant_isolation:** Each order belongs to exactly one organization and is invisible to others
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Order Created** — when dispatcher is authenticated and authorized; payload_uuid exists, then Order created in 'created' state and awaits dispatch.
+- **Order Dispatched** — when driver_assigned_uuid exists; vehicle_assigned_uuid exists; status in ["created","pending"], then Order dispatched to driver with route and instructions.
+- **Driver Started** — when status eq "dispatched", then Driver is en route to pickup location.
+- **Delivery Completed** — when status eq "in_progress"; pod_required is false OR proof of delivery has been captured, then Order completed and customer notified.
+- **Order Cancelled** — when status not_in ["completed","cancelled","failed"], then Order cancelled and all parties notified.
+
+**❌ Failure paths**
+
+- **Dispatch Rejected No Driver** — when driver_assigned_uuid not_exists, then Dispatch rejected — driver must be assigned first. *(error: `ORDER_DISPATCH_REQUIRES_DRIVER`)*
+- **Pod Missing** — when pod_required eq true; no proof of delivery record exists for this order, then Completion blocked until proof of delivery is captured. *(error: `ORDER_POD_REQUIRED`)*
+
+## Errors it can return
+
+- `ORDER_DISPATCH_REQUIRES_DRIVER` — A driver must be assigned before dispatching the order.
+- `ORDER_DISPATCH_REQUIRES_VEHICLE` — A vehicle must be assigned before dispatching the order.
+- `ORDER_POD_REQUIRED` — Proof of delivery is required to complete this order.
+- `ORDER_INVALID_TRANSITION` — This status change is not allowed at this stage.
+- `ORDER_NOT_FOUND` — The requested order could not be found.
+
+## Connects to
+
+- **dispatch-driver-assignment** *(required)* — Driver and vehicle assignment is required before dispatch
+- **route-planning** *(required)* — Route must be planned for order execution
+- **proof-of-delivery** *(recommended)* — POD collection validates delivery completion
+- **delivery-notifications** *(recommended)* — Customer and driver notifications at each status change
+- **order-sla-eta** *(recommended)* — ETA tracking per order for SLA monitoring
+- **order-lifecycle-webhooks** *(optional)* — Webhook delivery of order lifecycle events to third parties
+
+## Quality fitness 🟢 77/100
+
+Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
+
+| Dimension | Score | Points |
+|-----------|-------|--------|
+| Description | `██████████` | 10/10 |
+| Rules | `██████░░░░` | 6/10 |
+| Outcomes | `███████████████████████░░` | 23/25 |
+| Structured conditions | `█████████░` | 9/10 |
+| Error binding | `█████░░░░░` | 5/10 |
+| Field validation | `█████░░░░░` | 5/10 |
+| Relationships | `██████████` | 10/10 |
+| Events | `█████` | 5/5 |
+| AGI readiness | `░░░░░` | 0/5 |
+| Simplicity | `████░` | 4/5 |
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/workflow/order-lifecycle/) · **Spec source:** [`order-lifecycle.blueprint.yaml`](./order-lifecycle.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

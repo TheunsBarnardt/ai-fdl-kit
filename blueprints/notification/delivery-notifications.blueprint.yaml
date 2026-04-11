@@ -1,0 +1,233 @@
+feature: delivery-notifications
+version: "1.0.0"
+description: "Send automated SMS and email notifications to customers and drivers at each order status change"
+category: notification
+tags: [fleet, notifications, sms, email, customer, driver, alerts]
+
+actors:
+  - id: system
+    name: Notification Service
+    type: system
+    description: "Automated notification engine"
+  - id: dispatcher
+    name: Dispatcher
+    type: human
+    description: "Can trigger manual notifications or configure templates"
+  - id: customer
+    name: Customer
+    type: external
+    description: "Recipient of delivery status notifications"
+  - id: driver
+    name: Driver
+    type: human
+    description: "Recipient of dispatch and assignment notifications"
+
+fields:
+  - name: notification_id
+    type: text
+    label: Notification ID
+    required: true
+  - name: order_uuid
+    type: text
+    label: Order
+    required: true
+  - name: recipient_type
+    type: select
+    label: Recipient Type
+    required: true
+  - name: recipient_identifier
+    type: text
+    label: Recipient Email or Phone
+    required: true
+  - name: channel
+    type: select
+    label: Delivery Channel
+    required: true
+  - name: template_id
+    type: text
+    label: Message Template
+    required: false
+  - name: subject
+    type: text
+    label: Email Subject
+    required: false
+  - name: message
+    type: rich_text
+    label: Message Body
+    required: true
+  - name: trigger_event
+    type: text
+    label: Trigger Event
+    required: true
+  - name: sent_at
+    type: datetime
+    label: Sent At
+    required: false
+  - name: delivered_at
+    type: datetime
+    label: Delivered At
+    required: false
+  - name: status
+    type: select
+    label: Status
+    required: true
+
+states:
+  field: status
+  values:
+    - name: queued
+      label: Queued
+      initial: true
+    - name: sent
+      label: Sent
+    - name: delivered
+      label: Delivered
+      terminal: true
+    - name: failed
+      label: Failed
+      terminal: true
+  transitions:
+    - from: queued
+      to: sent
+      actor: system
+      description: "Notification dispatched to provider"
+    - from: sent
+      to: delivered
+      actor: system
+      description: "Delivery confirmed by provider callback"
+    - from: sent
+      to: failed
+      actor: system
+      description: "Provider reported delivery failure"
+
+rules:
+  status_change_triggers: "Notifications are triggered automatically on order status changes: created, dispatched, en_route, arrived, completed, cancelled"
+  template_required: "Each notification type (email/SMS) must have a corresponding template configured"
+  no_pii_in_messages: "Sensitive data (PII, internal IDs) must never be included in notification messages"
+  retry_policy: "Failed notifications are retried up to 3 times with exponential backoff"
+  valid_contact: "Customers must have a valid email address or phone number to receive notifications"
+  opt_out_respected: "Notification opt-out preferences must be respected; never send to opted-out contacts"
+  sms_length: "SMS messages must comply with carrier length limits (160 characters for standard SMS)"
+  audit_log: "Each notification is logged with status for delivery audit trails"
+  asynchronous: "Notification sending is asynchronous and must not block order status transitions"
+  template_variables: "Message templates support variable substitution for order ID, customer name, ETA, etc."
+
+outcomes:
+  notification_sent_on_dispatch:
+    priority: 1
+    given:
+      - "order.dispatched event received"
+      - "customer has a valid email or phone number"
+      - "customer has not opted out of notifications"
+    then:
+      - action: create_record
+        type: notification
+      - action: emit_event
+        event: notification.queued
+        payload: [notification_id, order_uuid, recipient_type, channel]
+    result: "Dispatch notification queued for customer"
+
+  notification_sent_on_completion:
+    priority: 2
+    given:
+      - "order.completed event received"
+      - "customer has a valid contact"
+    then:
+      - action: create_record
+        type: notification
+      - action: emit_event
+        event: notification.queued
+        payload: [notification_id, order_uuid, recipient_type, channel]
+    result: "Delivery completion notification queued for customer"
+
+  driver_notified_on_dispatch:
+    priority: 3
+    given:
+      - "dispatch.assigned event received"
+      - "driver has a registered mobile device"
+    then:
+      - action: emit_event
+        event: notification.queued
+        payload: [notification_id, order_uuid, recipient_type, channel]
+    result: "Driver notified of new order assignment via push or SMS"
+
+  notification_delivered:
+    priority: 4
+    given:
+      - "provider confirms delivery"
+    then:
+      - action: set_field
+        target: status
+        value: delivered
+      - action: set_field
+        target: delivered_at
+        value: now
+    result: "Notification delivery confirmed"
+
+  notification_failed:
+    priority: 5
+    given:
+      - "provider reports failure"
+      - "retry count has reached maximum"
+    then:
+      - action: set_field
+        target: status
+        value: failed
+      - action: emit_event
+        event: notification.failed
+        payload: [notification_id, order_uuid, channel, error]
+    result: "Notification failed after maximum retries"
+    error: NOTIFICATION_DELIVERY_FAILED
+
+  recipient_opted_out:
+    priority: 1
+    given:
+      - "customer has opted out of notifications"
+    then: []
+    result: "Notification suppressed — recipient has opted out"
+    error: NOTIFICATION_OPT_OUT
+
+errors:
+  - code: NOTIFICATION_DELIVERY_FAILED
+    status: 500
+    message: "We were unable to deliver the notification. Please check your contact details."
+  - code: NOTIFICATION_OPT_OUT
+    status: 422
+    message: "Notification not sent — recipient has opted out."
+  - code: NOTIFICATION_MISSING_CONTACT
+    status: 422
+    message: "No valid contact information found for this recipient."
+  - code: NOTIFICATION_TEMPLATE_NOT_FOUND
+    status: 422
+    message: "Notification template not configured for this event."
+
+events:
+  - name: notification.queued
+    description: "Fired when a notification is queued for sending"
+    payload: [notification_id, order_uuid, recipient_type, channel, trigger_event]
+  - name: notification.sent
+    description: "Fired when notification is dispatched to the provider"
+    payload: [notification_id, sent_at]
+  - name: notification.delivered
+    description: "Fired when delivery is confirmed"
+    payload: [notification_id, delivered_at]
+  - name: notification.failed
+    description: "Fired when notification fails after all retries"
+    payload: [notification_id, order_uuid, channel, error]
+
+related:
+  - feature: order-lifecycle
+    type: required
+    reason: "Order status changes trigger notification events"
+  - feature: fleet-customer-contacts
+    type: required
+    reason: "Customer contact information for notification delivery"
+  - feature: driver-profile
+    type: recommended
+    reason: "Driver contact info for dispatch notifications"
+
+extensions:
+  source:
+    repo: "https://github.com/fleetbase/fleetbase"
+    project: "Fleet Management Platform"
+    tech_stack: "PHP (API), JavaScript/Ember.js (Console)"

@@ -1,0 +1,459 @@
+{
+  "feature": "driver-profile",
+  "version": "1.0.0",
+  "description": "Manage driver profiles, license information, availability status, and hours-of-service compliance",
+  "category": "workflow",
+  "tags": [
+    "fleet",
+    "driver",
+    "license",
+    "hos",
+    "availability",
+    "compliance"
+  ],
+  "actors": [
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Administrator managing driver records"
+    },
+    {
+      "id": "driver",
+      "name": "Driver",
+      "type": "human",
+      "description": "Driver managing their own profile and availability"
+    },
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Automated HOS tracking and compliance monitoring"
+    }
+  ],
+  "fields": [
+    {
+      "name": "driver_id",
+      "type": "text",
+      "label": "Driver ID",
+      "required": true
+    },
+    {
+      "name": "internal_id",
+      "type": "text",
+      "label": "Internal ID",
+      "required": false
+    },
+    {
+      "name": "user_uuid",
+      "type": "text",
+      "label": "User Account",
+      "required": true
+    },
+    {
+      "name": "vehicle_uuid",
+      "type": "text",
+      "label": "Default Vehicle",
+      "required": false
+    },
+    {
+      "name": "vendor_uuid",
+      "type": "text",
+      "label": "Vendor / Contractor",
+      "required": false
+    },
+    {
+      "name": "drivers_license_number",
+      "type": "text",
+      "label": "Driver License Number",
+      "required": true
+    },
+    {
+      "name": "license_class",
+      "type": "select",
+      "label": "License Class",
+      "required": false
+    },
+    {
+      "name": "license_expiry",
+      "type": "date",
+      "label": "License Expiry Date",
+      "required": false
+    },
+    {
+      "name": "avatar_url",
+      "type": "url",
+      "label": "Profile Photo",
+      "required": false
+    },
+    {
+      "name": "location",
+      "type": "json",
+      "label": "Current Location",
+      "required": false
+    },
+    {
+      "name": "heading",
+      "type": "number",
+      "label": "Heading (degrees)",
+      "required": false
+    },
+    {
+      "name": "speed",
+      "type": "number",
+      "label": "Current Speed",
+      "required": false
+    },
+    {
+      "name": "altitude",
+      "type": "number",
+      "label": "Altitude",
+      "required": false
+    },
+    {
+      "name": "country",
+      "type": "text",
+      "label": "Country",
+      "required": false
+    },
+    {
+      "name": "city",
+      "type": "text",
+      "label": "City",
+      "required": false
+    },
+    {
+      "name": "online",
+      "type": "boolean",
+      "label": "Online",
+      "required": false
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "label": "Status",
+      "required": true
+    },
+    {
+      "name": "current_job_uuid",
+      "type": "text",
+      "label": "Current Active Order",
+      "required": false
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "active",
+        "label": "Active",
+        "initial": true
+      },
+      {
+        "name": "unavailable",
+        "label": "Unavailable"
+      },
+      {
+        "name": "on_break",
+        "label": "On Break"
+      },
+      {
+        "name": "suspended",
+        "label": "Suspended",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "active",
+        "to": "unavailable",
+        "actor": "driver",
+        "description": "Driver marks themselves unavailable"
+      },
+      {
+        "from": "unavailable",
+        "to": "active",
+        "actor": "driver",
+        "description": "Driver marks themselves available"
+      },
+      {
+        "from": "active",
+        "to": "on_break",
+        "actor": "driver",
+        "description": "Driver starts a break"
+      },
+      {
+        "from": "on_break",
+        "to": "active",
+        "actor": "driver",
+        "description": "Driver ends break and becomes available"
+      },
+      {
+        "from": "active",
+        "to": "suspended",
+        "actor": "fleet_manager",
+        "description": "Fleet manager suspends driver account"
+      }
+    ]
+  },
+  "rules": {
+    "valid_license_required": "A driver must have a valid, non-expired license to be dispatched",
+    "available_to_dispatch": "Drivers can only be assigned orders when their status is active and online",
+    "hos_enforcement": "Hours-of-service limits must be enforced; exceeding configured limits blocks dispatch",
+    "continuous_location_update": "Driver location is updated continuously while online and on an active order",
+    "suspended_cannot_login": "Suspended drivers cannot log in to the driver app or be assigned orders",
+    "license_expiry_warning": "License expiry warnings must be generated 30 days before expiration",
+    "single_organization": "A driver belongs to exactly one organization; cross-organization assignment is prohibited",
+    "profile_change_approval": "Driver profile changes (license number, photo) require fleet manager approval",
+    "position_history": "Each location update is persisted as a position record for route history",
+    "earnings_tracking": "Driver earnings and payouts are tracked against the driver profile"
+  },
+  "outcomes": {
+    "profile_created": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "drivers_license_number",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "user_uuid",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "driver"
+        },
+        {
+          "action": "emit_event",
+          "event": "driver.created",
+          "payload": [
+            "driver_id",
+            "user_uuid"
+          ]
+        }
+      ],
+      "result": "Driver profile created and linked to user account"
+    },
+    "driver_goes_online": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "online",
+          "source": "input",
+          "operator": "eq",
+          "value": true
+        },
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "eq",
+          "value": "active"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "online",
+          "value": true
+        },
+        {
+          "action": "emit_event",
+          "event": "driver.online",
+          "payload": [
+            "driver_id"
+          ]
+        }
+      ],
+      "result": "Driver is online and available for dispatch"
+    },
+    "driver_goes_offline": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "online",
+          "source": "input",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "online",
+          "value": false
+        },
+        {
+          "action": "emit_event",
+          "event": "driver.offline",
+          "payload": [
+            "driver_id"
+          ]
+        }
+      ],
+      "result": "Driver is offline and unavailable for dispatch"
+    },
+    "license_expired": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "license_expiry",
+          "source": "db",
+          "operator": "lt",
+          "value": "now"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "unavailable"
+        },
+        {
+          "action": "emit_event",
+          "event": "driver.license_expired",
+          "payload": [
+            "driver_id",
+            "drivers_license_number",
+            "license_expiry"
+          ]
+        }
+      ],
+      "result": "Driver automatically made unavailable due to expired license",
+      "error": "DRIVER_LICENSE_EXPIRED"
+    },
+    "dispatch_blocked_offline": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "online",
+          "source": "db",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [],
+      "result": "Cannot dispatch to offline driver",
+      "error": "DRIVER_OFFLINE"
+    }
+  },
+  "errors": [
+    {
+      "code": "DRIVER_LICENSE_EXPIRED",
+      "status": 422,
+      "message": "This driver's license has expired and cannot be dispatched."
+    },
+    {
+      "code": "DRIVER_OFFLINE",
+      "status": 422,
+      "message": "Driver is currently offline."
+    },
+    {
+      "code": "DRIVER_SUSPENDED",
+      "status": 403,
+      "message": "This driver account is suspended."
+    },
+    {
+      "code": "DRIVER_ALREADY_ON_JOB",
+      "status": 409,
+      "message": "Driver is already assigned to an active order."
+    },
+    {
+      "code": "DRIVER_NOT_FOUND",
+      "status": 404,
+      "message": "Driver profile not found."
+    }
+  ],
+  "events": [
+    {
+      "name": "driver.created",
+      "description": "Fired when a new driver profile is created",
+      "payload": [
+        "driver_id",
+        "user_uuid"
+      ]
+    },
+    {
+      "name": "driver.online",
+      "description": "Fired when driver comes online",
+      "payload": [
+        "driver_id",
+        "location"
+      ]
+    },
+    {
+      "name": "driver.offline",
+      "description": "Fired when driver goes offline",
+      "payload": [
+        "driver_id"
+      ]
+    },
+    {
+      "name": "driver.location_updated",
+      "description": "Fired on each GPS location update",
+      "payload": [
+        "driver_id",
+        "location",
+        "speed",
+        "heading",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "driver.license_expired",
+      "description": "Fired when a driver's license expires",
+      "payload": [
+        "driver_id",
+        "drivers_license_number",
+        "license_expiry"
+      ]
+    },
+    {
+      "name": "driver.status_changed",
+      "description": "Fired when driver availability status changes",
+      "payload": [
+        "driver_id",
+        "previous_status",
+        "new_status"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "dispatch-driver-assignment",
+      "type": "required",
+      "reason": "Driver profile is the source of availability for dispatch"
+    },
+    {
+      "feature": "realtime-driver-tracking",
+      "type": "required",
+      "reason": "Driver location updates are managed via tracking"
+    },
+    {
+      "feature": "driver-earnings-payouts",
+      "type": "recommended",
+      "reason": "Earnings are tracked against driver profiles"
+    },
+    {
+      "feature": "driver-shift-scheduling",
+      "type": "recommended",
+      "reason": "Shift schedules define when drivers are available"
+    },
+    {
+      "feature": "vehicle-fleet-registry",
+      "type": "optional",
+      "reason": "Drivers may have a default vehicle assigned"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/fleetbase/fleetbase",
+      "project": "Fleet Management Platform",
+      "tech_stack": "PHP (API), JavaScript/Ember.js (Console)"
+    }
+  }
+}

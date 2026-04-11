@@ -1,0 +1,406 @@
+{
+  "feature": "vehicle-checkout",
+  "version": "1.0.0",
+  "description": "Manage vehicle check-out and check-in workflows including condition verification, mileage tracking, and responsibility handoff",
+  "category": "workflow",
+  "tags": [
+    "fleet",
+    "vehicle",
+    "checkout",
+    "checkin",
+    "handoff",
+    "mileage",
+    "inspection"
+  ],
+  "actors": [
+    {
+      "id": "driver",
+      "name": "Driver",
+      "type": "human",
+      "description": "Driver checking out and returning a vehicle"
+    },
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Fleet manager approving checkouts and reviewing returns"
+    },
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Automated availability tracking and audit"
+    }
+  ],
+  "fields": [
+    {
+      "name": "checkout_id",
+      "type": "text",
+      "label": "Checkout ID",
+      "required": true
+    },
+    {
+      "name": "vehicle_uuid",
+      "type": "text",
+      "label": "Vehicle",
+      "required": true
+    },
+    {
+      "name": "driver_uuid",
+      "type": "text",
+      "label": "Driver",
+      "required": true
+    },
+    {
+      "name": "order_uuid",
+      "type": "text",
+      "label": "Order Context",
+      "required": false
+    },
+    {
+      "name": "checkout_at",
+      "type": "datetime",
+      "label": "Checkout Time",
+      "required": false
+    },
+    {
+      "name": "checkin_at",
+      "type": "datetime",
+      "label": "Return Time",
+      "required": false
+    },
+    {
+      "name": "odometer_at_checkout",
+      "type": "number",
+      "label": "Odometer at Checkout",
+      "required": false
+    },
+    {
+      "name": "odometer_at_checkin",
+      "type": "number",
+      "label": "Odometer at Return",
+      "required": false
+    },
+    {
+      "name": "distance_traveled",
+      "type": "number",
+      "label": "Distance Traveled",
+      "required": false
+    },
+    {
+      "name": "fuel_level_at_checkout",
+      "type": "number",
+      "label": "Fuel Level at Checkout (%)",
+      "required": false
+    },
+    {
+      "name": "fuel_level_at_checkin",
+      "type": "number",
+      "label": "Fuel Level at Return (%)",
+      "required": false
+    },
+    {
+      "name": "condition_at_checkout",
+      "type": "select",
+      "label": "Condition at Checkout",
+      "required": false
+    },
+    {
+      "name": "condition_at_checkin",
+      "type": "select",
+      "label": "Condition at Return",
+      "required": false
+    },
+    {
+      "name": "notes",
+      "type": "rich_text",
+      "label": "Notes",
+      "required": false
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "label": "Status",
+      "required": true
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "pending",
+        "label": "Pending Approval",
+        "initial": true
+      },
+      {
+        "name": "checked_out",
+        "label": "Checked Out"
+      },
+      {
+        "name": "in_use",
+        "label": "In Use"
+      },
+      {
+        "name": "returned",
+        "label": "Returned",
+        "terminal": true
+      },
+      {
+        "name": "cancelled",
+        "label": "Cancelled",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "pending",
+        "to": "checked_out",
+        "actor": "fleet_manager",
+        "description": "Fleet manager approves vehicle checkout"
+      },
+      {
+        "from": "checked_out",
+        "to": "in_use",
+        "actor": "driver",
+        "description": "Driver confirms vehicle departure"
+      },
+      {
+        "from": "in_use",
+        "to": "returned",
+        "actor": "driver",
+        "description": "Driver returns vehicle and completes check-in"
+      },
+      {
+        "from": "pending",
+        "to": "cancelled",
+        "actor": "fleet_manager",
+        "description": "Checkout request denied or cancelled"
+      }
+    ]
+  },
+  "rules": {
+    "no_double_checkout": "A vehicle cannot be checked out if it is already checked out to another driver",
+    "maintenance_not_available": "Vehicles under maintenance are not available for checkout",
+    "odometer_monotonic": "Odometer readings at check-in must be equal to or greater than readings at checkout",
+    "pre_inspection": "Pre-checkout inspection captures vehicle condition and fuel level as baseline",
+    "post_inspection": "Post-return inspection is compared to baseline to identify damage or fuel usage",
+    "distance_calculation": "Distance traveled is calculated as odometer_at_checkin minus odometer_at_checkout",
+    "duration_tracking": "Checkout duration is tracked for hours-of-service compliance",
+    "overdue_notifications": "Fleet managers receive notifications when a vehicle is overdue for return",
+    "damage_triggers_incident": "Any damage noted at check-in not present at checkout triggers an incident report",
+    "history_retention": "Checkout history is retained for audit, maintenance scheduling, and billing"
+  },
+  "outcomes": {
+    "checkout_requested": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "vehicle_uuid",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "driver_uuid",
+          "source": "input",
+          "operator": "exists"
+        },
+        "vehicle status is active and not currently checked out"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "checkout"
+        },
+        {
+          "action": "emit_event",
+          "event": "vehicle_checkout.requested",
+          "payload": [
+            "checkout_id",
+            "vehicle_uuid",
+            "driver_uuid"
+          ]
+        }
+      ],
+      "result": "Checkout request submitted for fleet manager approval"
+    },
+    "checkout_approved": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "eq",
+          "value": "pending"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "checked_out"
+        },
+        {
+          "action": "set_field",
+          "target": "checkout_at",
+          "value": "now"
+        },
+        {
+          "action": "emit_event",
+          "event": "vehicle_checkout.approved",
+          "payload": [
+            "checkout_id",
+            "vehicle_uuid",
+            "driver_uuid",
+            "checkout_at"
+          ]
+        }
+      ],
+      "result": "Vehicle checked out; driver has custody"
+    },
+    "vehicle_returned": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "eq",
+          "value": "in_use"
+        },
+        {
+          "field": "odometer_at_checkin",
+          "source": "input",
+          "operator": "gte",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "returned"
+        },
+        {
+          "action": "set_field",
+          "target": "checkin_at",
+          "value": "now"
+        },
+        {
+          "action": "emit_event",
+          "event": "vehicle_checkout.returned",
+          "payload": [
+            "checkout_id",
+            "vehicle_uuid",
+            "driver_uuid",
+            "distance_traveled"
+          ]
+        }
+      ],
+      "result": "Vehicle returned; distance and condition logged"
+    },
+    "vehicle_already_checked_out": {
+      "priority": 1,
+      "given": [
+        "vehicle is currently checked out"
+      ],
+      "then": [],
+      "result": "Checkout denied — vehicle is already in use",
+      "error": "CHECKOUT_VEHICLE_UNAVAILABLE"
+    },
+    "invalid_odometer": {
+      "priority": 2,
+      "given": [
+        "odometer_at_checkin is less than odometer_at_checkout"
+      ],
+      "then": [],
+      "result": "Check-in rejected — odometer reading cannot decrease",
+      "error": "CHECKOUT_INVALID_ODOMETER"
+    }
+  },
+  "errors": [
+    {
+      "code": "CHECKOUT_VEHICLE_UNAVAILABLE",
+      "status": 409,
+      "message": "This vehicle is currently checked out to another driver."
+    },
+    {
+      "code": "CHECKOUT_INVALID_ODOMETER",
+      "status": 422,
+      "message": "Return odometer reading must be greater than or equal to checkout reading."
+    },
+    {
+      "code": "CHECKOUT_NOT_FOUND",
+      "status": 404,
+      "message": "Checkout record not found."
+    }
+  ],
+  "events": [
+    {
+      "name": "vehicle_checkout.requested",
+      "description": "Fired when a driver requests to check out a vehicle",
+      "payload": [
+        "checkout_id",
+        "vehicle_uuid",
+        "driver_uuid"
+      ]
+    },
+    {
+      "name": "vehicle_checkout.approved",
+      "description": "Fired when checkout is approved by fleet manager",
+      "payload": [
+        "checkout_id",
+        "vehicle_uuid",
+        "driver_uuid",
+        "checkout_at"
+      ]
+    },
+    {
+      "name": "vehicle_checkout.returned",
+      "description": "Fired when vehicle is returned after use",
+      "payload": [
+        "checkout_id",
+        "vehicle_uuid",
+        "driver_uuid",
+        "distance_traveled",
+        "checkin_at"
+      ]
+    },
+    {
+      "name": "vehicle_checkout.overdue",
+      "description": "Fired when vehicle has not been returned by expected return time",
+      "payload": [
+        "checkout_id",
+        "vehicle_uuid",
+        "driver_uuid"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vehicle-fleet-registry",
+      "type": "required",
+      "reason": "Vehicle availability is managed in the fleet registry"
+    },
+    {
+      "feature": "driver-profile",
+      "type": "required",
+      "reason": "Driver is responsible for vehicle during checkout"
+    },
+    {
+      "feature": "field-incident-reporting",
+      "type": "recommended",
+      "reason": "Damage found at check-in can trigger an incident report"
+    },
+    {
+      "feature": "order-lifecycle",
+      "type": "optional",
+      "reason": "Checkout can be linked to a specific delivery order"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/fleetbase/fleetbase",
+      "project": "Fleet Management Platform",
+      "tech_stack": "PHP (API), JavaScript/Ember.js (Console)"
+    }
+  }
+}

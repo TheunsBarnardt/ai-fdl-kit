@@ -1,0 +1,218 @@
+feature: order-lifecycle-webhooks
+version: "1.0.0"
+description: "Configure and deliver webhook notifications to third-party endpoints for order lifecycle events"
+category: integration
+tags: [fleet, webhooks, events, integration, callbacks, api]
+
+actors:
+  - id: developer
+    name: Developer
+    type: human
+    description: "Technical user configuring webhook endpoints"
+  - id: system
+    name: Webhook Delivery Engine
+    type: system
+    description: "Webhook signing, queuing, and delivery service"
+  - id: external_service
+    name: External Service
+    type: external
+    description: "Third-party system receiving webhook payloads"
+
+fields:
+  - name: webhook_id
+    type: text
+    label: Webhook ID
+    required: true
+  - name: url
+    type: url
+    label: Endpoint URL
+    required: true
+  - name: mode
+    type: select
+    label: Mode
+    required: false
+  - name: version
+    type: text
+    label: API Version
+    required: false
+  - name: description
+    type: text
+    label: Description
+    required: false
+  - name: events
+    type: json
+    label: Subscribed Events
+    required: true
+  - name: status
+    type: select
+    label: Status
+    required: true
+  - name: api_credential_uuid
+    type: text
+    label: API Credential
+    required: false
+  - name: request_log_id
+    type: text
+    label: Request Log ID
+    required: false
+  - name: response_code
+    type: number
+    label: HTTP Response Code
+    required: false
+  - name: response_body
+    type: text
+    label: Response Body
+    required: false
+  - name: delivered_at
+    type: datetime
+    label: Delivered At
+    required: false
+  - name: next_retry_at
+    type: datetime
+    label: Next Retry At
+    required: false
+
+states:
+  field: status
+  values:
+    - name: active
+      label: Active
+      initial: true
+    - name: disabled
+      label: Disabled
+      terminal: true
+  transitions:
+    - from: active
+      to: disabled
+      actor: developer
+      description: "Endpoint manually disabled"
+    - from: disabled
+      to: active
+      actor: developer
+      description: "Endpoint re-enabled"
+
+rules:
+  https_required: "Webhook endpoints must use HTTPS; HTTP endpoints are rejected"
+  hmac_signing: "Each payload is signed with HMAC-SHA256 using the organization's secret key"
+  signature_validation: "Recipients must validate the signature to verify authenticity"
+  retry_with_backoff: "Failed deliveries are retried with exponential backoff up to a configurable maximum"
+  event_subscription: "Webhook subscriptions specify which event types to receive"
+  request_log_retention: "Webhook request and response logs are retained for audit and debugging"
+  disabled_no_delivery: "Disabled endpoints do not receive delivery attempts"
+  test_mode: "Test mode sends payloads with synthetic test data without affecting live records"
+  payload_structure: "Webhook payloads include event type, timestamp, and the full event data object"
+  endpoint_limit: "A maximum of 100 active webhook endpoints per organization is enforced"
+
+outcomes:
+  webhook_registered:
+    priority: 1
+    given:
+      - field: url
+        source: input
+        operator: exists
+      - field: events
+        source: input
+        operator: exists
+      - "URL starts with https://"
+    then:
+      - action: create_record
+        type: webhook_endpoint
+      - action: emit_event
+        event: webhook.registered
+        payload: [webhook_id, url, events]
+    result: "Webhook endpoint registered and ready to receive events"
+
+  event_delivered:
+    priority: 2
+    given:
+      - "subscribed event fires"
+      - field: status
+        source: db
+        operator: eq
+        value: active
+    then:
+      - action: create_record
+        type: webhook_request_log
+      - action: emit_event
+        event: webhook.delivered
+        payload: [webhook_id, event_type, response_code, delivered_at]
+    result: "Event payload successfully delivered to endpoint"
+
+  delivery_failed:
+    priority: 3
+    given:
+      - "HTTP response code is 4xx or 5xx, or connection timed out"
+      - "retry count is below maximum"
+    then:
+      - action: set_field
+        target: next_retry_at
+        value: exponential_backoff
+      - action: emit_event
+        event: webhook.delivery_failed
+        payload: [webhook_id, event_type, response_code, next_retry_at]
+    result: "Delivery failed; scheduled for retry"
+    error: WEBHOOK_DELIVERY_FAILED
+
+  max_retries_exceeded:
+    priority: 4
+    given:
+      - "retry count has reached maximum"
+    then:
+      - action: emit_event
+        event: webhook.permanently_failed
+        payload: [webhook_id, event_type]
+    result: "Webhook delivery permanently failed"
+    error: WEBHOOK_MAX_RETRIES_EXCEEDED
+
+  http_url_rejected:
+    priority: 1
+    given:
+      - "URL does not start with https://"
+    then: []
+    result: "Webhook registration rejected — HTTPS required"
+    error: WEBHOOK_HTTPS_REQUIRED
+
+errors:
+  - code: WEBHOOK_HTTPS_REQUIRED
+    status: 422
+    message: "Webhook endpoints must use HTTPS."
+  - code: WEBHOOK_DELIVERY_FAILED
+    status: 500
+    message: "Webhook delivery failed. Retrying automatically."
+  - code: WEBHOOK_MAX_RETRIES_EXCEEDED
+    status: 500
+    message: "Webhook endpoint is unreachable after maximum retries."
+  - code: WEBHOOK_ENDPOINT_LIMIT
+    status: 429
+    message: "Maximum number of webhook endpoints reached."
+
+events:
+  - name: webhook.registered
+    description: "Fired when a new webhook endpoint is configured"
+    payload: [webhook_id, url, events, mode]
+  - name: webhook.delivered
+    description: "Fired when an event is successfully delivered"
+    payload: [webhook_id, event_type, response_code, delivered_at]
+  - name: webhook.delivery_failed
+    description: "Fired when delivery fails and a retry is scheduled"
+    payload: [webhook_id, event_type, response_code, next_retry_at]
+  - name: webhook.permanently_failed
+    description: "Fired when all retry attempts are exhausted"
+    payload: [webhook_id, event_type]
+
+related:
+  - feature: order-lifecycle
+    type: required
+    reason: "Order lifecycle events are the primary webhook source"
+  - feature: fleet-public-api
+    type: required
+    reason: "Webhooks complement the public API for event-driven integrations"
+  - feature: multi-tenant-organization
+    type: required
+    reason: "Webhook endpoints are scoped per organization"
+
+extensions:
+  source:
+    repo: "https://github.com/fleetbase/fleetbase"
+    project: "Fleet Management Platform"
+    tech_stack: "PHP (API), JavaScript/Ember.js (Console)"

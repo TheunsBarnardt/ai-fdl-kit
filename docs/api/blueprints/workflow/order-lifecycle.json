@@ -1,0 +1,607 @@
+{
+  "feature": "order-lifecycle",
+  "version": "1.0.0",
+  "description": "End-to-end delivery order lifecycle management from creation through completion or cancellation",
+  "category": "workflow",
+  "tags": [
+    "fleet",
+    "delivery",
+    "order",
+    "logistics",
+    "dispatch"
+  ],
+  "actors": [
+    {
+      "id": "dispatcher",
+      "name": "Dispatcher",
+      "type": "human",
+      "description": "Operations staff who create and manage orders"
+    },
+    {
+      "id": "driver",
+      "name": "Driver",
+      "type": "human",
+      "description": "Field driver executing the delivery"
+    },
+    {
+      "id": "customer",
+      "name": "Customer",
+      "type": "human",
+      "description": "Entity placing the delivery order"
+    },
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Automated order processing and state transitions"
+    }
+  ],
+  "fields": [
+    {
+      "name": "order_id",
+      "type": "text",
+      "label": "Order ID",
+      "required": true
+    },
+    {
+      "name": "internal_id",
+      "type": "text",
+      "label": "Internal Reference ID",
+      "required": false
+    },
+    {
+      "name": "customer_uuid",
+      "type": "text",
+      "label": "Customer",
+      "required": true
+    },
+    {
+      "name": "driver_assigned_uuid",
+      "type": "text",
+      "label": "Assigned Driver",
+      "required": false
+    },
+    {
+      "name": "vehicle_assigned_uuid",
+      "type": "text",
+      "label": "Assigned Vehicle",
+      "required": false
+    },
+    {
+      "name": "payload_uuid",
+      "type": "text",
+      "label": "Payload (Pickup/Dropoff)",
+      "required": true
+    },
+    {
+      "name": "route_uuid",
+      "type": "text",
+      "label": "Route",
+      "required": false
+    },
+    {
+      "name": "scheduled_at",
+      "type": "datetime",
+      "label": "Scheduled Time",
+      "required": false
+    },
+    {
+      "name": "dispatched_at",
+      "type": "datetime",
+      "label": "Dispatched At",
+      "required": false
+    },
+    {
+      "name": "started_at",
+      "type": "datetime",
+      "label": "Started At",
+      "required": false
+    },
+    {
+      "name": "pod_required",
+      "type": "boolean",
+      "label": "POD Required",
+      "required": false
+    },
+    {
+      "name": "pod_method",
+      "type": "select",
+      "label": "POD Method",
+      "required": false
+    },
+    {
+      "name": "notes",
+      "type": "rich_text",
+      "label": "Delivery Notes",
+      "required": false
+    },
+    {
+      "name": "type",
+      "type": "text",
+      "label": "Order Type",
+      "required": false
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "label": "Status",
+      "required": true
+    },
+    {
+      "name": "distance",
+      "type": "number",
+      "label": "Route Distance (m)",
+      "required": false
+    },
+    {
+      "name": "time",
+      "type": "number",
+      "label": "Estimated Time (s)",
+      "required": false
+    },
+    {
+      "name": "adhoc",
+      "type": "boolean",
+      "label": "Ad-hoc Order",
+      "required": false
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "created",
+        "label": "Created",
+        "initial": true
+      },
+      {
+        "name": "pending",
+        "label": "Pending"
+      },
+      {
+        "name": "dispatched",
+        "label": "Dispatched"
+      },
+      {
+        "name": "driver_enroute",
+        "label": "Driver En Route"
+      },
+      {
+        "name": "arrived",
+        "label": "Arrived"
+      },
+      {
+        "name": "driver_waiting",
+        "label": "Driver Waiting"
+      },
+      {
+        "name": "in_progress",
+        "label": "In Progress"
+      },
+      {
+        "name": "completed",
+        "label": "Completed",
+        "terminal": true
+      },
+      {
+        "name": "cancelled",
+        "label": "Cancelled",
+        "terminal": true
+      },
+      {
+        "name": "failed",
+        "label": "Failed",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "created",
+        "to": "pending",
+        "actor": "dispatcher",
+        "description": "Order queued for dispatch"
+      },
+      {
+        "from": "pending",
+        "to": "dispatched",
+        "actor": "dispatcher",
+        "description": "Driver and vehicle assigned, order dispatched"
+      },
+      {
+        "from": "dispatched",
+        "to": "driver_enroute",
+        "actor": "driver",
+        "description": "Driver accepts and begins traveling to pickup"
+      },
+      {
+        "from": "driver_enroute",
+        "to": "arrived",
+        "actor": "driver",
+        "description": "Driver arrives at pickup location"
+      },
+      {
+        "from": "arrived",
+        "to": "in_progress",
+        "actor": "driver",
+        "description": "Driver picks up cargo and begins delivery"
+      },
+      {
+        "from": "in_progress",
+        "to": "completed",
+        "actor": "driver",
+        "description": "Delivery completed"
+      },
+      {
+        "from": "dispatched",
+        "to": "cancelled",
+        "actor": "dispatcher",
+        "description": "Order cancelled after dispatch"
+      },
+      {
+        "from": "pending",
+        "to": "cancelled",
+        "actor": "dispatcher",
+        "description": "Order cancelled before dispatch"
+      },
+      {
+        "from": "in_progress",
+        "to": "failed",
+        "actor": "system",
+        "description": "Delivery failed due to unresolvable exception"
+      }
+    ]
+  },
+  "rules": {
+    "dispatch_requires_driver_and_vehicle": "A driver and vehicle must be assigned before an order can be dispatched",
+    "pod_required_before_completion": "Proof of delivery must be collected before completing when pod_required is true",
+    "no_reactivation": "Cancelled or failed orders cannot be reactivated; a new order must be created",
+    "valid_state_transitions": "Order status transitions must follow the defined state machine",
+    "scheduled_dispatch_window": "Scheduled orders cannot be dispatched more than 30 minutes early without override",
+    "audit_all_transitions": "Each status change is logged with timestamp, actor, and previous status",
+    "driver_must_be_available": "An order can only be assigned to a driver whose status is available",
+    "payload_required": "An order must have at least one pickup and one dropoff waypoint in the payload",
+    "recalculate_on_route_change": "Distance and time estimates must be recalculated whenever the route changes",
+    "tenant_isolation": "Each order belongs to exactly one organization and is invisible to others"
+  },
+  "outcomes": {
+    "order_created": {
+      "priority": 1,
+      "given": [
+        "dispatcher is authenticated and authorized",
+        {
+          "field": "payload_uuid",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "order"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.created",
+          "payload": [
+            "order_id",
+            "customer_uuid",
+            "scheduled_at",
+            "type"
+          ]
+        },
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "created"
+        }
+      ],
+      "result": "Order created in 'created' state and awaits dispatch"
+    },
+    "order_dispatched": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "driver_assigned_uuid",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "vehicle_assigned_uuid",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "in",
+          "value": [
+            "created",
+            "pending"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "dispatched"
+        },
+        {
+          "action": "set_field",
+          "target": "dispatched_at",
+          "value": "now"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.dispatched",
+          "payload": [
+            "order_id",
+            "driver_assigned_uuid",
+            "vehicle_assigned_uuid"
+          ]
+        }
+      ],
+      "result": "Order dispatched to driver with route and instructions"
+    },
+    "driver_started": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "eq",
+          "value": "dispatched"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "driver_enroute"
+        },
+        {
+          "action": "set_field",
+          "target": "started_at",
+          "value": "now"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.driver_enroute",
+          "payload": [
+            "order_id",
+            "driver_assigned_uuid"
+          ]
+        }
+      ],
+      "result": "Driver is en route to pickup location"
+    },
+    "delivery_completed": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "eq",
+          "value": "in_progress"
+        },
+        "pod_required is false OR proof of delivery has been captured"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "completed"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.completed",
+          "payload": [
+            "order_id",
+            "driver_assigned_uuid",
+            "customer_uuid"
+          ]
+        }
+      ],
+      "result": "Order completed and customer notified"
+    },
+    "order_cancelled": {
+      "priority": 5,
+      "given": [
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "not_in",
+          "value": [
+            "completed",
+            "cancelled",
+            "failed"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "cancelled"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.cancelled",
+          "payload": [
+            "order_id",
+            "customer_uuid"
+          ]
+        }
+      ],
+      "result": "Order cancelled and all parties notified"
+    },
+    "dispatch_rejected_no_driver": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "driver_assigned_uuid",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [],
+      "result": "Dispatch rejected — driver must be assigned first",
+      "error": "ORDER_DISPATCH_REQUIRES_DRIVER"
+    },
+    "pod_missing": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "pod_required",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        },
+        "no proof of delivery record exists for this order"
+      ],
+      "then": [],
+      "result": "Completion blocked until proof of delivery is captured",
+      "error": "ORDER_POD_REQUIRED"
+    }
+  },
+  "errors": [
+    {
+      "code": "ORDER_DISPATCH_REQUIRES_DRIVER",
+      "status": 422,
+      "message": "A driver must be assigned before dispatching the order."
+    },
+    {
+      "code": "ORDER_DISPATCH_REQUIRES_VEHICLE",
+      "status": 422,
+      "message": "A vehicle must be assigned before dispatching the order."
+    },
+    {
+      "code": "ORDER_POD_REQUIRED",
+      "status": 422,
+      "message": "Proof of delivery is required to complete this order."
+    },
+    {
+      "code": "ORDER_INVALID_TRANSITION",
+      "status": 422,
+      "message": "This status change is not allowed at this stage."
+    },
+    {
+      "code": "ORDER_NOT_FOUND",
+      "status": 404,
+      "message": "The requested order could not be found."
+    }
+  ],
+  "events": [
+    {
+      "name": "order.created",
+      "description": "Fired when a new order is created",
+      "payload": [
+        "order_id",
+        "customer_uuid",
+        "scheduled_at",
+        "type"
+      ]
+    },
+    {
+      "name": "order.dispatched",
+      "description": "Fired when an order is dispatched to a driver",
+      "payload": [
+        "order_id",
+        "driver_assigned_uuid",
+        "vehicle_assigned_uuid",
+        "dispatched_at"
+      ]
+    },
+    {
+      "name": "order.driver_enroute",
+      "description": "Fired when driver starts traveling to pickup",
+      "payload": [
+        "order_id",
+        "driver_assigned_uuid",
+        "started_at"
+      ]
+    },
+    {
+      "name": "order.arrived",
+      "description": "Fired when driver arrives at pickup location",
+      "payload": [
+        "order_id",
+        "driver_assigned_uuid"
+      ]
+    },
+    {
+      "name": "order.in_progress",
+      "description": "Fired when delivery is in progress",
+      "payload": [
+        "order_id",
+        "driver_assigned_uuid"
+      ]
+    },
+    {
+      "name": "order.completed",
+      "description": "Fired when delivery is successfully completed",
+      "payload": [
+        "order_id",
+        "driver_assigned_uuid",
+        "customer_uuid"
+      ]
+    },
+    {
+      "name": "order.cancelled",
+      "description": "Fired when an order is cancelled",
+      "payload": [
+        "order_id",
+        "customer_uuid",
+        "cancelled_by"
+      ]
+    },
+    {
+      "name": "order.failed",
+      "description": "Fired when a delivery fails",
+      "payload": [
+        "order_id",
+        "driver_assigned_uuid",
+        "reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "dispatch-driver-assignment",
+      "type": "required",
+      "reason": "Driver and vehicle assignment is required before dispatch"
+    },
+    {
+      "feature": "route-planning",
+      "type": "required",
+      "reason": "Route must be planned for order execution"
+    },
+    {
+      "feature": "proof-of-delivery",
+      "type": "recommended",
+      "reason": "POD collection validates delivery completion"
+    },
+    {
+      "feature": "delivery-notifications",
+      "type": "recommended",
+      "reason": "Customer and driver notifications at each status change"
+    },
+    {
+      "feature": "order-sla-eta",
+      "type": "recommended",
+      "reason": "ETA tracking per order for SLA monitoring"
+    },
+    {
+      "feature": "order-lifecycle-webhooks",
+      "type": "optional",
+      "reason": "Webhook delivery of order lifecycle events to third parties"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/fleetbase/fleetbase",
+      "project": "Fleet Management Platform",
+      "tech_stack": "PHP (API), JavaScript/Ember.js (Console)"
+    }
+  }
+}

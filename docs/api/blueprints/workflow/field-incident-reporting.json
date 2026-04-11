@@ -1,0 +1,429 @@
+{
+  "feature": "field-incident-reporting",
+  "version": "1.0.0",
+  "description": "Allow drivers and fleet staff to report field issues and incidents against vehicles, orders, or locations",
+  "category": "workflow",
+  "tags": [
+    "fleet",
+    "incident",
+    "issue",
+    "reporting",
+    "field",
+    "safety"
+  ],
+  "actors": [
+    {
+      "id": "driver",
+      "name": "Driver",
+      "type": "human",
+      "description": "Driver reporting an issue from the field"
+    },
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Manager reviewing and resolving incidents"
+    },
+    {
+      "id": "assigned_agent",
+      "name": "Assigned Agent",
+      "type": "human",
+      "description": "Staff member assigned to investigate and resolve the incident"
+    },
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Incident tracking and escalation automation"
+    }
+  ],
+  "fields": [
+    {
+      "name": "issue_id",
+      "type": "text",
+      "label": "Issue ID",
+      "required": true
+    },
+    {
+      "name": "driver_uuid",
+      "type": "text",
+      "label": "Driver",
+      "required": false
+    },
+    {
+      "name": "vehicle_uuid",
+      "type": "text",
+      "label": "Vehicle",
+      "required": false
+    },
+    {
+      "name": "assigned_to_uuid",
+      "type": "text",
+      "label": "Assigned To",
+      "required": false
+    },
+    {
+      "name": "reported_by_uuid",
+      "type": "text",
+      "label": "Reported By",
+      "required": true
+    },
+    {
+      "name": "type",
+      "type": "select",
+      "label": "Issue Type",
+      "required": true
+    },
+    {
+      "name": "category",
+      "type": "text",
+      "label": "Category",
+      "required": false
+    },
+    {
+      "name": "report",
+      "type": "rich_text",
+      "label": "Incident Report",
+      "required": true
+    },
+    {
+      "name": "priority",
+      "type": "select",
+      "label": "Priority",
+      "required": true
+    },
+    {
+      "name": "location",
+      "type": "json",
+      "label": "Incident Location",
+      "required": false
+    },
+    {
+      "name": "tags",
+      "type": "json",
+      "label": "Tags",
+      "required": false
+    },
+    {
+      "name": "meta",
+      "type": "json",
+      "label": "Additional Data",
+      "required": false
+    },
+    {
+      "name": "resolved_at",
+      "type": "datetime",
+      "label": "Resolved At",
+      "required": false
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "label": "Status",
+      "required": true
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "open",
+        "label": "Open",
+        "initial": true
+      },
+      {
+        "name": "pending",
+        "label": "Pending Review"
+      },
+      {
+        "name": "in_review",
+        "label": "In Review"
+      },
+      {
+        "name": "resolved",
+        "label": "Resolved",
+        "terminal": true
+      },
+      {
+        "name": "closed",
+        "label": "Closed",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "open",
+        "to": "pending",
+        "actor": "system",
+        "description": "Incident received and queued for review"
+      },
+      {
+        "from": "pending",
+        "to": "in_review",
+        "actor": "fleet_manager",
+        "description": "Fleet manager assigns incident to an agent"
+      },
+      {
+        "from": "in_review",
+        "to": "resolved",
+        "actor": "assigned_agent",
+        "description": "Incident resolved and documented"
+      },
+      {
+        "from": "resolved",
+        "to": "closed",
+        "actor": "fleet_manager",
+        "description": "Resolution confirmed and case closed"
+      },
+      {
+        "from": "open",
+        "to": "closed",
+        "actor": "fleet_manager",
+        "description": "Incident closed without action (duplicate or invalid)"
+      }
+    ]
+  },
+  "rules": {
+    "critical_immediate_notification": "Critical priority incidents trigger immediate notifications to fleet managers",
+    "subject_required": "An incident must reference either a driver or vehicle (or both)",
+    "auto_capture_location": "GPS location is captured automatically from the driver's current position when reporting",
+    "accident_compliance": "Incidents involving accidents must be flagged for insurance and compliance review",
+    "resolution_required": "Resolved incidents must include a resolution description before closing",
+    "auto_escalation": "Unresolved critical incidents escalate automatically after a configurable time period",
+    "audit_transitions": "All incident status changes are logged with actor, timestamp, and notes",
+    "photo_attachments": "Photos can be attached to incident reports as file references",
+    "org_scoped": "Incidents are visible only to the reporter's organization",
+    "driver_own_incidents": "Driver can only view and edit their own reported incidents"
+  },
+  "outcomes": {
+    "incident_reported": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "report",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "type",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "issue"
+        },
+        {
+          "action": "emit_event",
+          "event": "incident.reported",
+          "payload": [
+            "issue_id",
+            "reported_by_uuid",
+            "type",
+            "priority"
+          ]
+        }
+      ],
+      "result": "Incident report created and submitted for review"
+    },
+    "critical_incident_escalated": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "priority",
+          "source": "input",
+          "operator": "eq",
+          "value": "critical"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "incident.critical_escalated",
+          "payload": [
+            "issue_id",
+            "type",
+            "driver_uuid",
+            "vehicle_uuid",
+            "location"
+          ]
+        }
+      ],
+      "result": "Critical incident immediately escalated to fleet managers"
+    },
+    "incident_assigned": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "assigned_to_uuid",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "in_review"
+        },
+        {
+          "action": "emit_event",
+          "event": "incident.assigned",
+          "payload": [
+            "issue_id",
+            "assigned_to_uuid"
+          ]
+        }
+      ],
+      "result": "Incident assigned to agent for investigation"
+    },
+    "incident_resolved": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "eq",
+          "value": "in_review"
+        },
+        "resolution description provided"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "resolved"
+        },
+        {
+          "action": "set_field",
+          "target": "resolved_at",
+          "value": "now"
+        },
+        {
+          "action": "emit_event",
+          "event": "incident.resolved",
+          "payload": [
+            "issue_id",
+            "assigned_to_uuid",
+            "resolved_at"
+          ]
+        }
+      ],
+      "result": "Incident marked as resolved with documentation"
+    },
+    "incident_closed_without_action": {
+      "priority": 5,
+      "given": [
+        "incident is duplicate or invalid"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "status",
+          "value": "closed"
+        },
+        {
+          "action": "emit_event",
+          "event": "incident.closed",
+          "payload": [
+            "issue_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Incident closed without action"
+    }
+  },
+  "errors": [
+    {
+      "code": "INCIDENT_MISSING_SUBJECT",
+      "status": 422,
+      "message": "An incident must reference a driver or vehicle."
+    },
+    {
+      "code": "INCIDENT_NOT_FOUND",
+      "status": 404,
+      "message": "Incident not found."
+    },
+    {
+      "code": "INCIDENT_ALREADY_CLOSED",
+      "status": 409,
+      "message": "This incident is already closed."
+    }
+  ],
+  "events": [
+    {
+      "name": "incident.reported",
+      "description": "Fired when a new incident is submitted",
+      "payload": [
+        "issue_id",
+        "reported_by_uuid",
+        "type",
+        "priority",
+        "location"
+      ]
+    },
+    {
+      "name": "incident.critical_escalated",
+      "description": "Fired immediately when a critical priority incident is reported",
+      "payload": [
+        "issue_id",
+        "type",
+        "driver_uuid",
+        "vehicle_uuid",
+        "location"
+      ]
+    },
+    {
+      "name": "incident.assigned",
+      "description": "Fired when an incident is assigned to an agent",
+      "payload": [
+        "issue_id",
+        "assigned_to_uuid"
+      ]
+    },
+    {
+      "name": "incident.resolved",
+      "description": "Fired when an incident is resolved",
+      "payload": [
+        "issue_id",
+        "assigned_to_uuid",
+        "resolved_at"
+      ]
+    },
+    {
+      "name": "incident.closed",
+      "description": "Fired when an incident is closed",
+      "payload": [
+        "issue_id",
+        "reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "driver-profile",
+      "type": "required",
+      "reason": "Incidents are linked to the reporting driver"
+    },
+    {
+      "feature": "vehicle-fleet-registry",
+      "type": "required",
+      "reason": "Incidents can be linked to specific vehicles"
+    },
+    {
+      "feature": "realtime-driver-tracking",
+      "type": "recommended",
+      "reason": "Driver GPS location captured with incident report"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/fleetbase/fleetbase",
+      "project": "Fleet Management Platform",
+      "tech_stack": "PHP (API), JavaScript/Ember.js (Console)"
+    }
+  }
+}

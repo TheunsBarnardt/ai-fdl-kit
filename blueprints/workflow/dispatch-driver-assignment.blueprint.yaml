@@ -1,0 +1,258 @@
+feature: dispatch-driver-assignment
+version: "1.0.0"
+description: "Assign drivers and vehicles to orders, manage dispatch queue, and handle driver acceptance or rejection"
+category: workflow
+tags: [fleet, dispatch, driver, vehicle, assignment]
+
+actors:
+  - id: dispatcher
+    name: Dispatcher
+    type: human
+    description: "Operations staff managing the dispatch queue"
+  - id: driver
+    name: Driver
+    type: human
+    description: "Driver receiving the dispatch"
+  - id: system
+    name: System
+    type: system
+    description: "Automated assignment and optimization engine"
+
+fields:
+  - name: order_uuid
+    type: text
+    label: Order
+    required: true
+  - name: driver_uuid
+    type: text
+    label: Assigned Driver
+    required: true
+  - name: vehicle_uuid
+    type: text
+    label: Assigned Vehicle
+    required: true
+  - name: dispatched_at
+    type: datetime
+    label: Dispatched At
+    required: false
+  - name: dispatch_method
+    type: select
+    label: Dispatch Method
+    required: false
+  - name: driver_response
+    type: select
+    label: Driver Response
+    required: false
+  - name: driver_response_at
+    type: datetime
+    label: Driver Response Time
+    required: false
+  - name: notes
+    type: text
+    label: Dispatcher Notes
+    required: false
+  - name: status
+    type: select
+    label: Status
+    required: true
+
+states:
+  field: status
+  values:
+    - name: pending_assignment
+      label: Pending Assignment
+      initial: true
+    - name: assigned
+      label: Assigned
+    - name: dispatched
+      label: Dispatched
+    - name: accepted
+      label: Accepted
+    - name: rejected
+      label: Rejected
+      terminal: true
+    - name: reassigned
+      label: Reassigned
+  transitions:
+    - from: pending_assignment
+      to: assigned
+      actor: dispatcher
+      description: "Driver and vehicle manually assigned"
+    - from: pending_assignment
+      to: assigned
+      actor: system
+      description: "System auto-assigns based on proximity and availability"
+    - from: assigned
+      to: dispatched
+      actor: dispatcher
+      description: "Order dispatched to assigned driver"
+    - from: dispatched
+      to: accepted
+      actor: driver
+      description: "Driver accepts the dispatch"
+    - from: dispatched
+      to: rejected
+      actor: driver
+      description: "Driver rejects the dispatch"
+    - from: rejected
+      to: reassigned
+      actor: dispatcher
+      description: "Dispatcher assigns a different driver"
+
+rules:
+  driver_must_be_available: "A driver must have status 'available' (online and not on an active order) to be assigned"
+  vehicle_must_be_operational: "A vehicle must be assigned and operational to be dispatched"
+  same_organization: "Driver and vehicle must belong to the same organization"
+  suggest_nearest_driver: "System should suggest the nearest available driver based on current GPS position"
+  rejection_returns_to_queue: "If a driver rejects a dispatch, the order returns to the queue for reassignment"
+  immediate_push_notification: "Dispatch notifications must be sent to the driver's mobile device immediately"
+  one_active_order_per_driver: "A driver can only be assigned to one active order at a time"
+  timestamp_responses: "Driver acceptance or rejection must be timestamped for SLA tracking"
+  dispatcher_override: "Dispatcher can override system suggestions and manually select any available driver"
+  adhoc_radius: "Ad-hoc orders can be dispatched to the nearest driver within a configurable radius"
+
+outcomes:
+  manual_assignment_success:
+    priority: 1
+    given:
+      - field: driver_uuid
+        source: input
+        operator: exists
+      - field: vehicle_uuid
+        source: input
+        operator: exists
+      - "driver status is available"
+    then:
+      - action: set_field
+        target: driver_assigned_uuid
+        value: driver_uuid
+      - action: set_field
+        target: dispatched_at
+        value: now
+      - action: emit_event
+        event: dispatch.assigned
+        payload: [order_uuid, driver_uuid, vehicle_uuid]
+    result: "Order assigned and dispatched to selected driver"
+
+  auto_assignment_success:
+    priority: 2
+    given:
+      - "dispatch_method is auto"
+      - "available drivers exist within configured radius"
+    then:
+      - action: set_field
+        target: driver_assigned_uuid
+        value: nearest_available_driver
+      - action: emit_event
+        event: dispatch.auto_assigned
+        payload: [order_uuid, driver_uuid, vehicle_uuid]
+    result: "Nearest available driver automatically assigned"
+
+  driver_accepted:
+    priority: 3
+    given:
+      - field: driver_response
+        source: input
+        operator: eq
+        value: accepted
+    then:
+      - action: set_field
+        target: status
+        value: accepted
+      - action: set_field
+        target: driver_response_at
+        value: now
+      - action: emit_event
+        event: dispatch.accepted
+        payload: [order_uuid, driver_uuid]
+    result: "Driver accepted the dispatch and is en route"
+
+  driver_rejected:
+    priority: 4
+    given:
+      - field: driver_response
+        source: input
+        operator: eq
+        value: rejected
+    then:
+      - action: set_field
+        target: status
+        value: rejected
+      - action: set_field
+        target: driver_response_at
+        value: now
+      - action: emit_event
+        event: dispatch.rejected
+        payload: [order_uuid, driver_uuid]
+    result: "Driver rejected; order returned to dispatch queue"
+    error: DISPATCH_DRIVER_REJECTED
+
+  no_available_drivers:
+    priority: 1
+    given:
+      - "no drivers are online and available within range"
+    then: []
+    result: "Dispatch failed — no available drivers found"
+    error: DISPATCH_NO_AVAILABLE_DRIVERS
+
+  driver_unavailable:
+    priority: 2
+    given:
+      - field: driver_uuid
+        source: db
+        operator: neq
+        value: available
+    then: []
+    result: "Dispatch rejected — driver is not available"
+    error: DISPATCH_DRIVER_UNAVAILABLE
+
+errors:
+  - code: DISPATCH_DRIVER_UNAVAILABLE
+    status: 422
+    message: "The selected driver is not currently available."
+  - code: DISPATCH_VEHICLE_UNAVAILABLE
+    status: 422
+    message: "The selected vehicle is not available for dispatch."
+  - code: DISPATCH_NO_AVAILABLE_DRIVERS
+    status: 422
+    message: "No available drivers found in the area."
+  - code: DISPATCH_DRIVER_REJECTED
+    status: 422
+    message: "The driver declined this order."
+
+events:
+  - name: dispatch.assigned
+    description: "Fired when a driver is manually assigned to an order"
+    payload: [order_uuid, driver_uuid, vehicle_uuid, dispatched_at]
+  - name: dispatch.auto_assigned
+    description: "Fired when the system auto-assigns a driver"
+    payload: [order_uuid, driver_uuid, vehicle_uuid]
+  - name: dispatch.accepted
+    description: "Fired when driver accepts the dispatch"
+    payload: [order_uuid, driver_uuid, driver_response_at]
+  - name: dispatch.rejected
+    description: "Fired when driver rejects the dispatch"
+    payload: [order_uuid, driver_uuid, driver_response_at]
+  - name: dispatch.reassigned
+    description: "Fired when order is reassigned to a different driver"
+    payload: [order_uuid, new_driver_uuid, previous_driver_uuid]
+
+related:
+  - feature: order-lifecycle
+    type: required
+    reason: "Dispatch is a key step in order lifecycle"
+  - feature: driver-profile
+    type: required
+    reason: "Driver availability and status comes from driver profile"
+  - feature: vehicle-fleet-registry
+    type: required
+    reason: "Vehicle availability comes from fleet registry"
+  - feature: realtime-driver-tracking
+    type: recommended
+    reason: "Driver location used for nearest-driver auto-assignment"
+
+extensions:
+  source:
+    repo: "https://github.com/fleetbase/fleetbase"
+    project: "Fleet Management Platform"
+    tech_stack: "PHP (API), JavaScript/Ember.js (Console)"

@@ -1,0 +1,266 @@
+feature: trip-billing-invoicing
+version: "1.0.0"
+description: "Calculate and manage trip-based billing, service rates, and invoice generation for completed deliveries"
+category: payment
+tags: [fleet, billing, invoice, payment, service-rate, transaction]
+
+actors:
+  - id: dispatcher
+    name: Dispatcher
+    type: human
+    description: "Creates orders and triggers billing"
+  - id: customer
+    name: Customer
+    type: human
+    description: "Entity billed for the delivery service"
+  - id: system
+    name: Billing Engine
+    type: system
+    description: "Automated rate calculation and invoice generation"
+
+fields:
+  - name: transaction_id
+    type: text
+    label: Transaction ID
+    required: true
+  - name: order_uuid
+    type: text
+    label: Order
+    required: true
+  - name: customer_uuid
+    type: text
+    label: Customer
+    required: true
+  - name: service_quote_uuid
+    type: text
+    label: Service Quote
+    required: false
+  - name: purchase_rate_uuid
+    type: text
+    label: Applied Rate
+    required: false
+  - name: gateway
+    type: text
+    label: Payment Gateway
+    required: false
+  - name: gateway_transaction_id
+    type: text
+    label: Gateway Transaction ID
+    required: false
+  - name: amount
+    type: number
+    label: Amount (minor units)
+    required: true
+  - name: currency
+    type: text
+    label: Currency (ISO 4217)
+    required: true
+  - name: description
+    type: text
+    label: Description
+    required: false
+  - name: type
+    type: select
+    label: Transaction Type
+    required: true
+  - name: status
+    type: select
+    label: Status
+    required: true
+  - name: service_name
+    type: text
+    label: Service Name
+    required: false
+  - name: service_type
+    type: select
+    label: Rate Type
+    required: false
+  - name: base_fee
+    type: number
+    label: Base Fee (minor units)
+    required: false
+  - name: per_meter_fee
+    type: number
+    label: Per-Meter Fee
+    required: false
+  - name: cod_amount
+    type: number
+    label: COD Amount
+    required: false
+  - name: cod_currency
+    type: text
+    label: COD Currency
+    required: false
+
+states:
+  field: status
+  values:
+    - name: pending
+      label: Pending
+      initial: true
+    - name: processing
+      label: Processing
+    - name: paid
+      label: Paid
+      terminal: true
+    - name: failed
+      label: Failed
+      terminal: true
+    - name: refunded
+      label: Refunded
+      terminal: true
+    - name: voided
+      label: Voided
+      terminal: true
+  transitions:
+    - from: pending
+      to: processing
+      actor: system
+      description: "Payment submitted to gateway"
+    - from: processing
+      to: paid
+      actor: system
+      description: "Gateway confirms payment success"
+    - from: processing
+      to: failed
+      actor: system
+      description: "Gateway reports payment failure"
+    - from: paid
+      to: refunded
+      actor: dispatcher
+      description: "Refund issued for a completed order"
+    - from: pending
+      to: voided
+      actor: dispatcher
+      description: "Invoice voided before payment"
+
+rules:
+  completion_triggers_billing: "Trip billing is calculated at order completion using the matched service rate"
+  rate_matching: "Service rates are matched by service area, zone, and order configuration"
+  rate_calculation_methods: "Rate calculation methods: flat fee, per-meter, or custom algorithm"
+  peak_hour_surcharges: "Peak-hour surcharges are applied automatically based on dispatch time"
+  cod_tracking: "Cash-on-delivery (COD) amounts are tracked separately from service fees"
+  minor_currency_units: "All monetary amounts are stored in minor currency units to avoid floating-point errors"
+  full_audit_trail: "Transactions are linked to the order, customer, and service quote for audit"
+  refund_limit: "Refunds can only be issued for paid transactions and must not exceed the original amount"
+  voided_closed: "Voided invoices cannot be reopened; a new transaction must be created"
+  tax_compliance: "Tax calculation must comply with the organization's configured tax rules and jurisdiction"
+
+outcomes:
+  bill_calculated:
+    priority: 1
+    given:
+      - "order.completed event received"
+      - "service rate is configured for the order type and area"
+    then:
+      - action: create_record
+        type: transaction
+      - action: emit_event
+        event: billing.calculated
+        payload: [transaction_id, order_uuid, amount, currency]
+    result: "Trip cost calculated and invoice created"
+
+  payment_successful:
+    priority: 2
+    given:
+      - field: status
+        source: db
+        operator: eq
+        value: processing
+      - "payment gateway confirms success"
+    then:
+      - action: set_field
+        target: status
+        value: paid
+      - action: emit_event
+        event: billing.payment_received
+        payload: [transaction_id, order_uuid, amount, currency, gateway]
+    result: "Payment confirmed and order fully settled"
+
+  payment_failed:
+    priority: 3
+    given:
+      - "payment gateway returns failure"
+    then:
+      - action: set_field
+        target: status
+        value: failed
+      - action: emit_event
+        event: billing.payment_failed
+        payload: [transaction_id, order_uuid, error]
+    result: "Payment failed; retry or alternative payment method required"
+    error: BILLING_PAYMENT_FAILED
+
+  refund_issued:
+    priority: 4
+    given:
+      - field: status
+        source: db
+        operator: eq
+        value: paid
+    then:
+      - action: create_record
+        type: transaction
+      - action: emit_event
+        event: billing.refund_issued
+        payload: [transaction_id, order_uuid, refund_amount, currency]
+    result: "Refund transaction created and processed"
+
+  no_service_rate_found:
+    priority: 1
+    given:
+      - "no service rate matches the order type, area, and configuration"
+    then: []
+    result: "Billing failed — no matching service rate configured"
+    error: BILLING_NO_RATE_FOUND
+
+errors:
+  - code: BILLING_PAYMENT_FAILED
+    status: 422
+    message: "Payment could not be processed. Please try again or use a different payment method."
+  - code: BILLING_NO_RATE_FOUND
+    status: 422
+    message: "No service rate is configured for this order type and area."
+  - code: BILLING_REFUND_EXCEEDS_ORIGINAL
+    status: 422
+    message: "Refund amount cannot exceed the original charge."
+  - code: BILLING_INVALID_CURRENCY
+    status: 422
+    message: "The specified currency is not supported."
+
+events:
+  - name: billing.calculated
+    description: "Fired when a trip bill is calculated at order completion"
+    payload: [transaction_id, order_uuid, amount, currency, service_name]
+  - name: billing.payment_received
+    description: "Fired when payment is confirmed"
+    payload: [transaction_id, order_uuid, amount, currency, gateway]
+  - name: billing.payment_failed
+    description: "Fired when a payment attempt fails"
+    payload: [transaction_id, order_uuid, error]
+  - name: billing.refund_issued
+    description: "Fired when a refund is processed"
+    payload: [transaction_id, order_uuid, refund_amount, currency]
+  - name: billing.invoice_voided
+    description: "Fired when an invoice is voided"
+    payload: [transaction_id, order_uuid]
+
+related:
+  - feature: order-lifecycle
+    type: required
+    reason: "Billing is triggered on order completion"
+  - feature: service-area-management
+    type: required
+    reason: "Service rates are bound to service areas"
+  - feature: driver-earnings-payouts
+    type: recommended
+    reason: "Driver earnings are derived from trip billing"
+  - feature: fleet-customer-contacts
+    type: recommended
+    reason: "Customer billing details come from contact management"
+
+extensions:
+  source:
+    repo: "https://github.com/fleetbase/fleetbase"
+    project: "Fleet Management Platform"
+    tech_stack: "PHP (API), JavaScript/Ember.js (Console)"
