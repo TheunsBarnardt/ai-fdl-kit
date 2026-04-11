@@ -92,6 +92,27 @@ npm run generate
 - Updates `registry.json` with all features
 - Keeps every generated artifact in sync with the YAML source of truth
 
+### Step 2b: Fitness Recommendation & Verification Loop (autoresearch keep-or-reset)
+```bash
+npm run fitness:recommend
+```
+
+This is the **post-extraction verification step**. It does three things in one pass:
+
+1. **Re-scores every blueprint** with `scripts/fitness.js` (inline) and compares each feature's score to its previously-recorded value in `.fitness-recommend-state.json`.
+2. **Fires a verdict** whenever a feature's score changed since the last run:
+   - **Proven win** (`score ≥ 75` and delta > 0): remove the card from the README, mark the recommended repo as `proven_by` in state. The extraction worked.
+   - **Partial** (`70 ≤ score < 75` and delta > 0): keep the card with a 🟡 badge and a `(+N from last extraction)` annotation.
+   - **No improvement** (delta < 0): mark the tried repo as a dead-end, rotate it to the back of the candidate list, annotate the card with `⚠ <repo> was tried — score went <old> → <new>. Deprioritized.`
+3. **Rewrites the README marker block** (`<!-- BEGIN:recommended-repos -->` … `<!-- END:recommended-repos -->`) with the refreshed card list. Idempotent — running it twice with no score changes produces zero diff.
+
+This step is where the system closes the loop: every extraction driven by a recommendation gets measured against the score delta, and the README always reflects the current truth about which repos earn their keep. The seed map lives at `data/extraction-candidates.yaml` and can be extended via `/fdl-recommend-discover`.
+
+**Failure modes:**
+- If `README.md` is missing the marker block, this step prints a helpful error and aborts (nothing downstream touches README).
+- If `.fitness-recommend-state.json` doesn't exist yet (first ever run), it's created from the current state with no verdicts fired.
+- If `data/extraction-candidates.yaml` is missing, the recommender logs a warning and emits cards with an `_uncovered_` note directing the user to `/fdl-recommend-discover`.
+
 ### Step 3: Detect Changes
 - Compare git index before/after validate/generate
 - Identify which blueprints changed

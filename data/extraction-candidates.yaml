@@ -1,0 +1,199 @@
+# ============================================================
+# FDL Extraction Candidates — seed map for fitness-recommend.js
+# ============================================================
+# When a blueprint scores below the fitness threshold, the recommender
+# looks up repos in this file that could be re-extracted to lift that
+# blueprint's score. The structure is deliberately DIMENSION-keyed so
+# that a repo is only suggested when the blueprint is weak in a
+# dimension that repo is known to fix.
+#
+# Lookup order (first match wins):
+#   1. features.<feature-name>            — exact override per blueprint
+#   2. categories.<category>.<dimension>  — generic per category+dimension
+#   3. categories.<category>.any          — generic per category
+#
+# Dimensions (match scripts/fitness.js WEIGHTS keys):
+#   description, rules, outcomes, structure, error_binding, fields,
+#   relationships, events, agi, simplicity
+#
+# Hand-edit freely. The /fdl-recommend-discover skill can APPEND new
+# entries via WebSearch, but will never overwrite existing ones.
+# ============================================================
+
+categories:
+  # ─── AUTH ─────────────────────────────────────────────
+  auth:
+    outcomes:
+      - repo: https://github.com/keycloak/keycloak
+        description: Full IAM server — rich outcome coverage for login, MFA, federation, account self-service
+        why_this_dimension: Outcomes are organized by event type (LOGIN_SUCCESS, LOGIN_ERROR, REGISTER, ...) in keycloak-services
+      - repo: https://github.com/authelia/authelia
+        description: Go auth portal — every handler returns a typed success/failure outcome
+        why_this_dimension: handlers/*.go files are structured as (success_case, failure_cases[])
+      - repo: https://github.com/goauthentik/authentik
+        description: Python identity provider — rich stage/flow outcome model
+        why_this_dimension: "Stages use challenge_response pattern with explicit success/failure paths"
+    rules:
+      - repo: https://github.com/authelia/authelia
+        description: Session timeouts, lockout thresholds, and 2FA policies are first-class config
+      - repo: https://github.com/privacyidea/privacyidea
+        description: MFA server — policies are explicitly typed (token, auth, enroll, ...)
+    error_binding:
+      - repo: https://github.com/keycloak/keycloak
+        description: Every ErrorCode enum value in keycloak-core maps to a response path
+      - repo: https://github.com/authelia/authelia
+        description: Typed error responses match exactly one handler branch
+    relationships:
+      - repo: https://github.com/keycloak/keycloak
+        description: Realm → client → user → role → group graph is richly typed
+    any:
+      - repo: https://github.com/keycloak/keycloak
+        description: Canonical reference for almost any auth feature
+      - repo: https://github.com/goauthentik/authentik
+        description: Modern alternative with strong flow/stage modeling
+
+  # ─── ACCESS ────────────────────────────────────────────
+  access:
+    rules:
+      - repo: https://github.com/openfga/openfga
+        description: Fine-grained authorization — rules encoded as relationship tuples, Google Zanzibar-inspired
+        why_this_dimension: Authorization model files are literal rule definitions
+      - repo: https://github.com/cerbos/cerbos
+        description: Policy-as-code authorization engine — richly structured, typed rules in YAML
+        why_this_dimension: policies/*.yaml contain per-resource rule definitions that map 1:1 to FDL rules
+      - repo: https://github.com/casbin/casbin
+        description: PERM metamodel access control — policy definitions are declarative
+    relationships:
+      - repo: https://github.com/ory/keto
+        description: Permission server with explicit cross-feature relationships (Zanzibar tuples)
+        why_this_dimension: "Relationships are the whole product — every namespace declares its relation types"
+      - repo: https://github.com/openfga/openfga
+        description: Relationship tuples are first-class
+    outcomes:
+      - repo: https://github.com/cerbos/cerbos
+        description: Every policy produces EFFECT_ALLOW or EFFECT_DENY with typed reason codes
+      - repo: https://github.com/openfga/openfga
+        description: Check endpoint returns structured allowed/not-allowed outcomes
+    any:
+      - repo: https://github.com/cerbos/cerbos
+        description: Canonical modern authorization reference
+      - repo: https://github.com/openfga/openfga
+        description: Canonical fine-grained authorization reference
+
+  # ─── INTEGRATION ───────────────────────────────────────
+  integration:
+    outcomes:
+      - repo: https://github.com/ory/hydra
+        description: OAuth2/OIDC server in Go — every grant type has a clean success/error outcome path
+        why_this_dimension: Every endpoint handler is organized as typed success + typed errors
+      - repo: https://github.com/panva/node-oidc-provider
+        description: Reference OIDC provider — complete OpenID Connect spec coverage, every flow is a named outcome
+    rules:
+      - repo: https://github.com/nextauthjs/next-auth
+        description: JS auth library — social login provider rules are declarative
+      - repo: https://github.com/ory/hydra
+        description: OAuth2 spec rules (grant types, token lifetimes, scope validation) are declarative config
+    error_binding:
+      - repo: https://github.com/ory/hydra
+        description: OAuth2 error codes (invalid_request, invalid_grant, ...) bind 1:1 to handler branches
+      - repo: https://github.com/panva/node-oidc-provider
+        description: OIDC spec error codes are typed and returned from specific flow steps
+    relationships:
+      - repo: https://github.com/keycloak/keycloak
+        description: Identity brokering + federation relationships are explicit
+    any:
+      - repo: https://github.com/ory/hydra
+        description: Canonical OAuth2/OIDC reference
+      - repo: https://github.com/keycloak/keycloak
+        description: Canonical identity brokering reference
+
+  # ─── DATA ──────────────────────────────────────────────
+  data:
+    any:
+      - repo: https://github.com/payloadcms/payload
+        description: Node headless CMS — rich data modeling, access control, hooks
+      - repo: https://github.com/directus/directus
+        description: Database-first data platform — collections, fields, relations, flows
+
+  # ─── TRADING ───────────────────────────────────────────
+  trading:
+    any:
+      - repo: https://github.com/OpenBB-finance/OpenBB
+        description: Open-source finance platform — commodity, equity, derivatives data workflows
+        why_this_dimension: Provides structured loaders for the exact derivatives categories FDL lacks
+      - repo: https://github.com/quantlib/quantlib
+        description: Quantitative finance library — richly typed pricing and valuation rules
+
+# ─── Feature-level overrides (match by blueprint feature name) ───
+# These win over the category lookup. Use for features where a specific
+# upstream is clearly the canonical source.
+
+features:
+  payload-globals:
+    - repo: https://github.com/payloadcms/payload
+      description: Payload CMS — globals are a core first-class primitive in this project
+      notes: This blueprint was originally extracted from payload; re-extracting from upstream latest should lift coverage
+
+  user-federation-ldap-kerberos:
+    - repo: https://github.com/keycloak/keycloak
+      description: Federation is keycloak-services/src/main/java/.../federation/ldap
+      notes: Extract the ldap subfolder specifically to avoid pulling the entire Keycloak codebase
+
+  oauth-oidc-client-management:
+    - repo: https://github.com/ory/hydra
+      description: OAuth2 client management is core Hydra functionality
+    - repo: https://github.com/panva/node-oidc-provider
+      description: Complete OIDC client registration + management flows
+
+  identity-brokering-social-login:
+    - repo: https://github.com/nextauthjs/next-auth
+      description: Social login providers (Google, GitHub, Facebook, ...) are declarative
+    - repo: https://github.com/keycloak/keycloak
+      description: Identity brokering to external IdPs is first-class
+
+  saml-2-identity-provider:
+    - repo: https://github.com/keycloak/keycloak
+      description: SAML 2.0 IdP is a core Keycloak protocol
+    - repo: https://github.com/SAML-Toolkits/java-saml
+      description: Reference SAML 2.0 toolkit — clean protocol state machine
+
+  multi-factor-authentication:
+    - repo: https://github.com/privacyidea/privacyidea
+      description: Dedicated MFA server — token types, enrollment, validation all first-class
+    - repo: https://github.com/authelia/authelia
+      description: MFA (TOTP, WebAuthn, push) configuration is first-class
+
+  user-authentication-session-management:
+    - repo: https://github.com/authelia/authelia
+      description: Session management is the product focus
+    - repo: https://github.com/lucia-auth/lucia
+      description: Session-based auth library with typed session lifecycle
+
+  user-account-self-service:
+    - repo: https://github.com/ory/kratos
+      description: Identity management server — self-service flows are the product focus
+    - repo: https://github.com/keycloak/keycloak
+      description: Account console has every self-service flow
+
+  user-groups-organizations:
+    - repo: https://github.com/ory/keto
+      description: Group/namespace modeling is first-class
+    - repo: https://github.com/keycloak/keycloak
+      description: Groups + organizations are native concepts
+
+  user-consent-management:
+    - repo: https://github.com/ory/hydra
+      description: OAuth2 consent flow is a core Hydra primitive
+    - repo: https://github.com/keycloak/keycloak
+      description: Client consent is a first-class Keycloak flow
+
+  fine-grained-authorization:
+    - repo: https://github.com/openfga/openfga
+      description: The canonical fine-grained authorization reference
+    - repo: https://github.com/cerbos/cerbos
+      description: Policy-as-code alternative with richly structured rules
+
+  commodity-derivatives-eod-data-delivery:
+    - repo: https://github.com/OpenBB-finance/OpenBB
+      description: Commodity + derivatives data loaders and EOD flows
+      notes: No perfect upstream exists for EOD delivery pipelines — OpenBB is the closest OSS equivalent
