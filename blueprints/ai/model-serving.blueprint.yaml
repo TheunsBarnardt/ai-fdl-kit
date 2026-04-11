@@ -1,17 +1,21 @@
 # ============================================================
 # model-serving — ML Model Export, Versioning, and Inference
-# FDL v0.1.0 | Blueprint v1.0.0
+# FDL v0.1.0 | Blueprint v1.1.0
 # ============================================================
-# Source: TensorFlow public API (tensorflow.org/api_docs)
-# Tech stack: Python + TensorFlow SavedModel + TF Serving
-# Reference: tensorflow/python/saved_model/save.py
-#            tensorflow/python/framework/tensor_spec.py
-#            tensorflow_serving/servables/tensorflow/
+# Sources:
+#   TensorFlow public API (tensorflow.org/api_docs)
+#     tensorflow/python/saved_model/save.py
+#     tensorflow/python/framework/tensor_spec.py
+#     tensorflow_serving/servables/tensorflow/
+#   PyTorch (github.com/pytorch/pytorch)
+#     torch/jit/__init__.py
+#     torch/onnx/__init__.py
+#     torch/export/__init__.py
 # ============================================================
 
 feature: model-serving
-version: "1.0.0"
-description: "Export trained ML models in SavedModel format, version them for rollback, load them into a serving runtime, and execute real-time or batch inference via REST or gRPC"
+version: "1.1.0"
+description: "Export trained ML models for production inference — covers TF SavedModel/TF Serving versioning and PyTorch export patterns (torch.export, ONNX, torch.compile)"
 category: ai
 tags:
   - ai
@@ -20,6 +24,8 @@ tags:
   - savedmodel
   - deployment
   - versioning
+  - pytorch
+  - onnx
 
 actors:
   - id: ml_engineer
@@ -52,13 +58,62 @@ fields:
     label: "Export Format"
     options:
       - value: "saved_model"
-        label: "TensorFlow SavedModel (recommended for production)"
+        label: "TensorFlow SavedModel (recommended for TF production)"
       - value: "keras_h5"
         label: "Keras HDF5 (.h5, legacy format)"
       - value: "tflite"
         label: "TensorFlow Lite (.tflite, mobile/edge devices)"
+      - value: "torch_export"
+        label: "torch.export — ExportedProgram (PyTorch 2.x preferred)"
+      - value: "torch_compile"
+        label: "torch.compile — compiled model graph (inductor backend)"
       - value: "onnx"
-        label: "ONNX (cross-framework interoperability)"
+        label: "ONNX (cross-framework, torch.onnx.export with dynamo=True)"
+      - value: "torchscript"
+        label: "TorchScript — DEPRECATED in PyTorch 2.5; use torch.export"
+
+  # PyTorch ONNX export parameters
+  # Source: torch/onnx/__init__.py — export() signature
+  - name: onnx_opset_version
+    type: number
+    required: false
+    label: "ONNX Opset Version (e.g. 17; higher = newer ops)"
+
+  - name: onnx_dynamic_shapes
+    type: json
+    required: false
+    label: "ONNX Dynamic Shape Axes (e.g. {\"input\": {0: \"batch\", 2: \"height\"}})"
+
+  - name: onnx_external_data
+    type: boolean
+    required: false
+    label: "ONNX: Store Weights as External Data Files (required for models >2GB)"
+
+  # torch.compile parameters
+  # Source: torch/_compile.py
+  - name: compile_backend
+    type: select
+    required: false
+    label: "torch.compile Backend"
+    options:
+      - value: "inductor"
+        label: "inductor (default — Triton kernels, best for CUDA)"
+      - value: "eager"
+        label: "eager (no compilation, useful for debugging)"
+      - value: "aot_eager"
+        label: "aot_eager (ahead-of-time tracing without Triton)"
+
+  - name: compile_mode
+    type: select
+    required: false
+    label: "torch.compile Mode"
+    options:
+      - value: "default"
+        label: "default (balanced compile time vs runtime)"
+      - value: "reduce-overhead"
+        label: "reduce-overhead (minimize launch overhead, e.g. small models)"
+      - value: "max-autotune"
+        label: "max-autotune (maximum perf, longest compile time)"
 
   - name: serving_status
     type: select
@@ -212,6 +267,49 @@ rules:
       - TF Serving supports SavedModel warmup assets:
           assets.extra/tf_serving_warmup_requests (WarmupData proto)
       # Source: tensorflow_serving/servables/tensorflow/saved_model_warmup.cc
+
+  pytorch_export:
+    export_hierarchy: |
+      PyTorch 2.x export priority (most to least recommended):
+        1. torch.export.export() → ExportedProgram
+             - Full graph capture with symbolic shapes
+             - Suitable for AOT compilation and deployment
+             - Accepts dynamic_shapes dict for variable dimensions
+        2. torch.onnx.export(..., dynamo=True) — default since PyTorch 2.x
+             - Builds on torch.export internally
+             - Supports external_data=True for models > 2GB
+             - Use dynamic_shapes for variable batch/sequence dims
+        3. torch.compile() — JIT compilation at runtime
+             - No offline export artifact; model must be Python-accessible
+             - inductor backend generates Triton CUDA kernels
+        4. TorchScript (torch.jit.script / trace) — DEPRECATED in PyTorch 2.5
+             - Use torch.compile as a drop-in replacement
+      # Source: torch/jit/__init__.py — annotate() deprecation note
+      #          torch/onnx/__init__.py — export() dynamo=True default
+
+    inference_modes: |
+      MUST call model.eval() before inference to disable Dropout and
+      batch norm running-stat updates. Three no-gradient context options:
+        - torch.no_grad()          — disables gradient tracking (most compatible)
+        - torch.inference_mode()   — stricter; also disables view tracking,
+                                     slightly faster than no_grad
+      Use inference_mode for pure inference; use no_grad when you need
+      tensor operations that create views after the inference block.
+      # Source: torch/jit/__init__.py — optimize_for_inference
+
+    onnx_opset: |
+      Choose opset_version based on deployment target:
+        - opset 9–11: maximum compatibility (older runtimes, mobile)
+        - opset 17+: latest ops, required for newer model architectures
+      dynamic_shapes (dict) overrides static shapes captured during export,
+      enabling variable batch size or sequence length at runtime.
+      # Source: torch/onnx/__init__.py — export() dynamic_shapes parameter
+
+    torchscript_deprecation: |
+      TorchScript (torch.jit.script and torch.jit.trace) is deprecated
+      as of PyTorch 2.5. Existing TorchScript models continue to work
+      but new code should use torch.compile or torch.export instead.
+      # Source: torch/jit/__init__.py — annotate() docstring: "deprecated since 2.5"
 
   security:
     model_integrity: |
@@ -400,10 +498,13 @@ related:
 extensions:
   tech_stack:
     language: "Python"
-    framework: "TensorFlow SavedModel + TF Serving"
+    frameworks:
+      - "TensorFlow SavedModel + TF Serving"
+      - "PyTorch — torch.export, torch.onnx (dynamo), torch.compile"
     patterns:
-      - "SavedModel versioned directory structure"
-      - "tf.TensorSpec input/output signatures"
-      - "TF Serving batching configuration"
-      - "Zero-downtime rolling version deployment"
-      - "SavedModel warmup assets for JIT pre-compilation"
+      - "TF SavedModel versioned directory structure with zero-downtime rollback"
+      - "TF Serving batching + warmup assets for JIT pre-compilation"
+      - "PyTorch torch.export → ExportedProgram (preferred 2.x export)"
+      - "PyTorch ONNX export with dynamo=True + dynamic_shapes"
+      - "torch.compile(backend='inductor') for runtime graph optimization"
+      - "model.eval() + torch.inference_mode() for pure inference"

@@ -3,19 +3,19 @@ title: "Model Serving Blueprint"
 layout: default
 parent: "Ai"
 grand_parent: Blueprint Catalog
-description: "Export trained ML models in SavedModel format, version them for rollback, load them into a serving runtime, and execute real-time or batch inference via REST or"
+description: "Export trained ML models for production inference — covers TF SavedModel/TF Serving versioning and PyTorch export patterns (torch.export, ONNX, torch.compile). "
 ---
 
 # Model Serving Blueprint
 
-> Export trained ML models in SavedModel format, version them for rollback, load them into a serving runtime, and execute real-time or batch inference via REST or gRPC
+> Export trained ML models for production inference — covers TF SavedModel/TF Serving versioning and PyTorch export patterns (torch.export, ONNX, torch.compile)
 
 | | |
 |---|---|
 | **Feature** | `model-serving` |
 | **Category** | Ai |
-| **Version** | 1.0.0 |
-| **Tags** | ai, serving, inference, savedmodel, deployment, versioning |
+| **Version** | 1.1.0 |
+| **Tags** | ai, serving, inference, savedmodel, deployment, versioning, pytorch, onnx |
 | **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ai/model-serving.blueprint.yaml) |
 | **JSON API** | [model-serving.json]({{ site.baseurl }}/api/blueprints/ai/model-serving.json) |
 
@@ -34,6 +34,11 @@ description: "Export trained ML models in SavedModel format, version them for ro
 | `model_path` | text | Yes | Model Base Directory (e.g. /models/classifier) |  |
 | `model_version` | text | Yes | Model Version (integer string, e.g. '3') |  |
 | `export_format` | select | Yes | Export Format |  |
+| `onnx_opset_version` | number | No | ONNX Opset Version (e.g. 17; higher = newer ops) |  |
+| `onnx_dynamic_shapes` | json | No | ONNX Dynamic Shape Axes (e.g. {"input": {0: "batch", 2: "height"}}) |  |
+| `onnx_external_data` | boolean | No | ONNX: Store Weights as External Data Files (required for models >2GB) |  |
+| `compile_backend` | select | No | torch.compile Backend |  |
+| `compile_mode` | select | No | torch.compile Mode |  |
 | `serving_status` | select | No | Serving Status |  |
 | `input_dtype` | text | No | Input Tensor Dtype (e.g. float32) |  |
 | `input_shape` | json | No | Input Tensor Shape (e.g. [null, 224, 224, 3]) |  |
@@ -107,6 +112,45 @@ Never accept requests with batch size > max_batch_size.
 - TF Serving supports SavedModel warmup assets:
     assets.extra/tf_serving_warmup_requests (WarmupData proto)
 # Source: tensorflow_serving/servables/tensorflow/saved_model_warmup.cc
+
+- **pytorch_export:**
+  - **export_hierarchy:** PyTorch 2.x export priority (most to least recommended):
+  1. torch.export.export() → ExportedProgram
+       - Full graph capture with symbolic shapes
+       - Suitable for AOT compilation and deployment
+       - Accepts dynamic_shapes dict for variable dimensions
+  2. torch.onnx.export(..., dynamo=True) — default since PyTorch 2.x
+       - Builds on torch.export internally
+       - Supports external_data=True for models > 2GB
+       - Use dynamic_shapes for variable batch/sequence dims
+  3. torch.compile() — JIT compilation at runtime
+       - No offline export artifact; model must be Python-accessible
+       - inductor backend generates Triton CUDA kernels
+  4. TorchScript (torch.jit.script / trace) — DEPRECATED in PyTorch 2.5
+       - Use torch.compile as a drop-in replacement
+# Source: torch/jit/__init__.py — annotate() deprecation note
+#          torch/onnx/__init__.py — export() dynamo=True default
+
+  - **inference_modes:** MUST call model.eval() before inference to disable Dropout and
+batch norm running-stat updates. Three no-gradient context options:
+  - torch.no_grad()          — disables gradient tracking (most compatible)
+  - torch.inference_mode()   — stricter; also disables view tracking,
+                               slightly faster than no_grad
+Use inference_mode for pure inference; use no_grad when you need
+tensor operations that create views after the inference block.
+# Source: torch/jit/__init__.py — optimize_for_inference
+
+  - **onnx_opset:** Choose opset_version based on deployment target:
+  - opset 9–11: maximum compatibility (older runtimes, mobile)
+  - opset 17+: latest ops, required for newer model architectures
+dynamic_shapes (dict) overrides static shapes captured during export,
+enabling variable batch size or sequence length at runtime.
+# Source: torch/onnx/__init__.py — export() dynamic_shapes parameter
+
+  - **torchscript_deprecation:** TorchScript (torch.jit.script and torch.jit.trace) is deprecated
+as of PyTorch 2.5. Existing TorchScript models continue to work
+but new code should use torch.compile or torch.export instead.
+# Source: torch/jit/__init__.py — annotate() docstring: "deprecated since 2.5"
 
 - **security:**
   - **model_integrity:** SHOULD verify model checksum after loading to detect corruption.
@@ -237,13 +281,16 @@ Model weights can contain malicious operations via custom ops.
 ```yaml
 tech_stack:
   language: Python
-  framework: TensorFlow SavedModel + TF Serving
+  frameworks:
+    - TensorFlow SavedModel + TF Serving
+    - PyTorch — torch.export, torch.onnx (dynamo), torch.compile
   patterns:
-    - SavedModel versioned directory structure
-    - tf.TensorSpec input/output signatures
-    - TF Serving batching configuration
-    - Zero-downtime rolling version deployment
-    - SavedModel warmup assets for JIT pre-compilation
+    - TF SavedModel versioned directory structure with zero-downtime rollback
+    - TF Serving batching + warmup assets for JIT pre-compilation
+    - PyTorch torch.export → ExportedProgram (preferred 2.x export)
+    - PyTorch ONNX export with dynamo=True + dynamic_shapes
+    - torch.compile(backend='inductor') for runtime graph optimization
+    - model.eval() + torch.inference_mode() for pure inference
 ```
 
 </details>
@@ -254,10 +301,10 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Model Serving Blueprint",
-  "description": "Export trained ML models in SavedModel format, version them for rollback, load them into a serving runtime, and execute real-time or batch inference via REST or",
+  "description": "Export trained ML models for production inference — covers TF SavedModel/TF Serving versioning and PyTorch export patterns (torch.export, ONNX, torch.compile). ",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
-  "keywords": "ai, serving, inference, savedmodel, deployment, versioning"
+  "keywords": "ai, serving, inference, savedmodel, deployment, versioning, pytorch, onnx"
 }
 </script>

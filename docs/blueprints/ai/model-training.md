@@ -3,19 +3,19 @@ title: "Model Training Blueprint"
 layout: default
 parent: "Ai"
 grand_parent: Blueprint Catalog
-description: "Train, evaluate, and checkpoint ML models using the Keras fit API with configurable optimizers, loss functions, callbacks, and distributed strategies. 13 fields"
+description: "Train, evaluate, and checkpoint ML models with configurable optimizers, LR schedulers, mixed precision, and distributed strategies — covers Keras fit API and Py"
 ---
 
 # Model Training Blueprint
 
-> Train, evaluate, and checkpoint ML models using the Keras fit API with configurable optimizers, loss functions, callbacks, and distributed strategies
+> Train, evaluate, and checkpoint ML models with configurable optimizers, LR schedulers, mixed precision, and distributed strategies — covers Keras fit API and PyTorch training loop
 
 | | |
 |---|---|
 | **Feature** | `model-training` |
 | **Category** | Ai |
-| **Version** | 1.0.0 |
-| **Tags** | ai, machine-learning, training, keras, deep-learning, tensorflow |
+| **Version** | 1.1.0 |
+| **Tags** | ai, machine-learning, training, deep-learning, pytorch, tensorflow |
 | **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ai/model-training.blueprint.yaml) |
 | **JSON API** | [model-training.json]({{ site.baseurl }}/api/blueprints/ai/model-training.json) |
 
@@ -33,6 +33,13 @@ description: "Train, evaluate, and checkpoint ML models using the Keras fit API 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
 | `optimizer` | select | Yes | Optimizer |  |
+| `optimizer_betas` | json | No | Adam Beta Coefficients [beta1, beta2] (PyTorch) |  |
+| `optimizer_eps` | number | No | Optimizer Epsilon for Numerical Stability (default: 1e-8) |  |
+| `optimizer_weight_decay` | number | No | Weight Decay (L2 penalty) |  |
+| `optimizer_amsgrad` | boolean | No | Use AMSGrad Variant of Adam (PyTorch) |  |
+| `optimizer_fused` | boolean | No | Use Fused Kernel Implementation (PyTorch, CUDA only, fastest — requires floating point params) |  |
+| `lr_scheduler` | select | No | Learning Rate Scheduler |  |
+| `mixed_precision` | boolean | No | Enable Mixed Precision Training (fp16/bf16 forward, fp32 optimizer state) |  |
 | `learning_rate` | number | Yes | Learning Rate | Validations: min, max |
 | `loss_function` | select | Yes | Loss Function |  |
 | `epochs` | number | Yes | Max Training Epochs | Validations: min |
@@ -102,6 +109,64 @@ Effective batch size = batch_size × number_of_replicas.
 - Dynamic shapes NOT supported — use fixed-shape inputs
 - Effective batch size MUST be divisible by number of TPU cores (8 or 128)
 # Source: tensorflow/python/distribute/tpu_strategy.py
+
+- **pytorch_training_loop:**
+  - **loop_order:** PyTorch requires explicit training loop management (unlike Keras model.fit).
+The canonical step order per batch:
+  1. optimizer.zero_grad(set_to_none=True)   — clear gradients
+  2. output = model(inputs)                  — forward pass
+  3. loss = criterion(output, targets)        — compute loss
+  4. loss.backward()                         — accumulate gradients
+  5. torch.nn.utils.clip_grad_norm_(params, max_norm)  — optional clip
+  6. optimizer.step()                        — update parameters
+  7. scheduler.step()                        — update LR (after optimizer)
+Call model.train() before the loop and model.eval() for validation.
+# Source: torch/optim/optimizer.py — _use_grad_for_differentiable
+
+  - **zero_grad:** SHOULD call optimizer.zero_grad(set_to_none=True) rather than the default
+set_to_none=False. Setting gradients to None instead of zeroing avoids
+a memory write and reduces memory bandwidth, which is measurably faster
+on large models.
+# Source: torch/optim/optimizer.py — zero_grad docstring
+
+  - **optimizer_performance:** PyTorch optimizers offer three implementation tiers (fastest first):
+  1. fused=True    — vertical+horizontal kernel fusion; CUDA only; requires
+                     floating point params (float16/32/64/bfloat16).
+                     Cannot be combined with foreach=True or differentiable=True.
+  2. foreach=True  — horizontal fusion via tensorlist ops; uses ~sizeof(params)
+                     extra peak memory; CUDA recommended.
+  3. default       — single-tensor for-loop; works everywhere; slowest.
+When neither flag is set PyTorch defaults to foreach on CUDA.
+# Source: torch/optim/optimizer.py — _default_to_fused_or_foreach,
+#          torch/optim/adam.py — Adam.__init__ fused/foreach validation
+
+  - **mixed_precision:** PyTorch mixed precision (AMP) uses:
+  - torch.amp.autocast(device_type='cuda') wrapping the forward pass
+  - torch.amp.GradScaler to scale loss before backward, preventing
+    fp16 underflow in gradients. Unscale before gradient clipping.
+Correct order:
+  with autocast():
+      loss = model(inputs)
+  scaler.scale(loss).backward()
+  scaler.unscale_(optimizer)
+  clip_grad_norm_(...)
+  scaler.step(optimizer)
+  scaler.update()
+
+  - **lr_scheduler:** MUST call scheduler.step() AFTER optimizer.step(), not before.
+PyTorch warns if called in the wrong order (detected via _opt_called flag).
+When resuming from checkpoint: restore scheduler BEFORE calling
+optimizer.load_state_dict() to avoid overwriting loaded LRs.
+# Source: torch/optim/lr_scheduler.py — LRScheduler.__init__,
+#          EPOCH_DEPRECATION_WARNING
+
+  - **adam_validation:** Adam raises ValueError on construction for invalid hyperparameters:
+  - lr must be >= 0
+  - eps must be >= 0
+  - betas[0] and betas[1] must be in [0, 1)
+  - weight_decay must be >= 0
+  - fused and foreach cannot both be True
+# Source: torch/optim/adam.py — Adam.__init__
 
 
 ## SLA
@@ -218,12 +283,16 @@ Effective batch size = batch_size × number_of_replicas.
 ```yaml
 tech_stack:
   language: Python
-  framework: TensorFlow / Keras
+  frameworks:
+    - TensorFlow / Keras — Model.fit() loop, callbacks, tf.distribute.Strategy
+    - PyTorch — manual training loop, torch.optim, torch.amp, DDP/FSDP
   patterns:
-    - Keras Model.fit() training loop
-    - ModelCheckpoint + EarlyStopping callbacks
-    - tf.distribute.Strategy for multi-device training
-    - tf.random.set_seed for reproducibility
+    - Keras Model.fit() with ModelCheckpoint + EarlyStopping callbacks
+    - "PyTorch: zero_grad → forward → loss → backward → clip → step"
+    - "PyTorch AMP: autocast + GradScaler for mixed precision"
+    - "PyTorch LR schedulers: CosineAnnealingLR, OneCycleLR, ReduceLROnPlateau"
+    - fused/foreach optimizer kernels for CUDA performance
+    - tf.distribute.Strategy / DDP / FSDP for distributed training
 ```
 
 </details>
@@ -234,10 +303,10 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Model Training Blueprint",
-  "description": "Train, evaluate, and checkpoint ML models using the Keras fit API with configurable optimizers, loss functions, callbacks, and distributed strategies. 13 fields",
+  "description": "Train, evaluate, and checkpoint ML models with configurable optimizers, LR schedulers, mixed precision, and distributed strategies — covers Keras fit API and Py",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
-  "keywords": "ai, machine-learning, training, keras, deep-learning, tensorflow"
+  "keywords": "ai, machine-learning, training, deep-learning, pytorch, tensorflow"
 }
 </script>

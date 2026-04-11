@@ -3,19 +3,19 @@ title: "Dataset Pipeline Blueprint"
 layout: default
 parent: "Ai"
 grand_parent: Blueprint Catalog
-description: "Build efficient input data pipelines for ML training and inference using tf.data with batching, shuffling, caching, prefetching, and parallel preprocessing. 13 "
+description: "Build efficient input data pipelines for ML training and inference — covers tf.data (caching, prefetching, AUTOTUNE) and PyTorch DataLoader (multi-process worke"
 ---
 
 # Dataset Pipeline Blueprint
 
-> Build efficient input data pipelines for ML training and inference using tf.data with batching, shuffling, caching, prefetching, and parallel preprocessing
+> Build efficient input data pipelines for ML training and inference — covers tf.data (caching, prefetching, AUTOTUNE) and PyTorch DataLoader (multi-process workers, samplers, collate) patterns
 
 | | |
 |---|---|
 | **Feature** | `dataset-pipeline` |
 | **Category** | Ai |
-| **Version** | 1.0.0 |
-| **Tags** | ai, data-pipeline, preprocessing, tensorflow, etl, performance |
+| **Version** | 1.1.0 |
+| **Tags** | ai, data-pipeline, preprocessing, pytorch, tensorflow, etl, performance |
 | **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/ai/dataset-pipeline.blueprint.yaml) |
 | **JSON API** | [dataset-pipeline.json]({{ site.baseurl }}/api/blueprints/ai/dataset-pipeline.json) |
 
@@ -40,7 +40,13 @@ description: "Build efficient input data pipelines for ML training and inference
 | `cache_to_memory` | boolean | No | Cache Dataset in RAM After First Epoch |  |
 | `cache_file_path` | text | No | Cache to File Path (persists across runs; leave empty for RAM cache) |  |
 | `repeat_indefinitely` | boolean | No | Repeat Dataset Indefinitely (use with steps_per_epoch) |  |
-| `drop_remainder` | boolean | No | Drop Incomplete Final Batch |  |
+| `drop_remainder` | boolean | No | Drop Incomplete Final Batch (PyTorch: drop_last; required for TPU fixed shapes) |  |
+| `num_workers` | number | No | PyTorch: Number of Worker Subprocesses (0 = main process only, default) |  |
+| `pin_memory` | boolean | No | PyTorch: Pin Host Memory for Faster GPU Transfer (enable when using CUDA) |  |
+| `persistent_workers` | boolean | No | PyTorch: Keep Workers Alive Between Epochs (avoids fork overhead) |  |
+| `prefetch_factor` | number | No | PyTorch: Batches Prefetched per Worker (default 2 when num_workers > 0) |  |
+| `worker_timeout_s` | number | No | PyTorch: Timeout in Seconds for Collecting a Batch from Workers (0 = no timeout) |  |
+| `sampler_type` | select | No | PyTorch: Sampler Strategy |  |
 | `compression_type` | select | No | Source File Compression |  |
 | `num_shards` | number | No | Number of Shards (for distributed training) |  |
 | `shard_index` | number | No | This Worker's Shard Index (0-based) |  |
@@ -101,6 +107,43 @@ Sharding must happen BEFORE shuffle and cache for correctness.
     bytes_list (images, text), float_list, int64_list
 - MUST define a feature_description dict for tf.io.parse_single_example
 # Source: tensorflow/python/lib/io/tf_record.py
+
+- **pytorch_dataloader:**
+  - **iterable_multiworker:** CRITICAL: IterableDataset with num_workers > 0 returns DUPLICATE data
+unless each worker independently partitions the data range.
+In __iter__, call get_worker_info() to get worker id and num_workers,
+then yield only the slice belonging to this worker.
+If using worker_init_fn for sharding instead, apply the same partition logic.
+# Source: torch/utils/data/dataset.py — IterableDataset docstring examples
+
+  - **map_vs_iterable:** Map-style Dataset (implements __len__ + __getitem__):
+  - Supports random access by index
+  - Compatible with all samplers (random, weighted, subset)
+  - Required for DistributedSampler in DDP
+Iterable-style Dataset (implements __iter__):
+  - Suited for streaming data (no known length)
+  - shuffle=True on DataLoader is silently ignored — must shuffle internally
+  - With num_workers > 0, MUST partition data manually per worker
+# Source: torch/utils/data/dataset.py — Dataset vs IterableDataset
+
+  - **pin_memory:** Enable pin_memory=True when transferring to CUDA devices.
+Pinned (page-locked) host memory allows async DMA transfers from the
+DataLoader workers to GPU, overlapping with compute.
+Do NOT enable for CPU-only training or MPS (Apple Silicon) — no benefit.
+# Source: torch/utils/data/dataloader.py — DataLoader docstring
+
+  - **num_workers:** num_workers=0 (default): data loaded in the main process.
+num_workers > 0: spawns subprocesses; requires all objects to be picklable.
+Guideline: start with num_workers = number of CPU cores / 2.
+persistent_workers=True avoids the per-epoch fork cost for large datasets.
+# Source: torch/utils/data/dataloader.py — DataLoader docstring
+
+  - **weighted_sampler:** Use WeightedRandomSampler to address class imbalance:
+  - Provide a weight per sample (not per class)
+  - replacement=True (default) allows re-sampling
+  - num_samples controls epoch length regardless of dataset size
+Mutually exclusive with shuffle=True.
+# Source: torch/utils/data/sampler.py — WeightedRandomSampler
 
 
 ## SLA
@@ -198,12 +241,17 @@ Sharding must happen BEFORE shuffle and cache for correctness.
 ```yaml
 tech_stack:
   language: Python
-  framework: TensorFlow tf.data
+  frameworks:
+    - TensorFlow tf.data — pipeline composition, AUTOTUNE, TFRecord, caching
+    - PyTorch DataLoader — multi-process workers, pin_memory, samplers,
+      collate_fn
   patterns:
-    - tf.data.Dataset pipeline composition
-    - AUTOTUNE buffer sizing
-    - TFRecord binary format for large-scale datasets
-    - Dataset sharding for distributed training
+    - "tf.data: cache → shuffle → map(AUTOTUNE) → batch → prefetch(AUTOTUNE)"
+    - "PyTorch: DataLoader with num_workers + persistent_workers for throughput"
+    - "PyTorch IterableDataset: manually partition data per worker via
+      get_worker_info()"
+    - PyTorch WeightedRandomSampler for class imbalance
+    - DistributedSampler for DDP / multi-process distributed training
 ```
 
 </details>
@@ -214,10 +262,10 @@ tech_stack:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Dataset Pipeline Blueprint",
-  "description": "Build efficient input data pipelines for ML training and inference using tf.data with batching, shuffling, caching, prefetching, and parallel preprocessing. 13 ",
+  "description": "Build efficient input data pipelines for ML training and inference — covers tf.data (caching, prefetching, AUTOTUNE) and PyTorch DataLoader (multi-process worke",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
-  "keywords": "ai, data-pipeline, preprocessing, tensorflow, etl, performance"
+  "keywords": "ai, data-pipeline, preprocessing, pytorch, tensorflow, etl, performance"
 }
 </script>

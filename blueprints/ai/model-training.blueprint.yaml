@@ -1,24 +1,28 @@
 # ============================================================
 # model-training — Machine Learning Model Training Workflow
-# FDL v0.1.0 | Blueprint v1.0.0
+# FDL v0.1.0 | Blueprint v1.1.0
 # ============================================================
-# Source: TensorFlow public API (tensorflow.org/api_docs)
-# Tech stack: Python + TensorFlow/Keras + tf.distribute
-# Reference: tensorflow/python/keras/engine/training.py
-#            tensorflow/python/keras/callbacks.py
-#            tensorflow/python/distribute/mirrored_strategy.py
+# Sources:
+#   TensorFlow public API (tensorflow.org/api_docs)
+#     tensorflow/python/keras/engine/training.py
+#     tensorflow/python/keras/callbacks.py
+#     tensorflow/python/distribute/mirrored_strategy.py
+#   PyTorch (github.com/pytorch/pytorch)
+#     torch/optim/optimizer.py
+#     torch/optim/adam.py
+#     torch/optim/lr_scheduler.py
 # ============================================================
 
 feature: model-training
-version: "1.0.0"
-description: "Train, evaluate, and checkpoint ML models using the Keras fit API with configurable optimizers, loss functions, callbacks, and distributed strategies"
+version: "1.1.0"
+description: "Train, evaluate, and checkpoint ML models with configurable optimizers, LR schedulers, mixed precision, and distributed strategies — covers Keras fit API and PyTorch training loop"
 category: ai
 tags:
   - ai
   - machine-learning
   - training
-  - keras
   - deep-learning
+  - pytorch
   - tensorflow
 
 actors:
@@ -52,9 +56,73 @@ fields:
       - value: "rmsprop"
         label: "RMSProp (good for RNNs)"
       - value: "adamw"
-        label: "AdamW (Adam + weight decay)"
+        label: "AdamW (Adam + decoupled weight decay)"
       - value: "adagrad"
         label: "Adagrad (per-parameter learning rates)"
+      - value: "nadam"
+        label: "NAdam (Adam with Nesterov momentum)"
+      - value: "radam"
+        label: "RAdam (rectified Adam, variance-corrected warmup)"
+      - value: "adafactor"
+        label: "Adafactor (memory-efficient, no second moment storage)"
+
+  # PyTorch Adam-specific hyperparameters
+  # Source: torch/optim/adam.py — validated: 0 <= betas < 1, eps > 0
+  - name: optimizer_betas
+    type: json
+    required: false
+    label: "Adam Beta Coefficients [beta1, beta2] (PyTorch)"
+
+  - name: optimizer_eps
+    type: number
+    required: false
+    label: "Optimizer Epsilon for Numerical Stability (default: 1e-8)"
+
+  - name: optimizer_weight_decay
+    type: number
+    required: false
+    label: "Weight Decay (L2 penalty)"
+
+  - name: optimizer_amsgrad
+    type: boolean
+    required: false
+    label: "Use AMSGrad Variant of Adam (PyTorch)"
+
+  - name: optimizer_fused
+    type: boolean
+    required: false
+    label: "Use Fused Kernel Implementation (PyTorch, CUDA only, fastest — requires floating point params)"
+
+  # PyTorch LR scheduler type
+  # Source: torch/optim/lr_scheduler.py — __all__ list
+  - name: lr_scheduler
+    type: select
+    required: false
+    label: "Learning Rate Scheduler"
+    options:
+      - value: "none"
+        label: "None (constant learning rate)"
+      - value: "step"
+        label: "StepLR (decay by gamma every step_size epochs)"
+      - value: "cosine"
+        label: "CosineAnnealingLR (cosine decay to eta_min)"
+      - value: "cosine_warm_restarts"
+        label: "CosineAnnealingWarmRestarts (periodic restarts)"
+      - value: "one_cycle"
+        label: "OneCycleLR (super-convergence, 1-cycle policy)"
+      - value: "reduce_on_plateau"
+        label: "ReduceLROnPlateau (reduce when metric stops improving)"
+      - value: "exponential"
+        label: "ExponentialLR (decay by gamma every epoch)"
+      - value: "polynomial"
+        label: "PolynomialLR (polynomial decay to zero)"
+      - value: "lambda"
+        label: "LambdaLR (custom lambda function)"
+
+  - name: mixed_precision
+    type: boolean
+    required: false
+    label: "Enable Mixed Precision Training (fp16/bf16 forward, fp32 optimizer state)"
 
   - name: learning_rate
     type: number
@@ -132,9 +200,11 @@ fields:
       - value: "default"
         label: "Default (single device)"
       - value: "mirrored"
-        label: "MirroredStrategy (multi-GPU, same machine)"
+        label: "MirroredStrategy / DDP (multi-GPU, same machine)"
       - value: "multi_worker"
-        label: "MultiWorkerMirroredStrategy (multi-node cluster)"
+        label: "MultiWorkerMirrored / DDP multi-node (multi-node cluster)"
+      - value: "fsdp"
+        label: "FSDP (Fully Sharded Data Parallel — large model sharding)"
       - value: "tpu"
         label: "TPUStrategy (Google Cloud TPU)"
 
@@ -255,6 +325,70 @@ rules:
       - Dynamic shapes NOT supported — use fixed-shape inputs
       - Effective batch size MUST be divisible by number of TPU cores (8 or 128)
       # Source: tensorflow/python/distribute/tpu_strategy.py
+
+  pytorch_training_loop:
+    loop_order: |
+      PyTorch requires explicit training loop management (unlike Keras model.fit).
+      The canonical step order per batch:
+        1. optimizer.zero_grad(set_to_none=True)   — clear gradients
+        2. output = model(inputs)                  — forward pass
+        3. loss = criterion(output, targets)        — compute loss
+        4. loss.backward()                         — accumulate gradients
+        5. torch.nn.utils.clip_grad_norm_(params, max_norm)  — optional clip
+        6. optimizer.step()                        — update parameters
+        7. scheduler.step()                        — update LR (after optimizer)
+      Call model.train() before the loop and model.eval() for validation.
+      # Source: torch/optim/optimizer.py — _use_grad_for_differentiable
+
+    zero_grad: |
+      SHOULD call optimizer.zero_grad(set_to_none=True) rather than the default
+      set_to_none=False. Setting gradients to None instead of zeroing avoids
+      a memory write and reduces memory bandwidth, which is measurably faster
+      on large models.
+      # Source: torch/optim/optimizer.py — zero_grad docstring
+
+    optimizer_performance: |
+      PyTorch optimizers offer three implementation tiers (fastest first):
+        1. fused=True    — vertical+horizontal kernel fusion; CUDA only; requires
+                           floating point params (float16/32/64/bfloat16).
+                           Cannot be combined with foreach=True or differentiable=True.
+        2. foreach=True  — horizontal fusion via tensorlist ops; uses ~sizeof(params)
+                           extra peak memory; CUDA recommended.
+        3. default       — single-tensor for-loop; works everywhere; slowest.
+      When neither flag is set PyTorch defaults to foreach on CUDA.
+      # Source: torch/optim/optimizer.py — _default_to_fused_or_foreach,
+      #          torch/optim/adam.py — Adam.__init__ fused/foreach validation
+
+    mixed_precision: |
+      PyTorch mixed precision (AMP) uses:
+        - torch.amp.autocast(device_type='cuda') wrapping the forward pass
+        - torch.amp.GradScaler to scale loss before backward, preventing
+          fp16 underflow in gradients. Unscale before gradient clipping.
+      Correct order:
+        with autocast():
+            loss = model(inputs)
+        scaler.scale(loss).backward()
+        scaler.unscale_(optimizer)
+        clip_grad_norm_(...)
+        scaler.step(optimizer)
+        scaler.update()
+
+    lr_scheduler: |
+      MUST call scheduler.step() AFTER optimizer.step(), not before.
+      PyTorch warns if called in the wrong order (detected via _opt_called flag).
+      When resuming from checkpoint: restore scheduler BEFORE calling
+      optimizer.load_state_dict() to avoid overwriting loaded LRs.
+      # Source: torch/optim/lr_scheduler.py — LRScheduler.__init__,
+      #          EPOCH_DEPRECATION_WARNING
+
+    adam_validation: |
+      Adam raises ValueError on construction for invalid hyperparameters:
+        - lr must be >= 0
+        - eps must be >= 0
+        - betas[0] and betas[1] must be in [0, 1)
+        - weight_decay must be >= 0
+        - fused and foreach cannot both be True
+      # Source: torch/optim/adam.py — Adam.__init__
 
 outcomes:
   training_completed:
@@ -437,9 +571,13 @@ related:
 extensions:
   tech_stack:
     language: "Python"
-    framework: "TensorFlow / Keras"
+    frameworks:
+      - "TensorFlow / Keras — Model.fit() loop, callbacks, tf.distribute.Strategy"
+      - "PyTorch — manual training loop, torch.optim, torch.amp, DDP/FSDP"
     patterns:
-      - "Keras Model.fit() training loop"
-      - "ModelCheckpoint + EarlyStopping callbacks"
-      - "tf.distribute.Strategy for multi-device training"
-      - "tf.random.set_seed for reproducibility"
+      - "Keras Model.fit() with ModelCheckpoint + EarlyStopping callbacks"
+      - "PyTorch: zero_grad → forward → loss → backward → clip → step"
+      - "PyTorch AMP: autocast + GradScaler for mixed precision"
+      - "PyTorch LR schedulers: CosineAnnealingLR, OneCycleLR, ReduceLROnPlateau"
+      - "fused/foreach optimizer kernels for CUDA performance"
+      - "tf.distribute.Strategy / DDP / FSDP for distributed training"

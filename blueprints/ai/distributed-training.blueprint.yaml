@@ -1,0 +1,424 @@
+# ============================================================
+# distributed-training — Multi-GPU and Multi-Node ML Training
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Source: PyTorch (github.com/pytorch/pytorch)
+#   torch/distributed/__init__.py
+#   torch/distributed/distributed_c10d.py (init_process_group, collectives)
+#   torch/distributed/fsdp/__init__.py (FullyShardedDataParallel)
+#   torch/nn/parallel/distributed.py (DistributedDataParallel)
+# ============================================================
+
+feature: distributed-training
+version: "1.0.0"
+description: "Configure multi-GPU or multi-node ML training using DDP, FSDP, or hybrid strategies — covers process group setup, collective communication, and distributed checkpoint coordination"
+category: ai
+tags:
+  - ai
+  - distributed
+  - machine-learning
+  - pytorch
+  - ddp
+  - fsdp
+  - multi-gpu
+
+actors:
+  - id: ml_engineer
+    name: "ML Engineer"
+    type: human
+    description: "Configures distributed strategy, hardware topology, and training script"
+  - id: rank_process
+    name: "Rank Process"
+    type: system
+    description: "One OS process per GPU; runs an identical copy of the training script"
+  - id: rendezvous_backend
+    name: "Rendezvous Backend"
+    type: system
+    description: "Coordinates process discovery (env vars, TCP store, file store)"
+  - id: communication_backend
+    name: "Communication Backend"
+    type: system
+    description: "Executes collective operations (NCCL for GPU, Gloo for CPU, MPI)"
+
+fields:
+  # init_process_group parameters
+  # Source: torch/distributed/distributed_c10d.py:1622 — init_process_group()
+  - name: backend
+    type: select
+    required: true
+    label: "Communication Backend"
+    options:
+      - value: "nccl"
+        label: "NCCL (NVIDIA — GPU-to-GPU, fastest for CUDA workloads)"
+      - value: "gloo"
+        label: "Gloo (CPU collective ops; fallback for non-CUDA)"
+      - value: "mpi"
+        label: "MPI (requires MPI installation; flexible multi-node)"
+      - value: "auto"
+        label: "Auto (detected from device_id — nccl for CUDA, gloo for CPU)"
+
+  - name: init_method
+    type: select
+    required: false
+    label: "Process Group Initialization Method"
+    options:
+      - value: "env"
+        label: "env:// (default — reads MASTER_ADDR, MASTER_PORT, RANK, WORLD_SIZE)"
+      - value: "tcp"
+        label: "tcp://<host>:<port> (explicit TCP rendezvous)"
+      - value: "file"
+        label: "file:///path/to/file (shared filesystem rendezvous)"
+
+  - name: world_size
+    type: number
+    required: true
+    label: "World Size (total number of processes = num_nodes × GPUs_per_node)"
+    validation:
+      - type: min
+        value: 1
+        message: "World size must be at least 1"
+
+  - name: rank
+    type: number
+    required: true
+    label: "Global Rank of This Process (0 to world_size - 1)"
+
+  - name: local_rank
+    type: number
+    required: false
+    label: "Local Rank Within Node (GPU index on this machine, set by torchrun)"
+
+  - name: parallelism_strategy
+    type: select
+    required: true
+    label: "Parallelism Strategy"
+    options:
+      - value: "ddp"
+        label: "DDP — DistributedDataParallel (replicate model on every GPU)"
+      - value: "fsdp"
+        label: "FSDP — FullyShardedDataParallel (shard model params across GPUs)"
+      - value: "fsdp2"
+        label: "FSDP2 — fully_shard API (PyTorch 2.x, composable)"
+      - value: "data_parallel"
+        label: "DataParallel (single-node only, deprecated — use DDP)"
+
+  - name: fsdp_sharding_strategy
+    type: select
+    required: false
+    label: "FSDP Sharding Strategy"
+    options:
+      - value: "full_shard"
+        label: "FULL_SHARD (shard params + grads + optimizer state — most memory savings)"
+      - value: "shard_grad_op"
+        label: "SHARD_GRAD_OP (shard grads + optimizer; keep full params during forward)"
+      - value: "no_shard"
+        label: "NO_SHARD (equivalent to DDP — no sharding)"
+      - value: "hybrid_shard"
+        label: "HYBRID_SHARD (shard within node, replicate across nodes)"
+
+  - name: find_unused_parameters
+    type: boolean
+    required: false
+    label: "DDP: Find Unused Parameters (enable if not all params receive gradients)"
+
+  - name: gradient_as_bucket_view
+    type: boolean
+    required: false
+    label: "DDP: Gradient As Bucket View (reduces memory usage, default False)"
+
+  - name: training_status
+    type: select
+    required: false
+    label: "Training Status"
+    options:
+      - value: "initializing"
+        label: "Initializing"
+      - value: "running"
+        label: "Running"
+      - value: "completed"
+        label: "Completed"
+      - value: "failed"
+        label: "Failed"
+
+states:
+  run_state:
+    field: training_status
+    values:
+      - name: initializing
+        initial: true
+      - name: running
+      - name: completed
+        terminal: true
+      - name: failed
+        terminal: true
+    transitions:
+      - from: initializing
+        to: running
+        actor: rank_process
+        description: "All ranks completed init_process_group and rendezvous"
+      - from: running
+        to: completed
+        actor: rank_process
+        description: "Training loop finished on all ranks"
+      - from: running
+        to: failed
+        actor: rank_process
+        description: "One rank crashed (NCCL error, OOM, deadlock)"
+      - from: initializing
+        to: failed
+        actor: rendezvous_backend
+        description: "Rendezvous timed out — not all processes joined"
+
+rules:
+  process_group:
+    initialization: |
+      MUST call torch.distributed.init_process_group() before any collective
+      operations. Default init_method='env://' reads four environment variables:
+        MASTER_ADDR — hostname or IP of rank 0
+        MASTER_PORT — free TCP port on rank 0
+        RANK        — global rank of this process
+        WORLD_SIZE  — total number of processes
+      When using torchrun, these are set automatically.
+      # Source: torch/distributed/distributed_c10d.py:1622 — init_process_group
+
+    nccl_exclusive_gpu: |
+      NCCL MUST have exclusive access to each GPU.
+      Each rank process must own exactly one GPU (set via CUDA_VISIBLE_DEVICES
+      or torch.cuda.set_device(local_rank)).
+      Sharing a GPU between two NCCL processes causes deadlock or invalid usage.
+      # Source: torch/distributed/distributed_c10d.py:1622 — backend docstring
+
+    backend_selection: |
+      Backend auto-detection logic (since PyTorch 2.6):
+        - device_id is CUDA → NCCL
+        - device_id is CPU  → Gloo
+        - No device_id and no backend → detects accelerator on runtime machine
+      Explicit recommendation:
+        - GPU training: backend='nccl'
+        - CPU-only or heterogeneous: backend='gloo'
+        - HPC cluster: backend='mpi' (requires pre-installed MPI)
+      # Source: torch/distributed/distributed_c10d.py:1622 — backend docstring
+
+    timeout: |
+      Default timeout: 10 minutes for NCCL, 30 minutes for other backends.
+      On timeout, the collective is aborted asynchronously and the process crashes.
+      Because CUDA is async, it is unsafe to continue after a failed collective —
+      subsequent kernels may run on corrupted data.
+      # Source: torch/distributed/distributed_c10d.py:1622 — timeout docstring
+
+  ddp:
+    setup: |
+      DDP wraps a model after it has been moved to the target device:
+        model = model.to(device)
+        model = DistributedDataParallel(model, device_ids=[local_rank])
+      All reduce of gradients happens automatically during backward pass
+      (averaged across world_size ranks).
+
+    find_unused_parameters: |
+      Set find_unused_parameters=True only when the model has parameters that
+      do not always receive gradients (conditional branches, optional layers).
+      It adds a graph traversal overhead on each forward pass — avoid when
+      all parameters are used every step.
+
+    gradient_accumulation: |
+      To accumulate gradients over N steps before syncing across GPUs:
+        with model.no_sync():   # suppress all-reduce for N-1 steps
+            loss.backward()
+        loss.backward()         # all-reduce happens here (final step)
+      This reduces communication overhead for large effective batch sizes.
+
+  fsdp:
+    sharding_strategy: |
+      FULL_SHARD (default): shards parameters, gradients, and optimizer state
+        across all ranks. Maximizes memory savings; best for very large models.
+      SHARD_GRAD_OP: keeps full parameters during forward/backward; shards only
+        optimizer state and gradients. Less memory saving, less communication.
+      HYBRID_SHARD: full shard within a node group, full replicas across nodes.
+        Best for multi-node where inter-node bandwidth is limited.
+
+    mixed_precision: |
+      FSDP supports MixedPrecision policy to shard in lower precision:
+        MixedPrecision(param_dtype=torch.float16,
+                       reduce_dtype=torch.float32,   # reduce in fp32 for stability
+                       buffer_dtype=torch.float16)
+      # Source: torch/distributed/fsdp/__init__.py — MixedPrecision
+
+  checkpointing:
+    rank_zero_save: |
+      MUST save checkpoints on rank 0 only (or use FSDP distributed checkpoint API).
+      Pattern for DDP:
+        if dist.get_rank() == 0:
+            torch.save(model.module.state_dict(), path)
+        dist.barrier()   # all ranks wait until rank 0 finishes writing
+      FSDP: use FSDP.state_dict_type() context to choose between full,
+      sharded, or local state dict formats before saving.
+
+  collectives:
+    all_reduce: |
+      torch.distributed.all_reduce(tensor, op=ReduceOp.SUM) — reduce tensor
+      across all ranks and broadcast result to all (in-place).
+      Common ops: SUM (default), AVG, MAX, MIN, PRODUCT.
+      DDP uses all_reduce internally for gradient synchronization.
+
+    barrier: |
+      torch.distributed.barrier() — synchronization point; all ranks block
+      until every rank reaches the barrier. Use before/after checkpoint writes
+      and before reading data that rank 0 has written.
+      CAUTION: every rank must call barrier or it deadlocks.
+
+outcomes:
+  distributed_initialized:
+    priority: 10
+    given:
+      - "all world_size processes have called init_process_group"
+      - "rendezvous completed within timeout"
+      - field: backend
+        source: input
+        operator: exists
+    then:
+      - action: transition_state
+        field: training_status
+        from: initializing
+        to: running
+      - action: emit_event
+        event: distributed.initialized
+        payload:
+          - backend
+          - world_size
+          - rank
+    result: "Process group ready; collective operations available on all ranks"
+
+  training_completed_distributed:
+    priority: 10
+    given:
+      - field: training_status
+        source: db
+        operator: eq
+        value: "running"
+      - "all epochs completed without error on all ranks"
+    then:
+      - action: transition_state
+        field: training_status
+        from: running
+        to: completed
+      - action: emit_event
+        event: training.completed
+        payload:
+          - total_epochs
+          - final_loss
+    result: "All ranks finished training; checkpoint saved by rank 0"
+    transaction: true
+
+  rendezvous_timeout:
+    priority: 1
+    error: DISTRIBUTED_RENDEZVOUS_TIMEOUT
+    given:
+      - "not all world_size processes joined within the timeout window"
+    then:
+      - action: transition_state
+        field: training_status
+        from: initializing
+        to: failed
+    result: "Process group not formed; verify all nodes are reachable and MASTER_ADDR/PORT are correct"
+
+  nccl_error:
+    priority: 2
+    error: DISTRIBUTED_NCCL_ERROR
+    given:
+      - field: backend
+        source: input
+        operator: eq
+        value: "nccl"
+      - "NCCL collective operation failed or timed out"
+    then:
+      - action: transition_state
+        field: training_status
+        from: running
+        to: failed
+    result: "Training aborted on all ranks; check NCCL logs, GPU exclusivity, and network connectivity"
+
+  rank_oom:
+    priority: 2
+    error: DISTRIBUTED_RANK_OOM
+    given:
+      - "GPU memory exhausted on one or more ranks during forward or backward pass"
+    then:
+      - action: transition_state
+        field: training_status
+        from: running
+        to: failed
+    result: "Reduce batch size, enable FSDP/gradient checkpointing, or use mixed precision"
+
+errors:
+  - code: DISTRIBUTED_RENDEZVOUS_TIMEOUT
+    status: 503
+    message: "Distributed rendezvous timed out. Not all processes joined. Check network and configuration."
+    retry: true
+
+  - code: DISTRIBUTED_NCCL_ERROR
+    status: 500
+    message: "NCCL collective operation failed. Check GPU exclusivity and inter-GPU connectivity."
+
+  - code: DISTRIBUTED_RANK_OOM
+    status: 500
+    message: "GPU out of memory on one or more ranks. Reduce batch size or enable model sharding."
+    retry: true
+
+  - code: DISTRIBUTED_BARRIER_DEADLOCK
+    status: 500
+    message: "Barrier deadlock — not all ranks reached the barrier. Check for conditional barrier calls."
+
+events:
+  - name: distributed.initialized
+    payload:
+      - backend
+      - world_size
+      - rank
+      - local_rank
+
+  - name: distributed.checkpoint_saved
+    payload:
+      - rank
+      - checkpoint_path
+
+  - name: training.completed
+    payload:
+      - total_epochs
+      - final_loss
+
+  - name: distributed.rank_failed
+    payload:
+      - rank
+      - error_code
+
+sla:
+  rendezvous_timeout:
+    max_duration: "10m"
+  nccl_collective_timeout:
+    max_duration: "10m"
+  gloo_collective_timeout:
+    max_duration: "30m"
+
+related:
+  - feature: model-training
+    type: required
+    reason: "Distributed training wraps the single-device training loop"
+  - feature: dataset-pipeline
+    type: required
+    reason: "DistributedSampler must be used to partition data across ranks"
+  - feature: model-serving
+    type: recommended
+    reason: "Checkpoint saved by rank 0 is exported for serving"
+
+extensions:
+  tech_stack:
+    language: "Python"
+    framework: "PyTorch Distributed (torch.distributed)"
+    launcher: "torchrun (elastic launch) or mpirun"
+    patterns:
+      - "init_process_group with env:// via torchrun environment variables"
+      - "DistributedDataParallel: replicate on every GPU, all-reduce gradients"
+      - "FSDP FULL_SHARD: shard params + grads + optimizer state"
+      - "FSDP2 fully_shard composable API (PyTorch 2.x)"
+      - "DDP no_sync() for gradient accumulation without inter-GPU sync"
+      - "Rank-0-only checkpoint save guarded by dist.barrier()"

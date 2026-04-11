@@ -2,19 +2,26 @@
 
 # Model Training
 
-> Train, evaluate, and checkpoint ML models using the Keras fit API with configurable optimizers, loss functions, callbacks, and distributed strategies
+> Train, evaluate, and checkpoint ML models with configurable optimizers, LR schedulers, mixed precision, and distributed strategies — covers Keras fit API and PyTorch training loop
 
-**Category:** Ai · **Version:** 1.0.0 · **Tags:** ai · machine-learning · training · keras · deep-learning · tensorflow
+**Category:** Ai · **Version:** 1.1.0 · **Tags:** ai · machine-learning · training · deep-learning · pytorch · tensorflow
 
 ## What this does
 
-Train, evaluate, and checkpoint ML models using the Keras fit API with configurable optimizers, loss functions, callbacks, and distributed strategies
+Train, evaluate, and checkpoint ML models with configurable optimizers, LR schedulers, mixed precision, and distributed strategies — covers Keras fit API and PyTorch training loop
 
 Specifies 6 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
 
 ## Fields
 
 - **optimizer** *(select, required)* — Optimizer
+- **optimizer_betas** *(json, optional)* — Adam Beta Coefficients [beta1, beta2] (PyTorch)
+- **optimizer_eps** *(number, optional)* — Optimizer Epsilon for Numerical Stability (default: 1e-8)
+- **optimizer_weight_decay** *(number, optional)* — Weight Decay (L2 penalty)
+- **optimizer_amsgrad** *(boolean, optional)* — Use AMSGrad Variant of Adam (PyTorch)
+- **optimizer_fused** *(boolean, optional)* — Use Fused Kernel Implementation (PyTorch, CUDA only, fastest — requires floating point params)
+- **lr_scheduler** *(select, optional)* — Learning Rate Scheduler
+- **mixed_precision** *(boolean, optional)* — Enable Mixed Precision Training (fp16/bf16 forward, fp32 optimizer state)
 - **learning_rate** *(number, required)* — Learning Rate
 - **loss_function** *(select, required)* — Loss Function
 - **epochs** *(number, required)* — Max Training Epochs
@@ -39,6 +46,12 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - **checkpointing → model_checkpointing:** SHOULD save model checkpoints using ModelCheckpoint callback: - save_best_only=True: only persist when monitored metric improves - save_weights_only=False: save full SavedModel (graph + weights) - monitor='val_loss': use validation loss, not training loss Checkpoint format: SavedModel directory (recommended over .h5). # Source: tensorflow/python/keras/callbacks.py: ModelCheckpoint
 - **distributed_training → strategy_scope:** MUST create model and optimizer inside strategy.scope() when using MirroredStrategy or MultiWorkerMirroredStrategy. All variables created inside scope are mirrored across all replicas. Effective batch size = batch_size × number_of_replicas. # Source: tensorflow/python/distribute/mirrored_strategy.py
 - **distributed_training → tpu_requirements:** TPUStrategy requires: - Connecting to TPU cluster before strategy creation - Dynamic shapes NOT supported — use fixed-shape inputs - Effective batch size MUST be divisible by number of TPU cores (8 or 128) # Source: tensorflow/python/distribute/tpu_strategy.py
+- **pytorch_training_loop → loop_order:** PyTorch requires explicit training loop management (unlike Keras model.fit). The canonical step order per batch: 1. optimizer.zero_grad(set_to_none=True) — clear gradients 2. output = model(inputs) — forward pass 3. loss = criterion(output, targets) — compute loss 4. loss.backward() — accumulate gradients 5. torch.nn.utils.clip_grad_norm_(params, max_norm) — optional clip 6. optimizer.step() — update parameters 7. scheduler.step() — update LR (after optimizer) Call model.train() before the loop and model.eval() for validation. # Source: torch/optim/optimizer.py — _use_grad_for_differentiable
+- **pytorch_training_loop → zero_grad:** SHOULD call optimizer.zero_grad(set_to_none=True) rather than the default set_to_none=False. Setting gradients to None instead of zeroing avoids a memory write and reduces memory bandwidth, which is measurably faster on large models. # Source: torch/optim/optimizer.py — zero_grad docstring
+- **pytorch_training_loop → optimizer_performance:** PyTorch optimizers offer three implementation tiers (fastest first): 1. fused=True — vertical+horizontal kernel fusion; CUDA only; requires floating point params (float16/32/64/bfloat16). Cannot be combined with foreach=True or differentiable=True. 2. foreach=True — horizontal fusion via tensorlist ops; uses ~sizeof(params) extra peak memory; CUDA recommended. 3. default — single-tensor for-loop; works everywhere; slowest. When neither flag is set PyTorch defaults to foreach on CUDA. # Source: torch/optim/optimizer.py — _default_to_fused_or_foreach, # torch/optim/adam.py — Adam.__init__ fused/foreach validation
+- **pytorch_training_loop → mixed_precision:** PyTorch mixed precision (AMP) uses: - torch.amp.autocast(device_type='cuda') wrapping the forward pass - torch.amp.GradScaler to scale loss before backward, preventing fp16 underflow in gradients. Unscale before gradient clipping. Correct order: with autocast(): loss = model(inputs) scaler.scale(loss).backward() scaler.unscale_(optimizer) clip_grad_norm_(...) scaler.step(optimizer) scaler.update()
+- **pytorch_training_loop → lr_scheduler:** MUST call scheduler.step() AFTER optimizer.step(), not before. PyTorch warns if called in the wrong order (detected via _opt_called flag). When resuming from checkpoint: restore scheduler BEFORE calling optimizer.load_state_dict() to avoid overwriting loaded LRs. # Source: torch/optim/lr_scheduler.py — LRScheduler.__init__, # EPOCH_DEPRECATION_WARNING
+- **pytorch_training_loop → adam_validation:** Adam raises ValueError on construction for invalid hyperparameters: - lr must be >= 0 - eps must be >= 0 - betas[0] and betas[1] must be in [0, 1) - weight_decay must be >= 0 - fused and foreach cannot both be True # Source: torch/optim/adam.py — Adam.__init__
 
 ## Success & failure scenarios
 
