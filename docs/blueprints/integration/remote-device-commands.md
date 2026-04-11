@@ -8,7 +8,7 @@ description: "Send control commands from the platform to GPS tracking hardware u
 
 # Remote Device Commands Blueprint
 
-> Send control commands from the platform to GPS tracking hardware using the device's native protocol channel or SMS fallback, supporting engine control, configuration, alarm management, and information requests.
+> Send control commands from the platform to GPS tracking hardware using the device's native protocol channel or SMS fallback, supporting engine control, configuration, alarm management, and informat...
 
 | | |
 |---|---|
@@ -31,11 +31,11 @@ description: "Send control commands from the platform to GPS tracking hardware u
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `device_id` | hidden | Yes |  |  |
-| `type` | select | Yes |  |  |
-| `text_channel` | boolean | No |  |  |
-| `description` | text | No |  |  |
-| `attributes` | json | No |  |  |
+| `device_id` | hidden | Yes | Target device for the command |  |
+| `type` | select | Yes | Command type identifier. Common types: engine_stop, engine_resume, reboot_device, power_off, fact... |  |
+| `text_channel` | boolean | No | When true, command is sent via SMS rather than the data channel; requires device phone number |  |
+| `description` | text | No | Human-readable label for this saved command |  |
+| `attributes` | json | No | Command-specific parameters. Common keys: frequency (reporting interval in seconds), timezone, de... |  |
 
 ## Rules
 
@@ -99,9 +99,9 @@ description: "Send control commands from the platform to GPS tracking hardware u
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `COMMAND_UNSUPPORTED_BY_PROTOCOL` |  | The target device does not support this command type | No |
-| `COMMAND_PERMISSION_DENIED` |  | You do not have permission to send commands to this device | No |
-| `COMMAND_DEVICE_NOT_FOUND` |  | The specified device does not exist | No |
+| `COMMAND_UNSUPPORTED_BY_PROTOCOL` | 404 | The target device does not support this command type | No |
+| `COMMAND_PERMISSION_DENIED` | 403 | You do not have permission to send commands to this device | No |
+| `COMMAND_DEVICE_NOT_FOUND` | 404 | The specified device does not exist | No |
 
 ## Events
 
@@ -115,8 +115,8 @@ description: "Send control commands from the platform to GPS tracking hardware u
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| gps-device-registration |  |  |
-| fleet-device-sharing |  |  |
+| gps-device-registration | required | Devices must be registered to receive commands |
+| fleet-device-sharing | required | Permission model controls who can send commands |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

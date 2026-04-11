@@ -8,7 +8,7 @@ description: "Detect when a tracked device exceeds a configured speed limit for 
 
 # Overspeed Alerts Blueprint
 
-> Detect when a tracked device exceeds a configured speed limit for a minimum duration, using a four-level speed limit hierarchy (position > geofence > device > server), and emit a single event at the start of each overspeed episode.
+> Detect when a tracked device exceeds a configured speed limit for a minimum duration, using a four-level speed limit hierarchy (position > geofence > device > server), and emit a single event at th...
 
 | | |
 |---|---|
@@ -30,13 +30,13 @@ description: "Detect when a tracked device exceeds a configured speed limit for 
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `device_id` | hidden | Yes |  |  |
-| `speed` | number | Yes |  |  |
-| `speed_limit` | number | No |  |  |
-| `geofence_id` | hidden | No |  |  |
-| `overspeed_state` | boolean | No |  |  |
-| `overspeed_start_time` | datetime | No |  |  |
-| `min_duration_seconds` | number | No |  |  |
+| `device_id` | hidden | Yes | Device being monitored |  |
+| `speed` | number | Yes | Instantaneous speed from the position record (knots as reported by GPS) |  |
+| `speed_limit` | number | No | Effective speed limit applied to this position (resolved from the hierarchy) |  |
+| `geofence_id` | hidden | No | Zone whose speed limit is being applied when inside a geofence |  |
+| `overspeed_state` | boolean | No | Persisted flag indicating the device is currently in an overspeed episode |  |
+| `overspeed_start_time` | datetime | No | Timestamp when the current overspeed episode began |  |
+| `min_duration_seconds` | number | No | Minimum number of seconds the device must exceed the limit before an event is emitted |  |
 
 ## Rules
 
@@ -88,7 +88,7 @@ description: "Detect when a tracked device exceeds a configured speed limit for 
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `OVERSPEED_DEVICE_NOT_FOUND` |  | The device referenced does not exist | No |
+| `OVERSPEED_DEVICE_NOT_FOUND` | 404 | The device referenced does not exist | No |
 
 ## Events
 
@@ -100,9 +100,9 @@ description: "Detect when a tracked device exceeds a configured speed limit for 
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| gps-position-ingestion |  |  |
-| geofence-management |  |  |
-| gps-device-registration |  |  |
+| gps-position-ingestion | required | Position speed values drive overspeed detection |
+| geofence-management | recommended | Geofence-level speed limits override device-level limits |
+| gps-device-registration | required | Speed limits are configured as device attributes |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

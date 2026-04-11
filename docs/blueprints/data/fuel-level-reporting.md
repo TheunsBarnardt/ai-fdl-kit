@@ -8,7 +8,7 @@ description: "Read fuel sensor data transmitted by GPS hardware, detect signific
 
 # Fuel Level Reporting Blueprint
 
-> Read fuel sensor data transmitted by GPS hardware, detect significant fuel drops (theft or fast consumption) and unexpected increases (refuelling), and provide fuel consumption summaries across trips and time periods.
+> Read fuel sensor data transmitted by GPS hardware, detect significant fuel drops (theft or fast consumption) and unexpected increases (refuelling), and provide fuel consumption summaries across tri...
 
 | | |
 |---|---|
@@ -31,22 +31,22 @@ description: "Read fuel sensor data transmitted by GPS hardware, detect signific
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `fuel_level` | number | No |  |  |
-| `fuel_volume` | number | No |  |  |
-| `fuel_used` | number | No |  |  |
-| `fuel_consumption_rate` | number | No |  |  |
-| `fuel_drop_threshold` | number | No |  |  |
-| `fuel_increase_threshold` | number | No |  |  |
+| `fuel_level` | number | No | Current fuel level as a percentage (0–100%) from the sensor |  |
+| `fuel_volume` | number | No | Current fuel volume in litres (device-specific unit) |  |
+| `fuel_used` | number | No | Cumulative fuel consumed since device reset or reference point |  |
+| `fuel_consumption_rate` | number | No | Instantaneous fuel consumption rate (litres per hour or per 100 km depending on device) |  |
+| `fuel_drop_threshold` | number | No | Minimum decrease in fuel level/volume that triggers a fuel drop event |  |
+| `fuel_increase_threshold` | number | No | Minimum increase in fuel level/volume that triggers a fuel increase (refuel) event |  |
 
 ## Rules
 
-- Fuel data is read from position attributes; the specific attribute key and unit depend on the device and protocol
-- A fuel drop event is generated when the fuel level decreases by more than fuel_drop_threshold between consecutive positions
-- A fuel increase event is generated when the fuel level increases by more than fuel_increase_threshold between consecutive positions (indicating a refuel)
-- Only latest positions are evaluated for threshold crossings; outdated positions are skipped
-- Fuel consumption is calculated per trip and per summary period using the difference between start and end fuel values
-- If the device does not report a fuel sensor, the feature is inactive and no fuel events are generated
-- Both percentage-based and volume-based fuel attributes are supported; the platform uses whichever the device provides
+- **rule_1:** Fuel data is read from position attributes; the specific attribute key and unit depend on the device and protocol
+- **rule_2:** A fuel drop event is generated when the fuel level decreases by more than fuel_drop_threshold between consecutive positions
+- **rule_3:** A fuel increase event is generated when the fuel level increases by more than fuel_increase_threshold between consecutive positions (indicating a refuel)
+- **rule_4:** Only latest positions are evaluated for threshold crossings; outdated positions are skipped
+- **rule_5:** Fuel consumption is calculated per trip and per summary period using the difference between start and end fuel values
+- **rule_6:** If the device does not report a fuel sensor, the feature is inactive and no fuel events are generated
+- **rule_7:** Both percentage-based and volume-based fuel attributes are supported; the platform uses whichever the device provides
 
 ## Outcomes
 
@@ -85,7 +85,7 @@ description: "Read fuel sensor data transmitted by GPS hardware, detect signific
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `FUEL_DEVICE_NOT_FOUND` |  | The device referenced does not exist | No |
+| `FUEL_DEVICE_NOT_FOUND` | 404 | The device referenced does not exist | No |
 
 ## Events
 
@@ -98,9 +98,9 @@ description: "Read fuel sensor data transmitted by GPS hardware, detect signific
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| gps-position-ingestion |  |  |
-| trip-detection |  |  |
-| fleet-scheduled-reports |  |  |
+| gps-position-ingestion | required | Fuel values arrive as position attributes from device transmissions |
+| trip-detection | recommended | Trip reports include fuel consumption from start to end of each trip |
+| fleet-scheduled-reports | recommended | Fuel summary reports aggregate consumption over configurable periods |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

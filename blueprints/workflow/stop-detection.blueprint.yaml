@@ -11,11 +11,17 @@
 # ============================================================
 
 feature: stop-detection
-version: "1.0.0"
+version: 1.0.0
 description: Detect and record periods when a vehicle is stationary, capturing stop location, start time, end time, and duration, to support idle time analysis, delivery dwell time reporting, and route compliance.
 category: workflow
-tags: [gps, tracking, stop, idle, dwell, fleet, report]
-
+tags:
+  - gps
+  - tracking
+  - stop
+  - idle
+  - dwell
+  - fleet
+  - report
 actors:
   - id: pipeline
     name: Position Processing Pipeline
@@ -25,108 +31,121 @@ actors:
     name: Fleet User
     type: human
     description: Reviews stop reports to analyse idle time, unscheduled stops, and delivery durations
-
 fields:
   - name: device_id
     type: hidden
     required: true
-    description: Device being monitored
+    label: Device being monitored
   - name: stop_latitude
     type: number
     required: false
-    description: Latitude of the stop location
+    label: Latitude of the stop location
   - name: stop_longitude
     type: number
     required: false
-    description: Longitude of the stop location
+    label: Longitude of the stop location
   - name: stop_start_time
     type: datetime
     required: false
-    description: Timestamp when movement ceased and the stop began
+    label: Timestamp when movement ceased and the stop began
   - name: stop_end_time
     type: datetime
     required: false
-    description: Timestamp when movement resumed and the stop ended
+    label: Timestamp when movement resumed and the stop ended
   - name: stop_duration_seconds
     type: number
     required: false
-    description: Total duration of the stop in seconds
+    label: Total duration of the stop in seconds
   - name: stop_gap_seconds
     type: number
     required: false
-    description: Minimum seconds of stillness required before a period is classified as a stop
-
+    label: Minimum seconds of stillness required before a period is classified as a stop
 rules:
-  - A stop is detected when the device remains below the motion speed threshold for at least stop_gap_seconds
-  - Short stationary periods below stop_gap_seconds (e.g., red lights, traffic) are not classified as stops
-  - A stop ends and a new trip may begin when the device's speed exceeds the motion threshold again
-  - Stop location is the coordinates at which movement first ceased; minor GPS drift during a stop is ignored
-  - Stop records include the reverse-geocoded address when available
-  - Stops that overlap with geofence zones are annotated with the zone name for context
-  - Engine hours and fuel data at stop boundaries are recorded to support idle fuel consumption analysis
-
+  rule_1: A stop is detected when the device remains below the motion speed threshold for at least stop_gap_seconds
+  rule_2: Short stationary periods below stop_gap_seconds (e.g., red lights, traffic) are not classified as stops
+  rule_3: A stop ends and a new trip may begin when the device's speed exceeds the motion threshold again
+  rule_4: Stop location is the coordinates at which movement first ceased; minor GPS drift during a stop is ignored
+  rule_5: Stop records include the reverse-geocoded address when available
+  rule_6: Stops that overlap with geofence zones are annotated with the zone name for context
+  rule_7: Engine hours and fuel data at stop boundaries are recorded to support idle fuel consumption analysis
 outcomes:
   stop_detected:
     priority: 10
     given:
-      - "device speed has been below the motion threshold for >= stop_gap_seconds"
-      - "device was previously in a moving state"
+      - device speed has been below the motion threshold for >= stop_gap_seconds
+      - device was previously in a moving state
     then:
       - action: create_record
         target: event
-        description: "Stop detected event recorded with type = device_stopped, stop start time and coordinates"
+        description: Stop detected event recorded with type = device_stopped, stop start time and coordinates
+        type: event
       - action: emit_event
         event: stop.detected
-        payload: [device_id, stop_latitude, stop_longitude, stop_start_time, position_id]
+        payload:
+          - device_id
+          - stop_latitude
+          - stop_longitude
+          - stop_start_time
+          - position_id
     result: Stop record started; location, time, and sensor values at stop onset captured
-
   stop_ended:
     priority: 10
     given:
-      - "device resumes movement after a recorded stop"
-      - "device speed exceeds motion threshold"
+      - device resumes movement after a recorded stop
+      - device speed exceeds motion threshold
     then:
       - action: set_field
         target: stop_end_time
         value: now
       - action: emit_event
         event: stop.ended
-        payload: [device_id, stop_start_time, stop_end_time, stop_duration_seconds, stop_latitude, stop_longitude]
+        payload:
+          - device_id
+          - stop_start_time
+          - stop_end_time
+          - stop_duration_seconds
+          - stop_latitude
+          - stop_longitude
     result: Stop record closed with end time and duration; available for stop reports
-
   brief_halt_ignored:
     priority: 5
     given:
-      - "device speed dropped to zero but resumed movement within stop_gap_seconds"
+      - device speed dropped to zero but resumed movement within stop_gap_seconds
     then: []
     result: Short halt ignored; no stop record created (traffic light, junction, etc.)
-
 errors:
   - code: STOP_DEVICE_NOT_FOUND
     message: The device referenced does not exist
-
+    status: 404
 events:
   - name: stop.detected
     description: Vehicle has come to a stop for longer than the minimum stop threshold
-    payload: [device_id, stop_latitude, stop_longitude, stop_start_time, geofence_ids]
+    payload:
+      - device_id
+      - stop_latitude
+      - stop_longitude
+      - stop_start_time
+      - geofence_ids
   - name: stop.ended
     description: Vehicle has resumed movement after a recorded stop
-    payload: [device_id, stop_start_time, stop_end_time, stop_duration_seconds]
-
+    payload:
+      - device_id
+      - stop_start_time
+      - stop_end_time
+      - stop_duration_seconds
 related:
   - feature: trip-detection
-    relationship: required
-    description: Stops are the inverse of trips; both use the same motion state machine
+    type: required
+    reason: Stops are the inverse of trips; both use the same motion state machine
   - feature: gps-position-ingestion
-    relationship: required
-    description: Position speed values drive stop detection
+    type: required
+    reason: Position speed values drive stop detection
   - feature: geofence-management
-    relationship: recommended
-    description: Stops inside geofences are annotated with zone context
+    type: recommended
+    reason: Stops inside geofences are annotated with zone context
   - feature: fleet-scheduled-reports
-    relationship: recommended
-    description: Stop records feed into scheduled stop reports
-
+    type: recommended
+    reason: Stop records feed into scheduled stop reports
 extensions:
   source:
     repo: https://github.com/traccar/traccar

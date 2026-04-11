@@ -8,7 +8,7 @@ description: "Process hardware alarm codes embedded in device position transmiss
 
 # Device Alarm Notifications Blueprint
 
-> Process hardware alarm codes embedded in device position transmissions, generate individual alert events per alarm type (SOS, tamper, vibration, accident, jamming, etc.), and route notifications to subscribed users.
+> Process hardware alarm codes embedded in device position transmissions, generate individual alert events per alarm type (SOS, tamper, vibration, accident, jamming, etc.), and route notifications to...
 
 | | |
 |---|---|
@@ -31,17 +31,17 @@ description: "Process hardware alarm codes embedded in device position transmiss
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `alarm` | text | No |  |  |
-| `alarm_type` | select | No |  |  |
-| `suppress_duplicates` | boolean | No |  |  |
+| `alarm` | text | No | Comma-separated list of active alarm codes in the position (e.g. sos, tampering, vibration) |  |
+| `alarm_type` | select | No | Individual alarm type. Supported values: sos, tampering, removing, vibration, movement, low_batte... |  |
+| `suppress_duplicates` | boolean | No | When true, only new alarm codes (not in the previous position) generate events; prevents repeated... |  |
 
 ## Rules
 
-- A position may carry multiple simultaneous alarm codes; each alarm code generates a separate alert event
-- If suppress_duplicates is enabled, an alarm code that was already present in the previous position does not generate a new event; only newly appearing codes trigger alerts
-- Each alarm event is linked to the position where it was detected, preserving exact coordinates and time
-- Alarm events can be routed to users via any configured notification channel (push, email, SMS, webhook)
-- Alarm codes are device and protocol specific; the platform normalises known codes to standard identifiers
+- **rule_1:** A position may carry multiple simultaneous alarm codes; each alarm code generates a separate alert event
+- **rule_2:** If suppress_duplicates is enabled, an alarm code that was already present in the previous position does not generate a new event; only newly appearing codes trigger alerts
+- **rule_3:** Each alarm event is linked to the position where it was detected, preserving exact coordinates and time
+- **rule_4:** Alarm events can be routed to users via any configured notification channel (push, email, SMS, webhook)
+- **rule_5:** Alarm codes are device and protocol specific; the platform normalises known codes to standard identifiers
 
 ## Outcomes
 
@@ -76,7 +76,7 @@ description: "Process hardware alarm codes embedded in device position transmiss
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `ALARM_DEVICE_NOT_FOUND` |  | The device referenced in the position record does not exist | No |
+| `ALARM_DEVICE_NOT_FOUND` | 404 | The device referenced in the position record does not exist | No |
 
 ## Events
 
@@ -88,9 +88,9 @@ description: "Process hardware alarm codes embedded in device position transmiss
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| gps-position-ingestion |  |  |
-| device-status-tracking |  |  |
-| fleet-device-sharing |  |  |
+| gps-position-ingestion | required | Alarm codes arrive as position attributes during ingestion |
+| device-status-tracking | recommended | SOS and offline alarms may indicate the same emergency condition |
+| fleet-device-sharing | recommended | Only users with access to the device receive alarm notifications |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

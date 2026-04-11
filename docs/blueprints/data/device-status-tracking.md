@@ -8,7 +8,7 @@ description: "Continuously monitor whether GPS devices are actively reporting, a
 
 # Device Status Tracking Blueprint
 
-> Continuously monitor whether GPS devices are actively reporting, and automatically transition them between online, offline, and unknown states based on configurable inactivity thresholds, emitting notifications when devices go silent.
+> Continuously monitor whether GPS devices are actively reporting, and automatically transition them between online, offline, and unknown states based on configurable inactivity thresholds, emitting ...
 
 | | |
 |---|---|
@@ -31,10 +31,10 @@ description: "Continuously monitor whether GPS devices are actively reporting, a
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `status` | select | Yes |  |  |
-| `last_update` | datetime | No |  |  |
-| `inactivity_start` | number | No |  |  |
-| `inactivity_period` | number | No |  |  |
+| `status` | select | Yes | Current connectivity status: online, offline, or unknown |  |
+| `last_update` | datetime | No | Timestamp of the most recently received position from this device |  |
+| `inactivity_start` | number | No | Milliseconds of silence after which the device is flagged as inactive; inherited from group if no... |  |
+| `inactivity_period` | number | No | Repeat interval (milliseconds) for generating repeated inactivity events after the initial one |  |
 
 ## States
 
@@ -110,7 +110,7 @@ description: "Continuously monitor whether GPS devices are actively reporting, a
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `DEVICE_STATUS_NOT_FOUND` |  | The specified device does not exist | No |
+| `DEVICE_STATUS_NOT_FOUND` | 404 | The specified device does not exist | No |
 
 ## Events
 
@@ -124,9 +124,9 @@ description: "Continuously monitor whether GPS devices are actively reporting, a
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| gps-device-registration |  |  |
-| gps-position-ingestion |  |  |
-| device-alarm-notifications |  |  |
+| gps-device-registration | required | Devices must be registered before their status can be tracked |
+| gps-position-ingestion | required | Receiving a position is the trigger for transitioning to online |
+| device-alarm-notifications | recommended | Offline events can be routed as notifications to fleet users |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

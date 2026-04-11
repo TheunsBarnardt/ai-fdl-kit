@@ -8,7 +8,7 @@ description: "Accumulate the total time a vehicle engine has been running by mea
 
 # Engine Hours Tracking Blueprint
 
-> Accumulate the total time a vehicle engine has been running by measuring the duration between consecutive positions while the ignition is on, providing accurate engine-hours data for maintenance scheduling, rental billing, and equipment life-cycle management.
+> Accumulate the total time a vehicle engine has been running by measuring the duration between consecutive positions while the ignition is on, providing accurate engine-hours data for maintenance sc...
 
 | | |
 |---|---|
@@ -30,18 +30,18 @@ description: "Accumulate the total time a vehicle engine has been running by mea
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `hours` | number | No |  |  |
-| `ignition` | boolean | No |  |  |
-| `device_time` | datetime | Yes |  |  |
+| `hours` | number | No | Cumulative engine running time in milliseconds stored on each position record |  |
+| `ignition` | boolean | No | Ignition state at the time of the position; used to gate hour accumulation |  |
+| `device_time` | datetime | Yes | Device clock timestamp used for interval calculation (preferred over server time for accuracy) |  |
 
 ## Rules
 
-- If the device transmits a hardware engine hours value, it is stored directly and used without modification
-- If no hardware value is present, engine hours are calculated from the difference between current and previous device timestamps when ignition was on in both positions
-- Hours are accumulated only when ignition = true in both the current and the previous position; idle-off periods are excluded
-- Device time (not server time) is used for interval calculation to avoid accumulating server-processing delays
-- The calculated engine hours value is stored on every position as a cumulative total, making it directly queryable for any time range
-- Engine hours feed maintenance reminders; a maintenance reminder fires when the hours value crosses a configured threshold
+- **rule_1:** If the device transmits a hardware engine hours value, it is stored directly and used without modification
+- **rule_2:** If no hardware value is present, engine hours are calculated from the difference between current and previous device timestamps when ignition was on in both positions
+- **rule_3:** Hours are accumulated only when ignition = true in both the current and the previous position; idle-off periods are excluded
+- **rule_4:** Device time (not server time) is used for interval calculation to avoid accumulating server-processing delays
+- **rule_5:** The calculated engine hours value is stored on every position as a cumulative total, making it directly queryable for any time range
+- **rule_6:** Engine hours feed maintenance reminders; a maintenance reminder fires when the hours value crosses a configured threshold
 
 ## Outcomes
 
@@ -82,7 +82,7 @@ description: "Accumulate the total time a vehicle engine has been running by mea
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `HOURS_DEVICE_NOT_FOUND` |  | The device referenced does not exist | No |
+| `HOURS_DEVICE_NOT_FOUND` | 404 | The device referenced does not exist | No |
 
 ## Events
 
@@ -94,9 +94,9 @@ description: "Accumulate the total time a vehicle engine has been running by mea
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| ignition-detection |  |  |
-| gps-position-ingestion |  |  |
-| maintenance-reminders |  |  |
+| ignition-detection | required | Ignition state gates engine hour accumulation |
+| gps-position-ingestion | required | Position records carry device timestamps and ignition attributes |
+| maintenance-reminders | recommended | Engine hours thresholds trigger scheduled maintenance events |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

@@ -8,7 +8,7 @@ description: "Query, replay, and export the historical sequence of GPS positions
 
 # Gps Position History Blueprint
 
-> Query, replay, and export the historical sequence of GPS positions recorded for one or more devices over a user-specified time range, supporting route visualisation, speed analysis, and multi-format export.
+> Query, replay, and export the historical sequence of GPS positions recorded for one or more devices over a user-specified time range, supporting route visualisation, speed analysis, and multi-forma...
 
 | | |
 |---|---|
@@ -30,11 +30,11 @@ description: "Query, replay, and export the historical sequence of GPS positions
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `device_id` | hidden | Yes |  |  |
-| `from` | datetime | Yes |  |  |
-| `to` | datetime | Yes |  |  |
-| `positions` | json | No |  |  |
-| `export_format` | select | No |  |  |
+| `device_id` | hidden | Yes | Device whose position history is being queried |  |
+| `from` | datetime | Yes | Start of the time range (inclusive) |  |
+| `to` | datetime | Yes | End of the time range (inclusive) |  |
+| `positions` | json | No | Ordered array of position records returned by the query, each including fix_time, latitude, longi... |  |
+| `export_format` | select | No | Requested export format: gpx, kml, or csv |  |
 
 ## Rules
 
@@ -98,8 +98,8 @@ description: "Query, replay, and export the historical sequence of GPS positions
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `HISTORY_INVALID_TIME_RANGE` |  | The start time must be before the end time | No |
-| `HISTORY_ACCESS_DENIED` |  | You do not have permission to view history for this device | No |
+| `HISTORY_INVALID_TIME_RANGE` | 400 | The start time must be before the end time | No |
+| `HISTORY_ACCESS_DENIED` | 403 | You do not have permission to view history for this device | No |
 
 ## Events
 
@@ -112,10 +112,10 @@ description: "Query, replay, and export the historical sequence of GPS positions
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| gps-position-ingestion |  |  |
-| fleet-device-sharing |  |  |
-| trip-detection |  |  |
-| fleet-scheduled-reports |  |  |
+| gps-position-ingestion | required | Positions must be ingested before they can be queried as history |
+| fleet-device-sharing | required | Access control determines which devices a user may query |
+| trip-detection | recommended | Trip segments can be overlaid on the position route for context |
+| fleet-scheduled-reports | recommended | Scheduled route reports use position history as their data source |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

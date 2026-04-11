@@ -11,11 +11,17 @@
 # ============================================================
 
 feature: odometer-tracking
-version: "1.0.0"
-description: Track cumulative vehicle mileage either by reading the hardware odometer transmitted by the GPS device or by calculating distance from GPS coordinates, with per-position incremental distances and a running total for maintenance scheduling and reporting.
+version: 1.0.0
+description: Track cumulative vehicle mileage either by reading the hardware odometer transmitted by the GPS device or by calculating distance from GPS coordinates, with per-position incremental distances and a...
 category: data
-tags: [gps, tracking, odometer, mileage, distance, fleet, maintenance]
-
+tags:
+  - gps
+  - tracking
+  - odometer
+  - mileage
+  - distance
+  - fleet
+  - maintenance
 actors:
   - id: device
     name: GPS Device
@@ -29,46 +35,43 @@ actors:
     name: Fleet Manager
     type: human
     description: Uses odometer data to schedule maintenance, calculate fuel efficiency, and generate mileage reports
-
 fields:
   - name: odometer
     type: number
     required: false
-    description: Hardware odometer reading in metres, transmitted directly by the vehicle ECU via the device
+    label: Hardware odometer reading in metres, transmitted directly by the vehicle ECU via the device
   - name: distance
     type: number
     required: false
-    description: Incremental distance in metres calculated from the previous position to this one
+    label: Incremental distance in metres calculated from the previous position to this one
   - name: total_distance
     type: number
     required: false
-    description: Cumulative distance in metres accumulated across all positions for this device from the tracking start point
+    label: Cumulative distance in metres accumulated across all positions for this device from the tracking ...
   - name: min_distance_meters
     type: number
     required: false
-    description: Minimum position-to-position distance to record; movements shorter than this are treated as GPS noise
+    label: Minimum position-to-position distance to record; movements shorter than this are treated as GPS n...
   - name: max_distance_meters
     type: number
     required: false
-    description: Maximum plausible position-to-position distance; movements longer than this are treated as GPS errors and excluded
-
+    label: Maximum plausible position-to-position distance; movements longer than this are treated as GPS er...
 rules:
-  - If the device transmits a hardware odometer value, it is stored directly on the position and takes precedence over calculated distance in reports
-  - Incremental distance is calculated using the great-circle formula between the current and previous position coordinates
-  - Distance increments shorter than min_distance_meters are treated as GPS noise and recorded as zero
-  - Distance increments longer than max_distance_meters are treated as GPS position errors and excluded from the cumulative total
-  - Cumulative total_distance is maintained on each position record as a running sum of valid increments
-  - Reports prefer the hardware odometer if available; otherwise they use total_distance
-  - The odometer can be reset remotely via a set_odometer command to align with a workshop reading
-
+  rule_1: If the device transmits a hardware odometer value, it is stored directly on the position and takes precedence over calculated distance in reports
+  rule_2: Incremental distance is calculated using the great-circle formula between the current and previous position coordinates
+  rule_3: Distance increments shorter than min_distance_meters are treated as GPS noise and recorded as zero
+  rule_4: Distance increments longer than max_distance_meters are treated as GPS position errors and excluded from the cumulative total
+  rule_5: Cumulative total_distance is maintained on each position record as a running sum of valid increments
+  rule_6: Reports prefer the hardware odometer if available; otherwise they use total_distance
+  rule_7: The odometer can be reset remotely via a set_odometer command to align with a workshop reading
 outcomes:
   distance_calculated:
     priority: 10
     given:
-      - "a new position is received with valid coordinates"
-      - "a previous position exists for the device"
-      - "incremental distance >= min_distance_meters"
-      - "incremental distance <= max_distance_meters"
+      - a new position is received with valid coordinates
+      - a previous position exists for the device
+      - incremental distance >= min_distance_meters
+      - incremental distance <= max_distance_meters
     then:
       - action: set_field
         target: position.distance
@@ -77,57 +80,55 @@ outcomes:
         target: position.total_distance
         description: Cumulative total updated with the new increment
     result: Distance fields populated on the position record; available for reports and maintenance triggers
-
   noise_filtered:
     priority: 5
     given:
-      - "incremental distance < min_distance_meters"
+      - incremental distance < min_distance_meters
     then:
       - action: set_field
         target: position.distance
         value: 0
     result: Position recorded with zero distance increment; cumulative total unchanged
-
   error_position_excluded:
     priority: 4
     given:
-      - "incremental distance > max_distance_meters"
+      - incremental distance > max_distance_meters
     then:
       - action: set_field
         target: position.distance
         value: 0
     result: Implausible jump excluded from odometer accumulation; position is still stored
-
   hardware_odometer_used:
     priority: 8
     given:
-      - "device transmits a non-zero hardware odometer value in position attributes"
+      - device transmits a non-zero hardware odometer value in position attributes
     then:
       - action: set_field
         target: position.odometer
         description: Hardware odometer value stored directly on the position
     result: Hardware odometer recorded; used by maintenance reminders and summary reports in preference to calculated distance
-
 errors:
   - code: ODOMETER_DEVICE_NOT_FOUND
     message: The device referenced does not exist
-
+    status: 404
 events:
   - name: odometer.updated
     description: A new distance increment was calculated and accumulated (emitted when crossing a reporting threshold)
-    payload: [device_id, total_distance, increment, position_id]
-
+    payload:
+      - device_id
+      - total_distance
+      - increment
+      - position_id
 related:
   - feature: gps-position-ingestion
-    relationship: required
-    description: GPS coordinates and hardware odometer values arrive via position ingestion
+    type: required
+    reason: GPS coordinates and hardware odometer values arrive via position ingestion
   - feature: maintenance-reminders
-    relationship: recommended
-    description: Maintenance intervals are triggered when odometer values cross configured thresholds
+    type: recommended
+    reason: Maintenance intervals are triggered when odometer values cross configured thresholds
   - feature: trip-detection
-    relationship: recommended
-    description: Trip distance is derived from odometer or calculated distance over the trip interval
-
+    type: recommended
+    reason: Trip distance is derived from odometer or calculated distance over the trip interval
 extensions:
   source:
     repo: https://github.com/traccar/traccar

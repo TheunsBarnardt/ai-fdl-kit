@@ -8,7 +8,7 @@ description: "Identify the driver operating a vehicle by matching hardware-repor
 
 # Driver Identification Blueprint
 
-> Identify the driver operating a vehicle by matching hardware-reported credentials (RFID tag or iButton key) against a registry of named drivers, and emit an event whenever the driver assignment changes.
+> Identify the driver operating a vehicle by matching hardware-reported credentials (RFID tag or iButton key) against a registry of named drivers, and emit an event whenever the driver assignment cha...
 
 | | |
 |---|---|
@@ -31,18 +31,18 @@ description: "Identify the driver operating a vehicle by matching hardware-repor
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `unique_id` | text | Yes |  |  |
-| `name` | text | Yes |  |  |
-| `driver_unique_id_on_position` | text | No |  |  |
+| `unique_id` | text | Yes | Hardware credential identifier (RFID tag serial, iButton 1-Wire address, or employee badge number... |  |
+| `name` | text | Yes | Full name of the driver |  |
+| `driver_unique_id_on_position` | text | No | The credential ID embedded in a position record, used to look up the registered driver |  |
 
 ## Rules
 
-- Each driver record has a unique hardware credential ID; duplicate IDs across drivers are not allowed
-- When a position carries a driver credential ID, the platform resolves it against the driver registry and stores the association on the position
-- If the device does not report a credential ID but the device has a linked driver configured, the platform automatically attributes that linked driver to every position from that device
-- A driver change event is emitted when the credential ID in the current position differs from the credential ID in the previous position
-- If neither the current nor the previous position carries a credential ID, no driver change event is generated
-- Only latest positions (not outdated) trigger driver change detection
+- **rule_1:** Each driver record has a unique hardware credential ID; duplicate IDs across drivers are not allowed
+- **rule_2:** When a position carries a driver credential ID, the platform resolves it against the driver registry and stores the association on the position
+- **rule_3:** If the device does not report a credential ID but the device has a linked driver configured, the platform automatically attributes that linked driver to every position from that device
+- **rule_4:** A driver change event is emitted when the credential ID in the current position differs from the credential ID in the previous position
+- **rule_5:** If neither the current nor the previous position carries a credential ID, no driver change event is generated
+- **rule_6:** Only latest positions (not outdated) trigger driver change detection
 
 ## Outcomes
 
@@ -94,8 +94,8 @@ description: "Identify the driver operating a vehicle by matching hardware-repor
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `DRIVER_DUPLICATE_UNIQUE_ID` |  | A driver with this credential ID is already registered | No |
-| `DRIVER_NOT_FOUND` |  | The specified driver does not exist | No |
+| `DRIVER_DUPLICATE_UNIQUE_ID` | 409 | A driver with this credential ID is already registered | No |
+| `DRIVER_NOT_FOUND` | 404 | The specified driver does not exist | No |
 
 ## Events
 
@@ -107,9 +107,9 @@ description: "Identify the driver operating a vehicle by matching hardware-repor
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| gps-position-ingestion |  |  |
-| gps-device-registration |  |  |
-| trip-detection |  |  |
+| gps-position-ingestion | required | Driver credential IDs are embedded in position attribute data |
+| gps-device-registration | required | Devices carry the optional linked driver configuration |
+| trip-detection | recommended | Trip reports include driver attribution when available |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

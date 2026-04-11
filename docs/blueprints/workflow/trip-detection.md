@@ -8,7 +8,7 @@ description: "Automatically detect the start and end of vehicle trips by monitor
 
 # Trip Detection Blueprint
 
-> Automatically detect the start and end of vehicle trips by monitoring movement patterns across consecutive position records, applying configurable distance and duration thresholds to filter noise, and producing structured trip records for reporting.
+> Automatically detect the start and end of vehicle trips by monitoring movement patterns across consecutive position records, applying configurable distance and duration thresholds to filter noise, ...
 
 | | |
 |---|---|
@@ -30,14 +30,14 @@ description: "Automatically detect the start and end of vehicle trips by monitor
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `device_id` | hidden | Yes |  |  |
-| `motion_streak` | boolean | No |  |  |
-| `motion_start_time` | datetime | No |  |  |
-| `motion_start_latitude` | number | No |  |  |
-| `motion_start_longitude` | number | No |  |  |
-| `min_trip_distance_meters` | number | No |  |  |
-| `min_trip_duration_seconds` | number | No |  |  |
-| `stop_gap_seconds` | number | No |  |  |
+| `device_id` | hidden | Yes | Device being monitored for trips |  |
+| `motion_streak` | boolean | No | Persisted flag indicating the device is currently in a motion (trip-in-progress) state |  |
+| `motion_start_time` | datetime | No | Timestamp when the current motion episode began |  |
+| `motion_start_latitude` | number | No | Coordinate where motion was first detected for the current trip |  |
+| `motion_start_longitude` | number | No | Coordinate where motion was first detected for the current trip |  |
+| `min_trip_distance_meters` | number | No | Minimum total distance a movement must cover to be classified as a trip (filters GPS jitter) |  |
+| `min_trip_duration_seconds` | number | No | Minimum duration a movement episode must last to be classified as a trip |  |
+| `stop_gap_seconds` | number | No | Seconds of stillness required to conclude that a trip has ended |  |
 
 ## States
 
@@ -59,13 +59,13 @@ description: "Automatically detect the start and end of vehicle trips by monitor
 
 ## Rules
 
-- Movement is detected when the device travels at least min_trip_distance_meters from the last recorded stop position
-- A trip is only recorded if the movement episode lasts at least min_trip_duration_seconds; shorter movements are treated as noise
-- A trip ends when the device remains stationary (below the motion speed threshold) for at least stop_gap_seconds
-- Motion state is persisted on the device record so it survives server restarts; the last known state is used as the baseline for the next incoming position
-- Only latest positions drive state transitions; outdated or replayed positions are ignored
-- Trip start and end positions are stored with full coordinates, timestamps, addresses, and cumulative sensor values (fuel, odometer, engine hours)
-- If ignition data is available, the ignition-off event can be used as a supplemental trip-end signal
+- **rule_1:** Movement is detected when the device travels at least min_trip_distance_meters from the last recorded stop position
+- **rule_2:** A trip is only recorded if the movement episode lasts at least min_trip_duration_seconds; shorter movements are treated as noise
+- **rule_3:** A trip ends when the device remains stationary (below the motion speed threshold) for at least stop_gap_seconds
+- **rule_4:** Motion state is persisted on the device record so it survives server restarts; the last known state is used as the baseline for the next incoming position
+- **rule_5:** Only latest positions drive state transitions; outdated or replayed positions are ignored
+- **rule_6:** Trip start and end positions are stored with full coordinates, timestamps, addresses, and cumulative sensor values (fuel, odometer, engine hours)
+- **rule_7:** If ignition data is available, the ignition-off event can be used as a supplemental trip-end signal
 
 ## Outcomes
 
@@ -107,7 +107,7 @@ description: "Automatically detect the start and end of vehicle trips by monitor
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `TRIP_DEVICE_NOT_FOUND` |  | The device referenced does not exist | No |
+| `TRIP_DEVICE_NOT_FOUND` | 404 | The device referenced does not exist | No |
 
 ## Events
 
@@ -120,11 +120,11 @@ description: "Automatically detect the start and end of vehicle trips by monitor
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| gps-position-ingestion |  |  |
-| stop-detection |  |  |
-| ignition-detection |  |  |
-| driver-identification |  |  |
-| fleet-scheduled-reports |  |  |
+| gps-position-ingestion | required | Position data drives motion state transitions |
+| stop-detection | required | Stop detection is the counterpart that classifies stationary periods between trips |
+| ignition-detection | recommended | Ignition events provide supplemental trip boundary signals |
+| driver-identification | recommended | Trips are attributed to the identified driver for reporting |
+| fleet-scheduled-reports | recommended | Trip records feed into scheduled trip reports |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

@@ -8,7 +8,7 @@ description: "Detect transitions in vehicle ignition state by comparing the igni
 
 # Ignition Detection Blueprint
 
-> Detect transitions in vehicle ignition state by comparing the ignition attribute between consecutive position records, and emit ignition-on and ignition-off events to drive engine hours calculation, trip segmentation, and driver notifications.
+> Detect transitions in vehicle ignition state by comparing the ignition attribute between consecutive position records, and emit ignition-on and ignition-off events to drive engine hours calculation...
 
 | | |
 |---|---|
@@ -30,9 +30,9 @@ description: "Detect transitions in vehicle ignition state by comparing the igni
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `device_id` | hidden | Yes |  |  |
-| `ignition` | boolean | No |  |  |
-| `previous_ignition` | boolean | No |  |  |
+| `device_id` | hidden | Yes | Device whose ignition state is being tracked |  |
+| `ignition` | boolean | No | Current ignition state reported in the position attributes (true = on, false = off) |  |
+| `previous_ignition` | boolean | No | Ignition state from the device's previous position, used for transition detection |  |
 
 ## Rules
 
@@ -84,7 +84,7 @@ description: "Detect transitions in vehicle ignition state by comparing the igni
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `IGNITION_DEVICE_NOT_FOUND` |  | The device referenced in the position record does not exist | No |
+| `IGNITION_DEVICE_NOT_FOUND` | 404 | The device referenced in the position record does not exist | No |
 
 ## Events
 
@@ -97,9 +97,9 @@ description: "Detect transitions in vehicle ignition state by comparing the igni
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| gps-position-ingestion |  |  |
-| engine-hours-tracking |  |  |
-| trip-detection |  |  |
+| gps-position-ingestion | required | Ignition state is read from the position attributes produced during ingestion |
+| engine-hours-tracking | recommended | Engine hours are accumulated while ignition is on |
+| trip-detection | recommended | Ignition transitions can serve as alternative trip start/end signals |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

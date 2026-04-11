@@ -2,39 +2,39 @@
 
 # Fleet Scheduled Reports
 
-> Generate, schedule, and distribute fleet tracking reports covering trips, stops, route history, events, geofence activity, device summaries, and fuel consumption, with on-demand and automated periodic delivery.
+> Generate, schedule, and distribute fleet tracking reports covering trips, stops, route history, events, geofence activity, device summaries, and fuel consumption, with on-demand and automated perio...
 
 **Category:** Workflow · **Version:** 1.0.0 · **Tags:** gps · tracking · reports · fleet · schedule · export · trips · stops
 
 ## What this does
 
-Generate, schedule, and distribute fleet tracking reports covering trips, stops, route history, events, geofence activity, device summaries, and fuel consumption, with on-demand and automated periodic delivery.
+Generate, schedule, and distribute fleet tracking reports covering trips, stops, route history, events, geofence activity, device summaries, and fuel consumption, with on-demand and automated perio...
 
 Specifies 4 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
 
 ## Fields
 
-- **report_type** *(select, required)*
-- **device_ids** *(json, optional)*
-- **group_ids** *(json, optional)*
-- **from** *(datetime, required)*
-- **to** *(datetime, required)*
-- **export_format** *(select, optional)*
-- **event_types** *(json, optional)*
-- **schedule_cron** *(text, optional)*
-- **calendar_id** *(hidden, optional)*
+- **report_type** *(select, required)* — Type of report: trips, stops, route, events, geofence, summary, devices
+- **device_ids** *(json, optional)* — List of device IDs to include; if empty, all accessible devices are included
+- **group_ids** *(json, optional)* — Device group IDs to include; devices in selected groups are included
+- **from** *(datetime, required)* — Start of the report period
+- **to** *(datetime, required)* — End of the report period
+- **export_format** *(select, optional)* — Output format: xlsx (default), csv, gpx, or kml
+- **event_types** *(json, optional)* — Filter for events report; list of event type codes to include (empty = all types)
+- **schedule_cron** *(text, optional)* — Cron expression defining when the report runs automatically (e.g. daily at 06:00)
+- **calendar_id** *(hidden, optional)* — Calendar controlling when a scheduled report is active
 
 ## What must be true
 
-- **0:** Only devices the requesting user has permission to view are included in report output
-- **1:** Users with the disableReports restriction cannot generate or access reports
-- **2:** from must be earlier than to; reports with inverted ranges are rejected
-- **3:** Trips and stops reports require trip and stop detection to have been active during the report period
-- **4 → Summary reports aggregate per-device:** start/end odometer, total distance, max speed, total fuel used, and engine hours
-- **5:** Route reports return all stored positions in chronological order, suitable for animated playback
-- **6:** Events reports filter by event type; an empty type list returns all event types
-- **7:** Export formats include all available sensor and attribute data, not just core fields
-- **8:** Scheduled reports use a cron schedule stored in the database; the scheduler queries due reports at each run interval
+- **rule_1:** Only devices the requesting user has permission to view are included in report output
+- **rule_2:** Users with the disableReports restriction cannot generate or access reports
+- **rule_3:** from must be earlier than to; reports with inverted ranges are rejected
+- **rule_4:** Trips and stops reports require trip and stop detection to have been active during the report period
+- **rule_5 → Summary reports aggregate per-device:** start/end odometer, total distance, max speed, total fuel used, and engine hours
+- **rule_6:** Route reports return all stored positions in chronological order, suitable for animated playback
+- **rule_7:** Events reports filter by event type; an empty type list returns all event types
+- **rule_8:** Export formats include all available sensor and attribute data, not just core fields
+- **rule_9:** Scheduled reports use a cron schedule stored in the database; the scheduler queries due reports at each run interval
 
 ## Success & failure scenarios
 
@@ -55,28 +55,28 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 
 ## Connects to
 
-- **gps-position-history**
-- **trip-detection**
-- **stop-detection**
-- **fleet-device-sharing**
-- **geofence-alerts**
+- **gps-position-history** *(required)* — Route reports draw directly from position history
+- **trip-detection** *(recommended)* — Trip reports require trip detection to be active
+- **stop-detection** *(recommended)* — Stop reports require stop detection to be active
+- **fleet-device-sharing** *(required)* — Permission model controls which devices each user's reports include
+- **geofence-alerts** *(recommended)* — Geofence reports summarise zone entry and exit events
 
-## Quality fitness 🟡 64/100
+## Quality fitness 🟢 78/100
 
 Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
 
 | Dimension | Score | Points |
 |-----------|-------|--------|
 | Description | `██████████` | 10/10 |
-| Rules | `░░░░░░░░░░` | 0/10 |
+| Rules | `██████░░░░` | 6/10 |
 | Outcomes | `█████████████████████░░░░` | 21/25 |
 | Structured conditions | `█████░░░░░` | 5/10 |
 | Error binding | `██████████` | 10/10 |
-| Field validation | `████░░░░░░` | 4/10 |
-| Relationships | `██████░░░░` | 6/10 |
+| Field validation | `██████░░░░` | 6/10 |
+| Relationships | `██████████` | 10/10 |
 | Events | `█████` | 5/5 |
 | AGI readiness | `░░░░░` | 0/5 |
-| Simplicity | `███░░` | 3/5 |
+| Simplicity | `█████` | 5/5 |
 
 ---
 

@@ -8,7 +8,7 @@ description: "Accept raw GPS position messages from heterogeneous hardware devic
 
 # Gps Position Ingestion Blueprint
 
-> Accept raw GPS position messages from heterogeneous hardware devices over multiple transport protocols, decode them into a normalised position record, and route through a processing pipeline before storage.
+> Accept raw GPS position messages from heterogeneous hardware devices over multiple transport protocols, decode them into a normalised position record, and route through a processing pipeline before...
 
 | | |
 |---|---|
@@ -31,20 +31,20 @@ description: "Accept raw GPS position messages from heterogeneous hardware devic
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `device_id` | hidden | Yes |  |  |
-| `protocol` | text | Yes |  |  |
-| `server_time` | datetime | Yes |  |  |
-| `device_time` | datetime | No |  |  |
-| `fix_time` | datetime | Yes |  |  |
-| `valid` | boolean | Yes |  |  |
-| `latitude` | number | Yes |  |  |
-| `longitude` | number | Yes |  |  |
-| `altitude` | number | No |  |  |
-| `speed` | number | No |  |  |
-| `course` | number | No |  |  |
-| `accuracy` | number | No |  |  |
-| `outdated` | boolean | No |  |  |
-| `attributes` | json | No |  |  |
+| `device_id` | hidden | Yes | Internal reference to the registered device this position belongs to |  |
+| `protocol` | text | Yes | Name of the device communication protocol that produced this position |  |
+| `server_time` | datetime | Yes | Timestamp at which the server received the message |  |
+| `device_time` | datetime | No | Timestamp reported by the device (may differ from server_time) |  |
+| `fix_time` | datetime | Yes | GPS fix timestamp — the moment the device obtained the coordinates |  |
+| `valid` | boolean | Yes | Whether the GPS fix is considered valid by the device |  |
+| `latitude` | number | Yes | WGS-84 latitude in decimal degrees; must be in range [-90, 90] |  |
+| `longitude` | number | Yes | WGS-84 longitude in decimal degrees; must be in range [-180, 180] |  |
+| `altitude` | number | No | Elevation above sea level in metres |  |
+| `speed` | number | No | Instantaneous speed in knots as reported by the device |  |
+| `course` | number | No | Heading in degrees (0–360, true north = 0) |  |
+| `accuracy` | number | No | Estimated horizontal accuracy in metres |  |
+| `outdated` | boolean | No | Flag set by the pipeline when a position's fix_time predates the device's most recent stored posi... |  |
+| `attributes` | json | No | Extensible key-value bag for protocol-specific sensor readings. Common keys: ignition (boolean), ... |  |
 
 ## Rules
 
@@ -107,8 +107,8 @@ description: "Accept raw GPS position messages from heterogeneous hardware devic
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `POSITION_INVALID_COORDINATES` |  | Position coordinates are outside valid WGS-84 ranges | No |
-| `POSITION_DEVICE_NOT_REGISTERED` |  | No registered device matches the identifier in the incoming message | No |
+| `POSITION_INVALID_COORDINATES` | 404 | Position coordinates are outside valid WGS-84 ranges | No |
+| `POSITION_DEVICE_NOT_REGISTERED` | 404 | No registered device matches the identifier in the incoming message | No |
 
 ## Events
 
@@ -121,11 +121,11 @@ description: "Accept raw GPS position messages from heterogeneous hardware devic
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| gps-device-registration |  |  |
-| gps-position-history |  |  |
-| geofence-management |  |  |
-| overspeed-alerts |  |  |
-| ignition-detection |  |  |
+| gps-device-registration | required | Positions can only be attributed to registered devices |
+| gps-position-history | required | Stored positions form the historical record queried for playback and reports |
+| geofence-management | recommended | Pipeline enriches positions with geofence membership |
+| overspeed-alerts | recommended | Pipeline detects overspeed conditions from position speed and configured limits |
+| ignition-detection | recommended | Pipeline reads ignition attribute to track engine state changes |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

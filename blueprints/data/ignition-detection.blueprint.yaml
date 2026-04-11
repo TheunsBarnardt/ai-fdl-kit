@@ -11,11 +11,16 @@
 # ============================================================
 
 feature: ignition-detection
-version: "1.0.0"
-description: Detect transitions in vehicle ignition state by comparing the ignition attribute between consecutive position records, and emit ignition-on and ignition-off events to drive engine hours calculation, trip segmentation, and driver notifications.
+version: 1.0.0
+description: Detect transitions in vehicle ignition state by comparing the ignition attribute between consecutive position records, and emit ignition-on and ignition-off events to drive engine hours calculation...
 category: data
-tags: [gps, tracking, ignition, engine, fleet, event]
-
+tags:
+  - gps
+  - tracking
+  - ignition
+  - engine
+  - fleet
+  - event
 actors:
   - id: pipeline
     name: Position Processing Pipeline
@@ -25,21 +30,19 @@ actors:
     name: GPS Device
     type: external
     description: Reports ignition state as part of each position transmission
-
 fields:
   - name: device_id
     type: hidden
     required: true
-    description: Device whose ignition state is being tracked
+    label: Device whose ignition state is being tracked
   - name: ignition
     type: boolean
     required: false
-    description: Current ignition state reported in the position attributes (true = on, false = off)
+    label: Current ignition state reported in the position attributes (true = on, false = off)
   - name: previous_ignition
     type: boolean
     required: false
-    description: Ignition state from the device's previous position, used for transition detection
-
+    label: Ignition state from the device's previous position, used for transition detection
 rules:
   event_emission:
     ignition_on_transition: An ignition-on event is generated only when the previous position had ignition = false and the current position has ignition = true
@@ -49,7 +52,6 @@ rules:
     latest_position_only: Only the latest position for the device is evaluated; outdated positions do not trigger ignition events
   processing:
     downstream_usage: The ignition state is used by the engine hours handler to accumulate running time, and by the motion handler to inform trip detection
-
 outcomes:
   ignition_turned_on:
     priority: 10
@@ -62,16 +64,19 @@ outcomes:
         source: db
         operator: eq
         value: false
-      - "both current and previous positions carry the ignition attribute"
+      - both current and previous positions carry the ignition attribute
     then:
       - action: create_record
         target: event
-        description: "Ignition-on event recorded with type = ignition_on, device_id, position_id"
+        description: Ignition-on event recorded with type = ignition_on, device_id, position_id
+        type: event
       - action: emit_event
         event: device.ignition_on
-        payload: [device_id, position_id, fix_time]
+        payload:
+          - device_id
+          - position_id
+          - fix_time
     result: Ignition-on event stored; engine hours accumulation resumes, trip detection may trigger
-
   ignition_turned_off:
     priority: 10
     given:
@@ -83,46 +88,52 @@ outcomes:
         source: db
         operator: eq
         value: true
-      - "both current and previous positions carry the ignition attribute"
+      - both current and previous positions carry the ignition attribute
     then:
       - action: create_record
         target: event
-        description: "Ignition-off event recorded with type = ignition_off, device_id, position_id"
+        description: Ignition-off event recorded with type = ignition_off, device_id, position_id
+        type: event
       - action: emit_event
         event: device.ignition_off
-        payload: [device_id, position_id, fix_time]
+        payload:
+          - device_id
+          - position_id
+          - fix_time
     result: Ignition-off event stored; engine hours accumulation pauses, trip segmentation may close the current trip
-
   no_ignition_attribute:
     priority: 3
     given:
-      - "the incoming position does not include an ignition attribute"
+      - the incoming position does not include an ignition attribute
     then: []
     result: No ignition event is generated; engine hours and trip detection fall back to motion-based signals
-
 errors:
   - code: IGNITION_DEVICE_NOT_FOUND
     message: The device referenced in the position record does not exist
-
+    status: 404
 events:
   - name: device.ignition_on
     description: Vehicle ignition has been switched on
-    payload: [device_id, position_id, fix_time]
+    payload:
+      - device_id
+      - position_id
+      - fix_time
   - name: device.ignition_off
     description: Vehicle ignition has been switched off
-    payload: [device_id, position_id, fix_time]
-
+    payload:
+      - device_id
+      - position_id
+      - fix_time
 related:
   - feature: gps-position-ingestion
-    relationship: required
-    description: Ignition state is read from the position attributes produced during ingestion
+    type: required
+    reason: Ignition state is read from the position attributes produced during ingestion
   - feature: engine-hours-tracking
-    relationship: recommended
-    description: Engine hours are accumulated while ignition is on
+    type: recommended
+    reason: Engine hours are accumulated while ignition is on
   - feature: trip-detection
-    relationship: recommended
-    description: Ignition transitions can serve as alternative trip start/end signals
-
+    type: recommended
+    reason: Ignition transitions can serve as alternative trip start/end signals
 extensions:
   source:
     repo: https://github.com/traccar/traccar

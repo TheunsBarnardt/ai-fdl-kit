@@ -31,17 +31,17 @@ description: "Register and identify GPS tracking devices by unique hardware ID (
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `unique_id` | text | Yes |  |  |
-| `name` | text | Yes |  |  |
-| `phone` | phone | No |  |  |
-| `model` | text | No |  |  |
-| `contact` | text | No |  |  |
-| `category` | select | No |  |  |
-| `group_id` | hidden | No |  |  |
-| `disabled` | boolean | No |  |  |
-| `expiration_time` | datetime | No |  |  |
-| `status` | select | No |  |  |
-| `last_update` | datetime | No |  |  |
+| `unique_id` | text | Yes | Hardware identifier transmitted by the device (IMEI, serial number, or custom ID); must be trimme... |  |
+| `name` | text | Yes | Human-readable label for the device |  |
+| `phone` | phone | No | SIM card phone number for SMS-based commands |  |
+| `model` | text | No | Device hardware model or type |  |
+| `contact` | text | No | Contact person or note associated with this device |  |
+| `category` | select | No | Device category (e.g., car, truck, motorcycle, asset tracker) |  |
+| `group_id` | hidden | No | Parent group for hierarchical organisation and inherited configuration |  |
+| `disabled` | boolean | No | When true, device data is accepted but ignored by event handlers and reports |  |
+| `expiration_time` | datetime | No | Date after which the device is automatically treated as disabled |  |
+| `status` | select | No | Runtime status: online, offline, or unknown |  |
+| `last_update` | datetime | No | Timestamp of the most recently received position |  |
 
 ## States
 
@@ -127,9 +127,9 @@ description: "Register and identify GPS tracking devices by unique hardware ID (
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `DEVICE_DUPLICATE_UNIQUE_ID` |  | A device with this identifier is already registered | No |
-| `DEVICE_NOT_FOUND` |  | The specified device does not exist | No |
-| `DEVICE_LIMIT_EXCEEDED` |  | The maximum number of devices allowed for this account has been reached | No |
+| `DEVICE_DUPLICATE_UNIQUE_ID` | 409 | A device with this identifier is already registered | No |
+| `DEVICE_NOT_FOUND` | 404 | The specified device does not exist | No |
+| `DEVICE_LIMIT_EXCEEDED` | 404 | The maximum number of devices allowed for this account has been reached | No |
 
 ## Events
 
@@ -145,9 +145,9 @@ description: "Register and identify GPS tracking devices by unique hardware ID (
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| gps-position-ingestion |  |  |
-| device-status-tracking |  |  |
-| fleet-device-sharing |  |  |
+| gps-position-ingestion | required | Devices must be registered before positions can be attributed to them |
+| device-status-tracking | required | Status transitions are computed from position timestamps |
+| fleet-device-sharing | recommended | Groups and user permissions govern who can see and manage each device |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

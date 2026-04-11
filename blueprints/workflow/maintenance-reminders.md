@@ -2,39 +2,39 @@
 
 # Maintenance Reminders
 
-> Define maintenance tasks that trigger notifications when a tracked vehicle crosses a configured odometer, engine hours, or time threshold, with automatic repeat reminders at regular intervals for ongoing maintenance schedules.
+> Define maintenance tasks that trigger notifications when a tracked vehicle crosses a configured odometer, engine hours, or time threshold, with automatic repeat reminders at regular intervals for o...
 
 **Category:** Workflow · **Version:** 1.0.0 · **Tags:** gps · tracking · maintenance · odometer · service · reminder · fleet
 
 ## What this does
 
-Define maintenance tasks that trigger notifications when a tracked vehicle crosses a configured odometer, engine hours, or time threshold, with automatic repeat reminders at regular intervals for ongoing maintenance schedules.
+Define maintenance tasks that trigger notifications when a tracked vehicle crosses a configured odometer, engine hours, or time threshold, with automatic repeat reminders at regular intervals for o...
 
 Specifies 3 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
 
 ## Fields
 
-- **name** *(text, required)*
-- **tracking_type** *(select, required)*
-- **start_value** *(number, required)*
-- **period_value** *(number, optional)*
-- **device_id** *(hidden, optional)*
+- **name** *(text, required)* — Name of the maintenance task (e.g. Oil change, Tyre rotation, Annual inspection)
+- **tracking_type** *(select, required)* — The metric to track: odometer (metres), hours (milliseconds), or a time field (server_time, devic...
+- **start_value** *(number, required)* — The tracking metric value at which the first reminder fires
+- **period_value** *(number, optional)* — Interval at which the reminder repeats after the initial trigger; zero means fire once only
+- **device_id** *(hidden, optional)* — Device this maintenance task applies to (or inherited from group)
 
 ## What must be true
 
-- **0:** The first reminder fires when the tracking metric crosses start_value (previous value < start_value <= current value)
-- **1:** If period_value > 0, subsequent reminders fire each time the metric increases by another period_value interval beyond start_value
-- **2:** Interval boundary crossing is detected mathematically; if a large GPS gap causes multiple intervals to be skipped, a reminder fires for the current crossing only
-- **3:** Maintenance definitions can be assigned to individual devices, to groups (inherited by all devices in the group), or to a user account
-- **4:** Only the latest position for each device is evaluated; outdated positions do not trigger maintenance reminders
-- **5:** A reminder event stores the maintenance task ID and the current tracking value so the service record can be annotated with the relevant mileage or hours
+- **rule_1:** The first reminder fires when the tracking metric crosses start_value (previous value < start_value <= current value)
+- **rule_2:** If period_value > 0, subsequent reminders fire each time the metric increases by another period_value interval beyond start_value
+- **rule_3:** Interval boundary crossing is detected mathematically; if a large GPS gap causes multiple intervals to be skipped, a reminder fires for the current crossing only
+- **rule_4:** Maintenance definitions can be assigned to individual devices, to groups (inherited by all devices in the group), or to a user account
+- **rule_5:** Only the latest position for each device is evaluated; outdated positions do not trigger maintenance reminders
+- **rule_6:** A reminder event stores the maintenance task ID and the current tracking value so the service record can be annotated with the relevant mileage or hours
 
 ## Success & failure scenarios
 
 **✅ Success paths**
 
 - **No Threshold Crossed** — when current tracking value has not crossed any maintenance boundary, then No reminder generated; maintenance is not yet due.
-- **Periodic Reminder Fired** — when current tracking value has crossed a period boundary beyond start_value; position is the latest for the device, then Repeat reminder fired; next service interval boundary has been reached.
+- **Periodic Reminder Fired** — when current tracking value has crossed a period boundary beyond start_value; period_value > 0; position is the latest for the device, then Repeat reminder fired; next service interval boundary has been reached.
 - **Initial Reminder Fired** — when previous tracking value < start_value; current tracking value >= start_value; position is the latest for the device, then Maintenance reminder event stored; notification dispatched to assigned users.
 
 ## Errors it can return
@@ -44,26 +44,26 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 ## Connects to
 
-- **odometer-tracking**
-- **engine-hours-tracking**
-- **gps-position-ingestion**
+- **odometer-tracking** *(required)* — Odometer values are the primary trigger metric for distance-based maintenance
+- **engine-hours-tracking** *(recommended)* — Engine hours provide an alternative maintenance trigger for equipment tracked by running time
+- **gps-position-ingestion** *(required)* — Each position update drives the maintenance threshold evaluation
 
-## Quality fitness 🔴 49/100
+## Quality fitness 🟡 62/100
 
 Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
 
 | Dimension | Score | Points |
 |-----------|-------|--------|
 | Description | `██████████` | 10/10 |
-| Rules | `░░░░░░░░░░` | 0/10 |
+| Rules | `██████░░░░` | 6/10 |
 | Outcomes | `█████████████████░░░░░░░░` | 17/25 |
-| Structured conditions | `█████░░░░░` | 5/10 |
+| Structured conditions | `████░░░░░░` | 4/10 |
 | Error binding | `██░░░░░░░░` | 2/10 |
-| Field validation | `████░░░░░░` | 4/10 |
-| Relationships | `█████░░░░░` | 5/10 |
+| Field validation | `██████░░░░` | 6/10 |
+| Relationships | `█████████░` | 9/10 |
 | Events | `████░` | 4/5 |
 | AGI readiness | `░░░░░` | 0/5 |
-| Simplicity | `██░░░` | 2/5 |
+| Simplicity | `████░` | 4/5 |
 
 ---
 

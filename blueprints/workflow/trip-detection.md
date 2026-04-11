@@ -2,36 +2,36 @@
 
 # Trip Detection
 
-> Automatically detect the start and end of vehicle trips by monitoring movement patterns across consecutive position records, applying configurable distance and duration thresholds to filter noise, and producing structured trip records for reporting.
+> Automatically detect the start and end of vehicle trips by monitoring movement patterns across consecutive position records, applying configurable distance and duration thresholds to filter noise, ...
 
 **Category:** Workflow · **Version:** 1.0.0 · **Tags:** gps · tracking · trip · motion · fleet · report · segmentation
 
 ## What this does
 
-Automatically detect the start and end of vehicle trips by monitoring movement patterns across consecutive position records, applying configurable distance and duration thresholds to filter noise, and producing structured trip records for reporting.
+Automatically detect the start and end of vehicle trips by monitoring movement patterns across consecutive position records, applying configurable distance and duration thresholds to filter noise, ...
 
 Specifies 3 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
 
 ## Fields
 
-- **device_id** *(hidden, required)*
-- **motion_streak** *(boolean, optional)*
-- **motion_start_time** *(datetime, optional)*
-- **motion_start_latitude** *(number, optional)*
-- **motion_start_longitude** *(number, optional)*
-- **min_trip_distance_meters** *(number, optional)*
-- **min_trip_duration_seconds** *(number, optional)*
-- **stop_gap_seconds** *(number, optional)*
+- **device_id** *(hidden, required)* — Device being monitored for trips
+- **motion_streak** *(boolean, optional)* — Persisted flag indicating the device is currently in a motion (trip-in-progress) state
+- **motion_start_time** *(datetime, optional)* — Timestamp when the current motion episode began
+- **motion_start_latitude** *(number, optional)* — Coordinate where motion was first detected for the current trip
+- **motion_start_longitude** *(number, optional)* — Coordinate where motion was first detected for the current trip
+- **min_trip_distance_meters** *(number, optional)* — Minimum total distance a movement must cover to be classified as a trip (filters GPS jitter)
+- **min_trip_duration_seconds** *(number, optional)* — Minimum duration a movement episode must last to be classified as a trip
+- **stop_gap_seconds** *(number, optional)* — Seconds of stillness required to conclude that a trip has ended
 
 ## What must be true
 
-- **0:** Movement is detected when the device travels at least min_trip_distance_meters from the last recorded stop position
-- **1:** A trip is only recorded if the movement episode lasts at least min_trip_duration_seconds; shorter movements are treated as noise
-- **2:** A trip ends when the device remains stationary (below the motion speed threshold) for at least stop_gap_seconds
-- **3:** Motion state is persisted on the device record so it survives server restarts; the last known state is used as the baseline for the next incoming position
-- **4:** Only latest positions drive state transitions; outdated or replayed positions are ignored
-- **5:** Trip start and end positions are stored with full coordinates, timestamps, addresses, and cumulative sensor values (fuel, odometer, engine hours)
-- **6:** If ignition data is available, the ignition-off event can be used as a supplemental trip-end signal
+- **rule_1:** Movement is detected when the device travels at least min_trip_distance_meters from the last recorded stop position
+- **rule_2:** A trip is only recorded if the movement episode lasts at least min_trip_duration_seconds; shorter movements are treated as noise
+- **rule_3:** A trip ends when the device remains stationary (below the motion speed threshold) for at least stop_gap_seconds
+- **rule_4:** Motion state is persisted on the device record so it survives server restarts; the last known state is used as the baseline for the next incoming position
+- **rule_5:** Only latest positions drive state transitions; outdated or replayed positions are ignored
+- **rule_6:** Trip start and end positions are stored with full coordinates, timestamps, addresses, and cumulative sensor values (fuel, odometer, engine hours)
+- **rule_7:** If ignition data is available, the ignition-off event can be used as a supplemental trip-end signal
 
 ## Success & failure scenarios
 
@@ -47,28 +47,28 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 ## Connects to
 
-- **gps-position-ingestion**
-- **stop-detection**
-- **ignition-detection**
-- **driver-identification**
-- **fleet-scheduled-reports**
+- **gps-position-ingestion** *(required)* — Position data drives motion state transitions
+- **stop-detection** *(required)* — Stop detection is the counterpart that classifies stationary periods between trips
+- **ignition-detection** *(recommended)* — Ignition events provide supplemental trip boundary signals
+- **driver-identification** *(recommended)* — Trips are attributed to the identified driver for reporting
+- **fleet-scheduled-reports** *(recommended)* — Trip records feed into scheduled trip reports
 
-## Quality fitness 🔴 54/100
+## Quality fitness 🟡 68/100
 
 Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
 
 | Dimension | Score | Points |
 |-----------|-------|--------|
 | Description | `██████████` | 10/10 |
-| Rules | `░░░░░░░░░░` | 0/10 |
+| Rules | `██████░░░░` | 6/10 |
 | Outcomes | `█████████████████░░░░░░░░` | 17/25 |
 | Structured conditions | `████████░░` | 8/10 |
 | Error binding | `██░░░░░░░░` | 2/10 |
-| Field validation | `███░░░░░░░` | 3/10 |
-| Relationships | `██████░░░░` | 6/10 |
+| Field validation | `█████░░░░░` | 5/10 |
+| Relationships | `██████████` | 10/10 |
 | Events | `█████` | 5/5 |
 | AGI readiness | `░░░░░` | 0/5 |
-| Simplicity | `███░░` | 3/5 |
+| Simplicity | `█████` | 5/5 |
 
 ---
 

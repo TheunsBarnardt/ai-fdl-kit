@@ -30,23 +30,23 @@ description: "Detect and record periods when a vehicle is stationary, capturing 
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `device_id` | hidden | Yes |  |  |
-| `stop_latitude` | number | No |  |  |
-| `stop_longitude` | number | No |  |  |
-| `stop_start_time` | datetime | No |  |  |
-| `stop_end_time` | datetime | No |  |  |
-| `stop_duration_seconds` | number | No |  |  |
-| `stop_gap_seconds` | number | No |  |  |
+| `device_id` | hidden | Yes | Device being monitored |  |
+| `stop_latitude` | number | No | Latitude of the stop location |  |
+| `stop_longitude` | number | No | Longitude of the stop location |  |
+| `stop_start_time` | datetime | No | Timestamp when movement ceased and the stop began |  |
+| `stop_end_time` | datetime | No | Timestamp when movement resumed and the stop ended |  |
+| `stop_duration_seconds` | number | No | Total duration of the stop in seconds |  |
+| `stop_gap_seconds` | number | No | Minimum seconds of stillness required before a period is classified as a stop |  |
 
 ## Rules
 
-- A stop is detected when the device remains below the motion speed threshold for at least stop_gap_seconds
-- Short stationary periods below stop_gap_seconds (e.g., red lights, traffic) are not classified as stops
-- A stop ends and a new trip may begin when the device's speed exceeds the motion threshold again
-- Stop location is the coordinates at which movement first ceased; minor GPS drift during a stop is ignored
-- Stop records include the reverse-geocoded address when available
-- Stops that overlap with geofence zones are annotated with the zone name for context
-- Engine hours and fuel data at stop boundaries are recorded to support idle fuel consumption analysis
+- **rule_1:** A stop is detected when the device remains below the motion speed threshold for at least stop_gap_seconds
+- **rule_2:** Short stationary periods below stop_gap_seconds (e.g., red lights, traffic) are not classified as stops
+- **rule_3:** A stop ends and a new trip may begin when the device's speed exceeds the motion threshold again
+- **rule_4:** Stop location is the coordinates at which movement first ceased; minor GPS drift during a stop is ignored
+- **rule_5:** Stop records include the reverse-geocoded address when available
+- **rule_6:** Stops that overlap with geofence zones are annotated with the zone name for context
+- **rule_7:** Engine hours and fuel data at stop boundaries are recorded to support idle fuel consumption analysis
 
 ## Outcomes
 
@@ -85,7 +85,7 @@ description: "Detect and record periods when a vehicle is stationary, capturing 
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `STOP_DEVICE_NOT_FOUND` |  | The device referenced does not exist | No |
+| `STOP_DEVICE_NOT_FOUND` | 404 | The device referenced does not exist | No |
 
 ## Events
 
@@ -98,10 +98,10 @@ description: "Detect and record periods when a vehicle is stationary, capturing 
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| trip-detection |  |  |
-| gps-position-ingestion |  |  |
-| geofence-management |  |  |
-| fleet-scheduled-reports |  |  |
+| trip-detection | required | Stops are the inverse of trips; both use the same motion state machine |
+| gps-position-ingestion | required | Position speed values drive stop detection |
+| geofence-management | recommended | Stops inside geofences are annotated with zone context |
+| fleet-scheduled-reports | recommended | Stop records feed into scheduled stop reports |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

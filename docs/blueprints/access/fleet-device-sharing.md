@@ -8,7 +8,7 @@ description: "Control which users can see and operate which GPS devices through 
 
 # Fleet Device Sharing Blueprint
 
-> Control which users can see and operate which GPS devices through an ACL permission model, with hierarchical device groups that inherit configuration and enable bulk sharing, user restrictions to limit dangerous operations, and manager-level user provisioning.
+> Control which users can see and operate which GPS devices through an ACL permission model, with hierarchical device groups that inherit configuration and enable bulk sharing, user restrictions to l...
 
 | | |
 |---|---|
@@ -31,32 +31,32 @@ description: "Control which users can see and operate which GPS devices through 
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `email` | email | Yes |  |  |
-| `name` | text | Yes |  |  |
-| `administrator` | boolean | No |  |  |
-| `readonly` | boolean | No |  |  |
-| `device_readonly` | boolean | No |  |  |
-| `limit_commands` | boolean | No |  |  |
-| `disable_reports` | boolean | No |  |  |
-| `device_limit` | number | No |  |  |
-| `user_limit` | number | No |  |  |
-| `expiration_time` | datetime | No |  |  |
-| `group_name` | text | No |  |  |
-| `parent_group_id` | hidden | No |  |  |
+| `email` | email | Yes | User's email address; used for authentication and notifications |  |
+| `name` | text | Yes | Full display name of the user |  |
+| `administrator` | boolean | No | Grants unrestricted access to all platform resources |  |
+| `readonly` | boolean | No | Prevents all write operations; user can only view data |  |
+| `device_readonly` | boolean | No | Prevents modifications to device records while allowing full tracking access |  |
+| `limit_commands` | boolean | No | Prevents the user from sending any commands to devices |  |
+| `disable_reports` | boolean | No | Prevents the user from generating or downloading any reports |  |
+| `device_limit` | number | No | Maximum number of devices this user account may have directly shared; -1 means unlimited |  |
+| `user_limit` | number | No | Maximum number of subordinate users this user may create; 0 means user cannot create others |  |
+| `expiration_time` | datetime | No | Date after which the user account is automatically disabled |  |
+| `group_name` | text | No | Name of the device group |  |
+| `parent_group_id` | hidden | No | Parent group reference enabling nested group hierarchies |  |
 
 ## Rules
 
-- Administrator users have implicit access to all resources; no explicit permission records are required
-- Regular users only see and interact with devices, geofences, drivers, and other resources that have been explicitly shared with them
-- Sharing a group with a user grants access to all devices currently in that group and any devices added to the group in the future
-- Group attributes are inherited by child groups and their devices; device-level attributes override inherited group values
-- A manager (user_limit > 0) can create subordinate users but cannot grant more permissions than they themselves have
-- The device_limit constrains how many devices can be shared with a given user account; administrators are exempt
-- Readonly users can view all accessible data but cannot modify any records, create events, or send commands
-- device_readonly users can track and monitor devices but cannot edit device configuration
-- limit_commands users can see device positions but cannot use the command interface
-- disable_reports users can track live positions but cannot generate historical reports or exports
-- An expired user account is treated as disabled; active sessions are invalidated
+- **rule_1:** Administrator users have implicit access to all resources; no explicit permission records are required
+- **rule_2:** Regular users only see and interact with devices, geofences, drivers, and other resources that have been explicitly shared with them
+- **rule_3:** Sharing a group with a user grants access to all devices currently in that group and any devices added to the group in the future
+- **rule_4:** Group attributes are inherited by child groups and their devices; device-level attributes override inherited group values
+- **rule_5:** A manager (user_limit > 0) can create subordinate users but cannot grant more permissions than they themselves have
+- **rule_6:** The device_limit constrains how many devices can be shared with a given user account; administrators are exempt
+- **rule_7:** Readonly users can view all accessible data but cannot modify any records, create events, or send commands
+- **rule_8:** device_readonly users can track and monitor devices but cannot edit device configuration
+- **rule_9:** limit_commands users can see device positions but cannot use the command interface
+- **rule_10:** disable_reports users can track live positions but cannot generate historical reports or exports
+- **rule_11:** An expired user account is treated as disabled; active sessions are invalidated
 
 ## Outcomes
 
@@ -108,9 +108,9 @@ description: "Control which users can see and operate which GPS devices through 
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `SHARING_DEVICE_LIMIT_EXCEEDED` |  | This user has reached the maximum number of devices they may access | No |
-| `SHARING_PERMISSION_DENIED` |  | You cannot share resources you do not have access to | No |
-| `SHARING_USER_NOT_FOUND` |  | The specified user does not exist | No |
+| `SHARING_DEVICE_LIMIT_EXCEEDED` | 409 | This user has reached the maximum number of devices they may access | No |
+| `SHARING_PERMISSION_DENIED` | 403 | You cannot share resources you do not have access to | No |
+| `SHARING_USER_NOT_FOUND` | 404 | The specified user does not exist | No |
 
 ## Events
 
@@ -124,9 +124,9 @@ description: "Control which users can see and operate which GPS devices through 
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| gps-device-registration |  |  |
-| remote-device-commands |  |  |
-| fleet-scheduled-reports |  |  |
+| gps-device-registration | required | Devices must be registered before they can be shared |
+| remote-device-commands | recommended | Command access is gated by the limit_commands user restriction |
+| fleet-scheduled-reports | recommended | Report access is gated by the disable_reports user restriction |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

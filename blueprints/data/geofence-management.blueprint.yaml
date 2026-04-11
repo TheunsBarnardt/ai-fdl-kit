@@ -11,11 +11,17 @@
 # ============================================================
 
 feature: geofence-management
-version: "1.0.0"
-description: Define named geographic boundary zones as circles (centre point + radius) or polygons (closed coordinate ring), optionally with altitude constraints and calendar-based activation schedules, and evaluate device positions for containment.
+version: 1.0.0
+description: Define named geographic boundary zones as circles (centre point + radius) or polygons (closed coordinate ring), optionally with altitude constraints and calendar-based activation schedules, and eva...
 category: data
-tags: [gps, tracking, geofence, zone, polygon, circle, fleet]
-
+tags:
+  - gps
+  - tracking
+  - geofence
+  - zone
+  - polygon
+  - circle
+  - fleet
 actors:
   - id: fleet_admin
     name: Fleet Administrator
@@ -25,44 +31,39 @@ actors:
     name: Tracking Platform
     type: system
     description: Evaluates each incoming position against all active geofences assigned to the device
-
 fields:
   - name: name
     type: text
     required: true
-    description: Human-readable name for the zone
+    label: Human-readable name for the zone
   - name: description
     type: text
     required: false
-    description: Optional notes about the purpose or location of the zone
+    label: Optional notes about the purpose or location of the zone
   - name: area
     type: text
     required: true
-    description: >
-      Geometry definition in a portable text format.
-      Circle: CIRCLE(lat lon, radiusMetres)
-      Polygon: POLYGON((lat1 lon1, lat2 lon2, ..., lat1 lon1))
+    label: "Geometry definition in a portable text format. Circle: CIRCLE(lat lon, radiusMetres) Polygon: POL..."
   - name: geometry_type
     type: select
     required: false
-    description: "Derived geometry type: circle or polygon (determined from area field)"
+    label: "Derived geometry type: circle or polygon (determined from area field)"
   - name: altitude_floor
     type: number
     required: false
-    description: Minimum altitude (metres above sea level) for the zone to apply; positions below this altitude are outside the zone
+    label: Minimum altitude (metres above sea level) for the zone to apply; positions below this altitude ar...
   - name: altitude_ceiling
     type: number
     required: false
-    description: Maximum altitude (metres above sea level) for the zone to apply
+    label: Maximum altitude (metres above sea level) for the zone to apply
   - name: speed_limit
     type: number
     required: false
-    description: Optional speed limit (in the platform's configured speed unit) that applies within this zone, overriding device-level limits
+    label: Optional speed limit (in the platform's configured speed unit) that applies within this zone, ove...
   - name: calendar_id
     type: hidden
     required: false
-    description: Reference to a calendar record; when set, the zone is only active during the calendar's scheduled periods
-
+    label: Reference to a calendar record; when set, the zone is only active during the calendar's scheduled...
 rules:
   processing:
     circle_containment: A circle geofence is defined by a centre coordinate and a radius in metres; containment is determined by the great-circle distance from the position to the centre
@@ -73,25 +74,27 @@ rules:
   data:
     multiple_zones_concurrent: Multiple zones can be active simultaneously for a single device; a position can be inside zero or more zones at the same time
     zone_ids_recorded_on_position: The list of active zone IDs is recorded on each position record so historical queries can reconstruct zone membership at any point in time
-
 outcomes:
   geofence_created:
     priority: 10
     given:
-      - "fleet_admin provides name and valid area geometry"
+      - fleet_admin provides name and valid area geometry
     then:
       - action: create_record
         target: geofence
         description: Geofence record persisted; geometry is parsed and validated
+        type: geofence
       - action: emit_event
         event: geofence.created
-        payload: [geofence_id, name, geometry_type]
+        payload:
+          - geofence_id
+          - name
+          - geometry_type
     result: Zone is saved and immediately evaluated against future incoming positions
-
   geofence_updated:
     priority: 9
     given:
-      - "fleet_admin submits updated name, area, or attributes"
+      - fleet_admin submits updated name, area, or attributes
       - field: geofence_id
         source: db
         operator: exists
@@ -101,69 +104,75 @@ outcomes:
         description: Geometry updated; parsed geometry cache is invalidated
       - action: emit_event
         event: geofence.updated
-        payload: [geofence_id, changed_fields]
+        payload:
+          - geofence_id
+          - changed_fields
     result: Zone definition updated; subsequent position evaluations use the new geometry
-
   geofence_deleted:
     priority: 8
     given:
-      - "fleet_admin deletes a geofence zone"
+      - fleet_admin deletes a geofence zone
     then:
       - action: delete_record
         target: geofence
+        type: geofence
       - action: emit_event
         event: geofence.deleted
-        payload: [geofence_id]
+        payload:
+          - geofence_id
     result: Zone is removed; no further entry or exit events will be generated for it
-
   position_inside_zone:
     priority: 5
     given:
-      - "an incoming position is evaluated and the point lies within the zone boundary"
-      - "zone calendar is active (or no calendar is set)"
-      - "position altitude is within floor and ceiling constraints (if set)"
+      - an incoming position is evaluated and the point lies within the zone boundary
+      - zone calendar is active (or no calendar is set)
+      - position altitude is within floor and ceiling constraints (if set)
     then:
       - action: set_field
         target: position.geofence_ids
         description: Zone ID is added to the position's active zone list
     result: Zone ID recorded on position; geofence alert handler can detect entry transitions
-
   invalid_geometry:
     priority: 1
     error: GEOFENCE_INVALID_GEOMETRY
     given:
-      - "area string does not parse as a valid circle or polygon"
+      - area string does not parse as a valid circle or polygon
     then: []
     result: Geofence is not saved; operator receives a geometry validation error
-
 errors:
   - code: GEOFENCE_INVALID_GEOMETRY
     message: The zone boundary definition is invalid; check coordinate format and closure
+    status: 400
   - code: GEOFENCE_NOT_FOUND
     message: The specified geofence does not exist
-
+    status: 404
 events:
   - name: geofence.created
     description: A new geographic zone has been defined
-    payload: [geofence_id, name, geometry_type, calendar_id]
+    payload:
+      - geofence_id
+      - name
+      - geometry_type
+      - calendar_id
   - name: geofence.updated
     description: A zone's boundary or attributes have been modified
-    payload: [geofence_id, changed_fields]
+    payload:
+      - geofence_id
+      - changed_fields
   - name: geofence.deleted
     description: A geographic zone has been removed
-    payload: [geofence_id]
-
+    payload:
+      - geofence_id
 related:
   - feature: geofence-alerts
-    relationship: required
-    description: Entry and exit events are generated by comparing zone memberships between consecutive positions
+    type: required
+    reason: Entry and exit events are generated by comparing zone memberships between consecutive positions
   - feature: gps-position-ingestion
-    relationship: required
-    description: Positions must be ingested and enriched with zone membership before alert evaluation
+    type: required
+    reason: Positions must be ingested and enriched with zone membership before alert evaluation
   - feature: overspeed-alerts
-    relationship: recommended
-    description: Zone-level speed limits override device-level limits for overspeed detection
-
+    type: recommended
+    reason: Zone-level speed limits override device-level limits for overspeed detection
 extensions:
   source:
     repo: https://github.com/traccar/traccar

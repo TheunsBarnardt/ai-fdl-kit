@@ -8,7 +8,7 @@ description: "Track cumulative vehicle mileage either by reading the hardware od
 
 # Odometer Tracking Blueprint
 
-> Track cumulative vehicle mileage either by reading the hardware odometer transmitted by the GPS device or by calculating distance from GPS coordinates, with per-position incremental distances and a running total for maintenance scheduling and reporting.
+> Track cumulative vehicle mileage either by reading the hardware odometer transmitted by the GPS device or by calculating distance from GPS coordinates, with per-position incremental distances and a...
 
 | | |
 |---|---|
@@ -31,21 +31,21 @@ description: "Track cumulative vehicle mileage either by reading the hardware od
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `odometer` | number | No |  |  |
-| `distance` | number | No |  |  |
-| `total_distance` | number | No |  |  |
-| `min_distance_meters` | number | No |  |  |
-| `max_distance_meters` | number | No |  |  |
+| `odometer` | number | No | Hardware odometer reading in metres, transmitted directly by the vehicle ECU via the device |  |
+| `distance` | number | No | Incremental distance in metres calculated from the previous position to this one |  |
+| `total_distance` | number | No | Cumulative distance in metres accumulated across all positions for this device from the tracking ... |  |
+| `min_distance_meters` | number | No | Minimum position-to-position distance to record; movements shorter than this are treated as GPS n... |  |
+| `max_distance_meters` | number | No | Maximum plausible position-to-position distance; movements longer than this are treated as GPS er... |  |
 
 ## Rules
 
-- If the device transmits a hardware odometer value, it is stored directly on the position and takes precedence over calculated distance in reports
-- Incremental distance is calculated using the great-circle formula between the current and previous position coordinates
-- Distance increments shorter than min_distance_meters are treated as GPS noise and recorded as zero
-- Distance increments longer than max_distance_meters are treated as GPS position errors and excluded from the cumulative total
-- Cumulative total_distance is maintained on each position record as a running sum of valid increments
-- Reports prefer the hardware odometer if available; otherwise they use total_distance
-- The odometer can be reset remotely via a set_odometer command to align with a workshop reading
+- **rule_1:** If the device transmits a hardware odometer value, it is stored directly on the position and takes precedence over calculated distance in reports
+- **rule_2:** Incremental distance is calculated using the great-circle formula between the current and previous position coordinates
+- **rule_3:** Distance increments shorter than min_distance_meters are treated as GPS noise and recorded as zero
+- **rule_4:** Distance increments longer than max_distance_meters are treated as GPS position errors and excluded from the cumulative total
+- **rule_5:** Cumulative total_distance is maintained on each position record as a running sum of valid increments
+- **rule_6:** Reports prefer the hardware odometer if available; otherwise they use total_distance
+- **rule_7:** The odometer can be reset remotely via a set_odometer command to align with a workshop reading
 
 ## Outcomes
 
@@ -97,7 +97,7 @@ description: "Track cumulative vehicle mileage either by reading the hardware od
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `ODOMETER_DEVICE_NOT_FOUND` |  | The device referenced does not exist | No |
+| `ODOMETER_DEVICE_NOT_FOUND` | 404 | The device referenced does not exist | No |
 
 ## Events
 
@@ -109,9 +109,9 @@ description: "Track cumulative vehicle mileage either by reading the hardware od
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| gps-position-ingestion |  |  |
-| maintenance-reminders |  |  |
-| trip-detection |  |  |
+| gps-position-ingestion | required | GPS coordinates and hardware odometer values arrive via position ingestion |
+| maintenance-reminders | recommended | Maintenance intervals are triggered when odometer values cross configured thresholds |
+| trip-detection | recommended | Trip distance is derived from odometer or calculated distance over the trip interval |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

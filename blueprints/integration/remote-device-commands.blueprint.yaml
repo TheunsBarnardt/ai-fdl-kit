@@ -11,11 +11,16 @@
 # ============================================================
 
 feature: remote-device-commands
-version: "1.0.0"
-description: Send control commands from the platform to GPS tracking hardware using the device's native protocol channel or SMS fallback, supporting engine control, configuration, alarm management, and information requests.
+version: 1.0.0
+description: Send control commands from the platform to GPS tracking hardware using the device's native protocol channel or SMS fallback, supporting engine control, configuration, alarm management, and informat...
 category: integration
-tags: [gps, tracking, commands, remote-control, fleet, iot]
-
+tags:
+  - gps
+  - tracking
+  - commands
+  - remote-control
+  - fleet
+  - iot
 actors:
   - id: fleet_operator
     name: Fleet Operator
@@ -29,42 +34,27 @@ actors:
     name: GPS Device
     type: external
     description: Receives and executes commands, acknowledges via subsequent position or dedicated response
-
 fields:
   - name: device_id
     type: hidden
     required: true
-    description: Target device for the command
+    label: Target device for the command
   - name: type
     type: select
     required: true
-    description: >
-      Command type identifier. Common types:
-      engine_stop, engine_resume, reboot_device, power_off, factory_reset,
-      position_single, position_periodic, position_stop,
-      alarm_arm, alarm_disarm, alarm_dismiss,
-      set_timezone, set_odometer, set_connection, set_speed_limit,
-      send_sms, send_ussd, message, voice_message,
-      request_photo, voice_monitoring,
-      get_version, get_modem_status, get_device_status,
-      identification, firmware_update, custom
+    label: "Command type identifier. Common types: engine_stop, engine_resume, reboot_device, power_off, fact..."
   - name: text_channel
     type: boolean
     required: false
-    description: "When true, command is sent via SMS rather than the data channel; requires device phone number"
+    label: When true, command is sent via SMS rather than the data channel; requires device phone number
   - name: description
     type: text
     required: false
-    description: Human-readable label for this saved command
+    label: Human-readable label for this saved command
   - name: attributes
     type: json
     required: false
-    description: >
-      Command-specific parameters.
-      Common keys: frequency (reporting interval in seconds), timezone, device_password,
-      radius, message_text, enable (boolean toggle), data (raw bytes for custom commands),
-      phone_number, server_host, server_port
-
+    label: "Command-specific parameters. Common keys: frequency (reporting interval in seconds), timezone, de..."
 rules:
   access:
     permission_required: Commands can only be sent to devices the requesting user has permission to manage
@@ -77,83 +67,97 @@ rules:
     custom_commands_always_accepted: Custom commands (type = custom) are always accepted regardless of protocol capability declarations
     engine_control_confirmation: engine_stop and engine_resume require extra authorisation and must be confirmed before execution
     saved_commands: Saved commands (stored with description) can be recalled and re-sent without re-entering parameters
-
 outcomes:
   command_sent:
     priority: 10
     given:
-      - "fleet_operator selects command type and target device"
-      - "user has permission to manage the device"
-      - "user does not have limitCommands restriction"
-      - "device protocol supports the command type or type is custom"
-      - "device is online on the data channel or text_channel is true"
+      - fleet_operator selects command type and target device
+      - user has permission to manage the device
+      - user does not have limitCommands restriction
+      - device protocol supports the command type or type is custom
+      - device is online on the data channel or text_channel is true
     then:
       - action: emit_event
         event: command.sent
-        payload: [device_id, command_type, channel, sent_at]
+        payload:
+          - device_id
+          - command_type
+          - channel
+          - sent_at
     result: Command is dispatched to the device and acknowledged or executed asynchronously
-
   command_queued:
     priority: 8
     given:
-      - "device is currently offline"
-      - "text_channel is false"
-      - "user has permission and command type is supported"
+      - device is currently offline
+      - text_channel is false
+      - user has permission and command type is supported
     then:
       - action: create_record
         target: queued_command
         description: Command stored for deferred delivery
+        type: queued_command
       - action: emit_event
         event: command.queued
-        payload: [device_id, command_type, queued_at]
+        payload:
+          - device_id
+          - command_type
+          - queued_at
     result: Command stored in queue; delivered automatically when device reconnects
-
   unsupported_command:
     priority: 3
     error: COMMAND_UNSUPPORTED_BY_PROTOCOL
     given:
-      - "device protocol does not support the requested command type"
-      - "command type is not custom"
+      - device protocol does not support the requested command type
+      - command type is not custom
     then: []
     result: Command is rejected; operator is informed that the device does not support this command
-
   permission_denied:
     priority: 2
     error: COMMAND_PERMISSION_DENIED
     given:
       - any:
-          - "user does not have access to the target device"
-          - "user has the limitCommands restriction"
+          - user does not have access to the target device
+          - user has the limitCommands restriction
     then: []
     result: Command is rejected; no information about the device is disclosed
-
 errors:
   - code: COMMAND_UNSUPPORTED_BY_PROTOCOL
     message: The target device does not support this command type
+    status: 404
   - code: COMMAND_PERMISSION_DENIED
     message: You do not have permission to send commands to this device
+    status: 403
   - code: COMMAND_DEVICE_NOT_FOUND
     message: The specified device does not exist
-
+    status: 404
 events:
   - name: command.sent
     description: A command was dispatched to a device
-    payload: [device_id, command_type, channel, sent_at, operator_id]
+    payload:
+      - device_id
+      - command_type
+      - channel
+      - sent_at
+      - operator_id
   - name: command.queued
     description: A command was queued for offline delivery
-    payload: [device_id, command_type, queued_at]
+    payload:
+      - device_id
+      - command_type
+      - queued_at
   - name: command.delivered
     description: A queued command was delivered upon device reconnection
-    payload: [device_id, command_type, delivered_at]
-
+    payload:
+      - device_id
+      - command_type
+      - delivered_at
 related:
   - feature: gps-device-registration
-    relationship: required
-    description: Devices must be registered to receive commands
+    type: required
+    reason: Devices must be registered to receive commands
   - feature: fleet-device-sharing
-    relationship: required
-    description: Permission model controls who can send commands
-
+    type: required
+    reason: Permission model controls who can send commands
 extensions:
   source:
     repo: https://github.com/traccar/traccar

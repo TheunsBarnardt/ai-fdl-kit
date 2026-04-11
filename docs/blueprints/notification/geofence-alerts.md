@@ -8,7 +8,7 @@ description: "Detect and emit events when a tracked device crosses the boundary 
 
 # Geofence Alerts Blueprint
 
-> Detect and emit events when a tracked device crosses the boundary of a geofence zone, distinguishing entry (device was outside, now inside) from exit (device was inside, now outside), with calendar-based suppression.
+> Detect and emit events when a tracked device crosses the boundary of a geofence zone, distinguishing entry (device was outside, now inside) from exit (device was inside, now outside), with calendar...
 
 | | |
 |---|---|
@@ -30,11 +30,11 @@ description: "Detect and emit events when a tracked device crosses the boundary 
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `device_id` | hidden | Yes |  |  |
-| `geofence_id` | hidden | Yes |  |  |
-| `event_type` | select | Yes |  |  |
-| `position_id` | hidden | Yes |  |  |
-| `fix_time` | datetime | Yes |  |  |
+| `device_id` | hidden | Yes | Device whose zone membership changed |  |
+| `geofence_id` | hidden | Yes | Zone that was entered or exited |  |
+| `event_type` | select | Yes | Either geofence_enter or geofence_exit |  |
+| `position_id` | hidden | Yes | Position record at which the boundary crossing was detected |  |
+| `fix_time` | datetime | Yes | Timestamp of the crossing event |  |
 
 ## Rules
 
@@ -94,7 +94,7 @@ description: "Detect and emit events when a tracked device crosses the boundary 
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `GEOFENCE_EVENT_DEVICE_NOT_FOUND` |  | The device referenced in the position record does not exist | No |
+| `GEOFENCE_EVENT_DEVICE_NOT_FOUND` | 404 | The device referenced in the position record does not exist | No |
 
 ## Events
 
@@ -107,9 +107,9 @@ description: "Detect and emit events when a tracked device crosses the boundary 
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| geofence-management |  |  |
-| gps-position-ingestion |  |  |
-| fleet-device-sharing |  |  |
+| geofence-management | required | Zones must be defined before crossing events can be detected |
+| gps-position-ingestion | required | Positions trigger the zone membership comparison |
+| fleet-device-sharing | recommended | Only users with access to the device receive crossing notifications |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

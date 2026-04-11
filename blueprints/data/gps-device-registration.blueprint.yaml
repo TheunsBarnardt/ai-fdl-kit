@@ -11,11 +11,15 @@
 # ============================================================
 
 feature: gps-device-registration
-version: "1.0.0"
+version: 1.0.0
 description: Register and identify GPS tracking devices by unique hardware ID (IMEI or custom identifier), with per-device metadata, grouping, and lifecycle management.
 category: data
-tags: [gps, tracking, device-management, iot, fleet]
-
+tags:
+  - gps
+  - tracking
+  - device-management
+  - iot
+  - fleet
 actors:
   - id: fleet_admin
     name: Fleet Administrator
@@ -29,53 +33,51 @@ actors:
     name: Tracking Platform
     type: system
     description: Receives registrations, maintains device state, validates uniqueness
-
 fields:
   - name: unique_id
     type: text
     required: true
-    description: Hardware identifier transmitted by the device (IMEI, serial number, or custom ID); must be trimmed of whitespace and unique across all devices
+    label: Hardware identifier transmitted by the device (IMEI, serial number, or custom ID); must be trimme...
   - name: name
     type: text
     required: true
-    description: Human-readable label for the device
+    label: Human-readable label for the device
   - name: phone
     type: phone
     required: false
-    description: SIM card phone number for SMS-based commands
+    label: SIM card phone number for SMS-based commands
   - name: model
     type: text
     required: false
-    description: Device hardware model or type
+    label: Device hardware model or type
   - name: contact
     type: text
     required: false
-    description: Contact person or note associated with this device
+    label: Contact person or note associated with this device
   - name: category
     type: select
     required: false
-    description: Device category (e.g., car, truck, motorcycle, asset tracker)
+    label: Device category (e.g., car, truck, motorcycle, asset tracker)
   - name: group_id
     type: hidden
     required: false
-    description: Parent group for hierarchical organisation and inherited configuration
+    label: Parent group for hierarchical organisation and inherited configuration
   - name: disabled
     type: boolean
     required: false
-    description: When true, device data is accepted but ignored by event handlers and reports
+    label: When true, device data is accepted but ignored by event handlers and reports
   - name: expiration_time
     type: datetime
     required: false
-    description: Date after which the device is automatically treated as disabled
+    label: Date after which the device is automatically treated as disabled
   - name: status
     type: select
     required: false
-    description: "Runtime status: online, offline, or unknown"
+    label: "Runtime status: online, offline, or unknown"
   - name: last_update
     type: datetime
     required: false
-    description: Timestamp of the most recently received position
-
+    label: Timestamp of the most recently received position
 states:
   field: status
   values:
@@ -90,7 +92,6 @@ states:
       label: Offline
       terminal: false
       description: Device has not reported within the configured inactivity threshold
-
 rules:
   validation:
     unique_id_trimmed: unique_id must be trimmed of leading and trailing whitespace before storage
@@ -101,12 +102,11 @@ rules:
     expiry_behavior: An expired device (current time > expiration_time) is treated as disabled automatically
   states:
     status_transitions: Status transitions are driven by the most recent position timestamp relative to a configurable inactivity window, not by explicit operator action
-
 outcomes:
   device_registered:
     priority: 10
     given:
-      - "fleet_admin provides unique_id, name, and optional metadata"
+      - fleet_admin provides unique_id, name, and optional metadata
       - field: unique_id
         source: db
         operator: not_exists
@@ -115,11 +115,15 @@ outcomes:
       - action: create_record
         target: device
         description: Device record persisted with all provided fields and status = unknown
+        type: device
       - action: emit_event
         event: device.registered
-        payload: [device_id, unique_id, name, group_id]
+        payload:
+          - device_id
+          - unique_id
+          - name
+          - group_id
     result: Device is registered and visible in the fleet list with status unknown
-
   duplicate_rejected:
     priority: 1
     error: DEVICE_DUPLICATE_UNIQUE_ID
@@ -130,11 +134,10 @@ outcomes:
         description: Another device already uses this unique_id
     then: []
     result: Registration is rejected; operator is informed of the conflict
-
   device_updated:
     priority: 10
     given:
-      - "fleet_admin submits updated metadata for an existing device"
+      - fleet_admin submits updated metadata for an existing device
       - field: device_id
         source: db
         operator: exists
@@ -147,22 +150,23 @@ outcomes:
         description: Updated category applied
       - action: emit_event
         event: device.updated
-        payload: [device_id, changed_fields]
+        payload:
+          - device_id
+          - changed_fields
     result: Device record reflects the new metadata
-
   device_disabled:
     priority: 5
     given:
-      - "fleet_admin sets disabled = true"
+      - fleet_admin sets disabled = true
     then:
       - action: set_field
         target: disabled
         value: true
       - action: emit_event
         event: device.disabled
-        payload: [device_id]
+        payload:
+          - device_id
     result: Device continues transmitting but all event and alert processing is suppressed
-
   device_expired:
     priority: 3
     given:
@@ -177,45 +181,59 @@ outcomes:
         value: offline
       - action: emit_event
         event: device.expired
-        payload: [device_id, expiration_time]
+        payload:
+          - device_id
+          - expiration_time
     result: Device is treated as disabled; no further event processing occurs
-
 errors:
   - code: DEVICE_DUPLICATE_UNIQUE_ID
     message: A device with this identifier is already registered
+    status: 409
   - code: DEVICE_NOT_FOUND
     message: The specified device does not exist
+    status: 404
   - code: DEVICE_LIMIT_EXCEEDED
     message: The maximum number of devices allowed for this account has been reached
-
+    status: 404
 events:
   - name: device.registered
     description: A new device has been added to the fleet
-    payload: [device_id, unique_id, name, group_id]
+    payload:
+      - device_id
+      - unique_id
+      - name
+      - group_id
   - name: device.updated
     description: Device metadata has been modified
-    payload: [device_id, changed_fields]
+    payload:
+      - device_id
+      - changed_fields
   - name: device.disabled
     description: Device has been disabled
-    payload: [device_id]
+    payload:
+      - device_id
   - name: device.expired
     description: Device subscription or licence has expired
-    payload: [device_id, expiration_time]
+    payload:
+      - device_id
+      - expiration_time
   - name: device.status_changed
     description: Device transitioned between online, offline, and unknown states
-    payload: [device_id, old_status, new_status, last_update]
-
+    payload:
+      - device_id
+      - old_status
+      - new_status
+      - last_update
 related:
   - feature: gps-position-ingestion
-    relationship: required
-    description: Devices must be registered before positions can be attributed to them
+    type: required
+    reason: Devices must be registered before positions can be attributed to them
   - feature: device-status-tracking
-    relationship: required
-    description: Status transitions are computed from position timestamps
+    type: required
+    reason: Status transitions are computed from position timestamps
   - feature: fleet-device-sharing
-    relationship: recommended
-    description: Groups and user permissions govern who can see and manage each device
-
+    type: recommended
+    reason: Groups and user permissions govern who can see and manage each device
 extensions:
   source:
     repo: https://github.com/traccar/traccar

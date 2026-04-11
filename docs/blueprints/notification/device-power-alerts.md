@@ -8,7 +8,7 @@ description: "Monitor battery voltage, battery level percentage, and external po
 
 # Device Power Alerts Blueprint
 
-> Monitor battery voltage, battery level percentage, and external power supply state transmitted by GPS tracking hardware, and emit alerts when power conditions threaten continuous device operation (low battery, power cut, power restoration).
+> Monitor battery voltage, battery level percentage, and external power supply state transmitted by GPS tracking hardware, and emit alerts when power conditions threaten continuous device operation (...
 
 | | |
 |---|---|
@@ -31,20 +31,20 @@ description: "Monitor battery voltage, battery level percentage, and external po
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
-| `battery_level` | number | No |  |  |
-| `battery_voltage` | number | No |  |  |
-| `external_power_voltage` | number | No |  |  |
-| `alarm` | text | No |  |  |
+| `battery_level` | number | No | Battery charge level as a percentage (0–100%) |  |
+| `battery_voltage` | number | No | Battery voltage in volts |  |
+| `external_power_voltage` | number | No | External (vehicle) power supply voltage in volts |  |
+| `alarm` | text | No | Comma-separated alarm codes in the position that may include power-related codes: low_battery, lo... |  |
 
 ## Rules
 
-- Power alarm codes are embedded in the position alarm attribute by the device; each code generates a separate alert event
-- low_battery indicates the internal battery is below a device-defined threshold; devices typically decide the threshold in firmware
-- power_cut indicates the vehicle external power supply has been disconnected (possible tampering or vehicle power failure)
-- power_restored indicates external power has been reconnected after a power_cut event
-- power_off and power_on reflect transitions detected by the device in the main power rail
-- Battery and power voltage readings are stored on every position and can be charted over time to identify degradation trends
-- Power alert events follow the same alarm processing pipeline as other alarm types (see device-alarm-notifications); duplicate suppression applies
+- **rule_1:** Power alarm codes are embedded in the position alarm attribute by the device; each code generates a separate alert event
+- **rule_2:** low_battery indicates the internal battery is below a device-defined threshold; devices typically decide the threshold in firmware
+- **rule_3:** power_cut indicates the vehicle external power supply has been disconnected (possible tampering or vehicle power failure)
+- **rule_4:** power_restored indicates external power has been reconnected after a power_cut event
+- **rule_5:** power_off and power_on reflect transitions detected by the device in the main power rail
+- **rule_6:** Battery and power voltage readings are stored on every position and can be charted over time to identify degradation trends
+- **rule_7:** Power alert events follow the same alarm processing pipeline as other alarm types (see device-alarm-notifications); duplicate suppression applies
 
 ## Outcomes
 
@@ -82,7 +82,7 @@ description: "Monitor battery voltage, battery level percentage, and external po
 
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
-| `POWER_DEVICE_NOT_FOUND` |  | The device referenced does not exist | No |
+| `POWER_DEVICE_NOT_FOUND` | 404 | The device referenced does not exist | No |
 
 ## Events
 
@@ -94,9 +94,9 @@ description: "Monitor battery voltage, battery level percentage, and external po
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| device-alarm-notifications |  |  |
-| gps-position-ingestion |  |  |
-| device-status-tracking |  |  |
+| device-alarm-notifications | required | Power alarms are processed through the same alarm event pipeline |
+| gps-position-ingestion | required | Power telemetry and alarm codes arrive as position attributes |
+| device-status-tracking | recommended | Power cut may correlate with device going offline shortly after |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
