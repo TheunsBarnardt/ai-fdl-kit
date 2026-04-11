@@ -1,139 +1,890 @@
 {
   "feature": "oauth-oidc-client-management",
-  "version": "1.0.0",
-  "description": "Client registration, configuration, and protocol mappers",
+  "version": "2.0.0",
+  "description": "Lifecycle management of OAuth 2.0 and OpenID Connect clients — admin CRUD plus self-service OpenID Connect Dynamic Client Registration (RFC 7591).\n",
   "category": "integration",
   "tags": [
     "oauth2",
     "oidc",
-    "client-registration"
+    "client-registration",
+    "dynamic-registration",
+    "rfc7591"
+  ],
+  "actors": [
+    {
+      "id": "admin_api",
+      "name": "Admin API Consumer",
+      "type": "system",
+      "description": "Trusted backend operator with full CRUD access via privileged admin endpoints. Can set admin-only fields: metadata, access_token_strategy, skip_consent, skip_logout_consent.\n"
+    },
+    {
+      "id": "client_owner",
+      "name": "Client Owner",
+      "type": "human",
+      "description": "Application developer or automated service that self-registers and manages its own OAuth 2.0 client via the public OIDC Dynamic Client Registration endpoint using a registration_access_token.\n"
+    }
   ],
   "fields": [
     {
       "name": "client_id",
       "type": "text",
-      "required": true,
+      "required": false,
       "label": "Client ID",
+      "immutable": true
+    },
+    {
+      "name": "client_name",
+      "type": "text",
+      "required": false,
+      "label": "Client Name"
+    },
+    {
+      "name": "client_secret",
+      "type": "password",
+      "required": false,
+      "label": "Client Secret",
+      "sensitive": true,
       "validation": [
         {
-          "type": "required",
-          "message": "Client ID required"
-        },
-        {
           "type": "minLength",
-          "value": 1,
-          "message": "Cannot be empty"
+          "value": 6,
+          "message": "client_secret must be at least 6 characters long."
         }
       ]
     },
     {
       "name": "redirect_uris",
       "type": "text",
-      "required": true,
-      "label": "Redirect URIs",
-      "validation": [
+      "required": false,
+      "label": "Redirect URIs"
+    },
+    {
+      "name": "grant_types",
+      "type": "multiselect",
+      "required": false,
+      "label": "Grant Types",
+      "options": [
         {
-          "type": "required",
-          "message": "Redirect URI required"
+          "value": "authorization_code",
+          "label": "Authorization Code"
+        },
+        {
+          "value": "client_credentials",
+          "label": "Client Credentials"
+        },
+        {
+          "value": "implicit",
+          "label": "Implicit (deprecated)"
+        },
+        {
+          "value": "refresh_token",
+          "label": "Refresh Token"
+        },
+        {
+          "value": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+          "label": "JWT Bearer"
+        },
+        {
+          "value": "urn:ietf:params:oauth:grant-type:device_code",
+          "label": "Device Code"
         }
       ]
+    },
+    {
+      "name": "response_types",
+      "type": "multiselect",
+      "required": false,
+      "label": "Response Types",
+      "options": [
+        {
+          "value": "code",
+          "label": "Code"
+        },
+        {
+          "value": "id_token",
+          "label": "ID Token"
+        },
+        {
+          "value": "token",
+          "label": "Access Token"
+        }
+      ]
+    },
+    {
+      "name": "scope",
+      "type": "text",
+      "required": false,
+      "label": "Scope"
+    },
+    {
+      "name": "audience",
+      "type": "text",
+      "required": false,
+      "label": "Audience"
+    },
+    {
+      "name": "token_endpoint_auth_method",
+      "type": "select",
+      "required": false,
+      "label": "Token Endpoint Auth Method",
+      "options": [
+        {
+          "value": "client_secret_basic",
+          "label": "client_secret_basic (default)"
+        },
+        {
+          "value": "client_secret_post",
+          "label": "client_secret_post"
+        },
+        {
+          "value": "private_key_jwt",
+          "label": "private_key_jwt"
+        },
+        {
+          "value": "none",
+          "label": "none (public client)"
+        }
+      ]
+    },
+    {
+      "name": "token_endpoint_auth_signing_alg",
+      "type": "select",
+      "required": false,
+      "label": "Token Endpoint Auth Signing Algorithm",
+      "options": [
+        {
+          "value": "RS256",
+          "label": "RS256"
+        },
+        {
+          "value": "RS384",
+          "label": "RS384"
+        },
+        {
+          "value": "RS512",
+          "label": "RS512"
+        },
+        {
+          "value": "PS256",
+          "label": "PS256"
+        },
+        {
+          "value": "PS384",
+          "label": "PS384"
+        },
+        {
+          "value": "PS512",
+          "label": "PS512"
+        },
+        {
+          "value": "ES256",
+          "label": "ES256"
+        },
+        {
+          "value": "ES384",
+          "label": "ES384"
+        },
+        {
+          "value": "ES512",
+          "label": "ES512"
+        }
+      ]
+    },
+    {
+      "name": "jwks_uri",
+      "type": "url",
+      "required": false,
+      "label": "JWK Set URI"
+    },
+    {
+      "name": "jwks",
+      "type": "json",
+      "required": false,
+      "label": "JWK Set (inline)"
+    },
+    {
+      "name": "subject_type",
+      "type": "select",
+      "required": false,
+      "label": "Subject Type",
+      "options": [
+        {
+          "value": "public",
+          "label": "public"
+        },
+        {
+          "value": "pairwise",
+          "label": "pairwise"
+        }
+      ]
+    },
+    {
+      "name": "sector_identifier_uri",
+      "type": "url",
+      "required": false,
+      "label": "Sector Identifier URI"
+    },
+    {
+      "name": "request_uris",
+      "type": "text",
+      "required": false,
+      "label": "Request URIs"
+    },
+    {
+      "name": "request_object_signing_alg",
+      "type": "text",
+      "required": false,
+      "label": "Request Object Signing Algorithm"
+    },
+    {
+      "name": "userinfo_signed_response_alg",
+      "type": "select",
+      "required": false,
+      "label": "UserInfo Signed Response Algorithm",
+      "options": [
+        {
+          "value": "none",
+          "label": "none (default)"
+        },
+        {
+          "value": "RS256",
+          "label": "RS256"
+        }
+      ]
+    },
+    {
+      "name": "frontchannel_logout_uri",
+      "type": "url",
+      "required": false,
+      "label": "Front-Channel Logout URI"
+    },
+    {
+      "name": "frontchannel_logout_session_required",
+      "type": "boolean",
+      "required": false,
+      "label": "Front-Channel Logout Session Required"
+    },
+    {
+      "name": "backchannel_logout_uri",
+      "type": "url",
+      "required": false,
+      "label": "Back-Channel Logout URI"
+    },
+    {
+      "name": "backchannel_logout_session_required",
+      "type": "boolean",
+      "required": false,
+      "label": "Back-Channel Logout Session Required"
+    },
+    {
+      "name": "post_logout_redirect_uris",
+      "type": "text",
+      "required": false,
+      "label": "Post-Logout Redirect URIs"
+    },
+    {
+      "name": "owner",
+      "type": "text",
+      "required": false,
+      "label": "Owner"
+    },
+    {
+      "name": "contacts",
+      "type": "text",
+      "required": false,
+      "label": "Contacts"
+    },
+    {
+      "name": "policy_uri",
+      "type": "url",
+      "required": false,
+      "label": "Policy URI"
+    },
+    {
+      "name": "tos_uri",
+      "type": "url",
+      "required": false,
+      "label": "Terms of Service URI"
+    },
+    {
+      "name": "client_uri",
+      "type": "url",
+      "required": false,
+      "label": "Client URI"
+    },
+    {
+      "name": "logo_uri",
+      "type": "url",
+      "required": false,
+      "label": "Logo URI"
+    },
+    {
+      "name": "allowed_cors_origins",
+      "type": "text",
+      "required": false,
+      "label": "Allowed CORS Origins"
+    },
+    {
+      "name": "metadata",
+      "type": "json",
+      "required": false,
+      "label": "Metadata"
+    },
+    {
+      "name": "access_token_strategy",
+      "type": "select",
+      "required": false,
+      "label": "Access Token Strategy",
+      "options": [
+        {
+          "value": "jwt",
+          "label": "jwt (self-contained)"
+        },
+        {
+          "value": "opaque",
+          "label": "opaque (reference token)"
+        }
+      ]
+    },
+    {
+      "name": "skip_consent",
+      "type": "boolean",
+      "required": false,
+      "label": "Skip Consent Screen"
+    },
+    {
+      "name": "skip_logout_consent",
+      "type": "boolean",
+      "required": false,
+      "label": "Skip Logout Consent Screen"
+    },
+    {
+      "name": "authorization_code_grant_access_token_lifespan",
+      "type": "text",
+      "required": false,
+      "label": "AuthCode Access Token Lifespan"
+    },
+    {
+      "name": "authorization_code_grant_id_token_lifespan",
+      "type": "text",
+      "required": false,
+      "label": "AuthCode ID Token Lifespan"
+    },
+    {
+      "name": "authorization_code_grant_refresh_token_lifespan",
+      "type": "text",
+      "required": false,
+      "label": "AuthCode Refresh Token Lifespan"
+    },
+    {
+      "name": "client_credentials_grant_access_token_lifespan",
+      "type": "text",
+      "required": false,
+      "label": "Client Credentials Access Token Lifespan"
+    },
+    {
+      "name": "refresh_token_grant_access_token_lifespan",
+      "type": "text",
+      "required": false,
+      "label": "Refresh Token Grant Access Token Lifespan"
+    },
+    {
+      "name": "refresh_token_grant_id_token_lifespan",
+      "type": "text",
+      "required": false,
+      "label": "Refresh Token Grant ID Token Lifespan"
+    },
+    {
+      "name": "refresh_token_grant_refresh_token_lifespan",
+      "type": "text",
+      "required": false,
+      "label": "Refresh Token Grant Refresh Token Lifespan"
+    },
+    {
+      "name": "device_authorization_grant_access_token_lifespan",
+      "type": "text",
+      "required": false,
+      "label": "Device Auth Access Token Lifespan"
+    },
+    {
+      "name": "device_authorization_grant_id_token_lifespan",
+      "type": "text",
+      "required": false,
+      "label": "Device Auth ID Token Lifespan"
+    },
+    {
+      "name": "device_authorization_grant_refresh_token_lifespan",
+      "type": "text",
+      "required": false,
+      "label": "Device Auth Refresh Token Lifespan"
+    },
+    {
+      "name": "created_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Created At",
+      "immutable": true
+    },
+    {
+      "name": "updated_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Updated At"
     }
   ],
   "rules": {
-    "core": "OAuth2/OIDC client management"
+    "security": {
+      "authentication": {
+        "admin_api": "All /admin/clients/* endpoints are privileged — must be protected by network policy, gateway auth, or service mesh. No built-in auth in handler.\n",
+        "dynamic_registration": "/oauth2/register/{id} GET/PUT/DELETE require a valid registration_access_token (Bearer). Validated via HMAC strategy; constant-time compared against stored signature to prevent timing attacks. Source: client/handler.go ValidDynamicAuth()\n",
+        "registration_token_rotation": "On every successful PUT to /oauth2/register/{id}, a new registration_access_token is generated and the old one invalidated. Source: client/handler.go setOidcDynamicClient()\n"
+      },
+      "input_validation": {
+        "secret_minimum_length": "client_secret must be >= 6 chars. Auto-generated secrets are 26 chars. Source: client/validator.go:87\n",
+        "redirect_uri_fragments": "Redirect URIs must not contain fragments (#). Source: client/validator.go — strings.Contains(r, \"#\")\n",
+        "jwks_mutual_exclusion": "jwks and jwks_uri cannot both be set. Source: client/validator.go:60\n",
+        "private_key_jwt_requirements": "When token_endpoint_auth_method=private_key_jwt, either jwks or jwks_uri must be set. token_endpoint_auth_signing_alg (if set) must be one of: RS256/RS384/RS512/PS256/PS384/PS512/ES256/ES384/ES512. Source: client/validator.go:53-58\n",
+        "uri_scheme_validation": "policy_uri, tos_uri, logo_uri, client_uri must be valid http or https URLs. Source: client/validator.go — URI scheme check loop\n",
+        "cors_origin_format": "allowed_cors_origins must be scheme://host[:port] only — no path, query, fragment, or embedded credentials. Source: client/validator.go — CORS validation loop\n",
+        "post_logout_redirect_uri_match": "Each post_logout_redirect_uri must share scheme, hostname, and port with at least one registered redirect_uri. Source: client/validator.go — ContainsFunc check\n",
+        "sector_identifier_uri_validation": "sector_identifier_uri must be HTTPS. Server fetches it at registration and validates all redirect_uris appear in the returned JSON array. Source: client/validator.go ValidateSectorIdentifierURL()\n",
+        "private_ip_restriction": "When ClientHTTPNoPrivateIPRanges=true (configurable), jwks_uri, backchannel_logout_uri, and request_uris must not resolve to private IP ranges. Source: client/validator.go — ipx.AreAllAssociatedIPsAllowed()\n",
+        "subject_type_validation": "subject_type must be in server's configured subject_types_supported. Defaults to public if supported. Source: client/validator.go\n",
+        "userinfo_alg_validation": "userinfo_signed_response_alg must be none or RS256. Source: client/validator.go:100\n"
+      },
+      "secret_handling": {
+        "never_return_in_list_or_get": "client_secret is always stripped from GET /admin/clients and GET /admin/clients/{id} responses. Source: client/handler.go — c[k].Secret = \"\" and c.Secret = \"\"\n",
+        "secret_expires_at_always_zero": "client_secret_expires_at is always set to 0 (expiry not supported). Source: client/validator.go — c.SecretExpiresAt = 0\n",
+        "only_echoed_on_create_update": "Secret is only returned in the response body of create and update operations for non-public clients. Never persisted in plaintext.\n"
+      }
+    },
+    "access": {
+      "dynamic_registration_disabled_by_default": "/oauth2/register endpoints are disabled by default. Enabled via: oidc.dynamic_client_registration.enabled=true. Source: client/handler.go requireDynamicAuth() + driver/config/provider.go KeyPublicAllowDynamicRegistration\n",
+      "dynamic_registration_field_restrictions": "Dynamic Client Registration cannot set: client_secret, client_id, metadata, access_token_strategy, skip_consent, skip_logout_consent. Source: client/handler.go createOidcDynamicClient() + ValidateDynamicRegistration()\n",
+      "dynamic_get_excludes_metadata": "GET /oauth2/register/{id} strips both Secret and Metadata from the response. Source: client/handler.go getOidcDynamicClient() — c.Metadata = nil\n"
+    },
+    "rate_limiting": {
+      "admin_write": {
+        "bucket": "hydra-admin-low"
+      },
+      "admin_list": {
+        "bucket": "hydra-admin-medium"
+      },
+      "admin_get": {
+        "bucket": "hydra-admin-high"
+      },
+      "public_dynamic": {
+        "bucket": "hydra-public-low"
+      }
+    }
   },
   "outcomes": {
-    "client_registered": {
-      "priority": 5,
+    "dynamic_registration_disabled": {
+      "priority": 1,
+      "error": "DYNAMIC_REGISTRATION_DISABLED",
+      "given": [
+        "oidc.dynamic_client_registration.enabled = false (server default)"
+      ],
+      "then": [],
+      "result": "404 Not Found."
+    },
+    "dynamic_registration_unauthorized": {
+      "priority": 1,
+      "error": "DYNAMIC_REGISTRATION_UNAUTHORIZED",
       "given": [
         {
-          "field": "client_id",
-          "operator": "exists",
-          "value": null
+          "any": [
+            "registration_access_token missing from Authorization header",
+            "registration_access_token is malformed or expired",
+            "token signature does not match stored signature",
+            "client has no registration access token"
+          ]
         }
+      ],
+      "then": [],
+      "result": "401 Unauthorized. Generic message to prevent client ID enumeration."
+    },
+    "invalid_redirect_uri": {
+      "priority": 1,
+      "error": "INVALID_REDIRECT_URI",
+      "given": [
+        {
+          "any": [
+            "a redirect_uri contains a fragment (#)",
+            "a redirect_uri is not a valid URL"
+          ]
+        }
+      ],
+      "then": [],
+      "result": "400 Bad Request."
+    },
+    "dynamic_field_violation": {
+      "priority": 1,
+      "error": "INVALID_REQUEST",
+      "given": [
+        {
+          "any": [
+            "dynamic registration request includes client_secret",
+            "dynamic registration request includes metadata",
+            "dynamic registration request sets skip_consent=true",
+            "dynamic registration request sets skip_logout_consent=true",
+            "dynamic registration request sets access_token_strategy"
+          ]
+        }
+      ],
+      "then": [],
+      "result": "400 Bad Request."
+    },
+    "invalid_client_metadata": {
+      "priority": 2,
+      "error": "INVALID_CLIENT_METADATA",
+      "given": [
+        {
+          "any": [
+            "private_key_jwt auth without jwks or jwks_uri",
+            "both jwks and jwks_uri are set",
+            "a JWK in the inline jwks set is invalid",
+            "a URI field is not a valid http/https URL",
+            "client_secret is shorter than 6 characters",
+            "userinfo_signed_response_alg is not none or RS256",
+            "subject_type is not in server's supported list",
+            "allowed_cors_origins entry has a path, query, or credentials",
+            "post_logout_redirect_uri does not match any redirect_uri domain/port/scheme",
+            "sector_identifier_uri is not HTTPS or missing redirect_uris in its array",
+            "jwks_uri, backchannel_logout_uri, or request_uri resolves to private IP range",
+            "access_token_strategy is not jwt or opaque"
+          ]
+        }
+      ],
+      "then": [],
+      "result": "400 Bad Request."
+    },
+    "client_not_found": {
+      "priority": 2,
+      "error": "CLIENT_NOT_FOUND",
+      "given": [
+        "no client exists with the requested client_id"
+      ],
+      "then": [],
+      "result": "404 Not Found."
+    },
+    "client_created": {
+      "priority": 5,
+      "given": [
+        "admin API caller provides valid client configuration",
+        "all validation rules pass"
       ],
       "then": [
         {
+          "action": "create_record",
+          "type": "oauth2_client"
+        },
+        {
           "action": "emit_event",
-          "event": "client.registered",
+          "event": "client.created",
+          "payload": [
+            "client_id",
+            "client_name",
+            "grant_types",
+            "created_at"
+          ]
+        },
+        {
+          "action": "set_field",
+          "target": "client_secret_expires_at",
+          "value": 0
+        }
+      ],
+      "result": "201 Created. Full client object returned including client_secret (plaintext, once only) and registration_access_token. Secret is hashed in storage and never retrievable again.\n"
+    },
+    "clients_listed": {
+      "priority": 5,
+      "given": [
+        "optional filters: client_name, owner",
+        "optional keyset pagination parameters"
+      ],
+      "then": [],
+      "result": "200 OK. Array of client objects, paginated via Link header (keyset pagination). client_secret stripped from all records. Default page size: 100.\n"
+    },
+    "client_retrieved": {
+      "priority": 5,
+      "given": [
+        "client with given client_id exists"
+      ],
+      "then": [],
+      "result": "200 OK. Full client record. client_secret always omitted."
+    },
+    "client_replaced": {
+      "priority": 5,
+      "given": [
+        "client with given client_id exists",
+        "request body passes all validation rules"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "updated_at",
+          "value": "now()"
+        }
+      ],
+      "result": "200 OK. Updated client. client_secret echoed if provided in request; existing secret preserved otherwise.\n"
+    },
+    "client_patched": {
+      "priority": 5,
+      "given": [
+        "client with given client_id exists",
+        "JSON Patch document is valid (RFC 6902)",
+        "patch does not attempt to modify the client_id field"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "updated_at",
+          "value": "now()"
+        }
+      ],
+      "result": "200 OK. Patched client. client_secret echoed if patch modified it."
+    },
+    "client_deleted": {
+      "priority": 5,
+      "given": [
+        "client with given client_id exists"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "oauth2_client"
+        },
+        {
+          "action": "emit_event",
+          "event": "client.deleted",
           "payload": [
             "client_id"
           ]
         }
       ],
-      "result": "Client registered"
+      "result": "204 No Content."
+    },
+    "client_lifespans_updated": {
+      "priority": 5,
+      "given": [
+        "client with given client_id exists",
+        "lifespan values are valid duration strings"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "updated_at",
+          "value": "now()"
+        }
+      ],
+      "result": "200 OK. Client returned with updated lifespan values. Only lifespan fields are modified; all other client fields are preserved.\n"
+    },
+    "client_registered_dynamic": {
+      "priority": 5,
+      "given": [
+        "oidc.dynamic_client_registration.enabled = true",
+        "request does not include any admin-only fields",
+        "all validation rules pass"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "oauth2_client"
+        },
+        {
+          "action": "emit_event",
+          "event": "client.registered",
+          "payload": [
+            "client_id",
+            "client_name",
+            "grant_types",
+            "created_at",
+            "registration_client_uri"
+          ]
+        }
+      ],
+      "result": "201 Created. Server-assigned client_id and client_secret returned (once only). registration_access_token issued for self-managing this client.\n"
+    },
+    "dynamic_client_self_managed": {
+      "priority": 5,
+      "given": [
+        "oidc.dynamic_client_registration.enabled = true",
+        "valid registration_access_token in Authorization header",
+        "token signature matches stored signature (constant-time compare)"
+      ],
+      "then": [],
+      "result": "Client owner can GET (200), PUT (200, token rotated), or DELETE (204) their registration. GET strips client_secret and metadata. PUT issues new registration_access_token.\n"
     }
   },
   "errors": [
     {
-      "code": "INVALID_CLIENT",
+      "code": "INVALID_CLIENT_METADATA",
       "status": 400,
-      "message": "Invalid client configuration"
+      "message": "The value of one of the Client Metadata fields is invalid and the server has rejected this request.\n"
+    },
+    {
+      "code": "INVALID_REDIRECT_URI",
+      "status": 400,
+      "message": "The value of one or more redirect_uris is invalid."
+    },
+    {
+      "code": "INVALID_REQUEST",
+      "status": 400,
+      "message": "The request includes an unsupported parameter value or is otherwise malformed.\n"
+    },
+    {
+      "code": "CLIENT_NOT_FOUND",
+      "status": 404,
+      "message": "The requested OAuth 2.0 client does not exist."
+    },
+    {
+      "code": "DYNAMIC_REGISTRATION_UNAUTHORIZED",
+      "status": 401,
+      "message": "The requested OAuth 2.0 client does not exist or you provided incorrect credentials.\n"
+    },
+    {
+      "code": "DYNAMIC_REGISTRATION_DISABLED",
+      "status": 404,
+      "message": "Dynamic client registration is not enabled."
     }
   ],
   "events": [
     {
+      "name": "client.created",
+      "description": "Fired when a new OAuth 2.0 client is registered via the admin API.",
+      "payload": [
+        "client_id",
+        "client_name",
+        "grant_types",
+        "created_at"
+      ]
+    },
+    {
       "name": "client.registered",
-      "description": "Client registered",
+      "description": "Fired when a client self-registers via OIDC Dynamic Client Registration.",
+      "payload": [
+        "client_id",
+        "client_name",
+        "grant_types",
+        "created_at",
+        "registration_client_uri"
+      ]
+    },
+    {
+      "name": "client.deleted",
+      "description": "Fired when an OAuth 2.0 client is deleted.",
       "payload": [
         "client_id"
       ]
     }
   ],
-  "related": [],
-  "agi": {
-    "goals": [
-      {
-        "id": "reliable_oauth_oidc_client_management",
-        "description": "Client registration, configuration, and protocol mappers",
-        "success_metrics": [
+  "related": [
+    {
+      "feature": "oauth-provider",
+      "type": "required",
+      "reason": "Authorization server that issues tokens using these client registrations."
+    },
+    {
+      "feature": "identity-brokering-social-login",
+      "type": "optional",
+      "reason": "Social login flows consume OAuth 2.0 clients configured here."
+    },
+    {
+      "feature": "openid-connect-server",
+      "type": "recommended",
+      "reason": "Governs token lifespans, supported subject types, and default scopes referenced by client registrations.\n"
+    },
+    {
+      "feature": "user-consent-management",
+      "type": "recommended",
+      "reason": "Consent screen logic triggered during authorization for clients where skip_consent is false.\n"
+    }
+  ],
+  "extensions": {
+    "tech_stack": {
+      "language": "Go",
+      "framework": "net/http (stdlib)",
+      "orm": "pop (github.com/gobuffalo/pop)",
+      "database": "PostgreSQL",
+      "multi_tenancy": "NID-scoped — all client records namespaced per network",
+      "pagination": "keyset (github.com/ory/x/pagination/keysetpagination_v2)",
+      "json_patch": "github.com/ory/x/jsonx.ApplyJSONPatch — /id path protected"
+    },
+    "api_endpoints": {
+      "admin": [
+        "GET    /admin/clients                — list (keyset paginated, filterable)",
+        "POST   /admin/clients                — create",
+        "GET    /admin/clients/{id}           — get by ID (secret stripped)",
+        "PUT    /admin/clients/{id}           — replace",
+        "PATCH  /admin/clients/{id}           — patch (JSON Patch RFC 6902)",
+        "DELETE /admin/clients/{id}           — delete",
+        "PUT    /admin/clients/{id}/lifespans — update token lifespans only"
+      ],
+      "public_dynamic_registration": [
+        "POST   /oauth2/register              — self-register (DCR, disabled by default)",
+        "GET    /oauth2/register/{id}         — get own registration (secret + metadata stripped)",
+        "PUT    /oauth2/register/{id}         — update own registration (token rotated)",
+        "DELETE /oauth2/register/{id}         — delete own registration"
+      ]
+    },
+    "agi": {
+      "goals": [
+        {
+          "id": "reliable_oauth_oidc_client_management",
+          "description": "Full lifecycle management of OAuth 2.0 / OIDC clients — admin CRUD and self-service Dynamic Client Registration with security invariants enforced.\n",
+          "success_metrics": [
+            {
+              "metric": "success_rate",
+              "target": ">= 99.5%",
+              "measurement": "Successful operations divided by total attempts"
+            },
+            {
+              "metric": "error_recovery_rate",
+              "target": ">= 95%",
+              "measurement": "Errors that auto-recover without manual intervention"
+            }
+          ],
+          "constraints": [
+            {
+              "type": "availability",
+              "description": "Must degrade gracefully when the database is unavailable.",
+              "negotiable": false
+            },
+            {
+              "type": "security",
+              "description": "client_secret must never appear in logs, list responses, or GET responses. registration_access_token must be rotated on every DCR update.\n",
+              "negotiable": false
+            }
+          ]
+        }
+      ],
+      "autonomy": {
+        "level": "supervised",
+        "escalation_triggers": [
+          "error_rate > 5",
+          "secret_leaked_in_logs = true"
+        ]
+      },
+      "safety": {
+        "action_permissions": [
           {
-            "metric": "success_rate",
-            "target": ">= 99.5%",
-            "measurement": "Successful operations divided by total attempts"
+            "action": "client_created",
+            "permission": "autonomous"
           },
           {
-            "metric": "error_recovery_rate",
-            "target": ">= 95%",
-            "measurement": "Errors that auto-recover without manual intervention"
-          }
-        ],
-        "constraints": [
-          {
-            "type": "availability",
-            "description": "Must degrade gracefully when dependencies are unavailable",
-            "negotiable": false
+            "action": "client_deleted",
+            "permission": "requires_approval"
           }
         ]
-      }
-    ],
-    "autonomy": {
-      "level": "supervised",
-      "escalation_triggers": [
-        "error_rate > 5"
-      ]
-    },
-    "safety": {
-      "action_permissions": [
+      },
+      "tradeoffs": [
         {
-          "action": "client_registered",
-          "permission": "autonomous"
+          "prefer": "security",
+          "over": "convenience",
+          "reason": "Secrets are never retrievable after creation — intentional trade-off to prevent credential leakage.\n"
         }
       ]
-    },
-    "tradeoffs": [
-      {
-        "prefer": "reliability",
-        "over": "throughput",
-        "reason": "integration failures can cascade across systems"
-      }
-    ]
-  },
-  "extensions": {
-    "source": {
-      "repo": "https://github.com/keycloak/keycloak",
-      "project": "Keycloak",
-      "tech_stack": "Java"
     }
   }
 }
