@@ -268,6 +268,45 @@ Write the user's answers on both axes into the brainstorm working state:
 
 These three values get carried forward to Step 6 (design sections), into the brainstorm doc at Step 9, and into the handoff at Step 11 so `/fdl-create` (and downstream `/fdl-generate`) can honor the user's decisions without re-asking.
 
+### Step 5b — Research all external systems, APIs, and hardware (mandatory, automatic)
+
+**This step runs automatically after Step 5. Do NOT skip it. Do NOT use assumed or generic details.**
+
+For every external system, API, payment rail, hardware device, or third-party service mentioned in the brainstorm, you MUST research the actual technical details before proceeding to Step 6. This means:
+
+1. **Identify every external dependency** from the user's answers (payment rails, hardware SDKs, bank APIs, notification services, identity providers, etc.)
+
+2. **For each dependency, use WebSearch and WebFetch to find:**
+   - Official API documentation and developer portals
+   - OpenAPI/Swagger specifications (fetch and extract operations)
+   - Transaction limits, fee structures, SLAs
+   - Authentication methods
+   - Supported message formats (ISO 20022, REST, SOAP, etc.)
+   - Participating institutions or supported regions
+   - Certification or compliance requirements
+   - Hardware specifications (if physical device)
+
+3. **For hardware devices** (scanners, card readers, terminals):
+   - SDK documentation and supported platforms
+   - API operations and function signatures
+   - Supported operating systems and architectures
+   - Device specifications (scan distance, capture count, connection types)
+
+4. **Record every researched detail** in working memory. These go into:
+   - The blueprint's `rules:` section (accurate limits, SLAs, API operations)
+   - The blueprint's `extensions:` section (API endpoints, SDK details, OpenAPI spec URLs)
+   - The proposal's Appendix A (Technical Specifications)
+   - The proposal's main body (accurate numbers, not guesses)
+
+**Never use placeholder values.** If you cannot find the actual limit, fee, or SLA — say so explicitly in the proposal and flag it as "requires confirmation from provider". Do NOT invent numbers.
+
+**Examples of what must be researched, not assumed:**
+- PayShap transaction limit is R50,000 (not R5,000) — raised in August 2024
+- PayShap proxy types include ShapID, phone, account, and Shap Name (not just phone and account)
+- PayShap fees: R1 under R100, R5 for R100-R1,000, 0.05% or R35 cap above R1,000
+- Palm vein scanner requires 4 captures for registration, uses near-infrared light, 15-30cm scan distance
+- Electrum API is asynchronous (HTTP 202), uses ISO 20022 message types (pacs.008, pacs.002, pain.013)
+
 ### Step 6 — Present design sections iteratively, wait for acknowledgment
 
 Walk through each section. **Do not dump the whole design at once.** After each section, pause and ask "Does that match what you want, or adjust?"

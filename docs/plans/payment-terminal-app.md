@@ -79,7 +79,7 @@ Palm vein recognition uses **near-infrared light** to map the unique vein patter
 When a customer's palm is scanned, the system:
 
 1. Matches their vein pattern against enrolled templates (under 1 second)
-2. Resolves their linked PayShap payment proxy (bank account or phone number)
+2. Resolves their linked PayShap proxy (ShapID, mobile number, or account number)
 3. Initiates an instant credit push via PayShap
 4. Settles in under 10 seconds (PayShap SLA)
 
@@ -432,28 +432,90 @@ _To be updated after gap resolution is executed. Target: 18/18 (100%)._
 | Connectivity     | WiFi + Cellular (4G/LTE) + Ethernet               |
 | Display          | Touchscreen for merchant and customer interaction |
 
-### PayShap Integration
+### PayShap Integration (ZA_RPP — Rapid Payments Programme)
 
-| Parameter         | Value                                       |
-| ----------------- | ------------------------------------------- |
-| Payment scheme    | ZA_RPP (Rapid Payments Programme)           |
-| Settlement speed  | Real-time (< 10 seconds end-to-end)         |
-| Transaction limit | R5,000 per transaction (configurable)       |
-| Daily limit       | R25,000 per merchant per day (configurable) |
-| Proxy types       | Phone number, bank account number           |
-| Authentication    | OAuth 2.0                                   |
-| API format        | RESTful JSON                                |
+| Parameter | Value |
+| --- | --- |
+| Scheme operator | BankservAfrica (PayInc clearing house) |
+| Standard | ISO 20022 compliant |
+| Settlement | Real-time via Reserve Bank accounts (< 10 seconds end-to-end SLA) |
+| Availability | 24/7 — always on |
+| Scheme transaction limit | R50,000 per transaction (raised from R3,000 in August 2024) |
+| Bank-determined limit | Actual limit set by payer's bank — may be lower than scheme maximum |
+| Proxy types | ShapID (bank-generated), mobile phone number, account number, Shap Name (business) |
+| Authentication | OAuth 2.0 bearer tokens |
+| API style | Asynchronous — HTTP 202 for all operations, responses via webhook callbacks |
+| API format | RESTful JSON |
+| Tracing | Optional `traceparent` and `tracestate` headers |
+| Idempotency | Duplicate requests return HTTP 409 with original error echoed |
+| Certification | Comprehensive certification and market acceptance testing required before production |
 
-### Palm Vein Scanner
+**Fee structure:**
 
-| Parameter             | Value                                                                 |
-| --------------------- | --------------------------------------------------------------------- |
-| Scan distance         | 15-30cm from device                                                   |
-| Registration captures | 4 palm images fused into one template                                 |
-| Match method          | 1:N template comparison                                               |
-| Palms per user        | Up to 2 (left and right)                                              |
-| Template update       | Automatic on successful match (vein patterns change slowly over time) |
-| SDK                   | Native library (C/C++ via JNI on Android)                             |
+| Amount range | Fee |
+| --- | --- |
+| Under R100 | R1 per transaction |
+| R100 – R1,000 | R5 per transaction |
+| R1,000 – R50,000 | Lesser of 0.05% or R35 |
+
+*Many banks offer free PayShap for amounts under R100 to drive adoption.*
+
+**Participating banks:** Absa, FNB, Nedbank, Standard Bank, African Bank, Capitec, Discovery, Investec, TymeBank, and others.
+
+**API operations (via Electrum Regulated Payments API v23.0.1):**
+
+| Operation | Endpoint | Direction |
+| --- | --- | --- |
+| Credit transfer | `POST /transactions/outbound/credit-transfer` | Outbound |
+| Bulk credit transfer | `POST /transactions/outbound/bulk/credit-transfer` | Outbound |
+| Request-to-pay | `POST /transactions/outbound/request-to-pay` | Outbound |
+| RTP cancellation | `POST /transactions/outbound/request-to-pay/cancellation-request` | Outbound |
+| Refund initiation | `POST /transactions/outbound/refund-initiation` | Outbound |
+| Status query | `POST /transactions/outbound/credit-transfer/status-request` | Outbound |
+| Credit transfer auth response | `POST /transactions/inbound/credit-transfer-authorisation-response` | Inbound (callback) |
+| RTP response | `POST /transactions/inbound/request-to-pay-response` | Inbound (callback) |
+| Identifier determination | `POST /identifiers/outbound/identifier-determination-report` | Inbound (callback) |
+
+**ISO 20022 message types:** pacs.008 (credit transfer), pacs.002 (payment status), pain.013 (request-to-pay), camt.056 (cancellation)
+
+**Request-to-Pay lifecycle states:** PRESENTED → CANCELLED | REJECTED | EXPIRED | PAID
+
+**OpenAPI spec:** `https://docs.electrumsoftware.com/_spec/openapi/elpapi/elpapi.json`
+
+### Palm Vein Scanner (Biometric Hardware SDK)
+
+| Parameter | Value |
+| --- | --- |
+| Technology | Near-infrared palm vein pattern recognition |
+| Scan distance | 15-30cm from device centre |
+| Hand position | Centred, fingers spread naturally |
+| Registration captures | 4 palm images fused into one template |
+| Match method | 1:N template comparison (SD_API_Match1VN) |
+| Palms per user | Up to 2 (left and right) |
+| Template auto-update | On successful match via SD_API_Match1VNEx (vein patterns change over time) |
+| Operation timeout | Configurable, -1 to 1000 seconds (default 30s) |
+| LED indicators | Off, Red, Green, Blue (duration: 0ms permanent or 1000ms flash) |
+| SDK library | SDPVD310API (native C/C++, JNI on Android) |
+| Supported platforms | Windows (x86, x86_64), Linux (x86, x86_64, mips64el, aarch64), Android via JNI |
+| Licence | Valid licence file required for SDK initialisation |
+| Image size | ~257,078 bytes per palm vein image (proprietary binary format) |
+| Initialisation | SD_API_GetBufferSize then SD_API_Init — each called exactly once at program start |
+
+**SDK API operations:**
+
+| Operation | Function | Description |
+| --- | --- | --- |
+| Initialise | `SD_API_Init` | Set up SDK with licence, auto-update, and logging |
+| Buffer sizes | `SD_API_GetBufferSize` | Get feature, template, and image buffer sizes |
+| Open device | `SD_API_OpenDev` | Connect to scanner, get firmware and serial |
+| Extract feature | `SD_API_ExtractFeature` | Capture single palm image and extract vein features |
+| Register template | `SD_API_Register` | Capture 4 images and fuse into template |
+| Match 1:N | `SD_API_Match1VN` | Compare one feature against N stored templates |
+| Match with auto-update | `SD_API_Match1VNEx` | Match and automatically update template |
+| Cancel | `SD_API_Cancel` | Cancel current extraction or registration |
+| LED control | `SD_API_SetLed` | Control LED colour and duration |
+| Close device | `SD_API_CloseDev` | Disconnect from scanner |
+| Uninitialise | `SD_API_Uninit` | Release all SDK resources |
 
 ### Offline Queue Defaults
 
