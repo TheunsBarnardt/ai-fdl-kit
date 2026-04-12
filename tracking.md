@@ -170,7 +170,7 @@ Features to select:
 
 Pull these only if you need the niche:
 
-### OBD-II / diagnostics
+### OBD-II / diagnostics(Done)
 
 ```bash
 /fdl-extract-code-feature https://github.com/brendan-w/python-OBD
