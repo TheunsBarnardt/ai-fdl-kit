@@ -505,7 +505,7 @@ Run `/fdl-create {feature-kebab-case}` to materialise this brainstorm into valid
 **Writing guidelines:**
 - **Tone:** Professional, confident, jargon-free in the main body. Technical precision in the appendices.
 - **Tables over prose:** Use tables for any structured data (comparisons, parameters, risks). They scan faster.
-- **Diagrams:** Use ASCII art for architecture and flow diagrams. They render everywhere.
+- **Diagrams:** Always use **Mermaid** (` ```mermaid ` code blocks) for all diagrams — architecture, flows, state machines, sequences. Never use ASCII art. Mermaid renders as proper vector graphics on GitHub and in VS Code. Use `flowchart TD` for payment/user flows, `graph TD` for architecture overviews, `sequenceDiagram` for API interactions, `stateDiagram-v2` for state machines.
 - **Be comprehensive:** A thin proposal signals a thin brainstorm. If a section feels empty, loop back to the relevant Socratic step and gather more information before writing.
 - **Fill every section or explicitly mark N/A:** Don't silently skip sections. If "Offline / Resilience" doesn't apply, write "Not applicable — this feature requires constant connectivity."
 - **South African context:** Use ZAR for currency, reference POPIA (not GDPR) as primary privacy regulation, reference SARB where relevant for financial services.

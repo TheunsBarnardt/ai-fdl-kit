@@ -103,44 +103,36 @@ If a palm scan fails (unregistered customer, match failure, scanner issue), the 
 
 ### 4.1 Customer Payment Journey
 
-```
-              ┌─────────────────┐
-              │ Merchant enters │
-              │     amount      │
-              └────────┬────────┘
-                       │
-              ┌────────▼────────┐
-              │  "Pay with Palm │
-              │    or Card?"    │
-              └───┬─────────┬───┘
-                  │         │
-        ┌─────────▼───┐ ┌───▼─────────┐
-        │    PALM     │ │    CARD     │
-        │             │ │             │
-        │ Place hand  │ │ Tap, insert │
-        │ on scanner  │ │  or swipe   │
-        └──────┬──────┘ └──────┬──────┘
-               │               │
-        ┌──────▼──────┐ ┌──────▼──────┐
-        │ Match vein  │ │ Card network│
-        │ pattern &   │ │ authorise   │
-        │ resolve     │ │             │
-        │ PayShap     │ │             │
-        │ proxy       │ │             │
-        └──────┬──────┘ └──────┬──────┘
-               │               │
-        ┌──────▼──────┐ ┌──────▼──────┐
-        │ PayShap     │ │ Approved or │
-        │ instant     │ │ declined    │
-        │ settlement  │ │             │
-        └──────┬──────┘ └──────┬──────┘
-               │               │
-               └───────┬───────┘
-                       │
-              ┌────────▼────────┐
-              │ Digital receipt │
-              │  (SMS / email)  │
-              └─────────────────┘
+```mermaid
+flowchart TD
+    A["Merchant enters amount"] --> B{"Pay with Palm or Card?"}
+
+    B -->|"Palm"| C["Customer places hand on scanner"]
+    B -->|"Card"| D["Customer taps, inserts, or swipes"]
+
+    C --> E["Match vein pattern & resolve PayShap proxy"]
+    D --> F["Card network authorisation"]
+
+    E --> G{"PayShap settlement"}
+    F --> H{"Approved?"}
+
+    G -->|"Settled"| I["Transaction complete"]
+    G -->|"Failed"| J["Offer card fallback"]
+    J --> D
+
+    H -->|"Yes"| I
+    H -->|"No"| K["Card declined"]
+
+    I --> L{"Customer wants receipt?"}
+    L -->|"Yes"| M["Send SMS or email receipt"]
+    L -->|"No"| N["Return to idle"]
+    M --> N
+
+    style A fill:#4a90d9,color:#fff
+    style B fill:#f5a623,color:#fff
+    style I fill:#7ed321,color:#fff
+    style K fill:#d0021b,color:#fff
+    style N fill:#9b9b9b,color:#fff
 ```
 
 **Palm payment time:** ~3-5 seconds (scan + match + settle)
@@ -179,47 +171,34 @@ Refunds require manager authorisation for fraud prevention:
 
 ### 5.1 High-Level Overview
 
-```
- MERCHANT LOCATIONS
- ══════════════════
+```mermaid
+graph TD
+    subgraph LOCATIONS["MERCHANT LOCATIONS"]
+        T1["Terminal 1\n📱 Scanner + Card Reader"]
+        T2["Terminal 2\n📱 Scanner + Card Reader"]
+        T3["Terminal 3\n📱 Scanner + Card Reader"]
+        TN["Terminal N\n📱 Scanner + Card Reader"]
+    end
 
- ┌────────────┐ ┌────────────┐ ┌────────────┐     ┌────────────┐
- │ Terminal 1 │ │ Terminal 2 │ │ Terminal 3 │ ... │ Terminal N │
- │  [Scanner] │ │  [Scanner] │ │  [Scanner] │     │  [Scanner] │
- │  [CardRdr] │ │  [CardRdr] │ │  [CardRdr] │     │  [CardRdr] │
- └─────┬──────┘ └─────┬──────┘ └─────┬──────┘     └─────┬──────┘
-       │              │              │                   │
-       └──────────────┴──────┬───────┴───────────────────┘
-                             │
-                        TLS / 4G / WiFi
-                             │
-              ┌──────────────▼──────────────┐
-              │      PAYMENT BACKEND        │
-              │                             │
-              │  ┌───────────────────────┐  │
-              │  │    Palm-Pay Engine    │  │
-              │  │  template matching,   │  │
-              │  │   proxy resolution    │  │
-              │  └──────────┬────────────┘  │
-              │             │               │
-              │  ┌──────────▼────────────┐  │
-              │  │   Payment Router     │  │
-              │  │  PayShap + Card nets  │  │
-              │  └──────────┬────────────┘  │
-              │             │               │
-              │  ┌──────────▼────────────┐  │
-              │  │   Fleet Manager      │  │
-              │  │  config, OTA, health  │  │
-              │  └───────────────────────┘  │
-              └──────┬──────┬──────┬────────┘
-                     │      │      │
-          ┌──────────┘      │      └──────────┐
-          │                 │                 │
- ┌────────▼────────┐ ┌─────▼──────┐ ┌────────▼────────┐
- │    PayShap      │ │    Card    │ │   SMS / Email   │
- │  Real-time      │ │  Networks  │ │    Receipt      │
- │  Clearing (ZAR) │ │  Visa, MC  │ │    Service      │
- └─────────────────┘ └────────────┘ └─────────────────┘
+    T1 & T2 & T3 & TN -->|"TLS / 4G / WiFi"| BACKEND
+
+    subgraph BACKEND["PAYMENT BACKEND"]
+        PPE["Palm-Pay Engine\nTemplate matching, proxy resolution"]
+        PR["Payment Router\nPayShap + Card networks"]
+        FM["Fleet Manager\nConfig, OTA updates, health monitoring"]
+        PPE --> PR
+    end
+
+    PR --> PS["PayShap\nReal-time clearing (ZAR)"]
+    PR --> CN["Card Networks\nVisa, Mastercard"]
+    BACKEND --> RS["SMS / Email\nReceipt Service"]
+    FM -.->|"Heartbeat\n& config"| LOCATIONS
+
+    style LOCATIONS fill:#e8f4fd,stroke:#4a90d9
+    style BACKEND fill:#f5f5f5,stroke:#666
+    style PS fill:#7ed321,color:#fff
+    style CN fill:#4a90d9,color:#fff
+    style RS fill:#f5a623,color:#fff
 ```
 
 ### 5.2 Component Summary
