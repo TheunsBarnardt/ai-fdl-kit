@@ -1,0 +1,317 @@
+# ============================================================
+# LOCATION HISTORY MAP VISUALIZATION — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/Freika/dawarich
+# Source project: Dawarich (Ruby on Rails + MapLibre GL JS)
+# Files traced: ~18
+# ============================================================
+
+feature: location-history-map-visualization
+version: "1.0.0"
+description: "Interactive map rendering GPS history as points, connected routes (optionally speed-coloured), and a density heatmap with layer toggles and point-position correction."
+category: ui
+tags:
+  - map
+  - location
+  - gps
+  - heatmap
+  - routes
+  - visualization
+
+actors:
+  - id: user
+    name: User
+    type: human
+    description: Browses location history on the interactive map.
+  - id: system
+    name: Map System
+    type: system
+    description: Fetches GPS data from the API and renders all map layers.
+
+fields:
+  - name: point_id
+    type: hidden
+    required: false
+  - name: latitude
+    type: number
+    required: true
+    validation:
+      - type: min
+        value: -90
+        message: "Latitude must be >= -90"
+      - type: max
+        value: 90
+        message: "Latitude must be <= 90"
+  - name: longitude
+    type: number
+    required: true
+    validation:
+      - type: min
+        value: -180
+        message: "Longitude must be >= -180"
+      - type: max
+        value: 180
+        message: "Longitude must be <= 180"
+  - name: recorded_at
+    type: datetime
+    required: true
+  - name: velocity
+    type: number
+    required: false
+  - name: altitude
+    type: number
+    required: false
+  - name: battery_level
+    type: number
+    required: false
+  - name: accuracy_meters
+    type: number
+    required: false
+  - name: is_anomaly
+    type: boolean
+    required: false
+    default: false
+  - name: date_range_start
+    type: datetime
+    required: true
+  - name: date_range_end
+    type: datetime
+    required: true
+  - name: active_layers
+    type: multiselect
+    required: false
+    options:
+      - value: points
+        label: GPS Points
+      - value: routes
+        label: Route Lines
+      - value: heatmap
+        label: Heatmap
+      - value: tracks
+        label: Tracks
+      - value: visits
+        label: Visits
+  - name: speed_colouring_enabled
+    type: boolean
+    required: false
+    default: false
+  - name: speed_colour_scale
+    type: json
+    required: false
+
+states:
+  field: map_state
+  values:
+    - name: idle
+      description: Map initialised; no data loaded yet.
+      initial: true
+    - name: loading
+      description: GPS data is being fetched from the API.
+    - name: rendered
+      description: All enabled layers are visible on the map.
+    - name: dragging_point
+      description: User is dragging a GPS point to correct its position.
+    - name: error
+      description: Layer data could not be loaded.
+      terminal: false
+  transitions:
+    - from: idle
+      to: loading
+      actor: user
+      description: User opens the map or changes the date range.
+    - from: loading
+      to: rendered
+      actor: system
+      description: API returns point data; layers are built and displayed.
+    - from: loading
+      to: error
+      actor: system
+      description: API request fails.
+    - from: rendered
+      to: loading
+      actor: user
+      description: User toggles a layer or changes the date filter.
+    - from: rendered
+      to: dragging_point
+      actor: user
+      description: User presses and holds a GPS point.
+    - from: dragging_point
+      to: rendered
+      actor: user
+      description: User releases the point; corrected position is saved.
+
+rules:
+  data_quality:
+    - "Anomaly points are excluded from route and heatmap layers by default; they may be toggled separately."
+    - "Points with accuracy worse than 100 m are automatically flagged as anomalies."
+    - "A maximum speed of 1 000 km/h is used as an anomaly detection floor during speed-based filtering."
+  routing:
+    - "Route lines connect consecutive GPS points in chronological order."
+    - "A gap larger than a configurable threshold (default 5 hours) between two consecutive points breaks the route into separate segments."
+    - "Below zoom level 8, simplified merged route lines are shown instead of per-segment speed-coloured lines so routes remain visible at low zoom."
+  speed_colouring:
+    - "Speed colouring interpolates linearly between configurable colour stops (e.g. stationary → walking → cycling → driving). Speeds above the highest stop are clamped."
+  point_editing:
+    - "When a GPS point is dragged to a new position, adjacent route segments update in-place without a full layer reload."
+    - "If the drag ends with no movement (click, not drag), no API call is made and the point is not updated."
+  heatmap:
+    - "Heatmap intensity and radius scale exponentially with zoom level so clusters remain meaningful at all zoom levels."
+  persistence:
+    - "Layer visibility choices persist across page navigation within the same session."
+
+outcomes:
+  map_loaded:
+    priority: 1
+    given:
+      - "user navigates to the map view"
+      - "a valid date range is set"
+    then:
+      - action: set_field
+        target: map_state
+        value: loading
+      - "Fetch GPS points for the date range from the location data API"
+    result: "A loading indicator appears on the map while data is fetched."
+
+  layers_rendered:
+    priority: 2
+    given:
+      - field: map_state
+        source: session
+        operator: eq
+        value: loading
+      - "API returns a non-empty point collection"
+    then:
+      - action: set_field
+        target: map_state
+        value: rendered
+      - action: emit_event
+        event: map.layers.rendered
+        payload: [point_count, active_layers, date_range_start, date_range_end]
+    result: "GPS points appear as circles, routes connect them chronologically, and heatmap shows density. Viewport fits all loaded points."
+
+  no_data_for_range:
+    priority: 3
+    given:
+      - "API returns an empty point collection for the selected date range"
+    then:
+      - action: set_field
+        target: map_state
+        value: rendered
+    result: "An empty-state message is shown; no layer data is displayed."
+
+  speed_coloured_routes:
+    priority: 4
+    given:
+      - field: speed_colouring_enabled
+        source: session
+        operator: eq
+        value: true
+      - "current map zoom is above the low-zoom threshold"
+    then:
+      - "Split route LineStrings into per-segment sub-features, each carrying a colour derived from speed between its endpoints"
+    result: "Route lines render with continuous colour variation from slow (green) through medium to fast (red)."
+
+  point_position_corrected:
+    priority: 5
+    given:
+      - field: map_state
+        source: session
+        operator: eq
+        value: dragging_point
+      - "user releases the drag with the point in a new position"
+    then:
+      - "PATCH the point's latitude and longitude via the location API"
+      - action: set_field
+        target: map_state
+        value: rendered
+      - action: emit_event
+        event: point.position.updated
+        payload: [point_id, latitude, longitude]
+    result: "Point appears at its new position; route segments passing through the old position update to new coordinates."
+
+  point_drag_failed:
+    priority: 6
+    error: POINT_UPDATE_FAILED
+    given:
+      - "point position update request fails"
+    then:
+      - action: set_field
+        target: map_state
+        value: rendered
+      - "Revert the point on the map to its original coordinates"
+    result: "Point snaps back to its original position. An error notification is shown."
+
+  layer_toggled:
+    priority: 7
+    given:
+      - "user toggles one of the available overlay layers"
+    then:
+      - action: set_field
+        target: active_layers
+        value: updated_layer_selection
+      - action: emit_event
+        event: map.layer.toggled
+        payload: [layer_name, visible]
+    result: "The selected layer appears or disappears on the map immediately."
+
+  data_load_failed:
+    priority: 8
+    error: MAP_DATA_LOAD_FAILED
+    given:
+      - "API request for points returns an error or times out"
+    then:
+      - action: set_field
+        target: map_state
+        value: error
+    result: "An error message is shown. Previously rendered layers are cleared."
+
+errors:
+  - code: POINT_UPDATE_FAILED
+    status: 500
+    message: "Could not save the updated position. Please try again."
+    retry: true
+  - code: MAP_DATA_LOAD_FAILED
+    status: 503
+    message: "Could not load location data for this period. Please refresh and try again."
+    retry: true
+
+events:
+  - name: map.layers.rendered
+    description: All active layers successfully drawn on the map.
+    payload: [point_count, active_layers, date_range_start, date_range_end]
+  - name: map.layer.toggled
+    description: User showed or hid an overlay layer.
+    payload: [layer_name, visible]
+  - name: point.position.updated
+    description: A GPS point's coordinates were successfully corrected.
+    payload: [point_id, latitude, longitude]
+
+related:
+  - feature: location-history-storage
+    type: required
+    reason: "Provides the persisted GPS points that this feature visualises."
+  - feature: gps-position-history
+    type: required
+    reason: "API that serves time-range point queries consumed by the map."
+  - feature: visited-places-detection
+    type: recommended
+    reason: "Visit clusters can be rendered as an overlay on the same map."
+  - feature: trip-stay-timeline
+    type: recommended
+    reason: "Timeline selection drives the map date range and highlighted segments."
+
+extensions:
+  source:
+    repo: "https://github.com/Freika/dawarich"
+    project: "Dawarich — self-hostable location history tracker"
+    tech_stack: "Ruby on Rails 8 + MapLibre GL JS + Stimulus + Turbo"
+    files_traced: 18
+    entry_points:
+      - "app/javascript/maps_maplibre/layers/points_layer.js"
+      - "app/javascript/maps_maplibre/layers/routes_layer.js"
+      - "app/javascript/maps_maplibre/layers/heatmap_layer.js"
+      - "app/javascript/maps_maplibre/layers/tracks_layer.js"
+      - "app/javascript/maps_maplibre/layers/visits_layer.js"
+      - "app/javascript/maps/polylines.js"
+      - "app/services/points/anomaly_filter.rb"

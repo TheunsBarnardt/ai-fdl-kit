@@ -2,10 +2,10 @@
 
 # Blueprint Index
 
-Fast lookup for all **307** blueprints across **20** categories.
+Fast lookup for all **310** blueprints across **20** categories.
 Each entry links to the human-friendly summary (`.md`) and the underlying spec (`.blueprint.yaml`).
 
-**Jump to a category:** [Access](#access) (11) · [Ai](#ai) (6) · [Asset](#asset) (19) · [Auth](#auth) (18) · [Crm](#crm) (5) · [Data](#data) (48) · [Infrastructure](#infrastructure) (9) · [Integration](#integration) (36) · [Inventory](#inventory) (6) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (13) · [Observability](#observability) (3) · [Payment](#payment) (15) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Trading](#trading) (20) · [Ui](#ui) (23) · [Workflow](#workflow) (58)
+**Jump to a category:** [Access](#access) (11) · [Ai](#ai) (6) · [Asset](#asset) (19) · [Auth](#auth) (18) · [Crm](#crm) (5) · [Data](#data) (49) · [Infrastructure](#infrastructure) (9) · [Integration](#integration) (36) · [Inventory](#inventory) (6) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (13) · [Observability](#observability) (3) · [Payment](#payment) (15) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Trading](#trading) (20) · [Ui](#ui) (25) · [Workflow](#workflow) (58)
 
 ---
 
@@ -145,6 +145,7 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**tagging-categorization**](./data/tagging-categorization.md) | Tags, labels, and hierarchical categories for organizing entities with tag groups, colors, slug auto-generation, and category depth limits | 1.0.0 | [yaml](./data/tagging-categorization.blueprint.yaml) |
 | [**tax-engine**](./data/tax-engine.md) | Tax engine with percentage, fixed, division, group, and formula-based tax types, repartition, cash-basis accounting, and fiscal position mapping. | 1.0.0 | [yaml](./data/tax-engine.blueprint.yaml) |
 | [**undo-redo**](./data/undo-redo.md) | Linear history stack with debounced recording, forward-branch destruction, and keyboard shortcut navigation | 1.0.0 | [yaml](./data/undo-redo.blueprint.yaml) |
+| [**visited-places-detection**](./data/visited-places-detection.md) | Automatically clusters stationary GPS points into candidate visit records, merges adjacent stays at the same location, and surfaces them for user confirmation or dismissal. | 1.0.0 | [yaml](./data/visited-places-detection.blueprint.yaml) |
 
 ## Infrastructure
 
@@ -344,12 +345,14 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**form-builder**](./ui/form-builder.md) | Dynamic form creation and rendering with drag-and-drop field placement, conditional visibility, multi-step forms, validation rules, and versioning | 1.0.0 | [yaml](./ui/form-builder.blueprint.yaml) |
 | [**fuel-analytics**](./ui/fuel-analytics.md) | Analyse fuel consumption, cost trends, and efficiency metrics across the fleet or per vehicle with configurable grouping periods, anomaly detection, and benchmark comparisons. | 1.0.0 | [yaml](./ui/fuel-analytics.blueprint.yaml) |
 | [**internationalization**](./ui/internationalization.md) | Internationalization with locale switching, translation keys, pluralization, and RTL support | 1.0.0 | [yaml](./ui/internationalization.blueprint.yaml) |
+| [**location-history-map-visualization**](./ui/location-history-map-visualization.md) | Interactive map rendering GPS history as points, connected routes (optionally speed-coloured), and a density heatmap with layer toggles and point-position correction. | 1.0.0 | [yaml](./ui/location-history-map-visualization.blueprint.yaml) |
 | [**navigation-menu**](./ui/navigation-menu.md) | Hierarchical navigation with sidebar, breadcrumb, mega menu, and mobile support | 1.0.0 | [yaml](./ui/navigation-menu.blueprint.yaml) |
 | [**responsive-layout**](./ui/responsive-layout.md) | Design responsive layouts using breakpoint variants to apply different styles at different screen sizes | 1.0.0 | [yaml](./ui/responsive-layout.blueprint.yaml) |
 | [**responsive-viewport**](./ui/responsive-viewport.md) | Multi-viewport responsive preview with auto-zoom, manual zoom controls, and iframe-based isolated rendering | 1.0.0 | [yaml](./ui/responsive-viewport.blueprint.yaml) |
 | [**self-order-kiosk**](./ui/self-order-kiosk.md) | Customer self-ordering system supporting kiosk terminals and mobile QR-code ordering, with menu browsing, cart management, payment processing, and real-time order status updates. | 1.0.0 | [yaml](./ui/self-order-kiosk.blueprint.yaml) |
 | [**theme-configuration**](./ui/theme-configuration.md) | Define and customize design tokens (colors, spacing, typography, breakpoints) that power a CSS framework | 1.0.0 | [yaml](./ui/theme-configuration.blueprint.yaml) |
 | [**toast-notifications**](./ui/toast-notifications.md) | Transient toast/snackbar notifications with auto-dismiss, stacking, and accessibility | 1.0.0 | [yaml](./ui/toast-notifications.blueprint.yaml) |
+| [**trip-stay-timeline**](./ui/trip-stay-timeline.md) | Chronological feed of day-grouped journeys and place stays with single-expand accordion, companion map synchronisation, and hover highlighting. | 1.0.0 | [yaml](./ui/trip-stay-timeline.blueprint.yaml) |
 | [**utility-composition**](./ui/utility-composition.md) | Build user interfaces by composing utility classes with variants and modifiers to generate CSS rules | 1.0.0 | [yaml](./ui/utility-composition.blueprint.yaml) |
 | [**wizard-stepper**](./ui/wizard-stepper.md) | Multi-step form and process wizard with progress indicator, step validation, skip optional steps, save progress, and resume later | 1.0.0 | [yaml](./ui/wizard-stepper.blueprint.yaml) |
 

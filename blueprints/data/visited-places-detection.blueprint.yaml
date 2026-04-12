@@ -1,0 +1,317 @@
+# ============================================================
+# VISITED PLACES DETECTION — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/Freika/dawarich
+# Source project: Dawarich (Ruby on Rails + MapLibre GL JS)
+# Files traced: ~12
+# ============================================================
+
+feature: visited-places-detection
+version: "1.0.0"
+description: "Automatically clusters stationary GPS points into candidate visit records, merges adjacent stays at the same location, and surfaces them for user confirmation or dismissal."
+category: data
+tags:
+  - location
+  - gps
+  - clustering
+  - places
+  - visits
+  - stay-detection
+
+actors:
+  - id: user
+    name: User
+    type: human
+    description: Reviews suggested visits and confirms, declines, or edits them.
+  - id: detection_service
+    name: Visit Detection Service
+    type: system
+    description: Processes raw GPS points to produce candidate visit records.
+  - id: geocoder
+    name: Geocoding Service
+    type: external
+    description: Reverse-geocodes visit centre coordinates into human-readable place names.
+
+fields:
+  - name: visit_id
+    type: hidden
+    required: false
+  - name: started_at
+    type: datetime
+    required: true
+  - name: ended_at
+    type: datetime
+    required: true
+    validation:
+      - type: custom
+        message: "End time must be after start time"
+  - name: duration_minutes
+    type: number
+    required: false
+  - name: center_latitude
+    type: number
+    required: true
+    validation:
+      - type: min
+        value: -90
+        message: "Latitude must be >= -90"
+      - type: max
+        value: 90
+        message: "Latitude must be <= 90"
+  - name: center_longitude
+    type: number
+    required: true
+    validation:
+      - type: min
+        value: -180
+        message: "Longitude must be >= -180"
+      - type: max
+        value: 180
+        message: "Longitude must be <= 180"
+  - name: radius_meters
+    type: number
+    required: false
+  - name: status
+    type: select
+    required: true
+    options:
+      - value: suggested
+        label: Suggested
+      - value: confirmed
+        label: Confirmed
+      - value: declined
+        label: Declined
+  - name: name
+    type: text
+    required: true
+    validation:
+      - type: required
+        message: "Visit name is required"
+  - name: place_id
+    type: hidden
+    required: false
+  - name: area_id
+    type: hidden
+    required: false
+  - name: point_ids
+    type: json
+    required: false
+  - name: time_threshold_minutes
+    type: number
+    required: false
+    default: 30
+  - name: merge_threshold_minutes
+    type: number
+    required: false
+    default: 15
+  - name: minimum_visit_duration_seconds
+    type: number
+    required: false
+    default: 180
+  - name: minimum_points_required
+    type: number
+    required: false
+    default: 2
+  - name: detection_radius_meters
+    type: number
+    required: false
+    default: 100
+
+states:
+  field: visit_status
+  values:
+    - name: suggested
+      description: Detected by the system, awaiting user review.
+      initial: true
+    - name: confirmed
+      description: User has accepted this visit as accurate.
+      terminal: false
+    - name: declined
+      description: User has rejected this visit.
+      terminal: true
+  transitions:
+    - from: suggested
+      to: confirmed
+      actor: user
+      description: User explicitly confirms the visit.
+    - from: suggested
+      to: declined
+      actor: user
+      description: User dismisses the visit as inaccurate.
+    - from: confirmed
+      to: suggested
+      actor: user
+      description: User undoes a confirmation.
+
+rules:
+  eligibility:
+    - "Only GPS points that are not already assigned to a visit and are not flagged as anomalies are considered for detection."
+  clustering:
+    - "A new visit cluster begins whenever the gap between two consecutive chronologically sorted GPS points exceeds time_threshold_minutes."
+    - "A visit cluster is discarded if it contains fewer than minimum_points_required points or its duration is below minimum_visit_duration_seconds."
+    - "The cluster's effective radius grows logarithmically with visit duration, capped at 500 m, so brief stops have a tight radius and long stays a wider one."
+  merging:
+    - "Two consecutive visits are merged if the gap between them is within merge_threshold_minutes AND their centres are within 50 m AND no significant movement (> 50 m) is detected in the gap points."
+    - "After merging, the visit centre is recomputed as the arithmetic mean of all constituent point coordinates."
+  place_scans:
+    - "When a known place is referenced, only points within detection_radius_meters of the place are considered, scoped per calendar month for efficiency."
+  naming:
+    - "Visit name defaults to: place name (if linked), otherwise area name, otherwise reverse-geocoded address."
+  lifecycle:
+    - "All newly created visits are given status = suggested; the user must confirm or decline each one."
+    - "Confirmed visits remain linked to their GPS points so re-detection over the same window does not create duplicates (idempotent via place+user+started_at key)."
+
+outcomes:
+  smart_detection_triggered:
+    priority: 1
+    given:
+      - "detection is requested for a user and a time range"
+      - "the time range contains at least minimum_points_required unvisited, non-anomaly points"
+    then:
+      - "Run point clustering to identify stationary groups"
+      - "Run merger to combine adjacent clusters at the same location"
+      - "Group merged visits by approximate geographic cell and persist as visit records"
+      - action: emit_event
+        event: visits.detection.completed
+        payload: [user_id, visit_count, started_at, ended_at]
+    result: "New visit records with status=suggested appear in the user's visit feed."
+
+  no_qualifying_points:
+    priority: 2
+    given:
+      - "the requested time range contains no unvisited, non-anomaly points"
+    then:
+      - action: emit_event
+        event: visits.detection.skipped
+        payload: [user_id, started_at, ended_at]
+    result: "No visit records are created; no error is raised."
+
+  place_visit_scan_triggered:
+    priority: 3
+    given:
+      - "a known place exists with at least one GPS point within detection_radius_meters"
+    then:
+      - "For each calendar month with qualifying points near the place, group points by time threshold and create or update visit records linked to the place"
+      - action: emit_event
+        event: visits.place_scan.completed
+        payload: [place_id, visit_count]
+    result: "Visits associated with the specific place are created or updated."
+
+  visit_confirmed:
+    priority: 4
+    given:
+      - field: status
+        source: db
+        operator: eq
+        value: suggested
+      - "user confirms the visit"
+    then:
+      - action: transition_state
+        field: visit_status
+        from: suggested
+        to: confirmed
+      - action: emit_event
+        event: visit.confirmed
+        payload: [visit_id, place_id, started_at, ended_at]
+    result: "Visit is marked confirmed and appears with a distinct visual indicator."
+
+  visit_declined:
+    priority: 5
+    given:
+      - field: status
+        source: db
+        operator: eq
+        value: suggested
+      - "user dismisses the visit"
+    then:
+      - action: transition_state
+        field: visit_status
+        from: suggested
+        to: declined
+      - action: emit_event
+        event: visit.declined
+        payload: [visit_id]
+    result: "Visit is hidden from the default feed and marked declined."
+
+  duplicate_prevented:
+    priority: 6
+    given:
+      - "detection runs over a range that already has a confirmed visit for the same place and start time"
+    then:
+      - "Find the existing visit by (place_id, user_id, started_at) and update its end time and duration if the new detection extends it"
+    result: "No duplicate visit record is created; the existing record is updated if needed."
+
+  detection_failed:
+    priority: 7
+    error: VISIT_DETECTION_FAILED
+    given:
+      - "an unhandled error occurs during point clustering or visit creation"
+    then:
+      - action: emit_event
+        event: visits.detection.failed
+        payload: [user_id, error_message]
+    result: "Detection stops; partial results may be persisted. The user is notified."
+
+errors:
+  - code: VISIT_DETECTION_FAILED
+    status: 500
+    message: "Visit detection could not be completed. Please try again later."
+    retry: true
+  - code: PLACE_NOT_FOUND
+    status: 404
+    message: "The specified place could not be found."
+    retry: false
+
+events:
+  - name: visits.detection.completed
+    description: Smart detection finished for a time range.
+    payload: [user_id, visit_count, started_at, ended_at]
+  - name: visits.detection.skipped
+    description: Detection found no qualifying points and created nothing.
+    payload: [user_id, started_at, ended_at]
+  - name: visits.detection.failed
+    description: Detection aborted due to an error.
+    payload: [user_id, error_message]
+  - name: visits.place_scan.completed
+    description: Place-specific visit history scanned and recorded.
+    payload: [place_id, visit_count]
+  - name: visit.confirmed
+    description: User confirmed a suggested visit.
+    payload: [visit_id, place_id, started_at, ended_at]
+  - name: visit.declined
+    description: User declined a suggested visit.
+    payload: [visit_id]
+
+related:
+  - feature: location-history-storage
+    type: required
+    reason: "Provides the raw GPS points that are clustered into visits."
+  - feature: gps-position-history
+    type: required
+    reason: "Supplies the ordered, time-ranged point sequence used for detection."
+  - feature: location-history-map-visualization
+    type: recommended
+    reason: "Confirmed and suggested visits can be overlaid on the location map."
+  - feature: trip-stay-timeline
+    type: recommended
+    reason: "Confirmed visits appear as stay entries in the timeline feed."
+  - feature: geofence-places
+    type: optional
+    reason: "Named geofences provide semantic labels and radius constraints for visits."
+
+extensions:
+  source:
+    repo: "https://github.com/Freika/dawarich"
+    project: "Dawarich — self-hostable location history tracker"
+    tech_stack: "Ruby on Rails 8 + PostgreSQL + PostGIS"
+    files_traced: 12
+    entry_points:
+      - "app/services/visits/detector.rb"
+      - "app/services/visits/group.rb"
+      - "app/services/visits/merger.rb"
+      - "app/services/visits/smart_detect.rb"
+      - "app/services/visits/creator.rb"
+      - "app/services/places/visits/create.rb"
+      - "app/models/visit.rb"
+      - "app/models/place.rb"

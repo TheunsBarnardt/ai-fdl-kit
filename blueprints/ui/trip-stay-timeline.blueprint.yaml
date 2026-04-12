@@ -1,0 +1,371 @@
+# ============================================================
+# TRIP AND STAY TIMELINE RENDERING — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/Freika/dawarich
+# Source project: Dawarich (Ruby on Rails + MapLibre GL JS)
+# Files traced: ~10
+# ============================================================
+
+feature: trip-stay-timeline
+version: "1.0.0"
+description: "Chronological feed of day-grouped journeys and place stays with single-expand accordion, companion map synchronisation, and hover highlighting."
+category: ui
+tags:
+  - timeline
+  - trips
+  - visits
+  - map
+  - travel
+
+actors:
+  - id: user
+    name: User
+    type: human
+    description: Browses, expands, and interacts with timeline entries.
+  - id: system
+    name: Timeline System
+    type: system
+    description: Builds the timeline feed from track and visit records.
+
+fields:
+  - name: timeline_date
+    type: date
+    required: true
+  - name: entry_type
+    type: select
+    required: true
+    options:
+      - value: journey
+        label: Journey
+      - value: stay
+        label: Stay
+  - name: started_at
+    type: datetime
+    required: true
+  - name: ended_at
+    type: datetime
+    required: true
+    validation:
+      - type: custom
+        message: "End time must be after start time"
+  - name: duration_seconds
+    type: number
+    required: false
+  - name: track_id
+    type: hidden
+    required: false
+  - name: visit_id
+    type: hidden
+    required: false
+  - name: place_name
+    type: text
+    required: false
+  - name: transportation_mode
+    type: select
+    required: false
+    options:
+      - value: unknown
+        label: Unknown
+      - value: walking
+        label: Walking
+      - value: running
+        label: Running
+      - value: cycling
+        label: Cycling
+      - value: driving
+        label: Driving
+      - value: bus
+        label: Bus
+      - value: train
+        label: Train
+      - value: flying
+        label: Flying
+      - value: boat
+        label: Boat
+      - value: motorcycle
+        label: Motorcycle
+  - name: distance_km
+    type: number
+    required: false
+  - name: average_speed_kmh
+    type: number
+    required: false
+  - name: bounding_box
+    type: json
+    required: false
+  - name: visit_latitude
+    type: number
+    required: false
+  - name: visit_longitude
+    type: number
+    required: false
+  - name: segments
+    type: json
+    required: false
+  - name: trip_name
+    type: text
+    required: false
+    validation:
+      - type: maxLength
+        value: 255
+        message: "Trip name must be 255 characters or less"
+  - name: trip_started_at
+    type: datetime
+    required: false
+  - name: trip_ended_at
+    type: datetime
+    required: false
+    validation:
+      - type: custom
+        message: "Trip end date must be after start date"
+
+states:
+  field: accordion_state
+  values:
+    - name: all_collapsed
+      description: All day sections are collapsed; only day headings are visible.
+      initial: true
+    - name: day_expanded
+      description: Exactly one day section is open, showing its entries.
+    - name: entry_detail_open
+      description: A journey entry's detail panel is open within the expanded day.
+  transitions:
+    - from: all_collapsed
+      to: day_expanded
+      actor: user
+      description: User clicks a collapsed day heading.
+    - from: day_expanded
+      to: all_collapsed
+      actor: user
+      description: User collapses the currently open day.
+    - from: day_expanded
+      to: day_expanded
+      actor: user
+      description: User opens a different day; the previous day auto-collapses.
+    - from: day_expanded
+      to: entry_detail_open
+      actor: user
+      description: User expands the detail panel for a journey entry.
+    - from: entry_detail_open
+      to: day_expanded
+      actor: user
+      description: User closes the journey detail panel.
+
+rules:
+  grouping:
+    - "The timeline is grouped by calendar date in the user's local timezone, descending (most recent day first)."
+    - "Each day section contains entries sorted chronologically ascending by started_at."
+    - "Journey and stay entries are interleaved in true chronological order within a day."
+    - "Days with no entries (no tracks and no confirmed or suggested visits) are not shown."
+  accordion:
+    - "Only one day section may be expanded at a time; opening a day automatically closes any previously open day."
+  map_sync:
+    - "When a day is expanded, the companion map pans and zooms to the bounding box of all GPS points recorded on that day."
+    - "When all day sections are collapsed, the companion map returns to a default full-history view."
+    - "Hovering a stay entry highlights the corresponding visit marker on the companion map."
+    - "Hovering a journey entry highlights its route line on the companion map."
+  lazy_loading:
+    - "Journey detail data (segment breakdown, speed profile) is loaded at most once per entry per page session; subsequent toggles reuse the cached result."
+  trip_calculation:
+    - "A trip's distance, route path, and visited country list are computed asynchronously after the trip's date range is saved."
+    - "If a trip's date range changes, all calculations are re-run."
+    - "Visited countries are derived from the distinct country labels of all GPS points within the trip's date range."
+
+outcomes:
+  timeline_loaded:
+    priority: 1
+    given:
+      - "user navigates to the timeline feed"
+    then:
+      - "Query track and confirmed/suggested visit records ordered by date descending for the current user"
+      - action: set_field
+        target: accordion_state
+        value: all_collapsed
+    result: "Timeline renders with collapsed day groups. Most recent days appear at the top."
+
+  day_expanded:
+    priority: 2
+    given:
+      - "user clicks a collapsed day heading"
+    then:
+      - action: transition_state
+        field: accordion_state
+        from: all_collapsed
+        to: day_expanded
+      - "Pan and zoom the companion map to the day's geographic bounding box"
+      - action: emit_event
+        event: timeline.day.expanded
+        payload: [timeline_date, bounding_box]
+    result: "Day section opens showing journeys and stays interleaved chronologically. Map viewport updates."
+
+  different_day_opened:
+    priority: 3
+    given:
+      - field: accordion_state
+        source: session
+        operator: eq
+        value: day_expanded
+      - "user clicks a different day heading"
+    then:
+      - "Collapse the previously open day section"
+      - action: transition_state
+        field: accordion_state
+        from: day_expanded
+        to: day_expanded
+      - action: emit_event
+        event: timeline.day.expanded
+        payload: [timeline_date, bounding_box]
+    result: "New day opens; previous day collapses. Map updates to new day's bounds."
+
+  day_collapsed:
+    priority: 4
+    given:
+      - "user clicks the currently open day heading to close it"
+    then:
+      - action: transition_state
+        field: accordion_state
+        from: day_expanded
+        to: all_collapsed
+      - action: emit_event
+        event: timeline.day.collapsed
+        payload: [timeline_date]
+    result: "All day sections collapse. Map returns to full-history view."
+
+  journey_detail_opened:
+    priority: 5
+    given:
+      - field: accordion_state
+        source: session
+        operator: eq
+        value: day_expanded
+      - "user toggles the detail panel for a journey entry"
+      - "detail data has not been loaded yet for this entry"
+    then:
+      - "Lazy-load segment breakdown (transportation mode, colour, distance) for the journey"
+      - action: transition_state
+        field: accordion_state
+        from: day_expanded
+        to: entry_detail_open
+      - action: emit_event
+        event: timeline.journey.selected
+        payload: [track_id, started_at, ended_at]
+    result: "Detail panel expands showing mode breakdown. Companion map highlights the route with a flowing animation."
+
+  journey_detail_closed:
+    priority: 6
+    given:
+      - field: accordion_state
+        source: session
+        operator: eq
+        value: entry_detail_open
+      - "user toggles closed the journey detail panel"
+    then:
+      - action: transition_state
+        field: accordion_state
+        from: entry_detail_open
+        to: day_expanded
+      - action: emit_event
+        event: timeline.journey.deselected
+        payload: [track_id]
+    result: "Detail panel collapses. Map route highlight is cleared."
+
+  entry_hovered:
+    priority: 7
+    given:
+      - "user hovers the cursor over any timeline entry"
+    then:
+      - action: emit_event
+        event: timeline.entry.hovered
+        payload: [entry_type, started_at, ended_at, track_id, visit_id, visit_latitude, visit_longitude]
+    result: "Corresponding route segment or visit marker is highlighted on the companion map."
+
+  entry_unhovered:
+    priority: 8
+    given:
+      - "user moves cursor away from a timeline entry"
+    then:
+      - action: emit_event
+        event: timeline.entry.unhovered
+        payload: []
+    result: "Map highlight is cleared."
+
+  trip_saved:
+    priority: 9
+    given:
+      - "user creates or updates a named trip with a valid start date and end date"
+    then:
+      - "Asynchronously calculate the trip's GPS path, total distance, average speed, and visited countries"
+      - action: emit_event
+        event: trip.calculated
+        payload: [trip_id, distance_km, visited_countries]
+    result: "Trip record is enriched with distance, route path, and country list."
+
+  trip_date_invalid:
+    priority: 10
+    error: TRIP_DATE_INVALID
+    given:
+      - field: trip_ended_at
+        source: input
+        operator: lte
+        value: trip_started_at
+    then: []
+    result: "Trip cannot be saved. An inline validation error is shown next to the end date field."
+
+errors:
+  - code: TRIP_DATE_INVALID
+    status: 422
+    message: "Trip end date must be after the start date."
+    retry: false
+  - code: TIMELINE_LOAD_FAILED
+    status: 503
+    message: "Could not load timeline data. Please refresh the page."
+    retry: true
+
+events:
+  - name: timeline.day.expanded
+    description: A day section was opened by the user.
+    payload: [timeline_date, bounding_box]
+  - name: timeline.day.collapsed
+    description: All day sections are now collapsed.
+    payload: [timeline_date]
+  - name: timeline.journey.selected
+    description: User opened a journey's detail panel.
+    payload: [track_id, started_at, ended_at]
+  - name: timeline.journey.deselected
+    description: User closed a journey's detail panel.
+    payload: [track_id]
+  - name: timeline.entry.hovered
+    description: User hovered over a timeline entry.
+    payload: [entry_type, started_at, ended_at, track_id, visit_id, visit_latitude, visit_longitude]
+  - name: timeline.entry.unhovered
+    description: Cursor left a timeline entry.
+    payload: []
+  - name: trip.calculated
+    description: A named trip's path, distance, and countries were computed.
+    payload: [trip_id, distance_km, visited_countries]
+
+related:
+  - feature: visited-places-detection
+    type: required
+    reason: "Provides the stay/visit entries that appear in the timeline feed."
+  - feature: gps-position-history
+    type: required
+    reason: "Provides track records (journeys) rendered as timeline entries."
+  - feature: location-history-map-visualization
+    type: recommended
+    reason: "Companion map that syncs its viewport and highlights to timeline selections."
+
+extensions:
+  source:
+    repo: "https://github.com/Freika/dawarich"
+    project: "Dawarich — self-hostable location history tracker"
+    tech_stack: "Ruby on Rails 8 + Stimulus + Turbo Frames + MapLibre GL JS"
+    files_traced: 10
+    entry_points:
+      - "app/javascript/controllers/timeline_feed_controller.js"
+      - "app/javascript/controllers/trips_controller.js"
+      - "app/javascript/controllers/visits_map_controller.js"
+      - "app/models/trip.rb"
+      - "app/models/track.rb"
+      - "app/jobs/trips/calculate_all_job.rb"

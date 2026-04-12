@@ -61,3 +61,4 @@ CRUD, storage, versioning, and data management blueprints.
 | [Tagging Categorization]({{ site.baseurl }}/blueprints/data/tagging-categorization/) | Tags, labels, and hierarchical categories for organizing entities with tag groups, colors, slug auto-generation, and category depth limits | 1.0.0 |
 | [Tax Engine]({{ site.baseurl }}/blueprints/data/tax-engine/) | Tax engine with percentage, fixed, division, group, and formula-based tax types, repartition, cash-basis accounting, and fiscal position mapping.  | 1.0.0 |
 | [Undo Redo]({{ site.baseurl }}/blueprints/data/undo-redo/) | Linear history stack with debounced recording, forward-branch destruction, and keyboard shortcut navigation | 1.0.0 |
+| [Visited Places Detection]({{ site.baseurl }}/blueprints/data/visited-places-detection/) | Automatically clusters stationary GPS points into candidate visit records, merges adjacent stays at the same location, and surfaces them for user confirmation or dismissal. | 1.0.0 |
