@@ -141,6 +141,60 @@ description: "Build a travel-time and distance matrix between all locations by q
 | stop-eta-calculation | required |  |
 | cost-based-route-optimization | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Distance Matrix Calculation
+
+Build a travel-time and distance matrix between all locations by querying a routing engine or accepting pre-supplied matrices. Underpins all cost evaluations and ETA calculations.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vrp_solving` | vrp-solving | degrade |
+| `routing_profile_selection` | routing-profile-selection | degrade |
+| `stop_eta_calculation` | stop-eta-calculation | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| matrix_built_from_engine | `autonomous` | - | - |
+| matrix_from_custom_input | `autonomous` | - | - |
+| sparse_matrix_update | `supervised` | - | - |
+| routing_error | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

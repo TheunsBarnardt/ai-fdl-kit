@@ -131,6 +131,61 @@ description: "Distribute tasks across a heterogeneous fleet, building one ordere
 | routing-profile-selection | optional |  |
 | distance-matrix-calculation | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Multi Vehicle Route Optimization
+
+Distribute tasks across a heterogeneous fleet, building one ordered route per vehicle that collectively covers all assignable tasks while minimising total fleet cost.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vrp_solving` | vrp-solving | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| all_tasks_assigned | `autonomous` | - | - |
+| partial_assignment | `autonomous` | - | - |
+| single_vehicle_tsp | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

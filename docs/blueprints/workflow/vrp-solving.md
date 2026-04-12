@@ -142,6 +142,52 @@ description: "Solve a vehicle routing problem given jobs and vehicles, returning
 | cost-based-route-optimization | optional |  |
 | distance-matrix-calculation | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vrp Solving
+
+Solve a vehicle routing problem given jobs and vehicles, returning optimised routes that minimise total cost while satisfying all constraints.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| feasible_solution | `autonomous` | - | - |
+| partial_assignment | `autonomous` | - | - |
+| input_error | `autonomous` | - | - |
+| routing_error | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

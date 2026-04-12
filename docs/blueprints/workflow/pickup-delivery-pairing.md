@@ -149,6 +149,62 @@ description: "Link a pickup and delivery stop as a paired shipment served by the
 | skill-based-assignment | optional |  |
 | stop-eta-calculation | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Pickup Delivery Pairing
+
+Link a pickup and delivery stop as a paired shipment served by the same vehicle with pickup before delivery. Supports multidimensional load amounts and independent time windows per stop.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vrp_solving` | vrp-solving | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| shipment_completed | `autonomous` | - | - |
+| shipment_unassigned | `autonomous` | - | - |
+| precedence_violated_plan_mode | `autonomous` | - | - |
+| pickup_without_delivery | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

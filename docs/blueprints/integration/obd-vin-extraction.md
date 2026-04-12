@@ -109,6 +109,60 @@ description: "Read and decode the Vehicle Identification Number (VIN) from the v
 | obd-port-connection | required | Active vehicle_connected state required to issue mode 9 queries |
 | obd-pid-reading | required | VIN extraction uses the PID query infrastructure (mode 9, PID 0x02) |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Obd Vin Extraction
+
+Read and decode the Vehicle Identification Number (VIN) from the vehicle ECU using OBD-II mode 9 service, stripping frame padding to produce a validated 17-character ISO 3779 string
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `obd_port_connection` | obd-port-connection | degrade |
+| `obd_pid_reading` | obd-pid-reading | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| not_connected | `autonomous` | - | - |
+| vin_not_supported | `autonomous` | - | - |
+| no_response | `autonomous` | - | - |
+| vin_too_short | `autonomous` | - | - |
+| vin_read_successful | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

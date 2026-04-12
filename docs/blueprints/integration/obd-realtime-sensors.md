@@ -176,6 +176,62 @@ description: "Poll and stream live vehicle sensor readings — RPM, speed, coola
 | obd-port-connection | required | Active vehicle_connected state required for all sensor queries |
 | obd-pid-reading | required | Each sensor reading is a PID query dispatched through the PID reading layer |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Obd Realtime Sensors
+
+Poll and stream live vehicle sensor readings — RPM, speed, coolant temperature, throttle position, mass air flow, and fuel level — with physical units and callback-driven updates
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `obd_port_connection` | obd-port-connection | degrade |
+| `obd_pid_reading` | obd-pid-reading | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| sensor_not_supported | `autonomous` | - | - |
+| not_connected | `autonomous` | - | - |
+| direct_query_success | `autonomous` | - | - |
+| streaming_started | `autonomous` | - | - |
+| sensor_value_changed | `supervised` | - | - |
+| streaming_paused | `autonomous` | - | - |
+| streaming_stopped | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

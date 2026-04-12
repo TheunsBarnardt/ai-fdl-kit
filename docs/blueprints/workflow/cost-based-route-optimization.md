@@ -138,6 +138,63 @@ description: "Configure per-vehicle cost models (fixed, per-hour travel, per-kil
 | routing-profile-selection | optional |  |
 | priority-urgency-weighting | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Cost Based Route Optimization
+
+Configure per-vehicle cost models (fixed, per-hour travel, per-kilometre, per-task-hour) and minimize total fleet cost as the secondary objective after maximising task assignment.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vrp_solving` | vrp-solving | degrade |
+| `multi_vehicle_route_optimization` | multi-vehicle-route-optimization | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| cost_minimised | `autonomous` | - | - |
+| fixed_cost_avoidance | `autonomous` | - | - |
+| distance_cost_applied | `autonomous` | - | - |
+| cost_reported | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -135,6 +135,63 @@ description: "Associate each vehicle with a named routing profile (car, truck, h
 | multi-vehicle-route-optimization | recommended |  |
 | cost-based-route-optimization | optional |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Routing Profile Selection
+
+Associate each vehicle with a named routing profile (car, truck, hgv, bike) so travel time and distance matrices use road network rules appropriate for that vehicle class.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vrp_solving` | vrp-solving | degrade |
+| `distance_matrix_calculation` | distance-matrix-calculation | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| matrix_ready | `autonomous` | - | - |
+| matrix_from_custom_input | `autonomous` | - | - |
+| routing_engine_error | `autonomous` | - | - |
+| speed_factor_applied | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

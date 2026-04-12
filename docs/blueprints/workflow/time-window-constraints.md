@@ -153,6 +153,63 @@ description: "Restrict when tasks may be serviced by associating time windows wi
 | driver-shift-break-constraints | recommended |  |
 | stop-eta-calculation | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Time Window Constraints
+
+Restrict when tasks may be serviced by associating time windows with jobs and vehicles. Optimizer schedules service within valid windows, inserting waiting time where necessary.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vrp_solving` | vrp-solving | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| window_satisfied | `autonomous` | - | - |
+| early_arrival | `autonomous` | - | - |
+| multi_window_chosen | `autonomous` | - | - |
+| window_violated_plan_mode | `autonomous` | - | - |
+| no_feasible_window | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

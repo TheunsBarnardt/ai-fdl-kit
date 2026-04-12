@@ -133,6 +133,63 @@ description: "Restrict which vehicles may serve which tasks by tagging each task
 | pickup-delivery-pairing | optional |  |
 | driver-shift-break-constraints | optional |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Skill Based Assignment
+
+Restrict which vehicles may serve which tasks by tagging each task with required skills and each vehicle with held skills. A vehicle may only serve a task if it holds every required skill.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vrp_solving` | vrp-solving | degrade |
+| `multi_vehicle_route_optimization` | multi-vehicle-route-optimization | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| compatible_assignment | `autonomous` | - | - |
+| incompatible_skipped | `autonomous` | - | - |
+| task_unassigned_no_match | `autonomous` | - | - |
+| skill_violation_plan_mode | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

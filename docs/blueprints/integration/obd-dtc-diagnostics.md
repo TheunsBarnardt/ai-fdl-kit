@@ -121,6 +121,64 @@ description: "Read, decode, and clear Diagnostic Trouble Codes (DTCs) from vehic
 | obd-port-connection | required | Active vehicle_connected state required for all DTC operations |
 | obd-pid-reading | required | DTC queries and status reads are dispatched via the PID query infrastructure |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Obd Dtc Diagnostics
+
+Read, decode, and clear Diagnostic Trouble Codes (DTCs) from vehicle ECUs; report MIL (malfunction indicator lamp) status, DTC count, and human-readable fault descriptions
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `obd_port_connection` | obd-port-connection | degrade |
+| `obd_pid_reading` | obd-pid-reading | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| not_connected | `autonomous` | - | - |
+| no_dtcs_stored | `autonomous` | - | - |
+| dtcs_found | `autonomous` | - | - |
+| dtcs_cleared | `autonomous` | - | - |
+| status_read | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

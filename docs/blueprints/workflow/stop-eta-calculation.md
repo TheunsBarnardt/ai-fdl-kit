@@ -132,6 +132,63 @@ description: "Compute estimated arrival time and cumulative metrics for every ro
 | driver-shift-break-constraints | recommended |  |
 | distance-matrix-calculation | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Stop Eta Calculation
+
+Compute estimated arrival time and cumulative metrics for every route step (jobs, breaks, depots). Supports automatic ETA during solving and ETA-selection for provided route plans.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vrp_solving` | vrp-solving | degrade |
+| `distance_matrix_calculation` | distance-matrix-calculation | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| eta_computed_solving | `autonomous` | - | - |
+| eta_chosen_plan_mode | `autonomous` | - | - |
+| step_waiting_time_recorded | `autonomous` | - | - |
+| distance_reported | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

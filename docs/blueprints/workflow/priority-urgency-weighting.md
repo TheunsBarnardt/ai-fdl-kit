@@ -137,6 +137,62 @@ description: "Assign an integer priority weight (0-100) to tasks so the optimize
 | skill-based-assignment | optional |  |
 | time-window-constraints | optional |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Priority Urgency Weighting
+
+Assign an integer priority weight (0-100) to tasks so the optimizer preferentially assigns high-priority tasks first. Priority maximisation takes lexicographic precedence over cost minimisation.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vrp_solving` | vrp-solving | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| high_priority_assigned | `autonomous` | - | - |
+| low_priority_evicted | `autonomous` | - | - |
+| priority_task_unassigned | `autonomous` | - | - |
+| priority_summary_reported | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

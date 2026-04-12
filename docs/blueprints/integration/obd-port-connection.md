@@ -173,6 +173,65 @@ description: "Discover serial ports, negotiate baud rate with a diagnostic adapt
 | obd-realtime-sensors | required | Sensor streaming requires an active vehicle_connected state |
 | obd-vin-extraction | required | VIN reading requires an active vehicle_connected state |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Obd Port Connection
+
+Discover serial ports, negotiate baud rate with a diagnostic adapter, initialize it, validate OBD-II socket voltage, and auto-detect the vehicle protocol to establish a ready connection
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `obd_pid_reading` | obd-pid-reading | degrade |
+| `obd_dtc_diagnostics` | obd-dtc-diagnostics | degrade |
+| `obd_realtime_sensors` | obd-realtime-sensors | degrade |
+| `obd_vin_extraction` | obd-vin-extraction | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| no_port_found | `autonomous` | - | - |
+| port_access_denied | `autonomous` | - | - |
+| baud_negotiation_failed | `autonomous` | - | - |
+| adapter_init_failed | `autonomous` | - | - |
+| low_voltage | `autonomous` | - | - |
+| protocol_not_detected | `autonomous` | - | - |
+| connection_established | `autonomous` | - | - |
+| connection_closed | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -132,6 +132,62 @@ description: "Query vehicle ECUs for standardized Parameter IDs across OBD-II se
 | obd-dtc-diagnostics | required | DTC read (mode 3) and clear (mode 4) are implemented as PID-layer commands |
 | obd-vin-extraction | optional | VIN reads via mode 9 PID query |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Obd Pid Reading
+
+Query vehicle ECUs for standardized Parameter IDs across OBD-II service modes, decoding raw byte responses into typed values with physical units and caching PID support per vehicle
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `obd_port_connection` | obd-port-connection | degrade |
+| `obd_realtime_sensors` | obd-realtime-sensors | degrade |
+| `obd_dtc_diagnostics` | obd-dtc-diagnostics | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| not_connected | `autonomous` | - | - |
+| pid_not_supported | `autonomous` | - | - |
+| no_response | `autonomous` | - | - |
+| no_matching_ecu | `autonomous` | - | - |
+| decode_error | `autonomous` | - | - |
+| successful_query | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

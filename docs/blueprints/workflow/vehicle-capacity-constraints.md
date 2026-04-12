@@ -140,6 +140,63 @@ description: "Model multidimensional load limits (weight, volume, items) for veh
 | driver-shift-break-constraints | optional |  |
 | pickup-delivery-pairing | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle Capacity Constraints
+
+Model multidimensional load limits (weight, volume, items) for vehicles and ensure cumulative load never exceeds capacity at any point in the route.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vrp_solving` | vrp-solving | degrade |
+| `multi_vehicle_route_optimization` | multi-vehicle-route-optimization | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| capacity_satisfied | `autonomous` | - | - |
+| capacity_exceeded_solving | `autonomous` | - | - |
+| capacity_exceeded_plan_mode | `autonomous` | - | - |
+| break_load_enforced | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
