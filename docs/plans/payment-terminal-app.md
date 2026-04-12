@@ -104,46 +104,43 @@ If a palm scan fails (unregistered customer, match failure, scanner issue), the 
 ### 4.1 Customer Payment Journey
 
 ```
-                    ┌──────────────┐
-                    │  Merchant    │
-                    │  enters      │
-                    │  amount      │
-                    └──────┬───────┘
-                           │
-                    ┌──────▼───────┐
-                    │  "Pay with   │
-                    │  Palm or     │
-                    │  Card?"      │
-                    └──┬───────┬───┘
-                       │       │
-              ┌────────▼──┐ ┌──▼────────┐
-              │  PALM     │ │  CARD     │
-              │  Customer │ │  Customer │
-              │  places   │ │  taps,    │
-              │  hand     │ │  inserts, │
-              │  over     │ │  or       │
-              │  scanner  │ │  swipes   │
-              └────┬──────┘ └──┬────────┘
-                   │           │
-              ┌────▼──────┐ ┌──▼────────┐
-              │  Match &  │ │  Card     │
-              │  resolve  │ │  network  │
-              │  proxy    │ │  auth     │
-              └────┬──────┘ └──┬────────┘
-                   │           │
-              ┌────▼──────┐ ┌──▼────────┐
-              │  PayShap  │ │  Approved │
-              │  instant  │ │  or       │
-              │  settle   │ │  declined │
-              └────┬──────┘ └──┬────────┘
-                   │           │
-                   └─────┬─────┘
-                         │
-                  ┌──────▼───────┐
-                  │  Digital     │
-                  │  receipt     │
-                  │  (SMS/email) │
-                  └──────────────┘
+              ┌─────────────────┐
+              │ Merchant enters │
+              │     amount      │
+              └────────┬────────┘
+                       │
+              ┌────────▼────────┐
+              │  "Pay with Palm │
+              │    or Card?"    │
+              └───┬─────────┬───┘
+                  │         │
+        ┌─────────▼───┐ ┌───▼─────────┐
+        │    PALM     │ │    CARD     │
+        │             │ │             │
+        │ Place hand  │ │ Tap, insert │
+        │ on scanner  │ │  or swipe   │
+        └──────┬──────┘ └──────┬──────┘
+               │               │
+        ┌──────▼──────┐ ┌──────▼──────┐
+        │ Match vein  │ │ Card network│
+        │ pattern &   │ │ authorise   │
+        │ resolve     │ │             │
+        │ PayShap     │ │             │
+        │ proxy       │ │             │
+        └──────┬──────┘ └──────┬──────┘
+               │               │
+        ┌──────▼──────┐ ┌──────▼──────┐
+        │ PayShap     │ │ Approved or │
+        │ instant     │ │ declined    │
+        │ settlement  │ │             │
+        └──────┬──────┘ └──────┬──────┘
+               │               │
+               └───────┬───────┘
+                       │
+              ┌────────▼────────┐
+              │ Digital receipt │
+              │  (SMS / email)  │
+              └─────────────────┘
 ```
 
 **Palm payment time:** ~3-5 seconds (scan + match + settle)
@@ -183,46 +180,46 @@ Refunds require manager authorisation for fraud prevention:
 ### 5.1 High-Level Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     MERCHANT LOCATIONS                          │
-│                                                                 │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐       ┌──────────┐    │
-│  │Terminal 1│  │Terminal 2│  │Terminal 3│  ...  │Terminal N│    │
-│  │ Scanner  │  │ Scanner  │  │ Scanner  │       │ Scanner  │    │
-│  │ Card Rdr │  │ Card Rdr │  │ Card Rdr │       │ Card Rdr │    │
-│  └────┬─────┘  └────┬─────┘  └─────┬────┘       └────┬─────┘    │
-│       └─────────────┼──────────────┼─────────────────┘          │
-│                     │              │                            │
-└─────────────────────┼──────────────┼────────────────────────────┘
-                      │              │
-                 ┌────▼──────────────▼─────┐
-                 │    PAYMENT BACKEND         │
-                 │                            │
-                 │  ┌──────────────────────┐  │
-                 │  │ Palm-Pay Engine      │  │
-                 │  │ (template matching,  │  │
-                 │  │  proxy resolution)   │  │
-                 │  └─────────┬────────────┘  │
-                 │            │               │
-                 │  ┌─────────▼────────────┐  │
-                 │  │ Payment Router       │  │
-                 │  │ (PayShap + Cards)    │  │
-                 │  └─────────┬────────────┘  │
-                 │            │               │
-                 │  ┌─────────▼────────────┐  │
-                 │  │ Fleet Manager        │  │
-                 │  │ (config, updates,    │  │
-                 │  │  monitoring)         │  │
-                 │  └──────────────────────┘  │
-                 └────────────┬───────────────┘
-                              │
-              ┌───────────────┼───────────────┐
-              │               │               │
-     ┌────────▼──────┐ ┌──────▼─────┐ ┌───────▼──────┐
-     │   PayShap     │ │  Card      │ │  SMS/Email   │
-     │   (Real-time  │ │  Networks  │ │  Receipt     │
-     │    clearing)  │ │  (Visa,MC) │ │  Service     │
-     └───────────────┘ └────────────┘ └──────────────┘
+ MERCHANT LOCATIONS
+ ══════════════════
+
+ ┌────────────┐ ┌────────────┐ ┌────────────┐     ┌────────────┐
+ │ Terminal 1 │ │ Terminal 2 │ │ Terminal 3 │ ... │ Terminal N │
+ │  [Scanner] │ │  [Scanner] │ │  [Scanner] │     │  [Scanner] │
+ │  [CardRdr] │ │  [CardRdr] │ │  [CardRdr] │     │  [CardRdr] │
+ └─────┬──────┘ └─────┬──────┘ └─────┬──────┘     └─────┬──────┘
+       │              │              │                   │
+       └──────────────┴──────┬───────┴───────────────────┘
+                             │
+                        TLS / 4G / WiFi
+                             │
+              ┌──────────────▼──────────────┐
+              │      PAYMENT BACKEND        │
+              │                             │
+              │  ┌───────────────────────┐  │
+              │  │    Palm-Pay Engine    │  │
+              │  │  template matching,   │  │
+              │  │   proxy resolution    │  │
+              │  └──────────┬────────────┘  │
+              │             │               │
+              │  ┌──────────▼────────────┐  │
+              │  │   Payment Router     │  │
+              │  │  PayShap + Card nets  │  │
+              │  └──────────┬────────────┘  │
+              │             │               │
+              │  ┌──────────▼────────────┐  │
+              │  │   Fleet Manager      │  │
+              │  │  config, OTA, health  │  │
+              │  └───────────────────────┘  │
+              └──────┬──────┬──────┬────────┘
+                     │      │      │
+          ┌──────────┘      │      └──────────┐
+          │                 │                 │
+ ┌────────▼────────┐ ┌─────▼──────┐ ┌────────▼────────┐
+ │    PayShap      │ │    Card    │ │   SMS / Email   │
+ │  Real-time      │ │  Networks  │ │    Receipt      │
+ │  Clearing (ZAR) │ │  Visa, MC  │ │    Service      │
+ └─────────────────┘ └────────────┘ └─────────────────┘
 ```
 
 ### 5.2 Component Summary
