@@ -148,6 +148,37 @@ Blueprints aren't just templates — they encode transferable architectural patt
 
 ---
 
+## Plans & Proposals
+
+`/fdl-brainstorm` turns a rough idea into a **client-ready business proposal** with production readiness analysis — automatically.
+
+### Example: Palm Vein Payment Terminal
+
+**Input:** *"I want to build a payment terminal app that uses a palm vein scanner, it will give the user the option to pay with a card or hand and the payment system it will use to do the payment will be PayShap rail"*
+
+**Output:** A full [business proposal](docs/plans/payment-terminal-app.md) containing:
+
+| Section | What it covers |
+|---------|---------------|
+| Original Request & Requirements Elicitation | Verbatim input + every decision captured through Socratic questioning |
+| Executive Summary | Value proposition, 30-second overview — written for non-technical stakeholders |
+| Problem & Solution | Business-framed pain points, detailed capability descriptions |
+| User Journeys | Payment flow, enrolment flow, refund flow — with diagrams and time estimates |
+| System Architecture | Component diagram, technology table |
+| Offline Resilience | Risk-limited queuing with configurable caps (R500/tx, 10 queue depth, R2,000 total) |
+| Fleet Management | Heartbeat monitoring, OTA updates, remote config, decommissioning |
+| Security & Compliance | POPIA, PCI DSS, SARB, FICA — with implementation details |
+| Risk Assessment | 7 risks with likelihood, impact, and mitigation |
+| Implementation Roadmap | 4 phases over 16 weeks |
+| Success Metrics | 6 measurable KPIs with targets |
+| **Production Readiness** | Before/after gap analysis — 16 categories checked, gaps resolved automatically |
+
+The brainstorm also created **6 new blueprints** (`payshap-rail`, `palm-pay`, `terminal-payment-flow`, `terminal-enrollment`, `terminal-fleet`, `terminal-offline-queue`), linked **11 existing blueprints**, and identified **4 gaps** to resolve for production readiness — all from a single sentence.
+
+Browse all plans: [`docs/plans/`](docs/plans/)
+
+---
+
 ## 🔧 Improve the low-scoring blueprints
 
 The fitness scorer (`npm run fitness`) flags blueprints scoring **below 70/100** as needing semantic help — the mechanical auto-improver can't fix missing outcomes, unbound error codes, or absent relationships. The list below pairs each weak blueprint with upstream open-source reference implementations. Pick a row, paste the command into Claude Code, and `/fdl-auto-evolve` will re-score after extraction — successful upgrades drop off this list automatically.
