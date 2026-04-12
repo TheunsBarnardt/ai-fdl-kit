@@ -1,0 +1,150 @@
+feature: test-full
+version: "1.0.0"
+description: A comprehensive blueprint with all sections populated for testing purposes
+category: auth
+tags: [testing, comprehensive, example]
+
+fields:
+  - name: email
+    type: email
+    required: true
+    label: "Email Address"
+    validation:
+      - type: required
+        message: "Email is required"
+      - type: email
+        message: "Please enter a valid email"
+  - name: password
+    type: password
+    required: true
+    label: "Password"
+    validation:
+      - type: required
+        message: "Password is required"
+      - type: minLength
+        value: 8
+        message: "Password must be at least 8 characters"
+
+rules:
+  security:
+    - "Use constant-time comparison for password verification"
+    - "Never reveal whether an account exists during failed login"
+  validation:
+    - "Email must be a valid format"
+    - "Password must meet minimum length requirements"
+  rate_limiting:
+    - "Lock account after 5 failed login attempts"
+
+errors:
+  - code: TEST_INVALID_CREDENTIALS
+    message: "Invalid email or password"
+    status: 401
+  - code: TEST_ACCOUNT_LOCKED
+    message: "Account is temporarily locked due to too many failed attempts"
+    status: 423
+  - code: TEST_RATE_LIMITED
+    message: "Too many requests, please try again later"
+    status: 429
+
+outcomes:
+  successful_login:
+    priority: 10
+    given:
+      - field: email
+        source: db
+        operator: exists
+        description: "User account exists"
+      - field: password
+        source: input
+        operator: eq
+        value: stored_hash
+        description: "Password matches"
+    then:
+      - action: set_field
+        target: failed_login_attempts
+        value: 0
+      - action: emit_event
+        event: auth.login.success
+        payload: [user_id, email, timestamp]
+    result: "User is authenticated and session is created"
+
+  invalid_credentials:
+    priority: 5
+    error: TEST_INVALID_CREDENTIALS
+    given:
+      - "credentials do not match any account"
+    then:
+      - action: set_field
+        target: failed_login_attempts
+        value: "increment"
+      - action: emit_event
+        event: auth.login.failed
+        payload: [email, timestamp, reason]
+    result: "Authentication failed with generic error message"
+
+  account_locked:
+    priority: 1
+    error: TEST_ACCOUNT_LOCKED
+    given:
+      - field: failed_login_attempts
+        source: db
+        operator: gte
+        value: 5
+        description: "Too many failed attempts"
+    then:
+      - action: emit_event
+        event: auth.account.locked
+        payload: [user_id, locked_at]
+    result: "Account is locked and user is notified"
+
+  rate_limited:
+    priority: 0
+    error: TEST_RATE_LIMITED
+    given:
+      - field: request_count
+        source: system
+        operator: gt
+        value: 100
+    then:
+      - action: emit_event
+        event: auth.rate_limit.exceeded
+        payload: [ip_address, timestamp]
+    result: "Request is rejected due to rate limiting"
+    transaction: true
+
+events:
+  - name: auth.login.success
+    payload: [user_id, email, timestamp]
+  - name: auth.login.failed
+    payload: [email, timestamp, reason]
+  - name: auth.account.locked
+    payload: [user_id, locked_at]
+  - name: auth.rate_limit.exceeded
+    payload: [ip_address, timestamp]
+
+related:
+  - feature: password-reset
+    type: recommended
+    reason: "Users who fail login may need to reset their password"
+  - feature: multi-factor-authentication
+    type: optional
+    reason: "Adds additional security layer after primary authentication"
+
+agi:
+  goals:
+    - id: authenticate_user
+      description: "Verify user identity through credential validation"
+  autonomy:
+    level: supervised
+  verification:
+    invariants:
+      - "Failed attempts counter must never decrease except on successful login"
+      - "Locked accounts must not be accessible"
+    acceptance_tests:
+      - scenario: "Valid credentials produce a session"
+        expect: "User is authenticated and session token is returned"
+      - scenario: "Invalid credentials increment failure counter"
+        expect: "Failed login attempts counter is incremented"
+  capabilities:
+    - id: credential_validation
+      description: "Validate user credentials against stored records"
