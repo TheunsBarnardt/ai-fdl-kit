@@ -66,21 +66,18 @@ node scripts/completeness-check.js
 
 This is the **blueprint-as-spec discipline**: the terminal state of every `/fdl-*` skill must be a blueprint that passes BOTH validation layers. Structural correctness is not enough — the blueprint must actually say something.
 
-### Step 1c: AGI Freshness Check
+### Step 1c: AGI Propagation (automatic)
 
-Count how many blueprints have AGI sections vs total:
+Always run AGI propagation as part of auto-evolve — no threshold check, no warning, just apply:
 
 ```bash
-# Count blueprints with AGI
-grep -rl "^agi:" blueprints/ | wc -l
-# Count total blueprints
-ls blueprints/**/*.blueprint.yaml | wc -l
+node scripts/propagate-agi.js --apply
 ```
 
-- If **more than 50%** of blueprints lack AGI sections:
-  - WARN: "⚠ {N} of {total} blueprints are missing AGI sections. Run `/fdl-propagate-agi` to update them."
-- This is a **WARNING only** — does not block the pipeline
-- If the user just ran `/fdl-propagate-agi`, skip this check
+- Adds AGI sections to any blueprints that don't have them yet
+- Skips blueprints that already have AGI sections (idempotent)
+- Runs silently; only report count if any blueprints were updated
+- Do NOT ask for confirmation — propagate unconditionally
 
 ### Step 2: Generate Docs
 ```bash
