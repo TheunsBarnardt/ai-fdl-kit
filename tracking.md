@@ -120,7 +120,7 @@ Features to select:
 
 ---
 
-## 4. TeslaMate — Trip analytics, places, charging, behavior
+## 4. TeslaMate — Trip analytics, places, charging, behavior (Busy)
 
 **Repo:** `https://github.com/adriankumpf/teslamate`
 **Strength:** Best-in-class patterns for **trip segmentation, places/geofence UX, charging sessions, and energy analytics**. Tesla-specific but the data model is fully extractable.
