@@ -1,0 +1,864 @@
+{
+  "feature": "terminal-offline-queue",
+  "version": "1.0.0",
+  "description": "Offline transaction queuing for payment terminals — risk-limited queuing with automatic flush on reconnect",
+  "category": "payment",
+  "tags": [
+    "offline",
+    "queue",
+    "resilience",
+    "terminal",
+    "risk-management"
+  ],
+  "actors": [
+    {
+      "id": "terminal_app",
+      "name": "Terminal Application",
+      "type": "system",
+      "description": "Android terminal app managing the offline queue",
+      "role": "queue-manager"
+    },
+    {
+      "id": "merchant",
+      "name": "Merchant / Cashier",
+      "type": "human",
+      "description": "Operates terminal and sees offline status",
+      "role": "payment-operator"
+    },
+    {
+      "id": "connectivity_monitor",
+      "name": "Connectivity Monitor",
+      "type": "system",
+      "description": "Monitors network state and triggers queue flush on reconnect",
+      "role": "network-monitor"
+    },
+    {
+      "id": "payment_backend",
+      "name": "Payment Backend",
+      "type": "system",
+      "description": "Processes queued transactions when connectivity restores",
+      "role": "payment-processor"
+    }
+  ],
+  "fields": [
+    {
+      "name": "queue_id",
+      "type": "token",
+      "required": true,
+      "label": "Queue Entry ID"
+    },
+    {
+      "name": "terminal_id",
+      "type": "text",
+      "required": true,
+      "label": "Terminal ID"
+    },
+    {
+      "name": "transaction_id",
+      "type": "token",
+      "required": true,
+      "label": "Transaction ID"
+    },
+    {
+      "name": "payment_method",
+      "type": "select",
+      "required": true,
+      "label": "Payment Method",
+      "options": [
+        {
+          "value": "palm",
+          "label": "Palm Vein"
+        },
+        {
+          "value": "card",
+          "label": "Card"
+        }
+      ]
+    },
+    {
+      "name": "amount",
+      "type": "number",
+      "required": true,
+      "label": "Transaction Amount",
+      "validation": [
+        {
+          "type": "min",
+          "value": 0.01,
+          "message": "Amount must be greater than zero"
+        }
+      ]
+    },
+    {
+      "name": "currency",
+      "type": "text",
+      "required": true,
+      "label": "Currency",
+      "default": "ZAR"
+    },
+    {
+      "name": "queued_at",
+      "type": "datetime",
+      "required": true,
+      "label": "Queued At"
+    },
+    {
+      "name": "processed_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Processed At"
+    },
+    {
+      "name": "queue_status",
+      "type": "select",
+      "required": true,
+      "label": "Queue Status",
+      "options": [
+        {
+          "value": "queued",
+          "label": "Queued"
+        },
+        {
+          "value": "processing",
+          "label": "Processing"
+        },
+        {
+          "value": "settled",
+          "label": "Settled"
+        },
+        {
+          "value": "failed",
+          "label": "Failed"
+        },
+        {
+          "value": "expired",
+          "label": "Expired"
+        }
+      ]
+    },
+    {
+      "name": "retry_count",
+      "type": "number",
+      "required": false,
+      "label": "Retry Count",
+      "default": 0
+    },
+    {
+      "name": "max_retries",
+      "type": "number",
+      "required": true,
+      "label": "Max Retries",
+      "default": 3
+    },
+    {
+      "name": "failure_reason",
+      "type": "text",
+      "required": false,
+      "label": "Failure Reason"
+    },
+    {
+      "name": "offline_max_amount",
+      "type": "number",
+      "required": true,
+      "label": "Max Offline Transaction Amount",
+      "default": 500,
+      "validation": [
+        {
+          "type": "min",
+          "value": 1,
+          "message": "Max offline amount must be at least R1"
+        }
+      ]
+    },
+    {
+      "name": "offline_max_queue_depth",
+      "type": "number",
+      "required": true,
+      "label": "Max Queue Depth",
+      "default": 10
+    },
+    {
+      "name": "offline_max_total_value",
+      "type": "number",
+      "required": true,
+      "label": "Max Total Queued Value",
+      "default": 2000
+    },
+    {
+      "name": "queue_expiry_hours",
+      "type": "number",
+      "required": true,
+      "label": "Queue Expiry (hours)",
+      "default": 24
+    },
+    {
+      "name": "current_queue_depth",
+      "type": "number",
+      "required": false,
+      "label": "Current Queue Depth",
+      "default": 0
+    },
+    {
+      "name": "current_queue_total",
+      "type": "number",
+      "required": false,
+      "label": "Current Queue Total Value",
+      "default": 0
+    },
+    {
+      "name": "encrypted_card_data",
+      "type": "json",
+      "required": false,
+      "label": "Encrypted Card Data",
+      "sensitive": true
+    },
+    {
+      "name": "palm_pay_ref",
+      "type": "text",
+      "required": false,
+      "label": "Palm Pay Reference"
+    }
+  ],
+  "states": {
+    "field": "queue_status",
+    "values": [
+      {
+        "id": "queued",
+        "label": "Queued",
+        "initial": true
+      },
+      {
+        "id": "processing",
+        "label": "Processing"
+      },
+      {
+        "id": "settled",
+        "label": "Settled",
+        "terminal": true
+      },
+      {
+        "id": "failed",
+        "label": "Failed",
+        "terminal": true
+      },
+      {
+        "id": "expired",
+        "label": "Expired",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "queued",
+        "to": "processing",
+        "actor": "terminal_app",
+        "description": "Connectivity restored — transaction submitted for processing"
+      },
+      {
+        "from": "processing",
+        "to": "settled",
+        "actor": "payment_backend",
+        "description": "Payment processed successfully"
+      },
+      {
+        "from": "processing",
+        "to": "failed",
+        "actor": "payment_backend",
+        "description": "Payment processing failed after max retries"
+      },
+      {
+        "from": "processing",
+        "to": "queued",
+        "actor": "terminal_app",
+        "description": "Retry after transient failure",
+        "condition": "retry_count < max_retries"
+      },
+      {
+        "from": "queued",
+        "to": "expired",
+        "actor": "terminal_app",
+        "description": "Transaction exceeded queue expiry duration"
+      }
+    ]
+  },
+  "rules": {
+    "risk_limits": {
+      "per_transaction_cap": "Individual offline transactions capped at configured limit (default R500)",
+      "queue_depth_cap": "Maximum number of queued transactions (default 10)",
+      "total_value_cap": "Total value of all queued transactions capped (default R2,000)"
+    },
+    "queuing": {
+      "offline_detection": "Terminal detects offline state via connectivity monitor",
+      "merchant_notification": "Merchant sees clear 'OFFLINE MODE' indicator on screen",
+      "customer_notification": "Customer informed that payment will be processed when connectivity restores",
+      "provisional_receipt": "Provisional receipt issued with 'pending' status"
+    },
+    "processing": {
+      "fifo_order": "Queued transactions processed in first-in-first-out order",
+      "auto_flush": "Queue automatically flushed when connectivity restores",
+      "retry_with_backoff": "Failed transactions retried with exponential backoff (max 3 retries)"
+    },
+    "expiry": {
+      "time_limit": "Queued transactions expire after configured duration (default 24 hours)",
+      "expired_notification": "Merchant notified of expired transactions for manual resolution"
+    },
+    "security": {
+      "card_encryption": "Card data encrypted using terminal's hardware security module (HSM)",
+      "no_plaintext": "Card data never stored in plaintext on device",
+      "wipe_on_settle": "Card data wiped immediately after successful settlement",
+      "palm_ref_only": "For palm payments, only the resolved proxy reference is queued — no biometric data"
+    },
+    "card_vs_palm": {
+      "card_offline": "Card offline transactions use encrypted card data stored in HSM",
+      "palm_offline": "Palm offline transactions use the resolved palm-pay proxy reference"
+    }
+  },
+  "outcomes": {
+    "transaction_queued": {
+      "priority": 1,
+      "given": [
+        "Terminal is offline",
+        {
+          "field": "amount",
+          "source": "input",
+          "operator": "lte",
+          "value": "offline_max_amount",
+          "description": "Amount within offline limit"
+        },
+        {
+          "field": "current_queue_depth",
+          "source": "db",
+          "operator": "lt",
+          "value": "offline_max_queue_depth",
+          "description": "Queue depth within limit"
+        },
+        {
+          "field": "current_queue_total",
+          "source": "computed",
+          "operator": "lt",
+          "value": "offline_max_total_value",
+          "description": "Total queued value within limit"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "queue_entry",
+          "target": "offline_queue",
+          "description": "Add transaction to offline queue"
+        },
+        {
+          "action": "set_field",
+          "target": "queue_status",
+          "value": "queued"
+        },
+        {
+          "action": "set_field",
+          "target": "queued_at",
+          "value": "current timestamp"
+        },
+        {
+          "action": "set_field",
+          "target": "current_queue_depth",
+          "value": "current_queue_depth + 1"
+        },
+        {
+          "action": "set_field",
+          "target": "current_queue_total",
+          "value": "current_queue_total + amount"
+        },
+        {
+          "action": "emit_event",
+          "event": "offline.transaction.queued",
+          "payload": [
+            "queue_id",
+            "transaction_id",
+            "amount",
+            "payment_method"
+          ]
+        }
+      ],
+      "result": "Transaction queued for processing when connectivity restores"
+    },
+    "queue_flushed": {
+      "priority": 2,
+      "given": [
+        "Connectivity restored",
+        {
+          "field": "current_queue_depth",
+          "source": "db",
+          "operator": "gt",
+          "value": 0,
+          "description": "Queue has pending transactions"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "payment_backend.process_batch",
+          "description": "Submit all queued transactions in FIFO order"
+        },
+        {
+          "action": "emit_event",
+          "event": "offline.queue.flushed",
+          "payload": [
+            "terminal_id",
+            "current_queue_depth",
+            "current_queue_total"
+          ]
+        }
+      ],
+      "result": "All queued transactions submitted for processing"
+    },
+    "queued_transaction_settled": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "queue_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "processing"
+        },
+        "Payment backend confirms settlement"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "queue_status",
+          "from": "processing",
+          "to": "settled"
+        },
+        {
+          "action": "set_field",
+          "target": "processed_at",
+          "value": "current timestamp"
+        },
+        {
+          "action": "call_service",
+          "target": "receipt_service.send_confirmation",
+          "description": "Send final confirmation receipt replacing provisional receipt"
+        },
+        {
+          "action": "emit_event",
+          "event": "offline.transaction.settled",
+          "payload": [
+            "queue_id",
+            "transaction_id",
+            "amount"
+          ]
+        }
+      ],
+      "result": "Queued transaction settled — final receipt sent",
+      "transaction": true
+    },
+    "amount_exceeds_offline_limit": {
+      "priority": 4,
+      "error": "OFFLINE_AMOUNT_EXCEEDED",
+      "given": [
+        "Terminal is offline",
+        {
+          "field": "amount",
+          "source": "input",
+          "operator": "gt",
+          "value": "offline_max_amount",
+          "description": "Amount exceeds offline cap"
+        }
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "ui",
+          "description": "Display message: amount too high for offline mode"
+        },
+        {
+          "action": "emit_event",
+          "event": "offline.limit.amount_exceeded",
+          "payload": [
+            "transaction_id",
+            "amount",
+            "offline_max_amount"
+          ]
+        }
+      ],
+      "result": "Transaction blocked — amount exceeds offline limit"
+    },
+    "queue_depth_exceeded": {
+      "priority": 5,
+      "error": "OFFLINE_QUEUE_FULL",
+      "given": [
+        "Terminal is offline",
+        {
+          "field": "current_queue_depth",
+          "source": "db",
+          "operator": "gte",
+          "value": "offline_max_queue_depth",
+          "description": "Queue is full"
+        }
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "ui",
+          "description": "Display message: offline queue is full"
+        },
+        {
+          "action": "emit_event",
+          "event": "offline.limit.queue_full",
+          "payload": [
+            "terminal_id",
+            "current_queue_depth"
+          ]
+        }
+      ],
+      "result": "Transaction blocked — offline queue is full"
+    },
+    "total_value_exceeded": {
+      "priority": 6,
+      "error": "OFFLINE_TOTAL_EXCEEDED",
+      "given": [
+        "Terminal is offline",
+        {
+          "field": "current_queue_total",
+          "source": "computed",
+          "operator": "gte",
+          "value": "offline_max_total_value",
+          "description": "Total queued value at limit"
+        }
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "ui",
+          "description": "Display message: total offline value limit reached"
+        },
+        {
+          "action": "emit_event",
+          "event": "offline.limit.total_exceeded",
+          "payload": [
+            "terminal_id",
+            "current_queue_total",
+            "offline_max_total_value"
+          ]
+        }
+      ],
+      "result": "Transaction blocked — total offline value limit reached"
+    },
+    "queued_transaction_failed": {
+      "priority": 7,
+      "error": "OFFLINE_PROCESSING_FAILED",
+      "given": [
+        {
+          "field": "queue_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "processing"
+        },
+        {
+          "field": "retry_count",
+          "source": "db",
+          "operator": "gte",
+          "value": "max_retries",
+          "description": "Max retries exhausted"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "queue_status",
+          "from": "processing",
+          "to": "failed"
+        },
+        {
+          "action": "notify",
+          "channel": "alert",
+          "description": "Alert merchant of failed offline transaction"
+        },
+        {
+          "action": "emit_event",
+          "event": "offline.transaction.failed",
+          "payload": [
+            "queue_id",
+            "transaction_id",
+            "amount",
+            "failure_reason"
+          ]
+        }
+      ],
+      "result": "Queued transaction failed after retries — merchant must resolve manually"
+    },
+    "transaction_expired": {
+      "priority": 8,
+      "given": [
+        {
+          "field": "queue_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "queued"
+        },
+        "Transaction has been queued longer than queue_expiry_hours"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "queue_status",
+          "from": "queued",
+          "to": "expired"
+        },
+        {
+          "action": "notify",
+          "channel": "alert",
+          "description": "Alert merchant of expired offline transaction"
+        },
+        {
+          "action": "emit_event",
+          "event": "offline.transaction.expired",
+          "payload": [
+            "queue_id",
+            "transaction_id",
+            "amount",
+            "queued_at"
+          ]
+        }
+      ],
+      "result": "Queued transaction expired — merchant must resolve manually"
+    }
+  },
+  "errors": [
+    {
+      "code": "OFFLINE_AMOUNT_EXCEEDED",
+      "status": 400,
+      "message": "Transaction amount exceeds the offline limit"
+    },
+    {
+      "code": "OFFLINE_QUEUE_FULL",
+      "status": 503,
+      "message": "Offline queue is full — cannot accept more transactions"
+    },
+    {
+      "code": "OFFLINE_TOTAL_EXCEEDED",
+      "status": 400,
+      "message": "Total offline transaction value limit reached"
+    },
+    {
+      "code": "OFFLINE_PROCESSING_FAILED",
+      "status": 500,
+      "message": "Failed to process queued transaction after retries"
+    },
+    {
+      "code": "OFFLINE_TRANSACTION_EXPIRED",
+      "status": 410,
+      "message": "Queued transaction has expired"
+    }
+  ],
+  "events": [
+    {
+      "name": "offline.transaction.queued",
+      "payload": [
+        "queue_id",
+        "transaction_id",
+        "amount",
+        "payment_method"
+      ],
+      "description": "Transaction added to offline queue"
+    },
+    {
+      "name": "offline.queue.flushed",
+      "payload": [
+        "terminal_id",
+        "current_queue_depth",
+        "current_queue_total"
+      ],
+      "description": "Offline queue flush started on reconnect"
+    },
+    {
+      "name": "offline.transaction.settled",
+      "payload": [
+        "queue_id",
+        "transaction_id",
+        "amount"
+      ],
+      "description": "Queued transaction processed and settled"
+    },
+    {
+      "name": "offline.transaction.failed",
+      "payload": [
+        "queue_id",
+        "transaction_id",
+        "amount",
+        "failure_reason"
+      ],
+      "description": "Queued transaction failed after retries"
+    },
+    {
+      "name": "offline.transaction.expired",
+      "payload": [
+        "queue_id",
+        "transaction_id",
+        "amount",
+        "queued_at"
+      ],
+      "description": "Queued transaction expired"
+    },
+    {
+      "name": "offline.limit.amount_exceeded",
+      "payload": [
+        "transaction_id",
+        "amount",
+        "offline_max_amount"
+      ],
+      "description": "Transaction blocked — amount exceeds offline limit"
+    },
+    {
+      "name": "offline.limit.queue_full",
+      "payload": [
+        "terminal_id",
+        "current_queue_depth"
+      ],
+      "description": "Transaction blocked — queue is full"
+    },
+    {
+      "name": "offline.limit.total_exceeded",
+      "payload": [
+        "terminal_id",
+        "current_queue_total",
+        "offline_max_total_value"
+      ],
+      "description": "Transaction blocked — total value limit reached"
+    }
+  ],
+  "related": [
+    {
+      "feature": "terminal-payment-flow",
+      "type": "required",
+      "reason": "Payment flow routes to offline queue when terminal is offline"
+    },
+    {
+      "feature": "payshap-rail",
+      "type": "required",
+      "reason": "Queued palm payments processed via real-time rail on reconnect"
+    },
+    {
+      "feature": "payment-gateway",
+      "type": "required",
+      "reason": "Queued card payments processed via payment gateway on reconnect"
+    },
+    {
+      "feature": "terminal-fleet",
+      "type": "optional",
+      "reason": "Fleet management configures offline risk limits per terminal"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_terminal_offline_queue",
+        "description": "Offline transaction queuing for payment terminals — risk-limited queuing with automatic flush on reconnect",
+        "success_metrics": [
+          {
+            "metric": "policy_violation_rate",
+            "target": "0%",
+            "measurement": "Operations that violate defined policies"
+          },
+          {
+            "metric": "audit_completeness",
+            "target": "100%",
+            "measurement": "All decisions have complete audit trails"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "regulatory",
+            "description": "All operations must be auditable and traceable",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before modifying sensitive data fields",
+        "before transitioning to a terminal state"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5",
+        "consecutive_failures > 3"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "transaction_queued",
+          "permission": "autonomous"
+        },
+        {
+          "action": "queue_flushed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "queued_transaction_settled",
+          "permission": "autonomous"
+        },
+        {
+          "action": "amount_exceeds_offline_limit",
+          "permission": "autonomous"
+        },
+        {
+          "action": "queue_depth_exceeded",
+          "permission": "autonomous"
+        },
+        {
+          "action": "total_value_exceeded",
+          "permission": "autonomous"
+        },
+        {
+          "action": "queued_transaction_failed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "transaction_expired",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "accuracy",
+        "over": "speed",
+        "reason": "financial transactions must be precise and auditable"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details",
+        "state transitions follow the defined state machine — no illegal transitions"
+      ]
+    },
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "terminal_payment_flow",
+          "from": "terminal-payment-flow",
+          "fallback": "fail"
+        },
+        {
+          "capability": "payshap_rail",
+          "from": "payshap-rail",
+          "fallback": "fail"
+        },
+        {
+          "capability": "payment_gateway",
+          "from": "payment-gateway",
+          "fallback": "fail"
+        }
+      ]
+    }
+  }
+}

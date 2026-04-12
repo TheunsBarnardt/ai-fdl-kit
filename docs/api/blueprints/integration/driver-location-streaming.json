@@ -1,0 +1,312 @@
+{
+  "feature": "driver-location-streaming",
+  "version": "1.0.0",
+  "description": "Real-time GPS location updates from drivers, persisted as position history and broadcast to subscribers for live map tracking.",
+  "category": "integration",
+  "tags": [
+    "real-time",
+    "gps",
+    "location",
+    "tracking",
+    "broadcast",
+    "geospatial"
+  ],
+  "actors": [
+    {
+      "id": "driver",
+      "name": "Driver",
+      "type": "human",
+      "description": "Mobile device reporting location at regular intervals."
+    },
+    {
+      "id": "platform",
+      "name": "Platform",
+      "type": "system",
+      "description": "Server that receives, persists, and broadcasts location updates."
+    },
+    {
+      "id": "subscriber",
+      "name": "Subscriber",
+      "type": "system",
+      "description": "Dashboard, customer app, or operator console receiving live location updates."
+    }
+  ],
+  "fields": [
+    {
+      "name": "driver_id",
+      "type": "text",
+      "required": true,
+      "label": "Identifier of the driver whose location is being updated."
+    },
+    {
+      "name": "latitude",
+      "type": "number",
+      "required": true,
+      "label": "WGS-84 decimal latitude."
+    },
+    {
+      "name": "longitude",
+      "type": "number",
+      "required": true,
+      "label": "WGS-84 decimal longitude."
+    },
+    {
+      "name": "altitude",
+      "type": "number",
+      "required": false,
+      "label": "Altitude above sea level in meters."
+    },
+    {
+      "name": "heading",
+      "type": "number",
+      "required": false,
+      "label": "Bearing in degrees from north (0-360)."
+    },
+    {
+      "name": "speed",
+      "type": "number",
+      "required": false,
+      "label": "Current speed in meters per second."
+    },
+    {
+      "name": "order_id",
+      "type": "text",
+      "required": false,
+      "label": "Active order this position update is associated with."
+    },
+    {
+      "name": "destination_id",
+      "type": "text",
+      "required": false,
+      "label": "Current waypoint/destination the driver is heading toward."
+    }
+  ],
+  "rules": {
+    "rule_01": "The driver app sends location updates on a regular interval (typically every few seconds while active).",
+    "rule_02": "Each update overwrites the driver's current location in the driver record.",
+    "rule_03": "A new position history record is only created if the driver has moved more than 50 meters from the last recorded position, or if no prior position exists.",
+    "rule_04": "Every location update triggers a broadcast event to the channel keyed on the driver's public identifier.",
+    "rule_05": "Subscribers listen on a per-driver channel to receive real-time location pushes.",
+    "rule_06": "Reverse geocoding to refresh city and country is throttled — only runs if 10+ minutes have elapsed since last geocode or if city/country are empty.",
+    "rule_07": "Location updates include the current active order and destination waypoint when available, enabling route tracking."
+  },
+  "outcomes": {
+    "location_updated": {
+      "priority": 1,
+      "given": [
+        "driver sends a location update with latitude and longitude",
+        "driver record exists"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "driver.location",
+          "description": "Driver's current position is updated with new coordinates."
+        },
+        {
+          "action": "set_field",
+          "target": "driver.heading",
+          "description": "Heading is updated."
+        },
+        {
+          "action": "set_field",
+          "target": "driver.speed",
+          "description": "Speed is updated."
+        },
+        {
+          "action": "emit_event",
+          "event": "driver.location_changed",
+          "payload": [
+            "driver_id",
+            "latitude",
+            "longitude",
+            "heading",
+            "speed",
+            "order_id"
+          ]
+        }
+      ],
+      "result": "All subscribers on the driver's channel receive the new position in real time."
+    },
+    "position_history_recorded": {
+      "priority": 2,
+      "given": [
+        "driver has moved more than 50 meters from last recorded position OR no prior position exists",
+        "location update received"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "description": "A new position history record is written with coordinates, heading, speed, altitude, current order, and destination.",
+          "type": "position"
+        }
+      ],
+      "result": "A persistent trail of driver positions is recorded for replay and audit."
+    },
+    "geocode_refreshed": {
+      "priority": 3,
+      "given": [
+        "10 or more minutes have passed since last geocode, OR city or country fields are empty"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "driver.city",
+          "description": "City is resolved from coordinates via reverse geocoding."
+        },
+        {
+          "action": "set_field",
+          "target": "driver.country",
+          "description": "Country code is resolved from coordinates."
+        }
+      ],
+      "result": "Driver's city and country are kept current for zone and routing logic."
+    },
+    "driver_not_found": {
+      "priority": 4,
+      "error": "DRIVER_NOT_FOUND",
+      "given": [
+        "provided driver_id does not match any driver record"
+      ],
+      "then": [],
+      "result": "Update is rejected with an error response."
+    }
+  },
+  "errors": [
+    {
+      "code": "DRIVER_NOT_FOUND",
+      "status": 404,
+      "message": "Driver resource not found."
+    },
+    {
+      "code": "LOCATION_UPDATE_INVALID",
+      "status": 400,
+      "message": "Invalid coordinates provided for location update."
+    }
+  ],
+  "events": [
+    {
+      "name": "driver.location_changed",
+      "description": "Fired on every driver location update; broadcast to the driver's real-time channel.",
+      "payload": [
+        "driver_id",
+        "latitude",
+        "longitude",
+        "altitude",
+        "heading",
+        "speed",
+        "order_id",
+        "destination_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "ride-request-lifecycle",
+      "type": "recommended",
+      "reason": "Location updates are linked to the active order for trip tracking."
+    },
+    {
+      "feature": "driver-app-flow",
+      "type": "required",
+      "reason": "The driver app is the source of location updates."
+    },
+    {
+      "feature": "eta-calculation",
+      "type": "recommended",
+      "reason": "ETA is recalculated using updated driver position."
+    },
+    {
+      "feature": "service-zones",
+      "type": "optional",
+      "reason": "Zone entry/exit events can be derived from location changes."
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_driver_location_streaming",
+        "description": "Real-time GPS location updates from drivers, persisted as position history and broadcast to subscribers for live map tracking.",
+        "success_metrics": [
+          {
+            "metric": "success_rate",
+            "target": ">= 99.5%",
+            "measurement": "Successful operations divided by total attempts"
+          },
+          {
+            "metric": "error_recovery_rate",
+            "target": ">= 95%",
+            "measurement": "Errors that auto-recover without manual intervention"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "availability",
+            "description": "Must degrade gracefully when dependencies are unavailable",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before making irreversible changes"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "location_updated",
+          "permission": "supervised"
+        },
+        {
+          "action": "position_history_recorded",
+          "permission": "autonomous"
+        },
+        {
+          "action": "geocode_refreshed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "driver_not_found",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "reliability",
+        "over": "throughput",
+        "reason": "integration failures can cascade across systems"
+      }
+    ],
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "driver_app_flow",
+          "from": "driver-app-flow",
+          "fallback": "degrade"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/fleetbase/fleetbase",
+      "project": "Fleetbase",
+      "tech_stack": "PHP / Laravel",
+      "files_traced": 5,
+      "entry_points": [
+        "src/Http/Controllers/Api/v1/DriverController.php",
+        "src/Models/Driver.php",
+        "src/Models/Position.php",
+        "src/Events/DriverLocationChanged.php"
+      ]
+    }
+  }
+}

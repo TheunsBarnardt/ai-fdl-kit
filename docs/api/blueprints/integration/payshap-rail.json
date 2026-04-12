@@ -1,0 +1,863 @@
+{
+  "feature": "payshap-rail",
+  "version": "1.0.0",
+  "description": "Real-time payment rail integration for instant credit push payments with proxy resolution, settlement confirmation, and retry handling",
+  "category": "integration",
+  "tags": [
+    "payments",
+    "real-time",
+    "instant-payment",
+    "credit-push",
+    "proxy-resolution"
+  ],
+  "actors": [
+    {
+      "id": "terminal_app",
+      "name": "Terminal Application",
+      "type": "system",
+      "description": "Android payment terminal app initiating payment requests",
+      "role": "payment-initiator"
+    },
+    {
+      "id": "payment_gateway",
+      "name": "Payment Gateway",
+      "type": "external",
+      "description": "Payment orchestration platform routing transactions to the national payment system",
+      "role": "payment-orchestrator"
+    },
+    {
+      "id": "clearing_system",
+      "name": "Clearing System",
+      "type": "external",
+      "description": "National real-time clearing and settlement system",
+      "role": "clearing-operator"
+    },
+    {
+      "id": "receiving_bank",
+      "name": "Receiving Bank",
+      "type": "external",
+      "description": "Financial institution holding the payee's account",
+      "role": "payment-receiver"
+    }
+  ],
+  "fields": [
+    {
+      "name": "transaction_id",
+      "type": "token",
+      "required": true,
+      "label": "Transaction ID"
+    },
+    {
+      "name": "uetr",
+      "type": "token",
+      "required": true,
+      "label": "UETR"
+    },
+    {
+      "name": "merchant_reference",
+      "type": "text",
+      "required": true,
+      "label": "Merchant Reference",
+      "validation": [
+        {
+          "type": "maxLength",
+          "value": 35,
+          "message": "Merchant reference must not exceed 35 characters"
+        }
+      ]
+    },
+    {
+      "name": "source_proxy",
+      "type": "text",
+      "required": true,
+      "label": "Source Proxy"
+    },
+    {
+      "name": "source_proxy_type",
+      "type": "select",
+      "required": true,
+      "label": "Source Proxy Type",
+      "options": [
+        {
+          "value": "phone",
+          "label": "Phone Number"
+        },
+        {
+          "value": "account",
+          "label": "Account Number"
+        }
+      ]
+    },
+    {
+      "name": "destination_proxy",
+      "type": "text",
+      "required": true,
+      "label": "Destination Proxy"
+    },
+    {
+      "name": "destination_proxy_type",
+      "type": "select",
+      "required": true,
+      "label": "Destination Proxy Type",
+      "options": [
+        {
+          "value": "phone",
+          "label": "Phone Number"
+        },
+        {
+          "value": "account",
+          "label": "Account Number"
+        }
+      ]
+    },
+    {
+      "name": "amount",
+      "type": "number",
+      "required": true,
+      "label": "Amount",
+      "validation": [
+        {
+          "type": "min",
+          "value": 0.01,
+          "message": "Amount must be greater than zero"
+        },
+        {
+          "type": "max",
+          "value": 5000,
+          "message": "Amount exceeds single-transaction limit"
+        }
+      ]
+    },
+    {
+      "name": "currency",
+      "type": "text",
+      "required": true,
+      "label": "Currency",
+      "default": "ZAR"
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "required": true,
+      "label": "Payment Status",
+      "options": [
+        {
+          "value": "pending",
+          "label": "Pending"
+        },
+        {
+          "value": "proxy_resolved",
+          "label": "Proxy Resolved"
+        },
+        {
+          "value": "submitted",
+          "label": "Submitted to Clearing"
+        },
+        {
+          "value": "settled",
+          "label": "Settled"
+        },
+        {
+          "value": "failed",
+          "label": "Failed"
+        },
+        {
+          "value": "reversed",
+          "label": "Reversed"
+        }
+      ]
+    },
+    {
+      "name": "initiated_at",
+      "type": "datetime",
+      "required": true,
+      "label": "Initiated At"
+    },
+    {
+      "name": "settled_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Settled At"
+    },
+    {
+      "name": "failure_reason",
+      "type": "text",
+      "required": false,
+      "label": "Failure Reason"
+    },
+    {
+      "name": "retry_count",
+      "type": "number",
+      "required": false,
+      "label": "Retry Count",
+      "default": 0
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "id": "pending",
+        "label": "Pending",
+        "initial": true
+      },
+      {
+        "id": "proxy_resolved",
+        "label": "Proxy Resolved"
+      },
+      {
+        "id": "submitted",
+        "label": "Submitted to Clearing"
+      },
+      {
+        "id": "settled",
+        "label": "Settled",
+        "terminal": true
+      },
+      {
+        "id": "failed",
+        "label": "Failed",
+        "terminal": true
+      },
+      {
+        "id": "reversed",
+        "label": "Reversed",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "pending",
+        "to": "proxy_resolved",
+        "actor": "payment_gateway",
+        "description": "Proxy resolved to destination account via identifier determination"
+      },
+      {
+        "from": "proxy_resolved",
+        "to": "submitted",
+        "actor": "payment_gateway",
+        "description": "Credit push instruction sent to clearing system"
+      },
+      {
+        "from": "submitted",
+        "to": "settled",
+        "actor": "clearing_system",
+        "description": "Receiving bank confirms funds credited"
+      },
+      {
+        "from": "submitted",
+        "to": "failed",
+        "actor": "clearing_system",
+        "description": "Payment rejected by clearing system or receiving bank"
+      },
+      {
+        "from": "pending",
+        "to": "failed",
+        "actor": "payment_gateway",
+        "description": "Proxy resolution failed or request validation error"
+      },
+      {
+        "from": "proxy_resolved",
+        "to": "failed",
+        "actor": "payment_gateway",
+        "description": "Credit push submission failed"
+      },
+      {
+        "from": "settled",
+        "to": "reversed",
+        "actor": "payment_gateway",
+        "description": "Reversal initiated for a settled payment"
+      }
+    ]
+  },
+  "rules": {
+    "proxy_resolution": {
+      "required_before_payment": "Proxy must be resolved to a valid account before submitting credit push",
+      "resolution_timeout": "Proxy resolution must complete within 3 seconds"
+    },
+    "sla": {
+      "end_to_end_max": "10 seconds from initiation to settlement confirmation",
+      "retry_window": "Failed payments may be retried within 60 seconds"
+    },
+    "transaction_limits": {
+      "single_transaction_max": "R5,000 per transaction",
+      "daily_limit": "R25,000 per merchant per day"
+    },
+    "idempotency": {
+      "duplicate_prevention": "Each transaction_id + uetr combination is unique — duplicate submissions return the original result"
+    },
+    "security": {
+      "tls_required": "All communication must use TLS 1.2 or higher",
+      "oauth2_required": "API authentication via OAuth 2.0 bearer tokens",
+      "audit_trail": "Every transaction state change must be logged with timestamp and actor"
+    },
+    "currency": {
+      "zar_only": "Only ZAR (South African Rand) is supported for domestic real-time payments"
+    }
+  },
+  "outcomes": {
+    "proxy_resolved": {
+      "priority": 1,
+      "given": [
+        "Payment request received with valid destination proxy",
+        {
+          "field": "destination_proxy",
+          "source": "input",
+          "operator": "exists",
+          "description": "Destination proxy is provided"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "payment_gateway.identifier_determination",
+          "description": "Resolve proxy to destination account number"
+        },
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "pending",
+          "to": "proxy_resolved"
+        },
+        {
+          "action": "emit_event",
+          "event": "payshap.proxy.resolved",
+          "payload": [
+            "transaction_id",
+            "destination_proxy",
+            "destination_proxy_type"
+          ]
+        }
+      ],
+      "result": "Destination account resolved — ready to submit credit push"
+    },
+    "payment_submitted": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "eq",
+          "value": "proxy_resolved",
+          "description": "Proxy has been resolved"
+        },
+        {
+          "field": "amount",
+          "source": "input",
+          "operator": "lte",
+          "value": 5000,
+          "description": "Amount is within single-transaction limit"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "payment_gateway.outbound_credit_transfer",
+          "description": "Submit credit push to clearing system via payment scheme"
+        },
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "proxy_resolved",
+          "to": "submitted"
+        },
+        {
+          "action": "emit_event",
+          "event": "payshap.payment.submitted",
+          "payload": [
+            "transaction_id",
+            "uetr",
+            "amount",
+            "currency",
+            "source_proxy",
+            "destination_proxy"
+          ]
+        }
+      ],
+      "result": "Credit push submitted to clearing system — awaiting settlement confirmation"
+    },
+    "payment_settled": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "eq",
+          "value": "submitted",
+          "description": "Payment has been submitted"
+        },
+        "Positive response received from clearing system"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "submitted",
+          "to": "settled"
+        },
+        {
+          "action": "set_field",
+          "target": "settled_at",
+          "value": "current timestamp"
+        },
+        {
+          "action": "emit_event",
+          "event": "payshap.payment.settled",
+          "payload": [
+            "transaction_id",
+            "uetr",
+            "amount",
+            "settled_at"
+          ]
+        }
+      ],
+      "result": "Payment confirmed — funds transferred to destination account",
+      "transaction": true
+    },
+    "proxy_not_found": {
+      "priority": 4,
+      "error": "PAYSHAP_PROXY_NOT_FOUND",
+      "given": [
+        {
+          "field": "destination_proxy",
+          "source": "input",
+          "operator": "exists",
+          "description": "Destination proxy was provided"
+        },
+        "Proxy resolution returns no matching account"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "pending",
+          "to": "failed"
+        },
+        {
+          "action": "set_field",
+          "target": "failure_reason",
+          "value": "Destination proxy not registered"
+        },
+        {
+          "action": "emit_event",
+          "event": "payshap.proxy.not_found",
+          "payload": [
+            "transaction_id",
+            "destination_proxy"
+          ]
+        }
+      ],
+      "result": "Payment failed — destination proxy is not registered in the system"
+    },
+    "insufficient_funds": {
+      "priority": 5,
+      "error": "PAYSHAP_INSUFFICIENT_FUNDS",
+      "given": [
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "eq",
+          "value": "submitted",
+          "description": "Payment was submitted"
+        },
+        "Clearing system rejects due to insufficient funds"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "submitted",
+          "to": "failed"
+        },
+        {
+          "action": "set_field",
+          "target": "failure_reason",
+          "value": "Insufficient funds in source account"
+        },
+        {
+          "action": "emit_event",
+          "event": "payshap.payment.failed",
+          "payload": [
+            "transaction_id",
+            "uetr",
+            "failure_reason"
+          ]
+        }
+      ],
+      "result": "Payment failed — insufficient funds in merchant account"
+    },
+    "daily_limit_exceeded": {
+      "priority": 6,
+      "error": "PAYSHAP_DAILY_LIMIT_EXCEEDED",
+      "given": [
+        {
+          "field": "amount",
+          "source": "input",
+          "operator": "gt",
+          "value": 0,
+          "description": "Amount is valid"
+        },
+        "Merchant's daily transaction total plus this amount exceeds daily limit"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "failure_reason",
+          "value": "Daily transaction limit exceeded"
+        },
+        {
+          "action": "emit_event",
+          "event": "payshap.limit.exceeded",
+          "payload": [
+            "transaction_id",
+            "amount",
+            "failure_reason"
+          ]
+        }
+      ],
+      "result": "Payment blocked — merchant has exceeded their daily transaction limit"
+    },
+    "payment_timeout": {
+      "priority": 7,
+      "error": "PAYSHAP_TIMEOUT",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "status",
+              "source": "db",
+              "operator": "eq",
+              "value": "pending"
+            },
+            {
+              "field": "status",
+              "source": "db",
+              "operator": "eq",
+              "value": "submitted"
+            }
+          ]
+        },
+        "No response received within SLA timeout (10 seconds)"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "submitted",
+          "to": "failed"
+        },
+        {
+          "action": "set_field",
+          "target": "failure_reason",
+          "value": "Transaction timed out"
+        },
+        {
+          "action": "emit_event",
+          "event": "payshap.payment.timeout",
+          "payload": [
+            "transaction_id",
+            "uetr"
+          ]
+        }
+      ],
+      "result": "Payment timed out — may be retried within the retry window"
+    },
+    "payment_reversed": {
+      "priority": 8,
+      "given": [
+        {
+          "field": "status",
+          "source": "db",
+          "operator": "eq",
+          "value": "settled",
+          "description": "Payment was previously settled"
+        },
+        "Reversal is authorized by manager"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "payment_gateway.outbound_payment_return",
+          "description": "Submit reversal to clearing system"
+        },
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "settled",
+          "to": "reversed"
+        },
+        {
+          "action": "emit_event",
+          "event": "payshap.payment.reversed",
+          "payload": [
+            "transaction_id",
+            "uetr",
+            "amount"
+          ]
+        }
+      ],
+      "result": "Payment reversed — funds returned to source account",
+      "transaction": true
+    }
+  },
+  "errors": [
+    {
+      "code": "PAYSHAP_PROXY_NOT_FOUND",
+      "status": 404,
+      "message": "Destination payment proxy is not registered"
+    },
+    {
+      "code": "PAYSHAP_INSUFFICIENT_FUNDS",
+      "status": 422,
+      "message": "Insufficient funds to process this payment"
+    },
+    {
+      "code": "PAYSHAP_DAILY_LIMIT_EXCEEDED",
+      "status": 429,
+      "message": "Daily transaction limit has been exceeded"
+    },
+    {
+      "code": "PAYSHAP_TIMEOUT",
+      "status": 503,
+      "message": "Payment timed out — please try again",
+      "retry": true
+    },
+    {
+      "code": "PAYSHAP_AMOUNT_EXCEEDED",
+      "status": 400,
+      "message": "Amount exceeds the single-transaction limit"
+    },
+    {
+      "code": "PAYSHAP_DUPLICATE_TRANSACTION",
+      "status": 409,
+      "message": "Duplicate transaction — original result returned"
+    },
+    {
+      "code": "PAYSHAP_CLEARING_REJECTED",
+      "status": 422,
+      "message": "Payment rejected by the clearing system"
+    },
+    {
+      "code": "PAYSHAP_GATEWAY_ERROR",
+      "status": 503,
+      "message": "Payment gateway returned an error",
+      "retry": true
+    },
+    {
+      "code": "PAYSHAP_UNAUTHORIZED",
+      "status": 401,
+      "message": "Authentication failed — invalid or expired credentials"
+    }
+  ],
+  "events": [
+    {
+      "name": "payshap.proxy.resolved",
+      "payload": [
+        "transaction_id",
+        "destination_proxy",
+        "destination_proxy_type"
+      ],
+      "description": "Destination proxy resolved to account number"
+    },
+    {
+      "name": "payshap.proxy.not_found",
+      "payload": [
+        "transaction_id",
+        "destination_proxy"
+      ],
+      "description": "Proxy resolution failed — no matching account"
+    },
+    {
+      "name": "payshap.payment.submitted",
+      "payload": [
+        "transaction_id",
+        "uetr",
+        "amount",
+        "currency",
+        "source_proxy",
+        "destination_proxy"
+      ],
+      "description": "Credit push submitted to clearing system"
+    },
+    {
+      "name": "payshap.payment.settled",
+      "payload": [
+        "transaction_id",
+        "uetr",
+        "amount",
+        "settled_at"
+      ],
+      "description": "Payment confirmed and settled"
+    },
+    {
+      "name": "payshap.payment.failed",
+      "payload": [
+        "transaction_id",
+        "uetr",
+        "failure_reason"
+      ],
+      "description": "Payment failed with reason"
+    },
+    {
+      "name": "payshap.payment.timeout",
+      "payload": [
+        "transaction_id",
+        "uetr"
+      ],
+      "description": "Payment timed out awaiting response"
+    },
+    {
+      "name": "payshap.payment.reversed",
+      "payload": [
+        "transaction_id",
+        "uetr",
+        "amount"
+      ],
+      "description": "Settled payment was reversed"
+    },
+    {
+      "name": "payshap.limit.exceeded",
+      "payload": [
+        "transaction_id",
+        "amount",
+        "failure_reason"
+      ],
+      "description": "Transaction blocked due to limit exceeded"
+    }
+  ],
+  "sla": {
+    "proxy_resolution": {
+      "max_duration": "3s",
+      "description": "Proxy must resolve within 3 seconds"
+    },
+    "end_to_end": {
+      "max_duration": "10s",
+      "description": "Full payment from initiation to settlement within 10 seconds"
+    },
+    "retry_window": {
+      "max_duration": "60s",
+      "description": "Failed payments may be retried within 60 seconds"
+    }
+  },
+  "related": [
+    {
+      "feature": "clearing-house-outbound-payments",
+      "type": "required",
+      "reason": "Credit push operations routed through clearing house outbound payment API"
+    },
+    {
+      "feature": "chp-request-to-pay",
+      "type": "optional",
+      "reason": "Request-to-pay can be used as an alternative payment initiation method"
+    },
+    {
+      "feature": "palm-pay",
+      "type": "recommended",
+      "reason": "Palm vein biometric resolves to a payment proxy for hands-free payment"
+    },
+    {
+      "feature": "payment-processing",
+      "type": "recommended",
+      "reason": "General payment processing orchestration that may route to this rail"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_payshap_rail",
+        "description": "Real-time payment rail integration for instant credit push payments with proxy resolution, settlement confirmation, and retry handling",
+        "success_metrics": [
+          {
+            "metric": "success_rate",
+            "target": ">= 99.5%",
+            "measurement": "Successful operations divided by total attempts"
+          },
+          {
+            "metric": "error_recovery_rate",
+            "target": ">= 95%",
+            "measurement": "Errors that auto-recover without manual intervention"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "availability",
+            "description": "Must degrade gracefully when dependencies are unavailable",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "proxy_resolved",
+          "permission": "autonomous"
+        },
+        {
+          "action": "payment_submitted",
+          "permission": "autonomous"
+        },
+        {
+          "action": "payment_settled",
+          "permission": "autonomous"
+        },
+        {
+          "action": "proxy_not_found",
+          "permission": "autonomous"
+        },
+        {
+          "action": "insufficient_funds",
+          "permission": "autonomous"
+        },
+        {
+          "action": "daily_limit_exceeded",
+          "permission": "autonomous"
+        },
+        {
+          "action": "payment_timeout",
+          "permission": "autonomous"
+        },
+        {
+          "action": "payment_reversed",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "reliability",
+        "over": "throughput",
+        "reason": "integration failures can cascade across systems"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details",
+        "state transitions follow the defined state machine — no illegal transitions"
+      ]
+    },
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "clearing_house_outbound_payments",
+          "from": "clearing-house-outbound-payments",
+          "fallback": "degrade"
+        }
+      ]
+    }
+  }
+}

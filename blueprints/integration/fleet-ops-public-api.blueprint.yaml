@@ -1,0 +1,213 @@
+feature: fleet-ops-public-api
+version: 1.0.0
+description: Versioned public REST API for rider and driver mobile apps, covering order management, driver operations, tracking, and location updates with API key authentication.
+category: integration
+tags:
+  - api
+  - rest
+  - versioned
+  - authentication
+  - driver
+  - rider
+  - mobile
+actors:
+  - id: rider_app
+    name: Rider App
+    type: system
+    description: Customer-facing mobile application consuming order and tracking endpoints.
+  - id: driver_app
+    name: Driver App
+    type: system
+    description: Driver-facing mobile application consuming driver and order activity endpoints.
+  - id: platform
+    name: Platform
+    type: system
+    description: API gateway that authenticates requests and routes them to the appropriate resource handlers.
+fields:
+  - name: api_key
+    type: token
+    required: true
+    label: Organization-scoped API key sent in the Authorization header or as a query parameter.
+  - name: api_version
+    type: text
+    required: false
+    label: API version prefix (e.g., v1) included in the request path.
+  - name: resource_id
+    type: text
+    required: false
+    label: Public identifier of the resource being operated on (e.g., order_xyz, driver_abc).
+rules:
+  rule_01: All public API requests must include a valid API key; unauthenticated requests receive a 401 response.
+  rule_02: The API key establishes the organization context; all returned data is scoped to that organization.
+  rule_03: API endpoints are versioned under a path prefix (e.g., /v1/); the version is part of the URL path.
+  rule_04: Resource identifiers are public IDs (prefixed strings like order_xxx, driver_xxx), never internal database IDs.
+  rule_05: Driver authentication uses a separate login endpoint that returns a bearer token for subsequent calls.
+  rule_06: The API supports create, read, update, and delete operations for all core resources.
+  rule_07: Special action endpoints (dispatch, start, cancel, complete, update-activity, track) are available on orders and drivers.
+  rule_08: Webhook endpoint management is also available through the API for programmatic configuration.
+outcomes:
+  request_authenticated:
+    priority: 1
+    given:
+      - request includes a valid API key
+    then:
+      - action: set_field
+        target: session.organization
+        description: Organization context is resolved from the API key and set for the request.
+    result: Request proceeds to the resource handler with full organization scope.
+  request_rejected_unauthenticated:
+    priority: 2
+    error: API_UNAUTHENTICATED
+    given:
+      - request does not include a valid API key
+    then: []
+    result: 401 response is returned.
+  order_created_via_api:
+    priority: 3
+    given:
+      - authenticated request to POST /v1/orders with pickup and drop-off
+    then:
+      - action: create_record
+        description: Order is created with the provided payload; tracking number is returned.
+        type: order
+      - action: emit_event
+        event: order.created
+        payload:
+          - order_id
+          - tracking_number
+    result: Caller receives order resource with public ID and tracking number.
+  driver_location_updated_via_api:
+    priority: 4
+    given:
+      - authenticated driver POST to /v1/drivers/{id}/track with coordinates
+    then:
+      - action: set_field
+        target: driver.location
+        description: Driver location is updated; broadcast event is fired.
+      - action: emit_event
+        event: driver.location_changed
+        payload:
+          - driver_id
+          - latitude
+          - longitude
+          - heading
+          - speed
+    result: Location is updated and broadcast to subscribers.
+  resource_not_found:
+    priority: 5
+    error: RESOURCE_NOT_FOUND
+    given:
+      - request references a resource ID that does not exist or belongs to a different organization
+    then: []
+    result: 404 response is returned. The organization isolation ensures no resource leakage.
+errors:
+  - code: API_UNAUTHENTICATED
+    status: 401
+    message: Invalid or missing API credentials.
+  - code: RESOURCE_NOT_FOUND
+    status: 404
+    message: The requested resource was not found.
+  - code: API_VERSION_NOT_SUPPORTED
+    status: 400
+    message: The requested API version is not supported.
+events:
+  - name: order.created
+    description: Order is created via the API.
+    payload:
+      - order_id
+      - tracking_number
+      - customer_id
+  - name: driver.location_changed
+    description: Driver location is updated via the track endpoint.
+    payload:
+      - driver_id
+      - latitude
+      - longitude
+      - heading
+      - speed
+related:
+  - feature: multi-tenant-organization
+    type: required
+    reason: API keys are scoped to organizations; the API enforces tenant isolation.
+  - feature: ride-request-lifecycle
+    type: required
+    reason: The order API drives the full lifecycle from creation to completion.
+  - feature: driver-app-flow
+    type: required
+    reason: Driver app uses dedicated auth and track endpoints.
+  - feature: webhook-trip-lifecycle
+    type: recommended
+    reason: Webhook endpoints can be managed through the API.
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_fleet_ops_public_api
+      description: Versioned public REST API for rider and driver mobile apps, covering order management, driver operations,
+        tracking, and location updates with API key authentication.
+      success_metrics:
+        - metric: success_rate
+          target: ">= 99.5%"
+          measurement: Successful operations divided by total attempts
+        - metric: error_recovery_rate
+          target: ">= 95%"
+          measurement: Errors that auto-recover without manual intervention
+      constraints:
+        - type: availability
+          description: Must degrade gracefully when dependencies are unavailable
+          negotiable: false
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    escalation_triggers:
+      - error_rate > 5
+  safety:
+    action_permissions:
+      - action: request_authenticated
+        permission: autonomous
+      - action: request_rejected_unauthenticated
+        permission: supervised
+      - action: order_created_via_api
+        permission: supervised
+      - action: driver_location_updated_via_api
+        permission: supervised
+      - action: resource_not_found
+        permission: autonomous
+  tradeoffs:
+    - prefer: reliability
+      over: throughput
+      reason: integration failures can cascade across systems
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: multi_tenant_organization
+        from: multi-tenant-organization
+        fallback: degrade
+      - capability: ride_request_lifecycle
+        from: ride-request-lifecycle
+        fallback: degrade
+      - capability: driver_app_flow
+        from: driver-app-flow
+        fallback: degrade
+
+extensions:
+  source:
+    repo: https://github.com/fleetbase/fleetbase
+    project: Fleetbase
+    tech_stack: PHP / Laravel
+    files_traced: 4
+    entry_points:
+      - src/routes.php
+      - src/Http/Controllers/Api/v1/OrderController.php
+      - src/Http/Controllers/Api/v1/DriverController.php
+      - config/api.php

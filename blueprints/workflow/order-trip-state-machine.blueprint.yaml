@@ -1,0 +1,266 @@
+feature: order-trip-state-machine
+version: 1.0.0
+description: Configurable state machine that controls how an order advances through its activity flow, with support for custom order types, waypoint-level states, and proof-of-delivery gates.
+category: workflow
+tags:
+  - state-machine
+  - order-flow
+  - activity
+  - waypoints
+  - configurable
+actors:
+  - id: driver
+    name: Driver
+    type: human
+    description: Triggers state transitions by calling update-activity.
+  - id: platform
+    name: Platform
+    type: system
+    description: Validates transitions, determines next valid activity, and applies flow logic.
+  - id: operator
+    name: Operator
+    type: human
+    description: Configures custom order type flows via the order config system.
+fields:
+  - name: order_id
+    type: text
+    required: true
+    label: Identifier of the order being advanced.
+  - name: current_status
+    type: text
+    required: true
+    label: Current status code of the order (e.g., created, dispatched, driver_enroute).
+  - name: activity_code
+    type: text
+    required: false
+    label: The code of the activity to transition to (e.g., driver_enroute, completed).
+  - name: order_type
+    type: text
+    required: false
+    label: Key identifying which order configuration flow to use (defaults to "default").
+  - name: skip_dispatch
+    type: boolean
+    required: false
+    label: If true, the dispatch step is bypassed and the flow moves to the next activity.
+  - name: waypoint_id
+    type: text
+    required: false
+    label: For multi-waypoint orders, the specific waypoint being advanced.
+  - name: proof_id
+    type: text
+    required: false
+    label: Reference to a proof record if this activity requires proof of delivery.
+states:
+  field: status
+  values:
+    - value: created
+      description: Order is in the system but not yet dispatched.
+      initial: true
+    - value: dispatched
+      description: Order has been dispatched to a driver.
+    - value: driver_enroute
+      description: Driver is navigating to the pickup location.
+    - value: arrived
+      description: Driver has arrived at the pickup location.
+    - value: in_progress
+      description: Trip is underway (rider picked up).
+    - value: completed
+      description: All waypoints fulfilled; trip is done.
+      terminal: true
+    - value: canceled
+      description: Order was terminated before completion.
+      terminal: true
+  transitions:
+    - from: created
+      to: dispatched
+      actor: platform
+      description: Dispatch triggers the first flow activity.
+    - from: dispatched
+      to: driver_enroute
+      actor: driver
+      description: Driver accepts and begins navigating to pickup.
+    - from: driver_enroute
+      to: arrived
+      actor: driver
+      description: Driver marks arrival at pickup.
+    - from: arrived
+      to: in_progress
+      actor: driver
+      description: Driver confirms pickup and trip begins.
+    - from: in_progress
+      to: completed
+      actor: driver
+      description: Driver marks trip complete at drop-off.
+    - from: any
+      to: canceled
+      actor: platform
+      description: Order is canceled at any point before completion.
+rules:
+  rule_01: The system determines the valid next activity for any order based on its current status and configured flow.
+  rule_02: Order type determines which flow configuration is used; "default" is used if none is configured.
+  rule_03: Custom order types have their own activity sequences defined in the order config system.
+  rule_04: For multi-waypoint orders, each waypoint has its own activity state tracked independently.
+  rule_05: All waypoints must reach completed status before the overall order can be completed.
+  rule_06: If skip_dispatch is true, the dispatched step is bypassed and the flow jumps directly to the next activity.
+  rule_07: A tracking status record is written at each transition, capturing status, code, details, and location.
+  Proof of delivery gates: if an activity requires proof (pod_required), the transition is blocked until proof is captured.
+  rule_09: Activity codes are normalized to snake_case on write.
+outcomes:
+  next_activity_resolved:
+    priority: 1
+    given:
+      - order exists and current status is known
+    then:
+      - action: set_field
+        target: response
+        description: The next valid activity (code, status label, details) is returned to the caller.
+    result: Driver app knows what action to offer next without hard-coding flow logic.
+  activity_transition_applied:
+    priority: 2
+    given:
+      - driver submits an activity code matching the expected next state
+      - any required proofs are already captured
+    then:
+      - action: transition_state
+        field: status
+        from: current
+        to: next
+      - action: create_record
+        description: Tracking status entry written with activity code, status label, driver location, and timestamp.
+        type: tracking_status
+      - action: emit_event
+        event: order.updated
+        payload:
+          - order_id
+          - status
+          - activity_code
+          - location
+    result: Order advances; customer and operator see updated status.
+  waypoint_activity_applied:
+    priority: 3
+    given:
+      - order has multiple waypoints
+      - driver submits an activity code for a specific waypoint
+    then:
+      - action: create_record
+        description: Tracking status entry is written for the specific waypoint.
+        type: waypoint_tracking_status
+      - action: set_field
+        target: waypoint.status_code
+        description: Waypoint's individual completion status is updated.
+    result: That waypoint advances independently; overall order completes only when all waypoints are done.
+  invalid_activity_rejected:
+    priority: 4
+    error: INVALID_ACTIVITY_CODE
+    given:
+      - submitted activity code is not the expected next state
+    then: []
+    result: Transition is rejected; current status is unchanged.
+  proof_gate_blocked:
+    priority: 5
+    error: PROOF_REQUIRED
+    given:
+      - activity requires proof of delivery
+      - no proof has been captured for this order or waypoint
+    then: []
+    result: Transition is blocked until proof is submitted.
+errors:
+  - code: INVALID_ACTIVITY_CODE
+    status: 400
+    message: The submitted activity is not valid for the current order state.
+  - code: PROOF_REQUIRED
+    status: 400
+    message: Proof of delivery is required before this activity can be completed.
+  - code: ORDER_NOT_FOUND
+    status: 404
+    message: Order not found.
+  - code: WAYPOINTS_INCOMPLETE
+    status: 400
+    message: Not all waypoints have been completed.
+events:
+  - name: order.updated
+    description: Fired on every successful activity transition.
+    payload:
+      - order_id
+      - status
+      - activity_code
+      - driver_id
+      - location
+      - timestamp
+related:
+  - feature: ride-request-lifecycle
+    type: required
+    reason: The lifecycle is driven by this state machine.
+  - feature: driver-app-flow
+    type: required
+    reason: Driver app calls update-activity to trigger transitions.
+  - feature: proof-of-delivery
+    type: optional
+    reason: Proof-required activities gate on this feature.
+  - feature: webhook-trip-lifecycle
+    type: recommended
+    reason: Each transition emits webhook events consumed by external systems.
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_order_trip_state_machine
+      description: Configurable state machine that controls how an order advances through its activity flow, with support for
+        custom order types, waypoint-level states, and proof-of-delivery gates.
+      success_metrics:
+        - metric: processing_time
+          target: < 5s
+          measurement: Time from request to completion
+        - metric: success_rate
+          target: ">= 99%"
+          measurement: Successful operations divided by total attempts
+      constraints:
+        - type: performance
+          description: Must not block dependent workflows
+          negotiable: true
+  autonomy:
+    level: semi_autonomous
+    human_checkpoints:
+      - before transitioning to a terminal state
+    escalation_triggers:
+      - error_rate > 5
+  safety:
+    action_permissions:
+      - action: next_activity_resolved
+        permission: autonomous
+      - action: activity_transition_applied
+        permission: autonomous
+      - action: waypoint_activity_applied
+        permission: autonomous
+      - action: invalid_activity_rejected
+        permission: supervised
+      - action: proof_gate_blocked
+        permission: human_required
+  tradeoffs:
+    - prefer: reliability
+      over: speed
+      reason: workflow steps must complete correctly before proceeding
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: ride_request_lifecycle
+        from: ride-request-lifecycle
+        fallback: degrade
+      - capability: driver_app_flow
+        from: driver-app-flow
+        fallback: degrade
+
+extensions:
+  source:
+    repo: https://github.com/fleetbase/fleetbase
+    project: Fleetbase
+    tech_stack: PHP / Laravel
+    files_traced: 4
+    entry_points:
+      - src/Support/Flow.php
+      - src/Models/Order.php
+      - src/Http/Controllers/Api/v1/OrderController.php
+      - config/api.php

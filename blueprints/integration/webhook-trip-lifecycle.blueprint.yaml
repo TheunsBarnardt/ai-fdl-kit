@@ -1,0 +1,253 @@
+feature: webhook-trip-lifecycle
+version: 1.0.0
+description: HTTP webhook delivery for order and driver lifecycle events, allowing external systems to react to ride state changes in real time.
+category: integration
+tags:
+  - webhooks
+  - events
+  - notifications
+  - order-lifecycle
+  - driver
+actors:
+  - id: operator
+    name: Operator
+    type: human
+    description: Configures webhook endpoints for their organization.
+  - id: platform
+    name: Platform
+    type: system
+    description: Delivers signed webhook payloads to registered endpoints on event occurrence.
+  - id: receiver
+    name: Receiver
+    type: external
+    description: External service or application that receives and processes webhooks.
+fields:
+  - name: endpoint_url
+    type: url
+    required: true
+    label: HTTPS URL that will receive webhook POST requests.
+  - name: events
+    type: multiselect
+    required: false
+    label: List of event types this endpoint subscribes to. Empty means all events.
+    options:
+      - value: order.created
+        label: Order.Created
+      - value: order.updated
+        label: Order.Updated
+      - value: order.deleted
+        label: Order.Deleted
+      - value: order.dispatched
+        label: Order.Dispatched
+      - value: order.dispatch_failed
+        label: Order.Dispatch Failed
+      - value: order.completed
+        label: Order.Completed
+      - value: order.failed
+        label: Order.Failed
+      - value: order.driver_assigned
+        label: Order.Driver Assigned
+      - value: driver.created
+        label: Driver.Created
+      - value: driver.updated
+        label: Driver.Updated
+      - value: driver.deleted
+        label: Driver.Deleted
+      - value: driver.assigned
+        label: Driver.Assigned
+  - name: mode
+    type: select
+    required: false
+    label: Whether this endpoint is live or in test mode.
+    options:
+      - value: live
+        label: Live
+      - value: test
+        label: Test
+  - name: version
+    type: text
+    required: false
+    label: API version for the webhook payload format.
+  - name: description
+    type: text
+    required: false
+    label: Human-readable label for this endpoint.
+  - name: status
+    type: select
+    required: false
+    label: Whether this endpoint is active or disabled.
+    options:
+      - value: active
+        label: Active
+      - value: disabled
+        label: Disabled
+  - name: api_credential_id
+    type: text
+    required: false
+    label: The API credential this endpoint is scoped to.
+rules:
+  rule_01: Webhook endpoints are scoped to an organization; each organization manages its own endpoints.
+  rule_02: An endpoint may subscribe to a specific list of event types or receive all events (empty events array).
+  rule_03: The platform delivers events as HTTP POST requests to the registered URL with a JSON payload.
+  rule_04: Delivery includes the full resource payload for the affected entity (order or driver).
+  rule_05: Failed deliveries are logged in the webhook request log with status code and response body.
+  rule_06: Event types are fixed and defined at the platform level; custom event types are not supported.
+  rule_07: Endpoints can be filtered by mode (live vs test) to separate production and test traffic.
+outcomes:
+  endpoint_registered:
+    priority: 1
+    given:
+      - operator provides a valid HTTPS URL
+    then:
+      - action: create_record
+        description: Endpoint is stored with URL, event subscriptions, mode, and status.
+        type: webhook_endpoint
+    result: Endpoint is active and will receive matching events from this point forward.
+  event_delivered:
+    priority: 2
+    given:
+      - a lifecycle event fires (e.g., order.dispatched, order.completed)
+      - one or more active endpoints subscribe to this event type
+    then:
+      - action: call_service
+        description: An HTTP POST request is sent to each subscribed endpoint URL with the event payload.
+        target: webhook_endpoint_url
+      - action: create_record
+        description: Delivery attempt is logged with timestamp, response code, and response body.
+        type: webhook_request_log
+    result: External system receives the event payload and can react (e.g., update its own database, trigger actions).
+  delivery_failed:
+    priority: 3
+    given:
+      - the endpoint URL returns a non-2xx status or times out
+    then:
+      - action: create_record
+        description: Failed attempt is logged with error details.
+        type: webhook_request_log
+    result: Operator can inspect the log and debug the endpoint configuration.
+  all_events_subscribed:
+    priority: 4
+    given:
+      - endpoint is registered with an empty events list
+    then: []
+    result: Endpoint receives every event type fired by the platform.
+errors:
+  - code: WEBHOOK_URL_INVALID
+    status: 400
+    message: The provided webhook URL is not a valid HTTPS URL.
+  - code: WEBHOOK_ENDPOINT_NOT_FOUND
+    status: 404
+    message: The specified webhook endpoint could not be found.
+events:
+  - name: order.created
+    description: An order has been created.
+    payload:
+      - order_id
+      - customer_id
+      - status
+      - pickup_location
+      - dropoff_location
+  - name: order.dispatched
+    description: An order has been dispatched to a driver.
+    payload:
+      - order_id
+      - driver_id
+      - dispatched_at
+  - name: order.driver_assigned
+    description: A driver has been assigned to an order.
+    payload:
+      - order_id
+      - driver_id
+  - name: order.updated
+    description: An order's status or data has changed.
+    payload:
+      - order_id
+      - status
+      - updated_at
+  - name: order.completed
+    description: An order has been completed.
+    payload:
+      - order_id
+      - driver_id
+      - customer_id
+  - name: order.dispatch_failed
+    description: Order dispatch failed to find a driver.
+    payload:
+      - order_id
+  - name: driver.assigned
+    description: A driver has been assigned to an entity or order.
+    payload:
+      - driver_id
+      - order_id
+related:
+  - feature: ride-request-lifecycle
+    type: required
+    reason: Lifecycle events are the source of webhook delivery.
+  - feature: multi-tenant-organization
+    type: required
+    reason: Webhook endpoints are scoped per organization.
+  - feature: fleet-ops-public-api
+    type: recommended
+    reason: API credentials scope which endpoints can register webhooks.
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_webhook_trip_lifecycle
+      description: HTTP webhook delivery for order and driver lifecycle events, allowing external systems to react to ride
+        state changes in real time.
+      success_metrics:
+        - metric: success_rate
+          target: ">= 99.5%"
+          measurement: Successful operations divided by total attempts
+        - metric: error_recovery_rate
+          target: ">= 95%"
+          measurement: Errors that auto-recover without manual intervention
+      constraints:
+        - type: availability
+          description: Must degrade gracefully when dependencies are unavailable
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before making irreversible changes
+    escalation_triggers:
+      - error_rate > 5
+  safety:
+    action_permissions:
+      - action: endpoint_registered
+        permission: autonomous
+      - action: event_delivered
+        permission: autonomous
+      - action: delivery_failed
+        permission: autonomous
+      - action: all_events_subscribed
+        permission: autonomous
+  tradeoffs:
+    - prefer: reliability
+      over: throughput
+      reason: integration failures can cascade across systems
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: ride_request_lifecycle
+        from: ride-request-lifecycle
+        fallback: degrade
+      - capability: multi_tenant_organization
+        from: multi-tenant-organization
+        fallback: degrade
+
+extensions:
+  source:
+    repo: https://github.com/fleetbase/fleetbase
+    project: Fleetbase
+    tech_stack: PHP / Laravel
+    files_traced: 5
+    entry_points:
+      - src/Models/WebhookEndpoint.php
+      - src/Models/WebhookRequestLog.php
+      - config/api.php
+      - src/Models/Order.php

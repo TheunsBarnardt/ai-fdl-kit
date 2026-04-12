@@ -1,0 +1,322 @@
+feature: driver-app-flow
+version: 1.0.0
+description: Driver mobile app interactions — authentication, order accept/reject, activity updates, and trip completion through the public API.
+category: workflow
+tags:
+  - driver
+  - mobile
+  - accept-reject
+  - authentication
+  - activity
+actors:
+  - id: driver
+    name: Driver
+    type: human
+    description: Driver using the mobile app to receive and execute orders.
+  - id: platform
+    name: Platform
+    type: system
+    description: API server managing driver sessions, order pings, and activity transitions.
+fields:
+  - name: identity
+    type: text
+    required: true
+    label: Driver login credential — email or phone number.
+  - name: password
+    type: password
+    required: false
+    label: Password for email/password login flow.
+  - name: phone
+    type: phone
+    required: false
+    label: Phone number for SMS verification login.
+  - name: verification_code
+    type: text
+    required: false
+    label: One-time code sent via SMS for phone-based login.
+  - name: auth_token
+    type: token
+    required: false
+    label: Bearer token issued after successful authentication.
+  - name: device_token
+    type: text
+    required: false
+    label: Push notification token (FCM or APNS) registered for this device.
+  - name: device_platform
+    type: select
+    required: false
+    label: Mobile OS of the device.
+    options:
+      - value: android
+        label: Android
+      - value: ios
+        label: Ios
+  - name: order_id
+    type: text
+    required: false
+    label: Identifier of the order the driver is acting on.
+  - name: activity_code
+    type: text
+    required: false
+    label: Activity transition code (e.g., driver_enroute, arrived, in_progress, completed).
+  - name: organization_id
+    type: text
+    required: false
+    label: Organization the driver wants to switch their session to.
+rules:
+  rule_01: A driver can log in with email + password, or phone + SMS verification code.
+  rule_02: After successful login, a bearer token is issued and must be included in subsequent requests.
+  rule_03: A driver must register their push notification device token so they can receive order pings.
+  rule_04: When pinged with an order, the driver can accept (by updating activity) or ignore (ping times out).
+  rule_05: In adhoc mode, the first driver to accept is assigned; subsequent accepts are rejected.
+  rule_06: A driver advances the order through activities by calling update-activity with the next activity code.
+  rule_07: The platform determines the valid next activity at each step; invalid activity codes are rejected.
+  rule_08: A driver can belong to multiple organizations and switch between them during the session.
+  rule_09: After completing or canceling an order, the driver's current_job is cleared.
+outcomes:
+  driver_login_password:
+    priority: 1
+    given:
+      - driver provides valid identity and password
+      - user account exists and is active
+    then:
+      - action: create_record
+        description: A personal access token is issued for the driver's session.
+        type: auth_token
+    result: Driver receives a bearer token for authenticated API calls.
+  driver_login_phone_step1:
+    priority: 2
+    given:
+      - driver provides a registered phone number
+    then:
+      - action: notify
+        target: driver
+        channel: sms
+        description: A one-time verification code is sent via SMS.
+    result: Driver receives an SMS code to confirm their identity.
+  driver_login_phone_step2:
+    priority: 3
+    given:
+      - driver submits the correct SMS verification code
+      - code has not expired
+    then:
+      - action: create_record
+        description: A personal access token is issued.
+        type: auth_token
+    result: Driver is authenticated and receives a bearer token.
+  device_registered:
+    priority: 4
+    given:
+      - driver provides a device push token and platform
+    then:
+      - action: create_record
+        description: Device token is stored and linked to the driver's user account.
+        type: device
+    result: Driver will receive push notifications for order pings and updates.
+  order_accepted:
+    priority: 5
+    given:
+      - driver receives an order ping notification
+      - driver calls update-activity with the enroute activity code
+      - order is still unaccepted (adhoc) or assigned to this driver
+    then:
+      - action: set_field
+        target: order.driver_assigned
+        description: Driver is locked to the order (adhoc case).
+      - action: transition_state
+        field: order.status
+        from: dispatched
+        to: driver_enroute
+      - action: set_field
+        target: driver.current_job
+        description: Order is set as driver's active job.
+      - action: emit_event
+        event: order.updated
+        payload:
+          - order_id
+          - status
+          - driver_id
+    result: Order progresses to driver_enroute; customer is notified.
+  order_rejected:
+    priority: 6
+    given:
+      - driver ignores the ping or explicitly declines
+    then: []
+    result: Ping expires or is ignored; platform may re-ping other drivers or notify operator.
+  activity_updated:
+    priority: 7
+    given:
+      - driver calls update-activity with a valid activity code
+      - the code is the expected next state in the order's flow
+    then:
+      - action: transition_state
+        field: order.status
+        from: current
+        to: next
+        description: Order status advances according to the configured flow.
+      - action: create_record
+        description: A tracking status entry is created recording the transition with location and timestamp.
+        type: tracking_status
+      - action: emit_event
+        event: order.updated
+        payload:
+          - order_id
+          - status
+          - activity_code
+          - location
+    result: Order advances to the next stage; customer sees updated status.
+  organization_switched:
+    priority: 8
+    given:
+      - driver requests to switch to a different organization
+      - driver belongs to that organization
+    then:
+      - action: set_field
+        target: session.company
+        description: Driver's active company session is updated.
+    result: Driver is now operating under the new organization context.
+  login_failed:
+    priority: 9
+    error: DRIVER_AUTH_FAILED
+    given:
+      - credentials are invalid or user does not exist
+    then: []
+    result: Authentication is rejected.
+errors:
+  - code: DRIVER_AUTH_FAILED
+    status: 401
+    message: Authentication failed using the provided credentials.
+  - code: DRIVER_NOT_FOUND
+    status: 404
+    message: No driver found for the provided identity.
+  - code: INVALID_VERIFICATION_CODE
+    status: 400
+    message: Invalid verification code.
+  - code: DEVICE_TOKEN_REQUIRED
+    status: 400
+    message: A device token is required to register the device.
+  - code: ORGANIZATION_NOT_FOUND
+    status: 404
+    message: The specified organization could not be found.
+  - code: NOT_ORGANIZATION_MEMBER
+    status: 400
+    message: You do not belong to this organization.
+events:
+  - name: order.updated
+    description: Fired when driver advances the order activity.
+    payload:
+      - order_id
+      - status
+      - activity_code
+      - driver_id
+      - location
+  - name: driver.location_changed
+    description: Fired as driver sends continuous location updates.
+    payload:
+      - driver_id
+      - latitude
+      - longitude
+      - heading
+      - speed
+related:
+  - feature: ride-request-lifecycle
+    type: required
+    reason: Driver app drives the activity transitions that move an order through its lifecycle.
+  - feature: driver-location-streaming
+    type: required
+    reason: Driver app sends GPS updates on a regular interval during active trips.
+  - feature: driver-assignment-dispatch
+    type: required
+    reason: Driver receives order pings via dispatch notifications.
+  - feature: multi-tenant-organization
+    type: recommended
+    reason: Drivers can belong to multiple organizations and switch between them.
+  - feature: fleet-ops-public-api
+    type: required
+    reason: All driver app interactions go through the versioned public REST API.
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_driver_app_flow
+      description: Driver mobile app interactions — authentication, order accept/reject, activity updates, and trip completion
+        through the public API.
+      success_metrics:
+        - metric: processing_time
+          target: < 5s
+          measurement: Time from request to completion
+        - metric: success_rate
+          target: ">= 99%"
+          measurement: Successful operations divided by total attempts
+      constraints:
+        - type: performance
+          description: Must not block dependent workflows
+          negotiable: true
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: semi_autonomous
+    human_checkpoints:
+      - before modifying sensitive data fields
+    escalation_triggers:
+      - error_rate > 5
+  safety:
+    action_permissions:
+      - action: driver_login_password
+        permission: autonomous
+      - action: driver_login_phone_step1
+        permission: autonomous
+      - action: driver_login_phone_step2
+        permission: autonomous
+      - action: device_registered
+        permission: autonomous
+      - action: order_accepted
+        permission: autonomous
+      - action: order_rejected
+        permission: supervised
+      - action: activity_updated
+        permission: supervised
+      - action: organization_switched
+        permission: autonomous
+      - action: login_failed
+        permission: autonomous
+  tradeoffs:
+    - prefer: reliability
+      over: speed
+      reason: workflow steps must complete correctly before proceeding
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: ride_request_lifecycle
+        from: ride-request-lifecycle
+        fallback: degrade
+      - capability: driver_location_streaming
+        from: driver-location-streaming
+        fallback: degrade
+      - capability: driver_assignment_dispatch
+        from: driver-assignment-dispatch
+        fallback: degrade
+      - capability: fleet_ops_public_api
+        from: fleet-ops-public-api
+        fallback: degrade
+
+extensions:
+  source:
+    repo: https://github.com/fleetbase/fleetbase
+    project: Fleetbase
+    tech_stack: PHP / Laravel
+    files_traced: 5
+    entry_points:
+      - src/Http/Controllers/Api/v1/DriverController.php
+      - src/Models/Driver.php
+      - src/Http/Controllers/Api/v1/OrderController.php
+      - src/Notifications/OrderPing.php

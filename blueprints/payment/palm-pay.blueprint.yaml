@@ -1,0 +1,557 @@
+# ============================================================
+# PALM-PAY — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Link a palm vein biometric template to a real-time payment
+# proxy (phone number or account). When the palm is scanned at
+# a terminal, the linked proxy is resolved and a credit push
+# payment is initiated — no card or PIN required.
+# ============================================================
+
+feature: palm-pay
+version: "1.0.0"
+description: "Palm vein biometric payment — link palm template to payment proxy for hands-free real-time payments"
+category: payment
+tags: [biometric, palm-vein, contactless, hands-free, real-time-payment]
+
+actors:
+  - id: customer
+    name: "Customer"
+    type: human
+    description: "Person who enrolls their palm and pays by scanning"
+    role: "payer"
+
+  - id: terminal_app
+    name: "Terminal Application"
+    type: system
+    description: "Android terminal app that scans palm and initiates payment"
+    role: "payment-initiator"
+
+  - id: palm_scanner
+    name: "Biometric Scanner"
+    type: external
+    description: "Built-in palm vein scanning hardware on the terminal"
+    role: "biometric-capture"
+
+  - id: payment_backend
+    name: "Payment Backend"
+    type: system
+    description: "Server-side system managing palm-to-proxy links and payment routing"
+    role: "payment-orchestrator"
+
+fields:
+  - name: palm_pay_id
+    type: token
+    required: true
+    label: "Palm Pay Link ID"
+    # Unique identifier for this palm-to-proxy link
+
+  - name: user_id
+    type: text
+    required: true
+    label: "User ID"
+    # The registered user's identifier
+
+  - name: palm_template_ref
+    type: text
+    required: true
+    label: "Palm Template Reference"
+    sensitive: true
+    # Reference to the stored palm vein template (not the template data itself)
+
+  - name: palm_hand
+    type: select
+    required: false
+    label: "Enrolled Hand"
+    options:
+      - value: "left"
+        label: "Left Hand"
+      - value: "right"
+        label: "Right Hand"
+
+  - name: payshap_proxy
+    type: text
+    required: true
+    label: "Payment Proxy"
+    # Phone number or account number linked to this palm
+    validation:
+      - type: required
+        message: "A payment proxy is required to link to your palm"
+
+  - name: proxy_type
+    type: select
+    required: true
+    label: "Proxy Type"
+    options:
+      - value: "phone"
+        label: "Phone Number"
+      - value: "account"
+        label: "Account Number"
+
+  - name: link_status
+    type: select
+    required: true
+    label: "Link Status"
+    options:
+      - value: "pending_verification"
+        label: "Pending Verification"
+      - value: "active"
+        label: "Active"
+      - value: "suspended"
+        label: "Suspended"
+      - value: "revoked"
+        label: "Revoked"
+
+  - name: linked_at
+    type: datetime
+    required: false
+    label: "Linked At"
+
+  - name: verified_at
+    type: datetime
+    required: false
+    label: "Verified At"
+
+  - name: daily_limit
+    type: number
+    required: true
+    label: "Daily Spending Limit"
+    default: 5000
+    # Maximum amount per day via palm pay
+    validation:
+      - type: min
+        value: 0
+        message: "Daily limit cannot be negative"
+
+  - name: daily_spent
+    type: number
+    required: false
+    label: "Daily Amount Spent"
+    default: 0
+
+  - name: transaction_limit
+    type: number
+    required: true
+    label: "Per-Transaction Limit"
+    default: 3000
+    validation:
+      - type: min
+        value: 0
+        message: "Transaction limit cannot be negative"
+
+states:
+  field: link_status
+  values:
+    - id: pending_verification
+      label: "Pending Verification"
+      initial: true
+      # Palm enrolled, proxy provided, OTP verification pending
+    - id: active
+      label: "Active"
+      # Palm-to-proxy link verified and ready for payments
+    - id: suspended
+      label: "Suspended"
+      # Temporarily disabled (fraud suspicion, user request)
+    - id: revoked
+      label: "Revoked"
+      terminal: true
+      # Permanently disabled
+
+  transitions:
+    - from: pending_verification
+      to: active
+      actor: payment_backend
+      description: "OTP or bank verification confirms proxy ownership"
+
+    - from: active
+      to: suspended
+      actor: payment_backend
+      description: "Link suspended due to fraud alert or user request"
+
+    - from: suspended
+      to: active
+      actor: payment_backend
+      description: "Suspension lifted after review"
+
+    - from: active
+      to: revoked
+      actor: customer
+      description: "Customer or admin permanently revokes the palm-pay link"
+
+    - from: suspended
+      to: revoked
+      actor: payment_backend
+      description: "Suspended link permanently revoked after investigation"
+
+    - from: pending_verification
+      to: revoked
+      actor: payment_backend
+      description: "Verification expired or failed permanently"
+
+rules:
+  enrollment:
+    one_proxy_per_palm: "Each palm template can be linked to exactly one payment proxy"
+    two_palms_per_user: "A user may enroll up to 2 palms (left and right)"
+    verification_required: "Proxy ownership must be verified via OTP before link becomes active"
+    verification_expiry: "Unverified links expire after 24 hours"
+
+  payment:
+    active_link_required: "Palm payment only works when link_status is active"
+    amount_check: "Each transaction amount must be within per-transaction limit"
+    daily_limit_check: "Daily spent + transaction amount must not exceed daily limit"
+    daily_reset: "Daily spent counter resets at midnight local time"
+
+  security:
+    template_never_transmitted: "Palm vein template data never leaves the terminal — only the template reference is sent to backend"
+    anti_spoofing: "Liveness detection must pass before template matching"
+    fraud_suspension: "3 failed matches in 5 minutes triggers temporary suspension review"
+    biometric_pii: "All biometric data is PII — encryption at rest and access logging required"
+
+  matching:
+    confidence_threshold: "Palm match must exceed configured confidence threshold (default 95%)"
+    fallback_to_card: "If palm match fails, terminal should offer card payment as fallback"
+
+outcomes:
+  palm_link_created:
+    priority: 1
+    given:
+      - "Customer has completed palm enrollment (template registered)"
+      - field: payshap_proxy
+        source: input
+        operator: exists
+        description: "Customer provides a payment proxy"
+      - field: proxy_type
+        source: input
+        operator: in
+        value: ["phone", "account"]
+        description: "Valid proxy type selected"
+    then:
+      - action: create_record
+        type: palm_pay_link
+        target: palm_pay_links
+        description: "Create palm-to-proxy link in pending verification state"
+      - action: transition_state
+        field: link_status
+        from: null
+        to: pending_verification
+      - action: call_service
+        target: "verification.send_otp"
+        description: "Send OTP to the provided phone number or linked contact"
+      - action: emit_event
+        event: palm_pay.link.created
+        payload: [palm_pay_id, user_id, proxy_type]
+    result: "Palm-to-proxy link created — OTP sent for verification"
+    transaction: true
+
+  palm_link_verified:
+    priority: 2
+    given:
+      - field: link_status
+        source: db
+        operator: eq
+        value: "pending_verification"
+        description: "Link is pending verification"
+      - "Customer enters correct OTP"
+    then:
+      - action: transition_state
+        field: link_status
+        from: pending_verification
+        to: active
+      - action: set_field
+        target: verified_at
+        value: "current timestamp"
+      - action: set_field
+        target: linked_at
+        value: "current timestamp"
+      - action: emit_event
+        event: palm_pay.link.verified
+        payload: [palm_pay_id, user_id, payshap_proxy]
+    result: "Palm-to-proxy link verified and active — customer can pay by palm"
+    transaction: true
+
+  palm_payment_resolved:
+    priority: 3
+    given:
+      - "Customer scans palm at terminal"
+      - "Palm vein feature extracted and matched against stored templates"
+      - field: link_status
+        source: db
+        operator: eq
+        value: "active"
+        description: "Matched palm has an active payment link"
+      - field: daily_spent
+        source: computed
+        operator: lt
+        value: daily_limit
+        description: "Daily spending limit not yet reached"
+    then:
+      - action: set_field
+        target: payshap_proxy
+        value: "resolved from matched template"
+        description: "Retrieve the linked payment proxy for this palm"
+      - action: emit_event
+        event: palm_pay.payment.resolved
+        payload: [palm_pay_id, user_id, payshap_proxy, proxy_type]
+    result: "Palm matched and payment proxy resolved — ready to initiate payment"
+
+  palm_payment_completed:
+    priority: 4
+    given:
+      - "Payment proxy resolved from palm scan"
+      - field: amount
+        source: input
+        operator: lte
+        value: transaction_limit
+        description: "Amount within per-transaction limit"
+    then:
+      - action: call_service
+        target: "payshap_rail.initiate_payment"
+        description: "Initiate real-time credit push via payment rail"
+      - action: set_field
+        target: daily_spent
+        value: "daily_spent + amount"
+      - action: emit_event
+        event: palm_pay.payment.completed
+        payload: [palm_pay_id, user_id, amount, payshap_proxy]
+    result: "Payment completed via palm scan — funds transferred"
+    transaction: true
+
+  palm_not_registered:
+    priority: 5
+    error: PALM_PAY_NOT_REGISTERED
+    given:
+      - "Customer scans palm at terminal"
+      - "Palm vein feature does not match any stored template"
+    then:
+      - action: emit_event
+        event: palm_pay.palm.not_registered
+        payload: [terminal_id]
+    result: "Palm not recognized — customer should use card or enroll first"
+
+  palm_link_inactive:
+    priority: 6
+    error: PALM_PAY_LINK_INACTIVE
+    given:
+      - "Palm matched to a stored template"
+      - field: link_status
+        source: db
+        operator: neq
+        value: "active"
+        description: "Palm-to-proxy link is not active"
+    then:
+      - action: emit_event
+        event: palm_pay.link.inactive
+        payload: [palm_pay_id, user_id, link_status]
+    result: "Palm recognized but payment link is not active — customer should use card"
+
+  daily_limit_exceeded:
+    priority: 7
+    error: PALM_PAY_DAILY_LIMIT
+    given:
+      - "Palm matched and link is active"
+      - field: daily_spent
+        source: computed
+        operator: gte
+        value: daily_limit
+        description: "Daily spending limit reached"
+    then:
+      - action: emit_event
+        event: palm_pay.limit.exceeded
+        payload: [palm_pay_id, user_id, daily_spent, daily_limit]
+    result: "Daily palm pay limit reached — customer should use card"
+
+  transaction_limit_exceeded:
+    priority: 8
+    error: PALM_PAY_TRANSACTION_LIMIT
+    given:
+      - "Palm matched and link is active"
+      - field: amount
+        source: input
+        operator: gt
+        value: transaction_limit
+        description: "Amount exceeds per-transaction limit"
+    then:
+      - action: emit_event
+        event: palm_pay.transaction_limit.exceeded
+        payload: [palm_pay_id, user_id, amount, transaction_limit]
+    result: "Transaction amount exceeds palm pay limit — customer should use card"
+
+  palm_link_revoked:
+    priority: 9
+    given:
+      - "Customer or admin requests revocation"
+      - field: link_status
+        source: db
+        operator: in
+        value: ["active", "suspended"]
+        description: "Link is currently active or suspended"
+    then:
+      - action: transition_state
+        field: link_status
+        from: active
+        to: revoked
+      - action: emit_event
+        event: palm_pay.link.revoked
+        payload: [palm_pay_id, user_id]
+    result: "Palm-to-proxy link permanently revoked"
+
+errors:
+  - code: PALM_PAY_NOT_REGISTERED
+    status: 404
+    message: "Palm not recognized — please enroll or use a card"
+
+  - code: PALM_PAY_LINK_INACTIVE
+    status: 403
+    message: "Palm payment link is not active"
+
+  - code: PALM_PAY_DAILY_LIMIT
+    status: 429
+    message: "Daily palm payment limit reached — please use a card"
+
+  - code: PALM_PAY_TRANSACTION_LIMIT
+    status: 400
+    message: "Amount exceeds per-transaction palm payment limit"
+
+  - code: PALM_PAY_VERIFICATION_EXPIRED
+    status: 410
+    message: "Verification link has expired — please re-enroll"
+
+  - code: PALM_PAY_DUPLICATE_PALM
+    status: 409
+    message: "This palm is already linked to a payment proxy"
+
+  - code: PALM_PAY_SPOOF_DETECTED
+    status: 403
+    message: "Liveness check failed — biometric verification rejected"
+
+events:
+  - name: palm_pay.link.created
+    payload: [palm_pay_id, user_id, proxy_type]
+    description: "Palm-to-proxy link created, pending verification"
+
+  - name: palm_pay.link.verified
+    payload: [palm_pay_id, user_id, payshap_proxy]
+    description: "Palm-to-proxy link verified and active"
+
+  - name: palm_pay.payment.resolved
+    payload: [palm_pay_id, user_id, payshap_proxy, proxy_type]
+    description: "Palm scanned and payment proxy resolved"
+
+  - name: palm_pay.payment.completed
+    payload: [palm_pay_id, user_id, amount, payshap_proxy]
+    description: "Payment completed via palm scan"
+
+  - name: palm_pay.palm.not_registered
+    payload: [terminal_id]
+    description: "Palm scan did not match any registered template"
+
+  - name: palm_pay.link.inactive
+    payload: [palm_pay_id, user_id, link_status]
+    description: "Matched palm has inactive payment link"
+
+  - name: palm_pay.limit.exceeded
+    payload: [palm_pay_id, user_id, daily_spent, daily_limit]
+    description: "Daily spending limit exceeded"
+
+  - name: palm_pay.transaction_limit.exceeded
+    payload: [palm_pay_id, user_id, amount, transaction_limit]
+    description: "Per-transaction limit exceeded"
+
+  - name: palm_pay.link.revoked
+    payload: [palm_pay_id, user_id]
+    description: "Palm-to-proxy link permanently revoked"
+
+related:
+  - feature: biometric-auth
+    type: required
+    reason: "Palm enrollment and authentication powers the biometric side of palm pay"
+
+  - feature: palm-vein
+    type: required
+    reason: "Hardware SDK integration for palm vein scanning"
+
+  - feature: payshap-rail
+    type: required
+    reason: "Real-time payment rail for executing credit push payments"
+
+  - feature: terminal-enrollment
+    type: recommended
+    reason: "At-terminal enrollment flow for walk-up palm registration"
+
+  - feature: payment-processing
+    type: recommended
+    reason: "General payment processing that routes palm payments"
+
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_palm_pay
+      description: Palm vein biometric payment — link palm template to payment proxy for hands-free real-time payments
+      success_metrics:
+        - metric: policy_violation_rate
+          target: 0%
+          measurement: Operations that violate defined policies
+        - metric: audit_completeness
+          target: 100%
+          measurement: All decisions have complete audit trails
+      constraints:
+        - type: regulatory
+          description: All operations must be auditable and traceable
+          negotiable: false
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before modifying sensitive data fields
+      - before transitioning to a terminal state
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+  safety:
+    action_permissions:
+      - action: palm_link_created
+        permission: supervised
+      - action: palm_link_verified
+        permission: autonomous
+      - action: palm_payment_resolved
+        permission: autonomous
+      - action: palm_payment_completed
+        permission: autonomous
+      - action: palm_not_registered
+        permission: autonomous
+      - action: palm_link_inactive
+        permission: autonomous
+      - action: daily_limit_exceeded
+        permission: autonomous
+      - action: transaction_limit_exceeded
+        permission: autonomous
+      - action: palm_link_revoked
+        permission: human_required
+  tradeoffs:
+    - prefer: accuracy
+      over: speed
+      reason: financial transactions must be precise and auditable
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+      - state transitions follow the defined state machine — no illegal transitions
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: biometric_auth
+        from: biometric-auth
+        fallback: fail
+      - capability: palm_vein
+        from: palm-vein
+        fallback: fail
+      - capability: payshap_rail
+        from: payshap-rail
+        fallback: fail

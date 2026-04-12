@@ -310,6 +310,8 @@ description: "Biometric scanning hardware integration for palm vein pattern regi
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
 | biometric-auth | recommended | Biometric-auth uses the palm vein SDK to provide alternative authentication |
+| palm-pay | optional | Palm pay links palm vein templates to payment proxies for hands-free payment |
+| terminal-enrollment | optional | At-terminal enrollment uses palm vein SDK for walk-up registration |
 
 ## AGI Readiness
 

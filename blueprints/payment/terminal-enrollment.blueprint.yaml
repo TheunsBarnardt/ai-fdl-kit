@@ -1,0 +1,701 @@
+# ============================================================
+# TERMINAL-ENROLLMENT — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# At-terminal palm enrollment for walk-up registration. Customer
+# scans one or both palms on the terminal's built-in scanner,
+# enters their phone number, verifies via OTP, and links their
+# palm to a real-time payment proxy for hands-free payments.
+# ============================================================
+
+feature: terminal-enrollment
+version: "1.0.0"
+description: "At-terminal palm vein enrollment — walk-up registration with OTP verification and payment proxy linking"
+category: payment
+tags: [enrollment, biometric, palm-vein, onboarding, terminal]
+
+actors:
+  - id: customer
+    name: "Customer"
+    type: human
+    description: "Person enrolling their palm at the terminal"
+    role: "enrollee"
+
+  - id: merchant
+    name: "Merchant / Cashier"
+    type: human
+    description: "Initiates enrollment mode on the terminal"
+    role: "enrollment-operator"
+
+  - id: terminal_app
+    name: "Terminal Application"
+    type: system
+    description: "Android app guiding the enrollment flow"
+    role: "enrollment-orchestrator"
+
+  - id: palm_scanner
+    name: "Built-in Palm Scanner"
+    type: external
+    description: "Integrated palm vein scanning hardware"
+    role: "biometric-capture"
+
+  - id: otp_service
+    name: "OTP Service"
+    type: system
+    description: "Sends and verifies one-time passwords via SMS"
+    role: "verification"
+
+fields:
+  - name: enrollment_id
+    type: token
+    required: true
+    label: "Enrollment ID"
+    # Unique identifier for this enrollment session
+
+  - name: terminal_id
+    type: text
+    required: true
+    label: "Terminal ID"
+
+  - name: phone_number
+    type: phone
+    required: true
+    label: "Phone Number"
+    # Used as the payment proxy and OTP destination
+    validation:
+      - type: required
+        message: "Phone number is required for verification and payment proxy"
+
+  - name: otp_code
+    type: text
+    required: false
+    label: "OTP Code"
+    validation:
+      - type: pattern
+        value: "^[0-9]{6}$"
+        message: "OTP must be a 6-digit number"
+
+  - name: enrollment_state
+    type: select
+    required: true
+    label: "Enrollment State"
+    options:
+      - value: "initiated"
+        label: "Initiated"
+      - value: "palm_scanning"
+        label: "Palm Scanning"
+      - value: "palm_captured"
+        label: "Palm Captured"
+      - value: "phone_entered"
+        label: "Phone Entered"
+      - value: "otp_sent"
+        label: "OTP Sent"
+      - value: "verified"
+        label: "Verified"
+      - value: "linked"
+        label: "Linked"
+      - value: "failed"
+        label: "Failed"
+      - value: "cancelled"
+        label: "Cancelled"
+
+  - name: palms_enrolled
+    type: number
+    required: false
+    label: "Palms Enrolled"
+    default: 0
+    # 1 or 2 palms enrolled
+
+  - name: left_palm_template_ref
+    type: text
+    required: false
+    label: "Left Palm Template Ref"
+    sensitive: true
+
+  - name: right_palm_template_ref
+    type: text
+    required: false
+    label: "Right Palm Template Ref"
+    sensitive: true
+
+  - name: otp_attempts
+    type: number
+    required: false
+    label: "OTP Attempts"
+    default: 0
+
+  - name: otp_max_attempts
+    type: number
+    required: true
+    label: "Max OTP Attempts"
+    default: 3
+
+  - name: enrollment_timeout_minutes
+    type: number
+    required: true
+    label: "Enrollment Timeout (minutes)"
+    default: 5
+
+states:
+  field: enrollment_state
+  values:
+    - id: initiated
+      label: "Initiated"
+      initial: true
+    - id: palm_scanning
+      label: "Palm Scanning"
+    - id: palm_captured
+      label: "Palm Captured"
+    - id: phone_entered
+      label: "Phone Entered"
+    - id: otp_sent
+      label: "OTP Sent"
+    - id: verified
+      label: "Verified"
+    - id: linked
+      label: "Linked"
+      terminal: true
+    - id: failed
+      label: "Failed"
+      terminal: true
+    - id: cancelled
+      label: "Cancelled"
+      terminal: true
+
+  transitions:
+    - from: initiated
+      to: palm_scanning
+      actor: terminal_app
+      description: "Terminal activates palm scanner and displays hand placement instructions"
+
+    - from: palm_scanning
+      to: palm_captured
+      actor: palm_scanner
+      description: "Palm vein template successfully registered (4 captures fused)"
+
+    - from: palm_captured
+      to: palm_scanning
+      actor: customer
+      description: "Customer enrolls second palm (optional)"
+      condition: "palms_enrolled < 2"
+
+    - from: palm_captured
+      to: phone_entered
+      actor: customer
+      description: "Customer enters phone number on terminal"
+
+    - from: phone_entered
+      to: otp_sent
+      actor: otp_service
+      description: "OTP sent to customer's phone number"
+
+    - from: otp_sent
+      to: verified
+      actor: customer
+      description: "Customer enters correct OTP"
+
+    - from: otp_sent
+      to: otp_sent
+      actor: otp_service
+      description: "Resend OTP (within max attempts)"
+      condition: "otp_attempts < otp_max_attempts"
+
+    - from: verified
+      to: linked
+      actor: terminal_app
+      description: "Palm-to-proxy link created and activated"
+
+    - from: otp_sent
+      to: failed
+      actor: terminal_app
+      description: "Max OTP attempts exceeded"
+      condition: "otp_attempts >= otp_max_attempts"
+
+    - from: palm_scanning
+      to: failed
+      actor: terminal_app
+      description: "Palm registration failed after retries"
+
+    - from: initiated
+      to: cancelled
+      actor: customer
+      description: "Customer cancels enrollment"
+
+    - from: palm_scanning
+      to: cancelled
+      actor: customer
+      description: "Customer cancels during scanning"
+
+    - from: palm_captured
+      to: cancelled
+      actor: customer
+      description: "Customer cancels after scan"
+
+    - from: phone_entered
+      to: cancelled
+      actor: customer
+      description: "Customer cancels after phone entry"
+
+    - from: otp_sent
+      to: cancelled
+      actor: customer
+      description: "Customer cancels during OTP verification"
+
+rules:
+  enrollment_flow:
+    palm_first: "Customer must scan at least one palm before entering phone number"
+    optional_second_palm: "Customer may optionally enroll a second palm (left + right)"
+    four_captures: "Each palm registration requires 4 successful captures (SDK requirement)"
+
+  phone_verification:
+    otp_length: "6-digit numeric OTP"
+    otp_expiry: "OTP expires after 5 minutes"
+    max_attempts: "Maximum 3 OTP attempts before enrollment fails"
+    resend_cooldown: "30-second cooldown between OTP resends"
+
+  duplicate_check:
+    palm_unique: "Terminal checks if scanned palm already matches an existing template before proceeding"
+    phone_unique: "Phone number can only be linked to one set of palms at a time"
+
+  timeout:
+    enrollment_timeout: "Entire enrollment flow must complete within 5 minutes"
+    scan_timeout: "Each palm scan attempt times out after 30 seconds"
+
+  security:
+    template_local: "Palm templates stored locally on device — never transmitted to external systems"
+    otp_hashed: "OTP codes hashed before comparison"
+    enrollment_audit: "Every enrollment attempt logged with terminal ID and timestamp"
+
+  ui_guidance:
+    hand_position: "Display clear instructions for hand placement (15-30cm, fingers spread)"
+    progress_indicator: "Show palm capture progress (1/4, 2/4, 3/4, 4/4)"
+    multilingual: "Enrollment UI available in local languages"
+
+outcomes:
+  enrollment_initiated:
+    priority: 1
+    given:
+      - "Merchant or customer starts enrollment mode"
+      - "Terminal is not in active payment processing"
+    then:
+      - action: create_record
+        type: enrollment_session
+        target: enrollments
+        description: "Create enrollment session"
+      - action: transition_state
+        field: enrollment_state
+        from: null
+        to: initiated
+      - action: transition_state
+        field: enrollment_state
+        from: initiated
+        to: palm_scanning
+      - action: emit_event
+        event: enrollment.initiated
+        payload: [enrollment_id, terminal_id]
+    result: "Enrollment started — terminal shows hand placement instructions"
+
+  palm_registered:
+    priority: 2
+    given:
+      - field: enrollment_state
+        source: db
+        operator: eq
+        value: "palm_scanning"
+      - "Palm vein scanner captures 4 images and fuses template"
+    then:
+      - action: set_field
+        target: palms_enrolled
+        value: "palms_enrolled + 1"
+      - action: transition_state
+        field: enrollment_state
+        from: palm_scanning
+        to: palm_captured
+      - action: emit_event
+        event: enrollment.palm.registered
+        payload: [enrollment_id, palms_enrolled]
+    result: "Palm registered — customer may enroll second palm or proceed to phone entry"
+
+  phone_submitted:
+    priority: 3
+    given:
+      - field: enrollment_state
+        source: db
+        operator: eq
+        value: "palm_captured"
+      - field: phone_number
+        source: input
+        operator: exists
+        description: "Customer enters phone number"
+    then:
+      - action: transition_state
+        field: enrollment_state
+        from: palm_captured
+        to: phone_entered
+      - action: call_service
+        target: "otp_service.send_otp"
+        description: "Send 6-digit OTP to customer's phone"
+      - action: transition_state
+        field: enrollment_state
+        from: phone_entered
+        to: otp_sent
+      - action: emit_event
+        event: enrollment.otp.sent
+        payload: [enrollment_id, phone_number]
+    result: "OTP sent to customer's phone for verification"
+
+  otp_verified:
+    priority: 4
+    given:
+      - field: enrollment_state
+        source: db
+        operator: eq
+        value: "otp_sent"
+      - "Customer enters correct OTP"
+    then:
+      - action: transition_state
+        field: enrollment_state
+        from: otp_sent
+        to: verified
+      - action: emit_event
+        event: enrollment.otp.verified
+        payload: [enrollment_id]
+    result: "Phone number verified — proceeding to create palm-pay link"
+
+  enrollment_completed:
+    priority: 5
+    given:
+      - field: enrollment_state
+        source: db
+        operator: eq
+        value: "verified"
+    then:
+      - action: call_service
+        target: "palm_pay.create_link"
+        description: "Create active palm-to-proxy link (phone number as PayShap proxy)"
+      - action: transition_state
+        field: enrollment_state
+        from: verified
+        to: linked
+      - action: emit_event
+        event: enrollment.completed
+        payload: [enrollment_id, palms_enrolled, phone_number]
+    result: "Enrollment complete — customer can now pay by palm at any terminal"
+    transaction: true
+
+  otp_failed:
+    priority: 6
+    error: ENROLLMENT_OTP_FAILED
+    given:
+      - field: enrollment_state
+        source: db
+        operator: eq
+        value: "otp_sent"
+      - field: otp_attempts
+        source: db
+        operator: gte
+        value: otp_max_attempts
+        description: "Maximum OTP attempts exceeded"
+    then:
+      - action: transition_state
+        field: enrollment_state
+        from: otp_sent
+        to: failed
+      - action: emit_event
+        event: enrollment.otp.failed
+        payload: [enrollment_id, otp_attempts]
+    result: "Enrollment failed — too many incorrect OTP attempts"
+
+  palm_scan_failed:
+    priority: 7
+    error: ENROLLMENT_SCAN_FAILED
+    given:
+      - field: enrollment_state
+        source: db
+        operator: eq
+        value: "palm_scanning"
+      - "Palm scanner could not capture valid template after retries"
+    then:
+      - action: transition_state
+        field: enrollment_state
+        from: palm_scanning
+        to: failed
+      - action: emit_event
+        event: enrollment.scan.failed
+        payload: [enrollment_id, terminal_id]
+    result: "Palm scan failed — customer should try again or use app enrollment"
+
+  duplicate_palm_detected:
+    priority: 8
+    error: ENROLLMENT_DUPLICATE_PALM
+    given:
+      - field: enrollment_state
+        source: db
+        operator: eq
+        value: "palm_scanning"
+      - "Scanned palm matches an existing registered template"
+    then:
+      - action: transition_state
+        field: enrollment_state
+        from: palm_scanning
+        to: failed
+      - action: emit_event
+        event: enrollment.duplicate.detected
+        payload: [enrollment_id]
+    result: "Palm already registered — customer can pay directly or contact support"
+
+  enrollment_timeout:
+    priority: 9
+    error: ENROLLMENT_TIMEOUT
+    given:
+      - "Enrollment session exceeds configured timeout"
+    then:
+      - action: transition_state
+        field: enrollment_state
+        from: palm_scanning
+        to: failed
+      - action: emit_event
+        event: enrollment.timeout
+        payload: [enrollment_id]
+    result: "Enrollment timed out — please start again"
+
+  enrollment_cancelled:
+    priority: 10
+    given:
+      - "Customer or merchant cancels enrollment at any step"
+      - field: enrollment_state
+        source: db
+        operator: not_in
+        value: ["linked", "failed", "cancelled"]
+        description: "Enrollment is not already in a terminal state"
+    then:
+      - action: transition_state
+        field: enrollment_state
+        from: palm_scanning
+        to: cancelled
+      - action: emit_event
+        event: enrollment.cancelled
+        payload: [enrollment_id, enrollment_state]
+    result: "Enrollment cancelled — any captured templates discarded"
+
+errors:
+  - code: ENROLLMENT_OTP_FAILED
+    status: 401
+    message: "Too many incorrect OTP attempts — please try again"
+
+  - code: ENROLLMENT_SCAN_FAILED
+    status: 422
+    message: "Palm scan failed — please reposition hand and try again"
+    retry: true
+
+  - code: ENROLLMENT_DUPLICATE_PALM
+    status: 409
+    message: "This palm is already registered — you can pay directly"
+
+  - code: ENROLLMENT_TIMEOUT
+    status: 422
+    message: "Enrollment timed out — please start again"
+
+  - code: ENROLLMENT_PHONE_IN_USE
+    status: 409
+    message: "This phone number is already linked to another palm"
+
+  - code: ENROLLMENT_SCANNER_ERROR
+    status: 500
+    message: "Palm scanner error — please try another terminal"
+    retry: true
+
+events:
+  - name: enrollment.initiated
+    payload: [enrollment_id, terminal_id]
+    description: "Enrollment session started"
+
+  - name: enrollment.palm.registered
+    payload: [enrollment_id, palms_enrolled]
+    description: "Palm template registered during enrollment"
+
+  - name: enrollment.otp.sent
+    payload: [enrollment_id, phone_number]
+    description: "OTP sent to customer's phone"
+
+  - name: enrollment.otp.verified
+    payload: [enrollment_id]
+    description: "OTP verified successfully"
+
+  - name: enrollment.otp.failed
+    payload: [enrollment_id, otp_attempts]
+    description: "OTP verification failed — max attempts exceeded"
+
+  - name: enrollment.completed
+    payload: [enrollment_id, palms_enrolled, phone_number]
+    description: "Enrollment complete — palm-pay link active"
+
+  - name: enrollment.scan.failed
+    payload: [enrollment_id, terminal_id]
+    description: "Palm scan failed during enrollment"
+
+  - name: enrollment.duplicate.detected
+    payload: [enrollment_id]
+    description: "Scanned palm already registered"
+
+  - name: enrollment.timeout
+    payload: [enrollment_id]
+    description: "Enrollment session timed out"
+
+  - name: enrollment.cancelled
+    payload: [enrollment_id, enrollment_state]
+    description: "Enrollment cancelled by customer or merchant"
+
+flows:
+  at_terminal_enrollment:
+    description: "Walk-up palm enrollment at the terminal"
+    steps:
+      - id: start_enrollment
+        actor: merchant
+        action: "Enter enrollment mode on terminal"
+        next: scan_first_palm
+
+      - id: scan_first_palm
+        actor: customer
+        action: "Place first hand on scanner — 4 captures taken"
+        next:
+          - condition: "Scan successful"
+            goto: offer_second_palm
+          - condition: "Scan failed"
+            goto: enrollment_failed
+
+      - id: offer_second_palm
+        actor: terminal_app
+        action: "Ask customer if they want to enroll second palm"
+        next:
+          - condition: "Customer wants second palm"
+            goto: scan_second_palm
+          - condition: "Customer skips"
+            goto: enter_phone
+
+      - id: scan_second_palm
+        actor: customer
+        action: "Place second hand on scanner — 4 captures taken"
+        next: enter_phone
+
+      - id: enter_phone
+        actor: customer
+        action: "Enter phone number on terminal keypad"
+        next: verify_otp
+
+      - id: verify_otp
+        actor: customer
+        action: "Enter 6-digit OTP received via SMS"
+        next:
+          - condition: "OTP correct"
+            goto: link_created
+          - condition: "OTP incorrect and attempts remaining"
+            goto: verify_otp
+          - condition: "Max attempts exceeded"
+            goto: enrollment_failed
+
+      - id: link_created
+        actor: terminal_app
+        action: "Create palm-pay link and confirm enrollment"
+        next: enrollment_complete
+
+      - id: enrollment_complete
+        actor: terminal_app
+        action: "Display success message — customer can now pay by palm"
+
+      - id: enrollment_failed
+        actor: terminal_app
+        action: "Display failure message with reason"
+
+related:
+  - feature: biometric-auth
+    type: required
+    reason: "Palm enrollment uses the biometric authentication system"
+
+  - feature: palm-vein
+    type: required
+    reason: "Hardware SDK for palm vein capture during enrollment"
+
+  - feature: palm-pay
+    type: required
+    reason: "Creates the palm-to-proxy payment link as the enrollment output"
+
+  - feature: terminal-payment-flow
+    type: optional
+    reason: "Enrollment is accessed from the terminal's main payment interface"
+
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_terminal_enrollment
+      description: At-terminal palm vein enrollment — walk-up registration with OTP verification and payment proxy linking
+      success_metrics:
+        - metric: policy_violation_rate
+          target: 0%
+          measurement: Operations that violate defined policies
+        - metric: audit_completeness
+          target: 100%
+          measurement: All decisions have complete audit trails
+      constraints:
+        - type: regulatory
+          description: All operations must be auditable and traceable
+          negotiable: false
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before modifying sensitive data fields
+      - before transitioning to a terminal state
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+  safety:
+    action_permissions:
+      - action: enrollment_initiated
+        permission: autonomous
+      - action: palm_registered
+        permission: autonomous
+      - action: phone_submitted
+        permission: autonomous
+      - action: otp_verified
+        permission: autonomous
+      - action: enrollment_completed
+        permission: autonomous
+      - action: otp_failed
+        permission: autonomous
+      - action: palm_scan_failed
+        permission: autonomous
+      - action: duplicate_palm_detected
+        permission: autonomous
+      - action: enrollment_timeout
+        permission: autonomous
+      - action: enrollment_cancelled
+        permission: supervised
+  tradeoffs:
+    - prefer: accuracy
+      over: speed
+      reason: financial transactions must be precise and auditable
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+      - state transitions follow the defined state machine — no illegal transitions
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: biometric_auth
+        from: biometric-auth
+        fallback: fail
+      - capability: palm_vein
+        from: palm-vein
+        fallback: fail
+      - capability: palm_pay
+        from: palm-pay
+        fallback: fail

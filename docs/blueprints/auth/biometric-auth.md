@@ -258,6 +258,8 @@ description: "Palm vein biometric authentication — alternative to password log
 | login | extends | Adds palm vein as an alternative authentication method to password |
 | palm-vein | required | Requires the biometric scanner SDK integration for scanner operations |
 | signup | recommended | Users may enroll palms during or after account creation |
+| palm-pay | optional | Palm pay extends biometric auth to enable hands-free payment |
+| terminal-enrollment | optional | At-terminal palm enrollment for payment terminal walk-up registration |
 
 ## AGI Readiness
 

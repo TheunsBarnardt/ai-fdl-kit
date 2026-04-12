@@ -1,0 +1,361 @@
+{
+  "feature": "fleet-vehicle-registry",
+  "version": "1.0.0",
+  "description": "Registry of fleets and vehicles within an organization, including fleet grouping, vehicle assignment to drivers, and vehicle type management.",
+  "category": "asset",
+  "tags": [
+    "fleet",
+    "vehicle",
+    "registry",
+    "asset-management",
+    "driver-vehicle"
+  ],
+  "actors": [
+    {
+      "id": "operator",
+      "name": "Fleet Operator",
+      "type": "human",
+      "description": "Creates and manages fleet groups and vehicle records."
+    },
+    {
+      "id": "dispatcher",
+      "name": "Dispatcher",
+      "type": "human",
+      "description": "Assigns vehicles to drivers and manages fleet composition."
+    },
+    {
+      "id": "platform",
+      "name": "Platform",
+      "type": "system",
+      "description": "Enforces vehicle assignment exclusivity and fleet membership rules."
+    }
+  ],
+  "fields": [
+    {
+      "name": "vehicle_id",
+      "type": "text",
+      "required": false,
+      "label": "Public identifier of the vehicle."
+    },
+    {
+      "name": "year",
+      "type": "number",
+      "required": false,
+      "label": "Manufacturing year of the vehicle."
+    },
+    {
+      "name": "make",
+      "type": "text",
+      "required": true,
+      "label": "Vehicle manufacturer (e.g., Toyota, Ford)."
+    },
+    {
+      "name": "model",
+      "type": "text",
+      "required": true,
+      "label": "Vehicle model name."
+    },
+    {
+      "name": "trim",
+      "type": "text",
+      "required": false,
+      "label": "Trim level or variant of the vehicle."
+    },
+    {
+      "name": "plate_number",
+      "type": "text",
+      "required": false,
+      "label": "License plate number."
+    },
+    {
+      "name": "vin",
+      "type": "text",
+      "required": false,
+      "label": "Vehicle Identification Number."
+    },
+    {
+      "name": "vehicle_type",
+      "type": "text",
+      "required": false,
+      "label": "Classification of the vehicle (e.g., sedan, SUV, truck, motorcycle)."
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "required": false,
+      "label": "Current availability status of the vehicle.",
+      "options": [
+        {
+          "value": "active",
+          "label": "Active"
+        },
+        {
+          "value": "inactive",
+          "label": "Inactive"
+        },
+        {
+          "value": "maintenance",
+          "label": "Maintenance"
+        }
+      ]
+    },
+    {
+      "name": "fleet_id",
+      "type": "text",
+      "required": false,
+      "label": "Reference to the fleet this vehicle belongs to."
+    },
+    {
+      "name": "driver_id",
+      "type": "text",
+      "required": false,
+      "label": "Reference to the driver currently assigned to this vehicle."
+    },
+    {
+      "name": "fleet_name",
+      "type": "text",
+      "required": true,
+      "label": "Name of the fleet group."
+    },
+    {
+      "name": "fleet_task",
+      "type": "text",
+      "required": false,
+      "label": "Primary operational task of the fleet (e.g., pickup, delivery, shuttle)."
+    },
+    {
+      "name": "fleet_color",
+      "type": "text",
+      "required": false,
+      "label": "Color code used to visually distinguish this fleet on maps."
+    },
+    {
+      "name": "service_area_id",
+      "type": "text",
+      "required": false,
+      "label": "Service area this fleet operates within."
+    },
+    {
+      "name": "zone_id",
+      "type": "text",
+      "required": false,
+      "label": "Zone within the service area assigned to this fleet."
+    }
+  ],
+  "rules": {
+    "rule_01": "A vehicle can only be actively assigned to one driver at a time; assigning it to a new driver automatically unassigns it from any previous driver.",
+    "rule_02": "A fleet can have multiple drivers and multiple vehicles as members.",
+    "rule_03": "Vehicles and drivers are linked to fleets via membership records (fleet_drivers, fleet_vehicles).",
+    "rule_04": "Fleet groups can be scoped to a specific service area or zone for operational routing.",
+    "rule_05": "All fleet and vehicle records are scoped to the organization (company).",
+    "rule_06": "Vehicle records support rich metadata including VIN data and telematics integration fields.",
+    "rule_07": "Drivers and vehicles are linked independently; a driver may be in a fleet without a vehicle assigned."
+  },
+  "outcomes": {
+    "vehicle_registered": {
+      "priority": 1,
+      "given": [
+        "operator provides make, model, and optionally plate number and VIN"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "description": "Vehicle record is persisted under the organization.",
+          "type": "vehicle"
+        }
+      ],
+      "result": "Vehicle is available for assignment to drivers and fleets."
+    },
+    "vehicle_assigned_to_driver": {
+      "priority": 2,
+      "given": [
+        "dispatcher links a vehicle to a driver",
+        "vehicle is active"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "driver.vehicle_id",
+          "description": "Driver record references the vehicle."
+        },
+        {
+          "action": "set_field",
+          "target": "prior_driver.vehicle_id",
+          "value": null,
+          "description": "Any previously assigned driver is automatically unlinked from the vehicle."
+        }
+      ],
+      "result": "Driver is assigned to the vehicle exclusively."
+    },
+    "fleet_created": {
+      "priority": 3,
+      "given": [
+        "operator provides a fleet name"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "description": "Fleet group is created, optionally scoped to a service area or zone.",
+          "type": "fleet"
+        }
+      ],
+      "result": "Fleet can be populated with drivers and vehicles."
+    },
+    "driver_added_to_fleet": {
+      "priority": 4,
+      "given": [
+        "dispatcher adds a driver to a fleet"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "description": "Membership record links driver to fleet.",
+          "type": "fleet_driver_membership"
+        }
+      ],
+      "result": "Driver is a member of the fleet and subject to fleet-level operations."
+    },
+    "vehicle_added_to_fleet": {
+      "priority": 5,
+      "given": [
+        "dispatcher adds a vehicle to a fleet"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "description": "Membership record links vehicle to fleet.",
+          "type": "fleet_vehicle_membership"
+        }
+      ],
+      "result": "Vehicle is tracked within the fleet's asset inventory."
+    }
+  },
+  "errors": [
+    {
+      "code": "VEHICLE_NOT_FOUND",
+      "status": 404,
+      "message": "The specified vehicle could not be found."
+    },
+    {
+      "code": "FLEET_NOT_FOUND",
+      "status": 404,
+      "message": "The specified fleet could not be found."
+    },
+    {
+      "code": "VEHICLE_ALREADY_ASSIGNED",
+      "status": 400,
+      "message": "This vehicle is already assigned to another driver."
+    }
+  ],
+  "events": [
+    {
+      "name": "fleet.vehicle_assigned",
+      "description": "Vehicle is assigned to a driver within the fleet.",
+      "payload": [
+        "fleet_id",
+        "vehicle_id",
+        "driver_id"
+      ]
+    },
+    {
+      "name": "fleet.driver_added",
+      "description": "Driver is added to a fleet.",
+      "payload": [
+        "fleet_id",
+        "driver_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "driver-assignment-dispatch",
+      "type": "recommended",
+      "reason": "Vehicle assignment is validated as part of driver dispatch readiness."
+    },
+    {
+      "feature": "service-zones",
+      "type": "optional",
+      "reason": "Fleets can be scoped to a service area or zone."
+    },
+    {
+      "feature": "driver-shift-management",
+      "type": "optional",
+      "reason": "Shift management determines which fleet members are active."
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_fleet_vehicle_registry",
+        "description": "Registry of fleets and vehicles within an organization, including fleet grouping, vehicle assignment to drivers, and vehicle type management.",
+        "success_metrics": [
+          {
+            "metric": "success_rate",
+            "target": ">= 99%",
+            "measurement": "Successful operations divided by total attempts"
+          },
+          {
+            "metric": "error_rate",
+            "target": "< 1%",
+            "measurement": "Failed operations divided by total attempts"
+          }
+        ],
+        "constraints": []
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before making irreversible changes"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "vehicle_registered",
+          "permission": "autonomous"
+        },
+        {
+          "action": "vehicle_assigned_to_driver",
+          "permission": "autonomous"
+        },
+        {
+          "action": "fleet_created",
+          "permission": "supervised"
+        },
+        {
+          "action": "driver_added_to_fleet",
+          "permission": "autonomous"
+        },
+        {
+          "action": "vehicle_added_to_fleet",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "accuracy",
+        "over": "convenience",
+        "reason": "asset tracking must maintain precise location and status records"
+      }
+    ]
+  },
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/fleetbase/fleetbase",
+      "project": "Fleetbase",
+      "tech_stack": "PHP / Laravel",
+      "files_traced": 5,
+      "entry_points": [
+        "src/Models/Fleet.php",
+        "src/Models/Vehicle.php",
+        "src/Models/FleetDriver.php",
+        "src/Models/FleetVehicle.php"
+      ]
+    }
+  }
+}

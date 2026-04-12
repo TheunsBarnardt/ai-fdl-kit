@@ -1,0 +1,476 @@
+feature: ride-request-lifecycle
+version: 1.0.0
+description: End-to-end lifecycle of a ride request from creation through dispatch, pickup, and completion or cancellation.
+category: workflow
+tags:
+  - ride-hailing
+  - order
+  - lifecycle
+  - dispatch
+  - pickup
+  - completion
+actors:
+  - id: customer
+    name: Customer
+    type: human
+    description: The rider requesting the trip.
+  - id: driver
+    name: Driver
+    type: human
+    description: The driver assigned to fulfil the ride.
+  - id: platform
+    name: Platform
+    type: system
+    description: The dispatch and orchestration system.
+fields:
+  - name: order_id
+    type: text
+    required: true
+    label: Unique public identifier for the ride request.
+  - name: status
+    type: select
+    required: true
+    label: Current lifecycle status of the ride request.
+    options:
+      - value: created
+        label: Created
+      - value: dispatched
+        label: Dispatched
+      - value: driver_enroute
+        label: Driver Enroute
+      - value: arrived
+        label: Arrived
+      - value: in_progress
+        label: In Progress
+      - value: completed
+        label: Completed
+      - value: canceled
+        label: Canceled
+  - name: customer_id
+    type: text
+    required: true
+    label: Reference to the customer who requested the ride.
+  - name: driver_id
+    type: text
+    required: false
+    label: Reference to the assigned driver (set at dispatch or on adhoc acceptance).
+  - name: pickup_location
+    type: json
+    required: true
+    label: Geographic coordinates and address of the pickup point.
+  - name: dropoff_location
+    type: json
+    required: true
+    label: Geographic coordinates and address of the drop-off point.
+  - name: tracking_number
+    type: text
+    required: false
+    label: Human-readable tracking code for the ride.
+  - name: dispatched
+    type: boolean
+    required: false
+    label: Whether the order has been sent to a driver.
+  - name: dispatched_at
+    type: datetime
+    required: false
+    label: Timestamp when the order was dispatched.
+  - name: started
+    type: boolean
+    required: false
+    label: Whether the driver has started the trip (picked up the rider).
+  - name: started_at
+    type: datetime
+    required: false
+    label: Timestamp when the trip started.
+  - name: distance
+    type: number
+    required: false
+    label: Estimated or actual trip distance in meters.
+  - name: estimated_time
+    type: number
+    required: false
+    label: Estimated trip duration in seconds.
+  - name: scheduled_at
+    type: datetime
+    required: false
+    label: Optional future date/time for scheduled rides.
+  - name: pod_required
+    type: boolean
+    required: false
+    label: Whether proof of pickup/drop-off is required.
+  - name: pod_method
+    type: select
+    required: false
+    label: Method of proof collection.
+    options:
+      - value: signature
+        label: Signature
+      - value: photo
+        label: Photo
+      - value: qr_scan
+        label: Qr Scan
+  - name: notes
+    type: text
+    required: false
+    label: Additional instructions or notes from the customer.
+states:
+  field: status
+  values:
+    - value: created
+      description: Ride request has been created and is awaiting dispatch.
+      initial: true
+    - value: dispatched
+      description: Order has been sent to an assigned driver.
+    - value: driver_enroute
+      description: Driver is en route to the pickup location.
+    - value: arrived
+      description: Driver has arrived at the pickup location.
+    - value: in_progress
+      description: Driver has picked up the rider and the trip is underway.
+    - value: completed
+      description: Trip has ended at the drop-off location.
+      terminal: true
+    - value: canceled
+      description: Ride request was canceled by the customer, driver, or platform.
+      terminal: true
+  transitions:
+    - from: created
+      to: dispatched
+      actor: platform
+      description: Platform dispatches the order to a driver.
+    - from: dispatched
+      to: driver_enroute
+      actor: driver
+      description: Driver accepts the order and begins heading to pickup.
+    - from: driver_enroute
+      to: arrived
+      actor: driver
+      description: Driver marks arrival at the pickup location.
+    - from: arrived
+      to: in_progress
+      actor: driver
+      description: Driver confirms the rider has been picked up and the trip begins.
+    - from: in_progress
+      to: completed
+      actor: driver
+      description: Driver completes the trip at the drop-off point.
+    - from: created
+      to: canceled
+      actor: customer
+      description: Customer cancels before dispatch.
+    - from: dispatched
+      to: canceled
+      actor: customer
+      description: Customer cancels after dispatch.
+    - from: dispatched
+      to: canceled
+      actor: platform
+      description: Platform cancels due to no driver response.
+rules:
+  rule_01: A ride request defaults to status "created" on creation.
+  rule_02: An order must have a pickup and drop-off location to be created.
+  rule_03: Dispatch requires either a pre-assigned driver or adhoc mode where nearby drivers are pinged.
+  rule_04: An order cannot be dispatched more than once.
+  rule_05: An order cannot be started before it has been dispatched (unless skip_dispatch flag is used).
+  rule_06: Cancellation fires a cancellation event and halts any further activity transitions.
+  rule_07: A tracking number is generated at order creation for customer-facing status lookups.
+  rule_08: If proof of delivery is required, trip completion is only allowed after proof is captured.
+  rule_09: Preliminary distance and time estimates are computed at order creation using routing data.
+outcomes:
+  order_created:
+    priority: 1
+    given:
+      - customer submits a ride request with valid pickup and drop-off
+    then:
+      - action: create_record
+        description: Order record is persisted with status created.
+        type: order
+      - action: emit_event
+        event: order.created
+        payload:
+          - order_id
+          - customer_id
+          - pickup_location
+          - dropoff_location
+      - action: set_field
+        target: status
+        value: created
+    result: Ride request is created and a tracking number is returned to the customer.
+  order_dispatched:
+    priority: 2
+    given:
+      - order status is created
+      - driver is assigned or order is in adhoc mode
+    then:
+      - action: set_field
+        target: dispatched
+        value: true
+      - action: set_field
+        target: dispatched_at
+        value: now
+      - action: emit_event
+        event: order.dispatched
+        payload:
+          - order_id
+          - driver_id
+          - dispatched_at
+      - action: transition_state
+        field: status
+        from: created
+        to: dispatched
+    result: Driver receives a push notification with ride details.
+  driver_accepts_and_enroutes:
+    priority: 3
+    given:
+      - order status is dispatched
+      - driver updates activity to driver_enroute
+    then:
+      - action: transition_state
+        field: status
+        from: dispatched
+        to: driver_enroute
+      - action: emit_event
+        event: order.updated
+        payload:
+          - order_id
+          - status
+          - driver_id
+    result: Customer sees driver is en route; ETA is surfaced.
+  driver_arrives:
+    priority: 4
+    given:
+      - order status is driver_enroute
+      - driver updates activity to arrived
+    then:
+      - action: transition_state
+        field: status
+        from: driver_enroute
+        to: arrived
+      - action: emit_event
+        event: order.updated
+        payload:
+          - order_id
+          - status
+    result: Customer is notified that the driver has arrived.
+  trip_starts:
+    priority: 5
+    given:
+      - order status is arrived
+      - driver confirms pickup
+    then:
+      - action: set_field
+        target: started
+        value: true
+      - action: set_field
+        target: started_at
+        value: now
+      - action: transition_state
+        field: status
+        from: arrived
+        to: in_progress
+      - action: emit_event
+        event: order.updated
+        payload:
+          - order_id
+          - status
+          - started_at
+    result: Trip is underway; customer tracking is updated live.
+  trip_completed:
+    priority: 6
+    given:
+      - order status is in_progress
+      - driver marks delivery complete
+      - proof captured if pod_required is true
+    then:
+      - action: transition_state
+        field: status
+        from: in_progress
+        to: completed
+      - action: emit_event
+        event: order.completed
+        payload:
+          - order_id
+          - driver_id
+          - customer_id
+    result: Ride is complete; driver is freed for next assignment.
+  order_canceled:
+    priority: 7
+    error: ORDER_CANCELED
+    given:
+      - customer or platform requests cancellation
+      - order status is not completed
+    then:
+      - action: transition_state
+        field: status
+        from: any
+        to: canceled
+      - action: emit_event
+        event: order.canceled
+        payload:
+          - order_id
+          - canceled_by
+          - reason
+    result: Ride request is terminated; no further activity can be applied.
+  dispatch_failed:
+    priority: 8
+    error: ORDER_DISPATCH_FAILED
+    given:
+      - order is dispatched
+      - no driver accepts within the timeout period
+    then:
+      - action: emit_event
+        event: order.dispatch_failed
+        payload:
+          - order_id
+    result: Platform notifies the operator; order may be re-dispatched or canceled.
+errors:
+  - code: ORDER_CANCELED
+    status: 400
+    message: This ride request has been canceled.
+  - code: ORDER_DISPATCH_FAILED
+    status: 400
+    message: Unable to find a driver for your request. Please try again.
+  - code: ORDER_ALREADY_DISPATCHED
+    status: 400
+    message: This order has already been dispatched.
+  - code: ORDER_ALREADY_STARTED
+    status: 400
+    message: This order has already started.
+  - code: ORDER_NOT_DISPATCHED
+    status: 400
+    message: Order must be dispatched before it can be started.
+events:
+  - name: order.created
+    description: Fired when a new ride request is successfully created.
+    payload:
+      - order_id
+      - customer_id
+      - pickup_location
+      - dropoff_location
+      - tracking_number
+  - name: order.dispatched
+    description: Fired when an order is dispatched to a driver.
+    payload:
+      - order_id
+      - driver_id
+      - dispatched_at
+  - name: order.updated
+    description: Fired on any status or data change to the order.
+    payload:
+      - order_id
+      - status
+      - updated_at
+  - name: order.completed
+    description: Fired when the trip is successfully completed.
+    payload:
+      - order_id
+      - driver_id
+      - customer_id
+      - distance
+      - duration
+  - name: order.canceled
+    description: Fired when the order is canceled.
+    payload:
+      - order_id
+      - canceled_by
+      - reason
+  - name: order.dispatch_failed
+    description: Fired when dispatch cannot be completed.
+    payload:
+      - order_id
+related:
+  - feature: driver-assignment-dispatch
+    type: required
+    reason: Dispatch requires a driver to be assigned or adhoc mode.
+  - feature: driver-app-flow
+    type: required
+    reason: Driver app triggers activity updates (enroute, arrived, in_progress, completed).
+  - feature: customer-app-flow
+    type: required
+    reason: Customer app creates the request and tracks status changes.
+  - feature: order-trip-state-machine
+    type: extends
+    reason: Detailed configurable state machine that governs activity transitions.
+  - feature: webhook-trip-lifecycle
+    type: recommended
+    reason: Webhooks deliver lifecycle events to external systems.
+  - feature: proof-of-delivery
+    type: optional
+    reason: Required when pod_required is true on the order.
+  - feature: eta-calculation
+    type: recommended
+    reason: Preliminary ETA is set at creation; updated at each transition.
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_ride_request_lifecycle
+      description: End-to-end lifecycle of a ride request from creation through dispatch, pickup, and completion or cancellation.
+      success_metrics:
+        - metric: processing_time
+          target: < 5s
+          measurement: Time from request to completion
+        - metric: success_rate
+          target: ">= 99%"
+          measurement: Successful operations divided by total attempts
+      constraints:
+        - type: performance
+          description: Must not block dependent workflows
+          negotiable: true
+  autonomy:
+    level: semi_autonomous
+    human_checkpoints:
+      - before transitioning to a terminal state
+    escalation_triggers:
+      - error_rate > 5
+  safety:
+    action_permissions:
+      - action: order_created
+        permission: supervised
+      - action: order_dispatched
+        permission: autonomous
+      - action: driver_accepts_and_enroutes
+        permission: autonomous
+      - action: driver_arrives
+        permission: autonomous
+      - action: trip_starts
+        permission: autonomous
+      - action: trip_completed
+        permission: autonomous
+      - action: order_canceled
+        permission: supervised
+      - action: dispatch_failed
+        permission: autonomous
+  tradeoffs:
+    - prefer: reliability
+      over: speed
+      reason: workflow steps must complete correctly before proceeding
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: driver_assignment_dispatch
+        from: driver-assignment-dispatch
+        fallback: degrade
+      - capability: driver_app_flow
+        from: driver-app-flow
+        fallback: degrade
+      - capability: customer_app_flow
+        from: customer-app-flow
+        fallback: degrade
+
+extensions:
+  source:
+    repo: https://github.com/fleetbase/fleetbase
+    project: Fleetbase
+    tech_stack: PHP / Laravel
+    files_traced: 8
+    entry_points:
+      - src/Models/Order.php
+      - src/Http/Controllers/Api/v1/OrderController.php
+      - src/Support/Flow.php
+      - src/Events/OrderDispatched.php
+      - src/Events/OrderCompleted.php
+      - src/Events/OrderCanceled.php

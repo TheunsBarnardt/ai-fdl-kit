@@ -1,0 +1,219 @@
+feature: trip-history
+version: 1.0.0
+description: Persistent history of completed and past trips per rider and per driver, including tracking numbers, activity timelines, and position trails for audit and replay.
+category: data
+tags:
+  - history
+  - trips
+  - tracking
+  - audit
+  - driver-history
+  - rider-history
+actors:
+  - id: customer
+    name: Customer
+    type: human
+    description: Views their past rides and trip summaries.
+  - id: driver
+    name: Driver
+    type: human
+    description: Views their completed trips and earnings history.
+  - id: operator
+    name: Operator
+    type: human
+    description: Audits trip history across all drivers and customers.
+fields:
+  - name: order_id
+    type: text
+    required: true
+    label: Public identifier of the completed or past order.
+  - name: tracking_number
+    type: text
+    required: true
+    label: Alphanumeric tracking reference visible to customers.
+  - name: customer_id
+    type: text
+    required: false
+    label: Reference to the customer who requested the trip.
+  - name: driver_id
+    type: text
+    required: false
+    label: Reference to the driver who fulfilled the trip.
+  - name: status
+    type: text
+    required: true
+    label: Final status of the trip (completed, canceled).
+  - name: pickup_location
+    type: json
+    required: false
+    label: Recorded pickup location.
+  - name: dropoff_location
+    type: json
+    required: false
+    label: Recorded drop-off location.
+  - name: distance
+    type: number
+    required: false
+    label: Total trip distance in meters.
+  - name: duration
+    type: number
+    required: false
+    label: Total trip duration in seconds.
+  - name: started_at
+    type: datetime
+    required: false
+    label: When the trip started (rider picked up).
+  - name: completed_at
+    type: datetime
+    required: false
+    label: When the trip ended.
+  - name: tracking_statuses
+    type: json
+    required: false
+    label: Chronological list of activity status changes with timestamps and locations.
+  - name: position_trail
+    type: json
+    required: false
+    label: Sequence of GPS positions recorded during the trip for route replay.
+  - name: page
+    type: number
+    required: false
+    label: Pagination cursor for listing history.
+  - name: limit
+    type: number
+    required: false
+    label: Maximum number of results per page.
+rules:
+  rule_01: Trip history includes all orders associated with a given customer or driver, regardless of current status.
+  rule_02: Queries can be filtered by status (completed, canceled), date range, customer ID, or driver ID.
+  rule_03: Each order in history carries its tracking number, status, route summary, and timestamps.
+  rule_04: Tracking statuses (activity log) are stored per order and ordered chronologically.
+  rule_05: Position trail records are stored per order/driver and enable route replay with up to 50-meter resolution.
+  rule_06: History is paginated; a limit and cursor/page parameter control the result window.
+  rule_07: Operators can access all history within their organization; customers and drivers see only their own.
+outcomes:
+  driver_history_retrieved:
+    priority: 1
+    given:
+      - authenticated request to list orders filtered by driver_id
+    then:
+      - action: set_field
+        target: response.orders
+        description: Paginated list of orders where driver is the assigned driver, with summary fields.
+    result: Driver sees their trip history with status, distance, duration, and timestamps.
+  customer_history_retrieved:
+    priority: 2
+    given:
+      - authenticated request to list orders filtered by customer_id
+    then:
+      - action: set_field
+        target: response.orders
+        description: Paginated list of orders linked to the customer.
+    result: Customer sees all their past rides with tracking numbers and final statuses.
+  tracking_timeline_retrieved:
+    priority: 3
+    given:
+      - request for tracking statuses for a specific order
+    then:
+      - action: set_field
+        target: response.tracking_statuses
+        description: Ordered list of activity events, each with code, status label, timestamp, and location.
+    result: Full activity timeline for the trip is returned.
+  position_trail_retrieved:
+    priority: 4
+    given:
+      - request for position history for a specific order and driver
+    then:
+      - action: set_field
+        target: response.positions
+        description: Ordered GPS positions with heading, speed, and altitude recorded at 50-meter intervals.
+    result: Route of the trip can be replayed on a map.
+  order_not_found:
+    priority: 5
+    error: ORDER_NOT_FOUND
+    given:
+      - requested order ID does not exist or belongs to a different organization
+    then: []
+    result: 404 response is returned.
+errors:
+  - code: ORDER_NOT_FOUND
+    status: 404
+    message: The specified order could not be found.
+related:
+  - feature: ride-request-lifecycle
+    type: required
+    reason: Every entry in trip history is a completed order from the lifecycle.
+  - feature: driver-location-streaming
+    type: recommended
+    reason: Position records that make up the position trail are written during location streaming.
+  - feature: order-trip-state-machine
+    type: recommended
+    reason: Tracking statuses are written at each state machine transition.
+  - feature: customer-app-flow
+    type: recommended
+    reason: Customer app exposes trip history to riders.
+  - feature: driver-app-flow
+    type: recommended
+    reason: Driver app exposes trip history to drivers.
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_trip_history
+      description: Persistent history of completed and past trips per rider and per driver, including tracking numbers,
+        activity timelines, and position trails for audit and replay.
+      success_metrics:
+        - metric: data_accuracy
+          target: 100%
+          measurement: Records matching source of truth
+        - metric: duplicate_rate
+          target: 0%
+          measurement: Duplicate records detected post-creation
+      constraints:
+        - type: performance
+          description: Data consistency must be maintained across concurrent operations
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before making irreversible changes
+    escalation_triggers:
+      - error_rate > 5
+  safety:
+    action_permissions:
+      - action: driver_history_retrieved
+        permission: autonomous
+      - action: customer_history_retrieved
+        permission: autonomous
+      - action: tracking_timeline_retrieved
+        permission: autonomous
+      - action: position_trail_retrieved
+        permission: autonomous
+      - action: order_not_found
+        permission: autonomous
+  tradeoffs:
+    - prefer: data_integrity
+      over: performance
+      reason: data consistency must be maintained across all operations
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: ride_request_lifecycle
+        from: ride-request-lifecycle
+        fallback: degrade
+
+extensions:
+  source:
+    repo: https://github.com/fleetbase/fleetbase
+    project: Fleetbase
+    tech_stack: PHP / Laravel
+    files_traced: 5
+    entry_points:
+      - src/Models/Order.php
+      - src/Models/Driver.php
+      - src/Models/TrackingNumber.php
+      - src/Models/TrackingStatus.php
+      - src/Models/Position.php

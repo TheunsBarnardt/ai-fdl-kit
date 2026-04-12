@@ -1,0 +1,231 @@
+{
+  "feature": "eta-calculation",
+  "version": "1.0.0",
+  "description": "Calculate estimated time of arrival and driving distance between two geographic points, supporting both preliminary (straight-line) and precise (routing-based) calculations.",
+  "category": "data",
+  "tags": [
+    "eta",
+    "routing",
+    "distance",
+    "geospatial",
+    "matrix"
+  ],
+  "actors": [
+    {
+      "id": "platform",
+      "name": "Platform",
+      "type": "system",
+      "description": "Computes ETAs on order creation and on demand via the distance-and-time endpoint."
+    }
+  ],
+  "fields": [
+    {
+      "name": "origin_latitude",
+      "type": "number",
+      "required": true,
+      "label": "Latitude of the start point."
+    },
+    {
+      "name": "origin_longitude",
+      "type": "number",
+      "required": true,
+      "label": "Longitude of the start point."
+    },
+    {
+      "name": "destination_latitude",
+      "type": "number",
+      "required": true,
+      "label": "Latitude of the destination."
+    },
+    {
+      "name": "destination_longitude",
+      "type": "number",
+      "required": true,
+      "label": "Longitude of the destination."
+    },
+    {
+      "name": "distance_meters",
+      "type": "number",
+      "required": false,
+      "label": "Computed driving distance in meters."
+    },
+    {
+      "name": "duration_seconds",
+      "type": "number",
+      "required": false,
+      "label": "Computed driving duration in seconds."
+    },
+    {
+      "name": "order_id",
+      "type": "text",
+      "required": false,
+      "label": "Order the ETA is being computed for."
+    }
+  ],
+  "rules": {
+    "rule_01": "A preliminary distance and time estimate is computed at order creation from the pickup to the first waypoint (or drop-off).",
+    "rule_02": "The preliminary estimate uses a fast approximate method (geodesic calculation); precise routing is done on demand.",
+    "rule_03": "The on-demand distance-and-time endpoint returns real driving distance and time using a routing engine (e.g., OSRM).",
+    "rule_04": "Both origin and destination must be valid non-null geographic coordinates.",
+    "rule_05": "Calculated distance (meters) and time (seconds) are stored on the order record.",
+    "rule_06": "ETA can be recalculated at any point during the trip by calling the distance-and-time endpoint."
+  },
+  "outcomes": {
+    "preliminary_eta_computed": {
+      "priority": 1,
+      "given": [
+        "order is created with valid pickup and drop-off coordinates"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "order.distance",
+          "description": "Approximate geodesic distance in meters stored on the order."
+        },
+        {
+          "action": "set_field",
+          "target": "order.estimated_time",
+          "description": "Approximate travel time in seconds stored on the order."
+        }
+      ],
+      "result": "Order record carries initial distance and ETA estimates available immediately after creation."
+    },
+    "precise_eta_computed": {
+      "priority": 2,
+      "given": [
+        "caller requests distance-and-time for an order",
+        "order has valid origin and destination coordinates"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "order.distance",
+          "description": "Actual driving distance in meters updated from routing engine response."
+        },
+        {
+          "action": "set_field",
+          "target": "order.estimated_time",
+          "description": "Actual driving duration in seconds updated from routing engine response."
+        }
+      ],
+      "result": "Order's distance and ETA are updated with precise driving route data."
+    },
+    "eta_unavailable": {
+      "priority": 3,
+      "error": "ETA_COORDINATES_MISSING",
+      "given": [
+        "origin or destination coordinates are null or invalid"
+      ],
+      "then": [],
+      "result": "ETA calculation is skipped; order is created without preliminary estimates."
+    }
+  },
+  "errors": [
+    {
+      "code": "ETA_COORDINATES_MISSING",
+      "status": 400,
+      "message": "Cannot compute ETA: pickup or drop-off coordinates are missing."
+    },
+    {
+      "code": "ROUTING_ENGINE_UNAVAILABLE",
+      "status": 400,
+      "message": "Routing service is temporarily unavailable. Distance estimate may be approximate."
+    }
+  ],
+  "related": [
+    {
+      "feature": "ride-request-lifecycle",
+      "type": "required",
+      "reason": "Preliminary ETA is computed at order creation; used for customer-facing estimates."
+    },
+    {
+      "feature": "customer-app-flow",
+      "type": "recommended",
+      "reason": "Customer app surfaces ETA to pickup and ETA to drop-off."
+    },
+    {
+      "feature": "driver-location-streaming",
+      "type": "recommended",
+      "reason": "Live driver position enables dynamic ETA recalculation."
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_eta_calculation",
+        "description": "Calculate estimated time of arrival and driving distance between two geographic points, supporting both preliminary (straight-line) and precise (routing-based) calculations.",
+        "success_metrics": [
+          {
+            "metric": "data_accuracy",
+            "target": "100%",
+            "measurement": "Records matching source of truth"
+          },
+          {
+            "metric": "duplicate_rate",
+            "target": "0%",
+            "measurement": "Duplicate records detected post-creation"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "performance",
+            "description": "Data consistency must be maintained across concurrent operations",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "preliminary_eta_computed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "precise_eta_computed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "eta_unavailable",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "data_integrity",
+        "over": "performance",
+        "reason": "data consistency must be maintained across all operations"
+      }
+    ],
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "ride_request_lifecycle",
+          "from": "ride-request-lifecycle",
+          "fallback": "degrade"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/fleetbase/fleetbase",
+      "project": "Fleetbase",
+      "tech_stack": "PHP / Laravel",
+      "files_traced": 3,
+      "entry_points": [
+        "src/Models/Order.php",
+        "src/Http/Controllers/Api/v1/OrderController.php",
+        "src/Support/Utils.php"
+      ]
+    }
+  }
+}

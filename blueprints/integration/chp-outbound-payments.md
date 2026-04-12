@@ -81,6 +81,7 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - **chp-request-to-pay** *(optional)* — Request-to-pay operations via PayShap
 - **chp-eft** *(recommended)* — EFT-specific payment operations
 - **chp-account-management** *(recommended)* — Account verification and management for CHP participants
+- **payshap-rail** *(optional)* — Real-time payment rail abstraction built on top of clearing house PayShap scheme
 
 ## Quality fitness 🟢 81/100
 

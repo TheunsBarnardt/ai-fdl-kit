@@ -1,0 +1,229 @@
+feature: proof-of-delivery
+version: 1.0.0
+description: Capture proof of pickup or drop-off for an order or specific waypoint/entity, supporting digital signature, photo upload, and QR code scan as verification methods.
+category: data
+tags:
+  - proof
+  - signature
+  - photo
+  - qr-code
+  - delivery-confirmation
+  - pod
+actors:
+  - id: driver
+    name: Driver
+    type: human
+    description: Captures proof at the point of pickup or delivery via the driver app.
+  - id: platform
+    name: Platform
+    type: system
+    description: Validates and stores proof records; gates order completion when pod_required is true.
+fields:
+  - name: order_id
+    type: text
+    required: true
+    label: The order this proof is associated with.
+  - name: subject_id
+    type: text
+    required: false
+    label: Optional waypoint or entity identifier this proof is for (omit for order-level proof).
+  - name: pod_method
+    type: select
+    required: true
+    label: Type of proof being captured.
+    options:
+      - value: signature
+        label: Signature
+      - value: photo
+        label: Photo
+      - value: qr_scan
+        label: Qr Scan
+  - name: signature_data
+    type: text
+    required: false
+    label: Base64-encoded signature image (for pod_method=signature).
+  - name: photo_file
+    type: file
+    required: false
+    label: Photo file uploaded as proof (for pod_method=photo).
+  - name: qr_code
+    type: text
+    required: false
+    label: UUID or code string from the QR scan (for pod_method=qr_scan).
+  - name: remarks
+    type: text
+    required: false
+    label: Optional driver comments about the proof capture.
+  - name: raw_data
+    type: json
+    required: false
+    label: Raw input data accompanying the proof (e.g., scan metadata).
+  - name: data
+    type: json
+    required: false
+    label: Structured proof data, used for QR scan content or additional metadata.
+  - name: file_url
+    type: url
+    required: false
+    label: URL of the uploaded signature or photo file in cloud storage.
+  - name: proof_id
+    type: text
+    required: false
+    label: Public identifier of the created proof record.
+rules:
+  rule_01: Proof is only required when pod_required is set to true on the order.
+  rule_02: If pod_required is true, the order completion activity is blocked until proof is captured.
+  rule_03: A proof record can be captured at the order level or for a specific waypoint or entity within the order.
+  rule_04: Signature capture uploads the signature as a file to cloud storage; the file URL is stored on the proof record.
+  rule_05: QR scan proof validates that the scanned UUID matches the UUID of the subject (waypoint, entity, or order).
+  rule_06: Photo proof stores the uploaded file URL in cloud storage.
+  rule_07: Multiple proof records can exist for a single order (e.g., one per waypoint in a multi-stop trip).
+  rule_08: Proof records are immutable once created.
+outcomes:
+  signature_captured:
+    priority: 1
+    given:
+      - driver submits a base64-encoded signature image
+      - valid order_id is provided
+    then:
+      - action: create_record
+        description: Signature image is stored in cloud storage and a file record is created.
+        type: proof_file
+      - action: create_record
+        description: Proof record is created linking the order, subject, and stored signature file.
+        type: proof
+    result: Signature proof is stored and linked to the order or waypoint. Order can now proceed to completion.
+  photo_captured:
+    priority: 2
+    given:
+      - driver uploads a photo file
+      - valid order_id is provided
+    then:
+      - action: create_record
+        description: Photo is uploaded to cloud storage.
+        type: proof_file
+      - action: create_record
+        description: Proof record is created linking the order and stored photo.
+        type: proof
+    result: Photo proof is stored and linked to the order.
+  qr_scan_verified:
+    priority: 3
+    given:
+      - driver scans a QR code
+      - scanned code matches the UUID of the target subject (order, waypoint, or entity)
+    then:
+      - action: create_record
+        description: Verification proof is created with remarks indicating QR verification.
+        type: proof
+    result: QR scan proof confirms the driver is at the correct delivery point.
+  qr_scan_invalid:
+    priority: 4
+    error: QR_CODE_MISMATCH
+    given:
+      - scanned QR code does not match any valid subject UUID
+    then: []
+    result: Proof is rejected; driver must re-scan the correct code.
+  proof_required_gate_blocked:
+    priority: 5
+    error: PROOF_REQUIRED
+    given:
+      - driver attempts to complete or advance order
+      - pod_required is true
+      - no proof record exists for the order or required waypoint
+    then: []
+    result: Activity transition is blocked until valid proof is submitted.
+errors:
+  - code: QR_CODE_MISMATCH
+    status: 400
+    message: "Unable to capture QR code: the scanned code does not match the expected subject."
+  - code: PROOF_REQUIRED
+    status: 400
+    message: Proof of delivery is required before this step can be completed.
+  - code: SIGNATURE_DATA_MISSING
+    status: 400
+    message: Signature data is required for signature proof capture.
+  - code: ORDER_NOT_FOUND
+    status: 404
+    message: Order not found.
+events:
+  - name: order.proof_captured
+    description: Fired when a proof record is successfully created for an order or waypoint.
+    payload:
+      - order_id
+      - proof_id
+      - pod_method
+      - subject_id
+related:
+  - feature: order-trip-state-machine
+    type: required
+    reason: Proof gates are enforced at activity transition points in the state machine.
+  - feature: ride-request-lifecycle
+    type: recommended
+    reason: pod_required flag on the order determines whether proof is needed.
+  - feature: driver-app-flow
+    type: required
+    reason: Driver app submits proof via the capture-signature or capture-qr endpoints.
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_proof_of_delivery
+      description: Capture proof of pickup or drop-off for an order or specific waypoint/entity, supporting digital signature,
+        photo upload, and QR code scan as verification methods.
+      success_metrics:
+        - metric: data_accuracy
+          target: 100%
+          measurement: Records matching source of truth
+        - metric: duplicate_rate
+          target: 0%
+          measurement: Duplicate records detected post-creation
+      constraints:
+        - type: performance
+          description: Data consistency must be maintained across concurrent operations
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before making irreversible changes
+    escalation_triggers:
+      - error_rate > 5
+  safety:
+    action_permissions:
+      - action: signature_captured
+        permission: autonomous
+      - action: photo_captured
+        permission: autonomous
+      - action: qr_scan_verified
+        permission: autonomous
+      - action: qr_scan_invalid
+        permission: autonomous
+      - action: proof_required_gate_blocked
+        permission: human_required
+  tradeoffs:
+    - prefer: data_integrity
+      over: performance
+      reason: data consistency must be maintained across all operations
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: order_trip_state_machine
+        from: order-trip-state-machine
+        fallback: degrade
+      - capability: driver_app_flow
+        from: driver-app-flow
+        fallback: degrade
+
+extensions:
+  source:
+    repo: https://github.com/fleetbase/fleetbase
+    project: Fleetbase
+    tech_stack: PHP / Laravel
+    files_traced: 4
+    entry_points:
+      - src/Models/Proof.php
+      - src/Models/Order.php
+      - src/Http/Controllers/Api/v1/OrderController.php
+      - src/routes.php

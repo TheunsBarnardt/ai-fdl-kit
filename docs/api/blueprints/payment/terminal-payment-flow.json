@@ -1,0 +1,1115 @@
+{
+  "feature": "terminal-payment-flow",
+  "version": "1.0.0",
+  "description": "Payment terminal transaction orchestration — amount entry, method selection (palm or card), payment execution, and digital receipt delivery",
+  "category": "payment",
+  "tags": [
+    "terminal",
+    "payment-flow",
+    "palm-vein",
+    "card",
+    "digital-receipt",
+    "android"
+  ],
+  "actors": [
+    {
+      "id": "merchant",
+      "name": "Merchant / Cashier",
+      "type": "human",
+      "description": "Operates the terminal — enters amount and initiates transactions",
+      "role": "payment-operator"
+    },
+    {
+      "id": "customer",
+      "name": "Customer",
+      "type": "human",
+      "description": "Pays via palm scan or card",
+      "role": "payer"
+    },
+    {
+      "id": "terminal_app",
+      "name": "Terminal Application",
+      "type": "system",
+      "description": "Android app running on the payment terminal",
+      "role": "orchestrator"
+    },
+    {
+      "id": "palm_scanner",
+      "name": "Built-in Palm Scanner",
+      "type": "external",
+      "description": "Integrated palm vein scanning hardware",
+      "role": "biometric-capture"
+    },
+    {
+      "id": "card_reader",
+      "name": "Built-in Card Reader",
+      "type": "external",
+      "description": "Integrated EMV chip, NFC tap, and magnetic stripe reader",
+      "role": "card-capture"
+    },
+    {
+      "id": "receipt_service",
+      "name": "Receipt Service",
+      "type": "system",
+      "description": "Sends digital receipts via SMS or email",
+      "role": "receipt-delivery"
+    }
+  ],
+  "fields": [
+    {
+      "name": "transaction_id",
+      "type": "token",
+      "required": true,
+      "label": "Transaction ID"
+    },
+    {
+      "name": "terminal_id",
+      "type": "text",
+      "required": true,
+      "label": "Terminal ID"
+    },
+    {
+      "name": "merchant_id",
+      "type": "text",
+      "required": true,
+      "label": "Merchant ID"
+    },
+    {
+      "name": "amount",
+      "type": "number",
+      "required": true,
+      "label": "Payment Amount",
+      "validation": [
+        {
+          "type": "min",
+          "value": 0.01,
+          "message": "Amount must be greater than zero"
+        }
+      ]
+    },
+    {
+      "name": "currency",
+      "type": "text",
+      "required": true,
+      "label": "Currency",
+      "default": "ZAR"
+    },
+    {
+      "name": "payment_method",
+      "type": "select",
+      "required": true,
+      "label": "Payment Method",
+      "options": [
+        {
+          "value": "palm",
+          "label": "Palm Vein"
+        },
+        {
+          "value": "card_chip",
+          "label": "Card (Chip)"
+        },
+        {
+          "value": "card_tap",
+          "label": "Card (Contactless/NFC)"
+        },
+        {
+          "value": "card_swipe",
+          "label": "Card (Magnetic Stripe)"
+        }
+      ]
+    },
+    {
+      "name": "flow_state",
+      "type": "select",
+      "required": true,
+      "label": "Flow State",
+      "options": [
+        {
+          "value": "idle",
+          "label": "Idle"
+        },
+        {
+          "value": "amount_entered",
+          "label": "Amount Entered"
+        },
+        {
+          "value": "awaiting_method",
+          "label": "Awaiting Method Selection"
+        },
+        {
+          "value": "processing_palm",
+          "label": "Processing Palm"
+        },
+        {
+          "value": "processing_card",
+          "label": "Processing Card"
+        },
+        {
+          "value": "approved",
+          "label": "Approved"
+        },
+        {
+          "value": "declined",
+          "label": "Declined"
+        },
+        {
+          "value": "error",
+          "label": "Error"
+        },
+        {
+          "value": "receipt_sent",
+          "label": "Receipt Sent"
+        }
+      ]
+    },
+    {
+      "name": "card_brand",
+      "type": "text",
+      "required": false,
+      "label": "Card Brand"
+    },
+    {
+      "name": "card_last_four",
+      "type": "text",
+      "required": false,
+      "label": "Card Last Four Digits"
+    },
+    {
+      "name": "palm_pay_id",
+      "type": "text",
+      "required": false,
+      "label": "Palm Pay Link ID"
+    },
+    {
+      "name": "authorization_code",
+      "type": "text",
+      "required": false,
+      "label": "Authorization Code"
+    },
+    {
+      "name": "receipt_destination",
+      "type": "text",
+      "required": false,
+      "label": "Receipt Destination"
+    },
+    {
+      "name": "receipt_type",
+      "type": "select",
+      "required": false,
+      "label": "Receipt Type",
+      "options": [
+        {
+          "value": "sms",
+          "label": "SMS"
+        },
+        {
+          "value": "email",
+          "label": "Email"
+        },
+        {
+          "value": "none",
+          "label": "No Receipt"
+        }
+      ]
+    },
+    {
+      "name": "refund_authorized_by",
+      "type": "text",
+      "required": false,
+      "label": "Refund Authorized By"
+    }
+  ],
+  "states": {
+    "field": "flow_state",
+    "values": [
+      {
+        "id": "idle",
+        "label": "Idle",
+        "initial": true
+      },
+      {
+        "id": "amount_entered",
+        "label": "Amount Entered"
+      },
+      {
+        "id": "awaiting_method",
+        "label": "Awaiting Method Selection"
+      },
+      {
+        "id": "processing_palm",
+        "label": "Processing Palm"
+      },
+      {
+        "id": "processing_card",
+        "label": "Processing Card"
+      },
+      {
+        "id": "approved",
+        "label": "Approved"
+      },
+      {
+        "id": "declined",
+        "label": "Declined",
+        "terminal": true
+      },
+      {
+        "id": "error",
+        "label": "Error",
+        "terminal": true
+      },
+      {
+        "id": "receipt_sent",
+        "label": "Receipt Sent",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "idle",
+        "to": "amount_entered",
+        "actor": "merchant",
+        "description": "Merchant enters the payment amount"
+      },
+      {
+        "from": "amount_entered",
+        "to": "awaiting_method",
+        "actor": "terminal_app",
+        "description": "Terminal displays method selection screen (palm or card)"
+      },
+      {
+        "from": "awaiting_method",
+        "to": "processing_palm",
+        "actor": "customer",
+        "description": "Customer places hand on palm scanner"
+      },
+      {
+        "from": "awaiting_method",
+        "to": "processing_card",
+        "actor": "customer",
+        "description": "Customer inserts, taps, or swipes card"
+      },
+      {
+        "from": "processing_palm",
+        "to": "approved",
+        "actor": "terminal_app",
+        "description": "Palm matched, proxy resolved, payment settled via real-time rail"
+      },
+      {
+        "from": "processing_palm",
+        "to": "declined",
+        "actor": "terminal_app",
+        "description": "Palm match failed, link inactive, or payment declined"
+      },
+      {
+        "from": "processing_palm",
+        "to": "awaiting_method",
+        "actor": "terminal_app",
+        "description": "Palm failed — offer card as fallback",
+        "condition": "Customer chooses to retry with card"
+      },
+      {
+        "from": "processing_card",
+        "to": "approved",
+        "actor": "terminal_app",
+        "description": "Card authorized by payment network"
+      },
+      {
+        "from": "processing_card",
+        "to": "declined",
+        "actor": "terminal_app",
+        "description": "Card declined by issuer"
+      },
+      {
+        "from": "approved",
+        "to": "receipt_sent",
+        "actor": "receipt_service",
+        "description": "Digital receipt delivered via SMS or email"
+      },
+      {
+        "from": "processing_palm",
+        "to": "error",
+        "actor": "terminal_app",
+        "description": "System error during palm payment processing"
+      },
+      {
+        "from": "processing_card",
+        "to": "error",
+        "actor": "terminal_app",
+        "description": "System error during card payment processing"
+      }
+    ]
+  },
+  "rules": {
+    "amount_entry": {
+      "minimum": "Amount must be at least R0.01",
+      "display": "Amount shown in ZAR with 2 decimal places",
+      "confirmation": "Merchant confirms amount before method selection screen appears"
+    },
+    "method_selection": {
+      "display_both": "Terminal always shows both payment options (palm and card)",
+      "timeout": "Method selection screen times out after 60 seconds — returns to idle",
+      "palm_first": "Palm scanner LED activates when method selection screen appears"
+    },
+    "palm_flow": {
+      "scan_timeout": "Palm scan times out after 30 seconds",
+      "match_then_pay": "On match: resolve proxy → initiate payment rail → await settlement",
+      "fallback": "If palm fails, customer may choose card without re-entering amount"
+    },
+    "card_flow": {
+      "emv_preferred": "EMV chip is preferred over magnetic stripe for security",
+      "contactless_limit": "NFC tap may have an issuer-defined contactless limit",
+      "pin_entry": "PIN entry on terminal keypad for chip transactions when required by issuer"
+    },
+    "receipt": {
+      "digital_only": "Receipts delivered via SMS or email — no printer required",
+      "content": "Receipt includes: merchant name, date/time, amount, last 4 digits (card) or 'Palm Pay' label, authorization code",
+      "optional": "Customer may decline receipt"
+    },
+    "refunds": {
+      "manager_auth_required": "Refunds require manager PIN entry at the terminal",
+      "same_method": "Refund must be processed via the same method as the original payment",
+      "lookup": "Original transaction looked up by authorization code or transaction ID"
+    },
+    "security": {
+      "pci_dss": "Card data never stored on terminal — tokenized immediately",
+      "biometric_local": "Palm templates stored locally on device — never transmitted",
+      "tls": "All backend communication over TLS 1.2+",
+      "tamper_detection": "Terminal hardware tamper detection triggers lockdown"
+    }
+  },
+  "outcomes": {
+    "amount_confirmed": {
+      "priority": 1,
+      "given": [
+        "Terminal is idle",
+        {
+          "field": "amount",
+          "source": "input",
+          "operator": "gte",
+          "value": 0.01,
+          "description": "Valid amount entered"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "flow_state",
+          "from": "idle",
+          "to": "amount_entered"
+        },
+        {
+          "action": "transition_state",
+          "field": "flow_state",
+          "from": "amount_entered",
+          "to": "awaiting_method"
+        },
+        {
+          "action": "emit_event",
+          "event": "terminal.amount.confirmed",
+          "payload": [
+            "transaction_id",
+            "terminal_id",
+            "amount"
+          ]
+        }
+      ],
+      "result": "Amount confirmed — terminal shows payment method selection"
+    },
+    "palm_payment_approved": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "flow_state",
+          "source": "db",
+          "operator": "eq",
+          "value": "processing_palm"
+        },
+        "Palm vein matched and proxy resolved",
+        "Payment settled via real-time rail"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "payment_method",
+          "value": "palm"
+        },
+        {
+          "action": "transition_state",
+          "field": "flow_state",
+          "from": "processing_palm",
+          "to": "approved"
+        },
+        {
+          "action": "emit_event",
+          "event": "terminal.payment.approved",
+          "payload": [
+            "transaction_id",
+            "terminal_id",
+            "amount",
+            "payment_method",
+            "authorization_code"
+          ]
+        }
+      ],
+      "result": "Palm payment approved — ready to send receipt",
+      "transaction": true
+    },
+    "card_payment_approved": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "flow_state",
+          "source": "db",
+          "operator": "eq",
+          "value": "processing_card"
+        },
+        "Card authorized by payment network"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "payment_method",
+          "value": "card_chip",
+          "description": "Set to actual card method used (chip/tap/swipe)"
+        },
+        {
+          "action": "transition_state",
+          "field": "flow_state",
+          "from": "processing_card",
+          "to": "approved"
+        },
+        {
+          "action": "emit_event",
+          "event": "terminal.payment.approved",
+          "payload": [
+            "transaction_id",
+            "terminal_id",
+            "amount",
+            "payment_method",
+            "card_brand",
+            "card_last_four",
+            "authorization_code"
+          ]
+        }
+      ],
+      "result": "Card payment approved — ready to send receipt",
+      "transaction": true
+    },
+    "receipt_delivered": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "flow_state",
+          "source": "db",
+          "operator": "eq",
+          "value": "approved"
+        },
+        {
+          "field": "receipt_destination",
+          "source": "input",
+          "operator": "exists",
+          "description": "Customer provides phone number or email for receipt"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "receipt_service.send_digital_receipt",
+          "description": "Send receipt via SMS or email"
+        },
+        {
+          "action": "transition_state",
+          "field": "flow_state",
+          "from": "approved",
+          "to": "receipt_sent"
+        },
+        {
+          "action": "emit_event",
+          "event": "terminal.receipt.sent",
+          "payload": [
+            "transaction_id",
+            "receipt_type",
+            "receipt_destination"
+          ]
+        }
+      ],
+      "result": "Digital receipt sent — transaction complete"
+    },
+    "receipt_declined": {
+      "priority": 5,
+      "given": [
+        {
+          "field": "flow_state",
+          "source": "db",
+          "operator": "eq",
+          "value": "approved"
+        },
+        {
+          "field": "receipt_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "none",
+          "description": "Customer declines receipt"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "flow_state",
+          "from": "approved",
+          "to": "receipt_sent"
+        },
+        {
+          "action": "emit_event",
+          "event": "terminal.receipt.declined",
+          "payload": [
+            "transaction_id"
+          ]
+        }
+      ],
+      "result": "Customer declined receipt — transaction complete"
+    },
+    "palm_payment_declined": {
+      "priority": 6,
+      "error": "TERMINAL_PALM_DECLINED",
+      "given": [
+        {
+          "field": "flow_state",
+          "source": "db",
+          "operator": "eq",
+          "value": "processing_palm"
+        },
+        {
+          "any": [
+            "Palm not recognized",
+            "Palm pay link is inactive",
+            "Payment rail declined the transaction",
+            "Daily or transaction limit exceeded"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "flow_state",
+          "from": "processing_palm",
+          "to": "awaiting_method",
+          "description": "Return to method selection for card fallback"
+        },
+        {
+          "action": "emit_event",
+          "event": "terminal.palm.declined",
+          "payload": [
+            "transaction_id",
+            "terminal_id"
+          ]
+        }
+      ],
+      "result": "Palm payment declined — customer may try card instead"
+    },
+    "card_payment_declined": {
+      "priority": 7,
+      "error": "TERMINAL_CARD_DECLINED",
+      "given": [
+        {
+          "field": "flow_state",
+          "source": "db",
+          "operator": "eq",
+          "value": "processing_card"
+        },
+        "Card issuer declined the transaction"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "flow_state",
+          "from": "processing_card",
+          "to": "declined"
+        },
+        {
+          "action": "emit_event",
+          "event": "terminal.card.declined",
+          "payload": [
+            "transaction_id",
+            "terminal_id",
+            "card_brand",
+            "card_last_four"
+          ]
+        }
+      ],
+      "result": "Card declined by issuer — transaction ended"
+    },
+    "refund_processed": {
+      "priority": 8,
+      "given": [
+        "Manager enters PIN to authorize refund",
+        "Original transaction found by authorization code",
+        {
+          "field": "refund_authorized_by",
+          "source": "input",
+          "operator": "exists",
+          "description": "Manager authorization provided"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "payment_backend.process_refund",
+          "description": "Reverse original payment via same method (palm rail or card network)"
+        },
+        {
+          "action": "emit_event",
+          "event": "terminal.refund.processed",
+          "payload": [
+            "transaction_id",
+            "original_transaction_id",
+            "amount",
+            "refund_authorized_by"
+          ]
+        }
+      ],
+      "result": "Refund processed — funds returned via original payment method",
+      "transaction": true
+    },
+    "method_selection_timeout": {
+      "priority": 9,
+      "error": "TERMINAL_TIMEOUT",
+      "given": [
+        {
+          "field": "flow_state",
+          "source": "db",
+          "operator": "eq",
+          "value": "awaiting_method"
+        },
+        "No payment method selected within 60 seconds"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "flow_state",
+          "from": "awaiting_method",
+          "to": "idle"
+        },
+        {
+          "action": "emit_event",
+          "event": "terminal.session.timeout",
+          "payload": [
+            "transaction_id",
+            "terminal_id"
+          ]
+        }
+      ],
+      "result": "Transaction timed out — terminal returns to idle"
+    }
+  },
+  "errors": [
+    {
+      "code": "TERMINAL_PALM_DECLINED",
+      "status": 422,
+      "message": "Palm payment was declined — please try card"
+    },
+    {
+      "code": "TERMINAL_CARD_DECLINED",
+      "status": 422,
+      "message": "Card was declined by the issuer"
+    },
+    {
+      "code": "TERMINAL_TIMEOUT",
+      "status": 422,
+      "message": "Transaction timed out"
+    },
+    {
+      "code": "TERMINAL_SCANNER_ERROR",
+      "status": 500,
+      "message": "Palm scanner error — please try card",
+      "retry": true
+    },
+    {
+      "code": "TERMINAL_CARD_READER_ERROR",
+      "status": 500,
+      "message": "Card reader error — please try again",
+      "retry": true
+    },
+    {
+      "code": "TERMINAL_NETWORK_ERROR",
+      "status": 503,
+      "message": "Network connection lost — transaction may be queued",
+      "retry": true
+    },
+    {
+      "code": "TERMINAL_REFUND_UNAUTHORIZED",
+      "status": 403,
+      "message": "Manager authorization required for refunds"
+    },
+    {
+      "code": "TERMINAL_INVALID_AMOUNT",
+      "status": 400,
+      "message": "Invalid payment amount"
+    }
+  ],
+  "events": [
+    {
+      "name": "terminal.amount.confirmed",
+      "payload": [
+        "transaction_id",
+        "terminal_id",
+        "amount"
+      ],
+      "description": "Payment amount confirmed by merchant"
+    },
+    {
+      "name": "terminal.payment.approved",
+      "payload": [
+        "transaction_id",
+        "terminal_id",
+        "amount",
+        "payment_method",
+        "authorization_code"
+      ],
+      "description": "Payment approved (palm or card)"
+    },
+    {
+      "name": "terminal.palm.declined",
+      "payload": [
+        "transaction_id",
+        "terminal_id"
+      ],
+      "description": "Palm payment declined — card fallback offered"
+    },
+    {
+      "name": "terminal.card.declined",
+      "payload": [
+        "transaction_id",
+        "terminal_id",
+        "card_brand",
+        "card_last_four"
+      ],
+      "description": "Card payment declined by issuer"
+    },
+    {
+      "name": "terminal.receipt.sent",
+      "payload": [
+        "transaction_id",
+        "receipt_type",
+        "receipt_destination"
+      ],
+      "description": "Digital receipt delivered"
+    },
+    {
+      "name": "terminal.receipt.declined",
+      "payload": [
+        "transaction_id"
+      ],
+      "description": "Customer declined receipt"
+    },
+    {
+      "name": "terminal.refund.processed",
+      "payload": [
+        "transaction_id",
+        "original_transaction_id",
+        "amount",
+        "refund_authorized_by"
+      ],
+      "description": "Refund processed with manager authorization"
+    },
+    {
+      "name": "terminal.session.timeout",
+      "payload": [
+        "transaction_id",
+        "terminal_id"
+      ],
+      "description": "Transaction timed out at method selection"
+    }
+  ],
+  "flows": {
+    "payment_transaction": {
+      "description": "End-to-end payment flow on the terminal",
+      "steps": [
+        {
+          "id": "enter_amount",
+          "actor": "merchant",
+          "action": "Enter payment amount on terminal",
+          "next": "confirm_amount"
+        },
+        {
+          "id": "confirm_amount",
+          "actor": "merchant",
+          "action": "Confirm amount displayed on screen",
+          "next": "select_method"
+        },
+        {
+          "id": "select_method",
+          "actor": "customer",
+          "action": "Choose payment method: scan palm or present card",
+          "next": [
+            {
+              "condition": "Customer places hand on scanner",
+              "goto": "scan_palm"
+            },
+            {
+              "condition": "Customer presents card",
+              "goto": "read_card"
+            }
+          ]
+        },
+        {
+          "id": "scan_palm",
+          "actor": "palm_scanner",
+          "action": "Scan palm vein pattern and match against templates",
+          "next": [
+            {
+              "condition": "Match found and link active",
+              "goto": "process_palm_payment"
+            },
+            {
+              "condition": "Match failed",
+              "goto": "palm_failed"
+            }
+          ]
+        },
+        {
+          "id": "process_palm_payment",
+          "actor": "terminal_app",
+          "action": "Resolve proxy and initiate real-time payment",
+          "next": [
+            {
+              "condition": "Payment settled",
+              "goto": "offer_receipt"
+            },
+            {
+              "condition": "Payment failed",
+              "goto": "palm_failed"
+            }
+          ]
+        },
+        {
+          "id": "palm_failed",
+          "actor": "terminal_app",
+          "action": "Display failure message and offer card fallback",
+          "next": [
+            {
+              "condition": "Customer chooses card",
+              "goto": "read_card"
+            },
+            {
+              "condition": "Customer cancels",
+              "goto": "end"
+            }
+          ]
+        },
+        {
+          "id": "read_card",
+          "actor": "card_reader",
+          "action": "Read card via chip insert, NFC tap, or magnetic swipe",
+          "next": "process_card_payment"
+        },
+        {
+          "id": "process_card_payment",
+          "actor": "terminal_app",
+          "action": "Send authorization to payment network",
+          "next": [
+            {
+              "condition": "Authorized",
+              "goto": "offer_receipt"
+            },
+            {
+              "condition": "Declined",
+              "goto": "end"
+            }
+          ]
+        },
+        {
+          "id": "offer_receipt",
+          "actor": "terminal_app",
+          "action": "Ask customer for receipt preference (SMS, email, or none)",
+          "next": [
+            {
+              "condition": "Customer provides contact",
+              "goto": "send_receipt"
+            },
+            {
+              "condition": "Customer declines",
+              "goto": "end"
+            }
+          ]
+        },
+        {
+          "id": "send_receipt",
+          "actor": "receipt_service",
+          "action": "Send digital receipt via SMS or email",
+          "next": "end"
+        },
+        {
+          "id": "end",
+          "actor": "terminal_app",
+          "action": "Return terminal to idle state"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "palm-pay",
+      "type": "required",
+      "reason": "Palm vein payment resolution for hands-free payment method"
+    },
+    {
+      "feature": "payshap-rail",
+      "type": "required",
+      "reason": "Real-time payment rail for palm-based payments"
+    },
+    {
+      "feature": "payment-gateway",
+      "type": "required",
+      "reason": "Card payment authorization via payment gateway"
+    },
+    {
+      "feature": "payment-methods",
+      "type": "recommended",
+      "reason": "Card tokenization and management for card payments"
+    },
+    {
+      "feature": "pos-core",
+      "type": "optional",
+      "reason": "POS session management if terminal is part of a retail POS system"
+    },
+    {
+      "feature": "terminal-fleet",
+      "type": "recommended",
+      "reason": "Fleet management for terminal device administration"
+    },
+    {
+      "feature": "terminal-offline-queue",
+      "type": "recommended",
+      "reason": "Offline transaction queuing when network is unavailable"
+    },
+    {
+      "feature": "terminal-enrollment",
+      "type": "optional",
+      "reason": "At-terminal palm enrollment for new customers"
+    },
+    {
+      "feature": "refunds-returns",
+      "type": "recommended",
+      "reason": "Refund processing for reversed transactions"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_terminal_payment_flow",
+        "description": "Payment terminal transaction orchestration — amount entry, method selection (palm or card), payment execution, and digital receipt delivery",
+        "success_metrics": [
+          {
+            "metric": "policy_violation_rate",
+            "target": "0%",
+            "measurement": "Operations that violate defined policies"
+          },
+          {
+            "metric": "audit_completeness",
+            "target": "100%",
+            "measurement": "All decisions have complete audit trails"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "regulatory",
+            "description": "All operations must be auditable and traceable",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before modifying sensitive data fields",
+        "before transitioning to a terminal state"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5",
+        "consecutive_failures > 3"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "amount_confirmed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "palm_payment_approved",
+          "permission": "supervised"
+        },
+        {
+          "action": "card_payment_approved",
+          "permission": "supervised"
+        },
+        {
+          "action": "receipt_delivered",
+          "permission": "autonomous"
+        },
+        {
+          "action": "receipt_declined",
+          "permission": "autonomous"
+        },
+        {
+          "action": "palm_payment_declined",
+          "permission": "autonomous"
+        },
+        {
+          "action": "card_payment_declined",
+          "permission": "autonomous"
+        },
+        {
+          "action": "refund_processed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "method_selection_timeout",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "accuracy",
+        "over": "speed",
+        "reason": "financial transactions must be precise and auditable"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details",
+        "state transitions follow the defined state machine — no illegal transitions"
+      ]
+    },
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "palm_pay",
+          "from": "palm-pay",
+          "fallback": "fail"
+        },
+        {
+          "capability": "payshap_rail",
+          "from": "payshap-rail",
+          "fallback": "fail"
+        },
+        {
+          "capability": "payment_gateway",
+          "from": "payment-gateway",
+          "fallback": "fail"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,393 @@
+{
+  "feature": "customer-app-flow",
+  "version": "1.0.0",
+  "description": "Customer (rider)-facing flow for requesting, tracking, and canceling rides through the public API.",
+  "category": "workflow",
+  "tags": [
+    "customer",
+    "rider",
+    "booking",
+    "tracking",
+    "cancellation"
+  ],
+  "actors": [
+    {
+      "id": "customer",
+      "name": "Customer",
+      "type": "human",
+      "description": "End user requesting and tracking a ride."
+    },
+    {
+      "id": "platform",
+      "name": "Platform",
+      "type": "system",
+      "description": "API server processing customer requests and surfacing status updates."
+    }
+  ],
+  "fields": [
+    {
+      "name": "pickup_location",
+      "type": "json",
+      "required": true,
+      "label": "Pickup address and coordinates (latitude, longitude, address string)."
+    },
+    {
+      "name": "dropoff_location",
+      "type": "json",
+      "required": true,
+      "label": "Drop-off address and coordinates."
+    },
+    {
+      "name": "scheduled_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Optional future pickup time for scheduled rides (omit for immediate)."
+    },
+    {
+      "name": "notes",
+      "type": "text",
+      "required": false,
+      "label": "Customer instructions or special requests for the driver."
+    },
+    {
+      "name": "order_id",
+      "type": "text",
+      "required": false,
+      "label": "Public order identifier returned after booking (used for tracking and cancellation)."
+    },
+    {
+      "name": "tracking_number",
+      "type": "text",
+      "required": false,
+      "label": "Customer-facing alphanumeric tracking reference."
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "required": false,
+      "label": "Current ride status visible to the customer.",
+      "options": [
+        {
+          "value": "created",
+          "label": "Created"
+        },
+        {
+          "value": "dispatched",
+          "label": "Dispatched"
+        },
+        {
+          "value": "driver_enroute",
+          "label": "Driver Enroute"
+        },
+        {
+          "value": "arrived",
+          "label": "Arrived"
+        },
+        {
+          "value": "in_progress",
+          "label": "In Progress"
+        },
+        {
+          "value": "completed",
+          "label": "Completed"
+        },
+        {
+          "value": "canceled",
+          "label": "Canceled"
+        }
+      ]
+    },
+    {
+      "name": "driver_location",
+      "type": "json",
+      "required": false,
+      "label": "Current driver coordinates for live map display (lat, lng, heading)."
+    },
+    {
+      "name": "eta_seconds",
+      "type": "number",
+      "required": false,
+      "label": "Estimated time until driver arrives at pickup, in seconds."
+    }
+  ],
+  "rules": {
+    "rule_01": "A customer must have a valid account (authenticated session or API key) to create an order.",
+    "rule_02": "Pickup and drop-off locations are required; a return location is optional.",
+    "rule_03": "On order creation, a preliminary distance and time estimate is calculated and stored.",
+    "rule_04": "A tracking number is issued at creation and can be used to poll order status without authentication.",
+    "rule_05": "Customers can cancel an order at any time before it reaches in_progress status.",
+    "rule_06": "After in_progress, cancellation is subject to platform policy (not enforced here).",
+    "rule_07": "The customer receives real-time status updates via their subscribed channel or by polling the order endpoint.",
+    "rule_08": "Driver location (for live map) is surfaced only once an order is dispatched."
+  },
+  "outcomes": {
+    "ride_requested": {
+      "priority": 1,
+      "given": [
+        "customer provides valid pickup and drop-off locations",
+        "customer is authenticated"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "description": "Order is persisted with status created and customer reference.",
+          "type": "order"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.created",
+          "payload": [
+            "order_id",
+            "customer_id",
+            "pickup_location",
+            "dropoff_location"
+          ]
+        }
+      ],
+      "result": "Customer receives an order_id and tracking_number to follow their ride."
+    },
+    "ride_tracked": {
+      "priority": 2,
+      "given": [
+        "customer queries the order by order_id or tracking_number"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "response",
+          "description": "Current status, driver location, ETA, and activity history are returned."
+        }
+      ],
+      "result": "Customer sees live ride status and driver position on the map."
+    },
+    "ride_canceled_by_customer": {
+      "priority": 3,
+      "given": [
+        "customer requests cancellation",
+        "order status is not completed"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "any",
+          "to": "canceled"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.canceled",
+          "payload": [
+            "order_id",
+            "canceled_by",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Ride is terminated; customer is notified."
+    },
+    "scheduled_ride_created": {
+      "priority": 4,
+      "given": [
+        "customer provides a scheduled_at timestamp in the future"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "description": "Order is persisted with status created and scheduled_at set; dispatch is deferred until near the scheduled time.",
+          "type": "order"
+        }
+      ],
+      "result": "Ride is booked for the future; customer receives confirmation."
+    },
+    "ride_completed_confirmation": {
+      "priority": 5,
+      "given": [
+        "order status transitions to completed"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "order.completed",
+          "payload": [
+            "order_id",
+            "customer_id",
+            "distance",
+            "duration"
+          ]
+        }
+      ],
+      "result": "Customer receives completion confirmation and trip summary."
+    }
+  },
+  "errors": [
+    {
+      "code": "ORDER_NOT_FOUND",
+      "status": 404,
+      "message": "The specified ride could not be found."
+    },
+    {
+      "code": "ORDER_CANCELED",
+      "status": 400,
+      "message": "This ride has been canceled."
+    },
+    {
+      "code": "INVALID_LOCATION",
+      "status": 400,
+      "message": "Pickup or drop-off location is invalid or missing."
+    }
+  ],
+  "events": [
+    {
+      "name": "order.created",
+      "description": "Ride request is created by the customer.",
+      "payload": [
+        "order_id",
+        "customer_id",
+        "pickup_location",
+        "dropoff_location",
+        "tracking_number"
+      ]
+    },
+    {
+      "name": "order.canceled",
+      "description": "Ride is canceled.",
+      "payload": [
+        "order_id",
+        "canceled_by",
+        "reason"
+      ]
+    },
+    {
+      "name": "order.completed",
+      "description": "Ride is completed.",
+      "payload": [
+        "order_id",
+        "customer_id",
+        "distance",
+        "duration"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "ride-request-lifecycle",
+      "type": "required",
+      "reason": "Customer app creates the initial order that enters the lifecycle."
+    },
+    {
+      "feature": "driver-location-streaming",
+      "type": "recommended",
+      "reason": "Customer app subscribes to driver location for live map."
+    },
+    {
+      "feature": "eta-calculation",
+      "type": "recommended",
+      "reason": "ETA to pickup is shown in the customer app."
+    },
+    {
+      "feature": "trip-history",
+      "type": "recommended",
+      "reason": "Customer can view past rides."
+    },
+    {
+      "feature": "fleet-ops-public-api",
+      "type": "required",
+      "reason": "Customer app communicates via the public REST API."
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_customer_app_flow",
+        "description": "Customer (rider)-facing flow for requesting, tracking, and canceling rides through the public API.",
+        "success_metrics": [
+          {
+            "metric": "processing_time",
+            "target": "< 5s",
+            "measurement": "Time from request to completion"
+          },
+          {
+            "metric": "success_rate",
+            "target": ">= 99%",
+            "measurement": "Successful operations divided by total attempts"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "performance",
+            "description": "Must not block dependent workflows",
+            "negotiable": true
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "semi_autonomous",
+      "human_checkpoints": [
+        "before making irreversible changes"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "ride_requested",
+          "permission": "autonomous"
+        },
+        {
+          "action": "ride_tracked",
+          "permission": "autonomous"
+        },
+        {
+          "action": "ride_canceled_by_customer",
+          "permission": "supervised"
+        },
+        {
+          "action": "scheduled_ride_created",
+          "permission": "supervised"
+        },
+        {
+          "action": "ride_completed_confirmation",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "reliability",
+        "over": "speed",
+        "reason": "workflow steps must complete correctly before proceeding"
+      }
+    ],
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "ride_request_lifecycle",
+          "from": "ride-request-lifecycle",
+          "fallback": "degrade"
+        },
+        {
+          "capability": "fleet_ops_public_api",
+          "from": "fleet-ops-public-api",
+          "fallback": "degrade"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/fleetbase/fleetbase",
+      "project": "Fleetbase",
+      "tech_stack": "PHP / Laravel",
+      "files_traced": 4,
+      "entry_points": [
+        "src/Http/Controllers/Api/v1/OrderController.php",
+        "src/Models/Order.php",
+        "src/routes.php"
+      ]
+    }
+  }
+}

@@ -1,0 +1,390 @@
+{
+  "feature": "driver-assignment-dispatch",
+  "version": "1.0.0",
+  "description": "Assign a driver to an order and dispatch the order to that driver, supporting both manual assignment and proximity-based adhoc dispatch.",
+  "category": "workflow",
+  "tags": [
+    "dispatch",
+    "driver-assignment",
+    "adhoc",
+    "fleet-ops"
+  ],
+  "actors": [
+    {
+      "id": "dispatcher",
+      "name": "Dispatcher",
+      "type": "human",
+      "description": "Operator or system that assigns drivers to orders."
+    },
+    {
+      "id": "driver",
+      "name": "Driver",
+      "type": "human",
+      "description": "The driver receiving the dispatched order."
+    },
+    {
+      "id": "platform",
+      "name": "Platform",
+      "type": "system",
+      "description": "Automated dispatch and matching system."
+    }
+  ],
+  "fields": [
+    {
+      "name": "order_id",
+      "type": "text",
+      "required": true,
+      "label": "Identifier of the order to dispatch."
+    },
+    {
+      "name": "driver_id",
+      "type": "text",
+      "required": false,
+      "label": "Public identifier of the driver to assign (omit for adhoc mode)."
+    },
+    {
+      "name": "adhoc",
+      "type": "boolean",
+      "required": false,
+      "label": "If true, order is broadcast to nearby drivers; first to accept is assigned."
+    },
+    {
+      "name": "adhoc_distance",
+      "type": "number",
+      "required": false,
+      "label": "Radius in meters within which nearby drivers are pinged for adhoc orders."
+    },
+    {
+      "name": "dispatch_immediately",
+      "type": "boolean",
+      "required": false,
+      "label": "Whether to dispatch the order immediately after assignment."
+    },
+    {
+      "name": "dispatched",
+      "type": "boolean",
+      "required": false,
+      "label": "Whether the order has been successfully dispatched."
+    },
+    {
+      "name": "dispatched_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Timestamp of dispatch."
+    }
+  ],
+  "rules": {
+    "rule_01": "A driver can only be assigned to one active order at a time (current_job).",
+    "rule_02": "Assigning a driver does not automatically dispatch; dispatch is a separate explicit action.",
+    "rule_03": "In adhoc mode, the order is broadcast to all available drivers within adhoc_distance; the first driver to accept is assigned.",
+    "rule_04": "A dispatched order cannot be dispatched a second time.",
+    "rule_05": "If no driver is assigned and adhoc is false, dispatch fails with ORDER_NO_DRIVER_ASSIGNED.",
+    "rule_06": "When a driver is assigned, the driver receives a push notification with order details.",
+    "rule_07": "Vehicle assignment is exclusive; a vehicle can only be active for one driver at a time."
+  },
+  "outcomes": {
+    "driver_manually_assigned": {
+      "priority": 1,
+      "given": [
+        "dispatcher provides a valid driver_id",
+        "driver is available (not on another active order)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "driver_assigned",
+          "description": "Order record is updated with the assigned driver reference."
+        },
+        {
+          "action": "emit_event",
+          "event": "order.driver_assigned",
+          "payload": [
+            "order_id",
+            "driver_id"
+          ]
+        },
+        {
+          "action": "notify",
+          "target": "driver",
+          "channel": "push",
+          "description": "Driver receives push notification informing them of the new order assignment."
+        }
+      ],
+      "result": "Driver is linked to the order and notified. Order is ready to dispatch."
+    },
+    "adhoc_ping_sent": {
+      "priority": 2,
+      "given": [
+        "adhoc is true",
+        "no driver is pre-assigned",
+        "order is dispatched"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "order.dispatched",
+          "payload": [
+            "order_id",
+            "adhoc",
+            "adhoc_distance"
+          ]
+        },
+        {
+          "action": "notify",
+          "target": "nearby_drivers",
+          "channel": "push",
+          "description": "All available drivers within adhoc_distance are pinged with the order details."
+        }
+      ],
+      "result": "Nearby drivers receive a ping and can accept or reject the order."
+    },
+    "order_dispatched": {
+      "priority": 3,
+      "given": [
+        "driver is assigned OR adhoc is true",
+        "order has not been dispatched already"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "dispatched",
+          "value": true
+        },
+        {
+          "action": "set_field",
+          "target": "dispatched_at",
+          "value": "now"
+        },
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "created",
+          "to": "dispatched"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.dispatched",
+          "payload": [
+            "order_id",
+            "driver_id",
+            "dispatched_at"
+          ]
+        }
+      ],
+      "result": "Order is live; driver begins navigating to pickup."
+    },
+    "driver_assigned_at_adhoc_accept": {
+      "priority": 4,
+      "given": [
+        "order is in adhoc mode",
+        "a driver accepts the order ping",
+        "no other driver has already accepted"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "driver_assigned",
+          "description": "First-responding driver is locked to the order."
+        },
+        {
+          "action": "set_field",
+          "target": "current_job",
+          "description": "Order is set as the driver's current active job."
+        },
+        {
+          "action": "emit_event",
+          "event": "order.driver_assigned",
+          "payload": [
+            "order_id",
+            "driver_id"
+          ]
+        }
+      ],
+      "result": "Driver is assigned; order proceeds with this driver."
+    },
+    "dispatch_failed_no_driver": {
+      "priority": 5,
+      "error": "ORDER_NO_DRIVER_ASSIGNED",
+      "given": [
+        "adhoc is false",
+        "no driver_id is provided"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "order.dispatch_failed",
+          "payload": [
+            "order_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Dispatch is rejected; operator must assign a driver first."
+    }
+  },
+  "errors": [
+    {
+      "code": "ORDER_NO_DRIVER_ASSIGNED",
+      "status": 400,
+      "message": "No driver assigned to dispatch."
+    },
+    {
+      "code": "ORDER_ALREADY_DISPATCHED",
+      "status": 400,
+      "message": "This order has already been dispatched."
+    },
+    {
+      "code": "DRIVER_NOT_FOUND",
+      "status": 404,
+      "message": "The specified driver could not be found."
+    }
+  ],
+  "events": [
+    {
+      "name": "order.driver_assigned",
+      "description": "Fired when a driver is linked to an order.",
+      "payload": [
+        "order_id",
+        "driver_id",
+        "assigned_at"
+      ]
+    },
+    {
+      "name": "order.dispatched",
+      "description": "Fired when an order is dispatched (to a specific driver or broadcast in adhoc mode).",
+      "payload": [
+        "order_id",
+        "driver_id",
+        "adhoc",
+        "dispatched_at"
+      ]
+    },
+    {
+      "name": "order.dispatch_failed",
+      "description": "Fired when dispatch cannot be completed.",
+      "payload": [
+        "order_id",
+        "reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "ride-request-lifecycle",
+      "type": "required",
+      "reason": "Dispatch is a key state transition in the ride lifecycle."
+    },
+    {
+      "feature": "driver-app-flow",
+      "type": "required",
+      "reason": "Driver app handles the ping, accept, and reject interaction."
+    },
+    {
+      "feature": "driver-shift-management",
+      "type": "recommended",
+      "reason": "Only online/on-shift drivers should receive pings."
+    },
+    {
+      "feature": "fleet-vehicle-registry",
+      "type": "optional",
+      "reason": "Vehicle assignment is validated as part of driver dispatch readiness."
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_driver_assignment_dispatch",
+        "description": "Assign a driver to an order and dispatch the order to that driver, supporting both manual assignment and proximity-based adhoc dispatch.",
+        "success_metrics": [
+          {
+            "metric": "processing_time",
+            "target": "< 5s",
+            "measurement": "Time from request to completion"
+          },
+          {
+            "metric": "success_rate",
+            "target": ">= 99%",
+            "measurement": "Successful operations divided by total attempts"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "performance",
+            "description": "Must not block dependent workflows",
+            "negotiable": true
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "semi_autonomous",
+      "human_checkpoints": [
+        "before making irreversible changes"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "driver_manually_assigned",
+          "permission": "autonomous"
+        },
+        {
+          "action": "adhoc_ping_sent",
+          "permission": "autonomous"
+        },
+        {
+          "action": "order_dispatched",
+          "permission": "autonomous"
+        },
+        {
+          "action": "driver_assigned_at_adhoc_accept",
+          "permission": "autonomous"
+        },
+        {
+          "action": "dispatch_failed_no_driver",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "reliability",
+        "over": "speed",
+        "reason": "workflow steps must complete correctly before proceeding"
+      }
+    ],
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "ride_request_lifecycle",
+          "from": "ride-request-lifecycle",
+          "fallback": "degrade"
+        },
+        {
+          "capability": "driver_app_flow",
+          "from": "driver-app-flow",
+          "fallback": "degrade"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/fleetbase/fleetbase",
+      "project": "Fleetbase",
+      "tech_stack": "PHP / Laravel",
+      "files_traced": 5,
+      "entry_points": [
+        "src/Models/Order.php",
+        "src/Http/Controllers/Api/v1/OrderController.php",
+        "src/Notifications/OrderAssigned.php",
+        "src/Notifications/OrderPing.php",
+        "src/Events/OrderDriverAssigned.php"
+      ]
+    }
+  }
+}

@@ -1,0 +1,550 @@
+# ============================================================
+# TERMINAL-FLEET — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Manage a fleet of Android payment terminals across multiple
+# locations. Covers device registration, remote configuration,
+# OTA app updates, health monitoring, heartbeat tracking, and
+# alerting for offline or unhealthy terminals.
+# ============================================================
+
+feature: terminal-fleet
+version: "1.0.0"
+description: "Fleet management for Android payment terminals — device registration, remote configuration, OTA updates, health monitoring, and alerting"
+category: infrastructure
+tags: [fleet-management, terminal, device-management, monitoring, ota-updates]
+
+actors:
+  - id: fleet_admin
+    name: "Fleet Administrator"
+    type: human
+    description: "Manages terminal fleet — registers devices, pushes configs, triggers updates"
+    role: "fleet-manager"
+
+  - id: terminal_device
+    name: "Terminal Device"
+    type: system
+    description: "Android payment terminal running the terminal app"
+    role: "managed-device"
+
+  - id: mdm_system
+    name: "Device Management System"
+    type: system
+    description: "Mobile device management platform handling OTA updates and remote config"
+    role: "device-management"
+
+  - id: monitoring_system
+    name: "Monitoring System"
+    type: system
+    description: "Collects heartbeats and health data, triggers alerts"
+    role: "health-monitor"
+
+fields:
+  - name: terminal_id
+    type: token
+    required: true
+    label: "Terminal ID"
+    # Unique identifier for each terminal device (UUID)
+
+  - name: device_serial
+    type: text
+    required: true
+    label: "Device Serial Number"
+    validation:
+      - type: required
+        message: "Device serial number is required for registration"
+
+  - name: merchant_id
+    type: text
+    required: true
+    label: "Merchant ID"
+    # The merchant/chain this terminal belongs to
+
+  - name: location_name
+    type: text
+    required: true
+    label: "Location Name"
+    # Human-readable location (e.g., "Mall of Africa - Store 12")
+
+  - name: location_coordinates
+    type: json
+    required: false
+    label: "Location Coordinates"
+    # GPS coordinates for geo-fencing and mapping
+
+  - name: app_version
+    type: text
+    required: true
+    label: "App Version"
+    # Currently installed terminal app version (semver)
+
+  - name: os_version
+    type: text
+    required: false
+    label: "Android OS Version"
+
+  - name: terminal_status
+    type: select
+    required: true
+    label: "Terminal Status"
+    options:
+      - value: "registered"
+        label: "Registered"
+      - value: "active"
+        label: "Active"
+      - value: "offline"
+        label: "Offline"
+      - value: "maintenance"
+        label: "Maintenance"
+      - value: "decommissioned"
+        label: "Decommissioned"
+
+  - name: last_heartbeat
+    type: datetime
+    required: false
+    label: "Last Heartbeat"
+    # Timestamp of the most recent heartbeat from the device
+
+  - name: heartbeat_interval_seconds
+    type: number
+    required: true
+    label: "Heartbeat Interval (seconds)"
+    default: 60
+    validation:
+      - type: min
+        value: 10
+        message: "Heartbeat interval must be at least 10 seconds"
+      - type: max
+        value: 300
+        message: "Heartbeat interval must not exceed 5 minutes"
+
+  - name: config_version
+    type: text
+    required: false
+    label: "Configuration Version"
+    # Version of the remote configuration currently applied
+
+  - name: config_payload
+    type: json
+    required: false
+    label: "Configuration Payload"
+    # Remote configuration data (payment limits, UI settings, feature flags)
+
+  - name: scanner_status
+    type: select
+    required: false
+    label: "Palm Scanner Status"
+    options:
+      - value: "operational"
+        label: "Operational"
+      - value: "degraded"
+        label: "Degraded"
+      - value: "offline"
+        label: "Offline"
+
+  - name: card_reader_status
+    type: select
+    required: false
+    label: "Card Reader Status"
+    options:
+      - value: "operational"
+        label: "Operational"
+      - value: "degraded"
+        label: "Degraded"
+      - value: "offline"
+        label: "Offline"
+
+  - name: battery_level
+    type: number
+    required: false
+    label: "Battery Level (%)"
+    validation:
+      - type: min
+        value: 0
+        message: "Battery level cannot be negative"
+      - type: max
+        value: 100
+        message: "Battery level cannot exceed 100%"
+
+  - name: connectivity_type
+    type: select
+    required: false
+    label: "Connectivity Type"
+    options:
+      - value: "wifi"
+        label: "WiFi"
+      - value: "cellular"
+        label: "Cellular"
+      - value: "ethernet"
+        label: "Ethernet"
+
+states:
+  field: terminal_status
+  values:
+    - id: registered
+      label: "Registered"
+      initial: true
+      # Terminal registered but not yet activated
+    - id: active
+      label: "Active"
+      # Terminal is online and processing transactions
+    - id: offline
+      label: "Offline"
+      # Terminal has missed heartbeats or lost connectivity
+    - id: maintenance
+      label: "Maintenance"
+      # Terminal is undergoing updates or servicing
+    - id: decommissioned
+      label: "Decommissioned"
+      terminal: true
+      # Terminal permanently removed from fleet
+
+  transitions:
+    - from: registered
+      to: active
+      actor: terminal_device
+      description: "Terminal sends first successful heartbeat after registration"
+
+    - from: active
+      to: offline
+      actor: monitoring_system
+      description: "Terminal misses 3 consecutive heartbeats"
+      condition: "missed_heartbeats >= 3"
+
+    - from: offline
+      to: active
+      actor: terminal_device
+      description: "Terminal reconnects and sends heartbeat"
+
+    - from: active
+      to: maintenance
+      actor: fleet_admin
+      description: "Admin puts terminal into maintenance mode for updates or servicing"
+
+    - from: maintenance
+      to: active
+      actor: terminal_device
+      description: "Maintenance complete, terminal resumes normal operation"
+
+    - from: active
+      to: decommissioned
+      actor: fleet_admin
+      description: "Admin permanently removes terminal from fleet"
+
+    - from: offline
+      to: decommissioned
+      actor: fleet_admin
+      description: "Admin decommissions an offline terminal"
+
+    - from: maintenance
+      to: decommissioned
+      actor: fleet_admin
+      description: "Admin decommissions terminal during maintenance"
+
+rules:
+  heartbeat:
+    interval: "Terminals send heartbeat every configured interval (default 60s)"
+    offline_threshold: "Terminal marked offline after 3 missed heartbeats"
+    payload: "Heartbeat includes battery level, connectivity type, scanner status, card reader status, app version"
+
+  registration:
+    unique_serial: "Each device serial number can only be registered once"
+    merchant_required: "Every terminal must be associated with a merchant"
+
+  configuration:
+    versioned: "All configuration changes are versioned for rollback"
+    staged_rollout: "Config updates can target individual terminals, locations, or entire fleet"
+    validation: "Config payload is validated before push — invalid configs are rejected"
+
+  updates:
+    ota_only: "App updates delivered via OTA through device management system"
+    staged: "Updates roll out in stages — test group first, then wider fleet"
+    rollback: "Failed updates auto-rollback to previous version"
+
+  security:
+    device_auth: "Terminals authenticate to backend via device certificates"
+    config_signed: "Configuration payloads are signed to prevent tampering"
+    decommission_wipe: "Decommissioned terminals must have all local data wiped"
+
+outcomes:
+  terminal_registered:
+    priority: 1
+    given:
+      - "Fleet admin registers a new terminal"
+      - field: device_serial
+        source: input
+        operator: exists
+        description: "Device serial number is provided"
+      - field: merchant_id
+        source: input
+        operator: exists
+        description: "Merchant ID is provided"
+    then:
+      - action: create_record
+        type: terminal
+        target: terminals
+        description: "Create terminal record in fleet registry"
+      - action: transition_state
+        field: terminal_status
+        from: null
+        to: registered
+      - action: emit_event
+        event: fleet.terminal.registered
+        payload: [terminal_id, device_serial, merchant_id, location_name]
+    result: "Terminal registered and awaiting first heartbeat to activate"
+
+  heartbeat_received:
+    priority: 2
+    given:
+      - field: terminal_status
+        source: db
+        operator: in
+        value: ["active", "registered"]
+        description: "Terminal is active or newly registered"
+    then:
+      - action: set_field
+        target: last_heartbeat
+        value: "current timestamp"
+      - action: set_field
+        target: battery_level
+        value: "from heartbeat payload"
+      - action: set_field
+        target: scanner_status
+        value: "from heartbeat payload"
+      - action: set_field
+        target: card_reader_status
+        value: "from heartbeat payload"
+      - action: emit_event
+        event: fleet.heartbeat.received
+        payload: [terminal_id, battery_level, scanner_status, card_reader_status]
+    result: "Terminal health data updated"
+
+  terminal_went_offline:
+    priority: 3
+    given:
+      - field: terminal_status
+        source: db
+        operator: eq
+        value: "active"
+        description: "Terminal was previously active"
+      - "Terminal has missed 3 consecutive heartbeats"
+    then:
+      - action: transition_state
+        field: terminal_status
+        from: active
+        to: offline
+      - action: notify
+        channel: alert
+        description: "Alert fleet admin that terminal is offline"
+      - action: emit_event
+        event: fleet.terminal.offline
+        payload: [terminal_id, location_name, last_heartbeat]
+    result: "Terminal marked offline — fleet admin notified"
+
+  config_pushed:
+    priority: 4
+    given:
+      - "Fleet admin pushes new configuration"
+      - field: terminal_status
+        source: db
+        operator: eq
+        value: "active"
+        description: "Terminal is active and reachable"
+    then:
+      - action: set_field
+        target: config_version
+        value: "new config version"
+      - action: set_field
+        target: config_payload
+        value: "validated config data"
+      - action: emit_event
+        event: fleet.config.pushed
+        payload: [terminal_id, config_version]
+    result: "Configuration update pushed to terminal"
+
+  app_update_triggered:
+    priority: 5
+    given:
+      - "Fleet admin triggers OTA app update"
+      - field: terminal_status
+        source: db
+        operator: eq
+        value: "active"
+        description: "Terminal is active"
+    then:
+      - action: transition_state
+        field: terminal_status
+        from: active
+        to: maintenance
+      - action: call_service
+        target: "mdm_system.push_update"
+        description: "Push app update via device management system"
+      - action: emit_event
+        event: fleet.update.triggered
+        payload: [terminal_id, app_version]
+    result: "Terminal enters maintenance mode for app update"
+
+  terminal_decommissioned:
+    priority: 6
+    given:
+      - "Fleet admin decommissions terminal"
+      - field: terminal_status
+        source: db
+        operator: in
+        value: ["active", "offline", "maintenance"]
+        description: "Terminal is not already decommissioned"
+    then:
+      - action: transition_state
+        field: terminal_status
+        from: active
+        to: decommissioned
+      - action: call_service
+        target: "mdm_system.remote_wipe"
+        description: "Wipe all local data from decommissioned terminal"
+      - action: emit_event
+        event: fleet.terminal.decommissioned
+        payload: [terminal_id, device_serial]
+    result: "Terminal decommissioned and local data wiped"
+    transaction: true
+
+  hardware_degraded:
+    priority: 7
+    given:
+      - field: terminal_status
+        source: db
+        operator: eq
+        value: "active"
+      - any:
+          - field: scanner_status
+            source: db
+            operator: eq
+            value: "degraded"
+          - field: card_reader_status
+            source: db
+            operator: eq
+            value: "degraded"
+    then:
+      - action: notify
+        channel: alert
+        description: "Alert fleet admin about degraded hardware component"
+      - action: emit_event
+        event: fleet.hardware.degraded
+        payload: [terminal_id, scanner_status, card_reader_status, location_name]
+    result: "Fleet admin alerted about hardware degradation"
+
+errors:
+  - code: FLEET_DUPLICATE_SERIAL
+    status: 409
+    message: "A terminal with this serial number is already registered"
+
+  - code: FLEET_TERMINAL_NOT_FOUND
+    status: 404
+    message: "Terminal not found in fleet registry"
+
+  - code: FLEET_TERMINAL_OFFLINE
+    status: 503
+    message: "Terminal is offline and cannot receive updates"
+    retry: true
+
+  - code: FLEET_INVALID_CONFIG
+    status: 400
+    message: "Configuration payload is invalid — check format and values"
+
+  - code: FLEET_UPDATE_FAILED
+    status: 500
+    message: "App update failed — terminal will rollback to previous version"
+    retry: true
+
+  - code: FLEET_UNAUTHORIZED
+    status: 401
+    message: "Device authentication failed — invalid certificate"
+
+events:
+  - name: fleet.terminal.registered
+    payload: [terminal_id, device_serial, merchant_id, location_name]
+    description: "New terminal registered in fleet"
+
+  - name: fleet.heartbeat.received
+    payload: [terminal_id, battery_level, scanner_status, card_reader_status]
+    description: "Heartbeat received from terminal"
+
+  - name: fleet.terminal.offline
+    payload: [terminal_id, location_name, last_heartbeat]
+    description: "Terminal marked offline after missed heartbeats"
+
+  - name: fleet.config.pushed
+    payload: [terminal_id, config_version]
+    description: "Configuration update pushed to terminal"
+
+  - name: fleet.update.triggered
+    payload: [terminal_id, app_version]
+    description: "OTA app update triggered for terminal"
+
+  - name: fleet.terminal.decommissioned
+    payload: [terminal_id, device_serial]
+    description: "Terminal permanently removed from fleet"
+
+  - name: fleet.hardware.degraded
+    payload: [terminal_id, scanner_status, card_reader_status, location_name]
+    description: "Hardware component degraded on active terminal"
+
+related:
+  - feature: terminal-payment-flow
+    type: recommended
+    reason: "Terminal payment flow runs on devices managed by this fleet system"
+
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_terminal_fleet
+      description: Fleet management for Android payment terminals — device registration, remote configuration, OTA updates,
+        health monitoring, and alerting
+      success_metrics:
+        - metric: success_rate
+          target: ">= 99%"
+          measurement: Successful operations divided by total attempts
+        - metric: error_rate
+          target: < 1%
+          measurement: Failed operations divided by total attempts
+      constraints:
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before modifying sensitive data fields
+      - before transitioning to a terminal state
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+  safety:
+    action_permissions:
+      - action: terminal_registered
+        permission: autonomous
+      - action: heartbeat_received
+        permission: autonomous
+      - action: terminal_went_offline
+        permission: autonomous
+      - action: config_pushed
+        permission: autonomous
+      - action: app_update_triggered
+        permission: supervised
+      - action: terminal_decommissioned
+        permission: autonomous
+      - action: hardware_degraded
+        permission: autonomous
+  tradeoffs:
+    - prefer: availability
+      over: cost
+      reason: infrastructure downtime impacts all dependent services
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+      - state transitions follow the defined state machine — no illegal transitions
