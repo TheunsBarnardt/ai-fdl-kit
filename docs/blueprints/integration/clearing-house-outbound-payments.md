@@ -278,6 +278,7 @@ description: "Clearing house outbound payment operations including credit transf
 | chp-request-to-pay | optional | Request-to-pay operations via PayShap |
 | chp-eft | recommended | EFT-specific payment operations |
 | chp-account-management | recommended | Account verification and management for CHP participants |
+| payshap-rail | optional | Real-time payment rail abstraction built on top of clearing house PayShap scheme |
 
 ## AGI Readiness
 
