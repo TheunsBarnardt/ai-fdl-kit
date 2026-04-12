@@ -154,6 +154,63 @@ description: "Define named circular regions by centre coordinates and radius; au
 | mqtt-location-ingestion | required | Provides device positions that are evaluated on each message receipt |
 | location-history-storage | recommended | Transition events can be written to the history log alongside regular location records |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Geofencing Regions
+
+Define named circular regions by centre coordinates and radius; automatically detect when a tracked device enters or leaves each region and emit transition events.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `mqtt_location_ingestion` | mqtt-location-ingestion | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| region_entered | `autonomous` | - | - |
+| region_left | `autonomous` | - | - |
+| no_transition | `autonomous` | - | - |
+| region_skipped_zero_radius | `autonomous` | - | - |
+| region_definitions_loaded | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

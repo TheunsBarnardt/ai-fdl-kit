@@ -173,6 +173,66 @@ description: "Store device location records in append-only monthly logs, maintai
 | geofencing-regions | recommended | Reads stored waypoint files from the same storage tree to initialise geofence state |
 | shared-location-friends | optional | Reads last-position snapshots to populate friend location responses |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Location History Storage
+
+Store device location records in append-only monthly logs, maintain a last-known-position snapshot per device, and serve time-range queries in multiple output formats without an external database.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `mqtt_location_ingestion` | mqtt-location-ingestion | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| location_appended | `autonomous` | - | - |
+| last_position_updated | `supervised` | - | - |
+| last_position_unchanged | `supervised` | - | - |
+| history_queried | `autonomous` | - | - |
+| last_n_queried | `autonomous` | - | - |
+| last_position_queried | `autonomous` | - | - |
+| user_list_queried | `autonomous` | - | - |
+| storage_unavailable | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

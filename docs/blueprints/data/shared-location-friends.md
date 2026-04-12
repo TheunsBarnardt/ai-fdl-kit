@@ -150,6 +150,65 @@ description: "Allow devices to receive the last-known positions and profile card
 | location-history-storage | required | Provides the last-position snapshots read to populate each friend's location in the response |
 | mqtt-location-ingestion | recommended | Keeps last-position snapshots current as devices publish new locations |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Shared Location Friends
+
+Allow devices to receive the last-known positions and profile cards of a curated friend list when polling for location updates, enabling shared-location without direct device-to-device communication.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `location_history_storage` | location-history-storage | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| friends_returned | `autonomous` | - | - |
+| no_friends_configured | `autonomous` | - | - |
+| friend_skipped_no_position | `autonomous` | - | - |
+| friend_skipped_no_tid | `autonomous` | - | - |
+| friend_with_card_returned | `autonomous` | - | - |
+| friend_location_only_returned | `autonomous` | - | - |
+| friends_store_unavailable | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

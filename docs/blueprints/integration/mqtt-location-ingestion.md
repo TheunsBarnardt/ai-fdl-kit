@@ -210,6 +210,64 @@ description: "Subscribe to a message broker for device location publishes, parse
 | geofencing-regions | recommended | Evaluates device position against registered waypoints on each ingested location |
 | shared-location-friends | optional | Distributes ingested positions to subscribed friend devices in HTTP mode |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Mqtt Location Ingestion
+
+Subscribe to a message broker for device location publishes, parse and normalize location payloads, and route each message by type to the appropriate storage or processing handler.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `location_history_storage` | location-history-storage | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| location_stored | `autonomous` | - | - |
+| waypoint_received | `autonomous` | - | - |
+| transition_received | `autonomous` | - | - |
+| non_location_stored | `autonomous` | - | - |
+| card_stored | `autonomous` | - | - |
+| empty_payload_discarded | `autonomous` | - | - |
+| retained_ignored | `autonomous` | - | - |
+| invalid_coordinates | `autonomous` | - | - |
+| short_topic_discarded | `autonomous` | - | - |
+| unparseable_payload_stored | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

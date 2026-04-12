@@ -281,21 +281,6 @@ _Last run: 2026-04-12 — 54 blueprints below the fitness threshold. Pick a row,
   /fdl-extract-code https://github.com/keycloak/keycloak user-authentication-session-management auth
   ```
 
-### 🔴 workflow/cost-based-route-optimization — 63/100
-**Weakest dimension:** `agi` (0/5)
-
-_No candidates mapped for `workflow` + `agi`. Run `/fdl-recommend-discover cost-based-route-optimization` to find some._
-
-### 🔴 workflow/multi-vehicle-route-optimization — 63/100
-**Weakest dimension:** `agi` (0/5)
-
-_No candidates mapped for `workflow` + `agi`. Run `/fdl-recommend-discover multi-vehicle-route-optimization` to find some._
-
-### 🔴 workflow/vehicle-capacity-constraints — 63/100
-**Weakest dimension:** `agi` (0/5)
-
-_No candidates mapped for `workflow` + `agi`. Run `/fdl-recommend-discover vehicle-capacity-constraints` to find some._
-
 ### 🔴 notification/device-alarm-notifications — 64/100
 **Weakest dimension:** `error_binding` (2/10) — 1 of 1 codes unbound
 
@@ -305,16 +290,6 @@ _No candidates mapped for `notification` + `error_binding`. Run `/fdl-recommend-
 **Weakest dimension:** `error_binding` (2/10) — 2 of 2 codes unbound
 
 _No candidates mapped for `workflow` + `error_binding`. Run `/fdl-recommend-discover maintenance-reminders` to find some._
-
-### 🔴 workflow/priority-urgency-weighting — 64/100
-**Weakest dimension:** `agi` (0/5)
-
-_No candidates mapped for `workflow` + `agi`. Run `/fdl-recommend-discover priority-urgency-weighting` to find some._
-
-### 🔴 workflow/skill-based-assignment — 64/100
-**Weakest dimension:** `agi` (0/5)
-
-_No candidates mapped for `workflow` + `agi`. Run `/fdl-recommend-discover skill-based-assignment` to find some._
 
 ### 🔴 asset/trip-replay — 65/100
 **Weakest dimension:** `error_binding` (2/10) — 1 of 1 codes unbound
@@ -345,10 +320,26 @@ _No candidates mapped for `asset` + `error_binding`. Run `/fdl-recommend-discove
   /fdl-extract-code https://github.com/directus/directus payload-globals data
   ```
 
-### 🔴 workflow/stop-eta-calculation — 65/100
-**Weakest dimension:** `agi` (0/5)
+### 🟡 workflow/cost-based-route-optimization — 65/100  *(+2 from last extraction)*
+**Weakest dimension:** `error_binding` (2/10) — 2 of 2 codes unbound
 
-_No candidates mapped for `workflow` + `agi`. Run `/fdl-recommend-discover stop-eta-calculation` to find some._
+⚠ Previous attempt: a previous attempt lifted score 63 → 65 but still below 75. Try next:
+
+_No candidates mapped for `workflow` + `error_binding`. Run `/fdl-recommend-discover cost-based-route-optimization` to find some._
+
+### 🟡 workflow/multi-vehicle-route-optimization — 65/100  *(+2 from last extraction)*
+**Weakest dimension:** `error_binding` (2/10) — 2 of 2 codes unbound
+
+⚠ Previous attempt: a previous attempt lifted score 63 → 65 but still below 75. Try next:
+
+_No candidates mapped for `workflow` + `error_binding`. Run `/fdl-recommend-discover multi-vehicle-route-optimization` to find some._
+
+### 🟡 workflow/vehicle-capacity-constraints — 65/100  *(+2 from last extraction)*
+**Weakest dimension:** `error_binding` (2/10) — 2 of 2 codes unbound
+
+⚠ Previous attempt: a previous attempt lifted score 63 → 65 but still below 75. Try next:
+
+_No candidates mapped for `workflow` + `error_binding`. Run `/fdl-recommend-discover vehicle-capacity-constraints` to find some._
 
 ### 🔴 asset/location-visit-history — 66/100
 **Weakest dimension:** `error_binding` (2/10) — 1 of 1 codes unbound
@@ -396,6 +387,20 @@ _No candidates mapped for `notification` + `error_binding`. Run `/fdl-recommend-
   /fdl-extract-code https://github.com/quantlib/quantlib commodity-derivatives-eod-data-delivery trading
   ```
 
+### 🟡 workflow/priority-urgency-weighting — 66/100  *(+2 from last extraction)*
+**Weakest dimension:** `error_binding` (2/10) — 1 of 1 codes unbound
+
+⚠ Previous attempt: a previous attempt lifted score 64 → 66 but still below 75. Try next:
+
+_No candidates mapped for `workflow` + `error_binding`. Run `/fdl-recommend-discover priority-urgency-weighting` to find some._
+
+### 🟡 workflow/skill-based-assignment — 66/100  *(+2 from last extraction)*
+**Weakest dimension:** `error_binding` (2/10) — 1 of 1 codes unbound
+
+⚠ Previous attempt: a previous attempt lifted score 64 → 66 but still below 75. Try next:
+
+_No candidates mapped for `workflow` + `error_binding`. Run `/fdl-recommend-discover skill-based-assignment` to find some._
+
 ### 🔴 workflow/stop-detection — 66/100
 **Weakest dimension:** `error_binding` (2/10) — 1 of 1 codes unbound
 
@@ -424,6 +429,13 @@ _No candidates mapped for `workflow` + `error_binding`. Run `/fdl-recommend-disc
   ```
   /fdl-extract-code https://github.com/quantlib/quantlib interest-rates-derivatives-eod-data-delivery trading
   ```
+
+### 🟡 workflow/stop-eta-calculation — 67/100  *(+2 from last extraction)*
+**Weakest dimension:** `error_binding` (2/10) — 1 of 1 codes unbound
+
+⚠ Previous attempt: a previous attempt lifted score 65 → 67 but still below 75. Try next:
+
+_No candidates mapped for `workflow` + `error_binding`. Run `/fdl-recommend-discover stop-eta-calculation` to find some._
 
 ### 🔴 asset/vehicle-efficiency-metrics — 68/100
 **Weakest dimension:** `error_binding` (2/10) — 1 of 1 codes unbound
@@ -519,11 +531,6 @@ _No candidates mapped for `notification` + `error_binding`. Run `/fdl-recommend-
   /fdl-extract-code https://github.com/quantlib/quantlib money-market-eod-data-delivery trading
   ```
 
-### 🔴 workflow/routing-profile-selection — 68/100
-**Weakest dimension:** `agi` (0/5)
-
-_No candidates mapped for `workflow` + `agi`. Run `/fdl-recommend-discover routing-profile-selection` to find some._
-
 ### 🔴 asset/trip-energy-consumption — 69/100
 **Weakest dimension:** `error_binding` (2/10) — 1 of 1 codes unbound
 
@@ -563,23 +570,6 @@ _No candidates mapped for `asset` + `error_binding`. Run `/fdl-recommend-discove
   /fdl-extract-code https://github.com/directus/directus set-operations data
   ```
 
-### 🔴 integration/obd-dtc-diagnostics — 69/100
-**Weakest dimension:** `agi` (0/5)
-
-- **ory/hydra** — Canonical OAuth2/OIDC reference
-  ```
-  /fdl-extract-code https://github.com/ory/hydra obd-dtc-diagnostics integration
-  ```
-- **keycloak/keycloak** — Canonical identity brokering reference
-  ```
-  /fdl-extract-code https://github.com/keycloak/keycloak obd-dtc-diagnostics integration
-  ```
-
-### 🔴 workflow/driver-shift-break-constraints — 69/100
-**Weakest dimension:** `agi` (0/5)
-
-_No candidates mapped for `workflow` + `agi`. Run `/fdl-recommend-discover driver-shift-break-constraints` to find some._
-
 ### 🔴 data/device-status-tracking — 70/100
 **Weakest dimension:** `error_binding` (2/10) — 1 of 1 codes unbound
 
@@ -596,6 +586,13 @@ _No candidates mapped for `workflow` + `agi`. Run `/fdl-recommend-discover drive
 **Weakest dimension:** `error_binding` (2/10) — 1 of 1 codes unbound
 
 _No candidates mapped for `notification` + `error_binding`. Run `/fdl-recommend-discover overspeed-alerts` to find some._
+
+### 🟡 workflow/routing-profile-selection — 70/100  *(+2 from last extraction)*
+**Weakest dimension:** `structure` (4/10)
+
+⚠ Previous attempt: a previous attempt lifted score 68 → 70 but still below 75. Try next:
+
+_No candidates mapped for `workflow` + `structure`. Run `/fdl-recommend-discover routing-profile-selection` to find some._
 
 ### 🔴 workflow/trip-detection — 70/100
 **Weakest dimension:** `error_binding` (2/10) — 1 of 1 codes unbound
@@ -624,6 +621,20 @@ _No candidates mapped for `asset` + `error_binding`. Run `/fdl-recommend-discove
   /fdl-extract-code https://github.com/directus/directus ignition-detection data
   ```
 
+### 🟡 integration/obd-dtc-diagnostics — 71/100  *(+2 from last extraction)*
+**Weakest dimension:** `structure` (3/10)
+
+⚠ Previous attempt: `ory/hydra` lifted score 69 → 71 but still below 75. Try next:
+
+- **ory/hydra** — Canonical OAuth2/OIDC reference
+  ```
+  /fdl-extract-code https://github.com/ory/hydra obd-dtc-diagnostics integration
+  ```
+- **keycloak/keycloak** — Canonical identity brokering reference
+  ```
+  /fdl-extract-code https://github.com/keycloak/keycloak obd-dtc-diagnostics integration
+  ```
+
 ### 🔴 notification/vehicle-renewal-reminders — 71/100
 **Weakest dimension:** `error_binding` (2/10) — 2 of 2 codes unbound
 
@@ -633,6 +644,13 @@ _No candidates mapped for `notification` + `error_binding`. Run `/fdl-recommend-
 **Weakest dimension:** `error_binding` (2/10) — 2 of 2 codes unbound
 
 _No candidates mapped for `security` + `error_binding`. Run `/fdl-recommend-discover prompt-attack-augmentation` to find some._
+
+### 🟡 workflow/driver-shift-break-constraints — 71/100  *(+2 from last extraction)*
+**Weakest dimension:** `structure` (4/10)
+
+⚠ Previous attempt: a previous attempt lifted score 69 → 71 but still below 75. Try next:
+
+_No candidates mapped for `workflow` + `structure`. Run `/fdl-recommend-discover driver-shift-break-constraints` to find some._
 
 ### 🔴 workflow/order-sla-eta — 71/100
 **Weakest dimension:** `error_binding` (2/10) — 2 of 2 codes unbound
