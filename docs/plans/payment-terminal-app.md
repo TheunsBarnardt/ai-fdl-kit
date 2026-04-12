@@ -569,18 +569,18 @@ _To be updated after gap resolution is executed. Target: 18/18 (100%)._
 
 The complete technical specifications for each system component are defined as FDL (Feature Definition Language) blueprints. These blueprints serve as the authoritative source for implementation:
 
-| Feature            | Blueprint                        | Description                                          |
-| ------------------ | -------------------------------- | ---------------------------------------------------- |
-| PayShap Rail       | `integration/payshap-rail`       | Real-time credit push payments with proxy resolution |
-| Palm Pay           | `payment/palm-pay`               | Palm template to payment proxy linking               |
-| Terminal Flow      | `payment/terminal-payment-flow`  | End-to-end transaction orchestration                 |
-| Enrolment          | `payment/terminal-enrollment`    | At-terminal palm registration                        |
-| Fleet Management   | `infrastructure/terminal-fleet`  | Device lifecycle and monitoring                      |
-| Offline Queue      | `payment/terminal-offline-queue` | Risk-limited offline resilience                      |
-| Palm Scanner SDK   | `integration/palm-vein`          | Hardware integration and template matching           |
-| Biometric Auth     | `auth/biometric-auth`            | Palm enrolment and authentication                    |
-| POS Core           | `payment/pos-core`               | Session and register management                      |
-| Payment Processing | `payment/payment-processing`     | Multi-method transaction handling                    |
-| Card Methods       | `payment/payment-methods`        | Card tokenisation and management                     |
-| Payment Gateway    | `integration/payment-gateway`    | Card authorisation and capture                       |
-| Refunds            | `payment/refunds-returns`        | Refund processing with approval workflow             |
+| Feature | Blueprint | Description |
+| --- | --- | --- |
+| PayShap Rail | [`integration/payshap-rail`](../../blueprints/integration/payshap-rail.md) | Real-time credit push payments with proxy resolution |
+| Palm Pay | [`payment/palm-pay`](../../blueprints/payment/palm-pay.md) | Palm template to payment proxy linking |
+| Terminal Flow | [`payment/terminal-payment-flow`](../../blueprints/payment/terminal-payment-flow.md) | End-to-end transaction orchestration |
+| Enrolment | [`payment/terminal-enrollment`](../../blueprints/payment/terminal-enrollment.md) | At-terminal palm registration |
+| Fleet Management | [`infrastructure/terminal-fleet`](../../blueprints/infrastructure/terminal-fleet.md) | Device lifecycle and monitoring |
+| Offline Queue | [`payment/terminal-offline-queue`](../../blueprints/payment/terminal-offline-queue.md) | Risk-limited offline resilience |
+| Palm Scanner SDK | [`integration/palm-vein`](../../blueprints/integration/palm-vein.md) | Hardware integration and template matching |
+| Biometric Auth | [`auth/biometric-auth`](../../blueprints/auth/biometric-auth.md) | Palm enrolment and authentication |
+| POS Core | [`payment/pos-core`](../../blueprints/payment/pos-core.md) | Session and register management |
+| Payment Processing | [`payment/payment-processing`](../../blueprints/payment/payment-processing.md) | Multi-method transaction handling |
+| Card Methods | [`payment/payment-methods`](../../blueprints/payment/payment-methods.md) | Card tokenisation and management |
+| Payment Gateway | [`integration/payment-gateway`](../../blueprints/integration/payment-gateway.md) | Card authorisation and capture |
+| Refunds | [`payment/refunds-returns`](../../blueprints/payment/refunds-returns.md) | Refund processing with approval workflow |
