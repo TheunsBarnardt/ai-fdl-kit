@@ -1,0 +1,415 @@
+{
+  "feature": "file-upload-sharing",
+  "version": "1.0.0",
+  "description": "Upload and share files, images, audio, and video in conversation channels with automatic thumbnail generation and inline preview",
+  "category": "communication",
+  "tags": [
+    "files",
+    "uploads",
+    "media",
+    "attachments",
+    "sharing"
+  ],
+  "actors": [
+    {
+      "id": "uploader",
+      "name": "File Uploader",
+      "type": "human",
+      "description": "Authenticated user uploading and sharing a file in a channel"
+    },
+    {
+      "id": "recipient",
+      "name": "Channel Member",
+      "type": "human",
+      "description": "User who receives and views the shared file in the conversation"
+    },
+    {
+      "id": "system",
+      "name": "File Storage System",
+      "type": "system",
+      "description": "Handles storage, validation, thumbnail generation, and access control for uploaded files"
+    }
+  ],
+  "fields": [
+    {
+      "name": "file_id",
+      "type": "text",
+      "required": true,
+      "label": "File ID"
+    },
+    {
+      "name": "channel_id",
+      "type": "text",
+      "required": true,
+      "label": "Channel ID"
+    },
+    {
+      "name": "file_name",
+      "type": "text",
+      "required": true,
+      "label": "File Name"
+    },
+    {
+      "name": "file_type",
+      "type": "text",
+      "required": true,
+      "label": "MIME Type"
+    },
+    {
+      "name": "file_size",
+      "type": "number",
+      "required": true,
+      "label": "File Size"
+    },
+    {
+      "name": "description",
+      "type": "text",
+      "required": false,
+      "label": "File Description"
+    },
+    {
+      "name": "message_text",
+      "type": "text",
+      "required": false,
+      "label": "Message Text"
+    },
+    {
+      "name": "thread_id",
+      "type": "text",
+      "required": false,
+      "label": "Thread ID"
+    },
+    {
+      "name": "file_url",
+      "type": "url",
+      "required": false,
+      "label": "File URL"
+    },
+    {
+      "name": "image_dimensions",
+      "type": "json",
+      "required": false,
+      "label": "Image Dimensions"
+    }
+  ],
+  "rules": {
+    "general": [
+      "The uploading user must be authenticated and have access to the target channel",
+      "File uploads may be restricted by allowed MIME types; files with disallowed types are rejected",
+      "File size must not exceed the configured maximum upload size for the workspace",
+      "For image files, a preview thumbnail is generated and stored separately to optimise load times",
+      "Image attachments include inline preview data (base64 small preview) for immediate rendering before the full image loads",
+      "Audio and video files are displayed with a native player control inline in the conversation",
+      "All other file types are displayed as a downloadable link attachment with filename and size",
+      "File records require file_id, file_name, file_type, and file_size to be valid; missing any of these rejects the upload",
+      "The file must be confirmed as uploaded to the storage backend before a message attachment is created",
+      "Files are stored with a namespaced path that includes the channel and user context to prevent collisions",
+      "Download URLs include the encoded filename to preserve the original name on download",
+      "After a file message is sent, a post-upload callback notifies registered integrations",
+      "End-to-end encrypted uploads use an encrypted content structure to protect file metadata and content",
+      "App-type bots may share files without the standard channel-membership access check"
+    ]
+  },
+  "outcomes": {
+    "user_not_authenticated": {
+      "priority": 1,
+      "error": "UPLOAD_NOT_AUTHENTICATED",
+      "given": [
+        "no authenticated user session exists"
+      ],
+      "then": [],
+      "result": "Upload rejected; user must be logged in"
+    },
+    "channel_not_found": {
+      "priority": 2,
+      "error": "UPLOAD_CHANNEL_NOT_FOUND",
+      "given": [
+        "channel_id does not correspond to an existing channel"
+      ],
+      "then": [],
+      "result": "Upload rejected; the target channel could not be found"
+    },
+    "user_no_channel_access": {
+      "priority": 3,
+      "error": "UPLOAD_NO_CHANNEL_ACCESS",
+      "given": [
+        "authenticated user does not have access to the target channel"
+      ],
+      "then": [],
+      "result": "Upload rejected; user does not have permission to post in this channel"
+    },
+    "invalid_file_record": {
+      "priority": 4,
+      "error": "UPLOAD_INVALID_FILE",
+      "given": [
+        "file record is missing one or more required fields: file_id, file_name, file_type, file_size"
+      ],
+      "then": [],
+      "result": "Upload rejected; the file record is incomplete or invalid"
+    },
+    "file_not_confirmed_in_storage": {
+      "priority": 5,
+      "error": "UPLOAD_FILE_NOT_FOUND_IN_STORAGE",
+      "given": [
+        "file_id cannot be matched to a confirmed upload record for this user and channel"
+      ],
+      "then": [],
+      "result": "Upload rejected; the file has not been confirmed in storage"
+    },
+    "image_shared": {
+      "priority": 6,
+      "given": [
+        "user is authenticated and has channel access",
+        "file record is valid and confirmed in storage",
+        "file_type matches an image MIME type"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "file_message",
+          "description": "Message with image attachment including preview, thumbnail URL, and dimensions"
+        },
+        {
+          "action": "emit_event",
+          "event": "file.uploaded",
+          "payload": [
+            "file_id",
+            "channel_id",
+            "uploader_user_id",
+            "file_name",
+            "file_type",
+            "file_size"
+          ]
+        }
+      ],
+      "result": "Image is displayed inline in the conversation with a thumbnail preview"
+    },
+    "audio_shared": {
+      "priority": 7,
+      "given": [
+        "user is authenticated and has channel access",
+        "file record is valid and confirmed in storage",
+        "file_type matches an audio MIME type"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "file_message",
+          "description": "Message with audio attachment and an inline audio player"
+        },
+        {
+          "action": "emit_event",
+          "event": "file.uploaded",
+          "payload": [
+            "file_id",
+            "channel_id",
+            "uploader_user_id",
+            "file_name",
+            "file_type",
+            "file_size"
+          ]
+        }
+      ],
+      "result": "Audio file is displayed with an inline player control in the conversation"
+    },
+    "video_shared": {
+      "priority": 8,
+      "given": [
+        "user is authenticated and has channel access",
+        "file record is valid and confirmed in storage",
+        "file_type matches a video MIME type"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "file_message",
+          "description": "Message with video attachment and an inline video player"
+        },
+        {
+          "action": "emit_event",
+          "event": "file.uploaded",
+          "payload": [
+            "file_id",
+            "channel_id",
+            "uploader_user_id",
+            "file_name",
+            "file_type",
+            "file_size"
+          ]
+        }
+      ],
+      "result": "Video is displayed with an inline player control in the conversation"
+    },
+    "generic_file_shared": {
+      "priority": 9,
+      "given": [
+        "user is authenticated and has channel access",
+        "file record is valid and confirmed in storage",
+        "file_type does not match image, audio, or video"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "file_message",
+          "description": "Message with a downloadable file link showing filename, format, and size"
+        },
+        {
+          "action": "emit_event",
+          "event": "file.uploaded",
+          "payload": [
+            "file_id",
+            "channel_id",
+            "uploader_user_id",
+            "file_name",
+            "file_type",
+            "file_size"
+          ]
+        }
+      ],
+      "result": "File appears as a downloadable attachment with name and size information"
+    }
+  },
+  "errors": [
+    {
+      "code": "UPLOAD_NOT_AUTHENTICATED",
+      "status": 400,
+      "message": "You must be logged in to upload files"
+    },
+    {
+      "code": "UPLOAD_CHANNEL_NOT_FOUND",
+      "status": 404,
+      "message": "The target channel could not be found"
+    },
+    {
+      "code": "UPLOAD_NO_CHANNEL_ACCESS",
+      "status": 400,
+      "message": "You do not have permission to share files in this channel"
+    },
+    {
+      "code": "UPLOAD_INVALID_FILE",
+      "status": 400,
+      "message": "The file is invalid or missing required information"
+    },
+    {
+      "code": "UPLOAD_FILE_NOT_FOUND_IN_STORAGE",
+      "status": 404,
+      "message": "The file could not be confirmed; please try uploading again"
+    }
+  ],
+  "events": [
+    {
+      "name": "file.uploaded",
+      "description": "Fired after a file message is successfully posted in a channel",
+      "payload": [
+        "file_id",
+        "channel_id",
+        "uploader_user_id",
+        "file_name",
+        "file_type",
+        "file_size"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "direct-messaging",
+      "type": "recommended",
+      "reason": "File sharing applies to direct messages and group conversations as well as channels"
+    },
+    {
+      "feature": "message-pinning",
+      "type": "optional",
+      "reason": "File messages can be pinned for quick channel reference"
+    },
+    {
+      "feature": "link-preview-unfurling",
+      "type": "optional",
+      "reason": "Shared file URLs may trigger link previews in other messages"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/RocketChat/Rocket.Chat",
+      "project": "Open-source team communication platform",
+      "tech_stack": "TypeScript, Meteor, React, MongoDB",
+      "files_traced": 5
+    }
+  },
+  "agi": {
+    "goals": [
+      {
+        "id": "secure_file_delivery",
+        "description": "Validate, store, and share files in conversations with appropriate type and size enforcement, access control, and inline preview generation",
+        "success_metrics": [
+          {
+            "metric": "upload_validation_rate",
+            "target": "100%",
+            "measurement": "Files validated for type and size before storage confirmation / total uploads"
+          },
+          {
+            "metric": "unauthorised_file_access_rate",
+            "target": "0%",
+            "measurement": "File accesses by users without channel membership / total access attempts"
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before changing workspace-level maximum upload size",
+        "before modifying allowed MIME type lists"
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "a file message is only created after the file is confirmed in storage",
+        "file records must include file_id, file_name, file_type, and file_size",
+        "uploader must be authenticated and have channel access"
+      ],
+      "acceptance_tests": [
+        {
+          "scenario": "unconfirmed file rejected",
+          "given": "file_id cannot be matched to a confirmed upload for the user",
+          "when": "file message creation is attempted",
+          "expect": "UPLOAD_FILE_NOT_FOUND_IN_STORAGE error returned"
+        },
+        {
+          "scenario": "image generates inline preview",
+          "given": "uploaded file is an image MIME type",
+          "when": "file message is posted",
+          "expect": "thumbnail and inline preview data are stored with the message"
+        }
+      ]
+    },
+    "capabilities": [
+      {
+        "id": "multi_type_file_sharing",
+        "description": "Share images, audio, video, and generic files with type-appropriate inline rendering"
+      },
+      {
+        "id": "storage_confirmed_upload",
+        "description": "Require backend storage confirmation before creating a file message"
+      }
+    ],
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "upload_file",
+          "permission": "autonomous"
+        },
+        {
+          "action": "delete_file_from_storage",
+          "permission": "supervised"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "storage_integrity",
+        "over": "upload_speed",
+        "reason": "requiring storage confirmation before message creation prevents orphaned file messages"
+      }
+    ]
+  }
+}

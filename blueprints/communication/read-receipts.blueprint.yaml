@@ -1,0 +1,294 @@
+feature: read-receipts
+version: 1.0.0
+description: Track and display which users have read each message, providing per-user read confirmation for messages in
+  conversations
+category: communication
+tags:
+  - read-receipts
+  - messages
+  - tracking
+  - confirmation
+  - delivery
+actors:
+  - id: reader
+    name: Reader
+    type: human
+    description: The user who reads messages, triggering read receipt creation
+  - id: message_sender
+    name: Message Sender
+    type: human
+    description: The user who sent the message and can see who has read it
+  - id: receipt_service
+    name: Receipt Service
+    type: system
+    description: Server-side service that records and queries read receipts
+  - id: administrator
+    name: Administrator
+    type: human
+    description: Administrator who controls whether read receipts are enabled system-wide
+fields:
+  - name: message_id
+    type: text
+    required: true
+    label: Message ID
+  - name: room_id
+    type: text
+    required: true
+    label: Room ID
+  - name: user_id
+    type: text
+    required: true
+    label: User ID
+  - name: read_at
+    type: datetime
+    required: true
+    label: Read At
+  - name: thread_id
+    type: text
+    required: false
+    label: Thread ID
+  - name: last_seen
+    type: datetime
+    required: false
+    label: Last Seen
+  - name: pinned
+    type: boolean
+    required: false
+    label: Pinned
+  - name: is_thread_reply
+    type: boolean
+    required: false
+    label: Is Thread Reply
+rules:
+  general:
+    - Read receipts must be enabled by system configuration before any receipts are stored
+    - A receipt is created for each message a user views, identified by user ID, message ID, and timestamp
+    - "Batch read: when a user opens a room, all visible unread messages up to their last-seen timestamp are marked as
+      read"
+    - A message authored by the sender is automatically marked as read if the sender is the only participant in the room
+    - Thread reads are tracked separately from main conversation reads
+    - Once all subscribers have read messages up to a point, those messages are marked as globally read at the room level
+    - "Read receipts must not leak data: only the sender (and administrators) can see who read a specific message"
+    - Deleting a user's data must remove all their associated read receipts
+    - Pinned messages retain their read receipt history even after pinning
+    - Read receipts for a message are debounced per room to avoid write storms when many users open a room simultaneously
+outcomes:
+  messages_marked_as_read_on_open:
+    priority: 1
+    given:
+      - user opens or scrolls to a room and has unread messages
+      - field: last_seen
+        source: db
+        operator: exists
+      - field: read_receipts_enabled
+        source: system
+        operator: eq
+        value: true
+    then:
+      - action: create_record
+        type: read_receipt
+      - action: emit_event
+        event: read_receipts.messages_read
+        payload:
+          - room_id
+          - user_id
+          - last_seen
+    result: Read receipts are stored for all unread messages up to the user's last-seen timestamp
+  thread_marked_as_read:
+    priority: 2
+    given:
+      - user reads messages inside a thread
+      - field: thread_id
+        source: input
+        operator: exists
+      - field: read_receipts_enabled
+        source: system
+        operator: eq
+        value: true
+    then:
+      - action: create_record
+        type: read_receipt
+      - action: emit_event
+        event: read_receipts.thread_read
+        payload:
+          - thread_id
+          - user_id
+    result: Read receipts are recorded for thread messages independently from the main room
+  message_auto_read_by_sender:
+    priority: 3
+    given:
+      - sender is the only participant in the room
+      - field: subscriber_count
+        source: computed
+        operator: eq
+        value: 0
+      - field: read_receipts_enabled
+        source: system
+        operator: eq
+        value: true
+    then:
+      - action: set_field
+        target: message.unread
+        value: false
+      - action: emit_event
+        event: read_receipts.message_read
+        payload:
+          - message_id
+          - room_id
+          - user_id
+    result: Message is automatically marked as read when the sender is alone in the room
+  room_last_message_read:
+    priority: 4
+    given:
+      - all subscribers have seen the room's last message
+      - field: last_seen
+        source: db
+        operator: gte
+        description: All subscriptions have last-seen >= room's last message timestamp
+    then:
+      - action: set_field
+        target: room.last_message_read
+        value: true
+      - action: emit_event
+        event: read_receipts.room_fully_read
+        payload:
+          - room_id
+    result: Room is marked as fully read; the last message shows as read by everyone
+  receipts_fetched_for_message:
+    priority: 5
+    given:
+      - user requests the list of readers for a specific message
+      - field: message_id
+        source: input
+        operator: exists
+      - field: read_receipts_enabled
+        source: system
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: read_receipts.receipts_fetched
+        payload:
+          - message_id
+          - room_id
+    result: List of users who have read the message is returned with their read timestamps
+  read_receipts_disabled:
+    priority: 6
+    error: READ_RECEIPT_FEATURE_DISABLED
+    given:
+      - field: read_receipts_enabled
+        source: system
+        operator: eq
+        value: false
+    then: []
+    result: No read receipts are stored or returned; feature is disabled by system configuration
+  receipt_not_found:
+    priority: 7
+    error: READ_RECEIPT_NOT_FOUND
+    given:
+      - user queries receipts for a message that has no receipt records
+      - field: message_id
+        source: input
+        operator: exists
+    then: []
+    result: Empty receipt list returned; no users have read the message yet
+errors:
+  - code: READ_RECEIPT_FEATURE_DISABLED
+    status: 400
+    message: Message read receipts are not enabled on this server
+  - code: READ_RECEIPT_NOT_FOUND
+    status: 404
+    message: No read receipts found for this message
+events:
+  - name: read_receipts.messages_read
+    description: Fired when a batch of messages are marked as read by a user opening a room
+    payload:
+      - room_id
+      - user_id
+      - last_seen
+  - name: read_receipts.thread_read
+    description: Fired when thread messages are marked as read by a user
+    payload:
+      - thread_id
+      - user_id
+  - name: read_receipts.message_read
+    description: Fired when a single message is marked as read
+    payload:
+      - message_id
+      - room_id
+      - user_id
+  - name: read_receipts.room_fully_read
+    description: Fired when all subscribers have read the room's last message
+    payload:
+      - room_id
+  - name: read_receipts.receipts_fetched
+    description: Fired when the read receipt list for a message is queried
+    payload:
+      - message_id
+      - room_id
+related:
+  - feature: user-presence
+    type: recommended
+    reason: Last-seen timestamps from presence can be reused for batch read marking
+  - feature: channel-messaging
+    type: required
+    reason: Messages must exist before read receipts can be tracked
+  - feature: direct-messaging
+    type: recommended
+    reason: Read receipts are especially meaningful in direct conversations
+extensions:
+  source:
+    repo: https://github.com/RocketChat/Rocket.Chat
+    project: Open-source team communication platform
+    tech_stack: TypeScript, Meteor, React, MongoDB
+    files_traced: 6
+
+agi:
+  goals:
+    - id: private_read_confirmation_tracking
+      description: "Record and expose per-user read confirmations for messages while ensuring receipt data is only visible to the sender and administrators"
+      success_metrics:
+        - metric: receipt_privacy_compliance
+          target: "100%"
+          measurement: "Receipt queries restricted to sender or admin / total receipt queries"
+        - metric: batch_read_accuracy
+          target: "99.9%"
+          measurement: "Messages correctly marked as read on room open / total unread messages"
+
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - "before enabling read receipts for the first time on a high-volume workspace"
+      - "before bulk-deleting read receipt history"
+
+  verification:
+    invariants:
+      - "read receipts are only stored when the feature is enabled by system configuration"
+      - "only the message sender and administrators may query who read a specific message"
+      - "deleting a user's data removes all their associated read receipts"
+    acceptance_tests:
+      - scenario: "batch read on room open"
+        given: "user opens a room with 10 unread messages"
+        when: "room is opened"
+        expect: "read receipts created for all 10 messages up to last-seen timestamp"
+      - scenario: "feature disabled blocks receipt creation"
+        given: "read_receipts_enabled system setting is false"
+        when: "user opens a room"
+        expect: "no read receipt records are created"
+
+  capabilities:
+    - id: batch_read_marking
+      description: "Mark all visible unread messages as read when a user opens a room"
+    - id: per_message_reader_list
+      description: "Return the list of users who have read a specific message with timestamps"
+
+  safety:
+    action_permissions:
+      - action: query_message_readers
+        permission: supervised
+        max_auto_decisions: 1
+
+  tradeoffs:
+    - prefer: privacy
+      over: transparency
+      reason: "receipt data is restricted to sender and admins to prevent surveillance of user reading habits"

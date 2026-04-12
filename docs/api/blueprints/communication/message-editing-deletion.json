@@ -1,0 +1,524 @@
+{
+  "feature": "message-editing-deletion",
+  "version": "1.0.0",
+  "description": "Allow users to edit the content of sent messages and delete messages, with optional edit history preservation and configurable time windows",
+  "category": "communication",
+  "tags": [
+    "messaging",
+    "editing",
+    "deletion",
+    "moderation",
+    "history"
+  ],
+  "actors": [
+    {
+      "id": "author",
+      "name": "Message Author",
+      "type": "human",
+      "description": "User who originally sent the message"
+    },
+    {
+      "id": "moderator",
+      "name": "Room Moderator",
+      "type": "human",
+      "description": "User with moderation permissions who may edit or delete others' messages"
+    },
+    {
+      "id": "administrator",
+      "name": "Administrator",
+      "type": "human",
+      "description": "System administrator who can override time-window restrictions"
+    },
+    {
+      "id": "system",
+      "name": "Messaging System",
+      "type": "system",
+      "description": "Enforces time windows, history retention policy, and event broadcasting"
+    }
+  ],
+  "fields": [
+    {
+      "name": "message_id",
+      "type": "text",
+      "required": true,
+      "label": "Message ID"
+    },
+    {
+      "name": "room_id",
+      "type": "text",
+      "required": true,
+      "label": "Room ID"
+    },
+    {
+      "name": "original_text",
+      "type": "rich_text",
+      "required": false,
+      "label": "Original Content"
+    },
+    {
+      "name": "updated_text",
+      "type": "rich_text",
+      "required": false,
+      "label": "Updated Content"
+    },
+    {
+      "name": "edited_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Edited At"
+    },
+    {
+      "name": "edited_by_user_id",
+      "type": "text",
+      "required": false,
+      "label": "Edited By"
+    },
+    {
+      "name": "deleted_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Deleted At"
+    },
+    {
+      "name": "deleted_by_user_id",
+      "type": "text",
+      "required": false,
+      "label": "Deleted By"
+    },
+    {
+      "name": "keep_history",
+      "type": "boolean",
+      "required": false,
+      "label": "Keep Edit/Delete History"
+    },
+    {
+      "name": "show_deleted_status",
+      "type": "boolean",
+      "required": false,
+      "label": "Show Deleted Placeholder"
+    },
+    {
+      "name": "edit_window_seconds",
+      "type": "number",
+      "required": false,
+      "label": "Edit Time Window (seconds)"
+    },
+    {
+      "name": "delete_window_seconds",
+      "type": "number",
+      "required": false,
+      "label": "Delete Time Window (seconds)"
+    }
+  ],
+  "states": {
+    "field": "message_status",
+    "values": [
+      {
+        "id": "active",
+        "label": "Active",
+        "initial": true,
+        "terminal": false
+      },
+      {
+        "id": "edited",
+        "label": "Edited",
+        "initial": false,
+        "terminal": false
+      },
+      {
+        "id": "deleted",
+        "label": "Deleted",
+        "initial": false,
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "active",
+        "to": "edited",
+        "actor": "author",
+        "description": "Author updates the message content within the allowed time window"
+      },
+      {
+        "from": "edited",
+        "to": "edited",
+        "actor": "author",
+        "description": "Author makes a subsequent edit to an already-edited message"
+      },
+      {
+        "from": "active",
+        "to": "deleted",
+        "actor": "author",
+        "description": "Author deletes their own message within the allowed time window"
+      },
+      {
+        "from": "edited",
+        "to": "deleted",
+        "actor": "author",
+        "description": "Author deletes a previously edited message"
+      },
+      {
+        "from": "active",
+        "to": "deleted",
+        "actor": "moderator",
+        "description": "Moderator removes a message that violates room rules"
+      },
+      {
+        "from": "edited",
+        "to": "deleted",
+        "actor": "moderator",
+        "description": "Moderator removes an already-edited message"
+      }
+    ]
+  },
+  "rules": {
+    "general": [
+      "A message author may edit their own messages within the configured time window; a window of 0 imposes no restriction",
+      "A message author may delete their own messages within the configured delete time window; a window of 0 imposes no restriction",
+      "Moderators and administrators may edit or delete any message in rooms they moderate, regardless of time window",
+      "When edit history retention is enabled, the previous content is saved as a historical record before applying the update",
+      "When the show-deleted-status setting is enabled, deleted messages display a placeholder; otherwise the message record is removed",
+      "Deleting a message that is the parent of a thread follows thread-aware deletion: the reply count is decremented and thread followers are notified",
+      "Attached files are removed from storage when a message is fully deleted (not just soft-deleted with a placeholder)",
+      "When history retention is enabled for a thread parent, the message is soft-deleted regardless of the show-deleted-status setting",
+      "The room's last-message snapshot is updated after any edit or deletion affecting the most recent message",
+      "Editing a message re-runs URL preview parsing and custom-field validation on the updated content",
+      "Third-party integrations are notified via event hooks both before (pre-delete prevent) and after a deletion; an integration may veto the deletion",
+      "An edit records the editing user's ID and timestamp alongside the new content; the original author remains unchanged"
+    ]
+  },
+  "outcomes": {
+    "message_edited": {
+      "priority": 1,
+      "given": [
+        "user is authenticated",
+        "message exists and has active or edited status",
+        "user is the message author, or has moderator/administrator role in the room",
+        {
+          "field": "edited_at",
+          "source": "computed",
+          "operator": "lte",
+          "value": "edit_window_seconds",
+          "description": "Current time is within the edit time window, or actor has elevated role, or window is unrestricted"
+        },
+        "updated content is not empty, or an attachment is still present"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "message_status",
+          "value": "edited"
+        },
+        {
+          "action": "set_field",
+          "target": "edited_at",
+          "value": "now"
+        },
+        {
+          "action": "set_field",
+          "target": "edited_by_user_id",
+          "value": "current_user"
+        },
+        {
+          "action": "emit_event",
+          "event": "message_editing_deletion.message_edited",
+          "payload": [
+            "message_id",
+            "room_id",
+            "edited_at",
+            "edited_by_user_id"
+          ]
+        }
+      ],
+      "result": "Message content is updated; an edit indicator is shown to all room members"
+    },
+    "message_deleted_soft": {
+      "priority": 2,
+      "given": [
+        "user is authenticated",
+        "message exists and is not already deleted",
+        "user is the message author within the delete time window, or has moderator/administrator role",
+        "show_deleted_status is true, or keep_history is true, or message is a thread parent with replies"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "message_status",
+          "value": "deleted"
+        },
+        {
+          "action": "set_field",
+          "target": "deleted_at",
+          "value": "now"
+        },
+        {
+          "action": "set_field",
+          "target": "deleted_by_user_id",
+          "value": "current_user"
+        },
+        {
+          "action": "emit_event",
+          "event": "message_editing_deletion.message_deleted",
+          "payload": [
+            "message_id",
+            "room_id",
+            "deleted_at",
+            "deleted_by_user_id"
+          ]
+        }
+      ],
+      "result": "Message content is replaced with a deletion placeholder visible to all room members"
+    },
+    "message_deleted_hard": {
+      "priority": 3,
+      "given": [
+        "user is authenticated",
+        "message exists and is not already deleted",
+        "user is the message author within the delete time window, or has moderator/administrator role",
+        "show_deleted_status is false",
+        "keep_history is false",
+        "message is not a thread parent with existing replies"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "message"
+        },
+        {
+          "action": "delete_record",
+          "type": "message_attachments"
+        },
+        {
+          "action": "emit_event",
+          "event": "message_editing_deletion.message_deleted",
+          "payload": [
+            "message_id",
+            "room_id",
+            "deleted_at",
+            "deleted_by_user_id"
+          ]
+        }
+      ],
+      "result": "Message and its attachments are permanently removed; all room members see the message disappear"
+    },
+    "edit_window_expired": {
+      "priority": 20,
+      "error": "EDIT_WINDOW_EXPIRED",
+      "given": [
+        "user is the message author",
+        {
+          "field": "edited_at",
+          "source": "computed",
+          "operator": "gt",
+          "value": "edit_window_seconds",
+          "description": "Current time exceeds the configured edit window"
+        },
+        "user does not have moderator or administrator role"
+      ],
+      "then": [],
+      "result": "User is informed the edit window for this message has closed"
+    },
+    "delete_window_expired": {
+      "priority": 21,
+      "error": "DELETE_WINDOW_EXPIRED",
+      "given": [
+        "user is the message author",
+        {
+          "field": "deleted_at",
+          "source": "computed",
+          "operator": "gt",
+          "value": "delete_window_seconds",
+          "description": "Current time exceeds the configured delete window"
+        },
+        "user does not have moderator or administrator role"
+      ],
+      "then": [],
+      "result": "User is informed the deletion window for this message has closed"
+    },
+    "not_authorized": {
+      "priority": 22,
+      "error": "EDIT_DELETE_NOT_AUTHORIZED",
+      "given": [
+        "user is not the message author",
+        "user does not have moderator or administrator role in the room"
+      ],
+      "then": [],
+      "result": "User is informed they are not permitted to edit or delete this message"
+    },
+    "message_not_found": {
+      "priority": 23,
+      "error": "EDIT_DELETE_MESSAGE_NOT_FOUND",
+      "given": [
+        "the specified message ID does not exist or has already been deleted"
+      ],
+      "then": [],
+      "result": "User is informed the message could not be found"
+    },
+    "integration_prevented": {
+      "priority": 24,
+      "error": "EDIT_DELETE_BLOCKED_BY_INTEGRATION",
+      "given": [
+        "a registered integration vetoed the operation via the pre-delete or pre-update event hook"
+      ],
+      "then": [],
+      "result": "User is informed the action was blocked by an active integration"
+    }
+  },
+  "errors": [
+    {
+      "code": "EDIT_WINDOW_EXPIRED",
+      "status": 400,
+      "message": "The time window for editing this message has passed."
+    },
+    {
+      "code": "DELETE_WINDOW_EXPIRED",
+      "status": 400,
+      "message": "The time window for deleting this message has passed."
+    },
+    {
+      "code": "EDIT_DELETE_NOT_AUTHORIZED",
+      "status": 400,
+      "message": "You are not allowed to edit or delete this message."
+    },
+    {
+      "code": "EDIT_DELETE_MESSAGE_NOT_FOUND",
+      "status": 404,
+      "message": "The message could not be found. It may have already been deleted."
+    },
+    {
+      "code": "EDIT_DELETE_BLOCKED_BY_INTEGRATION",
+      "status": 403,
+      "message": "This action was prevented by an active integration. Please contact your administrator."
+    }
+  ],
+  "events": [
+    {
+      "name": "message_editing_deletion.message_edited",
+      "description": "Fires after a message is successfully edited",
+      "payload": [
+        "message_id",
+        "room_id",
+        "edited_at",
+        "edited_by_user_id"
+      ]
+    },
+    {
+      "name": "message_editing_deletion.message_deleted",
+      "description": "Fires after a message is deleted (soft or hard)",
+      "payload": [
+        "message_id",
+        "room_id",
+        "deleted_at",
+        "deleted_by_user_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "channel-messaging",
+      "type": "required",
+      "reason": "Messages being edited or deleted originate from channel or direct message rooms"
+    },
+    {
+      "feature": "direct-messaging",
+      "type": "required",
+      "reason": "Edit and delete operations apply equally to direct messages"
+    },
+    {
+      "feature": "message-threading",
+      "type": "recommended",
+      "reason": "Deleting a thread parent requires special handling of reply count and follower notifications"
+    },
+    {
+      "feature": "message-reactions",
+      "type": "optional",
+      "reason": "Reactions on a deleted message are cleared when the message is hard-deleted"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/RocketChat/Rocket.Chat",
+      "project": "Open-source team communication platform",
+      "tech_stack": "TypeScript, Meteor, React, MongoDB",
+      "files_traced": 3
+    }
+  },
+  "agi": {
+    "goals": [
+      {
+        "id": "enforce_edit_delete_policy",
+        "description": "Allow authors and moderators to edit or delete messages within configured time windows while preserving audit trails when required",
+        "success_metrics": [
+          {
+            "metric": "unauthorised_edit_rate",
+            "target": "0%",
+            "measurement": "Edit or delete operations by non-authors without moderator role / total attempts"
+          },
+          {
+            "metric": "history_retention_compliance",
+            "target": "100%",
+            "measurement": "Edits that preserved history when keep_history is true / total edits"
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before permanently hard-deleting messages in a channel with history retention enabled",
+        "before changing workspace-level time window policies"
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "only the message author or a moderator/administrator may edit or delete a message",
+        "edit history is preserved when keep_history is enabled",
+        "hard deletion removes attached files from storage",
+        "third-party integrations can veto deletions via pre-delete hook"
+      ],
+      "acceptance_tests": [
+        {
+          "scenario": "edit window expired for regular user",
+          "given": "edit_window_seconds has elapsed since message creation",
+          "when": "message author attempts to edit",
+          "expect": "EDIT_WINDOW_EXPIRED error returned"
+        },
+        {
+          "scenario": "moderator ignores time window",
+          "given": "edit_window_seconds has elapsed",
+          "when": "moderator edits the message",
+          "expect": "edit succeeds regardless of time window"
+        }
+      ]
+    },
+    "capabilities": [
+      {
+        "id": "time_windowed_editing",
+        "description": "Enforce configurable edit and delete time windows per workspace policy"
+      },
+      {
+        "id": "soft_delete_with_placeholder",
+        "description": "Replace deleted message content with a placeholder when show_deleted_status is enabled"
+      }
+    ],
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "hard_delete_message",
+          "permission": "supervised"
+        },
+        {
+          "action": "edit_others_message",
+          "permission": "supervised"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "auditability",
+        "over": "storage_efficiency",
+        "reason": "preserving edit history and deletion placeholders enables compliance and dispute resolution"
+      }
+    ]
+  }
+}

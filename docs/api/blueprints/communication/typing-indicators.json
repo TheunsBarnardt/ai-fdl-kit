@@ -1,0 +1,408 @@
+{
+  "feature": "typing-indicators",
+  "version": "1.0.0",
+  "description": "Real-time indicators showing which users are currently typing, recording, uploading, or performing other in-progress actions in a conversation",
+  "category": "communication",
+  "tags": [
+    "typing",
+    "real-time",
+    "notifications",
+    "activity",
+    "presence"
+  ],
+  "actors": [
+    {
+      "id": "user",
+      "name": "User",
+      "type": "human",
+      "description": "The user performing an action (typing, recording, etc.)"
+    },
+    {
+      "id": "room_subscriber",
+      "name": "Room Subscriber",
+      "type": "human",
+      "description": "Other participants in the same room who receive activity notifications"
+    },
+    {
+      "id": "activity_service",
+      "name": "Activity Service",
+      "type": "system",
+      "description": "Service that broadcasts and tracks in-progress user activities per room"
+    }
+  ],
+  "fields": [
+    {
+      "name": "room_id",
+      "type": "text",
+      "required": true,
+      "label": "Room ID"
+    },
+    {
+      "name": "user_id",
+      "type": "text",
+      "required": true,
+      "label": "User ID"
+    },
+    {
+      "name": "username",
+      "type": "text",
+      "required": true,
+      "label": "Username"
+    },
+    {
+      "name": "activity_type",
+      "type": "select",
+      "required": true,
+      "label": "Activity Type",
+      "options": [
+        {
+          "value": "user-typing",
+          "label": "Typing"
+        },
+        {
+          "value": "user-recording",
+          "label": "Recording"
+        },
+        {
+          "value": "user-uploading",
+          "label": "Uploading"
+        },
+        {
+          "value": "user-playing",
+          "label": "Playing"
+        }
+      ]
+    },
+    {
+      "name": "thread_id",
+      "type": "text",
+      "required": false,
+      "label": "Thread ID"
+    },
+    {
+      "name": "timeout_ms",
+      "type": "number",
+      "required": false,
+      "label": "Activity Timeout (ms)"
+    }
+  ],
+  "states": {
+    "field": "activity_status",
+    "values": [
+      {
+        "id": "idle",
+        "label": "Idle",
+        "initial": true,
+        "terminal": false,
+        "description": "No active in-progress activity for this user in this room"
+      },
+      {
+        "id": "active",
+        "label": "Active",
+        "initial": false,
+        "terminal": false,
+        "description": "User is currently performing an in-progress activity"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "idle",
+        "to": "active",
+        "actor": "user",
+        "description": "User begins typing, recording, uploading, or other tracked action"
+      },
+      {
+        "from": "active",
+        "to": "active",
+        "actor": "user",
+        "description": "User renews the activity signal before it expires"
+      },
+      {
+        "from": "active",
+        "to": "idle",
+        "actor": "activity_service",
+        "description": "Activity signal expires due to timeout with no renewal"
+      },
+      {
+        "from": "active",
+        "to": "idle",
+        "actor": "user",
+        "description": "User explicitly stops the activity (sends message, cancels recording, etc.)"
+      }
+    ]
+  },
+  "rules": {
+    "general": [
+      "Activity signals auto-expire after a configurable timeout (default 15 seconds) if not renewed",
+      "Clients must renew the activity signal at regular intervals (approximately one-third of the timeout period) while the activity continues",
+      "Each room and thread tracks activity independently; thread activities are scoped to the thread ID",
+      "A user should not receive their own activity indicator in the UI",
+      "Multiple activity types can be active simultaneously for the same user in the same room",
+      "Activity notifications are broadcast to all room subscribers except the originating user",
+      "Display name shown in indicators follows the system-wide name display preference (username vs real name)",
+      "Activity signals use debouncing to avoid flooding the broadcast channel",
+      "Continuously-performing activities (recording, uploading) must use a renewal interval to keep the indicator visible",
+      "When a user leaves a room or disconnects, all their active indicators for that room must be cleared"
+    ]
+  },
+  "outcomes": {
+    "activity_started": {
+      "priority": 1,
+      "given": [
+        "user begins an in-progress activity in a room",
+        {
+          "field": "room_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "activity_type",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "activity_status",
+          "value": "active"
+        },
+        {
+          "action": "emit_event",
+          "event": "typing.activity_started",
+          "payload": [
+            "room_id",
+            "username",
+            "activity_type",
+            "thread_id"
+          ]
+        }
+      ],
+      "result": "Activity indicator is broadcast to all other participants in the room"
+    },
+    "activity_renewed": {
+      "priority": 2,
+      "given": [
+        "user sends a renewal signal before the previous signal expires",
+        {
+          "field": "activity_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "active"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "typing.activity_started",
+          "payload": [
+            "room_id",
+            "username",
+            "activity_type",
+            "thread_id"
+          ]
+        }
+      ],
+      "result": "Activity indicator timer is reset; indicator remains visible to other participants"
+    },
+    "activity_stopped_explicitly": {
+      "priority": 3,
+      "given": [
+        "user submits message, cancels action, or explicitly stops activity",
+        {
+          "field": "activity_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "active"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "activity_status",
+          "value": "idle"
+        },
+        {
+          "action": "emit_event",
+          "event": "typing.activity_stopped",
+          "payload": [
+            "room_id",
+            "username",
+            "activity_type",
+            "thread_id"
+          ]
+        }
+      ],
+      "result": "Activity indicator is cleared for this user in this room"
+    },
+    "activity_expired": {
+      "priority": 4,
+      "given": [
+        "activity timeout elapses with no renewal signal received",
+        {
+          "field": "activity_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "active"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "activity_status",
+          "value": "idle"
+        },
+        {
+          "action": "emit_event",
+          "event": "typing.activity_stopped",
+          "payload": [
+            "room_id",
+            "username",
+            "activity_type",
+            "thread_id"
+          ]
+        }
+      ],
+      "result": "Stale activity indicator is automatically cleared for all subscribers"
+    },
+    "own_activity_suppressed": {
+      "priority": 5,
+      "given": [
+        "subscriber receives an activity event for their own user ID"
+      ],
+      "then": [],
+      "result": "Activity indicator is not displayed to the originating user"
+    },
+    "unauthenticated_activity": {
+      "priority": 6,
+      "error": "TYPING_NOT_AUTHENTICATED",
+      "given": [
+        {
+          "field": "user_id",
+          "source": "session",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [],
+      "result": "Activity signal rejected because the sender is not authenticated"
+    }
+  },
+  "errors": [
+    {
+      "code": "TYPING_NOT_AUTHENTICATED",
+      "status": 400,
+      "message": "You must be signed in to send activity indicators"
+    }
+  ],
+  "events": [
+    {
+      "name": "typing.activity_started",
+      "description": "Fired when a user begins or renews an in-progress activity in a room",
+      "payload": [
+        "room_id",
+        "username",
+        "activity_type",
+        "thread_id"
+      ]
+    },
+    {
+      "name": "typing.activity_stopped",
+      "description": "Fired when a user's activity indicator expires or is explicitly cleared",
+      "payload": [
+        "room_id",
+        "username",
+        "activity_type",
+        "thread_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "user-presence",
+      "type": "recommended",
+      "reason": "Presence status provides broader availability context alongside typing indicators"
+    },
+    {
+      "feature": "direct-messaging",
+      "type": "optional",
+      "reason": "Typing indicators are commonly used in direct message conversations"
+    },
+    {
+      "feature": "channel-messaging",
+      "type": "optional",
+      "reason": "Typing indicators are commonly used in channel conversations"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/RocketChat/Rocket.Chat",
+      "project": "Open-source team communication platform",
+      "tech_stack": "TypeScript, Meteor, React, MongoDB",
+      "files_traced": 4
+    }
+  },
+  "agi": {
+    "goals": [
+      {
+        "id": "real_time_activity_indicators",
+        "description": "Broadcast in-progress user activities (typing, recording, uploading) to room participants without showing indicators to the originating user",
+        "success_metrics": [
+          {
+            "metric": "self_indicator_suppression_rate",
+            "target": "100%",
+            "measurement": "Activity events suppressed for the originating user / total activity events"
+          },
+          {
+            "metric": "stale_indicator_clearance_rate",
+            "target": "100%",
+            "measurement": "Expired activity indicators cleared within timeout period / total expired indicators"
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before changing the global activity timeout policy"
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "a user must not see their own activity indicator",
+        "activity indicators auto-expire after timeout with no renewal",
+        "disconnection clears all active indicators for the user in all rooms"
+      ],
+      "acceptance_tests": [
+        {
+          "scenario": "own activity suppressed",
+          "given": "user sends a typing activity signal",
+          "when": "activity event is broadcast",
+          "expect": "event is not shown to the originating user in the UI"
+        },
+        {
+          "scenario": "indicator expires on timeout",
+          "given": "activity signal is sent with no renewal",
+          "when": "timeout period elapses",
+          "expect": "activity_stopped event emitted and indicator cleared for all subscribers"
+        }
+      ]
+    },
+    "capabilities": [
+      {
+        "id": "debounced_activity_broadcast",
+        "description": "Broadcast typed activity signals to room participants with debouncing to prevent flooding"
+      },
+      {
+        "id": "auto_expiring_activity_state",
+        "description": "Automatically clear activity indicators after configurable timeout if not renewed"
+      }
+    ],
+    "tradeoffs": [
+      {
+        "prefer": "bandwidth_efficiency",
+        "over": "update_frequency",
+        "reason": "debouncing activity signals reduces server load at the cost of minor indicator lag"
+      }
+    ]
+  }
+}

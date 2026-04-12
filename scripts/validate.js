@@ -71,6 +71,7 @@ const blueprintJsonSchema = {
         "infrastructure",
         "observability",
         "security",
+        "communication",
       ],
     },
     tags: {

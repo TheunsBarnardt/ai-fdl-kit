@@ -1,0 +1,290 @@
+feature: message-threading
+version: 1.0.0
+description: Threaded replies to messages, keeping focused conversations nested under a parent message without
+  cluttering the main channel timeline
+category: communication
+tags:
+  - messaging
+  - threads
+  - replies
+  - conversations
+actors:
+  - id: participant
+    name: Thread Participant
+    type: human
+    description: Authenticated user who replies to or follows a thread
+  - id: author
+    name: Parent Message Author
+    type: human
+    description: User who posted the original message that starts a thread
+  - id: follower
+    name: Thread Follower
+    type: human
+    description: User who opted in to receive notifications for a thread without replying
+  - id: system
+    name: Messaging System
+    type: system
+    description: Manages thread state, follower tracking, and unread notifications
+fields:
+  - name: thread_id
+    type: text
+    required: true
+    label: Thread ID
+  - name: reply_id
+    type: text
+    required: true
+    label: Reply Message ID
+  - name: room_id
+    type: text
+    required: true
+    label: Room ID
+  - name: reply_text
+    type: rich_text
+    required: false
+    label: Reply Content
+  - name: show_in_channel
+    type: boolean
+    required: false
+    label: Also Post to Channel
+  - name: reply_count
+    type: number
+    required: true
+    label: Reply Count
+  - name: follower_ids
+    type: json
+    required: false
+    label: Follower IDs
+  - name: last_reply_at
+    type: datetime
+    required: false
+    label: Last Reply At
+  - name: sent_at
+    type: datetime
+    required: true
+    label: Sent At
+  - name: mentions
+    type: json
+    required: false
+    label: Mentioned Users
+rules:
+  general:
+    - A thread is anchored to a single parent message; threads cannot be nested beyond one level
+    - Any member with read access to the room containing the parent message may reply to its thread
+    - Replying to a thread automatically makes the replier a follower and adds them to the unread tracking list
+    - The parent message author is automatically added as a thread follower when the first reply is received
+    - Users mentioned in a reply are added as followers and receive a mention-level notification
+    - Thread followers receive notifications for new replies; the notification level respects the user's room and global
+      preferences
+    - Users may explicitly follow or unfollow any thread regardless of whether they have replied
+    - Unfollowing a thread removes the user from the follower list and clears thread-specific unread counts
+    - Reading a thread marks it as read for the current user and decrements the unread thread counter on the room
+      subscription
+    - Reply count on the parent message is kept in sync; deleting a reply decrements the count
+    - Threads are disabled globally when the system setting is turned off; attempting to reply returns an error
+    - A reply may optionally be cross-posted to the main channel timeline without affecting the thread
+outcomes:
+  thread_reply_posted:
+    priority: 1
+    given:
+      - user is authenticated and has read access to the room
+      - parent message exists and belongs to the same room
+      - threading is enabled at the system level
+      - reply content or attachment is present
+    then:
+      - action: create_record
+        type: thread_reply
+      - action: set_field
+        target: reply_count
+        value: incremented
+      - action: set_field
+        target: last_reply_at
+        value: sent_at
+      - action: emit_event
+        event: message_threading.reply_posted
+        payload:
+          - reply_id
+          - thread_id
+          - room_id
+          - sent_at
+    result: Reply is stored and thread followers receive unread notifications
+  follower_added_on_reply:
+    priority: 2
+    given:
+      - user posts a reply and is not already a thread follower
+    then:
+      - action: set_field
+        target: follower_ids
+        value: appended_with_user
+      - action: emit_event
+        event: message_threading.follower_added
+        payload:
+          - thread_id
+          - follower_ids
+    result: Replier is automatically subscribed to future thread notifications
+  thread_followed:
+    priority: 3
+    given:
+      - user explicitly follows a thread
+      - user is not already a follower
+      - parent message exists and user has read access to its room
+    then:
+      - action: set_field
+        target: follower_ids
+        value: appended_with_user
+      - action: emit_event
+        event: message_threading.thread_followed
+        payload:
+          - thread_id
+          - follower_ids
+    result: User is added to the follower list and will receive thread notifications
+  thread_unfollowed:
+    priority: 4
+    given:
+      - user explicitly unfollows a thread
+      - user is currently a follower
+    then:
+      - action: set_field
+        target: follower_ids
+        value: removed_user
+      - action: emit_event
+        event: message_threading.thread_unfollowed
+        payload:
+          - thread_id
+          - follower_ids
+    result: User is removed from the follower list and thread unread counts are cleared
+  thread_read:
+    priority: 5
+    given:
+      - user opens the thread panel or scrolls through thread replies
+    then:
+      - action: set_field
+        target: follower_ids
+        value: thread_marked_read_for_user
+      - action: emit_event
+        event: message_threading.thread_read
+        payload:
+          - thread_id
+          - room_id
+    result: Thread unread count is cleared for the user; subscription alert is updated if no other unread threads remain
+  threads_disabled:
+    priority: 20
+    error: THREADING_DISABLED
+    given:
+      - threading is disabled at the system level
+      - user attempts to post a reply or follow a thread
+    then: []
+    result: User is informed that threaded replies are not available
+  parent_message_not_found:
+    priority: 21
+    error: THREAD_PARENT_NOT_FOUND
+    given:
+      - the specified parent message ID does not exist or has been deleted
+    then: []
+    result: User is informed the original message could not be found
+  access_denied:
+    priority: 22
+    error: THREAD_ACCESS_DENIED
+    given:
+      - user does not have read access to the room containing the parent message
+    then: []
+    result: User is denied access without revealing the thread content
+errors:
+  - code: THREADING_DISABLED
+    status: 400
+    message: Threaded replies are currently disabled. Please contact your administrator.
+  - code: THREAD_PARENT_NOT_FOUND
+    status: 404
+    message: The original message could not be found. It may have been deleted.
+  - code: THREAD_ACCESS_DENIED
+    status: 403
+    message: You do not have access to this thread.
+events:
+  - name: message_threading.reply_posted
+    description: Fires when a new reply is added to a thread
+    payload:
+      - reply_id
+      - thread_id
+      - room_id
+      - sent_at
+  - name: message_threading.follower_added
+    description: Fires when a user is added to the thread follower list (manually or via reply)
+    payload:
+      - thread_id
+      - follower_ids
+  - name: message_threading.thread_followed
+    description: Fires when a user explicitly follows a thread
+    payload:
+      - thread_id
+      - follower_ids
+  - name: message_threading.thread_unfollowed
+    description: Fires when a user explicitly unfollows a thread
+    payload:
+      - thread_id
+      - follower_ids
+  - name: message_threading.thread_read
+    description: Fires when a user marks a thread as read
+    payload:
+      - thread_id
+      - room_id
+related:
+  - feature: channel-messaging
+    type: required
+    reason: Threads are anchored to messages in channels or direct conversations
+  - feature: direct-messaging
+    type: recommended
+    reason: Threading may also apply to direct message conversations
+  - feature: message-editing-deletion
+    type: optional
+    reason: Thread replies may be edited or deleted like regular messages
+  - feature: message-reactions
+    type: optional
+    reason: Emoji reactions may be applied to thread replies
+extensions:
+  source:
+    repo: https://github.com/RocketChat/Rocket.Chat
+    project: Open-source team communication platform
+    tech_stack: TypeScript, Meteor, React, MongoDB
+    files_traced: 4
+
+agi:
+  goals:
+    - id: maintain_threaded_conversations
+      description: "Deliver threaded replies under parent messages and keep follower tracking and unread counts accurate"
+      success_metrics:
+        - metric: reply_count_accuracy
+          target: "100%"
+          measurement: "Parent messages with correct reply count / total threaded messages"
+        - metric: follower_notification_delivery
+          target: "99%"
+          measurement: "Thread notifications delivered to followers / total expected notifications"
+
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - "before disabling threading system-wide"
+
+  verification:
+    invariants:
+      - "threads cannot be nested beyond one level"
+      - "reply count on parent message is decremented when a reply is deleted"
+      - "unfollowing a thread removes the user from all thread unread tracking"
+    acceptance_tests:
+      - scenario: "auto-follow on reply"
+        given: "user posts a reply to a thread they do not follow"
+        when: "reply is created"
+        expect: "user is automatically added to follower list"
+      - scenario: "thread read clears unread"
+        given: "user has unread replies in a thread"
+        when: "user opens the thread panel"
+        expect: "thread unread count cleared and room subscription updated"
+
+  capabilities:
+    - id: threaded_reply_delivery
+      description: "Post and store replies anchored to a parent message"
+    - id: thread_follower_management
+      description: "Track followers and deliver unread notifications for thread activity"
+
+  tradeoffs:
+    - prefer: notification_accuracy
+      over: performance
+      reason: "follower lists and unread counts must stay in sync even under high reply volume"

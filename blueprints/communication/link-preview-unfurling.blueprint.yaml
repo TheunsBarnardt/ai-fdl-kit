@@ -1,0 +1,276 @@
+feature: link-preview-unfurling
+version: 1.0.0
+description: Automatically generate rich previews for URLs in messages by fetching metadata and oEmbed data, with
+  caching to avoid redundant requests
+category: communication
+tags:
+  - urls
+  - preview
+  - oembed
+  - metadata
+  - unfurling
+actors:
+  - id: message_author
+    name: Message Author
+    type: human
+    description: User who sends a message containing one or more URLs
+  - id: preview_service
+    name: URL Preview Service
+    type: system
+    description: Fetches URL content, extracts metadata and oEmbed data, caches results, and enriches message records
+  - id: external_site
+    name: External Website
+    type: external
+    description: The remote server whose page metadata or oEmbed endpoint is fetched
+fields:
+  - name: message_id
+    type: text
+    required: true
+    label: Message ID
+  - name: url
+    type: url
+    required: true
+    label: URL
+  - name: page_title
+    type: text
+    required: false
+    label: Page Title
+  - name: description
+    type: text
+    required: false
+    label: Description
+  - name: og_image
+    type: url
+    required: false
+    label: Preview Image URL
+  - name: oembed_html
+    type: rich_text
+    required: false
+    label: oEmbed HTML
+  - name: content_type
+    type: text
+    required: false
+    label: Content Type
+  - name: content_length
+    type: number
+    required: false
+    label: Content Length
+  - name: cached
+    type: boolean
+    required: false
+    label: From Cache
+rules:
+  general:
+    - URL embedding must be enabled at the workspace level; if disabled, no URLs are unfurled
+    - Only absolute URLs are processed; relative URLs are skipped
+    - A single message may have at most a configurable maximum number of external URL previews (default five)
+    - URLs that appear alongside file attachments in the same message are skipped to avoid redundant content
+    - Individual URLs within a message may be marked as ignoreParse to opt out of preview generation
+    - Preview data is cached by URL so that repeated occurrences of the same URL do not trigger additional outbound
+      requests
+    - Fetched content is limited to a configured byte size to prevent excessive resource use
+    - Hosts that appear on a configurable ignore list are never fetched; IP range checks are applied for
+      private/internal addresses
+    - Only ports on a configurable safe-port list are contacted; requests to non-safe ports are refused
+    - SSRF protection is applied; private and loopback IP ranges are blocked unless explicitly allow-listed
+    - Redirect chains are followed up to a configurable maximum depth
+    - "Relevant metadata tags are extracted: Open Graph (og:*), Twitter card (twitter:*), oEmbed, Facebook (fb:*), and
+      description/title"
+    - oEmbed HTML is constrained to a maximum display width to prevent layout overflow
+    - If the oEmbed endpoint returns data it is merged with page metadata; oEmbed takes precedence for media embeds
+    - Known media platforms (video, audio, presentation services) have registered oEmbed endpoints that are contacted
+      directly without page scraping
+    - HTTP responses with a non-200 status code are treated as failed fetches and produce no preview
+    - The User-Agent header sent to external servers is configurable to allow site-specific compatibility
+    - Character encoding is detected from HTTP headers and HTML meta tags; content is decoded to UTF-8 before parsing
+outcomes:
+  embedding_disabled:
+    priority: 1
+    given:
+      - workspace URL embedding setting is disabled
+    then: []
+    result: No preview generated; URLs are rendered as plain links
+  url_not_absolute:
+    priority: 2
+    given:
+      - url is not an absolute URL
+    then: []
+    result: URL is skipped; only absolute URLs are unfurled
+  url_parse_ignored:
+    priority: 3
+    given:
+      - the URL entry has ignoreParse set to true
+    then: []
+    result: URL is skipped per message-level opt-out flag
+  max_previews_exceeded:
+    priority: 4
+    given:
+      - number of external URLs in the message exceeds the maximum preview limit
+    then: []
+    result: Additional URLs beyond the limit are rendered as plain links without previews
+  host_ignored:
+    priority: 5
+    error: PREVIEW_HOST_IGNORED
+    given:
+      - url hostname matches the configured ignore list or resolves to a private/blocked IP range
+    then: []
+    result: URL is not fetched; no preview is generated
+  unsafe_port:
+    priority: 6
+    error: PREVIEW_UNSAFE_PORT
+    given:
+      - url port is not in the configured safe-ports list
+    then: []
+    result: URL is not fetched; port is not permitted
+  fetch_failed:
+    priority: 7
+    error: PREVIEW_FETCH_FAILED
+    given:
+      - outbound HTTP request to external_site fails or returns a non-200 status
+    then: []
+    result: No preview generated for this URL; URL renders as a plain link
+  preview_from_cache:
+    priority: 8
+    given:
+      - embedding is enabled
+      - url is absolute and not ignored
+      - cached preview data exists for the url
+    then:
+      - action: set_field
+        target: cached
+        value: true
+      - action: emit_event
+        event: url.preview_generated
+        payload:
+          - message_id
+          - url
+          - cached
+    result: Rich preview is displayed using cached metadata; no outbound request made
+  oembed_preview_generated:
+    priority: 9
+    given:
+      - embedding is enabled
+      - url is absolute, not ignored, and not cached
+      - a registered oEmbed provider matches the url pattern
+      - oEmbed endpoint returns valid data
+    then:
+      - action: set_field
+        target: cached
+        value: false
+      - action: create_record
+        type: oembed_cache_entry
+        description: Cache entry storing the fetched oEmbed metadata for future reuse
+      - action: emit_event
+        event: url.preview_generated
+        payload:
+          - message_id
+          - url
+          - cached
+    result: Rich oEmbed embed (video player, audio player, slide deck) is displayed inline in the message
+  metadata_preview_generated:
+    priority: 10
+    given:
+      - embedding is enabled
+      - url is absolute, not ignored, and not cached
+      - no registered oEmbed provider matches the url
+      - page metadata (title, description, or og:image) is successfully extracted
+    then:
+      - action: set_field
+        target: cached
+        value: false
+      - action: create_record
+        type: oembed_cache_entry
+        description: Cache entry storing extracted page metadata for future reuse
+      - action: emit_event
+        event: url.preview_generated
+        payload:
+          - message_id
+          - url
+          - cached
+    result: Link card preview is shown with title, description, and image where available
+  no_metadata_found:
+    priority: 11
+    given:
+      - embedding is enabled
+      - url is absolute and not ignored
+      - fetch succeeds but no relevant metadata is found in the page
+    then: []
+    result: URL renders as a plain link; no preview card is shown
+errors:
+  - code: PREVIEW_HOST_IGNORED
+    status: 400
+    message: This URL cannot be previewed
+  - code: PREVIEW_UNSAFE_PORT
+    status: 400
+    message: This URL cannot be previewed due to an unsupported port
+  - code: PREVIEW_FETCH_FAILED
+    status: 400
+    message: The link preview could not be loaded
+events:
+  - name: url.preview_generated
+    description: Fired when a URL preview is successfully generated or served from cache for a message
+    payload:
+      - message_id
+      - url
+      - cached
+related:
+  - feature: direct-messaging
+    type: recommended
+    reason: Link previews appear in direct message and channel conversations
+  - feature: file-upload-sharing
+    type: optional
+    reason: Messages with file attachments suppress URL unfurling to avoid duplicate content
+  - feature: message-pinning
+    type: optional
+    reason: Pinned messages containing URLs retain their generated previews
+extensions:
+  source:
+    repo: https://github.com/RocketChat/Rocket.Chat
+    project: Open-source team communication platform
+    tech_stack: TypeScript, Meteor, React, MongoDB
+    files_traced: 4
+
+agi:
+  goals:
+    - id: generate_safe_link_previews
+      description: "Automatically enrich messages with rich URL previews while enforcing SSRF protection, port safety, and cache efficiency"
+      success_metrics:
+        - metric: ssrf_block_rate
+          target: "100%"
+          measurement: "Requests to private or blocked IP ranges that were blocked / total such requests"
+        - metric: cache_hit_rate
+          target: "> 40%"
+          measurement: "Preview requests served from cache / total preview requests"
+
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - "before modifying the SSRF allow-list for private IP ranges"
+      - "before disabling URL embedding workspace-wide"
+
+  verification:
+    invariants:
+      - "private and loopback IP ranges are never contacted unless explicitly allow-listed"
+      - "only ports on the safe-port list are contacted"
+      - "redirect chains do not exceed the configured maximum depth"
+      - "fetched content is size-limited before parsing"
+    acceptance_tests:
+      - scenario: "private IP blocked"
+        given: "URL resolves to a private IP range"
+        when: "preview is requested"
+        expect: "PREVIEW_HOST_IGNORED returned with no outbound request made"
+      - scenario: "cache serves existing preview"
+        given: "URL has a cached preview entry"
+        when: "same URL appears in a new message"
+        expect: "preview returned from cache without outbound HTTP request"
+
+  capabilities:
+    - id: ssrf_protected_url_fetch
+      description: "Fetch URL metadata with SSRF protection, port filtering, and redirect chain limits"
+    - id: oembed_and_metadata_extraction
+      description: "Extract oEmbed and Open Graph metadata and cache results for reuse"
+
+  tradeoffs:
+    - prefer: security
+      over: preview_coverage
+      reason: "SSRF protection and port filtering may block some legitimate URLs but prevent server-side request forgery"

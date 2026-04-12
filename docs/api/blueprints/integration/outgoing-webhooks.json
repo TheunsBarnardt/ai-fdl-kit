@@ -1,0 +1,665 @@
+{
+  "feature": "outgoing-webhooks",
+  "version": "1.0.0",
+  "description": "Trigger HTTP callbacks to external URLs when configured events occur in channels, enabling real-time integration with external systems",
+  "category": "integration",
+  "tags": [
+    "webhooks",
+    "http",
+    "integration",
+    "automation",
+    "outbound",
+    "callbacks"
+  ],
+  "actors": [
+    {
+      "id": "administrator",
+      "name": "Administrator",
+      "type": "human",
+      "description": "User who configures outgoing webhook integrations"
+    },
+    {
+      "id": "trigger_service",
+      "name": "Trigger Service",
+      "type": "system",
+      "description": "Service that listens for channel events and dispatches HTTP callbacks to external URLs"
+    },
+    {
+      "id": "external_system",
+      "name": "External System",
+      "type": "external",
+      "description": "Third-party service that receives the outgoing HTTP callback and may return a response"
+    },
+    {
+      "id": "script_engine",
+      "name": "Script Engine",
+      "type": "system",
+      "description": "Isolated script execution environment that transforms event data before dispatch"
+    }
+  ],
+  "fields": [
+    {
+      "name": "name",
+      "type": "text",
+      "required": true,
+      "label": "Integration Name"
+    },
+    {
+      "name": "enabled",
+      "type": "boolean",
+      "required": true,
+      "label": "Enabled"
+    },
+    {
+      "name": "event_type",
+      "type": "select",
+      "required": true,
+      "label": "Trigger Event",
+      "options": [
+        {
+          "value": "sendMessage",
+          "label": "Message Sent"
+        },
+        {
+          "value": "fileUploaded",
+          "label": "File Uploaded"
+        },
+        {
+          "value": "roomCreated",
+          "label": "Room Created"
+        },
+        {
+          "value": "roomArchived",
+          "label": "Room Archived"
+        },
+        {
+          "value": "roomJoined",
+          "label": "Room Joined"
+        },
+        {
+          "value": "roomLeft",
+          "label": "Room Left"
+        },
+        {
+          "value": "userCreated",
+          "label": "User Created"
+        }
+      ]
+    },
+    {
+      "name": "urls",
+      "type": "text",
+      "required": true,
+      "label": "Target URLs"
+    },
+    {
+      "name": "channel",
+      "type": "text",
+      "required": false,
+      "label": "Source Channel(s)"
+    },
+    {
+      "name": "trigger_words",
+      "type": "text",
+      "required": false,
+      "label": "Trigger Words"
+    },
+    {
+      "name": "trigger_word_anywhere",
+      "type": "boolean",
+      "required": false,
+      "label": "Match Trigger Word Anywhere"
+    },
+    {
+      "name": "token",
+      "type": "token",
+      "required": true,
+      "label": "Webhook Token"
+    },
+    {
+      "name": "username",
+      "type": "text",
+      "required": true,
+      "label": "Post As Username"
+    },
+    {
+      "name": "alias",
+      "type": "text",
+      "required": false,
+      "label": "Display Alias"
+    },
+    {
+      "name": "avatar",
+      "type": "url",
+      "required": false,
+      "label": "Avatar URL"
+    },
+    {
+      "name": "emoji",
+      "type": "text",
+      "required": false,
+      "label": "Avatar Emoji"
+    },
+    {
+      "name": "script_enabled",
+      "type": "boolean",
+      "required": true,
+      "label": "Script Enabled"
+    },
+    {
+      "name": "script",
+      "type": "rich_text",
+      "required": false,
+      "label": "Processing Script"
+    },
+    {
+      "name": "retry_failed_calls",
+      "type": "boolean",
+      "required": false,
+      "label": "Retry Failed Calls"
+    },
+    {
+      "name": "retry_count",
+      "type": "number",
+      "required": false,
+      "label": "Retry Count"
+    },
+    {
+      "name": "retry_delay",
+      "type": "text",
+      "required": false,
+      "label": "Retry Delay"
+    },
+    {
+      "name": "run_on_edits",
+      "type": "boolean",
+      "required": false,
+      "label": "Run On Message Edits"
+    },
+    {
+      "name": "impersonate_user",
+      "type": "boolean",
+      "required": false,
+      "label": "Impersonate Triggering User"
+    },
+    {
+      "name": "target_room",
+      "type": "text",
+      "required": false,
+      "label": "Target Room"
+    }
+  ],
+  "rules": {
+    "general": [
+      "Each outgoing webhook fires for a specific event type; valid types are: sendMessage, fileUploaded, roomCreated, roomArchived, roomJoined, roomLeft, userCreated",
+      "Channel-scoped events (sendMessage, fileUploaded, roomJoined, roomLeft) require a source channel to be specified",
+      "Global events (roomCreated, roomArchived, userCreated) fire for all rooms without a channel filter",
+      "Trigger words, when configured, are matched against message text; only matching messages fire the webhook",
+      "The secret token is included in every outgoing request so external systems can verify the source",
+      "The HTTP call is dispatched asynchronously; it must not block message delivery in the conversation",
+      "A 200-range HTTP response from the external system is treated as success; other responses trigger retry logic if enabled",
+      "If the external system returns a message payload in its response, that message is posted back to the channel as a bot reply",
+      "Scripts run in an isolated sandbox; they may transform the outgoing payload or return null to cancel the request",
+      "Integration history is recorded for every outgoing call to support auditing and debugging",
+      "Only users with permission to manage outgoing integrations may create or modify webhooks",
+      "Retry attempts are limited to the configured retry count; after all retries fail, the error is logged to integration history"
+    ]
+  },
+  "outcomes": {
+    "webhook_created": {
+      "priority": 1,
+      "given": [
+        "administrator submits a new outgoing webhook configuration",
+        {
+          "field": "name",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "event_type",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "urls",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "outgoing_integration"
+        },
+        {
+          "action": "emit_event",
+          "event": "outgoing_webhooks.integration_created",
+          "payload": [
+            "name",
+            "event_type"
+          ]
+        }
+      ],
+      "result": "Outgoing webhook integration is registered and begins listening for the configured event"
+    },
+    "event_triggers_callback": {
+      "priority": 2,
+      "given": [
+        "a monitored channel event occurs",
+        {
+          "field": "enabled",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        },
+        {
+          "field": "trigger_words",
+          "source": "db",
+          "operator": "not_exists",
+          "description": "No trigger word filter configured, so any message fires the webhook"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "trigger_service",
+          "payload": [
+            "event_type",
+            "channel",
+            "token",
+            "username",
+            "urls"
+          ]
+        },
+        {
+          "action": "create_record",
+          "type": "integration_history"
+        },
+        {
+          "action": "emit_event",
+          "event": "outgoing_webhooks.callback_dispatched",
+          "payload": [
+            "name",
+            "event_type",
+            "urls"
+          ]
+        }
+      ],
+      "result": "HTTP POST is sent to all configured URLs with the event data and integration token"
+    },
+    "trigger_word_matched": {
+      "priority": 3,
+      "given": [
+        "a sendMessage event occurs",
+        {
+          "field": "trigger_words",
+          "source": "db",
+          "operator": "exists"
+        },
+        {
+          "field": "message_text",
+          "source": "computed",
+          "operator": "matches",
+          "description": "Message text contains one of the configured trigger words"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "trigger_service",
+          "payload": [
+            "event_type",
+            "channel",
+            "token",
+            "username",
+            "urls",
+            "trigger_word"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "outgoing_webhooks.callback_dispatched",
+          "payload": [
+            "name",
+            "event_type",
+            "urls"
+          ]
+        }
+      ],
+      "result": "HTTP callback fires because the message matched a trigger word"
+    },
+    "script_transforms_payload": {
+      "priority": 4,
+      "given": [
+        "event fires and script is enabled",
+        {
+          "field": "script_enabled",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "script_engine",
+          "payload": [
+            "script",
+            "event_data"
+          ]
+        },
+        {
+          "action": "call_service",
+          "target": "trigger_service",
+          "payload": [
+            "transformed_payload",
+            "urls"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "outgoing_webhooks.callback_dispatched",
+          "payload": [
+            "name",
+            "event_type",
+            "urls"
+          ]
+        }
+      ],
+      "result": "Event data is transformed by the script before being sent to the external system"
+    },
+    "script_cancels_request": {
+      "priority": 5,
+      "given": [
+        "script returns null or an empty response",
+        {
+          "field": "script_enabled",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [],
+      "result": "Script cancelled the request; no HTTP call is made"
+    },
+    "external_system_responds_with_message": {
+      "priority": 6,
+      "given": [
+        "external system returns a valid message payload in the HTTP response",
+        {
+          "field": "http_status",
+          "source": "computed",
+          "operator": "in",
+          "value": [
+            200,
+            201,
+            202
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "channel_message"
+        },
+        {
+          "action": "emit_event",
+          "event": "outgoing_webhooks.response_posted",
+          "payload": [
+            "name",
+            "channel",
+            "response_text"
+          ]
+        }
+      ],
+      "result": "External system's response is posted as a bot message in the originating channel"
+    },
+    "callback_failed_with_retry": {
+      "priority": 7,
+      "given": [
+        "HTTP call returns a non-success status code",
+        {
+          "field": "retry_failed_calls",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        },
+        {
+          "field": "retry_attempts",
+          "source": "computed",
+          "operator": "lt",
+          "description": "Remaining retry attempts are available"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "trigger_service",
+          "payload": [
+            "urls",
+            "retry_delay",
+            "retry_count"
+          ]
+        },
+        {
+          "action": "create_record",
+          "type": "integration_history"
+        }
+      ],
+      "result": "Failed HTTP call is retried after the configured delay"
+    },
+    "callback_failed_permanently": {
+      "priority": 8,
+      "error": "OUTGOING_WEBHOOK_CALLBACK_FAILED",
+      "given": [
+        "HTTP call fails and all retry attempts are exhausted"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "integration_history"
+        }
+      ],
+      "result": "Failure is recorded in integration history; no further retries are attempted"
+    },
+    "trigger_word_not_matched": {
+      "priority": 9,
+      "given": [
+        "message event occurs but no trigger word is matched",
+        {
+          "field": "trigger_words",
+          "source": "db",
+          "operator": "exists"
+        }
+      ],
+      "then": [],
+      "result": "No callback is dispatched because the message did not contain any configured trigger word"
+    },
+    "webhook_disabled": {
+      "priority": 10,
+      "error": "OUTGOING_WEBHOOK_DISABLED",
+      "given": [
+        {
+          "field": "enabled",
+          "source": "db",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [],
+      "result": "No callback is dispatched because the integration has been disabled"
+    },
+    "insufficient_permissions": {
+      "priority": 11,
+      "error": "OUTGOING_WEBHOOK_NOT_AUTHORIZED",
+      "given": [
+        "user attempts to create or modify a webhook without the required permission"
+      ],
+      "then": [],
+      "result": "Operation is rejected; user lacks the required authorization"
+    }
+  },
+  "errors": [
+    {
+      "code": "OUTGOING_WEBHOOK_CALLBACK_FAILED",
+      "status": 400,
+      "message": "The webhook callback could not be delivered after all retry attempts"
+    },
+    {
+      "code": "OUTGOING_WEBHOOK_DISABLED",
+      "status": 400,
+      "message": "This outgoing webhook integration has been disabled"
+    },
+    {
+      "code": "OUTGOING_WEBHOOK_NOT_AUTHORIZED",
+      "status": 400,
+      "message": "You do not have permission to manage outgoing webhook integrations"
+    }
+  ],
+  "events": [
+    {
+      "name": "outgoing_webhooks.integration_created",
+      "description": "Fired when a new outgoing webhook integration is registered",
+      "payload": [
+        "name",
+        "event_type"
+      ]
+    },
+    {
+      "name": "outgoing_webhooks.callback_dispatched",
+      "description": "Fired when an HTTP callback is sent to the external URL(s)",
+      "payload": [
+        "name",
+        "event_type",
+        "urls"
+      ]
+    },
+    {
+      "name": "outgoing_webhooks.response_posted",
+      "description": "Fired when the external system returns a message that is posted back to the channel",
+      "payload": [
+        "name",
+        "channel",
+        "response_text"
+      ]
+    },
+    {
+      "name": "outgoing_webhooks.integration_updated",
+      "description": "Fired when an existing outgoing webhook integration is modified",
+      "payload": [
+        "name",
+        "event_type"
+      ]
+    },
+    {
+      "name": "outgoing_webhooks.integration_deleted",
+      "description": "Fired when an outgoing webhook integration is removed",
+      "payload": [
+        "name"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "incoming-webhooks",
+      "type": "recommended",
+      "reason": "Incoming webhooks provide the complementary ability to receive data from external systems"
+    },
+    {
+      "feature": "channel-messaging",
+      "type": "required",
+      "reason": "Outgoing webhooks are triggered by channel messaging events"
+    },
+    {
+      "feature": "role-based-access-control",
+      "type": "required",
+      "reason": "Permissions control who may create and manage webhook integrations"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/RocketChat/Rocket.Chat",
+      "project": "Open-source team communication platform",
+      "tech_stack": "TypeScript, Meteor, React, MongoDB",
+      "files_traced": 6
+    }
+  },
+  "agi": {
+    "goals": [
+      {
+        "id": "asynchronous_event_notification",
+        "description": "Dispatch HTTP callbacks to external systems for configured channel events without blocking message delivery, with retry and audit logging",
+        "success_metrics": [
+          {
+            "metric": "callback_non_blocking_rate",
+            "target": "100%",
+            "measurement": "Callbacks dispatched asynchronously without delaying message delivery / total callbacks"
+          },
+          {
+            "metric": "retry_exhaustion_audit_rate",
+            "target": "100%",
+            "measurement": "Failed callbacks with all retries exhausted that were logged to integration history / total permanent failures"
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before enabling script processing on an outgoing webhook",
+        "before modifying retry policy for a high-volume integration"
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "HTTP callbacks are dispatched asynchronously and must not block message delivery",
+        "the integration token is included in every outgoing request",
+        "disabled integrations do not dispatch any callbacks",
+        "all call results are recorded in integration history"
+      ],
+      "acceptance_tests": [
+        {
+          "scenario": "trigger word filter respected",
+          "given": "webhook has trigger words configured and message does not match",
+          "when": "message event occurs",
+          "expect": "no callback dispatched"
+        },
+        {
+          "scenario": "external response posted as bot message",
+          "given": "external system returns a valid message payload with HTTP 200",
+          "when": "callback response is received",
+          "expect": "response is posted as a bot message in the originating channel"
+        }
+      ]
+    },
+    "capabilities": [
+      {
+        "id": "event_driven_http_callbacks",
+        "description": "Listen for channel events and dispatch async HTTP POST callbacks to configured external URLs"
+      },
+      {
+        "id": "retry_with_audit_logging",
+        "description": "Retry failed callbacks with configurable delay and record all attempts in integration history"
+      }
+    ],
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "create_outgoing_webhook",
+          "permission": "supervised"
+        },
+        {
+          "action": "enable_script_on_outgoing",
+          "permission": "supervised"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "delivery_reliability",
+        "over": "latency",
+        "reason": "retry logic with backoff improves eventual delivery at the cost of delayed failure resolution"
+      }
+    ]
+  }
+}

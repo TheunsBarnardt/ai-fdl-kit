@@ -1,0 +1,285 @@
+feature: mentions-notifications
+version: 1.0.0
+description: "@mention users and user groups in messages to trigger targeted notifications"
+category: notification
+tags:
+  - mentions
+  - notifications
+  - alerts
+  - at-mention
+  - all
+  - here
+  - groups
+  - teams
+actors:
+  - id: sender
+    name: Message Sender
+    type: human
+    description: User who composes a message containing one or more @mentions
+  - id: mentioned_user
+    name: Mentioned User
+    type: human
+    description: User or group member who receives a notification because they were mentioned
+  - id: platform
+    name: Notification Service
+    type: system
+    description: Platform component that parses mentions, resolves targets, and dispatches notifications
+fields:
+  - name: message_id
+    type: text
+    required: true
+    label: Message ID
+  - name: room_id
+    type: text
+    required: true
+    label: Room ID
+  - name: sender_id
+    type: text
+    required: true
+    label: Sender User ID
+  - name: mention_text
+    type: text
+    required: true
+    label: Mention Text
+  - name: mention_type
+    type: select
+    required: true
+    label: Mention Type
+  - name: mentioned_user_ids
+    type: json
+    required: false
+    label: Resolved User IDs
+  - name: message_text
+    type: rich_text
+    required: true
+    label: Message Text
+  - name: max_all_members
+    type: number
+    required: false
+    label: Max Members for @all
+  - name: e2e_user_mentions
+    type: json
+    required: false
+    label: E2E Encrypted Mentions
+rules:
+  general:
+    - A mention is triggered by the @ prefix followed by a username, group name, 'all', or 'here' in a message
+    - The platform parses all @mentions from a message using a configured username pattern before the message is
+      persisted
+    - Resolved mention targets are stored on the message record so notification delivery does not require re-parsing
+    - "@all notifies every member of the room; it is suppressed when the room member count exceeds the max_all_members
+      threshold"
+    - "@here notifies only members who are currently active/online; it is also suppressed by the same threshold as @all"
+    - When @all or @here exceeds the threshold, the sender is notified that the mention was not delivered
+    - Mentioning a user who is not a member of the room does not create a notification for that user
+    - For end-to-end encrypted messages, mention targets are read from e2e_user_mentions rather than the encrypted
+      message body
+    - Channel mentions (#channel-name) create a link to the channel but do not generate notifications for that channel's
+      members
+    - Mentions resolve users by username; if no matching user is found the text is rendered as plain text without a
+      notification
+    - A user can be mentioned multiple times in the same message; only one notification is sent per mention event
+    - Notification delivery method (push, email, in-app) is governed by each user's individual notification preferences
+outcomes:
+  user_notified:
+    priority: 10
+    given:
+      - message is sent containing @username where username matches an existing user
+      - mentioned user is a member of the room
+    then:
+      - action: emit_event
+        event: mention.user_notified
+        payload:
+          - message_id
+          - room_id
+          - sender_id
+          - mentioned_user_ids
+    result: Notification is dispatched to the mentioned user via their configured notification channels
+  all_members_notified:
+    priority: 8
+    given:
+      - message contains @all
+      - room member count is less than or equal to max_all_members
+    then:
+      - action: emit_event
+        event: mention.all_notified
+        payload:
+          - message_id
+          - room_id
+          - sender_id
+    result: All members of the room receive a notification
+  here_members_notified:
+    priority: 9
+    given:
+      - message contains @here
+      - room member count is less than or equal to max_all_members
+    then:
+      - action: emit_event
+        event: mention.here_notified
+        payload:
+          - message_id
+          - room_id
+          - sender_id
+    result: Currently active/online members of the room receive a notification
+  group_members_notified:
+    priority: 7
+    given:
+      - message contains @team-name or @group-name referencing a defined user group or team
+      - group or team exists and has resolvable members
+    then:
+      - action: emit_event
+        event: mention.group_notified
+        payload:
+          - message_id
+          - room_id
+          - sender_id
+          - mentioned_user_ids
+    result: All members of the referenced group or team receive a notification
+  mention_suppressed_threshold_exceeded:
+    priority: 3
+    error: MENTION_THRESHOLD_EXCEEDED
+    given:
+      - message contains @all or @here
+      - room member count exceeds max_all_members
+    then:
+      - action: emit_event
+        event: mention.suppressed
+        payload:
+          - message_id
+          - room_id
+          - sender_id
+          - mention_text
+    result: Broadcast mention is not delivered; sender receives an ephemeral warning that the room is too large
+  mention_user_not_found:
+    priority: 4
+    given:
+      - message contains @text where text does not match any user, group, or team
+    then: []
+    result: Text is rendered as plain text with no mention link and no notification is sent
+  mention_non_member:
+    priority: 5
+    given:
+      - message contains @username
+      - the resolved user exists but is not a member of the room
+    then: []
+    result: Mention link is rendered in the message but no notification is sent to the non-member
+  e2e_mention_resolved:
+    priority: 6
+    given:
+      - message is end-to-end encrypted
+      - e2e_user_mentions field is present and non-empty
+    then:
+      - action: emit_event
+        event: mention.user_notified
+        payload:
+          - message_id
+          - room_id
+          - sender_id
+          - mentioned_user_ids
+    result: Mentions are resolved from e2e_user_mentions instead of the encrypted body and notifications are dispatched
+      normally
+errors:
+  - code: MENTION_THRESHOLD_EXCEEDED
+    status: 400
+    message: Your message mentions all room members, but the room is too large for broadcast notifications. Mention specific
+      users instead.
+events:
+  - name: mention.user_notified
+    description: Fires when one or more individual users are notified via a direct @username mention
+    payload:
+      - message_id
+      - room_id
+      - sender_id
+      - mentioned_user_ids
+  - name: mention.all_notified
+    description: Fires when @all successfully triggers notifications for all room members
+    payload:
+      - message_id
+      - room_id
+      - sender_id
+  - name: mention.here_notified
+    description: Fires when @here successfully triggers notifications for active room members
+    payload:
+      - message_id
+      - room_id
+      - sender_id
+  - name: mention.group_notified
+    description: Fires when a group or team @mention triggers notifications for its members
+    payload:
+      - message_id
+      - room_id
+      - sender_id
+      - mentioned_user_ids
+  - name: mention.suppressed
+    description: Fires when a broadcast mention (@all or @here) is suppressed due to room size exceeding the configured threshold
+    payload:
+      - message_id
+      - room_id
+      - sender_id
+      - mention_text
+related:
+  - feature: messaging
+    type: required
+    reason: Mentions are parsed from messages; the messaging feature provides the message context
+  - feature: notification-preferences
+    type: required
+    reason: User notification preferences determine how and where mention notifications are delivered
+  - feature: channel-management
+    type: recommended
+    reason: Room membership determines which users are valid targets for room-scoped mentions
+  - feature: user-groups
+    type: optional
+    reason: Group and team mentions require user groups to be defined
+  - feature: push-notifications
+    type: recommended
+    reason: Mobile push notifications are a primary delivery channel for mention alerts
+extensions:
+  source:
+    repo: https://github.com/RocketChat/Rocket.Chat
+    project: Open-source team communication platform
+    tech_stack: TypeScript, Meteor, React, MongoDB
+    files_traced: 6
+
+agi:
+  goals:
+    - id: targeted_mention_delivery
+      description: "Parse @mention tokens from messages and dispatch notifications to the correct users, groups, or active members respecting membership and threshold rules"
+      success_metrics:
+        - metric: mention_delivery_accuracy
+          target: "99.9%"
+          measurement: "Mention notifications delivered to correct targets / total expected notifications"
+        - metric: non_member_notification_rate
+          target: "0%"
+          measurement: "Notifications sent to users not in the room / total notifications sent"
+
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - "before changing the max_all_members threshold for a workspace"
+
+  verification:
+    invariants:
+      - "only room members receive mention notifications"
+      - "a user mentioned multiple times in one message receives exactly one notification"
+      - "broadcast mentions (@all, @here) are suppressed when room size exceeds threshold"
+      - "encrypted messages resolve mentions from e2e_user_mentions not the encrypted body"
+    acceptance_tests:
+      - scenario: "non-member mention produces no notification"
+        given: "mentioned user exists but is not a room member"
+        when: "message with @username is posted"
+        expect: "mention link rendered but no notification sent"
+      - scenario: "all mention suppressed at threshold"
+        given: "room has more members than max_all_members"
+        when: "@all is used"
+        expect: "MENTION_THRESHOLD_EXCEEDED and sender receives ephemeral warning"
+
+  capabilities:
+    - id: mention_parsing_and_resolution
+      description: "Parse @mention tokens from message text and resolve them to user IDs before message persistence"
+    - id: broadcast_threshold_enforcement
+      description: "Suppress @all and @here broadcasts when room size exceeds the configured maximum"
+
+  tradeoffs:
+    - prefer: scalability
+      over: reach
+      reason: "broadcast mention suppression at large room sizes prevents notification storms that would degrade platform performance"

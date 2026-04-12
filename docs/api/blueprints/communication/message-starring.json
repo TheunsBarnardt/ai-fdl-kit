@@ -1,0 +1,277 @@
+{
+  "feature": "message-starring",
+  "version": "1.0.0",
+  "description": "Allow users to star or bookmark individual messages for personal reference, independent of channel-level pinning",
+  "category": "communication",
+  "tags": [
+    "messaging",
+    "bookmarks",
+    "personal",
+    "favorites"
+  ],
+  "actors": [
+    {
+      "id": "user",
+      "name": "Authenticated User",
+      "type": "human",
+      "description": "Any member who wants to bookmark messages for their own reference"
+    },
+    {
+      "id": "system",
+      "name": "Messaging System",
+      "type": "system",
+      "description": "Stores per-user star state and notifies clients of changes"
+    }
+  ],
+  "fields": [
+    {
+      "name": "message_id",
+      "type": "text",
+      "required": true,
+      "label": "Message ID"
+    },
+    {
+      "name": "channel_id",
+      "type": "text",
+      "required": true,
+      "label": "Channel ID"
+    },
+    {
+      "name": "starred",
+      "type": "boolean",
+      "required": true,
+      "label": "Starred"
+    },
+    {
+      "name": "user_id",
+      "type": "text",
+      "required": true,
+      "label": "User ID"
+    }
+  ],
+  "rules": {
+    "general": [
+      "Starring must be enabled at the system/workspace level; if disabled, no star or unstar actions are permitted",
+      "The acting user must be authenticated and have an active session",
+      "The user must be subscribed to the channel that contains the target message",
+      "The user must have active read access to the channel",
+      "Star state is stored per-user — starring a message does not affect other users' views",
+      "The same message can be starred by multiple users independently",
+      "If the starred message is the channel's last message, the channel's last-message metadata is updated to reflect the new star state",
+      "All star and unstar actions trigger extensibility hooks for downstream integrations",
+      "Starring does not modify the message content or its visibility to other users",
+      "Users can retrieve all their starred messages as a personal bookmark list"
+    ]
+  },
+  "outcomes": {
+    "starring_disabled": {
+      "priority": 1,
+      "error": "STAR_FEATURE_DISABLED",
+      "given": [
+        "system-level message starring setting is disabled"
+      ],
+      "then": [],
+      "result": "Action rejected; starring is not available in this workspace"
+    },
+    "user_not_authenticated": {
+      "priority": 2,
+      "error": "STAR_NOT_AUTHENTICATED",
+      "given": [
+        "no authenticated user session exists"
+      ],
+      "then": [],
+      "result": "Action rejected; user must be logged in"
+    },
+    "not_subscribed": {
+      "priority": 3,
+      "given": [
+        "user is not subscribed to the channel containing the message"
+      ],
+      "then": [],
+      "result": "Action silently rejected; no star change recorded (not a member)"
+    },
+    "message_not_in_channel": {
+      "priority": 4,
+      "given": [
+        "no message matching message_id exists in channel_id"
+      ],
+      "then": [],
+      "result": "Action silently rejected; message does not exist in the specified channel"
+    },
+    "channel_not_accessible": {
+      "priority": 5,
+      "error": "STAR_NO_CHANNEL_ACCESS",
+      "given": [
+        "user cannot access the target channel"
+      ],
+      "then": [],
+      "result": "Action rejected; user does not have access to this channel"
+    },
+    "star_added": {
+      "priority": 6,
+      "given": [
+        "starring is enabled",
+        "user is authenticated and subscribed to the channel",
+        "message exists in the channel",
+        "user has access to the channel",
+        "starred is true"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "user_star_on_message",
+          "value": true
+        },
+        {
+          "action": "emit_event",
+          "event": "message.starred",
+          "payload": [
+            "message_id",
+            "channel_id",
+            "user_id"
+          ]
+        }
+      ],
+      "result": "Star added; the message appears in the user's personal starred list"
+    },
+    "star_removed": {
+      "priority": 7,
+      "given": [
+        "starring is enabled",
+        "user is authenticated and subscribed to the channel",
+        "message exists in the channel",
+        "user has access to the channel",
+        "starred is false"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "user_star_on_message",
+          "value": false
+        },
+        {
+          "action": "emit_event",
+          "event": "message.unstarred",
+          "payload": [
+            "message_id",
+            "channel_id",
+            "user_id"
+          ]
+        }
+      ],
+      "result": "Star removed; the message is no longer in the user's starred list"
+    }
+  },
+  "errors": [
+    {
+      "code": "STAR_FEATURE_DISABLED",
+      "status": 400,
+      "message": "Message starring is not available in this workspace"
+    },
+    {
+      "code": "STAR_NOT_AUTHENTICATED",
+      "status": 400,
+      "message": "You must be logged in to star messages"
+    },
+    {
+      "code": "STAR_NO_CHANNEL_ACCESS",
+      "status": 400,
+      "message": "You do not have access to this channel"
+    }
+  ],
+  "events": [
+    {
+      "name": "message.starred",
+      "description": "Fired when a user adds a personal star to a message",
+      "payload": [
+        "message_id",
+        "channel_id",
+        "user_id"
+      ]
+    },
+    {
+      "name": "message.unstarred",
+      "description": "Fired when a user removes their personal star from a message",
+      "payload": [
+        "message_id",
+        "channel_id",
+        "user_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "message-pinning",
+      "type": "optional",
+      "reason": "Pinning is the channel-level equivalent; starring is per-user and private"
+    },
+    {
+      "feature": "direct-messaging",
+      "type": "recommended",
+      "reason": "Starred messages span channels and direct message threads"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/RocketChat/Rocket.Chat",
+      "project": "Open-source team communication platform",
+      "tech_stack": "TypeScript, Meteor, React, MongoDB",
+      "files_traced": 2
+    }
+  },
+  "agi": {
+    "goals": [
+      {
+        "id": "personal_message_bookmarking",
+        "description": "Allow each user to maintain a private starred message list without affecting other users' views",
+        "success_metrics": [
+          {
+            "metric": "star_isolation_rate",
+            "target": "100%",
+            "measurement": "Star operations that affect only the acting user / total star operations"
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before disabling starring workspace-wide for all users"
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "starring a message does not modify the message content or its visibility to other users",
+        "star state is per-user and isolated from all other users",
+        "user must be subscribed to the channel to star messages within it"
+      ],
+      "acceptance_tests": [
+        {
+          "scenario": "star is user-private",
+          "given": "user A stars a message",
+          "when": "user B views the same message",
+          "expect": "user B does not see user A's star"
+        },
+        {
+          "scenario": "unsubscribed user cannot star",
+          "given": "user is not subscribed to the channel containing the message",
+          "when": "star request is made",
+          "expect": "star silently rejected without error"
+        }
+      ]
+    },
+    "capabilities": [
+      {
+        "id": "personal_bookmark_list",
+        "description": "Track and retrieve a per-user list of starred messages across channels"
+      }
+    ],
+    "tradeoffs": [
+      {
+        "prefer": "privacy",
+        "over": "social_features",
+        "reason": "starred messages are personal bookmarks and must never be visible to other users"
+      }
+    ]
+  }
+}

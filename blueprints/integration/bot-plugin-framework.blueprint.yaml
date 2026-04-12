@@ -1,0 +1,331 @@
+feature: bot-plugin-framework
+version: 1.0.0
+description: Extension framework for bots, apps, and plugins to extend platform behavior through a defined API
+category: integration
+tags:
+  - bots
+  - plugins
+  - apps
+  - extensibility
+  - framework
+  - marketplace
+actors:
+  - id: developer
+    name: Extension Developer
+    type: human
+    description: Developer who builds and publishes an app or bot extension
+  - id: admin
+    name: Platform Administrator
+    type: human
+    description: Administrator who installs, configures, enables, or disables extensions
+  - id: extension
+    name: Extension / App
+    type: system
+    description: A packaged extension that runs sandboxed and communicates via the platform API
+  - id: platform
+    name: Platform Runtime
+    type: system
+    description: The host platform that manages extension lifecycle and provides accessor APIs
+  - id: marketplace
+    name: Extension Marketplace
+    type: external
+    description: External registry or catalogue where extensions are published and discovered
+fields:
+  - name: app_id
+    type: text
+    required: true
+    label: App / Extension ID
+  - name: name
+    type: text
+    required: true
+    label: Extension Name
+  - name: name_slug
+    type: text
+    required: true
+    label: Name Slug
+  - name: version
+    type: text
+    required: true
+    label: Version
+  - name: required_api_version
+    type: text
+    required: true
+    label: Required API Version
+  - name: description
+    type: text
+    required: true
+    label: Description
+  - name: author_name
+    type: text
+    required: true
+    label: Author Name
+  - name: author_email
+    type: email
+    required: false
+    label: Author Email
+  - name: status
+    type: select
+    required: true
+    label: Status
+    options:
+      - value: unknown
+        label: Unknown
+      - value: constructed
+        label: Constructed
+      - value: initialized
+        label: Initialized
+      - value: running
+        label: Running
+      - value: disabled
+        label: Disabled
+      - value: error
+        label: Error
+  - name: permissions
+    type: multiselect
+    required: false
+    label: Declared Permissions
+  - name: settings
+    type: json
+    required: false
+    label: Configuration Settings
+rules:
+  general:
+    - An extension must declare a required API version; the platform rejects installation if the version is incompatible
+    - Extensions run in an isolated sandbox — they cannot access platform internals directly; all operations go through
+      read, modify, http, and persistence accessors
+    - The constructor may be called more than once; initialization logic must go in the initialize() lifecycle method
+    - Extensions declare permissions upfront; the platform enforces them at runtime and may block undeclared actions
+    - An extension's bot user is derived from the name slug (e.g. name-slug.bot); the platform creates it automatically
+      on install
+    - Extensions may register slash commands, scheduled jobs, API endpoints, UI components, and message handlers
+    - Settings changes trigger the onSettingUpdated lifecycle hook; extensions must not cache settings values outside
+      this hook
+    - An extension in error state must be explicitly re-enabled by an administrator after the underlying issue is
+      resolved
+    - Extensions may be enabled or disabled dynamically at runtime without restarting the platform
+    - Extensions must not store sensitive data in plain text; use the persistence accessor for encrypted storage
+    - The platform calls onInstall, onUninstall, and onUpdate lifecycle hooks at the appropriate times
+outcomes:
+  extension_installed:
+    priority: 10
+    given:
+      - administrator uploads or selects an extension package
+      - extension's required API version is compatible with the running platform
+      - all declared permissions are accepted by the administrator
+    then:
+      - action: transition_state
+        field: status
+        from: unknown
+        to: initialized
+      - action: emit_event
+        event: extension.installed
+        payload:
+          - app_id
+          - name
+          - version
+    result: Extension is installed, its bot user is created, and onInstall lifecycle hook is called
+  extension_enabled:
+    priority: 9
+    given:
+      - extension is installed and in a disabled or initialized state
+      - administrator enables the extension
+    then:
+      - action: transition_state
+        field: status
+        from: disabled
+        to: running
+      - action: emit_event
+        event: extension.enabled
+        payload:
+          - app_id
+          - name
+    result: Extension enters running state; its slash commands, handlers, and scheduled jobs become active
+  extension_disabled:
+    priority: 8
+    given:
+      - extension is in running state
+      - administrator disables the extension or an error occurs
+    then:
+      - action: transition_state
+        field: status
+        from: running
+        to: disabled
+      - action: emit_event
+        event: extension.disabled
+        payload:
+          - app_id
+          - name
+    result: Extension is stopped; all registered commands and handlers are deactivated
+  extension_updated:
+    priority: 7
+    given:
+      - a new version of an installed extension is available
+      - administrator triggers the update
+    then:
+      - action: emit_event
+        event: extension.updated
+        payload:
+          - app_id
+          - name
+          - version
+    result: New version replaces the old one; onUpdate lifecycle hook is called with old and new contexts
+  extension_uninstalled:
+    priority: 6
+    given:
+      - administrator uninstalls the extension
+    then:
+      - action: emit_event
+        event: extension.uninstalled
+        payload:
+          - app_id
+          - name
+    result: Extension is removed; its bot user, registered commands, and stored data are cleaned up
+  incompatible_api_version:
+    priority: 1
+    error: EXTENSION_INCOMPATIBLE_API_VERSION
+    given:
+      - extension's required API version is higher than the platform's current API version
+    then: []
+    result: Installation is rejected with a version incompatibility error
+  permission_not_accepted:
+    priority: 2
+    error: EXTENSION_PERMISSION_DENIED
+    given:
+      - administrator declines one or more required permissions during installation
+    then: []
+    result: Installation is aborted; no extension files are persisted
+  extension_error:
+    priority: 3
+    error: EXTENSION_RUNTIME_ERROR
+    given:
+      - extension throws an unhandled exception during a lifecycle hook or message handler
+    then:
+      - action: transition_state
+        field: status
+        from: running
+        to: error
+      - action: emit_event
+        event: extension.error
+        payload:
+          - app_id
+          - name
+    result: Extension transitions to error state; administrator is notified and must manually re-enable
+errors:
+  - code: EXTENSION_INCOMPATIBLE_API_VERSION
+    status: 400
+    message: This extension requires a newer version of the platform API. Please update the platform before installing.
+  - code: EXTENSION_PERMISSION_DENIED
+    status: 403
+    message: Installation was cancelled because required permissions were not accepted.
+  - code: EXTENSION_RUNTIME_ERROR
+    status: 400
+    message: The extension encountered an error and has been disabled. Please check the extension logs.
+events:
+  - name: extension.installed
+    description: Fires when an extension is successfully installed for the first time
+    payload:
+      - app_id
+      - name
+      - version
+  - name: extension.enabled
+    description: Fires when an extension transitions from disabled/initialized to running
+    payload:
+      - app_id
+      - name
+  - name: extension.disabled
+    description: Fires when an extension is stopped by an administrator or due to an error
+    payload:
+      - app_id
+      - name
+  - name: extension.updated
+    description: Fires when a new version of an installed extension is applied
+    payload:
+      - app_id
+      - name
+      - version
+  - name: extension.uninstalled
+    description: Fires when an extension is removed from the platform
+    payload:
+      - app_id
+      - name
+  - name: extension.error
+    description: Fires when an extension encounters an unhandled runtime error
+    payload:
+      - app_id
+      - name
+  - name: extension.setting_updated
+    description: Fires when an administrator changes a setting value for an extension
+    payload:
+      - app_id
+      - name
+      - settings
+related:
+  - feature: slash-commands
+    type: recommended
+    reason: Extensions commonly register slash commands via the plugin framework
+  - feature: role-based-access-control
+    type: optional
+    reason: Extensions may declare and enforce custom permissions through RBAC
+  - feature: webhook-management
+    type: optional
+    reason: Extensions can register incoming and outgoing webhook handlers
+extensions:
+  source:
+    repo: https://github.com/RocketChat/Rocket.Chat
+    project: Open-source team communication platform
+    tech_stack: TypeScript, Meteor, React, MongoDB
+    files_traced: 7
+
+agi:
+  goals:
+    - id: safe_extension_lifecycle_management
+      description: "Install, enable, disable, update, and remove extensions with sandbox enforcement, permission gating, and lifecycle hooks"
+      success_metrics:
+        - metric: sandbox_enforcement_rate
+          target: "100%"
+          measurement: "Extension operations that went through accessor APIs / total extension operations"
+        - metric: error_state_detection_rate
+          target: "100%"
+          measurement: "Unhandled exceptions that transition extension to error state / total unhandled exceptions"
+
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - "before installing an extension from an external marketplace"
+      - "before accepting permissions for an extension with elevated access"
+
+  verification:
+    invariants:
+      - "extensions cannot access platform internals directly; all operations go through accessor APIs"
+      - "an extension with an incompatible required API version must not be installed"
+      - "an extension in error state must be manually re-enabled by an administrator"
+      - "sensitive data must be stored through the encrypted persistence accessor"
+    acceptance_tests:
+      - scenario: "incompatible API version rejected"
+        given: "extension requires API version higher than platform version"
+        when: "installation is attempted"
+        expect: "EXTENSION_INCOMPATIBLE_API_VERSION returned and nothing installed"
+      - scenario: "runtime error transitions to error state"
+        given: "extension throws unhandled exception in message handler"
+        when: "exception occurs"
+        expect: "extension transitions to error state and administrator is notified"
+
+  capabilities:
+    - id: extension_lifecycle_orchestration
+      description: "Manage install, enable, disable, update, and remove lifecycle for sandboxed extensions"
+    - id: permission_gated_installation
+      description: "Require administrator acceptance of declared permissions before installing an extension"
+
+  safety:
+    action_permissions:
+      - action: install_extension
+        permission: human_required
+      - action: enable_extension
+        permission: supervised
+      - action: disable_extension
+        permission: supervised
+
+  tradeoffs:
+    - prefer: isolation
+      over: extension_power
+      reason: "sandboxed accessor APIs limit what extensions can do but protect platform integrity"

@@ -1,0 +1,305 @@
+feature: oauth-sso-providers
+version: 1.0.0
+description: Configure OAuth2/SSO identity providers to enable single sign-on login for platform users
+category: auth
+tags:
+  - oauth2
+  - sso
+  - identity
+  - login
+  - social-login
+  - federation
+  - authentication
+actors:
+  - id: administrator
+    name: Platform Administrator
+    type: human
+    description: Configures identity provider settings and manages OAuth service integrations
+  - id: user
+    name: User
+    type: human
+    description: Authenticates via an external identity provider instead of local credentials
+  - id: identity_provider
+    name: Identity Provider
+    type: external
+    description: External OAuth2/OpenID Connect service that authenticates the user and issues tokens
+  - id: auth_service
+    name: Authentication Service
+    type: system
+    description: Platform component that handles OAuth flow, token exchange, and user record merging
+fields:
+  - name: service_name
+    type: text
+    required: true
+    label: Service Name
+  - name: server_url
+    type: url
+    required: true
+    label: Authorization Server URL
+  - name: client_id
+    type: text
+    required: true
+    label: Client ID
+  - name: client_secret
+    type: token
+    required: true
+    label: Client Secret
+  - name: token_path
+    type: text
+    required: false
+    label: Token Endpoint Path
+  - name: identity_path
+    type: text
+    required: false
+    label: Identity Endpoint Path
+  - name: scope
+    type: text
+    required: false
+    label: Scopes
+  - name: username_field
+    type: text
+    required: false
+    label: Username Field Mapping
+  - name: email_field
+    type: text
+    required: false
+    label: Email Field Mapping
+  - name: name_field
+    type: text
+    required: false
+    label: Name Field Mapping
+  - name: avatar_field
+    type: text
+    required: false
+    label: Avatar Field Mapping
+  - name: roles_claim
+    type: text
+    required: false
+    label: Roles Claim Field
+  - name: merge_users
+    type: boolean
+    required: false
+    label: Merge Existing Users
+  - name: merge_users_distinct_services
+    type: boolean
+    required: false
+    label: Merge Across Distinct Services
+  - name: access_token_param
+    type: text
+    required: false
+    label: Access Token Parameter Name
+  - name: token_sent_via
+    type: select
+    required: false
+    label: Token Transport
+  - name: key_field
+    type: text
+    required: false
+    label: Unique Key Field
+rules:
+  general:
+    - Each OAuth provider must have a unique service_name; re-configuring the same name updates the existing provider
+    - server_url must be a valid absolute URL; relative paths are resolved against it for token_path and identity_path
+    - client_secret must be stored encrypted at rest and never exposed in API responses or logs
+    - If merge_users is enabled, the platform matches incoming identities to existing accounts by email before creating
+      a new user
+    - Field mappings (username_field, email_field, name_field, avatar_field) override platform defaults when provided
+    - The roles_claim field, if present, maps identity provider roles to platform roles
+    - On successful authentication the platform creates or updates the user record and sets the provider service on the
+      user identity
+    - Access tokens obtained via OAuth are registered as valid session tokens within the platform
+    - Administrators may enable or disable each provider independently without affecting other providers
+    - Users authenticated via SSO retain a link to their identity provider service; password login remains disabled for
+      pure-SSO accounts unless explicitly enabled
+    - Invalid or expired tokens from the identity provider must result in session termination on the platform
+outcomes:
+  user_authenticated:
+    priority: 10
+    given:
+      - user initiates login via a configured OAuth provider
+      - identity provider returns a valid authorization code
+      - platform successfully exchanges the code for tokens and retrieves the user identity
+    then:
+      - action: create_record
+        type: user_session
+      - action: emit_event
+        event: oauth.login_success
+        payload:
+          - service_name
+          - user_id
+          - email_field
+    result: User is logged in; a session is created and the identity provider service is linked to the user record
+  new_user_provisioned:
+    priority: 9
+    given:
+      - user authenticates via OAuth for the first time
+      - no existing platform account matches the identity
+    then:
+      - action: create_record
+        type: user
+      - action: emit_event
+        event: oauth.user_provisioned
+        payload:
+          - service_name
+          - username_field
+          - email_field
+    result: A new user account is created from the identity provider profile data
+  existing_user_merged:
+    priority: 8
+    given:
+      - user authenticates via OAuth
+      - merge_users is true
+      - an existing platform account shares the same email as the identity
+    then:
+      - action: set_field
+        target: user.services
+        value: merged_identity
+      - action: emit_event
+        event: oauth.user_merged
+        payload:
+          - service_name
+          - user_id
+    result: Incoming OAuth identity is linked to the existing account; the user continues with their existing profile
+  provider_configured:
+    priority: 7
+    given:
+      - administrator submits valid OAuth provider configuration
+    then:
+      - action: emit_event
+        event: oauth.provider_configured
+        payload:
+          - service_name
+          - server_url
+    result: Provider is saved and the login button for this service becomes available on the login screen
+  token_exchange_failed:
+    priority: 2
+    error: OAUTH_TOKEN_EXCHANGE_FAILED
+    given:
+      - platform attempts to exchange authorization code for access token
+      - identity provider returns an error or invalid response
+    then:
+      - action: emit_event
+        event: oauth.login_failed
+        payload:
+          - service_name
+    result: Login attempt is aborted and the user is shown a generic authentication error
+  identity_fetch_failed:
+    priority: 3
+    error: OAUTH_IDENTITY_FETCH_FAILED
+    given:
+      - platform successfully obtains an access token
+      - identity endpoint returns an error or missing required fields
+    then: []
+    result: Login is rejected; user is informed that profile information could not be retrieved
+  provider_misconfigured:
+    priority: 1
+    error: OAUTH_PROVIDER_MISCONFIGURED
+    given:
+      - administrator saves a provider configuration with an invalid server_url or missing client_id
+    then: []
+    result: Configuration is rejected with a validation error; provider is not activated
+errors:
+  - code: OAUTH_TOKEN_EXCHANGE_FAILED
+    status: 400
+    message: Authentication failed. The identity provider did not return a valid token. Please try again.
+  - code: OAUTH_IDENTITY_FETCH_FAILED
+    status: 400
+    message: Authentication failed. Your profile information could not be retrieved from the identity provider.
+  - code: OAUTH_PROVIDER_MISCONFIGURED
+    status: 400
+    message: The identity provider configuration is invalid. Please check the settings and try again.
+events:
+  - name: oauth.login_success
+    description: Fires when a user successfully authenticates via an OAuth provider
+    payload:
+      - service_name
+      - user_id
+  - name: oauth.login_failed
+    description: Fires when an OAuth login attempt fails at any stage of the flow
+    payload:
+      - service_name
+  - name: oauth.user_provisioned
+    description: Fires when a new user account is created from an OAuth identity
+    payload:
+      - service_name
+      - user_id
+  - name: oauth.user_merged
+    description: Fires when an OAuth identity is linked to an existing user account
+    payload:
+      - service_name
+      - user_id
+  - name: oauth.provider_configured
+    description: Fires when an administrator saves a new or updated OAuth provider configuration
+    payload:
+      - service_name
+      - server_url
+related:
+  - feature: login
+    type: required
+    reason: OAuth SSO is an authentication method that integrates into the platform login flow
+  - feature: user-registration
+    type: recommended
+    reason: SSO-provisioned users may bypass manual registration depending on configuration
+  - feature: role-based-access-control
+    type: optional
+    reason: Roles from the identity provider's roles_claim can be mapped to platform roles
+  - feature: session-management
+    type: required
+    reason: Successful OAuth authentication creates a managed session
+extensions:
+  source:
+    repo: https://github.com/RocketChat/Rocket.Chat
+    project: Open-source team communication platform
+    tech_stack: TypeScript, Meteor, React, MongoDB
+    files_traced: 5
+
+agi:
+  goals:
+    - id: secure_oauth_sso_authentication
+      description: "Enable users to authenticate via external OAuth2/OpenID Connect providers with secure token handling and identity merging"
+      success_metrics:
+        - metric: client_secret_exposure_rate
+          target: "0%"
+          measurement: "API responses or logs containing client_secret / total responses"
+        - metric: sso_login_success_rate
+          target: "> 99%"
+          measurement: "Successful OAuth logins / total OAuth login attempts"
+
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - "before enabling merge_users_distinct_services across multiple identity providers"
+      - "before disabling an OAuth provider that is the only login method for some users"
+
+  verification:
+    invariants:
+      - "client_secret is stored encrypted and never returned in API responses or logs"
+      - "invalid or expired identity provider tokens result in session termination"
+      - "SSO-only accounts do not have password login enabled unless explicitly configured"
+    acceptance_tests:
+      - scenario: "token exchange failure aborts login"
+        given: "identity provider returns an error during code exchange"
+        when: "OAuth callback is received"
+        expect: "login aborted with OAUTH_TOKEN_EXCHANGE_FAILED and generic error shown to user"
+      - scenario: "existing user merged on email match"
+        given: "merge_users is true and OAuth identity email matches an existing account"
+        when: "user authenticates via OAuth"
+        expect: "OAuth identity linked to existing account rather than creating a new user"
+
+  capabilities:
+    - id: oauth_flow_orchestration
+      description: "Orchestrate OAuth2 authorization code flow including token exchange and identity fetch"
+    - id: identity_merging
+      description: "Match incoming OAuth identities to existing accounts by email and link services"
+
+  safety:
+    action_permissions:
+      - action: configure_oauth_provider
+        permission: human_required
+      - action: enable_merge_users
+        permission: supervised
+
+  tradeoffs:
+    - prefer: security
+      over: convenience
+      reason: "client secrets are never exposed even in admin UIs to prevent credential leakage"

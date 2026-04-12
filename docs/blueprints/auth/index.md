@@ -22,6 +22,7 @@ Authentication, identity, and session management blueprints.
 | [Multi Factor Auth]({{ site.baseurl }}/blueprints/auth/multi-factor-auth/) | Second-factor authentication via TOTP, SMS OTP, or backup codes | 1.0.0 |
 | [Multi Factor Authentication]({{ site.baseurl }}/blueprints/auth/multi-factor-authentication/) | MFA with OTP, WebAuthn, and recovery codes | 1.0.0 |
 | [Oauth Social Login]({{ site.baseurl }}/blueprints/auth/oauth-social-login/) | Social sign-in via OAuth2/OIDC with account linking and profile sync | 1.0.0 |
+| [Oauth Sso Providers]({{ site.baseurl }}/blueprints/auth/oauth-sso-providers/) | Configure OAuth2/SSO identity providers to enable single sign-on login for platform users | 1.0.0 |
 | [Openid Connect Server]({{ site.baseurl }}/blueprints/auth/openid-connect-server/) | OAuth 2.0 and OpenID Connect identity provider with token issuance | 1.0.0 |
 | [Password Reset]({{ site.baseurl }}/blueprints/auth/password-reset/) | Allow users to reset their password via email verification | 1.0.0 |
 | [Payload Auth]({{ site.baseurl }}/blueprints/auth/payload-auth/) | Full authentication system with JWT sessions, API keys, account locking, email verification, and custom strategies | 1.0.0 |

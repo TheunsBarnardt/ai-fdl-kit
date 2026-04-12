@@ -1,0 +1,580 @@
+{
+  "feature": "channel-messaging",
+  "version": "1.0.0",
+  "description": "Public and private group channels for team-wide or restricted conversations with membership, roles, and moderation controls",
+  "category": "communication",
+  "tags": [
+    "messaging",
+    "channels",
+    "groups",
+    "rooms",
+    "moderation"
+  ],
+  "actors": [
+    {
+      "id": "member",
+      "name": "Channel Member",
+      "type": "human",
+      "description": "Authenticated user who belongs to the channel"
+    },
+    {
+      "id": "owner",
+      "name": "Channel Owner",
+      "type": "human",
+      "description": "User who created the channel or has been granted owner role"
+    },
+    {
+      "id": "moderator",
+      "name": "Channel Moderator",
+      "type": "human",
+      "description": "User with moderation permissions within the channel"
+    },
+    {
+      "id": "guest",
+      "name": "Guest User",
+      "type": "human",
+      "description": "Unauthenticated or limited-access visitor"
+    },
+    {
+      "id": "system",
+      "name": "Messaging System",
+      "type": "system",
+      "description": "Handles room state, membership subscriptions, and event routing"
+    }
+  ],
+  "fields": [
+    {
+      "name": "channel_id",
+      "type": "text",
+      "required": true,
+      "label": "Channel ID"
+    },
+    {
+      "name": "channel_name",
+      "type": "text",
+      "required": true,
+      "label": "Channel Name"
+    },
+    {
+      "name": "display_name",
+      "type": "text",
+      "required": false,
+      "label": "Display Name"
+    },
+    {
+      "name": "channel_type",
+      "type": "select",
+      "required": true,
+      "label": "Channel Type",
+      "options": [
+        {
+          "value": "public",
+          "label": "Public"
+        },
+        {
+          "value": "private",
+          "label": "Private"
+        }
+      ]
+    },
+    {
+      "name": "topic",
+      "type": "text",
+      "required": false,
+      "label": "Topic"
+    },
+    {
+      "name": "announcement",
+      "type": "text",
+      "required": false,
+      "label": "Announcement"
+    },
+    {
+      "name": "description",
+      "type": "text",
+      "required": false,
+      "label": "Description"
+    },
+    {
+      "name": "is_read_only",
+      "type": "boolean",
+      "required": false,
+      "label": "Read-Only Mode"
+    },
+    {
+      "name": "is_default",
+      "type": "boolean",
+      "required": false,
+      "label": "Default Channel"
+    },
+    {
+      "name": "encrypted",
+      "type": "boolean",
+      "required": false,
+      "label": "End-to-End Encrypted"
+    },
+    {
+      "name": "join_code",
+      "type": "text",
+      "required": false,
+      "label": "Join Code"
+    },
+    {
+      "name": "message_text",
+      "type": "rich_text",
+      "required": false,
+      "label": "Message Content"
+    },
+    {
+      "name": "message_id",
+      "type": "text",
+      "required": true,
+      "label": "Message ID"
+    },
+    {
+      "name": "sent_at",
+      "type": "datetime",
+      "required": true,
+      "label": "Sent At"
+    },
+    {
+      "name": "user_count",
+      "type": "number",
+      "required": true,
+      "label": "Member Count"
+    },
+    {
+      "name": "message_count",
+      "type": "number",
+      "required": true,
+      "label": "Message Count"
+    },
+    {
+      "name": "member_role",
+      "type": "select",
+      "required": false,
+      "label": "Member Role",
+      "options": [
+        {
+          "value": "owner",
+          "label": "Owner"
+        },
+        {
+          "value": "moderator",
+          "label": "Moderator"
+        },
+        {
+          "value": "leader",
+          "label": "Leader"
+        },
+        {
+          "value": "member",
+          "label": "Member"
+        }
+      ]
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "id": "active",
+        "label": "Active",
+        "initial": true,
+        "terminal": false
+      },
+      {
+        "id": "read_only",
+        "label": "Read-Only",
+        "initial": false,
+        "terminal": false
+      },
+      {
+        "id": "archived",
+        "label": "Archived",
+        "initial": false,
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "active",
+        "to": "read_only",
+        "actor": "owner",
+        "description": "Owner enables read-only mode to restrict posting"
+      },
+      {
+        "from": "read_only",
+        "to": "active",
+        "actor": "owner",
+        "description": "Owner re-enables posting for all members"
+      },
+      {
+        "from": "active",
+        "to": "archived",
+        "actor": "owner",
+        "description": "Owner archives the channel; no new messages accepted"
+      },
+      {
+        "from": "read_only",
+        "to": "archived",
+        "actor": "owner",
+        "description": "Owner archives the channel from read-only state"
+      }
+    ]
+  },
+  "rules": {
+    "general": [
+      "Public channels are discoverable and joinable by any authenticated user without invitation",
+      "Private channels are only visible to and joinable by members; membership requires an invitation from an existing member",
+      "A channel name must be unique within the system and may only contain alphanumeric characters, hyphens, and underscores",
+      "Only owners and moderators may post in a read-only channel; regular members may react but not send messages",
+      "Muted users cannot send messages in any channel they have been muted in",
+      "Archived channels are read-only for all users; no new messages, reactions, or membership changes are accepted",
+      "Channel owners may assign moderator and owner roles to other members",
+      "Moderators may remove messages, mute members, and remove members from private channels",
+      "A channel requires at least one owner at all times; the last owner cannot leave without transferring ownership",
+      "Default channels automatically subscribe all new users upon account creation",
+      "A join code, when set, must be provided by any user attempting to join the channel directly",
+      "Broadcast channels allow only owners and moderators to post; members receive messages but cannot reply in the main channel"
+    ]
+  },
+  "outcomes": {
+    "channel_created": {
+      "priority": 1,
+      "given": [
+        "authenticated user submits a valid channel name",
+        {
+          "field": "channel_name",
+          "source": "db",
+          "operator": "not_exists",
+          "description": "Channel name is not already taken"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "channel"
+        },
+        {
+          "action": "create_record",
+          "type": "subscription"
+        },
+        {
+          "action": "emit_event",
+          "event": "channel_messaging.channel_created",
+          "payload": [
+            "channel_id",
+            "channel_name",
+            "channel_type"
+          ]
+        }
+      ],
+      "result": "Channel is created and the creator is subscribed as owner"
+    },
+    "member_joined": {
+      "priority": 2,
+      "given": [
+        "user is authenticated and not already a member",
+        "channel is public, or user has received an invitation, or provides a valid join code",
+        "channel is not archived"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "subscription"
+        },
+        {
+          "action": "emit_event",
+          "event": "channel_messaging.member_joined",
+          "payload": [
+            "channel_id",
+            "message_id"
+          ]
+        }
+      ],
+      "result": "User is subscribed to the channel and a join system message is posted"
+    },
+    "message_sent": {
+      "priority": 3,
+      "given": [
+        "sender is an authenticated member of the channel",
+        "channel is not archived",
+        "channel is not read-only, or sender has moderator or owner role",
+        "sender is not muted in the channel",
+        "message content or attachment is present"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "message"
+        },
+        {
+          "action": "set_field",
+          "target": "message_count",
+          "value": "incremented"
+        },
+        {
+          "action": "emit_event",
+          "event": "channel_messaging.message_sent",
+          "payload": [
+            "message_id",
+            "channel_id",
+            "sent_at"
+          ]
+        }
+      ],
+      "result": "Message is stored and broadcast to all channel members"
+    },
+    "member_removed": {
+      "priority": 4,
+      "given": [
+        "actor is a moderator or owner",
+        "target user is a member of the channel"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "subscription"
+        },
+        {
+          "action": "emit_event",
+          "event": "channel_messaging.member_removed",
+          "payload": [
+            "channel_id",
+            "message_id"
+          ]
+        }
+      ],
+      "result": "User's subscription is removed and a system message is posted"
+    },
+    "channel_archived": {
+      "priority": 5,
+      "given": [
+        "actor is the channel owner",
+        "channel is in active or read_only state"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "status",
+          "from": "active",
+          "to": "archived"
+        },
+        {
+          "action": "emit_event",
+          "event": "channel_messaging.channel_archived",
+          "payload": [
+            "channel_id"
+          ]
+        }
+      ],
+      "result": "Channel is archived; all members see it as read-only"
+    },
+    "channel_name_taken": {
+      "priority": 20,
+      "error": "CHANNEL_NAME_TAKEN",
+      "given": [
+        {
+          "field": "channel_name",
+          "source": "db",
+          "operator": "exists",
+          "description": "A channel with this name already exists"
+        }
+      ],
+      "then": [],
+      "result": "User is informed the channel name is already in use"
+    },
+    "access_denied_private": {
+      "priority": 21,
+      "error": "CHANNEL_ACCESS_DENIED",
+      "given": [
+        "channel type is private",
+        "user has not received an invitation and does not provide a valid join code"
+      ],
+      "then": [],
+      "result": "User is informed they do not have access to this channel"
+    },
+    "posting_restricted": {
+      "priority": 22,
+      "error": "CHANNEL_POST_RESTRICTED",
+      "given": [
+        "channel is in read_only state",
+        "sender does not have moderator or owner role"
+      ],
+      "then": [],
+      "result": "User is informed they cannot post in a read-only channel"
+    },
+    "channel_archived_error": {
+      "priority": 23,
+      "error": "CHANNEL_ARCHIVED",
+      "given": [
+        "channel status is archived",
+        "user attempts to post a message or modify membership"
+      ],
+      "then": [],
+      "result": "User is informed the channel is archived and no longer accepts changes"
+    }
+  },
+  "errors": [
+    {
+      "code": "CHANNEL_NAME_TAKEN",
+      "status": 409,
+      "message": "A channel with that name already exists. Please choose a different name."
+    },
+    {
+      "code": "CHANNEL_ACCESS_DENIED",
+      "status": 403,
+      "message": "You do not have permission to access this channel."
+    },
+    {
+      "code": "CHANNEL_POST_RESTRICTED",
+      "status": 403,
+      "message": "This channel is read-only. Only moderators and owners may post messages."
+    },
+    {
+      "code": "CHANNEL_ARCHIVED",
+      "status": 400,
+      "message": "This channel has been archived and no longer accepts new messages."
+    }
+  ],
+  "events": [
+    {
+      "name": "channel_messaging.channel_created",
+      "description": "Fires when a new channel is created",
+      "payload": [
+        "channel_id",
+        "channel_name",
+        "channel_type"
+      ]
+    },
+    {
+      "name": "channel_messaging.member_joined",
+      "description": "Fires when a user joins a channel",
+      "payload": [
+        "channel_id",
+        "message_id"
+      ]
+    },
+    {
+      "name": "channel_messaging.member_removed",
+      "description": "Fires when a user is removed from or leaves a channel",
+      "payload": [
+        "channel_id",
+        "message_id"
+      ]
+    },
+    {
+      "name": "channel_messaging.message_sent",
+      "description": "Fires when a message is posted in a channel",
+      "payload": [
+        "message_id",
+        "channel_id",
+        "sent_at"
+      ]
+    },
+    {
+      "name": "channel_messaging.channel_archived",
+      "description": "Fires when a channel is archived",
+      "payload": [
+        "channel_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "direct-messaging",
+      "type": "recommended",
+      "reason": "Shares the underlying message delivery and notification infrastructure"
+    },
+    {
+      "feature": "message-editing-deletion",
+      "type": "optional",
+      "reason": "Allows members and moderators to edit or delete posted messages"
+    },
+    {
+      "feature": "message-reactions",
+      "type": "optional",
+      "reason": "Allows emoji reactions on channel messages"
+    },
+    {
+      "feature": "message-threading",
+      "type": "optional",
+      "reason": "Allows threaded replies to messages within channels"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/RocketChat/Rocket.Chat",
+      "project": "Open-source team communication platform",
+      "tech_stack": "TypeScript, Meteor, React, MongoDB",
+      "files_traced": 5
+    }
+  },
+  "agi": {
+    "goals": [
+      {
+        "id": "manage_channel_communications",
+        "description": "Create and maintain public and private channels with correct membership, moderation, and message delivery",
+        "success_metrics": [
+          {
+            "metric": "message_delivery_rate",
+            "target": "99.9%",
+            "measurement": "Channel messages successfully broadcast / total messages posted"
+          },
+          {
+            "metric": "unauthorised_post_rate",
+            "target": "0%",
+            "measurement": "Messages posted by muted or unauthorized users / total post attempts"
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before archiving a channel with more than 100 members",
+        "before modifying default channels that auto-subscribe all users"
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "private channels are never visible to non-members",
+        "read-only channels reject posts from regular members",
+        "archived channels reject all new messages and membership changes",
+        "a channel must always have at least one owner"
+      ],
+      "acceptance_tests": [
+        {
+          "scenario": "private channel access denied",
+          "given": "a user without membership or invitation attempts to join a private channel",
+          "when": "join request is made",
+          "expect": "CHANNEL_ACCESS_DENIED returned without revealing channel details"
+        },
+        {
+          "scenario": "read-only channel blocks regular member post",
+          "given": "channel is in read_only state and sender has member role",
+          "when": "message is submitted",
+          "expect": "CHANNEL_POST_RESTRICTED error returned"
+        }
+      ]
+    },
+    "capabilities": [
+      {
+        "id": "channel_lifecycle_management",
+        "description": "Create, configure, archive, and manage membership in channels"
+      },
+      {
+        "id": "role_based_posting_control",
+        "description": "Enforce owner, moderator, and member posting restrictions per channel state"
+      }
+    ],
+    "tradeoffs": [
+      {
+        "prefer": "consistency",
+        "over": "availability",
+        "reason": "message ordering and membership state must be consistent across all subscribers"
+      }
+    ]
+  }
+}

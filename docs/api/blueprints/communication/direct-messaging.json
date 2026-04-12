@@ -1,0 +1,447 @@
+{
+  "feature": "direct-messaging",
+  "version": "1.0.0",
+  "description": "1:1 and small-group private conversations between users with read receipts and notification preferences",
+  "category": "communication",
+  "tags": [
+    "messaging",
+    "direct",
+    "private",
+    "real-time"
+  ],
+  "actors": [
+    {
+      "id": "sender",
+      "name": "Message Sender",
+      "type": "human",
+      "description": "User initiating or participating in a direct conversation"
+    },
+    {
+      "id": "recipient",
+      "name": "Message Recipient",
+      "type": "human",
+      "description": "User receiving direct messages"
+    },
+    {
+      "id": "system",
+      "name": "Messaging System",
+      "type": "system",
+      "description": "Handles room creation, subscription management, and delivery"
+    }
+  ],
+  "fields": [
+    {
+      "name": "room_id",
+      "type": "text",
+      "required": true,
+      "label": "Conversation ID"
+    },
+    {
+      "name": "participant_ids",
+      "type": "json",
+      "required": true,
+      "label": "Participant User IDs"
+    },
+    {
+      "name": "participant_usernames",
+      "type": "json",
+      "required": true,
+      "label": "Participant Usernames"
+    },
+    {
+      "name": "message_text",
+      "type": "rich_text",
+      "required": false,
+      "label": "Message Content"
+    },
+    {
+      "name": "message_id",
+      "type": "text",
+      "required": true,
+      "label": "Message ID"
+    },
+    {
+      "name": "sent_at",
+      "type": "datetime",
+      "required": true,
+      "label": "Sent At"
+    },
+    {
+      "name": "unread_count",
+      "type": "number",
+      "required": false,
+      "label": "Unread Count"
+    },
+    {
+      "name": "notification_preference",
+      "type": "select",
+      "required": false,
+      "label": "Notification Preference",
+      "options": [
+        {
+          "value": "all",
+          "label": "All"
+        },
+        {
+          "value": "mentions",
+          "label": "Mentions"
+        },
+        {
+          "value": "nothing",
+          "label": "Nothing"
+        },
+        {
+          "value": "default",
+          "label": "Default"
+        }
+      ]
+    },
+    {
+      "name": "is_open",
+      "type": "boolean",
+      "required": true,
+      "label": "Conversation Open"
+    },
+    {
+      "name": "last_message_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Last Message At"
+    }
+  ],
+  "states": {
+    "field": "is_open",
+    "values": [
+      {
+        "id": "open",
+        "label": "Open",
+        "initial": true,
+        "terminal": false
+      },
+      {
+        "id": "closed",
+        "label": "Closed",
+        "initial": false,
+        "terminal": false
+      }
+    ],
+    "transitions": [
+      {
+        "from": "open",
+        "to": "closed",
+        "actor": "sender",
+        "description": "User hides the conversation from sidebar"
+      },
+      {
+        "from": "closed",
+        "to": "open",
+        "actor": "system",
+        "description": "New message received reopens the conversation in sidebar"
+      }
+    ]
+  },
+  "rules": {
+    "general": [
+      "A direct conversation is created on first message if one does not already exist between the participants",
+      "Only the participants of a direct conversation may read or send messages within it",
+      "The number of participants in a direct conversation must not exceed the system-configured maximum",
+      "Sending a message to a closed conversation automatically reopens it in the sender's and recipient's sidebars",
+      "Each participant has an independent unread count and notification preference for the same conversation",
+      "Muting a user suppresses notifications but does not remove access to the conversation",
+      "Blocking a user prevents them from sending new direct messages",
+      "Direct conversations persist even when a participant is deactivated; historical messages remain readable",
+      "End-to-end encryption may be enabled per conversation; all messages are encrypted before transmission when active",
+      "Read receipts record the timestamp of a participant's last read position"
+    ]
+  },
+  "outcomes": {
+    "conversation_created": {
+      "priority": 1,
+      "given": [
+        "authenticated user requests a direct conversation with one or more valid users",
+        "participant count does not exceed the system maximum",
+        {
+          "field": "room_id",
+          "source": "db",
+          "operator": "not_exists",
+          "description": "No existing direct conversation between this exact set of participants"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "direct_conversation"
+        },
+        {
+          "action": "emit_event",
+          "event": "direct_messaging.conversation_created",
+          "payload": [
+            "room_id",
+            "participant_ids"
+          ]
+        }
+      ],
+      "result": "A new private conversation room is created and all participants are subscribed"
+    },
+    "conversation_reused": {
+      "priority": 2,
+      "given": [
+        "authenticated user requests a direct conversation with one or more valid users",
+        {
+          "field": "room_id",
+          "source": "db",
+          "operator": "exists",
+          "description": "An existing direct conversation already exists for these participants"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "is_open",
+          "value": true
+        },
+        {
+          "action": "emit_event",
+          "event": "direct_messaging.conversation_opened",
+          "payload": [
+            "room_id",
+            "participant_ids"
+          ]
+        }
+      ],
+      "result": "The existing conversation is surfaced and reopened in the user's sidebar"
+    },
+    "message_sent": {
+      "priority": 3,
+      "given": [
+        "sender is authenticated and a participant in the conversation",
+        "conversation is not blocked by either participant",
+        "message content or attachment is present"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "message"
+        },
+        {
+          "action": "set_field",
+          "target": "unread_count",
+          "value": "incremented"
+        },
+        {
+          "action": "set_field",
+          "target": "is_open",
+          "value": true
+        },
+        {
+          "action": "emit_event",
+          "event": "direct_messaging.message_sent",
+          "payload": [
+            "message_id",
+            "room_id",
+            "participant_ids",
+            "sent_at"
+          ]
+        }
+      ],
+      "result": "Message is delivered to all participants and unread counts are updated"
+    },
+    "message_read": {
+      "priority": 4,
+      "given": [
+        "recipient opens the conversation or scrolls to a message"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "unread_count",
+          "value": 0
+        },
+        {
+          "action": "emit_event",
+          "event": "direct_messaging.messages_read",
+          "payload": [
+            "room_id",
+            "participant_ids"
+          ]
+        }
+      ],
+      "result": "Unread count is cleared and read receipt is updated for the participant"
+    },
+    "participant_not_found": {
+      "priority": 10,
+      "error": "DM_PARTICIPANT_NOT_FOUND",
+      "given": [
+        "one or more specified participant usernames do not resolve to active users"
+      ],
+      "then": [],
+      "result": "User is informed that one or more recipients could not be found"
+    },
+    "participant_limit_exceeded": {
+      "priority": 11,
+      "error": "DM_PARTICIPANT_LIMIT_EXCEEDED",
+      "given": [
+        "requested participant count exceeds the system-configured maximum for direct conversations"
+      ],
+      "then": [],
+      "result": "User is informed of the participant limit and asked to reduce the number of recipients"
+    },
+    "access_denied": {
+      "priority": 12,
+      "error": "DM_ACCESS_DENIED",
+      "given": [
+        "requesting user is not a participant in the target conversation"
+      ],
+      "then": [],
+      "result": "Access to the conversation is denied without revealing its existence"
+    }
+  },
+  "errors": [
+    {
+      "code": "DM_PARTICIPANT_NOT_FOUND",
+      "status": 404,
+      "message": "One or more recipients could not be found. Please check the usernames and try again."
+    },
+    {
+      "code": "DM_PARTICIPANT_LIMIT_EXCEEDED",
+      "status": 429,
+      "message": "You cannot add more than the allowed number of users to a direct message."
+    },
+    {
+      "code": "DM_ACCESS_DENIED",
+      "status": 403,
+      "message": "You do not have access to this conversation."
+    }
+  ],
+  "events": [
+    {
+      "name": "direct_messaging.conversation_created",
+      "description": "Fires when a new direct conversation room is first created",
+      "payload": [
+        "room_id",
+        "participant_ids"
+      ]
+    },
+    {
+      "name": "direct_messaging.conversation_opened",
+      "description": "Fires when an existing conversation is reopened in a participant's sidebar",
+      "payload": [
+        "room_id",
+        "participant_ids"
+      ]
+    },
+    {
+      "name": "direct_messaging.message_sent",
+      "description": "Fires when a message is successfully delivered to a direct conversation",
+      "payload": [
+        "message_id",
+        "room_id",
+        "participant_ids",
+        "sent_at"
+      ]
+    },
+    {
+      "name": "direct_messaging.messages_read",
+      "description": "Fires when a participant reads messages, clearing their unread count",
+      "payload": [
+        "room_id",
+        "participant_ids"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "channel-messaging",
+      "type": "recommended",
+      "reason": "Shares the underlying message delivery and notification infrastructure"
+    },
+    {
+      "feature": "message-editing-deletion",
+      "type": "optional",
+      "reason": "Allows participants to edit or delete sent direct messages"
+    },
+    {
+      "feature": "message-reactions",
+      "type": "optional",
+      "reason": "Allows emoji reactions on direct messages"
+    },
+    {
+      "feature": "message-threading",
+      "type": "optional",
+      "reason": "Allows threaded replies within direct conversations"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/RocketChat/Rocket.Chat",
+      "project": "Open-source team communication platform",
+      "tech_stack": "TypeScript, Meteor, React, MongoDB",
+      "files_traced": 4
+    }
+  },
+  "agi": {
+    "goals": [
+      {
+        "id": "deliver_private_messages",
+        "description": "Ensure private 1:1 and small-group conversations are created, delivered, and tracked reliably with correct access control",
+        "success_metrics": [
+          {
+            "metric": "message_delivery_rate",
+            "target": "99.9%",
+            "measurement": "Messages successfully delivered / total messages sent"
+          },
+          {
+            "metric": "unauthorised_access_rate",
+            "target": "0%",
+            "measurement": "Access attempts by non-participants that succeeded"
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before blocking a user or suppressing their messages system-wide",
+        "before purging conversation history for a participant"
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "only participants of a conversation may read or write to it",
+        "blocking a user suppresses notifications without exposing conversation existence",
+        "unread counts are maintained independently per participant"
+      ],
+      "acceptance_tests": [
+        {
+          "scenario": "conversation created on first message",
+          "given": "no existing direct conversation between two users",
+          "when": "sender posts the first message",
+          "expect": "new conversation room created and both participants subscribed"
+        },
+        {
+          "scenario": "access denied for non-participant",
+          "given": "a third user attempts to read a conversation they are not part of",
+          "when": "access request is made",
+          "expect": "DM_ACCESS_DENIED returned without revealing conversation details"
+        }
+      ]
+    },
+    "capabilities": [
+      {
+        "id": "private_conversation_routing",
+        "description": "Create or reuse a direct conversation room for a given set of participants"
+      },
+      {
+        "id": "per_participant_unread_tracking",
+        "description": "Maintain independent unread counts and notification preferences per participant"
+      }
+    ],
+    "tradeoffs": [
+      {
+        "prefer": "privacy",
+        "over": "discoverability",
+        "reason": "conversation existence must not be revealed to non-participants even on access denial"
+      }
+    ]
+  }
+}

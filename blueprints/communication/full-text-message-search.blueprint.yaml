@@ -1,0 +1,248 @@
+feature: full-text-message-search
+version: 1.0.0
+description: Search message content across all channels accessible to the user, with pluggable search provider support
+  and real-time result streaming
+category: communication
+tags:
+  - search
+  - messages
+  - full-text
+  - discovery
+  - indexing
+actors:
+  - id: searcher
+    name: Searching User
+    type: human
+    description: Authenticated user performing a content search across messages
+  - id: search_provider
+    name: Search Provider
+    type: system
+    description: Pluggable backend service that indexes messages and processes search queries; may be built-in or an
+      external search engine
+  - id: index_worker
+    name: Index Worker
+    type: system
+    description: Background process that keeps the search index up to date as messages, users, and channels change
+fields:
+  - name: query_text
+    type: text
+    required: true
+    label: Search Query
+  - name: channel_id
+    type: text
+    required: false
+    label: Channel Context
+  - name: user_id
+    type: text
+    required: true
+    label: Searching User ID
+  - name: page_size
+    type: number
+    required: false
+    label: Page Size
+  - name: page_token
+    type: token
+    required: false
+    label: Page Token
+  - name: result_messages
+    type: json
+    required: false
+    label: Message Results
+  - name: result_users
+    type: json
+    required: false
+    label: User Results
+  - name: result_rooms
+    type: json
+    required: false
+    label: Room Results
+  - name: suggestions
+    type: json
+    required: false
+    label: Search Suggestions
+rules:
+  general:
+    - The searching user must be authenticated
+    - A search provider must be active and configured; if no provider is active, search is unavailable
+    - Search results are filtered to channels and messages the searching user has permission to access; no results from
+      inaccessible channels are exposed
+    - When a channel_id is provided, results are scoped to that channel only
+    - Search supports pagination through an opaque page token passed in each subsequent request
+    - The search provider is pluggable; the system exposes a standard interface so providers can be swapped without API
+      changes
+    - Provider settings (index size, stemming, language, etc.) are managed through the provider's own configuration, not
+      the search API
+    - Suggestion queries are distinct from result queries; a provider may support suggestions independently
+    - "The index is kept current via event-driven updates: user save/delete and channel save/delete events are forwarded
+      to the index worker"
+    - Search results include message documents; providers may optionally include user and channel records in the same
+      result set
+    - The result format follows a standard envelope with start offset, total found count, and document array for each
+      entity type
+    - Search operations are asynchronous; the system waits for the provider to resolve before returning results
+    - Errors from the provider (timeouts, index unavailability) are surfaced as search errors, not silent failures
+outcomes:
+  user_not_authenticated:
+    priority: 1
+    error: SEARCH_NOT_AUTHENTICATED
+    given:
+      - no authenticated user session exists
+    then: []
+    result: Search rejected; user must be logged in
+  no_provider_active:
+    priority: 2
+    error: SEARCH_PROVIDER_UNAVAILABLE
+    given:
+      - no search provider is currently active or configured
+    then: []
+    result: Search rejected; the search service is not available
+  empty_query:
+    priority: 3
+    error: SEARCH_EMPTY_QUERY
+    given:
+      - query_text is empty or blank
+    then: []
+    result: Search rejected; a non-empty search term is required
+  provider_error:
+    priority: 4
+    error: SEARCH_PROVIDER_ERROR
+    given:
+      - search provider returns an error or times out
+    then: []
+    result: Search failed; the search service encountered an error
+  suggestions_returned:
+    priority: 5
+    given:
+      - user is authenticated
+      - active search provider supports suggestions
+      - query_text is a partial term suitable for autocomplete
+    then:
+      - action: emit_event
+        event: search.suggestions_returned
+        payload:
+          - user_id
+          - query_text
+          - suggestions
+    result: Autocomplete suggestion list is returned to the client for display
+  results_returned:
+    priority: 6
+    given:
+      - user is authenticated
+      - active search provider is available
+      - query_text is non-empty
+      - provider successfully executes the search
+    then:
+      - action: emit_event
+        event: search.completed
+        payload:
+          - user_id
+          - query_text
+          - channel_id
+          - result_messages
+    result: Matching messages are returned ordered by relevance; users and rooms included if provider supports them
+  no_results:
+    priority: 7
+    given:
+      - user is authenticated
+      - active search provider is available
+      - query_text is non-empty
+      - provider returns zero matching documents
+    then:
+      - action: emit_event
+        event: search.completed
+        payload:
+          - user_id
+          - query_text
+          - channel_id
+          - result_messages
+    result: Empty result set returned; user sees a no-results message
+errors:
+  - code: SEARCH_NOT_AUTHENTICATED
+    status: 400
+    message: You must be logged in to search messages
+  - code: SEARCH_PROVIDER_UNAVAILABLE
+    status: 503
+    message: Message search is not available at this time
+  - code: SEARCH_EMPTY_QUERY
+    status: 400
+    message: Please enter a search term
+  - code: SEARCH_PROVIDER_ERROR
+    status: 400
+    message: Search encountered an error; please try again
+events:
+  - name: search.completed
+    description: Fired when a search query returns results (including empty results)
+    payload:
+      - user_id
+      - query_text
+      - channel_id
+      - result_messages
+  - name: search.suggestions_returned
+    description: Fired when autocomplete suggestions are returned for a partial query
+    payload:
+      - user_id
+      - query_text
+      - suggestions
+related:
+  - feature: direct-messaging
+    type: recommended
+    reason: Search spans direct messages and channel messages accessible to the user
+  - feature: message-pinning
+    type: optional
+    reason: Pinned messages are indexed and discoverable via search
+  - feature: message-starring
+    type: optional
+    reason: Users may use search to find content they previously starred
+  - feature: file-upload-sharing
+    type: optional
+    reason: Shared file messages with descriptions are included in search results
+extensions:
+  source:
+    repo: https://github.com/RocketChat/Rocket.Chat
+    project: Open-source team communication platform
+    tech_stack: TypeScript, Meteor, React, MongoDB
+    files_traced: 5
+
+agi:
+  goals:
+    - id: access_controlled_message_search
+      description: "Return relevant message search results scoped strictly to channels the searching user has permission to access"
+      success_metrics:
+        - metric: result_access_compliance
+          target: "100%"
+          measurement: "Search results limited to accessible channels / total results returned"
+        - metric: search_availability
+          target: "99%"
+          measurement: "Search requests served successfully / total requests when provider is active"
+
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - "before switching the active search provider"
+      - "before reindexing the entire message corpus"
+
+  verification:
+    invariants:
+      - "results never include messages from channels the user cannot access"
+      - "search is unavailable when no provider is active"
+      - "empty query always returns SEARCH_EMPTY_QUERY error"
+    acceptance_tests:
+      - scenario: "results scoped to accessible channels"
+        given: "user has access to channel A but not channel B"
+        when: "search returns messages from both channels"
+        expect: "only channel A messages are included in results"
+      - scenario: "provider unavailability surfaced"
+        given: "no search provider is active"
+        when: "search is requested"
+        expect: "SEARCH_PROVIDER_UNAVAILABLE error returned"
+
+  capabilities:
+    - id: permission_filtered_search
+      description: "Query pluggable search provider and filter results to channels accessible by the requesting user"
+    - id: paginated_result_streaming
+      description: "Support paginated retrieval of search results via opaque page tokens"
+
+  tradeoffs:
+    - prefer: security
+      over: result_completeness
+      reason: "access filtering is mandatory even if it means returning fewer results than the provider found"

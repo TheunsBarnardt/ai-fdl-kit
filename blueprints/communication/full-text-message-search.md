@@ -1,0 +1,81 @@
+<!-- AUTO-GENERATED FROM full-text-message-search.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Full Text Message Search
+
+> Search message content across all channels accessible to the user, with pluggable search provider support and real-time result streaming
+
+**Category:** Communication · **Version:** 1.0.0 · **Tags:** search · messages · full-text · discovery · indexing
+
+## What this does
+
+Search message content across all channels accessible to the user, with pluggable search provider support and real-time result streaming
+
+Specifies 7 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **query_text** *(text, required)* — Search Query
+- **channel_id** *(text, optional)* — Channel Context
+- **user_id** *(text, required)* — Searching User ID
+- **page_size** *(number, optional)* — Page Size
+- **page_token** *(token, optional)* — Page Token
+- **result_messages** *(json, optional)* — Message Results
+- **result_users** *(json, optional)* — User Results
+- **result_rooms** *(json, optional)* — Room Results
+- **suggestions** *(json, optional)* — Search Suggestions
+
+## What must be true
+
+- **general:** The searching user must be authenticated, A search provider must be active and configured; if no provider is active, search is unavailable, Search results are filtered to channels and messages the searching user has permission to access; no results from inaccessible channels are exposed, When a channel_id is provided, results are scoped to that channel only, Search supports pagination through an opaque page token passed in each subsequent request, The search provider is pluggable; the system exposes a standard interface so providers can be swapped without API changes, Provider settings (index size, stemming, language, etc.) are managed through the provider's own configuration, not the search API, Suggestion queries are distinct from result queries; a provider may support suggestions independently, The index is kept current via event-driven updates: user save/delete and channel save/delete events are forwarded to the index worker, Search results include message documents; providers may optionally include user and channel records in the same result set, The result format follows a standard envelope with start offset, total found count, and document array for each entity type, Search operations are asynchronous; the system waits for the provider to resolve before returning results, Errors from the provider (timeouts, index unavailability) are surfaced as search errors, not silent failures
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Suggestions Returned** — when user is authenticated; active search provider supports suggestions; query_text is a partial term suitable for autocomplete, then Autocomplete suggestion list is returned to the client for display.
+- **Results Returned** — when user is authenticated; active search provider is available; query_text is non-empty; provider successfully executes the search, then Matching messages are returned ordered by relevance; users and rooms included if provider supports them.
+- **No Results** — when user is authenticated; active search provider is available; query_text is non-empty; provider returns zero matching documents, then Empty result set returned; user sees a no-results message.
+
+**❌ Failure paths**
+
+- **User Not Authenticated** — when no authenticated user session exists, then Search rejected; user must be logged in. *(error: `SEARCH_NOT_AUTHENTICATED`)*
+- **No Provider Active** — when no search provider is currently active or configured, then Search rejected; the search service is not available. *(error: `SEARCH_PROVIDER_UNAVAILABLE`)*
+- **Empty Query** — when query_text is empty or blank, then Search rejected; a non-empty search term is required. *(error: `SEARCH_EMPTY_QUERY`)*
+- **Provider Error** — when search provider returns an error or times out, then Search failed; the search service encountered an error. *(error: `SEARCH_PROVIDER_ERROR`)*
+
+## Errors it can return
+
+- `SEARCH_NOT_AUTHENTICATED` — You must be logged in to search messages
+- `SEARCH_PROVIDER_UNAVAILABLE` — Message search is not available at this time
+- `SEARCH_EMPTY_QUERY` — Please enter a search term
+- `SEARCH_PROVIDER_ERROR` — Search encountered an error; please try again
+
+## Connects to
+
+- **direct-messaging** *(recommended)* — Search spans direct messages and channel messages accessible to the user
+- **message-pinning** *(optional)* — Pinned messages are indexed and discoverable via search
+- **message-starring** *(optional)* — Users may use search to find content they previously starred
+- **file-upload-sharing** *(optional)* — Shared file messages with descriptions are included in search results
+
+## Quality fitness 🟢 79/100
+
+Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
+
+| Dimension | Score | Points |
+|-----------|-------|--------|
+| Description | `██████████` | 10/10 |
+| Rules | `███████░░░` | 7/10 |
+| Outcomes | `████████████████████░░░░░` | 20/25 |
+| Structured conditions | `██░░░░░░░░` | 2/10 |
+| Error binding | `██████████` | 10/10 |
+| Field validation | `█████░░░░░` | 5/10 |
+| Relationships | `██████████` | 10/10 |
+| Events | `█████` | 5/5 |
+| AGI readiness | `█████` | 5/5 |
+| Simplicity | `█████` | 5/5 |
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/communication/full-text-message-search/) · **Spec source:** [`full-text-message-search.blueprint.yaml`](./full-text-message-search.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

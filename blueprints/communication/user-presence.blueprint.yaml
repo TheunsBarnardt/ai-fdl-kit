@@ -1,0 +1,342 @@
+feature: user-presence
+version: 1.0.0
+description: Track and broadcast user presence status (online, away, busy, offline) with automatic detection based on
+  connection and activity
+category: communication
+tags:
+  - presence
+  - status
+  - real-time
+  - availability
+actors:
+  - id: user
+    name: User
+    type: human
+    description: The user whose presence is being tracked
+  - id: presence_service
+    name: Presence Service
+    type: system
+    description: Server-side service that manages connection tracking and status aggregation
+  - id: subscriber
+    name: Status Subscriber
+    type: human
+    description: Any user or system observing another user's presence
+fields:
+  - name: user_id
+    type: text
+    required: true
+    label: User ID
+  - name: status
+    type: select
+    required: true
+    label: Presence Status
+    options:
+      - value: online
+        label: Online
+      - value: away
+        label: Away
+      - value: busy
+        label: Busy
+      - value: offline
+        label: Offline
+  - name: status_text
+    type: text
+    required: false
+    label: Status Message
+  - name: connection_id
+    type: text
+    required: false
+    label: Connection ID
+  - name: node_id
+    type: text
+    required: false
+    label: Node ID
+  - name: last_login
+    type: datetime
+    required: false
+    label: Last Login
+states:
+  field: status
+  values:
+    - id: online
+      label: Online
+      initial: true
+      terminal: false
+      description: User is actively connected and available
+    - id: away
+      label: Away
+      initial: false
+      terminal: false
+      description: User is connected but inactive
+    - id: busy
+      label: Busy
+      initial: false
+      terminal: false
+      description: User is connected but does not wish to be disturbed
+    - id: offline
+      label: Offline
+      initial: false
+      terminal: false
+      description: User has no active connections
+  transitions:
+    - from: offline
+      to: online
+      actor: presence_service
+      description: User establishes a connection
+    - from: online
+      to: away
+      actor: presence_service
+      description: User connection becomes idle past the away threshold
+    - from: online
+      to: busy
+      actor: user
+      description: User manually sets status to busy
+    - from: away
+      to: online
+      actor: presence_service
+      description: User activity detected on an idle connection
+    - from: online
+      to: offline
+      actor: presence_service
+      description: All user connections are closed or lost
+    - from: away
+      to: offline
+      actor: presence_service
+      description: All connections lost while user was away
+    - from: busy
+      to: offline
+      actor: presence_service
+      description: All connections lost while user was busy
+    - from: any
+      to: online
+      actor: user
+      description: User manually sets status to online
+    - from: any
+      to: away
+      actor: user
+      description: User manually sets status to away
+    - from: any
+      to: busy
+      actor: user
+      description: User manually sets status to busy
+rules:
+  general:
+    - Each user connection is tracked independently; overall presence is derived from all active connections
+    - When a user's last connection is removed, their presence transitions to offline automatically
+    - Users may manually override auto-detected presence with online, away, or busy
+    - Status text is user-controlled and persists independently of the connection state
+    - An invisible or disabled status may be allowed or blocked by system configuration
+    - Rate limiting must be applied to manual status changes to prevent abuse
+    - Presence updates must be broadcast to all subscribers in real time
+    - Stale connections on a node must be cleaned up when that node goes offline
+    - Custom status names can be defined system-wide; each maps to one of the base status types
+    - Status text changes require that the system allows user status message modifications
+outcomes:
+  connection_established:
+    priority: 1
+    given:
+      - user authenticates and opens a connection
+      - field: connection_id
+        source: system
+        operator: not_exists
+        description: This is a new connection
+    then:
+      - action: create_record
+        type: user_connection
+      - action: set_field
+        target: status
+        value: online
+      - action: emit_event
+        event: presence.connection_added
+        payload:
+          - user_id
+          - connection_id
+          - node_id
+    result: Connection is registered and user status is set to online
+  status_set_manually:
+    priority: 2
+    given:
+      - user submits a status change request
+      - field: status
+        source: input
+        operator: in
+        value:
+          - online
+          - away
+          - busy
+          - offline
+    then:
+      - action: set_field
+        target: status
+        value: "{{input.status}}"
+      - action: emit_event
+        event: presence.status_changed
+        payload:
+          - user_id
+          - status
+          - status_text
+    result: User status is updated and broadcast to all subscribers
+  status_text_updated:
+    priority: 3
+    given:
+      - user submits a status text change
+      - field: status_text
+        source: input
+        operator: exists
+    then:
+      - action: set_field
+        target: status_text
+        value: "{{input.status_text}}"
+      - action: emit_event
+        event: presence.status_changed
+        payload:
+          - user_id
+          - status
+          - status_text
+    result: Status message is persisted and broadcast
+  connection_removed:
+    priority: 4
+    given:
+      - a user connection is closed or timed out
+      - field: connection_id
+        source: system
+        operator: exists
+    then:
+      - action: delete_record
+        type: user_connection
+      - action: emit_event
+        event: presence.connection_removed
+        payload:
+          - user_id
+          - connection_id
+    result: Connection removed; if no connections remain, user transitions to offline
+  last_connection_removed:
+    priority: 5
+    given:
+      - last active connection for the user is closed
+    then:
+      - action: set_field
+        target: status
+        value: offline
+      - action: emit_event
+        event: presence.status_changed
+        payload:
+          - user_id
+          - status
+    result: User status changes to offline and subscribers are notified
+  invisible_status_blocked:
+    priority: 6
+    error: PRESENCE_INVISIBLE_NOT_ALLOWED
+    given:
+      - user requests offline/invisible status
+      - field: allow_invisible
+        source: system
+        operator: eq
+        value: false
+    then: []
+    result: Status change rejected because invisible mode is disabled by system configuration
+  status_change_rate_limited:
+    priority: 7
+    error: PRESENCE_RATE_LIMITED
+    given:
+      - user exceeds allowed rate of manual status changes
+    then: []
+    result: Request rejected due to rate limiting; user must wait before changing status again
+  status_text_change_not_allowed:
+    priority: 8
+    error: PRESENCE_STATUS_TEXT_NOT_ALLOWED
+    given:
+      - user attempts to change status text
+      - field: allow_status_message_change
+        source: system
+        operator: eq
+        value: false
+    then: []
+    result: Status text change rejected because the feature is disabled by system configuration
+errors:
+  - code: PRESENCE_INVISIBLE_NOT_ALLOWED
+    status: 400
+    message: Invisible status is not available on this server
+  - code: PRESENCE_RATE_LIMITED
+    status: 429
+    message: Too many status changes. Please wait before trying again
+  - code: PRESENCE_STATUS_TEXT_NOT_ALLOWED
+    status: 400
+    message: Status message changes are not allowed on this server
+events:
+  - name: presence.status_changed
+    description: Fired when a user's presence status or status text changes
+    payload:
+      - user_id
+      - status
+      - status_text
+  - name: presence.connection_added
+    description: Fired when a new user connection is registered
+    payload:
+      - user_id
+      - connection_id
+      - node_id
+  - name: presence.connection_removed
+    description: Fired when a user connection is closed or removed
+    payload:
+      - user_id
+      - connection_id
+related:
+  - feature: user-profile
+    type: required
+    reason: User identity is required to associate presence with an account
+  - feature: typing-indicators
+    type: recommended
+    reason: Typing indicators complement presence by showing in-room activity
+  - feature: read-receipts
+    type: optional
+    reason: Read receipts may use last-seen timestamps that relate to presence
+extensions:
+  source:
+    repo: https://github.com/RocketChat/Rocket.Chat
+    project: Open-source team communication platform
+    tech_stack: TypeScript, Meteor, React, MongoDB
+    files_traced: 7
+
+agi:
+  goals:
+    - id: accurate_presence_broadcast
+      description: "Maintain and broadcast accurate user presence status in real time, reflecting connection and activity changes promptly"
+      success_metrics:
+        - metric: presence_staleness
+          target: "< 5s"
+          measurement: "Maximum lag between connection event and status broadcast to subscribers"
+        - metric: stale_connection_cleanup_rate
+          target: "100%"
+          measurement: "Stale connections cleared when node goes offline / total stale connections"
+
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - "before disabling presence tracking workspace-wide"
+
+  verification:
+    invariants:
+      - "when the last connection is removed the user transitions to offline"
+      - "manual status overrides are preserved until explicitly changed or connection is lost"
+      - "rate limiting prevents abuse of manual status changes"
+    acceptance_tests:
+      - scenario: "last connection removal triggers offline"
+        given: "user has one active connection"
+        when: "connection is closed"
+        expect: "status transitions to offline and subscribers are notified"
+      - scenario: "invisible blocked when disabled"
+        given: "allow_invisible system setting is false"
+        when: "user requests offline/invisible status"
+        expect: "PRESENCE_INVISIBLE_NOT_ALLOWED error returned"
+
+  capabilities:
+    - id: connection_based_presence_tracking
+      description: "Derive user presence from active connection records and broadcast changes in real time"
+    - id: manual_status_override
+      description: "Allow users to manually set their status subject to system-level policy"
+
+  tradeoffs:
+    - prefer: eventual_consistency
+      over: strict_consistency
+      reason: "presence updates are best-effort broadcasts; brief staleness is acceptable over blocking message delivery"

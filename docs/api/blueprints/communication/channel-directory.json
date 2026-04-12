@@ -1,0 +1,348 @@
+{
+  "feature": "channel-directory",
+  "version": "1.0.0",
+  "description": "Browse and discover public channels and rooms available on the platform",
+  "category": "communication",
+  "tags": [
+    "channels",
+    "rooms",
+    "discovery",
+    "directory",
+    "search",
+    "public"
+  ],
+  "actors": [
+    {
+      "id": "user",
+      "name": "User",
+      "type": "human",
+      "description": "Authenticated user browsing or searching the channel directory"
+    },
+    {
+      "id": "administrator",
+      "name": "Administrator",
+      "type": "human",
+      "description": "Manages which channels are visible in the directory and configures visibility settings"
+    },
+    {
+      "id": "platform",
+      "name": "Platform",
+      "type": "system",
+      "description": "Returns paginated channel listings and enforces visibility permissions"
+    }
+  ],
+  "fields": [
+    {
+      "name": "filter",
+      "type": "text",
+      "required": false,
+      "label": "Search Filter"
+    },
+    {
+      "name": "room_type",
+      "type": "select",
+      "required": false,
+      "label": "Room Type"
+    },
+    {
+      "name": "include_all_public_channels",
+      "type": "boolean",
+      "required": false,
+      "label": "Include All Public Channels"
+    },
+    {
+      "name": "sort",
+      "type": "json",
+      "required": false,
+      "label": "Sort Order"
+    },
+    {
+      "name": "offset",
+      "type": "number",
+      "required": false,
+      "label": "Page Offset"
+    },
+    {
+      "name": "count",
+      "type": "number",
+      "required": false,
+      "label": "Page Size"
+    },
+    {
+      "name": "channel_id",
+      "type": "text",
+      "required": false,
+      "label": "Channel ID"
+    },
+    {
+      "name": "channel_name",
+      "type": "text",
+      "required": false,
+      "label": "Channel Name"
+    },
+    {
+      "name": "description",
+      "type": "text",
+      "required": false,
+      "label": "Channel Description"
+    },
+    {
+      "name": "member_count",
+      "type": "number",
+      "required": false,
+      "label": "Member Count"
+    },
+    {
+      "name": "read_only",
+      "type": "boolean",
+      "required": false,
+      "label": "Read Only"
+    },
+    {
+      "name": "federated",
+      "type": "boolean",
+      "required": false,
+      "label": "Federated"
+    }
+  ],
+  "rules": {
+    "general": [
+      "Only rooms marked as public (open) are listed in the channel directory; private groups are excluded",
+      "Users with the view-c-room permission can see all public channels; users without it see only channels they are eligible to join",
+      "Directory listings are paginated; callers must supply offset and count to retrieve subsequent pages",
+      "The filter parameter performs a case-insensitive partial match against channel names and descriptions",
+      "Channels can be sorted by name, member count, or creation date; default sort is by name ascending",
+      "Federated channels from remote servers may appear in the directory if cross-server federation is enabled",
+      "The directory does not expose private or direct message rooms",
+      "A user who is already a member of a channel can still view it in the directory",
+      "The total count of matching channels is returned alongside each paginated response for UI rendering"
+    ]
+  },
+  "outcomes": {
+    "directory_listed": {
+      "priority": 10,
+      "given": [
+        "user requests the channel directory",
+        "user is authenticated"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "channel_directory.listed",
+          "payload": [
+            "filter",
+            "room_type",
+            "offset",
+            "count"
+          ]
+        }
+      ],
+      "result": "A paginated list of public channels matching the filter and sort criteria is returned"
+    },
+    "channel_searched": {
+      "priority": 9,
+      "given": [
+        "user supplies a filter value",
+        "user is authenticated"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "channel_directory.searched",
+          "payload": [
+            "filter",
+            "offset",
+            "count"
+          ]
+        }
+      ],
+      "result": "Directory returns only channels whose names or descriptions match the filter string"
+    },
+    "channel_detail_retrieved": {
+      "priority": 8,
+      "given": [
+        "user requests details for a specific channel by id or name",
+        "channel is public or user has view-c-room permission"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "channel_directory.detail_viewed",
+          "payload": [
+            "channel_id",
+            "channel_name"
+          ]
+        }
+      ],
+      "result": "Full channel detail including description, member count, and type is returned"
+    },
+    "permission_denied": {
+      "priority": 2,
+      "error": "CHANNEL_DIRECTORY_PERMISSION_DENIED",
+      "given": [
+        "user requests channel listing",
+        "user is not authenticated or has been explicitly blocked from viewing channels"
+      ],
+      "then": [],
+      "result": "Request is rejected and an authorization error is returned"
+    },
+    "no_results": {
+      "priority": 5,
+      "given": [
+        "user applies a filter that matches no channels"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "channel_directory.searched",
+          "payload": [
+            "filter",
+            "offset",
+            "count"
+          ]
+        }
+      ],
+      "result": "An empty list is returned with a total count of zero"
+    },
+    "channel_not_found": {
+      "priority": 3,
+      "error": "CHANNEL_DIRECTORY_NOT_FOUND",
+      "given": [
+        "user requests details for a specific channel id or name that does not exist or is not public"
+      ],
+      "then": [],
+      "result": "A not-found error is returned"
+    }
+  },
+  "errors": [
+    {
+      "code": "CHANNEL_DIRECTORY_PERMISSION_DENIED",
+      "status": 403,
+      "message": "You do not have permission to browse the channel directory."
+    },
+    {
+      "code": "CHANNEL_DIRECTORY_NOT_FOUND",
+      "status": 404,
+      "message": "The requested channel was not found or is not publicly accessible."
+    }
+  ],
+  "events": [
+    {
+      "name": "channel_directory.listed",
+      "description": "Fires when a user retrieves the paginated channel directory",
+      "payload": [
+        "filter",
+        "room_type",
+        "offset",
+        "count"
+      ]
+    },
+    {
+      "name": "channel_directory.searched",
+      "description": "Fires when a user applies a text filter to the channel directory",
+      "payload": [
+        "filter",
+        "offset",
+        "count"
+      ]
+    },
+    {
+      "name": "channel_directory.detail_viewed",
+      "description": "Fires when a user views the detail of a specific channel from the directory",
+      "payload": [
+        "channel_id",
+        "channel_name"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "channel-management",
+      "type": "required",
+      "reason": "Channels listed in the directory are created and managed by channel management"
+    },
+    {
+      "feature": "role-based-access-control",
+      "type": "required",
+      "reason": "View permissions determine which channels are visible to which users"
+    },
+    {
+      "feature": "room-search",
+      "type": "recommended",
+      "reason": "Platform-wide search may surface channel directory results"
+    },
+    {
+      "feature": "user-profile",
+      "type": "optional",
+      "reason": "Joining a channel from the directory updates the user's channel membership"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/RocketChat/Rocket.Chat",
+      "project": "Open-source team communication platform",
+      "tech_stack": "TypeScript, Meteor, React, MongoDB",
+      "files_traced": 4
+    }
+  },
+  "agi": {
+    "goals": [
+      {
+        "id": "discover_public_channels",
+        "description": "Return paginated, permission-filtered listings of public channels to help users discover and join relevant rooms",
+        "success_metrics": [
+          {
+            "metric": "private_channel_exposure_rate",
+            "target": "0%",
+            "measurement": "Private channels returned in directory results / total directory results"
+          },
+          {
+            "metric": "directory_response_time",
+            "target": "< 300ms p95",
+            "measurement": "Time to return first page of directory results"
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before changing directory visibility settings that affect all users"
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "only public channels appear in the directory",
+        "direct message rooms are never listed",
+        "pagination offset and count are required for all listing requests"
+      ],
+      "acceptance_tests": [
+        {
+          "scenario": "private channels excluded",
+          "given": "workspace has both public and private channels",
+          "when": "directory is listed",
+          "expect": "only public channels are returned"
+        },
+        {
+          "scenario": "unauthenticated access denied",
+          "given": "request is made without authentication",
+          "when": "directory listing is requested",
+          "expect": "CHANNEL_DIRECTORY_PERMISSION_DENIED returned"
+        }
+      ]
+    },
+    "capabilities": [
+      {
+        "id": "paginated_channel_listing",
+        "description": "Return filtered, sorted, paginated public channel listings with total count"
+      }
+    ],
+    "tradeoffs": [
+      {
+        "prefer": "security",
+        "over": "discoverability",
+        "reason": "private channels must never appear in the directory even if it limits the number of joinable channels shown"
+      }
+    ]
+  }
+}

@@ -1,0 +1,501 @@
+{
+  "feature": "incoming-webhooks",
+  "version": "1.0.0",
+  "description": "Receive HTTP POST payloads from external systems and convert them into messages posted to designated channels",
+  "category": "integration",
+  "tags": [
+    "webhooks",
+    "http",
+    "integration",
+    "automation",
+    "inbound"
+  ],
+  "actors": [
+    {
+      "id": "administrator",
+      "name": "Administrator",
+      "type": "human",
+      "description": "User who configures incoming webhook integrations"
+    },
+    {
+      "id": "external_system",
+      "name": "External System",
+      "type": "external",
+      "description": "Third-party service or system that sends HTTP POST requests to the webhook endpoint"
+    },
+    {
+      "id": "webhook_service",
+      "name": "Webhook Service",
+      "type": "system",
+      "description": "Service that receives, validates, and processes incoming webhook payloads"
+    },
+    {
+      "id": "script_engine",
+      "name": "Script Engine",
+      "type": "system",
+      "description": "Isolated script execution environment that runs custom processing logic on payloads"
+    }
+  ],
+  "fields": [
+    {
+      "name": "name",
+      "type": "text",
+      "required": true,
+      "label": "Integration Name"
+    },
+    {
+      "name": "enabled",
+      "type": "boolean",
+      "required": true,
+      "label": "Enabled"
+    },
+    {
+      "name": "channel",
+      "type": "text",
+      "required": true,
+      "label": "Target Channel(s)"
+    },
+    {
+      "name": "username",
+      "type": "text",
+      "required": true,
+      "label": "Post As Username"
+    },
+    {
+      "name": "token",
+      "type": "token",
+      "required": true,
+      "label": "Webhook Token"
+    },
+    {
+      "name": "alias",
+      "type": "text",
+      "required": false,
+      "label": "Display Alias"
+    },
+    {
+      "name": "avatar",
+      "type": "url",
+      "required": false,
+      "label": "Avatar URL"
+    },
+    {
+      "name": "emoji",
+      "type": "text",
+      "required": false,
+      "label": "Avatar Emoji"
+    },
+    {
+      "name": "script_enabled",
+      "type": "boolean",
+      "required": true,
+      "label": "Script Enabled"
+    },
+    {
+      "name": "script",
+      "type": "rich_text",
+      "required": false,
+      "label": "Processing Script"
+    },
+    {
+      "name": "override_destination_channel_enabled",
+      "type": "boolean",
+      "required": false,
+      "label": "Allow Channel Override"
+    },
+    {
+      "name": "payload_body",
+      "type": "json",
+      "required": true,
+      "label": "Payload Body"
+    },
+    {
+      "name": "payload_text",
+      "type": "text",
+      "required": false,
+      "label": "Message Text"
+    }
+  ],
+  "rules": {
+    "general": [
+      "Webhook URL includes the integration token; any request with an invalid or missing token must be rejected",
+      "Only users with permission to manage incoming integrations may create or modify webhooks",
+      "The target channel must begin with # (for rooms) or @ (for direct messages)",
+      "If a script is enabled, the payload is passed to the isolated script engine before message posting",
+      "Scripts may transform, filter, or enrich the message; if a script returns no content, the message is not posted",
+      "If channel override is enabled, the payload may specify an alternative destination channel",
+      "The posting username must correspond to an existing system user",
+      "Webhook endpoint must be available over HTTPS in production environments",
+      "Payloads may be JSON or application/x-www-form-urlencoded; both formats must be handled",
+      "Script execution is sandboxed; scripts cannot access the host filesystem or make arbitrary network calls",
+      "Integration history is recorded for each request to support debugging and auditing"
+    ]
+  },
+  "outcomes": {
+    "webhook_created": {
+      "priority": 1,
+      "given": [
+        "administrator submits a new incoming webhook configuration",
+        {
+          "field": "name",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "channel",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "username",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "incoming_integration"
+        },
+        {
+          "action": "emit_event",
+          "event": "incoming_webhooks.integration_created",
+          "payload": [
+            "name",
+            "channel"
+          ]
+        }
+      ],
+      "result": "Webhook integration is created with a generated token; the webhook URL is returned to the administrator"
+    },
+    "payload_received_and_posted": {
+      "priority": 2,
+      "given": [
+        "external system sends a POST request to the webhook URL",
+        {
+          "field": "token",
+          "source": "request",
+          "operator": "exists"
+        },
+        {
+          "field": "enabled",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        },
+        {
+          "field": "script_enabled",
+          "source": "db",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "channel_message"
+        },
+        {
+          "action": "emit_event",
+          "event": "incoming_webhooks.message_posted",
+          "payload": [
+            "name",
+            "channel",
+            "payload_text"
+          ]
+        }
+      ],
+      "result": "Payload is converted to a channel message and posted under the configured username"
+    },
+    "payload_processed_by_script": {
+      "priority": 3,
+      "given": [
+        "external system sends a POST request",
+        {
+          "field": "token",
+          "source": "request",
+          "operator": "exists"
+        },
+        {
+          "field": "enabled",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        },
+        {
+          "field": "script_enabled",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "script_engine",
+          "payload": [
+            "script",
+            "payload_body"
+          ]
+        },
+        {
+          "action": "create_record",
+          "type": "channel_message"
+        },
+        {
+          "action": "emit_event",
+          "event": "incoming_webhooks.message_posted",
+          "payload": [
+            "name",
+            "channel",
+            "transformed_text"
+          ]
+        }
+      ],
+      "result": "Payload is transformed by the custom script then posted as a channel message"
+    },
+    "script_returns_no_content": {
+      "priority": 4,
+      "given": [
+        "script execution returns an empty or null message",
+        {
+          "field": "script_enabled",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [],
+      "result": "No message is posted; the webhook request is silently consumed"
+    },
+    "invalid_token": {
+      "priority": 5,
+      "error": "INCOMING_WEBHOOK_INVALID_TOKEN",
+      "given": [
+        {
+          "field": "token",
+          "source": "request",
+          "operator": "not_exists",
+          "description": "Token is missing or does not match any active integration"
+        }
+      ],
+      "then": [],
+      "result": "Request is rejected with an authentication error; nothing is posted"
+    },
+    "webhook_disabled": {
+      "priority": 6,
+      "error": "INCOMING_WEBHOOK_DISABLED",
+      "given": [
+        {
+          "field": "enabled",
+          "source": "db",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [],
+      "result": "Request is rejected because the integration has been disabled"
+    },
+    "invalid_channel": {
+      "priority": 7,
+      "error": "INCOMING_WEBHOOK_INVALID_CHANNEL",
+      "given": [
+        "target channel does not start with # or @, or does not exist"
+      ],
+      "then": [],
+      "result": "Integration creation or message posting fails due to an invalid channel reference"
+    },
+    "script_error": {
+      "priority": 8,
+      "error": "INCOMING_WEBHOOK_SCRIPT_ERROR",
+      "given": [
+        "script execution throws an exception or produces an invalid result",
+        {
+          "field": "script_enabled",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "integration_history"
+        }
+      ],
+      "result": "Script error is recorded in integration history; no message is posted"
+    },
+    "insufficient_permissions": {
+      "priority": 9,
+      "error": "INCOMING_WEBHOOK_NOT_AUTHORIZED",
+      "given": [
+        "user attempts to create or modify a webhook without the required permission"
+      ],
+      "then": [],
+      "result": "Operation is rejected; user is informed they lack the required authorization"
+    }
+  },
+  "errors": [
+    {
+      "code": "INCOMING_WEBHOOK_INVALID_TOKEN",
+      "status": 401,
+      "message": "Invalid webhook token. Please check the webhook URL and try again"
+    },
+    {
+      "code": "INCOMING_WEBHOOK_DISABLED",
+      "status": 400,
+      "message": "This webhook integration has been disabled"
+    },
+    {
+      "code": "INCOMING_WEBHOOK_INVALID_CHANNEL",
+      "status": 400,
+      "message": "Invalid target channel. Channel must start with # or @ and must exist"
+    },
+    {
+      "code": "INCOMING_WEBHOOK_SCRIPT_ERROR",
+      "status": 400,
+      "message": "An error occurred while processing the webhook script"
+    },
+    {
+      "code": "INCOMING_WEBHOOK_NOT_AUTHORIZED",
+      "status": 400,
+      "message": "You do not have permission to manage incoming webhook integrations"
+    }
+  ],
+  "events": [
+    {
+      "name": "incoming_webhooks.integration_created",
+      "description": "Fired when a new incoming webhook integration is created",
+      "payload": [
+        "name",
+        "channel"
+      ]
+    },
+    {
+      "name": "incoming_webhooks.message_posted",
+      "description": "Fired when a webhook payload results in a channel message being posted",
+      "payload": [
+        "name",
+        "channel",
+        "payload_text"
+      ]
+    },
+    {
+      "name": "incoming_webhooks.integration_updated",
+      "description": "Fired when an existing incoming webhook integration is modified",
+      "payload": [
+        "name",
+        "channel"
+      ]
+    },
+    {
+      "name": "incoming_webhooks.integration_deleted",
+      "description": "Fired when an incoming webhook integration is removed",
+      "payload": [
+        "name"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "outgoing-webhooks",
+      "type": "recommended",
+      "reason": "Outgoing webhooks provide the complementary ability to notify external systems of internal events"
+    },
+    {
+      "feature": "channel-messaging",
+      "type": "required",
+      "reason": "Messages produced by incoming webhooks are posted to channels"
+    },
+    {
+      "feature": "role-based-access-control",
+      "type": "required",
+      "reason": "Permissions control who may create and manage webhook integrations"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/RocketChat/Rocket.Chat",
+      "project": "Open-source team communication platform",
+      "tech_stack": "TypeScript, Meteor, React, MongoDB",
+      "files_traced": 5
+    }
+  },
+  "agi": {
+    "goals": [
+      {
+        "id": "secure_payload_to_message_conversion",
+        "description": "Receive, authenticate, and convert external HTTP payloads into channel messages with sandboxed optional script processing",
+        "success_metrics": [
+          {
+            "metric": "token_rejection_rate",
+            "target": "100%",
+            "measurement": "Requests with invalid tokens rejected / total invalid-token requests"
+          },
+          {
+            "metric": "script_sandbox_compliance",
+            "target": "100%",
+            "measurement": "Script executions that stayed within sandbox / total script executions"
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before enabling script processing on a new incoming webhook",
+        "before changing the posting username for an active integration"
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "every request must include a valid integration token",
+        "script execution is sandboxed and cannot access the host filesystem or make arbitrary network calls",
+        "disabled integrations must not process any incoming payloads"
+      ],
+      "acceptance_tests": [
+        {
+          "scenario": "invalid token rejected",
+          "given": "POST request arrives with missing or wrong token",
+          "when": "request is processed",
+          "expect": "INCOMING_WEBHOOK_INVALID_TOKEN returned and nothing posted"
+        },
+        {
+          "scenario": "script returning null suppresses message",
+          "given": "script is enabled and returns null",
+          "when": "payload is received",
+          "expect": "no message posted but request acknowledged"
+        }
+      ]
+    },
+    "capabilities": [
+      {
+        "id": "token_authenticated_payload_ingestion",
+        "description": "Accept and validate incoming HTTP payloads using integration tokens"
+      },
+      {
+        "id": "sandboxed_script_transformation",
+        "description": "Transform payloads through isolated script execution before posting as channel messages"
+      }
+    ],
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "enable_script_processing",
+          "permission": "supervised"
+        },
+        {
+          "action": "create_incoming_webhook",
+          "permission": "supervised"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "security",
+        "over": "script_flexibility",
+        "reason": "sandboxed script execution limits capabilities but prevents server-side code injection"
+      }
+    ]
+  }
+}

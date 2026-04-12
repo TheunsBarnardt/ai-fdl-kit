@@ -2,10 +2,10 @@
 
 # Blueprint Index
 
-Fast lookup for all **310** blueprints across **20** categories.
+Fast lookup for all **330** blueprints across **21** categories.
 Each entry links to the human-friendly summary (`.md`) and the underlying spec (`.blueprint.yaml`).
 
-**Jump to a category:** [Access](#access) (11) · [Ai](#ai) (6) · [Asset](#asset) (19) · [Auth](#auth) (18) · [Crm](#crm) (5) · [Data](#data) (49) · [Infrastructure](#infrastructure) (9) · [Integration](#integration) (36) · [Inventory](#inventory) (6) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (13) · [Observability](#observability) (3) · [Payment](#payment) (15) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Trading](#trading) (20) · [Ui](#ui) (25) · [Workflow](#workflow) (58)
+**Jump to a category:** [Access](#access) (11) · [Ai](#ai) (6) · [Asset](#asset) (19) · [Auth](#auth) (19) · [Communication](#communication) (14) · [Crm](#crm) (5) · [Data](#data) (49) · [Infrastructure](#infrastructure) (9) · [Integration](#integration) (40) · [Inventory](#inventory) (6) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (14) · [Observability](#observability) (3) · [Payment](#payment) (15) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Trading](#trading) (20) · [Ui](#ui) (25) · [Workflow](#workflow) (58)
 
 ---
 
@@ -73,6 +73,7 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**multi-factor-auth**](./auth/multi-factor-auth.md) | Second-factor authentication via TOTP, SMS OTP, or backup codes | 1.0.0 | [yaml](./auth/multi-factor-auth.blueprint.yaml) |
 | [**multi-factor-authentication**](./auth/multi-factor-authentication.md) | MFA with OTP, WebAuthn, and recovery codes | 1.0.0 | [yaml](./auth/multi-factor-authentication.blueprint.yaml) |
 | [**oauth-social-login**](./auth/oauth-social-login.md) | Social sign-in via OAuth2/OIDC with account linking and profile sync | 1.0.0 | [yaml](./auth/oauth-social-login.blueprint.yaml) |
+| [**oauth-sso-providers**](./auth/oauth-sso-providers.md) | Configure OAuth2/SSO identity providers to enable single sign-on login for platform users | 1.0.0 | [yaml](./auth/oauth-sso-providers.blueprint.yaml) |
 | [**openid-connect-server**](./auth/openid-connect-server.md) | OAuth 2.0 and OpenID Connect identity provider with token issuance | 1.0.0 | [yaml](./auth/openid-connect-server.blueprint.yaml) |
 | [**password-reset**](./auth/password-reset.md) | Allow users to reset their password via email verification | 1.0.0 | [yaml](./auth/password-reset.blueprint.yaml) |
 | [**payload-auth**](./auth/payload-auth.md) | Full authentication system with JWT sessions, API keys, account locking, email verification, and custom strategies | 1.0.0 | [yaml](./auth/payload-auth.blueprint.yaml) |
@@ -82,6 +83,25 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**single-sign-on**](./auth/single-sign-on.md) | Enterprise SSO via SAML 2.0 and OIDC with JIT provisioning | 1.0.0 | [yaml](./auth/single-sign-on.blueprint.yaml) |
 | [**user-account-self-service**](./auth/user-account-self-service.md) | User self-service account and credential management | 1.0.0 | [yaml](./auth/user-account-self-service.blueprint.yaml) |
 | [**user-authentication-session-management**](./auth/user-authentication-session-management.md) | Authentication flows, session management, brute-force protection | 1.0.0 | [yaml](./auth/user-authentication-session-management.blueprint.yaml) |
+
+## Communication
+
+| Feature | Description | Version | Spec |
+|---------|-------------|---------|------|
+| [**channel-directory**](./communication/channel-directory.md) | Browse and discover public channels and rooms available on the platform | 1.0.0 | [yaml](./communication/channel-directory.blueprint.yaml) |
+| [**channel-messaging**](./communication/channel-messaging.md) | Public and private group channels for team-wide or restricted conversations with membership, roles, and moderation controls | 1.0.0 | [yaml](./communication/channel-messaging.blueprint.yaml) |
+| [**direct-messaging**](./communication/direct-messaging.md) | 1:1 and small-group private conversations between users with read receipts and notification preferences | 1.0.0 | [yaml](./communication/direct-messaging.blueprint.yaml) |
+| [**file-upload-sharing**](./communication/file-upload-sharing.md) | Upload and share files, images, audio, and video in conversation channels with automatic thumbnail generation and inline preview | 1.0.0 | [yaml](./communication/file-upload-sharing.blueprint.yaml) |
+| [**full-text-message-search**](./communication/full-text-message-search.md) | Search message content across all channels accessible to the user, with pluggable search provider support and real-time result streaming | 1.0.0 | [yaml](./communication/full-text-message-search.blueprint.yaml) |
+| [**link-preview-unfurling**](./communication/link-preview-unfurling.md) | Automatically generate rich previews for URLs in messages by fetching metadata and oEmbed data, with caching to avoid redundant requests | 1.0.0 | [yaml](./communication/link-preview-unfurling.blueprint.yaml) |
+| [**message-editing-deletion**](./communication/message-editing-deletion.md) | Allow users to edit the content of sent messages and delete messages, with optional edit history preservation and configurable time windows | 1.0.0 | [yaml](./communication/message-editing-deletion.blueprint.yaml) |
+| [**message-pinning**](./communication/message-pinning.md) | Pin important messages to a channel so members can quickly find key information without scrolling through history | 1.0.0 | [yaml](./communication/message-pinning.blueprint.yaml) |
+| [**message-reactions**](./communication/message-reactions.md) | Emoji reactions on messages, allowing users to express sentiment without posting a reply; supports toggle (add/remove) semantics | 1.0.0 | [yaml](./communication/message-reactions.blueprint.yaml) |
+| [**message-starring**](./communication/message-starring.md) | Allow users to star or bookmark individual messages for personal reference, independent of channel-level pinning | 1.0.0 | [yaml](./communication/message-starring.blueprint.yaml) |
+| [**message-threading**](./communication/message-threading.md) | Threaded replies to messages, keeping focused conversations nested under a parent message without cluttering the main channel timeline | 1.0.0 | [yaml](./communication/message-threading.blueprint.yaml) |
+| [**read-receipts**](./communication/read-receipts.md) | Track and display which users have read each message, providing per-user read confirmation for messages in conversations | 1.0.0 | [yaml](./communication/read-receipts.blueprint.yaml) |
+| [**typing-indicators**](./communication/typing-indicators.md) | Real-time indicators showing which users are currently typing, recording, uploading, or performing other in-progress actions in a conversation | 1.0.0 | [yaml](./communication/typing-indicators.blueprint.yaml) |
+| [**user-presence**](./communication/user-presence.md) | Track and broadcast user presence status (online, away, busy, offline) with automatic detection based on connection and activity | 1.0.0 | [yaml](./communication/user-presence.blueprint.yaml) |
 
 ## Crm
 
@@ -166,6 +186,7 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | Feature | Description | Version | Spec |
 |---------|-------------|---------|------|
 | [**api-gateway**](./integration/api-gateway.md) | Route, authenticate, rate-limit, and transform API requests through a centralized gateway with versioning, circuit breaking, and CORS support | 1.0.0 | [yaml](./integration/api-gateway.blueprint.yaml) |
+| [**bot-plugin-framework**](./integration/bot-plugin-framework.md) | Extension framework for bots, apps, and plugins to extend platform behavior through a defined API | 1.0.0 | [yaml](./integration/bot-plugin-framework.blueprint.yaml) |
 | [**build-integration**](./integration/build-integration.md) | Integrate CSS framework with build tools (PostCSS, CLI, Webpack, Vite, Next.js) to process templates and generate optimized CSS | 1.0.0 | [yaml](./integration/build-integration.blueprint.yaml) |
 | [**clearing-house-account-management**](./integration/clearing-house-account-management.md) | Account management services for payment clearing houses — account mirroring, proxy management, real-time account verification, and check digit verification | 1.0.0 | [yaml](./integration/clearing-house-account-management.blueprint.yaml) |
 | [**clearing-house-eft**](./integration/clearing-house-eft.md) | Electronic Funds Transfer operations via clearing house platform — inbound/outbound credits, debits, returns, on-us debits, payment cancellation, and system error correction | 1.0.0 | [yaml](./integration/clearing-house-eft.blueprint.yaml) |
@@ -178,6 +199,7 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**fleet-public-api**](./integration/fleet-public-api.md) | RESTful public API with API key authentication and request logging for third-party integrations | 1.0.0 | [yaml](./integration/fleet-public-api.blueprint.yaml) |
 | [**gps-position-ingestion**](./integration/gps-position-ingestion.md) | Accept raw GPS position messages from heterogeneous hardware devices over multiple transport protocols, decode them into a normalised position record, and route through a processing pipeline before... | 1.0.0 | [yaml](./integration/gps-position-ingestion.blueprint.yaml) |
 | [**identity-brokering-social-login**](./integration/identity-brokering-social-login.md) | OAuth 2.0 / OIDC social login with multi-provider identity brokering, account linking, profile normalization, PKCE/state/nonce CSRF protection, and configurable JWT or database session strategy. | 2.0.0 | [yaml](./integration/identity-brokering-social-login.blueprint.yaml) |
+| [**incoming-webhooks**](./integration/incoming-webhooks.md) | Receive HTTP POST payloads from external systems and convert them into messages posted to designated channels | 1.0.0 | [yaml](./integration/incoming-webhooks.blueprint.yaml) |
 | [**mqtt-location-ingestion**](./integration/mqtt-location-ingestion.md) | Subscribe to a message broker for device location publishes, parse and normalize location payloads, and route each message by type to the appropriate storage or processing handler. | 1.0.0 | [yaml](./integration/mqtt-location-ingestion.blueprint.yaml) |
 | [**oauth-oidc-client-management**](./integration/oauth-oidc-client-management.md) | Lifecycle management of OAuth 2.0 and OpenID Connect clients — admin CRUD plus self-service OpenID Connect Dynamic Client Registration (RFC 7591). | 2.0.0 | [yaml](./integration/oauth-oidc-client-management.blueprint.yaml) |
 | [**oauth-provider**](./integration/oauth-provider.md) | OAuth 2.0 authorization server for issuing tokens to third-party applications | 1.0.0 | [yaml](./integration/oauth-provider.blueprint.yaml) |
@@ -190,6 +212,7 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**openclaw-messaging-channel**](./integration/openclaw-messaging-channel.md) | Platform-agnostic messaging channel integration supporting Discord, Telegram, Slack, and 85+ platforms with unified message routing and delivery | 1.0.0 | [yaml](./integration/openclaw-messaging-channel.blueprint.yaml) |
 | [**openclaw-plugin-system**](./integration/openclaw-plugin-system.md) | Plugin registration, lifecycle management, and capability-based permissions system for extending OpenClaw functionality | 1.0.0 | [yaml](./integration/openclaw-plugin-system.blueprint.yaml) |
 | [**order-lifecycle-webhooks**](./integration/order-lifecycle-webhooks.md) | Configure and deliver webhook notifications to third-party endpoints for order lifecycle events | 1.0.0 | [yaml](./integration/order-lifecycle-webhooks.blueprint.yaml) |
+| [**outgoing-webhooks**](./integration/outgoing-webhooks.md) | Trigger HTTP callbacks to external URLs when configured events occur in channels, enabling real-time integration with external systems | 1.0.0 | [yaml](./integration/outgoing-webhooks.blueprint.yaml) |
 | [**palm-vein**](./integration/palm-vein.md) | Biometric scanning hardware integration for palm vein pattern registration, feature extraction, and 1:N template matching | 1.0.0 | [yaml](./integration/palm-vein.blueprint.yaml) |
 | [**payment-gateway**](./integration/payment-gateway.md) | Process payments through a provider-agnostic gateway abstraction supporting authorization, capture, void, refund, and webhook-driven status updates | 1.0.0 | [yaml](./integration/payment-gateway.blueprint.yaml) |
 | [**plugin-development**](./integration/plugin-development.md) | Create and register plugins to extend CSS framework with custom utilities, variants, and theme values | 1.0.0 | [yaml](./integration/plugin-development.blueprint.yaml) |
@@ -198,6 +221,7 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**pub-sub-messaging**](./integration/pub-sub-messaging.md) | Real-time fire-and-forget message broadcasting with direct channel subscriptions and pattern-based subscriptions; sharded variant for cluster deployments | 1.0.0 | [yaml](./integration/pub-sub-messaging.blueprint.yaml) |
 | [**realtime-driver-tracking**](./integration/realtime-driver-tracking.md) | Real-time GPS location tracking for drivers and vehicles with position history and live map updates | 1.0.0 | [yaml](./integration/realtime-driver-tracking.blueprint.yaml) |
 | [**remote-device-commands**](./integration/remote-device-commands.md) | Send control commands from the platform to GPS tracking hardware using the device's native protocol channel or SMS fallback, supporting engine control, configuration, alarm management, and informat... | 1.0.0 | [yaml](./integration/remote-device-commands.blueprint.yaml) |
+| [**slash-commands**](./integration/slash-commands.md) | Register and execute text commands with a / prefix in chat messages | 1.0.0 | [yaml](./integration/slash-commands.blueprint.yaml) |
 | [**stablecoin-wallet-api**](./integration/stablecoin-wallet-api.md) | Stablecoin wallet infrastructure API — multi-chain wallets, addresses, deposits, withdrawals, swaps, gateway, checkout, and fiat offramp | 1.0.0 | [yaml](./integration/stablecoin-wallet-api.blueprint.yaml) |
 | [**user-federation-ldap-kerberos**](./integration/user-federation-ldap-kerberos.md) | LDAP, Kerberos, and AD directory integration | 1.0.0 | [yaml](./integration/user-federation-ldap-kerberos.blueprint.yaml) |
 | [**webhook-ingestion**](./integration/webhook-ingestion.md) | Receive and process incoming webhooks from external services with signature verification (HMAC/RSA), replay protection, idempotent deduplication, and async handler routing | 1.0.0 | [yaml](./integration/webhook-ingestion.blueprint.yaml) |
@@ -232,6 +256,7 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**email-notifications**](./notification/email-notifications.md) | Send transactional and system emails with template rendering, delivery tracking, and bounce handling | 1.0.0 | [yaml](./notification/email-notifications.blueprint.yaml) |
 | [**geofence-alerts**](./notification/geofence-alerts.md) | Detect and emit events when a tracked device crosses the boundary of a geofence zone, distinguishing entry (device was outside, now inside) from exit (device was inside, now outside), with calendar... | 1.0.0 | [yaml](./notification/geofence-alerts.blueprint.yaml) |
 | [**in-app-notifications**](./notification/in-app-notifications.md) | Real-time in-app notification center with read state, grouping, deep links, and persistent storage | 1.0.0 | [yaml](./notification/in-app-notifications.blueprint.yaml) |
+| [**mentions-notifications**](./notification/mentions-notifications.md) | @mention users and user groups in messages to trigger targeted notifications | 1.0.0 | [yaml](./notification/mentions-notifications.blueprint.yaml) |
 | [**notification-preferences**](./notification/notification-preferences.md) | Manage per-user notification preferences across channels and categories with quiet hours and frequency caps | 1.0.0 | [yaml](./notification/notification-preferences.blueprint.yaml) |
 | [**overspeed-alerts**](./notification/overspeed-alerts.md) | Detect when a tracked device exceeds a configured speed limit for a minimum duration, using a four-level speed limit hierarchy (position > geofence > device > server), and emit a single event at th... | 1.0.0 | [yaml](./notification/overspeed-alerts.blueprint.yaml) |
 | [**push-notifications**](./notification/push-notifications.md) | Deliver mobile and web push notifications with device management, topic subscriptions, and rich media | 1.0.0 | [yaml](./notification/push-notifications.blueprint.yaml) |

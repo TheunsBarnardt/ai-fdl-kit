@@ -1,0 +1,357 @@
+{
+  "feature": "message-pinning",
+  "version": "1.0.0",
+  "description": "Pin important messages to a channel so members can quickly find key information without scrolling through history",
+  "category": "communication",
+  "tags": [
+    "messaging",
+    "pinning",
+    "channel",
+    "moderation"
+  ],
+  "actors": [
+    {
+      "id": "moderator",
+      "name": "Channel Moderator",
+      "type": "human",
+      "description": "User with permission to pin and unpin messages in a channel"
+    },
+    {
+      "id": "member",
+      "name": "Channel Member",
+      "type": "human",
+      "description": "Any user with access to the channel who can view pinned messages"
+    },
+    {
+      "id": "system",
+      "name": "Messaging System",
+      "type": "system",
+      "description": "Records pin state and broadcasts changes to channel members"
+    }
+  ],
+  "fields": [
+    {
+      "name": "message_id",
+      "type": "text",
+      "required": true,
+      "label": "Message ID"
+    },
+    {
+      "name": "channel_id",
+      "type": "text",
+      "required": true,
+      "label": "Channel ID"
+    },
+    {
+      "name": "pinned",
+      "type": "boolean",
+      "required": true,
+      "label": "Pinned State"
+    },
+    {
+      "name": "pinned_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Pinned At"
+    },
+    {
+      "name": "pinned_by_user_id",
+      "type": "text",
+      "required": false,
+      "label": "Pinned By"
+    },
+    {
+      "name": "pinned_by_username",
+      "type": "text",
+      "required": false,
+      "label": "Pinned By Username"
+    }
+  ],
+  "rules": {
+    "general": [
+      "Pinning must be enabled at the system/workspace level; if disabled, no pin or unpin actions are permitted",
+      "Only users with the pin-message permission for the target channel may pin or unpin messages",
+      "The acting user must be a member of the channel and have active access to it",
+      "A message that is already pinned is silently returned as-is without raising an error",
+      "When a message is pinned, a system notification message is posted in the channel to inform members",
+      "End-to-end encrypted messages are pinned using an encrypted system message type to preserve confidentiality",
+      "Nested quote attachments in the pinned message are included in the system notification up to the configured chain limit",
+      "When unpinning, the user must still be a subscribed member of the channel",
+      "If message history retention is enabled, a history clone is saved before unpinning",
+      "If the pinned message is the channel's last message, the channel's last-message metadata is updated immediately",
+      "Read receipt records are updated to reflect the new pin state when receipt storage is enabled",
+      "All pin and unpin actions trigger extensibility hooks so downstream integrations can react"
+    ]
+  },
+  "outcomes": {
+    "pinning_disabled": {
+      "priority": 1,
+      "error": "PIN_FEATURE_DISABLED",
+      "given": [
+        "system-level message pinning setting is disabled"
+      ],
+      "then": [],
+      "result": "Action rejected; pinning is not permitted in this workspace"
+    },
+    "message_not_found": {
+      "priority": 2,
+      "error": "PIN_MESSAGE_NOT_FOUND",
+      "given": [
+        "message_id does not correspond to an existing message"
+      ],
+      "then": [],
+      "result": "Action rejected; the target message could not be found"
+    },
+    "channel_not_found": {
+      "priority": 3,
+      "error": "PIN_CHANNEL_NOT_FOUND",
+      "given": [
+        "channel_id does not correspond to an existing channel"
+      ],
+      "then": [],
+      "result": "Action rejected; the target channel could not be found"
+    },
+    "user_not_authenticated": {
+      "priority": 4,
+      "error": "PIN_NOT_AUTHENTICATED",
+      "given": [
+        "no authenticated user session exists"
+      ],
+      "then": [],
+      "result": "Action rejected; user must be logged in"
+    },
+    "user_not_authorized": {
+      "priority": 5,
+      "error": "PIN_NOT_AUTHORIZED",
+      "given": [
+        "authenticated user does not have pin-message permission in the channel"
+      ],
+      "then": [],
+      "result": "Action rejected; user lacks the required permission"
+    },
+    "user_no_channel_access": {
+      "priority": 6,
+      "error": "PIN_NO_CHANNEL_ACCESS",
+      "given": [
+        "authenticated user cannot access the target channel"
+      ],
+      "then": [],
+      "result": "Action rejected; user does not have access to this channel"
+    },
+    "already_pinned": {
+      "priority": 7,
+      "given": [
+        "message is already in pinned state",
+        "pinned is true"
+      ],
+      "then": [],
+      "result": "No change made; message was already pinned"
+    },
+    "pin_successful": {
+      "priority": 8,
+      "given": [
+        "pinning is enabled",
+        "message exists and belongs to an accessible channel",
+        "user has pin-message permission",
+        "message is currently not pinned"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "pinned",
+          "value": true
+        },
+        {
+          "action": "set_field",
+          "target": "pinned_at",
+          "value": "now"
+        },
+        {
+          "action": "set_field",
+          "target": "pinned_by_user_id",
+          "value": "authenticated_user_id"
+        },
+        {
+          "action": "emit_event",
+          "event": "message.pinned",
+          "payload": [
+            "message_id",
+            "channel_id",
+            "pinned_by_user_id",
+            "pinned_at"
+          ]
+        }
+      ],
+      "result": "Message is pinned; a system notification appears in the channel"
+    },
+    "unpin_user_not_subscribed": {
+      "priority": 9,
+      "error": "UNPIN_NOT_SUBSCRIBED",
+      "given": [
+        "action is unpin",
+        "user is not subscribed to the channel"
+      ],
+      "then": [],
+      "result": "Action rejected; only subscribed members may unpin messages"
+    },
+    "unpin_successful": {
+      "priority": 10,
+      "given": [
+        "pinning is enabled",
+        "message exists and belongs to an accessible channel",
+        "user has pin-message permission and is subscribed",
+        "message is currently pinned"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "pinned",
+          "value": false
+        },
+        {
+          "action": "emit_event",
+          "event": "message.unpinned",
+          "payload": [
+            "message_id",
+            "channel_id",
+            "pinned_by_user_id"
+          ]
+        }
+      ],
+      "result": "Message is unpinned; channel members see the updated pin list"
+    }
+  },
+  "errors": [
+    {
+      "code": "PIN_FEATURE_DISABLED",
+      "status": 400,
+      "message": "Message pinning is not available in this workspace"
+    },
+    {
+      "code": "PIN_MESSAGE_NOT_FOUND",
+      "status": 404,
+      "message": "The message you are trying to pin could not be found"
+    },
+    {
+      "code": "PIN_CHANNEL_NOT_FOUND",
+      "status": 404,
+      "message": "The channel could not be found"
+    },
+    {
+      "code": "PIN_NOT_AUTHENTICATED",
+      "status": 400,
+      "message": "You must be logged in to pin messages"
+    },
+    {
+      "code": "PIN_NOT_AUTHORIZED",
+      "status": 400,
+      "message": "You do not have permission to pin messages in this channel"
+    },
+    {
+      "code": "PIN_NO_CHANNEL_ACCESS",
+      "status": 400,
+      "message": "You do not have access to this channel"
+    },
+    {
+      "code": "UNPIN_NOT_SUBSCRIBED",
+      "status": 400,
+      "message": "You must be a member of the channel to unpin messages"
+    }
+  ],
+  "events": [
+    {
+      "name": "message.pinned",
+      "description": "Fired after a message is successfully pinned to a channel",
+      "payload": [
+        "message_id",
+        "channel_id",
+        "pinned_by_user_id",
+        "pinned_at"
+      ]
+    },
+    {
+      "name": "message.unpinned",
+      "description": "Fired after a message is successfully unpinned from a channel",
+      "payload": [
+        "message_id",
+        "channel_id",
+        "pinned_by_user_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "direct-messaging",
+      "type": "recommended",
+      "reason": "Pinning applies to channels and direct message threads"
+    },
+    {
+      "feature": "message-starring",
+      "type": "optional",
+      "reason": "Starring is the personal counterpart to channel-level pinning"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/RocketChat/Rocket.Chat",
+      "project": "Open-source team communication platform",
+      "tech_stack": "TypeScript, Meteor, React, MongoDB",
+      "files_traced": 3
+    }
+  },
+  "agi": {
+    "goals": [
+      {
+        "id": "surface_important_messages",
+        "description": "Allow moderators to pin key messages so channel members can quickly locate important information",
+        "success_metrics": [
+          {
+            "metric": "pin_permission_compliance",
+            "target": "100%",
+            "measurement": "Pin/unpin operations performed by authorised users / total pin attempts"
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before disabling the pinning feature workspace-wide"
+      ]
+    },
+    "verification": {
+      "invariants": [
+        "only users with pin-message permission may pin or unpin messages",
+        "pinning is a no-op when the message is already pinned",
+        "unpinning requires the user to still be subscribed to the channel"
+      ],
+      "acceptance_tests": [
+        {
+          "scenario": "unauthorised pin attempt rejected",
+          "given": "user without pin-message permission attempts to pin a message",
+          "when": "pin request is submitted",
+          "expect": "PIN_NOT_AUTHORIZED error returned"
+        },
+        {
+          "scenario": "already-pinned is idempotent",
+          "given": "message is already pinned",
+          "when": "pin is requested again",
+          "expect": "no error raised and state unchanged"
+        }
+      ]
+    },
+    "capabilities": [
+      {
+        "id": "channel_pin_management",
+        "description": "Pin and unpin messages within a channel with permission enforcement"
+      }
+    ],
+    "tradeoffs": [
+      {
+        "prefer": "idempotency",
+        "over": "strict_error_reporting",
+        "reason": "silently ignoring duplicate pin requests prevents noise in integrations that retry"
+      }
+    ]
+  }
+}

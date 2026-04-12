@@ -1,0 +1,252 @@
+feature: message-reactions
+version: 1.0.0
+description: Emoji reactions on messages, allowing users to express sentiment without posting a reply; supports toggle
+  (add/remove) semantics
+category: communication
+tags:
+  - messaging
+  - reactions
+  - emoji
+  - engagement
+actors:
+  - id: reactor
+    name: Reacting User
+    type: human
+    description: Authenticated user adding or removing an emoji reaction
+  - id: system
+    name: Messaging System
+    type: system
+    description: Validates the emoji, checks room permissions, and persists the reaction state
+fields:
+  - name: message_id
+    type: text
+    required: true
+    label: Message ID
+  - name: room_id
+    type: text
+    required: true
+    label: Room ID
+  - name: emoji
+    type: text
+    required: true
+    label: Emoji Code
+  - name: reactor_username
+    type: text
+    required: true
+    label: Reactor Username
+  - name: reaction_usernames
+    type: json
+    required: false
+    label: Reacted-By Usernames
+  - name: reacted_at
+    type: datetime
+    required: true
+    label: Reacted At
+  - name: should_react
+    type: boolean
+    required: false
+    label: Desired Reaction State
+rules:
+  general:
+    - A user may react to any message in a room they have read access to
+    - Each user may add each emoji reaction at most once per message; reacting again with the same emoji removes the
+      reaction (toggle)
+    - The emoji must be a valid standard or custom emoji registered in the system; unknown emoji codes are rejected
+    - Users who are muted in the room cannot add reactions to messages in that room
+    - In read-only channels, reactions are permitted only if the channel explicitly allows reacting when read-only
+    - Users who have been manually unmuted in a read-only channel may react regardless of the read-only setting
+    - When the last reaction for a given emoji is removed, the emoji entry is fully deleted from the message
+    - Reactions are stored on the message record and propagated to the last-message snapshot of the room when applicable
+    - The reaction list per message is unbounded in distinct emoji but each emoji tracks an ordered list of reacting
+      usernames
+outcomes:
+  reaction_added:
+    priority: 1
+    given:
+      - user is authenticated and has access to the room
+      - message exists in the room
+      - emoji is valid (standard or custom)
+      - user has not already reacted with this emoji on this message
+      - user is not muted in the room
+      - room is not read-only, or the room allows reacting when read-only, or the user has been unmuted
+    then:
+      - action: set_field
+        target: reaction_usernames
+        value: appended_with_reactor
+      - action: emit_event
+        event: message_reactions.reaction_added
+        payload:
+          - message_id
+          - room_id
+          - emoji
+          - reactor_username
+          - reacted_at
+    result: Emoji reaction is recorded on the message and all room members see the updated reaction count
+  reaction_removed:
+    priority: 2
+    given:
+      - user is authenticated and has access to the room
+      - message exists in the room
+      - user has already reacted with this emoji on this message
+    then:
+      - action: set_field
+        target: reaction_usernames
+        value: removed_reactor
+      - action: emit_event
+        event: message_reactions.reaction_removed
+        payload:
+          - message_id
+          - room_id
+          - emoji
+          - reactor_username
+          - reacted_at
+    result: Emoji reaction is removed from the message; if no users remain for that emoji, the emoji entry is deleted
+  reaction_toggled:
+    priority: 3
+    given:
+      - user is authenticated and has access to the room
+      - message exists in the room
+      - emoji is valid
+      - should_react is not explicitly specified
+    then:
+      - action: emit_event
+        event: message_reactions.reaction_toggled
+        payload:
+          - message_id
+          - room_id
+          - emoji
+          - reactor_username
+          - reacted_at
+    result: System determines current state and either adds or removes the reaction accordingly
+  invalid_emoji:
+    priority: 10
+    error: REACTION_INVALID_EMOJI
+    given:
+      - the specified emoji code does not match any registered standard or custom emoji
+    then: []
+    result: User is informed the emoji is not recognized
+  user_muted:
+    priority: 11
+    error: REACTION_USER_MUTED
+    given:
+      - user is muted in the room
+    then: []
+    result: User is informed they cannot react because they have been muted
+  room_readonly_no_react:
+    priority: 12
+    error: REACTION_ROOM_READONLY
+    given:
+      - room is read-only
+      - room does not allow reacting when read-only
+      - user has not been explicitly unmuted
+    then: []
+    result: User is informed they cannot react in this read-only room
+  message_not_found:
+    priority: 13
+    error: REACTION_MESSAGE_NOT_FOUND
+    given:
+      - the specified message ID does not exist or has been deleted
+    then: []
+    result: User is informed the message could not be found
+  access_denied:
+    priority: 14
+    error: REACTION_ACCESS_DENIED
+    given:
+      - user does not have read access to the room
+    then: []
+    result: User is denied access to react without revealing room details
+errors:
+  - code: REACTION_INVALID_EMOJI
+    status: 400
+    message: The selected emoji is not available. Please choose a valid emoji.
+  - code: REACTION_USER_MUTED
+    status: 400
+    message: You cannot react to messages because you have been muted in this room.
+  - code: REACTION_ROOM_READONLY
+    status: 400
+    message: Reactions are not allowed in this read-only room.
+  - code: REACTION_MESSAGE_NOT_FOUND
+    status: 404
+    message: The message could not be found. It may have been deleted.
+  - code: REACTION_ACCESS_DENIED
+    status: 403
+    message: You do not have permission to react in this room.
+events:
+  - name: message_reactions.reaction_added
+    description: Fires when a user successfully adds an emoji reaction to a message
+    payload:
+      - message_id
+      - room_id
+      - emoji
+      - reactor_username
+      - reacted_at
+  - name: message_reactions.reaction_removed
+    description: Fires when a user removes their emoji reaction from a message
+    payload:
+      - message_id
+      - room_id
+      - emoji
+      - reactor_username
+      - reacted_at
+  - name: message_reactions.reaction_toggled
+    description: Fires after a toggle operation resolves to either an add or remove
+    payload:
+      - message_id
+      - room_id
+      - emoji
+      - reactor_username
+      - reacted_at
+related:
+  - feature: channel-messaging
+    type: required
+    reason: Reactions are attached to messages in channels or direct conversations
+  - feature: direct-messaging
+    type: recommended
+    reason: Reactions may also be applied to direct message content
+  - feature: message-threading
+    type: optional
+    reason: Reactions can be applied to thread replies as well as parent messages
+extensions:
+  source:
+    repo: https://github.com/RocketChat/Rocket.Chat
+    project: Open-source team communication platform
+    tech_stack: TypeScript, Meteor, React, MongoDB
+    files_traced: 2
+
+agi:
+  goals:
+    - id: manage_emoji_reactions
+      description: "Allow users to add and remove emoji reactions on messages with toggle semantics and correct permission checks"
+      success_metrics:
+        - metric: reaction_consistency_rate
+          target: "100%"
+          measurement: "Reactions stored once per user per emoji per message / total add attempts"
+
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - "before disabling reactions for an entire workspace"
+
+  verification:
+    invariants:
+      - "each user can only appear once per emoji per message"
+      - "when the last reaction for an emoji is removed the emoji entry is deleted from the message"
+      - "muted users cannot add reactions"
+    acceptance_tests:
+      - scenario: "toggle removes existing reaction"
+        given: "user has already reacted with thumbs-up to a message"
+        when: "user reacts with thumbs-up again"
+        expect: "reaction is removed and reaction_removed event emitted"
+      - scenario: "invalid emoji rejected"
+        given: "user submits an unknown emoji code"
+        when: "reaction is submitted"
+        expect: "REACTION_INVALID_EMOJI error returned"
+
+  capabilities:
+    - id: reaction_toggle
+      description: "Add or remove a per-user emoji reaction on a message with toggle semantics"
+
+  tradeoffs:
+    - prefer: simplicity
+      over: expressiveness
+      reason: "toggle semantics prevent duplicate reactions and simplify client state management"
