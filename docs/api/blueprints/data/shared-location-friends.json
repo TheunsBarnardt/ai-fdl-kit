@@ -1,0 +1,297 @@
+{
+  "feature": "shared-location-friends",
+  "version": "1.0.0",
+  "description": "Allow devices to receive the last-known positions and profile cards of a curated friend list when polling for location updates, enabling shared-location without direct device-to-device communication.",
+  "category": "data",
+  "tags": [
+    "friends",
+    "shared-location",
+    "presence",
+    "location-sharing",
+    "social",
+    "iot"
+  ],
+  "actors": [
+    {
+      "id": "mobile_device",
+      "name": "Mobile Device",
+      "type": "external",
+      "description": "Device that polls the server for acknowledgement and receives friends' positions in the response"
+    },
+    {
+      "id": "recorder_service",
+      "name": "Recorder Service",
+      "type": "system",
+      "description": "Looks up the device's friend list, fetches each friend's last position and card, and assembles the response"
+    },
+    {
+      "id": "administrator",
+      "name": "Administrator",
+      "type": "human",
+      "description": "Configures friend relationships server-side; devices cannot modify their own friend lists"
+    }
+  ],
+  "fields": [
+    {
+      "name": "requesting_user",
+      "label": "Requesting Username",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "requesting_device",
+      "label": "Requesting Device",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "friend_list",
+      "label": "Friend List",
+      "type": "json",
+      "required": false
+    },
+    {
+      "name": "friend_user",
+      "label": "Friend Username",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "friend_device",
+      "label": "Friend Device Name",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "tracker_id",
+      "label": "Tracker ID",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "friend_lat",
+      "label": "Friend Latitude",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "friend_lon",
+      "label": "Friend Longitude",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "friend_tst",
+      "label": "Friend Last Seen",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "friend_name",
+      "label": "Friend Display Name",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "friend_avatar",
+      "label": "Friend Avatar",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "friend_velocity",
+      "label": "Friend Velocity (km/h)",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "friend_altitude",
+      "label": "Friend Altitude (metres)",
+      "type": "number",
+      "required": false
+    }
+  ],
+  "rules": {
+    "friend_management": {
+      "server_side_only": "Friend relationships are configured exclusively server-side; devices cannot add or remove their own friends",
+      "storage_format": "The friend list for each user/device is stored as an array of user/device pair strings in a key-value store keyed by the requesting identity"
+    },
+    "response_assembly": {
+      "tid_mandatory": "A tracker ID is mandatory for every friend entry; friends without one are silently skipped because client apps require it to construct a virtual topic",
+      "no_position_skip": "If a friend has no recorded last position, that friend is silently omitted from the response without error",
+      "two_objects_per_friend": "For each valid friend the response includes two separate objects — a card object (name, avatar, tracker ID) and a location object (coordinates, timestamp, velocity, altitude, accuracy)",
+      "card_conditional": "The card object is included only when the friend's card contains both a name and an avatar; otherwise only the location object is returned",
+      "virtual_topic": "A virtual topic following the standard device-topic convention is injected into each location object so that client apps can group and display friend locations"
+    },
+    "no_friends": {
+      "empty_array": "When the requesting device has no configured friend list, an empty array is returned without error"
+    },
+    "data_currency": {
+      "snapshot_time": "Friend data is read at poll time from last-position snapshots; it reflects each friend's position at the moment of the request, not a real-time stream"
+    }
+  },
+  "outcomes": {
+    "friends_returned": {
+      "priority": 10,
+      "given": [
+        "requesting_user and requesting_device are valid",
+        "friend_list contains at least one valid user/device pair"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "friends.polled",
+          "payload": [
+            "requesting_user",
+            "requesting_device",
+            "friend_count"
+          ]
+        }
+      ],
+      "result": "Response array contains card and location objects for each friend with a tracker ID and a last-known position"
+    },
+    "no_friends_configured": {
+      "priority": 20,
+      "given": [
+        "requesting_user and requesting_device are valid",
+        {
+          "field": "friend_list",
+          "source": "db",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "friends.polled",
+          "payload": [
+            "requesting_user",
+            "requesting_device",
+            "friend_count"
+          ]
+        }
+      ],
+      "result": "Empty array returned; no error raised; client treats this as valid with zero friends"
+    },
+    "friend_skipped_no_position": {
+      "priority": 30,
+      "given": [
+        "friend entry is present in friend_list",
+        "friend has no last-position record in storage"
+      ],
+      "then": [],
+      "result": "Friend silently omitted; other friends in the list are still processed"
+    },
+    "friend_skipped_no_tid": {
+      "priority": 35,
+      "given": [
+        "friend entry is present in friend_list",
+        "friend last-position record does not contain a tracker_id"
+      ],
+      "then": [],
+      "result": "Friend silently omitted; tracker ID is required for virtual topic construction"
+    },
+    "friend_with_card_returned": {
+      "priority": 40,
+      "given": [
+        "friend has a valid last-position record with a tracker_id",
+        "friend card contains both a name and an avatar"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "friend.location.returned",
+          "payload": [
+            "friend_user",
+            "friend_device",
+            "tracker_id",
+            "has_card"
+          ]
+        }
+      ],
+      "result": "Response includes both a card object and a location object for this friend"
+    },
+    "friend_location_only_returned": {
+      "priority": 50,
+      "given": [
+        "friend has a valid last-position record with a tracker_id",
+        "friend card is absent or incomplete"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "friend.location.returned",
+          "payload": [
+            "friend_user",
+            "friend_device",
+            "tracker_id",
+            "has_card"
+          ]
+        }
+      ],
+      "result": "Response includes only a location object for this friend; no card object"
+    },
+    "friends_store_unavailable": {
+      "priority": 1,
+      "error": "FRIENDS_STORE_UNAVAILABLE",
+      "given": [
+        "the friend list key-value store cannot be accessed"
+      ],
+      "then": [],
+      "result": "Empty array returned to avoid breaking the polling client; error logged internally"
+    }
+  },
+  "errors": [
+    {
+      "code": "FRIENDS_STORE_UNAVAILABLE",
+      "message": "Friend list is temporarily unavailable",
+      "status": 503
+    }
+  ],
+  "events": [
+    {
+      "name": "friends.polled",
+      "description": "A device requested friend locations; response was assembled and returned",
+      "payload": [
+        "requesting_user",
+        "requesting_device",
+        "friend_count"
+      ]
+    },
+    {
+      "name": "friend.location.returned",
+      "description": "A single friend's last position and optionally card were included in a poll response",
+      "payload": [
+        "friend_user",
+        "friend_device",
+        "tracker_id",
+        "has_card"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "location-history-storage",
+      "type": "required",
+      "reason": "Provides the last-position snapshots read to populate each friend's location in the response"
+    },
+    {
+      "feature": "mqtt-location-ingestion",
+      "type": "recommended",
+      "reason": "Keeps last-position snapshots current as devices publish new locations"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/owntracks/recorder",
+      "project": "OwnTracks Recorder",
+      "tech_stack": "C, LMDB (httpfriends named database), Mongoose HTTP",
+      "files_traced": 4,
+      "entry_points": [
+        "http.c (populate_friends)",
+        "storage.c (last_users, append_card_to_object)",
+        "udata.h (httpfriends gcache field)"
+      ]
+    }
+  }
+}

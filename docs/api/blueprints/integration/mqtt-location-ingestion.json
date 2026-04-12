@@ -1,0 +1,529 @@
+{
+  "feature": "mqtt-location-ingestion",
+  "version": "1.0.0",
+  "description": "Subscribe to a message broker for device location publishes, parse and normalize location payloads, and route each message by type to the appropriate storage or processing handler.",
+  "category": "integration",
+  "tags": [
+    "mqtt",
+    "location",
+    "ingestion",
+    "iot",
+    "real-time",
+    "device-tracking"
+  ],
+  "actors": [
+    {
+      "id": "mobile_device",
+      "name": "Mobile Device",
+      "type": "external",
+      "description": "OwnTracks-compatible app publishing location JSON to a message broker topic"
+    },
+    {
+      "id": "message_broker",
+      "name": "Message Broker",
+      "type": "system",
+      "description": "MQTT-compatible broker that relays messages from devices to the recorder"
+    },
+    {
+      "id": "recorder_service",
+      "name": "Recorder Service",
+      "type": "system",
+      "description": "Subscribes to broker topics, processes payloads, and dispatches to storage"
+    }
+  ],
+  "fields": [
+    {
+      "name": "topic",
+      "label": "Publish Topic",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "payload",
+      "label": "Raw Payload",
+      "type": "json",
+      "required": true
+    },
+    {
+      "name": "payload_type",
+      "label": "Payload Type",
+      "type": "select",
+      "required": false,
+      "options": [
+        {
+          "value": "location",
+          "label": "Location"
+        },
+        {
+          "value": "waypoint",
+          "label": "Waypoint"
+        },
+        {
+          "value": "waypoints",
+          "label": "Waypoints Dump"
+        },
+        {
+          "value": "transition",
+          "label": "Geofence Transition"
+        },
+        {
+          "value": "card",
+          "label": "User Card"
+        },
+        {
+          "value": "cmd",
+          "label": "Command"
+        },
+        {
+          "value": "lwt",
+          "label": "Last Will"
+        },
+        {
+          "value": "steps",
+          "label": "Step Count"
+        },
+        {
+          "value": "status",
+          "label": "Status"
+        },
+        {
+          "value": "encrypted",
+          "label": "Encrypted"
+        },
+        {
+          "value": "unknown",
+          "label": "Unknown"
+        }
+      ]
+    },
+    {
+      "name": "tst",
+      "label": "Device Timestamp",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "lat",
+      "label": "Latitude",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "lon",
+      "label": "Longitude",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "accuracy",
+      "label": "Accuracy (metres)",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "tracker_id",
+      "label": "Tracker ID",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "trigger",
+      "label": "Report Trigger",
+      "type": "select",
+      "required": false,
+      "options": [
+        {
+          "value": "p",
+          "label": "Ping"
+        },
+        {
+          "value": "c",
+          "label": "Circular geofence"
+        },
+        {
+          "value": "b",
+          "label": "Beacon"
+        },
+        {
+          "value": "r",
+          "label": "Manual report"
+        },
+        {
+          "value": "u",
+          "label": "User initiated"
+        },
+        {
+          "value": "t",
+          "label": "Timer"
+        },
+        {
+          "value": "v",
+          "label": "Visit"
+        },
+        {
+          "value": "l",
+          "label": "Location update"
+        }
+      ]
+    },
+    {
+      "name": "is_retained",
+      "label": "Retained Flag",
+      "type": "boolean",
+      "required": false
+    }
+  ],
+  "states": {
+    "field": "connection_status",
+    "values": [
+      {
+        "id": "connecting",
+        "label": "Connecting"
+      },
+      {
+        "id": "connected",
+        "label": "Connected",
+        "initial": true
+      },
+      {
+        "id": "reconnecting",
+        "label": "Reconnecting"
+      },
+      {
+        "id": "disconnected",
+        "label": "Disconnected",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "connecting",
+        "to": "connected",
+        "actor": "message_broker",
+        "description": "Broker accepted the connection"
+      },
+      {
+        "from": "connected",
+        "to": "reconnecting",
+        "actor": "message_broker",
+        "description": "Connection lost; attempting automatic reconnect"
+      },
+      {
+        "from": "reconnecting",
+        "to": "connected",
+        "actor": "message_broker",
+        "description": "Reconnection succeeded"
+      },
+      {
+        "from": "reconnecting",
+        "to": "disconnected",
+        "actor": "recorder_service",
+        "description": "Max reconnect attempts exhausted or service shutdown"
+      }
+    ]
+  },
+  "rules": {
+    "topic_validation": {
+      "minimum_segments": "Topic must contain at least three slash-delimited segments (prefix/user/device); shorter topics are silently discarded",
+      "segment_extraction": "User and device names are extracted from positions 1 and 2 (0-indexed); the first segment may be any prefix string",
+      "leading_slash_tolerance": "An optional leading slash in the topic is tolerated; segment positions shift accordingly"
+    },
+    "payload_validation": {
+      "empty_discard": "Empty payloads (zero bytes) are discarded without processing",
+      "retain_filter": "If the ignore-retained-messages option is enabled, messages with the retained flag set are discarded before parsing",
+      "parse_order": "Payload is parsed as JSON first; if JSON fails a CSV-to-JSON conversion is attempted; if both fail the raw binary dump is stored as-is",
+      "type_routing": "The _type field in the JSON payload determines routing; an absent or unrecognised _type stores the payload without further processing"
+    },
+    "coordinate_normalisation": {
+      "nan_discard": "For location and transition payloads, lat and lon are normalised to numbers; a NaN result causes the message to be discarded",
+      "timestamp_fallback": "The tst field is normalised to a number; if absent or non-numeric the current server time is substituted"
+    },
+    "deduplication": {
+      "out_of_order": "Duplicate or out-of-order location publishes append to history but do not overwrite the last-position snapshot when the incoming tst is not newer than the stored one"
+    },
+    "encryption": {
+      "decrypt_before_process": "Encrypted payloads are decrypted before re-entering the processing pipeline; if decryption fails the message is dropped and logged"
+    }
+  },
+  "outcomes": {
+    "location_stored": {
+      "priority": 10,
+      "given": [
+        "payload_type equals location",
+        "lat and lon are valid numbers"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "location_history",
+          "type": "location",
+          "description": "Append the normalised location object to the append-only monthly history log for this user/device"
+        },
+        {
+          "action": "set_field",
+          "target": "last_position",
+          "description": "Overwrite the last-position record for this user/device if tst is newer than the stored value"
+        },
+        {
+          "action": "emit_event",
+          "event": "location.received",
+          "payload": [
+            "topic",
+            "lat",
+            "lon",
+            "tst",
+            "tracker_id",
+            "trigger"
+          ]
+        }
+      ],
+      "result": "Location recorded in history log and last-position store; real-time subscribers notified"
+    },
+    "waypoint_received": {
+      "priority": 20,
+      "given": [
+        "payload_type equals waypoint or waypoints"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "waypoint_store",
+          "type": "waypoint",
+          "description": "Persist individual waypoint JSON files keyed by device timestamp"
+        },
+        {
+          "action": "emit_event",
+          "event": "waypoint.received",
+          "payload": [
+            "topic",
+            "tst"
+          ]
+        }
+      ],
+      "result": "Waypoint definitions stored for geofence evaluation; geofence state reloaded"
+    },
+    "transition_received": {
+      "priority": 30,
+      "given": [
+        "payload_type equals transition",
+        "lat and lon are valid numbers"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "location_history",
+          "type": "transition",
+          "description": "Transition events appended to the history log like location records"
+        },
+        {
+          "action": "emit_event",
+          "event": "region.transition.received",
+          "payload": [
+            "topic",
+            "lat",
+            "lon",
+            "tst"
+          ]
+        }
+      ],
+      "result": "Device-reported geofence transition stored and forwarded"
+    },
+    "non_location_stored": {
+      "priority": 40,
+      "given": [
+        "payload_type is one of: cmd, steps, lwt, beacon, status"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "location_history",
+          "type": "auxiliary",
+          "description": "Non-location payload stored in history log with its relative topic preserved"
+        }
+      ],
+      "result": "Auxiliary message persisted for audit; no position update performed"
+    },
+    "card_stored": {
+      "priority": 50,
+      "given": [
+        "payload_type equals card"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "card_store",
+          "type": "card",
+          "description": "User card JSON (display name, avatar) persisted and linked to user/device"
+        },
+        {
+          "action": "emit_event",
+          "event": "card.updated",
+          "payload": [
+            "topic"
+          ]
+        }
+      ],
+      "result": "Display name and avatar available for map overlays and friend lists"
+    },
+    "empty_payload_discarded": {
+      "priority": 1,
+      "error": "INGESTION_EMPTY_PAYLOAD",
+      "given": [
+        {
+          "field": "payload",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [],
+      "result": "Message silently dropped; no storage operation performed"
+    },
+    "retained_ignored": {
+      "priority": 2,
+      "given": [
+        "is_retained is true",
+        "ignore_retained_messages configuration is enabled"
+      ],
+      "then": [],
+      "result": "Retained message discarded; broker state replays do not pollute history"
+    },
+    "invalid_coordinates": {
+      "priority": 3,
+      "error": "INGESTION_INVALID_COORDINATES",
+      "given": [
+        "payload_type is location or transition",
+        "lat or lon cannot be parsed as a finite number"
+      ],
+      "then": [],
+      "result": "Malformed location message dropped and logged; history not updated"
+    },
+    "short_topic_discarded": {
+      "priority": 4,
+      "error": "INGESTION_TOPIC_TOO_SHORT",
+      "given": [
+        "topic has fewer than three slash-delimited segments"
+      ],
+      "then": [],
+      "result": "Message discarded; cannot extract user or device identity"
+    },
+    "unparseable_payload_stored": {
+      "priority": 60,
+      "given": [
+        "JSON parsing fails",
+        "CSV parsing also fails"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "location_history",
+          "type": "raw",
+          "description": "Binary-encoded dump of raw payload stored using server time as timestamp"
+        }
+      ],
+      "result": "Unrecognised payload preserved for manual inspection"
+    }
+  },
+  "errors": [
+    {
+      "code": "INGESTION_EMPTY_PAYLOAD",
+      "message": "Empty message received and discarded",
+      "status": 400
+    },
+    {
+      "code": "INGESTION_INVALID_COORDINATES",
+      "message": "Location coordinates are missing or invalid",
+      "status": 422
+    },
+    {
+      "code": "INGESTION_TOPIC_TOO_SHORT",
+      "message": "Message topic is too short to identify a device",
+      "status": 400
+    }
+  ],
+  "events": [
+    {
+      "name": "location.received",
+      "description": "A valid location payload was parsed, stored, and is ready for real-time forwarding",
+      "payload": [
+        "topic",
+        "lat",
+        "lon",
+        "tst",
+        "tracker_id",
+        "trigger"
+      ]
+    },
+    {
+      "name": "waypoint.received",
+      "description": "A waypoint definition was received and stored; geofence state should be reloaded",
+      "payload": [
+        "topic",
+        "tst"
+      ]
+    },
+    {
+      "name": "region.transition.received",
+      "description": "Device reported a geofence entry or exit event",
+      "payload": [
+        "topic",
+        "lat",
+        "lon",
+        "tst"
+      ]
+    },
+    {
+      "name": "card.updated",
+      "description": "User display name or avatar was updated",
+      "payload": [
+        "topic"
+      ]
+    },
+    {
+      "name": "connection.established",
+      "description": "Broker connection is up and subscriptions are active",
+      "payload": [
+        "broker_host",
+        "broker_port"
+      ]
+    },
+    {
+      "name": "connection.lost",
+      "description": "Broker connection dropped; automatic reconnect will be attempted",
+      "payload": [
+        "broker_host",
+        "reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "location-history-storage",
+      "type": "required",
+      "reason": "Stores parsed location records and maintains last-position files"
+    },
+    {
+      "feature": "geofencing-regions",
+      "type": "recommended",
+      "reason": "Evaluates device position against registered waypoints on each ingested location"
+    },
+    {
+      "feature": "shared-location-friends",
+      "type": "optional",
+      "reason": "Distributes ingested positions to subscribed friend devices in HTTP mode"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/owntracks/recorder",
+      "project": "OwnTracks Recorder",
+      "tech_stack": "C, libmosquitto, Mongoose HTTP, LMDB, Lua hooks",
+      "files_traced": 5,
+      "entry_points": [
+        "recorder.c (handle_message)",
+        "recorder.h",
+        "udata.h",
+        "storage.c (putrec, waypoints_dump)"
+      ]
+    }
+  }
+}

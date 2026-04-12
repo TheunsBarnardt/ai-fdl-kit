@@ -1,0 +1,266 @@
+# ============================================================
+# Location History Storage — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/owntracks/recorder
+# Source project: OwnTracks Recorder (C, MQTT/libmosquitto)
+# Files traced: storage.c, storage.h, recorder.c, doc/STORE.md, doc/DESIGN.md
+# ============================================================
+
+feature: location-history-storage
+version: "1.0.0"
+description: Store device location records in append-only monthly logs, maintain a last-known-position snapshot per device, and serve time-range queries in multiple output formats without an external database.
+category: data
+tags: [location, history, storage, flat-file, gps, tracking, time-series]
+
+actors:
+  - id: recorder_service
+    name: Recorder Service
+    type: system
+    description: Writes incoming location records to append-only logs and updates the last-position snapshot
+  - id: api_client
+    name: API Client
+    type: external
+    description: Queries historical location data via a REST or command-line interface
+  - id: admin_operator
+    name: Administrator
+    type: human
+    description: Manages storage retention, purges old log files, and configures the storage root path
+
+fields:
+  - name: user
+    label: Username
+    type: text
+    required: true
+  - name: device
+    label: Device Name
+    type: text
+    required: true
+  - name: tst
+    label: Device Timestamp
+    type: number
+    required: true
+  - name: lat
+    label: Latitude
+    type: number
+    required: true
+  - name: lon
+    label: Longitude
+    type: number
+    required: true
+  - name: accuracy
+    label: Accuracy (metres)
+    type: number
+    required: false
+  - name: tracker_id
+    label: Tracker ID
+    type: text
+    required: false
+  - name: geohash
+    label: Geohash
+    type: text
+    required: false
+  - name: address
+    label: Reverse-Geo Address
+    type: text
+    required: false
+  - name: country_code
+    label: Country Code
+    type: text
+    required: false
+  - name: from_time
+    label: Query From
+    type: datetime
+    required: false
+  - name: to_time
+    label: Query To
+    type: datetime
+    required: false
+  - name: result_limit
+    label: Result Limit
+    type: number
+    required: false
+  - name: output_format
+    label: Output Format
+    type: select
+    required: false
+    options:
+      - value: json
+        label: JSON
+      - value: geojson
+        label: GeoJSON
+      - value: csv
+        label: CSV
+      - value: gpx
+        label: GPX
+      - value: linestring
+        label: GeoJSON Linestring
+      - value: xml
+        label: XML
+
+rules:
+  storage_conventions:
+    utc_only: All timestamps are stored and queried in UTC; local-time conversion is the responsibility of the consumer
+    lowercase_paths: User and device names are normalised to lowercase when constructing storage paths; mixed-case inputs map to the same records
+    monthly_buckets: History records are appended to monthly log files (one per calendar month per user/device); records are never modified in place
+    no_external_database: Storage operates entirely on the local filesystem with no network database dependency
+  last_position:
+    newer_wins: The last-position snapshot is overwritten only when the incoming record's tst is strictly newer than the stored one; out-of-order publishes append to history but leave the snapshot unchanged
+    enrichment_at_read: The snapshot is enriched with card data and geocoding details at read time, not at write time
+    extra_metadata: Optional extra metadata files co-located with the last-position snapshot are merged into query responses without overwriting existing fields
+  querying:
+    time_window_scan: Queries filtered by time window scan only the log files whose calendar month overlaps the requested range
+    reverse_scan: A reverse-N query reads the log backwards and stops after collecting the requested number of records; efficient for recent-position lookups
+    field_filtering: Responses can be filtered to a specified subset of fields to reduce payload size
+
+outcomes:
+  location_appended:
+    priority: 10
+    given:
+      - "valid location record received with user, device, tst, lat, lon"
+    then:
+      - action: create_record
+        target: monthly_log
+        type: location
+        description: Append ISO-timestamped JSON line to the monthly log file for this user/device
+      - action: emit_event
+        event: location.stored
+        payload: [user, device, tst, lat, lon]
+    result: Record permanently appended to history; readable immediately via query API
+
+  last_position_updated:
+    priority: 20
+    given:
+      - "valid location record received"
+      - field: tst
+        source: input
+        operator: gt
+        value: stored_last_tst
+        description: Incoming record is newer than the stored last position
+    then:
+      - action: set_field
+        target: last_position_snapshot
+        description: Overwrite the last-position file with the new location JSON
+      - action: emit_event
+        event: location.last_updated
+        payload: [user, device, tst, lat, lon]
+    result: Last-position snapshot reflects the most recent known location
+
+  last_position_unchanged:
+    priority: 25
+    given:
+      - "valid location record received"
+      - field: tst
+        source: input
+        operator: lte
+        value: stored_last_tst
+        description: Incoming record is equal to or older than the stored last position
+    then:
+      - action: create_record
+        target: monthly_log
+        type: location
+        description: Record is still appended to history log for completeness
+    result: History log updated; last-position snapshot preserved; out-of-order delivery handled gracefully
+
+  history_queried:
+    priority: 30
+    given:
+      - "user and device are specified"
+      - "from_time and to_time define a valid time window"
+    then:
+      - action: emit_event
+        event: location.history_queried
+        payload: [user, device, from_time, to_time, output_format, record_count]
+    result: Array of location records within the requested window returned in the specified format
+
+  last_n_queried:
+    priority: 35
+    given:
+      - "user and device are specified"
+      - field: result_limit
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: emit_event
+        event: location.history_queried
+        payload: [user, device, result_limit, output_format]
+    result: The N most recent records returned by reverse-scanning the log; avoids full-file read
+
+  last_position_queried:
+    priority: 40
+    given:
+      - "user and device are specified"
+      - "query targets the last-position snapshot rather than the history log"
+    then:
+      - action: emit_event
+        event: location.last_queried
+        payload: [user, device]
+    result: Single enriched JSON object with last position, reverse-geo address, card details, and any extra metadata
+
+  user_list_queried:
+    priority: 50
+    given:
+      - "query requests list of all known users or devices"
+    then:
+      - action: emit_event
+        event: location.users_listed
+        payload: [user_count]
+    result: Directory of all users and their devices returned; derived from last-position snapshot directory structure
+
+  storage_unavailable:
+    priority: 1
+    error: STORAGE_PATH_UNAVAILABLE
+    given:
+      - "the storage base directory does not exist or cannot be created"
+    then: []
+    result: Write operation fails; no partial record created
+
+errors:
+  - code: STORAGE_PATH_UNAVAILABLE
+    message: Storage is currently unavailable
+    status: 503
+  - code: STORAGE_WRITE_FAILED
+    message: Failed to record location data
+    status: 500
+
+events:
+  - name: location.stored
+    description: A location record was appended to the monthly history log
+    payload: [user, device, tst, lat, lon]
+  - name: location.last_updated
+    description: The last-position snapshot for a device was overwritten with a newer record
+    payload: [user, device, tst, lat, lon]
+  - name: location.history_queried
+    description: A time-range or last-N query was executed and results returned
+    payload: [user, device, from_time, to_time, record_count, output_format]
+  - name: location.last_queried
+    description: The last-known position for a device was read and returned
+    payload: [user, device, tst]
+  - name: location.users_listed
+    description: The directory of tracked users and devices was returned
+    payload: [user_count]
+
+related:
+  - feature: mqtt-location-ingestion
+    type: required
+    reason: Provides the stream of validated location records to persist
+  - feature: geofencing-regions
+    type: recommended
+    reason: Reads stored waypoint files from the same storage tree to initialise geofence state
+  - feature: shared-location-friends
+    type: optional
+    reason: Reads last-position snapshots to populate friend location responses
+
+extensions:
+  source:
+    repo: "https://github.com/owntracks/recorder"
+    project: "OwnTracks Recorder"
+    tech_stack: "C, flat filesystem, LMDB geo cache"
+    files_traced: 5
+    entry_points:
+      - "storage.c (putrec, last_users, locations, lister, append_device_details)"
+      - "storage.h"
+      - "recorder.c (is_newer_than_last)"
+      - "doc/STORE.md"
+      - "doc/DESIGN.md"

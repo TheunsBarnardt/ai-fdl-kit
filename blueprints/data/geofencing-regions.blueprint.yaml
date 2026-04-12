@@ -1,0 +1,222 @@
+# ============================================================
+# Geofencing Regions — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/owntracks/recorder
+# Source project: OwnTracks Recorder (C, MQTT/libmosquitto)
+# Files traced: fences.c, fences.h, storage.c, recorder.c, doc/FENCES.md
+# ============================================================
+
+feature: geofencing-regions
+version: "1.0.0"
+description: Define named circular regions by centre coordinates and radius; automatically detect when a tracked device enters or leaves each region and emit transition events.
+category: data
+tags: [geofence, regions, waypoints, location, iot, proximity, transition]
+
+actors:
+  - id: mobile_device
+    name: Mobile Device
+    type: external
+    description: Device whose reported position is checked against all registered regions on every location update
+  - id: recorder_service
+    name: Recorder Service
+    type: system
+    description: Evaluates each incoming position against the region database and fires transition hooks
+  - id: administrator
+    name: Administrator
+    type: human
+    description: Operator who defines global shared regions; device users define personal regions via their apps
+
+fields:
+  - name: region_key
+    label: Region Key
+    type: hidden
+    required: true
+  - name: label
+    label: Region Label
+    type: text
+    required: true
+  - name: center_lat
+    label: Centre Latitude
+    type: number
+    required: true
+  - name: center_lon
+    label: Centre Longitude
+    type: number
+    required: true
+  - name: radius_meters
+    label: Radius (metres)
+    type: number
+    required: true
+  - name: is_inside
+    label: Currently Inside
+    type: boolean
+    required: false
+  - name: owner_user
+    label: Owner Username
+    type: text
+    required: true
+  - name: owner_device
+    label: Owner Device
+    type: text
+    required: true
+  - name: device_lat
+    label: Device Latitude
+    type: number
+    required: false
+  - name: device_lon
+    label: Device Longitude
+    type: number
+    required: false
+
+states:
+  field: presence_state
+  values:
+    - id: outside
+      label: Outside
+      initial: true
+      description: Device is beyond the region radius
+    - id: inside
+      label: Inside
+      description: Device is within the region radius
+  transitions:
+    - from: outside
+      to: inside
+      actor: recorder_service
+      description: Device position moves within the region radius — ENTER transition
+    - from: inside
+      to: outside
+      actor: recorder_service
+      description: Device position moves outside the region radius — LEAVE transition
+
+rules:
+  boundary_check:
+    formula: Regions are circles; the boundary test uses the Haversine great-circle distance formula between the device position and the region centre
+    positive_radius: A region is active only when radius_meters is greater than zero; zero or negative values are skipped
+  state_persistence:
+    per_tuple: Each region's inside/outside state is persisted per owner-user, owner-device, and region-key so duplicate publishes do not re-fire events
+    transition_only: An event is emitted only when the presence state changes; no event fires when the device stays inside or outside
+  global_regions:
+    wildcard_owner: Regions owned by a reserved wildcard user/device pair are evaluated for every tracked device regardless of who owns them
+  region_loading:
+    startup_load: Region definitions are loaded at service startup from persisted storage files
+    dynamic_refresh: Region definitions are refreshed whenever a device publishes a new waypoints payload
+  payload:
+    distance_in_event: The distance in metres between the device and the region centre at the moment of transition is included in the transition event payload
+
+outcomes:
+  region_entered:
+    priority: 10
+    given:
+      - "presence_state is outside"
+      - field: device_lat
+        source: input
+        operator: exists
+      - field: device_lon
+        source: input
+        operator: exists
+      - "haversine distance from device to region centre is less than radius_meters"
+    then:
+      - action: set_field
+        target: is_inside
+        value: true
+        description: Mark device as inside this region
+      - action: transition_state
+        field: presence_state
+        from: outside
+        to: inside
+      - action: emit_event
+        event: region.entered
+        payload: [owner_user, owner_device, label, center_lat, center_lon, device_lat, device_lon, distance_meters]
+    result: Transition hook fires with ENTER event; external systems notified of arrival
+
+  region_left:
+    priority: 20
+    given:
+      - "presence_state is inside"
+      - "haversine distance from device to region centre is greater than or equal to radius_meters"
+    then:
+      - action: set_field
+        target: is_inside
+        value: false
+        description: Mark device as outside this region
+      - action: transition_state
+        field: presence_state
+        from: inside
+        to: outside
+      - action: emit_event
+        event: region.left
+        payload: [owner_user, owner_device, label, center_lat, center_lon, device_lat, device_lon, distance_meters]
+    result: Transition hook fires with LEAVE event; external systems notified of departure
+
+  no_transition:
+    priority: 30
+    given:
+      - "presence state does not change (device remains inside or outside)"
+    then: []
+    result: No event emitted; region state unchanged
+
+  region_skipped_zero_radius:
+    priority: 5
+    error: GEOFENCE_INVALID_RADIUS
+    given:
+      - field: radius_meters
+        source: db
+        operator: lte
+        value: 0
+    then: []
+    result: Region with non-positive radius is ignored during evaluation
+
+  region_definitions_loaded:
+    priority: 40
+    given:
+      - "waypoints payload received for owner_user and owner_device"
+      - "payload contains at least one entry with radius_meters greater than 0"
+    then:
+      - action: create_record
+        target: region_store
+        type: region
+        description: Upsert each valid region entry into the persistent region database keyed by owner identity and geohash of centre point
+      - action: emit_event
+        event: region.definitions_updated
+        payload: [owner_user, owner_device, region_count]
+    result: Region database updated; subsequent position evaluations use the new definitions
+
+errors:
+  - code: GEOFENCE_DB_UNAVAILABLE
+    message: Geofencing is temporarily unavailable
+    status: 503
+  - code: GEOFENCE_INVALID_RADIUS
+    message: Region radius must be greater than zero
+    status: 422
+
+events:
+  - name: region.entered
+    description: Device crossed into a region boundary from outside
+    payload: [owner_user, owner_device, label, center_lat, center_lon, device_lat, device_lon, distance_meters]
+  - name: region.left
+    description: Device crossed out of a region boundary from inside
+    payload: [owner_user, owner_device, label, center_lat, center_lon, device_lat, device_lon, distance_meters]
+  - name: region.definitions_updated
+    description: A new waypoints payload updated the set of active region definitions for an owner
+    payload: [owner_user, owner_device, region_count]
+
+related:
+  - feature: mqtt-location-ingestion
+    type: required
+    reason: Provides device positions that are evaluated on each message receipt
+  - feature: location-history-storage
+    type: recommended
+    reason: Transition events can be written to the history log alongside regular location records
+
+extensions:
+  source:
+    repo: "https://github.com/owntracks/recorder"
+    project: "OwnTracks Recorder"
+    tech_stack: "C, LMDB, Haversine formula, Lua hooks"
+    files_traced: 5
+    entry_points:
+      - "fences.c (check_a_waypoint, check_fences)"
+      - "fences.h"
+      - "storage.c (load_otrw_from_string, load_otrw_waypoints)"
+      - "doc/FENCES.md"
