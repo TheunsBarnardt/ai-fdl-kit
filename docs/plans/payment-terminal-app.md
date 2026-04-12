@@ -69,31 +69,64 @@ An **all-in-one Android payment terminal** with dual payment capability:
 
 ### 3.1 Palm Vein Payment (Primary Innovation)
 
-Palm vein recognition uses **near-infrared light** to map the unique vein pattern inside a person's hand. Unlike fingerprints or facial recognition:
+Palm vein recognition uses **near-infrared light** to map the unique vein pattern inside a person's hand. The integrated scanner (SDPVD310API SDK) captures palm images at 15-30cm distance and extracts biometric features for 1:N template matching.
+
+Unlike fingerprints or facial recognition:
 
 - **Cannot be forged** — vein patterns are internal and invisible to the naked eye
 - **Cannot be stolen** — no physical token to lose or copy
 - **Cannot be replicated** — each person's vein pattern is unique, even between identical twins
 - **Contactless** — hand hovers 15-30cm above the scanner (hygienic)
+- **Self-improving** — templates auto-update on each successful match (`SD_API_Match1VNEx`) as vein patterns change over time
 
-When a customer's palm is scanned, the system:
+**Technical flow when a customer scans their palm:**
 
-1. Matches their vein pattern against enrolled templates (under 1 second)
-2. Resolves their linked PayShap proxy (ShapID, mobile number, or account number)
-3. Initiates an instant credit push via PayShap
-4. Settles in under 10 seconds (PayShap SLA)
+| Step | What happens | Time |
+| --- | --- | --- |
+| 1 | Scanner captures palm image and extracts vein features (`SD_API_ExtractFeature`) | < 1s |
+| 2 | Feature compared against all enrolled templates (`SD_API_Match1VN` — 1:N match) | < 0.5s |
+| 3 | Matched template resolves to linked PayShap proxy (ShapID, mobile number, or account) | < 0.5s |
+| 4 | Proxy resolved to bank account via BankservAfrica identifier determination | < 3s |
+| 5 | Credit push submitted via `POST /transactions/outbound/credit-transfer` (ISO 20022 pacs.008) | — |
+| 6 | Settlement confirmed via callback (pacs.002 PaymentStatusReport) | < 10s total |
+
+**Total end-to-end: under 10 seconds** (PayShap SLA mandated by scheme rules)
 
 ### 3.2 Card Payment (Full Compatibility)
 
-The terminal supports all standard card payment methods:
+The terminal's built-in card reader supports all standard payment methods:
 
-- **EMV chip** — insert card for chip-and-PIN
-- **Contactless/NFC** — tap to pay (Visa payWave, Mastercard Contactless, Apple Pay, Google Pay)
-- **Magnetic stripe** — swipe for legacy cards
+| Method | How it works | Use case |
+| --- | --- | --- |
+| **EMV chip** | Insert card, PIN entry on terminal keypad | Primary card method — most secure |
+| **Contactless/NFC** | Tap card, phone, or wearable (Visa payWave, Mastercard Contactless, Apple Pay, Google Pay) | Fast for low-value transactions |
+| **Magnetic stripe** | Swipe card | Legacy fallback |
 
-Card payments are routed through a standard payment gateway with full PCI DSS compliance.
+Card payments are routed through a provider-agnostic payment gateway (`POST authorize` → `POST capture` → webhook confirmation) with full PCI DSS Level 1 compliance. Card data is tokenised immediately — raw card numbers never stored on the terminal.
 
-### 3.3 Automatic Fallback
+### 3.3 PayShap Payment Details
+
+PayShap (ZA_RPP — Rapid Payments Programme) is South Africa's real-time payment rail operated by BankservAfrica. Key parameters:
+
+| Parameter | Value |
+| --- | --- |
+| Scheme maximum | R50,000 per transaction (raised from R3,000 in August 2024) |
+| Settlement | Real-time via Reserve Bank accounts |
+| Availability | 24/7 |
+| API | Asynchronous — all operations return HTTP 202, results via webhook callbacks |
+| Standard | ISO 20022 (pacs.008 credit transfer, pacs.002 status, pain.013 request-to-pay) |
+| Proxy types | ShapID (bank-generated ID), mobile phone number, account number, Shap Name (business) |
+| Participating banks | Absa, FNB, Nedbank, Standard Bank, African Bank, Capitec, Discovery, Investec, TymeBank |
+
+**Fee structure (per transaction):**
+
+| Amount | Fee |
+| --- | --- |
+| Under R100 | R1 (many banks offer free) |
+| R100 – R1,000 | R5 |
+| R1,000 – R50,000 | Lesser of 0.05% or R35 |
+
+### 3.4 Automatic Fallback
 
 If a palm scan fails (unregistered customer, match failure, scanner issue), the terminal automatically offers card payment as a fallback — the merchant never needs to re-enter the amount.
 
@@ -203,15 +236,17 @@ graph TD
 
 ### 5.2 Component Summary
 
-| Component       | Purpose                                                   | Technology       |
-| --------------- | --------------------------------------------------------- | ---------------- |
-| Terminal App    | Payment UI, scanner control, card reader interface        | Android (Kotlin) |
-| Palm-Pay Engine | Template storage, 1:N matching, proxy resolution          | Backend service  |
-| Payment Router  | Routes palm payments to PayShap, card payments to gateway | Backend service  |
-| Fleet Manager   | Remote config, OTA updates, health monitoring             | MDM + backend    |
-| Offline Queue   | Buffers transactions when network is down                 | Local on-device  |
-| PayShap Rail    | Real-time credit push via national clearing system        | Integration API  |
-| Card Gateway    | EMV authorisation, capture, void, refund                  | Integration API  |
+| Component | Purpose | Technology | Key Integration |
+| --- | --- | --- | --- |
+| Terminal App | Payment UI, scanner control, card reader interface | Android (Kotlin) | SDPVD310API (JNI), EMV kernel |
+| Palm-Pay Engine | Template storage, 1:N matching, proxy-to-account resolution | Backend service | SD_API_Match1VN, proxy registry |
+| Payment Router | Routes palm → PayShap (`ZA_RPP`), card → gateway | Backend service | Electrum Regulated Payments API v23.0.1 |
+| Fleet Manager | Remote config, OTA updates, heartbeat monitoring (60s) | MDM + backend | Push config, staged rollouts |
+| Offline Queue | Risk-limited local queue (R500/tx, 10 depth, R2K total) | SQLite on-device | FIFO flush on reconnect |
+| PayShap Rail | Real-time credit push via BankservAfrica/PayInc clearing | Async REST + webhooks | ISO 20022 (pacs.008, pacs.002) |
+| Card Gateway | EMV authorisation, capture, void, refund | REST API | PCI DSS Level 1 tokenisation |
+| Receipt Service | Digital receipt delivery | SMS gateway + email API | E.164 phone validation, DKIM email |
+| Audit Logger | Immutable transaction audit trail | Append-only store | SHA256 hash chain, 7-year retention |
 
 ---
 

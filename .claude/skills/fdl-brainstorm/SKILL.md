@@ -390,7 +390,17 @@ The following requirements were gathered through structured questioning:
 
 ## 3. The Solution
 
-{Detailed description of what the solution does. Break into subsections for each major capability. Use plain language with technical terms explained. Include any automatic fallback/graceful degradation behaviour.}
+{Detailed description of what the solution does. Break into subsections for each major capability.
+
+**CRITICAL: Weave technical detail INTO the business narrative.** Both business and technical readers will look at this section. For each capability:
+- Lead with what it does (business value)
+- Follow with HOW it works (technical flow table showing each step, the system/API call, and timing)
+- Include specific API endpoints, SDK functions, message formats, limits, and fees — inline, not in an appendix
+- Use tables for structured data (parameters, fees, operations)
+
+Example: don't just say "payments settle in real time" — show the 6-step flow from palm scan to pacs.008 credit transfer to pacs.002 settlement confirmation with timing at each step.
+
+The appendix should contain reference tables (full API operation lists, SDK function signatures). The main body should contain enough technical detail that an engineer can evaluate feasibility without flipping to the appendix.}
 
 ---
 
@@ -414,7 +424,7 @@ The following requirements were gathered through structured questioning:
 {ASCII architecture diagram showing all components, their relationships, and external systems. Label each box clearly.}
 
 ### 5.2 Component Summary
-{Table with columns: Component | Purpose | Technology}
+{Table with columns: Component | Purpose | Technology | Key Integration. Include the specific SDK, API, protocol, or library each component integrates with — not just generic labels like "Backend service".}
 
 ---
 
