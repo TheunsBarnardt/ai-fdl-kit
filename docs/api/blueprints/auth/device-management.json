@@ -1,0 +1,335 @@
+{
+  "feature": "device-management",
+  "version": "1.0.0",
+  "description": "Track all client sessions as named devices per user account. List, rename, and delete devices with cascading cleanup. Auto-purge devices inactive beyond retention period.",
+  "category": "auth",
+  "tags": [
+    "devices",
+    "sessions",
+    "security",
+    "e2e",
+    "logout",
+    "access-control"
+  ],
+  "actors": [
+    {
+      "id": "account_owner",
+      "name": "Account Owner",
+      "type": "human",
+      "description": "User managing their own registered devices"
+    },
+    {
+      "id": "server_admin",
+      "name": "Server Administrator",
+      "type": "human",
+      "description": "Admin managing devices on behalf of users"
+    },
+    {
+      "id": "homeserver",
+      "name": "Homeserver",
+      "type": "system",
+      "description": "Server enforcing device limits and running background purge tasks"
+    }
+  ],
+  "fields": [
+    {
+      "name": "device_id",
+      "type": "token",
+      "required": true,
+      "label": "Unique identifier for a client session on the user's account"
+    },
+    {
+      "name": "user_id",
+      "type": "text",
+      "required": true,
+      "label": "User account the device belongs to"
+    },
+    {
+      "name": "display_name",
+      "type": "text",
+      "required": false,
+      "label": "Human-readable label for the device; maximum 100 characters",
+      "validation": [
+        {
+          "type": "maxLength",
+          "value": 100,
+          "message": "Device display name is too long (maximum 100 characters)"
+        }
+      ]
+    },
+    {
+      "name": "created_ts",
+      "type": "datetime",
+      "required": false,
+      "label": "Timestamp when the device was first registered"
+    },
+    {
+      "name": "last_seen_ts",
+      "type": "datetime",
+      "required": false,
+      "label": "Timestamp of the most recent activity from this device"
+    },
+    {
+      "name": "last_seen_ip",
+      "type": "text",
+      "required": false,
+      "label": "IP address of the device's most recent connection"
+    }
+  ],
+  "states": {
+    "field": "device_status",
+    "values": [
+      {
+        "id": "active",
+        "description": "Device is registered and has recent activity",
+        "initial": true
+      },
+      {
+        "id": "stale",
+        "description": "Device has not been seen within the configured retention period"
+      },
+      {
+        "id": "deleted",
+        "description": "Device has been explicitly removed or purged",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "active",
+        "to": "stale",
+        "actor": "homeserver",
+        "description": "Device not accessed within the retention window"
+      },
+      {
+        "from": "stale",
+        "to": "deleted",
+        "actor": "homeserver",
+        "description": "Background purge task removes the stale device"
+      },
+      {
+        "from": "active",
+        "to": "deleted",
+        "actor": "account_owner",
+        "description": "User explicitly deletes the device"
+      }
+    ]
+  },
+  "rules": {
+    "management": [
+      "Each device is uniquely identified by the combination of user_id and device_id",
+      "Device display names must not exceed 100 characters",
+      "Deleting a device revokes its access tokens, removes its registered pushers, and cancels queued messages",
+      "Message cleanup after deletion is performed asynchronously",
+      "Devices inactive beyond the configured retention period are purged by a daily background task",
+      "Device list changes are broadcast to all users who share encrypted rooms with the account owner",
+      "A device cannot be deleted by another user unless the requester is a server administrator"
+    ]
+  },
+  "outcomes": {
+    "device_registered": {
+      "priority": 1,
+      "given": [
+        "user authenticates with a new or existing device_id",
+        "display_name does not exceed 100 characters if provided"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "device",
+          "target": "device",
+          "description": "Device record created or updated with display name and timestamps"
+        },
+        {
+          "action": "emit_event",
+          "event": "device.registered",
+          "payload": [
+            "user_id",
+            "device_id"
+          ]
+        }
+      ],
+      "result": "Device is listed in the user's device inventory"
+    },
+    "device_display_name_updated": {
+      "priority": 2,
+      "given": [
+        "requester is the account owner or server administrator",
+        "new display name does not exceed 100 characters"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "display_name",
+          "description": "Display name updated for the device"
+        },
+        {
+          "action": "emit_event",
+          "event": "device.updated",
+          "payload": [
+            "user_id",
+            "device_id"
+          ]
+        }
+      ],
+      "result": "Device shows the new label in device listings"
+    },
+    "device_deleted": {
+      "priority": 3,
+      "given": [
+        "requester is the account owner or server administrator",
+        "device exists on the account"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "device",
+          "target": "device",
+          "description": "Device removed; associated tokens, pushers, and queued messages invalidated"
+        },
+        {
+          "action": "emit_event",
+          "event": "device.deleted",
+          "payload": [
+            "user_id",
+            "device_id"
+          ]
+        }
+      ],
+      "result": "Device can no longer be used; all associated sessions are terminated"
+    },
+    "stale_device_purged": {
+      "priority": 4,
+      "given": [
+        "device has not been accessed within the retention period",
+        "background purge task runs"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "device",
+          "target": "device",
+          "description": "Stale device and all its associations removed"
+        },
+        {
+          "action": "emit_event",
+          "event": "device.purged",
+          "payload": [
+            "user_id",
+            "device_id"
+          ]
+        }
+      ],
+      "result": "Inactive device cleaned up automatically"
+    },
+    "display_name_too_long": {
+      "priority": 5,
+      "error": "DEVICE_DISPLAY_NAME_TOO_LONG",
+      "given": [
+        "display name exceeds 100 characters"
+      ],
+      "then": [],
+      "result": "Update rejected"
+    },
+    "devices_listed": {
+      "priority": 6,
+      "given": [
+        "requester is authenticated as the account owner or server administrator"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "device.list_retrieved",
+          "payload": [
+            "user_id",
+            "device_count"
+          ]
+        }
+      ],
+      "result": "Full list of devices with metadata returned"
+    }
+  },
+  "errors": [
+    {
+      "code": "DEVICE_DISPLAY_NAME_TOO_LONG",
+      "status": 400,
+      "message": "Device display name is too long (maximum 100 characters)"
+    },
+    {
+      "code": "DEVICE_NOT_FOUND",
+      "status": 404,
+      "message": "Device not found on this account"
+    }
+  ],
+  "events": [
+    {
+      "name": "device.registered",
+      "description": "A new device has been added to a user's account",
+      "payload": [
+        "user_id",
+        "device_id"
+      ]
+    },
+    {
+      "name": "device.updated",
+      "description": "A device's display name was changed",
+      "payload": [
+        "user_id",
+        "device_id"
+      ]
+    },
+    {
+      "name": "device.deleted",
+      "description": "A device was removed and its sessions invalidated",
+      "payload": [
+        "user_id",
+        "device_id"
+      ]
+    },
+    {
+      "name": "device.purged",
+      "description": "A device was automatically removed by the stale-device cleanup task",
+      "payload": [
+        "user_id",
+        "device_id"
+      ]
+    },
+    {
+      "name": "device.list_retrieved",
+      "description": "A user's device list was retrieved",
+      "payload": [
+        "user_id",
+        "device_count"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "cross-signing-verification",
+      "type": "recommended",
+      "reason": "Cross-signing keys are associated with devices and updated on device changes"
+    },
+    {
+      "feature": "e2e-key-exchange",
+      "type": "recommended",
+      "reason": "Device public keys are managed alongside device records"
+    },
+    {
+      "feature": "push-notification-gateway",
+      "type": "recommended",
+      "reason": "Pushers are removed when their associated device is deleted"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/element-hq/synapse",
+      "project": "Synapse Matrix homeserver",
+      "tech_stack": "Python / Twisted async",
+      "files_traced": 6,
+      "entry_points": [
+        "synapse/handlers/device.py",
+        "synapse/storage/databases/main/devices.py"
+      ]
+    }
+  }
+}

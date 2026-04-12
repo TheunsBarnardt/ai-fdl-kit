@@ -1,0 +1,364 @@
+{
+  "feature": "room-lifecycle",
+  "version": "1.0.0",
+  "description": "Manage creation of communication rooms with configurable presets and version upgrades that atomically migrate members and state while tombstoning the old room.",
+  "category": "integration",
+  "tags": [
+    "room",
+    "creation",
+    "lifecycle",
+    "upgrade",
+    "messaging",
+    "collaboration"
+  ],
+  "actors": [
+    {
+      "id": "creator",
+      "name": "Room Creator",
+      "type": "human",
+      "description": "User who initiates room creation or upgrade"
+    },
+    {
+      "id": "system",
+      "name": "Homeserver",
+      "type": "system",
+      "description": "Server that persists events and manages room state"
+    },
+    {
+      "id": "member",
+      "name": "Room Member",
+      "type": "human",
+      "description": "Existing member migrated during a room upgrade"
+    }
+  ],
+  "fields": [
+    {
+      "name": "room_id",
+      "type": "token",
+      "required": true,
+      "label": "Globally unique identifier assigned at creation"
+    },
+    {
+      "name": "room_creator_id",
+      "type": "text",
+      "required": true,
+      "label": "User identifier of the creator; receives highest power level"
+    },
+    {
+      "name": "room_version",
+      "type": "text",
+      "required": true,
+      "label": "Version string determining auth rules and state resolution algorithm"
+    },
+    {
+      "name": "preset",
+      "type": "select",
+      "required": false,
+      "label": "Template that sets default join rules, history visibility, and guest access",
+      "options": [
+        {
+          "value": "private_chat",
+          "label": "Private Chat"
+        },
+        {
+          "value": "trusted_private_chat",
+          "label": "Trusted Private Chat"
+        },
+        {
+          "value": "public_chat",
+          "label": "Public Chat"
+        }
+      ]
+    },
+    {
+      "name": "is_public",
+      "type": "boolean",
+      "required": false,
+      "label": "Whether the room appears in the public room directory"
+    },
+    {
+      "name": "initial_state",
+      "type": "json",
+      "required": false,
+      "label": "Additional state events to apply immediately after creation"
+    },
+    {
+      "name": "creation_content",
+      "type": "json",
+      "required": false,
+      "label": "Custom fields merged into the creation event content"
+    },
+    {
+      "name": "power_level_content_override",
+      "type": "json",
+      "required": false,
+      "label": "Custom power level assignments overriding preset defaults"
+    }
+  ],
+  "states": {
+    "field": "room_status",
+    "values": [
+      {
+        "id": "active",
+        "description": "Room is in normal operation",
+        "initial": true
+      },
+      {
+        "id": "upgrading",
+        "description": "A version upgrade is in progress"
+      },
+      {
+        "id": "tombstoned",
+        "description": "Room superseded by a newer version; no further events accepted",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "active",
+        "to": "upgrading",
+        "actor": "creator",
+        "description": "Creator initiates a room version upgrade"
+      },
+      {
+        "from": "upgrading",
+        "to": "active",
+        "actor": "system",
+        "description": "Upgrade completes; new room is active"
+      },
+      {
+        "from": "active",
+        "to": "tombstoned",
+        "actor": "system",
+        "description": "Tombstone event written to old room after upgrade succeeds"
+      }
+    ]
+  },
+  "rules": {
+    "creation": [
+      "Creator automatically receives power level 100 and is the sole initial member",
+      "Presets define default join rules, history visibility, and whether guests can join",
+      "Power levels may be overridden by the creator at creation time",
+      "Encryption can be enabled by default based on server policy for certain presets",
+      "Room identifiers are unique; collisions trigger a retry with a new identifier"
+    ],
+    "upgrade": [
+      "Only one upgrade per room may be in progress concurrently",
+      "Upgrade must copy all relevant state events to the new room before tombstoning the old room",
+      "After upgrade, local members are auto-joined and remote members are invited to the new room",
+      "Up to five retries are attempted if a state conflict occurs during upgrade"
+    ]
+  },
+  "outcomes": {
+    "room_created": {
+      "priority": 1,
+      "given": [
+        "requester is authenticated",
+        "requester has not exceeded room creation rate limit"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "room",
+          "target": "room",
+          "description": "Room record and genesis event sequence persisted"
+        },
+        {
+          "action": "emit_event",
+          "event": "room.created",
+          "payload": [
+            "room_id",
+            "creator_id",
+            "preset",
+            "room_version"
+          ]
+        }
+      ],
+      "result": "Room is ready for members to join and exchange messages"
+    },
+    "room_created_with_encryption": {
+      "priority": 2,
+      "given": [
+        "requester is authenticated",
+        "preset or server policy requires encryption"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "room",
+          "target": "room",
+          "description": "Room created with encryption state event included"
+        },
+        {
+          "action": "emit_event",
+          "event": "room.created",
+          "payload": [
+            "room_id",
+            "creator_id",
+            "preset",
+            "room_version",
+            "encryption_algorithm"
+          ]
+        }
+      ],
+      "result": "Room is created with end-to-end encryption enabled from the first message"
+    },
+    "room_upgrade_success": {
+      "priority": 3,
+      "given": [
+        "creator has room admin power level",
+        "no concurrent upgrade is already in progress",
+        "target room version is supported"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "room",
+          "target": "room",
+          "description": "New room created with state cloned from old room"
+        },
+        {
+          "action": "transition_state",
+          "field": "room_status",
+          "from": "upgrading",
+          "to": "tombstoned",
+          "description": "Tombstone event written to old room"
+        },
+        {
+          "action": "emit_event",
+          "event": "room.upgraded",
+          "payload": [
+            "old_room_id",
+            "new_room_id",
+            "new_version"
+          ]
+        }
+      ],
+      "result": "Members are migrated to the new room; old room is archived"
+    },
+    "room_upgrade_failed": {
+      "priority": 4,
+      "error": "ROOM_UPGRADE_FAILED",
+      "given": [
+        {
+          "any": [
+            "creator lacks admin power level",
+            "concurrent upgrade already in progress",
+            "target room version is unsupported",
+            "maximum retries exceeded"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "room.upgrade.failed",
+          "payload": [
+            "room_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Upgrade aborted; original room remains active"
+    },
+    "rate_limited": {
+      "priority": 5,
+      "error": "ROOM_CREATION_RATE_LIMITED",
+      "given": [
+        "creator has exceeded the room creation rate limit"
+      ],
+      "then": [],
+      "result": "Room creation rejected until rate limit window resets"
+    }
+  },
+  "errors": [
+    {
+      "code": "ROOM_UPGRADE_IN_PROGRESS",
+      "status": 400,
+      "message": "An upgrade for this room is currently in progress"
+    },
+    {
+      "code": "ROOM_UPGRADE_FAILED",
+      "status": 500,
+      "message": "Room upgrade could not be completed"
+    },
+    {
+      "code": "ROOM_CREATION_RATE_LIMITED",
+      "status": 429,
+      "message": "You have created too many rooms recently. Please wait before creating another."
+    },
+    {
+      "code": "ROOM_VERSION_UNSUPPORTED",
+      "status": 400,
+      "message": "The requested room version is not supported by this server"
+    }
+  ],
+  "events": [
+    {
+      "name": "room.created",
+      "description": "A new room has been initialised and is ready for use",
+      "payload": [
+        "room_id",
+        "creator_id",
+        "preset",
+        "room_version"
+      ]
+    },
+    {
+      "name": "room.upgraded",
+      "description": "Room has been successfully migrated to a new version",
+      "payload": [
+        "old_room_id",
+        "new_room_id",
+        "new_version"
+      ]
+    },
+    {
+      "name": "room.upgrade.failed",
+      "description": "Room upgrade could not complete after all retries",
+      "payload": [
+        "room_id",
+        "reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "room-power-levels",
+      "type": "required",
+      "reason": "Power levels are established in the initial room state at creation"
+    },
+    {
+      "feature": "room-state-history",
+      "type": "required",
+      "reason": "State events are the mechanism for all room configuration"
+    },
+    {
+      "feature": "server-federation",
+      "type": "recommended",
+      "reason": "Federation senders are initialised for federated rooms on creation"
+    },
+    {
+      "feature": "room-invitations",
+      "type": "recommended",
+      "reason": "Room upgrade invites remote members to the new room"
+    },
+    {
+      "feature": "e2e-key-exchange",
+      "type": "optional",
+      "reason": "Encryption state event may be included at creation time"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/element-hq/synapse",
+      "project": "Synapse Matrix homeserver",
+      "tech_stack": "Python / Twisted async",
+      "files_traced": 8,
+      "entry_points": [
+        "synapse/handlers/room.py",
+        "synapse/handlers/event_creation.py"
+      ]
+    }
+  }
+}

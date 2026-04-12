@@ -1,0 +1,233 @@
+{
+  "feature": "event-redaction",
+  "version": "1.0.0",
+  "description": "Remove sensitive content from previously sent events. Creates a redaction event that prunes original content while preserving graph position and essential metadata.",
+  "category": "integration",
+  "tags": [
+    "redaction",
+    "moderation",
+    "privacy",
+    "content-removal",
+    "rooms",
+    "compliance"
+  ],
+  "actors": [
+    {
+      "id": "event_author",
+      "name": "Event Author",
+      "type": "human",
+      "description": "User who originally sent the event; may redact their own content"
+    },
+    {
+      "id": "moderator",
+      "name": "Room Moderator",
+      "type": "human",
+      "description": "User with the redact power level who may redact any event"
+    },
+    {
+      "id": "homeserver",
+      "name": "Homeserver",
+      "type": "system",
+      "description": "Server applying pruning rules and persisting the redaction event"
+    }
+  ],
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "token",
+      "required": true,
+      "label": "Identifier of the event to be redacted"
+    },
+    {
+      "name": "redaction_event_id",
+      "type": "token",
+      "required": false,
+      "label": "Identifier of the newly created redaction event"
+    },
+    {
+      "name": "reason",
+      "type": "text",
+      "required": false,
+      "label": "Optional human-readable explanation for the redaction"
+    },
+    {
+      "name": "redacted_content",
+      "type": "json",
+      "required": false,
+      "label": "Pruned event content; only fields permitted by room version rules are retained"
+    },
+    {
+      "name": "room_version",
+      "type": "text",
+      "required": false,
+      "label": "Determines which pruning rules are applied to the redacted event"
+    }
+  ],
+  "rules": {
+    "authorization": [
+      "Any user may redact their own events at any time",
+      "Redacting another user's event requires meeting the room's redact power level threshold",
+      "Redaction creates an immutable redaction event in the room's event graph; original event is not deleted"
+    ],
+    "pruning": [
+      "The pruning algorithm removes all content fields except those explicitly permitted for the event type",
+      "Permitted fields after redaction vary by event type: membership keeps state; power levels keep values",
+      "The genesis event cannot be meaningfully redacted; its permitted fields are preserved",
+      "Encrypted event content is completely removed on redaction; no algorithm or ciphertext is retained",
+      "Metadata (event ID, sender, room ID, type, timestamps, signatures, auth chain) is always preserved"
+    ],
+    "idempotency": [
+      "Redacting an already-redacted event is a no-op; subsequent redactions have no additional effect",
+      "Redaction events themselves cannot be redacted"
+    ]
+  },
+  "outcomes": {
+    "self_redaction": {
+      "priority": 1,
+      "given": [
+        "requester is authenticated",
+        "event being redacted was sent by the requester"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "redaction_event",
+          "target": "event_graph",
+          "description": "Redaction event persisted in the room graph"
+        },
+        {
+          "action": "set_field",
+          "target": "redacted_content",
+          "description": "Original event content pruned according to room version rules"
+        },
+        {
+          "action": "emit_event",
+          "event": "event.redacted",
+          "payload": [
+            "event_id",
+            "redaction_event_id",
+            "redactor_id"
+          ]
+        }
+      ],
+      "result": "Event content removed; room participants see the event as redacted"
+    },
+    "moderator_redaction": {
+      "priority": 2,
+      "given": [
+        "requester's power level meets or exceeds the room's redact threshold",
+        "target event belongs to a different user"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "redaction_event",
+          "target": "event_graph",
+          "description": "Redaction event persisted"
+        },
+        {
+          "action": "set_field",
+          "target": "redacted_content",
+          "description": "Target event content pruned"
+        },
+        {
+          "action": "emit_event",
+          "event": "event.redacted",
+          "payload": [
+            "event_id",
+            "redaction_event_id",
+            "redactor_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Moderator removes the content; optional reason is visible in the redaction event"
+    },
+    "redaction_permission_denied": {
+      "priority": 3,
+      "error": "REDACTION_PERMISSION_DENIED",
+      "given": [
+        "requester did not send the original event",
+        "requester's power level is below the redact threshold"
+      ],
+      "then": [],
+      "result": "Redaction rejected; event content unchanged"
+    },
+    "already_redacted": {
+      "priority": 4,
+      "given": [
+        "target event has already been redacted"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "event.redaction_noop",
+          "payload": [
+            "event_id"
+          ]
+        }
+      ],
+      "result": "No change; event was already redacted"
+    }
+  },
+  "errors": [
+    {
+      "code": "REDACTION_PERMISSION_DENIED",
+      "status": 403,
+      "message": "You do not have permission to redact this event"
+    },
+    {
+      "code": "REDACTION_TARGET_NOT_FOUND",
+      "status": 404,
+      "message": "The event to be redacted was not found"
+    }
+  ],
+  "events": [
+    {
+      "name": "event.redacted",
+      "description": "An event's content was removed by its author or a moderator",
+      "payload": [
+        "event_id",
+        "redaction_event_id",
+        "redactor_id"
+      ]
+    },
+    {
+      "name": "event.redaction_noop",
+      "description": "A redaction was requested for an event that had already been redacted",
+      "payload": [
+        "event_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "room-power-levels",
+      "type": "required",
+      "reason": "The redact power level threshold is defined in the room's power levels event"
+    },
+    {
+      "feature": "room-state-history",
+      "type": "required",
+      "reason": "Redaction events are appended to the room's immutable event graph"
+    },
+    {
+      "feature": "room-lifecycle",
+      "type": "recommended",
+      "reason": "Room version determines which pruning rules apply during redaction"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/element-hq/synapse",
+      "project": "Synapse Matrix homeserver",
+      "tech_stack": "Python / Twisted async",
+      "files_traced": 6,
+      "entry_points": [
+        "synapse/handlers/room.py",
+        "synapse/events/utils.py",
+        "synapse/event_auth.py"
+      ]
+    }
+  }
+}

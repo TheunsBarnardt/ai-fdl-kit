@@ -1,0 +1,397 @@
+{
+  "feature": "push-notification-gateway",
+  "version": "1.0.0",
+  "description": "Manage user-registered notification endpoints and deliver async push notifications to HTTP or email gateways when room events match configurable push rules.",
+  "category": "notification",
+  "tags": [
+    "push",
+    "notifications",
+    "gateway",
+    "email",
+    "webhook",
+    "rules",
+    "devices"
+  ],
+  "actors": [
+    {
+      "id": "user",
+      "name": "User",
+      "type": "human",
+      "description": "Account owner registering or managing push notification endpoints"
+    },
+    {
+      "id": "homeserver",
+      "name": "Homeserver",
+      "type": "system",
+      "description": "Server evaluating push rules and dispatching notifications"
+    },
+    {
+      "id": "push_gateway",
+      "name": "Push Gateway",
+      "type": "external",
+      "description": "External HTTP service or email relay receiving notification payloads"
+    },
+    {
+      "id": "identity_server",
+      "name": "Identity Server",
+      "type": "external",
+      "description": "Used to validate that an email push key belongs to the user's account"
+    }
+  ],
+  "fields": [
+    {
+      "name": "user_id",
+      "type": "text",
+      "required": true,
+      "label": "Account the pusher belongs to"
+    },
+    {
+      "name": "kind",
+      "type": "select",
+      "required": true,
+      "label": "Delivery mechanism for the pusher",
+      "options": [
+        {
+          "value": "http",
+          "label": "HTTP"
+        },
+        {
+          "value": "email",
+          "label": "Email"
+        }
+      ]
+    },
+    {
+      "name": "app_id",
+      "type": "text",
+      "required": true,
+      "label": "Identifier for the application registering the pusher"
+    },
+    {
+      "name": "pushkey",
+      "type": "text",
+      "required": true,
+      "label": "Delivery endpoint; a URL for HTTP pushers or an email address for email pushers"
+    },
+    {
+      "name": "data",
+      "type": "json",
+      "required": false,
+      "label": "Gateway-specific configuration such as endpoint URL and format"
+    },
+    {
+      "name": "lang",
+      "type": "text",
+      "required": false,
+      "label": "Language code used when generating localised notification content"
+    },
+    {
+      "name": "device_id",
+      "type": "token",
+      "required": false,
+      "label": "Optional device association for the pusher"
+    },
+    {
+      "name": "enabled",
+      "type": "boolean",
+      "required": false,
+      "label": "Whether the pusher is currently delivering notifications"
+    }
+  ],
+  "states": {
+    "field": "pusher_status",
+    "values": [
+      {
+        "id": "active",
+        "description": "Pusher is delivering notifications normally",
+        "initial": true
+      },
+      {
+        "id": "disabled",
+        "description": "Pusher is registered but temporarily not delivering notifications"
+      },
+      {
+        "id": "deleted",
+        "description": "Pusher has been permanently removed",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "active",
+        "to": "disabled",
+        "actor": "user",
+        "description": "User toggles the pusher off without deleting it"
+      },
+      {
+        "from": "disabled",
+        "to": "active",
+        "actor": "user",
+        "description": "User re-enables the pusher"
+      },
+      {
+        "from": "active",
+        "to": "deleted",
+        "actor": "user",
+        "description": "User explicitly deletes the pusher"
+      },
+      {
+        "from": "active",
+        "to": "deleted",
+        "actor": "homeserver",
+        "description": "Associated device deleted, triggering cascade removal"
+      }
+    ]
+  },
+  "rules": {
+    "registration": [
+      "A pusher is uniquely identified by the combination of user_id, app_id, and pushkey",
+      "Email pushers require the pushkey (email address) to be a verified third-party identifier on the account",
+      "Push notifications are only delivered when the pusher is in the active state"
+    ],
+    "delivery": [
+      "Notification delivery is asynchronous and does not block event processing",
+      "Push rules are evaluated against each event to determine whether a notification should be sent",
+      "Failed HTTP deliveries are retried with exponential backoff",
+      "Deleting a device cascades to remove all pushers associated with that device",
+      "Pushers are distributed across worker instances using consistent hashing"
+    ]
+  },
+  "outcomes": {
+    "pusher_registered": {
+      "priority": 1,
+      "given": [
+        "user is authenticated",
+        "for email pushers: pushkey is a verified identity on the account",
+        "pusher with this app_id and pushkey does not already exist"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "pusher",
+          "target": "pusher",
+          "description": "Pusher record stored and background delivery task started"
+        },
+        {
+          "action": "emit_event",
+          "event": "pusher.registered",
+          "payload": [
+            "user_id",
+            "app_id",
+            "kind"
+          ]
+        }
+      ],
+      "result": "Device will receive notifications when matching push rules are triggered"
+    },
+    "pusher_updated": {
+      "priority": 2,
+      "given": [
+        "pusher with this app_id and pushkey already exists for the user"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "data",
+          "description": "Pusher configuration updated"
+        },
+        {
+          "action": "emit_event",
+          "event": "pusher.updated",
+          "payload": [
+            "user_id",
+            "app_id"
+          ]
+        }
+      ],
+      "result": "Existing pusher uses new configuration going forward"
+    },
+    "notification_delivered": {
+      "priority": 3,
+      "given": [
+        "a room event matches at least one active push rule for the user",
+        "pusher is in active state"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "push_gateway",
+          "description": "Notification payload sent to the external gateway"
+        },
+        {
+          "action": "emit_event",
+          "event": "notification.delivered",
+          "payload": [
+            "user_id",
+            "app_id",
+            "event_id"
+          ]
+        }
+      ],
+      "result": "External gateway receives the notification and forwards to the user's device"
+    },
+    "notification_delivery_failed": {
+      "priority": 4,
+      "given": [
+        "external gateway returns an error or is unreachable"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "notification.delivery_failed",
+          "payload": [
+            "user_id",
+            "app_id",
+            "retry_count"
+          ]
+        }
+      ],
+      "result": "Delivery retried with backoff; user may not receive the notification if all retries fail"
+    },
+    "pusher_disabled": {
+      "priority": 5,
+      "given": [
+        "user requests to disable the pusher without deleting it"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "enabled",
+          "value": false
+        },
+        {
+          "action": "emit_event",
+          "event": "pusher.disabled",
+          "payload": [
+            "user_id",
+            "app_id"
+          ]
+        }
+      ],
+      "result": "Pusher stops delivering notifications but remains registered"
+    },
+    "pusher_deleted": {
+      "priority": 6,
+      "given": [
+        "user requests deletion or device cascade triggers removal"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "pusher",
+          "target": "pusher",
+          "description": "Pusher record removed; delivery task stopped"
+        },
+        {
+          "action": "emit_event",
+          "event": "pusher.deleted",
+          "payload": [
+            "user_id",
+            "app_id"
+          ]
+        }
+      ],
+      "result": "No further notifications delivered through this endpoint"
+    },
+    "email_pusher_rejected": {
+      "priority": 7,
+      "error": "PUSHER_EMAIL_NOT_VERIFIED",
+      "given": [
+        "kind is email",
+        "pushkey is not a verified third-party identifier on the account"
+      ],
+      "then": [],
+      "result": "Email pusher registration rejected"
+    }
+  },
+  "errors": [
+    {
+      "code": "PUSHER_EMAIL_NOT_VERIFIED",
+      "status": 400,
+      "message": "The email address is not a verified identifier on your account"
+    },
+    {
+      "code": "PUSHER_INVALID_KIND",
+      "status": 400,
+      "message": "Unrecognised pusher kind"
+    }
+  ],
+  "events": [
+    {
+      "name": "pusher.registered",
+      "description": "A new notification endpoint was registered",
+      "payload": [
+        "user_id",
+        "app_id",
+        "kind"
+      ]
+    },
+    {
+      "name": "pusher.updated",
+      "description": "An existing pusher's configuration was changed",
+      "payload": [
+        "user_id",
+        "app_id"
+      ]
+    },
+    {
+      "name": "pusher.disabled",
+      "description": "A pusher was temporarily disabled by the user",
+      "payload": [
+        "user_id",
+        "app_id"
+      ]
+    },
+    {
+      "name": "pusher.deleted",
+      "description": "A pusher was permanently removed",
+      "payload": [
+        "user_id",
+        "app_id"
+      ]
+    },
+    {
+      "name": "notification.delivered",
+      "description": "A push notification was successfully sent to the external gateway",
+      "payload": [
+        "user_id",
+        "app_id",
+        "event_id"
+      ]
+    },
+    {
+      "name": "notification.delivery_failed",
+      "description": "Push notification delivery failed and is scheduled for retry",
+      "payload": [
+        "user_id",
+        "app_id",
+        "retry_count"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "device-management",
+      "type": "required",
+      "reason": "Pusher deletion is cascaded when the associated device is removed"
+    },
+    {
+      "feature": "identity-lookup",
+      "type": "recommended",
+      "reason": "Email pushers validate their pushkey against verified identities on the account"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/element-hq/synapse",
+      "project": "Synapse Matrix homeserver",
+      "tech_stack": "Python / Twisted async",
+      "files_traced": 8,
+      "entry_points": [
+        "synapse/push/pusherpool.py",
+        "synapse/handlers/push_rules.py",
+        "synapse/push/httppusher.py"
+      ]
+    }
+  }
+}

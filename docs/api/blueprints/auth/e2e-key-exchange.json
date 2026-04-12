@@ -1,0 +1,360 @@
+{
+  "feature": "e2e-key-exchange",
+  "version": "1.0.0",
+  "description": "Manages cryptographic key material for end-to-end encrypted messaging. Handles device key publication, one-time pre-key upload/claiming, and cross-server key queries.",
+  "category": "auth",
+  "tags": [
+    "e2e",
+    "encryption",
+    "key-exchange",
+    "olm",
+    "megolm",
+    "devices",
+    "security"
+  ],
+  "actors": [
+    {
+      "id": "sender_device",
+      "name": "Sending Device",
+      "type": "human",
+      "description": "Device establishing an encrypted session with recipients"
+    },
+    {
+      "id": "recipient_device",
+      "name": "Recipient Device",
+      "type": "human",
+      "description": "Device whose keys are being queried to set up encryption"
+    },
+    {
+      "id": "homeserver",
+      "name": "Homeserver",
+      "type": "system",
+      "description": "Key distribution server; stores and serves keys without decrypting content"
+    },
+    {
+      "id": "remote_server",
+      "name": "Remote Server",
+      "type": "external",
+      "description": "Foreign server hosting recipient devices"
+    }
+  ],
+  "fields": [
+    {
+      "name": "device_id",
+      "type": "token",
+      "required": true,
+      "label": "Identifier of the device the keys belong to"
+    },
+    {
+      "name": "user_id",
+      "type": "text",
+      "required": true,
+      "label": "Account the device belongs to"
+    },
+    {
+      "name": "identity_keys",
+      "type": "json",
+      "required": true,
+      "label": "Long-lived public keys for the device (curve25519 and ed25519)"
+    },
+    {
+      "name": "one_time_keys",
+      "type": "json",
+      "required": false,
+      "label": "Single-use pre-keys uploaded in bulk to bootstrap Olm sessions"
+    },
+    {
+      "name": "fallback_keys",
+      "type": "json",
+      "required": false,
+      "label": "Fallback pre-keys used when no one-time keys remain"
+    },
+    {
+      "name": "claimed_keys",
+      "type": "json",
+      "required": false,
+      "label": "One-time keys retrieved by another device to initiate encryption"
+    },
+    {
+      "name": "failures",
+      "type": "json",
+      "required": false,
+      "label": "Map of server domains to error descriptions for failed queries"
+    }
+  ],
+  "rules": {
+    "key_management": [
+      "The server stores device keys and one-time keys but never stores private key material",
+      "One-time keys are consumed exactly once; after claiming they are removed from the pool",
+      "When one-time keys are exhausted, fallback keys are used and marked for replacement",
+      "Devices that are deleted have their associated keys removed from the store"
+    ],
+    "querying": [
+      "Device key queries must be separated by domain: local devices from database, remote via federation",
+      "Remote device key results are cached to reduce federation load; stale cache entries refreshed on demand",
+      "Servers that are unreachable during a query are recorded in the failures response",
+      "Servers previously marked as down are not contacted until their backoff window expires"
+    ]
+  },
+  "outcomes": {
+    "device_keys_uploaded": {
+      "priority": 1,
+      "given": [
+        "device is authenticated",
+        "uploaded keys include valid signatures from the device"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "device_keys",
+          "target": "key_store",
+          "description": "Device identity keys stored and indexed for querying"
+        },
+        {
+          "action": "emit_event",
+          "event": "keys.device_keys_uploaded",
+          "payload": [
+            "user_id",
+            "device_id"
+          ]
+        }
+      ],
+      "result": "Device keys are discoverable by other users in shared rooms"
+    },
+    "one_time_keys_uploaded": {
+      "priority": 2,
+      "given": [
+        "device is authenticated",
+        "uploaded one-time keys have valid signatures"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "one_time_keys",
+          "target": "key_pool",
+          "description": "One-time keys added to the available pool for this device"
+        },
+        {
+          "action": "emit_event",
+          "event": "keys.one_time_keys_uploaded",
+          "payload": [
+            "user_id",
+            "device_id",
+            "key_count"
+          ]
+        }
+      ],
+      "result": "Other devices can claim these keys to establish Olm sessions"
+    },
+    "one_time_key_claimed": {
+      "priority": 3,
+      "given": [
+        "requester specifies one or more target devices",
+        "target device has at least one unclaimed one-time key"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "one_time_key",
+          "target": "key_pool",
+          "description": "Claimed one-time key removed from pool; cannot be reused"
+        },
+        {
+          "action": "emit_event",
+          "event": "keys.one_time_key_claimed",
+          "payload": [
+            "claimer_id",
+            "target_device_id"
+          ]
+        }
+      ],
+      "result": "Requester can use the claimed key to establish an encrypted Olm session"
+    },
+    "fallback_key_used": {
+      "priority": 4,
+      "given": [
+        "target device has no unclaimed one-time keys",
+        "a fallback key is available"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "keys.fallback_key_used",
+          "payload": [
+            "target_device_id"
+          ]
+        }
+      ],
+      "result": "Encryption session established using fallback key; device should upload new one-time keys"
+    },
+    "keys_queried_local": {
+      "priority": 5,
+      "given": [
+        "queried users are all on the local server"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "keys.query_completed",
+          "payload": [
+            "querying_device_id",
+            "user_count",
+            "failures"
+          ]
+        }
+      ],
+      "result": "Device keys returned from local database with cross-signing bundles"
+    },
+    "keys_queried_federated": {
+      "priority": 6,
+      "given": [
+        "queried users include users on remote servers",
+        "remote servers are reachable"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "device_keys",
+          "target": "key_cache",
+          "description": "Remote device keys cached locally"
+        },
+        {
+          "action": "emit_event",
+          "event": "keys.query_completed",
+          "payload": [
+            "querying_device_id",
+            "user_count",
+            "failures"
+          ]
+        }
+      ],
+      "result": "Keys for remote users returned; unreachable servers listed in failures"
+    },
+    "key_query_partial_failure": {
+      "priority": 7,
+      "given": [
+        "one or more remote servers are unreachable or in backoff"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "failures",
+          "description": "Unreachable servers recorded in failures map"
+        },
+        {
+          "action": "emit_event",
+          "event": "keys.query_partial_failure",
+          "payload": [
+            "failed_servers"
+          ]
+        }
+      ],
+      "result": "Available keys returned; caller can retry for failed servers later"
+    },
+    "no_keys_available": {
+      "priority": 8,
+      "error": "KEY_EXCHANGE_NO_KEYS",
+      "given": [
+        "target device has no one-time keys and no fallback key"
+      ],
+      "then": [],
+      "result": "No key returned for that device; encryption session cannot be established"
+    }
+  },
+  "errors": [
+    {
+      "code": "KEY_EXCHANGE_NO_KEYS",
+      "status": 404,
+      "message": "No one-time keys available for this device"
+    },
+    {
+      "code": "KEY_EXCHANGE_QUERY_FAILED",
+      "status": 503,
+      "message": "Key query could not be completed for one or more servers"
+    }
+  ],
+  "events": [
+    {
+      "name": "keys.device_keys_uploaded",
+      "description": "A device's long-lived identity keys were published",
+      "payload": [
+        "user_id",
+        "device_id"
+      ]
+    },
+    {
+      "name": "keys.one_time_keys_uploaded",
+      "description": "A batch of one-time pre-keys was added to a device's pool",
+      "payload": [
+        "user_id",
+        "device_id",
+        "key_count"
+      ]
+    },
+    {
+      "name": "keys.one_time_key_claimed",
+      "description": "A one-time key was consumed to bootstrap an Olm session",
+      "payload": [
+        "claimer_id",
+        "target_device_id"
+      ]
+    },
+    {
+      "name": "keys.fallback_key_used",
+      "description": "A fallback key was used because no one-time keys remained",
+      "payload": [
+        "target_device_id"
+      ]
+    },
+    {
+      "name": "keys.query_completed",
+      "description": "A device key query was resolved (fully or partially)",
+      "payload": [
+        "querying_device_id",
+        "user_count",
+        "failures"
+      ]
+    },
+    {
+      "name": "keys.query_partial_failure",
+      "description": "Key query completed but one or more servers were unreachable",
+      "payload": [
+        "failed_servers"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "cross-signing-verification",
+      "type": "recommended",
+      "reason": "Cross-signing keys are bundled in key query responses alongside device keys"
+    },
+    {
+      "feature": "device-management",
+      "type": "required",
+      "reason": "Device keys are invalidated when the device is deleted"
+    },
+    {
+      "feature": "key-backup-recovery",
+      "type": "recommended",
+      "reason": "Session keys established during key exchange are backed up for recovery"
+    },
+    {
+      "feature": "server-federation",
+      "type": "recommended",
+      "reason": "Remote device keys are fetched via federation queries"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/element-hq/synapse",
+      "project": "Synapse Matrix homeserver",
+      "tech_stack": "Python / Twisted async",
+      "files_traced": 8,
+      "entry_points": [
+        "synapse/handlers/e2e_keys.py",
+        "synapse/storage/databases/main/end_to_end_keys.py"
+      ]
+    }
+  }
+}

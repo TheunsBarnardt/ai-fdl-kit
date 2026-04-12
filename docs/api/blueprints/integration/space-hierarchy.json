@@ -1,0 +1,323 @@
+{
+  "feature": "space-hierarchy",
+  "version": "1.0.0",
+  "description": "Organize rooms into hierarchical trees called spaces. Browse and navigate nested room structures with paginated breadth-first traversal and federated child resolution.",
+  "category": "integration",
+  "tags": [
+    "spaces",
+    "hierarchy",
+    "grouping",
+    "discovery",
+    "navigation",
+    "rooms"
+  ],
+  "actors": [
+    {
+      "id": "space_admin",
+      "name": "Space Administrator",
+      "type": "human",
+      "description": "User with power to manage child relationships in a space"
+    },
+    {
+      "id": "user",
+      "name": "User",
+      "type": "human",
+      "description": "User browsing or navigating the space hierarchy"
+    },
+    {
+      "id": "homeserver",
+      "name": "Homeserver",
+      "type": "system",
+      "description": "Server traversing and caching space hierarchy data"
+    },
+    {
+      "id": "remote_server",
+      "name": "Remote Server",
+      "type": "external",
+      "description": "Foreign server hosting child rooms or sub-spaces"
+    }
+  ],
+  "fields": [
+    {
+      "name": "space_room_id",
+      "type": "token",
+      "required": true,
+      "label": "Room ID of the space (a room with type m.space)"
+    },
+    {
+      "name": "child_room_id",
+      "type": "token",
+      "required": false,
+      "label": "Room ID of a child within the space"
+    },
+    {
+      "name": "via_servers",
+      "type": "json",
+      "required": true,
+      "label": "Server names to contact when resolving the child room"
+    },
+    {
+      "name": "suggested",
+      "type": "boolean",
+      "required": false,
+      "label": "Whether the child is highlighted as a recommended entry point"
+    },
+    {
+      "name": "order",
+      "type": "text",
+      "required": false,
+      "label": "Optional lexicographic ordering hint for display"
+    },
+    {
+      "name": "max_depth",
+      "type": "number",
+      "required": false,
+      "label": "Maximum traversal depth; null means unlimited"
+    },
+    {
+      "name": "pagination_token",
+      "type": "token",
+      "required": false,
+      "label": "Opaque token referencing a paginated traversal session"
+    },
+    {
+      "name": "suggested_only",
+      "type": "boolean",
+      "required": false,
+      "label": "If true, only suggested children are included in results"
+    }
+  ],
+  "states": {
+    "field": "traversal_session_status",
+    "values": [
+      {
+        "id": "active",
+        "description": "Pagination session is valid and may be resumed",
+        "initial": true
+      },
+      {
+        "id": "expired",
+        "description": "Session has not been accessed within 5 minutes and is invalidated",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "active",
+        "to": "expired",
+        "actor": "homeserver",
+        "description": "Session idle timeout reached after 5 minutes"
+      }
+    ]
+  },
+  "rules": {
+    "structure": [
+      "A space is a room whose creation event specifies the space room type",
+      "Child relationships are defined by state events in the parent space room; each child room ID is the state key",
+      "A child state event must include a list of servers to contact for resolution"
+    ],
+    "traversal": [
+      "Traversal is breadth-first; oldest forward extremities in the queue are processed first",
+      "A maximum of 50 rooms may be returned per page",
+      "A maximum of 50 children per space are processed in a single traversal step",
+      "At most 3 servers are queried when resolving a remote child room",
+      "Pagination sessions expire after 5 minutes of inactivity",
+      "Maximum traversal depth is configurable; depth 0 returns only the root space"
+    ],
+    "access": [
+      "Regular users only see rooms they are permitted to access; server administrators see all rooms",
+      "Remote child rooms are fetched via federation hierarchy API"
+    ]
+  },
+  "outcomes": {
+    "hierarchy_page_returned": {
+      "priority": 1,
+      "given": [
+        {
+          "any": [
+            "requester is a member of the space",
+            "requester is a server administrator"
+          ]
+        },
+        "pagination session is valid or no token provided"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "traversal_session",
+          "target": "pagination_session",
+          "description": "Pagination session created or resumed with traversal state"
+        },
+        {
+          "action": "emit_event",
+          "event": "space.hierarchy.page_returned",
+          "payload": [
+            "space_room_id",
+            "rooms_returned",
+            "next_token"
+          ]
+        }
+      ],
+      "result": "Batch of rooms from the space hierarchy returned with optional continuation token"
+    },
+    "hierarchy_traversal_complete": {
+      "priority": 2,
+      "given": [
+        "all reachable rooms within max_depth have been visited"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "space.hierarchy.complete",
+          "payload": [
+            "space_room_id",
+            "total_rooms"
+          ]
+        }
+      ],
+      "result": "Final page returned with no continuation token"
+    },
+    "remote_child_resolved": {
+      "priority": 3,
+      "given": [
+        "child room is hosted on a remote server",
+        "at least one via_server is reachable"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "space.child.resolved",
+          "payload": [
+            "child_room_id",
+            "resolved_via_server"
+          ]
+        }
+      ],
+      "result": "Remote child room details included in hierarchy response"
+    },
+    "remote_child_unresolvable": {
+      "priority": 4,
+      "given": [
+        "child room is hosted on a remote server",
+        "all via_servers are unreachable"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "space.child.unresolvable",
+          "payload": [
+            "child_room_id",
+            "attempted_servers"
+          ]
+        }
+      ],
+      "result": "Child room omitted from results; traversal continues"
+    },
+    "access_denied": {
+      "priority": 5,
+      "error": "SPACE_ACCESS_DENIED",
+      "given": [
+        "requester is not a member of the space",
+        "room previews are disabled",
+        "requester is not a server administrator"
+      ],
+      "then": [],
+      "result": "Hierarchy request rejected"
+    },
+    "session_expired": {
+      "priority": 6,
+      "error": "SPACE_PAGINATION_TOKEN_EXPIRED",
+      "given": [
+        "pagination token references a session that has expired"
+      ],
+      "then": [],
+      "result": "Client must restart traversal from the beginning"
+    }
+  },
+  "errors": [
+    {
+      "code": "SPACE_ACCESS_DENIED",
+      "status": 403,
+      "message": "You do not have permission to browse this space"
+    },
+    {
+      "code": "SPACE_PAGINATION_TOKEN_EXPIRED",
+      "status": 400,
+      "message": "Pagination session has expired. Please restart the request."
+    },
+    {
+      "code": "SPACE_NOT_FOUND",
+      "status": 404,
+      "message": "The requested space room was not found"
+    }
+  ],
+  "events": [
+    {
+      "name": "space.hierarchy.page_returned",
+      "description": "A page of rooms from the space hierarchy was returned to the requester",
+      "payload": [
+        "space_room_id",
+        "rooms_returned",
+        "next_token"
+      ]
+    },
+    {
+      "name": "space.hierarchy.complete",
+      "description": "All reachable rooms within the traversal depth have been visited",
+      "payload": [
+        "space_room_id",
+        "total_rooms"
+      ]
+    },
+    {
+      "name": "space.child.resolved",
+      "description": "A remote child room was successfully resolved via federation",
+      "payload": [
+        "child_room_id",
+        "resolved_via_server"
+      ]
+    },
+    {
+      "name": "space.child.unresolvable",
+      "description": "A child room could not be reached from any listed server",
+      "payload": [
+        "child_room_id",
+        "attempted_servers"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "room-lifecycle",
+      "type": "required",
+      "reason": "Spaces are rooms; they are created through the same room creation flow"
+    },
+    {
+      "feature": "room-state-history",
+      "type": "required",
+      "reason": "Child relationships are stored as state events in the space room"
+    },
+    {
+      "feature": "room-power-levels",
+      "type": "required",
+      "reason": "Only users with sufficient power may manage child state events"
+    },
+    {
+      "feature": "server-federation",
+      "type": "recommended",
+      "reason": "Remote child rooms are resolved via federated hierarchy queries"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/element-hq/synapse",
+      "project": "Synapse Matrix homeserver",
+      "tech_stack": "Python / Twisted async",
+      "files_traced": 5,
+      "entry_points": [
+        "synapse/handlers/room_summary.py",
+        "synapse/storage/databases/main/room.py"
+      ]
+    }
+  }
+}

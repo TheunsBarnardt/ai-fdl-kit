@@ -1,0 +1,355 @@
+{
+  "feature": "room-aliases",
+  "version": "1.0.0",
+  "description": "Human-readable addresses for rooms enabling lookup and sharing by name. Supports local alias creation with namespace enforcement and federated alias resolution.",
+  "category": "integration",
+  "tags": [
+    "alias",
+    "directory",
+    "addressing",
+    "discovery",
+    "room",
+    "federation"
+  ],
+  "actors": [
+    {
+      "id": "room_member",
+      "name": "Room Member",
+      "type": "human",
+      "description": "Authenticated user who is a member of the target room"
+    },
+    {
+      "id": "server_admin",
+      "name": "Server Administrator",
+      "type": "human",
+      "description": "Administrator who can manage aliases without room membership"
+    },
+    {
+      "id": "bridge_service",
+      "name": "Bridge or Application Service",
+      "type": "system",
+      "description": "Registered service managing aliases within its declared namespace"
+    },
+    {
+      "id": "homeserver",
+      "name": "Homeserver",
+      "type": "system",
+      "description": "Server resolving and storing alias mappings"
+    }
+  ],
+  "fields": [
+    {
+      "name": "alias",
+      "type": "text",
+      "required": true,
+      "label": "Full alias in #localpart:server format; localpart alphanumeric, no whitespace or colons, max 255 chars",
+      "validation": [
+        {
+          "type": "maxLength",
+          "value": 255,
+          "message": "Alias must not exceed 255 characters"
+        }
+      ]
+    },
+    {
+      "name": "room_id",
+      "type": "token",
+      "required": true,
+      "label": "The room this alias resolves to"
+    },
+    {
+      "name": "servers",
+      "type": "json",
+      "required": false,
+      "label": "List of server names hosting members of the room (returned with lookup results)"
+    },
+    {
+      "name": "creator_id",
+      "type": "text",
+      "required": false,
+      "label": "User who created the alias"
+    }
+  ],
+  "rules": {
+    "format": [
+      "Alias localparts must contain no whitespace and no colon characters",
+      "The full alias including server name must not exceed 255 characters",
+      "The alias domain must match the local server; cross-server alias creation is not permitted"
+    ],
+    "access": [
+      "A user must be a member of the target room to create an alias, unless they are a server administrator",
+      "Application services may only create aliases within their declared exclusive namespace",
+      "Alias deletion requires room administrator power level in the target room",
+      "An existing alias cannot be modified; it must be deleted and recreated",
+      "Server administrators bypass room membership requirements for all alias operations"
+    ],
+    "federation": [
+      "Spam-checker module callbacks may reject alias creation with a custom error code",
+      "Federated alias lookups contact the alias home server if the alias is not local"
+    ]
+  },
+  "outcomes": {
+    "alias_created": {
+      "priority": 1,
+      "given": [
+        "alias localpart contains no whitespace or colons",
+        "alias total length does not exceed 255 characters",
+        {
+          "any": [
+            "requester is a member of the target room",
+            "requester is a server administrator"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "room_alias",
+          "target": "directory",
+          "description": "Alias-to-room mapping stored with associated server list"
+        },
+        {
+          "action": "emit_event",
+          "event": "alias.created",
+          "payload": [
+            "alias",
+            "room_id",
+            "creator_id"
+          ]
+        }
+      ],
+      "result": "Alias is resolvable and can be shared as a room address"
+    },
+    "alias_created_by_service": {
+      "priority": 2,
+      "given": [
+        "requester is a registered application service",
+        "alias falls within the service's declared namespace"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "room_alias",
+          "target": "directory",
+          "description": "Alias stored with service as creator"
+        },
+        {
+          "action": "emit_event",
+          "event": "alias.created",
+          "payload": [
+            "alias",
+            "room_id",
+            "service_id"
+          ]
+        }
+      ],
+      "result": "Service-managed alias is available for routing"
+    },
+    "alias_deleted": {
+      "priority": 3,
+      "given": [
+        "requester has room administrator power level in the target room",
+        "alias exists and is local"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "room_alias",
+          "target": "directory",
+          "description": "Alias mapping removed from directory"
+        },
+        {
+          "action": "emit_event",
+          "event": "alias.deleted",
+          "payload": [
+            "alias",
+            "room_id"
+          ]
+        }
+      ],
+      "result": "Alias no longer resolves; room remains accessible by room ID"
+    },
+    "alias_resolved_locally": {
+      "priority": 4,
+      "given": [
+        "alias domain matches local server",
+        "alias exists in local directory"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "alias.resolved",
+          "payload": [
+            "alias",
+            "room_id",
+            "servers"
+          ]
+        }
+      ],
+      "result": "Room ID and server list returned to requester"
+    },
+    "alias_resolved_via_federation": {
+      "priority": 5,
+      "given": [
+        "alias domain belongs to a remote server",
+        "remote server is reachable"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "alias.resolved",
+          "payload": [
+            "alias",
+            "room_id",
+            "servers"
+          ]
+        }
+      ],
+      "result": "Remote alias resolved and returned to requester"
+    },
+    "alias_creation_rejected_format": {
+      "priority": 6,
+      "error": "ALIAS_INVALID_FORMAT",
+      "given": [
+        {
+          "any": [
+            "alias localpart contains whitespace",
+            "alias localpart contains a colon",
+            "alias total length exceeds 255 characters"
+          ]
+        }
+      ],
+      "then": [],
+      "result": "Alias creation rejected with format error"
+    },
+    "alias_creation_rejected_membership": {
+      "priority": 7,
+      "error": "ALIAS_MEMBERSHIP_REQUIRED",
+      "given": [
+        "requester is not a member of the target room",
+        "requester is not a server administrator"
+      ],
+      "then": [],
+      "result": "Alias creation rejected; user must join room first"
+    },
+    "alias_creation_rejected_namespace": {
+      "priority": 8,
+      "error": "ALIAS_NAMESPACE_CONFLICT",
+      "given": [
+        "alias falls within an application service's exclusive namespace",
+        "requester is not that application service"
+      ],
+      "then": [],
+      "result": "Alias creation rejected; namespace reserved by a registered service"
+    },
+    "alias_resolution_failed": {
+      "priority": 9,
+      "error": "ALIAS_NOT_FOUND",
+      "given": [
+        "alias does not exist locally",
+        {
+          "any": [
+            "alias domain is local",
+            "remote server is unreachable"
+          ]
+        }
+      ],
+      "then": [],
+      "result": "Alias lookup returns not found"
+    }
+  },
+  "errors": [
+    {
+      "code": "ALIAS_INVALID_FORMAT",
+      "status": 400,
+      "message": "Room alias contains invalid characters or exceeds maximum length"
+    },
+    {
+      "code": "ALIAS_MEMBERSHIP_REQUIRED",
+      "status": 403,
+      "message": "You must be in the room to create an alias for it"
+    },
+    {
+      "code": "ALIAS_NAMESPACE_CONFLICT",
+      "status": 403,
+      "message": "This alias is reserved by a registered application service"
+    },
+    {
+      "code": "ALIAS_NOT_FOUND",
+      "status": 404,
+      "message": "Room alias not found"
+    },
+    {
+      "code": "ALIAS_DELETE_PERMISSION_DENIED",
+      "status": 403,
+      "message": "You do not have permission to delete this alias"
+    },
+    {
+      "code": "ALIAS_FEDERATION_FAILED",
+      "status": 503,
+      "message": "Could not retrieve alias from remote server"
+    }
+  ],
+  "events": [
+    {
+      "name": "alias.created",
+      "description": "A new alias has been mapped to a room",
+      "payload": [
+        "alias",
+        "room_id",
+        "creator_id"
+      ]
+    },
+    {
+      "name": "alias.deleted",
+      "description": "An alias mapping has been removed",
+      "payload": [
+        "alias",
+        "room_id"
+      ]
+    },
+    {
+      "name": "alias.resolved",
+      "description": "An alias lookup returned a room ID and server list",
+      "payload": [
+        "alias",
+        "room_id",
+        "servers"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "room-lifecycle",
+      "type": "required",
+      "reason": "Aliases are created for existing rooms"
+    },
+    {
+      "feature": "room-power-levels",
+      "type": "required",
+      "reason": "Alias deletion requires room administrator power level"
+    },
+    {
+      "feature": "server-federation",
+      "type": "recommended",
+      "reason": "Remote alias resolution uses federation directory queries"
+    },
+    {
+      "feature": "application-services",
+      "type": "optional",
+      "reason": "Application services enforce exclusive alias namespace reservations"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/element-hq/synapse",
+      "project": "Synapse Matrix homeserver",
+      "tech_stack": "Python / Twisted async",
+      "files_traced": 6,
+      "entry_points": [
+        "synapse/handlers/directory.py",
+        "synapse/appservice/__init__.py"
+      ]
+    }
+  }
+}

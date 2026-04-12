@@ -1,0 +1,377 @@
+# ============================================================
+# ROOM INVITATIONS AND JOIN RULES — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/element-hq/synapse
+# Source project: Synapse (Matrix homeserver, Python/Twisted)
+# ============================================================
+
+feature: room-invitations
+version: "1.0.0"
+description: "Controls how users enter rooms via invitation, direct join, or knock. Enforces join rules and rate-limits invitations. Supports third-party invitations via identity servers."
+category: access
+tags: [invite, join, knock, membership, access-control, room, rate-limiting]
+
+actors:
+  - id: inviter
+    name: Inviting User
+    type: human
+    description: Room member sending an invitation
+  - id: invitee
+    name: Invited User
+    type: human
+    description: User receiving an invitation
+  - id: knocker
+    name: Knocking User
+    type: human
+    description: User requesting permission to join a knock-enabled room
+  - id: homeserver
+    name: Homeserver
+    type: system
+    description: Server enforcing join rules and rate limits
+  - id: identity_server
+    name: Identity Server
+    type: external
+    description: External service validating third-party invitations
+
+fields:
+  - name: room_id
+    type: token
+    required: true
+    label: "Room being joined or invited to"
+  - name: inviter_id
+    type: text
+    required: false
+    label: "User sending the invitation"
+  - name: invitee_id
+    type: text
+    required: true
+    label: "User being invited"
+  - name: membership
+    type: select
+    required: true
+    label: "Current membership state of the user in the room"
+    options:
+      - value: invite
+        label: "Invited"
+      - value: join
+        label: "Joined"
+      - value: leave
+        label: "Left"
+      - value: knock
+        label: "Knocking"
+      - value: ban
+        label: "Banned"
+  - name: join_rule
+    type: select
+    required: true
+    label: "Rule governing how users may join the room"
+    options:
+      - value: public
+        label: "Public"
+      - value: invite
+        label: "Invite only"
+      - value: restricted
+        label: "Restricted"
+      - value: knock
+        label: "Knock"
+      - value: private
+        label: "Private"
+  - name: allow_conditions
+    type: json
+    required: false
+    label: "For restricted rooms, the set of conditions that permit joining"
+  - name: third_party_medium
+    type: text
+    required: false
+    label: "Medium of a third-party identifier (email, phone)"
+  - name: transaction_id
+    type: token
+    required: false
+    label: "Client-provided identifier for idempotent invite requests"
+
+states:
+  field: membership
+  values:
+    - id: leave
+      description: User has no active membership in the room
+      initial: true
+    - id: invite
+      description: User has been invited and may accept or decline
+    - id: join
+      description: User is a full member of the room
+    - id: knock
+      description: User has requested access and is awaiting approval
+    - id: ban
+      description: User has been prohibited from joining
+      terminal: true
+  transitions:
+    - from: leave
+      to: invite
+      actor: inviter
+      description: Inviter with sufficient power level sends an invite
+    - from: invite
+      to: join
+      actor: invitee
+      description: Invitee accepts the invitation
+    - from: invite
+      to: leave
+      actor: invitee
+      description: Invitee declines the invitation
+    - from: leave
+      to: join
+      actor: invitee
+      description: User joins a public or restricted room without invitation
+    - from: leave
+      to: knock
+      actor: knocker
+      description: User knocks on a knock-enabled room
+    - from: knock
+      to: invite
+      actor: inviter
+      description: Room member approves the knock by sending an invite
+    - from: join
+      to: leave
+      actor: invitee
+      description: User leaves the room voluntarily
+    - from: join
+      to: ban
+      actor: inviter
+      description: Moderator bans the user
+
+rules:
+  invitations:
+    - "Invitations require the inviter to have a power level meeting the room's invite threshold"
+    - "Invitation sending is rate-limited per room, per recipient, and per inviter"
+    - "Shadow-banned users cannot send invitations; their requests appear to succeed but are not delivered"
+    - "Duplicate invitations (same sender, recipient, and content) are deduplicated"
+    - "Banned users may not be invited; they must be unbanned first"
+  joining:
+    - "Public rooms allow any authenticated user to join without invitation"
+    - "Restricted rooms require the joining user to meet at least one of the declared allow conditions"
+    - "Knock-enabled rooms require a moderator to approve the knock before the knocker can join"
+    - "Third-party invites are validated through an identity server before delivery"
+    - "Users cannot knock if they already have an active invitation or membership"
+
+outcomes:
+  invite_sent:
+    priority: 1
+    given:
+      - "inviter's power level meets the room's invite threshold"
+      - "invitee is not already a member or banned"
+      - "rate limits are not exceeded"
+      - "inviter is not shadow-banned"
+    then:
+      - action: transition_state
+        field: membership
+        from: leave
+        to: invite
+      - action: emit_event
+        event: membership.invited
+        payload: [inviter_id, invitee_id, room_id]
+    result: "Invitee receives the invite and may accept or decline"
+
+  join_public_room:
+    priority: 2
+    given:
+      - "room join rule is public"
+      - "user is not banned"
+    then:
+      - action: transition_state
+        field: membership
+        from: leave
+        to: join
+      - action: emit_event
+        event: membership.joined
+        payload: [user_id, room_id]
+    result: "User is immediately a full member"
+
+  join_restricted_room:
+    priority: 3
+    given:
+      - "room join rule is restricted"
+      - "user meets at least one allow condition"
+    then:
+      - action: transition_state
+        field: membership
+        from: leave
+        to: join
+      - action: emit_event
+        event: membership.joined
+        payload: [user_id, room_id]
+    result: "User joins after satisfying the restriction conditions"
+
+  knock_sent:
+    priority: 4
+    given:
+      - "room join rule permits knocking"
+      - "user is not already a member, banned, or has a pending invite"
+    then:
+      - action: transition_state
+        field: membership
+        from: leave
+        to: knock
+      - action: emit_event
+        event: membership.knocked
+        payload: [user_id, room_id]
+    result: "Room members are notified and may approve the knock"
+
+  invite_rate_limited:
+    priority: 5
+    error: INVITE_RATE_LIMITED
+    given:
+      - "rate limit threshold exceeded for room, invitee, or inviter"
+    then: []
+    result: "Invite rejected until rate limit window resets"
+
+  invite_permission_denied:
+    priority: 6
+    error: INVITE_PERMISSION_DENIED
+    given:
+      - "inviter's power level is below the room's invite threshold"
+    then: []
+    result: "Invite rejected"
+
+  join_denied_banned:
+    priority: 7
+    error: JOIN_BANNED
+    given:
+      - "user is banned from the room"
+    then: []
+    result: "Join rejected; user must be unbanned by a moderator first"
+
+  knock_denied_rule:
+    priority: 8
+    error: KNOCK_NOT_PERMITTED
+    given:
+      - "room join rule does not permit knocking"
+    then: []
+    result: "Knock rejected; room does not support knock workflow"
+
+errors:
+  - code: INVITE_RATE_LIMITED
+    status: 429
+    message: "You have sent too many invitations recently. Please wait before sending more."
+  - code: INVITE_PERMISSION_DENIED
+    status: 403
+    message: "You do not have permission to invite users to this room"
+  - code: JOIN_BANNED
+    status: 403
+    message: "You have been banned from this room"
+  - code: JOIN_RESTRICTED
+    status: 403
+    message: "You do not meet the requirements to join this room"
+  - code: KNOCK_NOT_PERMITTED
+    status: 403
+    message: "This room does not accept knock requests"
+  - code: KNOCK_ALREADY_MEMBER
+    status: 400
+    message: "You cannot knock on a room you are already in"
+
+events:
+  - name: membership.invited
+    description: "A user has been invited to a room"
+    payload: [inviter_id, invitee_id, room_id]
+  - name: membership.joined
+    description: "A user has become a full member of a room"
+    payload: [user_id, room_id]
+  - name: membership.knocked
+    description: "A user has requested access to a knock-enabled room"
+    payload: [user_id, room_id]
+  - name: membership.left
+    description: "A user has left or been removed from a room"
+    payload: [user_id, room_id, reason]
+
+related:
+  - feature: room-power-levels
+    type: required
+    reason: "Invite, kick, and ban thresholds are defined in the room power levels"
+  - feature: room-lifecycle
+    type: required
+    reason: "Join rules are established in the room's initial state at creation"
+  - feature: identity-lookup
+    type: optional
+    reason: "Third-party invitations are validated through an identity server"
+  - feature: server-federation
+    type: recommended
+    reason: "Cross-server invitations are delivered and co-signed via federation"
+
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_room_invitations
+      description: Controls how users enter rooms via invitation, direct join, or knock. Enforces join rules and rate-limits
+        invitations. Supports third-party invitations via identity servers.
+      success_metrics:
+        - metric: unauthorized_access_rate
+          target: 0%
+          measurement: Failed authorization attempts that succeed
+        - metric: response_time_p95
+          target: < 500ms
+          measurement: 95th percentile response time
+      constraints:
+        - type: security
+          description: Follow OWASP security recommendations
+          negotiable: false
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before modifying sensitive data fields
+      - before transitioning to a terminal state
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+  safety:
+    action_permissions:
+      - action: invite_sent
+        permission: autonomous
+      - action: join_public_room
+        permission: autonomous
+      - action: join_restricted_room
+        permission: autonomous
+      - action: knock_sent
+        permission: autonomous
+      - action: invite_rate_limited
+        permission: autonomous
+      - action: invite_permission_denied
+        permission: autonomous
+      - action: join_denied_banned
+        permission: autonomous
+      - action: knock_denied_rule
+        permission: autonomous
+  tradeoffs:
+    - prefer: security
+      over: usability
+      reason: access control must enforce least-privilege principle
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+      - state transitions follow the defined state machine — no illegal transitions
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: room_power_levels
+        from: room-power-levels
+        fallback: fail
+      - capability: room_lifecycle
+        from: room-lifecycle
+        fallback: fail
+
+extensions:
+  source:
+    repo: "https://github.com/element-hq/synapse"
+    project: "Synapse Matrix homeserver"
+    tech_stack: "Python / Twisted async"
+    files_traced: 8
+    entry_points:
+      - "synapse/handlers/room_member.py"
+      - "synapse/event_auth.py"

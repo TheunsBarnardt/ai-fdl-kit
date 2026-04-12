@@ -1,0 +1,348 @@
+{
+  "feature": "room-state-history",
+  "version": "1.0.0",
+  "description": "Immutable append-only event graph forming a room's history and derived state. Handles state resolution on conflicts, efficient state caching, and authorization at every event.",
+  "category": "integration",
+  "tags": [
+    "state",
+    "history",
+    "events",
+    "dag",
+    "resolution",
+    "immutability",
+    "authorization"
+  ],
+  "actors": [
+    {
+      "id": "user",
+      "name": "User",
+      "type": "human",
+      "description": "Participant sending or receiving events"
+    },
+    {
+      "id": "homeserver",
+      "name": "Homeserver",
+      "type": "system",
+      "description": "Server persisting events and maintaining state"
+    },
+    {
+      "id": "remote_server",
+      "name": "Remote Server",
+      "type": "external",
+      "description": "Foreign server sending events via federation"
+    }
+  ],
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "token",
+      "required": true,
+      "label": "Globally unique immutable identifier for an event"
+    },
+    {
+      "name": "room_id",
+      "type": "token",
+      "required": true,
+      "label": "Room this event belongs to"
+    },
+    {
+      "name": "event_type",
+      "type": "text",
+      "required": true,
+      "label": "Type identifier distinguishing state events from timeline events"
+    },
+    {
+      "name": "state_key",
+      "type": "text",
+      "required": false,
+      "label": "Secondary key; combined with event_type to define a unique state slot"
+    },
+    {
+      "name": "content",
+      "type": "json",
+      "required": true,
+      "label": "Payload of the event; interpreted according to event_type"
+    },
+    {
+      "name": "depth",
+      "type": "number",
+      "required": true,
+      "label": "Integer DAG depth for topological ordering"
+    },
+    {
+      "name": "prev_event_ids",
+      "type": "json",
+      "required": true,
+      "label": "Parent events this event references"
+    },
+    {
+      "name": "auth_event_ids",
+      "type": "json",
+      "required": true,
+      "label": "State events that cryptographically authorize this event"
+    },
+    {
+      "name": "state_group",
+      "type": "number",
+      "required": false,
+      "label": "Numeric identifier for a resolved state snapshot stored in the database"
+    },
+    {
+      "name": "origin_server_ts",
+      "type": "datetime",
+      "required": true,
+      "label": "Timestamp set by the originating server at event creation"
+    }
+  ],
+  "states": {
+    "field": "state_cache_status",
+    "values": [
+      {
+        "id": "warm",
+        "description": "State snapshot is loaded in memory cache",
+        "initial": true
+      },
+      {
+        "id": "loading",
+        "description": "State is being fetched from persistent storage"
+      },
+      {
+        "id": "evicted",
+        "description": "Cache entry expired after 60 minutes of inactivity",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "evicted",
+        "to": "loading",
+        "actor": "homeserver",
+        "description": "State required for event processing; reload from storage triggered"
+      },
+      {
+        "from": "loading",
+        "to": "warm",
+        "actor": "homeserver",
+        "description": "State loaded from database and placed back in cache"
+      },
+      {
+        "from": "warm",
+        "to": "evicted",
+        "actor": "homeserver",
+        "description": "60-minute inactivity timeout expires"
+      }
+    ]
+  },
+  "rules": {
+    "immutability": [
+      "Events are immutable once persisted; corrections are made only through redaction events",
+      "Every event must declare its auth events; the auth chain must be closed",
+      "State is tracked per (event_type, state_key) pair; only the most recent event per slot is current state",
+      "The genesis event must have no predecessor events and must not specify a room identifier in its content",
+      "Genesis events must declare a creator"
+    ],
+    "validation": [
+      "All events must pass cryptographic signature validation before persistence",
+      "Events may not exceed the maximum permitted size",
+      "State resolution is applied when concurrent events create conflicting state; algorithm depends on room version"
+    ],
+    "caching": [
+      "State cache entries expire after 60 minutes; long-idle rooms reload state from persistent storage on demand",
+      "State queries may be filtered to a subset of event types to reduce load"
+    ]
+  },
+  "outcomes": {
+    "event_accepted": {
+      "priority": 1,
+      "given": [
+        "event passes signature validation",
+        "event passes authorization rules for its type and state_key",
+        "event size does not exceed the maximum limit",
+        "auth event chain is valid and closed"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "event",
+          "target": "event_graph",
+          "description": "Event appended to the room's persistent event graph"
+        },
+        {
+          "action": "set_field",
+          "target": "state_group",
+          "description": "New state group assigned if event modifies state"
+        },
+        {
+          "action": "emit_event",
+          "event": "room.event.persisted",
+          "payload": [
+            "event_id",
+            "room_id",
+            "event_type",
+            "state_key"
+          ]
+        }
+      ],
+      "result": "Event is part of the room history and state is updated if applicable"
+    },
+    "state_conflict_resolved": {
+      "priority": 2,
+      "given": [
+        "concurrent events modify the same state slot",
+        "state resolution algorithm produces a deterministic winner"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "state_group",
+          "description": "Resolved state snapshot stored with new state group identifier"
+        },
+        {
+          "action": "emit_event",
+          "event": "room.state.resolved",
+          "payload": [
+            "room_id",
+            "state_group"
+          ]
+        }
+      ],
+      "result": "Single authoritative current state established despite concurrent edits"
+    },
+    "event_rejected_auth": {
+      "priority": 3,
+      "error": "EVENT_AUTH_FAILED",
+      "given": [
+        {
+          "any": [
+            "event auth chain contains an invalid reference",
+            "event sender lacks permission for this event type",
+            "event violates a room version-specific rule"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "room.event.rejected",
+          "payload": [
+            "event_id",
+            "rejection_reason"
+          ]
+        }
+      ],
+      "result": "Event discarded; room state unchanged"
+    },
+    "event_rejected_signature": {
+      "priority": 4,
+      "error": "EVENT_SIGNATURE_INVALID",
+      "given": [
+        "event is missing a valid server signature"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "room.event.rejected",
+          "payload": [
+            "event_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Event discarded without processing"
+    },
+    "event_rejected_size": {
+      "priority": 5,
+      "error": "EVENT_TOO_LARGE",
+      "given": [
+        "event content exceeds the maximum allowed byte size"
+      ],
+      "then": [],
+      "result": "Event rejected before persistence"
+    }
+  },
+  "errors": [
+    {
+      "code": "EVENT_AUTH_FAILED",
+      "status": 403,
+      "message": "Event failed authorization checks"
+    },
+    {
+      "code": "EVENT_SIGNATURE_INVALID",
+      "status": 400,
+      "message": "Event rejected due to invalid or missing signatures"
+    },
+    {
+      "code": "EVENT_TOO_LARGE",
+      "status": 413,
+      "message": "Event exceeds the maximum permitted size"
+    },
+    {
+      "code": "EVENT_MALFORMED",
+      "status": 400,
+      "message": "Event is missing required fields or contains invalid structure"
+    }
+  ],
+  "events": [
+    {
+      "name": "room.event.persisted",
+      "description": "An event has been validated and appended to the room graph",
+      "payload": [
+        "event_id",
+        "room_id",
+        "event_type",
+        "state_key"
+      ]
+    },
+    {
+      "name": "room.state.resolved",
+      "description": "State conflict resolved; new authoritative state snapshot stored",
+      "payload": [
+        "room_id",
+        "state_group"
+      ]
+    },
+    {
+      "name": "room.event.rejected",
+      "description": "An event was rejected due to auth, signature, or size failure",
+      "payload": [
+        "event_id",
+        "rejection_reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "room-power-levels",
+      "type": "required",
+      "reason": "Power level state event is consulted during every state event authorization"
+    },
+    {
+      "feature": "server-federation",
+      "type": "required",
+      "reason": "Federation sends and receives events; state resolution applies to federated events"
+    },
+    {
+      "feature": "room-lifecycle",
+      "type": "required",
+      "reason": "Room creation writes the genesis event that anchors the entire state graph"
+    },
+    {
+      "feature": "event-redaction",
+      "type": "recommended",
+      "reason": "Redaction prunes event content while preserving its position in the graph"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/element-hq/synapse",
+      "project": "Synapse Matrix homeserver",
+      "tech_stack": "Python / Twisted async",
+      "files_traced": 10,
+      "entry_points": [
+        "synapse/state/__init__.py",
+        "synapse/event_auth.py",
+        "synapse/events/validator.py"
+      ]
+    }
+  }
+}

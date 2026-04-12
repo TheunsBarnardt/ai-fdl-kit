@@ -1,0 +1,316 @@
+{
+  "feature": "room-power-levels",
+  "version": "1.0.0",
+  "description": "Fine-grained numeric permission system controlling which users may send event types and perform membership actions. Higher numbers grant broader permissions.",
+  "category": "access",
+  "tags": [
+    "power-levels",
+    "permissions",
+    "authorization",
+    "moderation",
+    "roles",
+    "room"
+  ],
+  "actors": [
+    {
+      "id": "room_creator",
+      "name": "Room Creator",
+      "type": "human",
+      "description": "Initial owner with highest power level (100 by default)"
+    },
+    {
+      "id": "moderator",
+      "name": "Moderator",
+      "type": "human",
+      "description": "User with elevated power sufficient for membership management"
+    },
+    {
+      "id": "regular_user",
+      "name": "Regular User",
+      "type": "human",
+      "description": "User at default power level 0"
+    },
+    {
+      "id": "homeserver",
+      "name": "Homeserver",
+      "type": "system",
+      "description": "Server enforcing power level checks on every event"
+    }
+  ],
+  "fields": [
+    {
+      "name": "users",
+      "type": "json",
+      "required": false,
+      "label": "Map of user identifiers to their explicit power levels"
+    },
+    {
+      "name": "users_default",
+      "type": "number",
+      "required": false,
+      "label": "Power level assigned to users not listed in the users map (default 0)"
+    },
+    {
+      "name": "events",
+      "type": "json",
+      "required": false,
+      "label": "Map of event types to the minimum power level required to send them"
+    },
+    {
+      "name": "events_default",
+      "type": "number",
+      "required": false,
+      "label": "Minimum power level required to send non-state events not listed in events (default 0)"
+    },
+    {
+      "name": "state_default",
+      "type": "number",
+      "required": false,
+      "label": "Minimum power level required to send state events not listed in events (default 50)"
+    },
+    {
+      "name": "invite",
+      "type": "number",
+      "required": false,
+      "label": "Minimum power level required to invite another user (default 0)"
+    },
+    {
+      "name": "kick",
+      "type": "number",
+      "required": false,
+      "label": "Minimum power level required to forcibly remove a member (default 50)"
+    },
+    {
+      "name": "ban",
+      "type": "number",
+      "required": false,
+      "label": "Minimum power level required to ban a user (default 50)"
+    },
+    {
+      "name": "redact",
+      "type": "number",
+      "required": false,
+      "label": "Minimum power level required to redact another user's events (default 50)"
+    }
+  ],
+  "rules": {
+    "defaults": [
+      "Room creator receives power level 100 and is the initial sole administrator",
+      "Each user's effective power level is their explicit value in the users map, or users_default if not listed"
+    ],
+    "event_sending": [
+      "To send a non-state event a user's power level must meet or exceed events_default or the specific events entry",
+      "To send a state event a user's power level must meet or exceed state_default or the specific events entry"
+    ],
+    "membership_actions": [
+      "To invite a user the actor's power level must meet or exceed the invite threshold",
+      "To kick the actor's power level must meet or exceed kick and must be strictly greater than the target's level",
+      "To ban or unban the actor's power level must meet or exceed ban and be strictly greater than the target's level",
+      "To redact another user's event the actor must meet the redact threshold"
+    ],
+    "modification": [
+      "Power level changes require that the requesting user's level equals or exceeds every value they are modifying",
+      "A user cannot grant a power level higher than their own current level"
+    ]
+  },
+  "outcomes": {
+    "action_permitted": {
+      "priority": 1,
+      "given": [
+        "user's effective power level meets the required threshold for the action",
+        "for membership actions, user level is strictly greater than target level"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "room.action.permitted",
+          "payload": [
+            "user_id",
+            "action_type",
+            "room_id"
+          ]
+        }
+      ],
+      "result": "Action proceeds; event is accepted and persisted"
+    },
+    "invite_permitted": {
+      "priority": 2,
+      "given": [
+        "user's power level meets or exceeds the invite threshold",
+        "target user is not already a member or banned"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "room.action.permitted",
+          "payload": [
+            "user_id",
+            "target_id",
+            "room_id"
+          ]
+        }
+      ],
+      "result": "Invite event accepted and forwarded to target"
+    },
+    "kick_permitted": {
+      "priority": 3,
+      "given": [
+        "user's power level meets or exceeds the kick threshold",
+        "user's power level is strictly greater than the target's power level"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "room.action.permitted",
+          "payload": [
+            "user_id",
+            "target_id",
+            "room_id"
+          ]
+        }
+      ],
+      "result": "Target user's membership changed to leave"
+    },
+    "ban_permitted": {
+      "priority": 4,
+      "given": [
+        "user's power level meets or exceeds the ban threshold",
+        "user's power level is strictly greater than the target's power level"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "room.action.permitted",
+          "payload": [
+            "user_id",
+            "target_id",
+            "room_id"
+          ]
+        }
+      ],
+      "result": "Target user is banned and cannot rejoin without being unbanned"
+    },
+    "insufficient_power_for_invite": {
+      "priority": 5,
+      "error": "INSUFFICIENT_POWER_INVITE",
+      "given": [
+        "user's power level is below the invite threshold"
+      ],
+      "then": [],
+      "result": "Invite rejected"
+    },
+    "insufficient_power_for_kick": {
+      "priority": 6,
+      "error": "INSUFFICIENT_POWER_KICK",
+      "given": [
+        {
+          "any": [
+            "user's power level is below the kick threshold",
+            "user's power level is not strictly greater than target's power level"
+          ]
+        }
+      ],
+      "then": [],
+      "result": "Kick rejected"
+    },
+    "insufficient_power_for_ban": {
+      "priority": 7,
+      "error": "INSUFFICIENT_POWER_BAN",
+      "given": [
+        {
+          "any": [
+            "user's power level is below the ban threshold",
+            "user's power level is not strictly greater than target's power level"
+          ]
+        }
+      ],
+      "then": [],
+      "result": "Ban rejected"
+    },
+    "insufficient_power_for_event": {
+      "priority": 8,
+      "error": "INSUFFICIENT_POWER_EVENT",
+      "given": [
+        "user's power level is below the required level for the event type"
+      ],
+      "then": [],
+      "result": "Event rejected"
+    }
+  },
+  "errors": [
+    {
+      "code": "INSUFFICIENT_POWER_INVITE",
+      "status": 403,
+      "message": "You do not have permission to invite users to this room"
+    },
+    {
+      "code": "INSUFFICIENT_POWER_KICK",
+      "status": 403,
+      "message": "You do not have permission to remove this user from the room"
+    },
+    {
+      "code": "INSUFFICIENT_POWER_BAN",
+      "status": 403,
+      "message": "You do not have permission to ban this user"
+    },
+    {
+      "code": "INSUFFICIENT_POWER_EVENT",
+      "status": 403,
+      "message": "You do not have permission to send this type of event"
+    },
+    {
+      "code": "INSUFFICIENT_POWER_STATE",
+      "status": 403,
+      "message": "You do not have permission to change this room setting"
+    }
+  ],
+  "events": [
+    {
+      "name": "room.action.permitted",
+      "description": "A power-level-gated action was approved and may proceed",
+      "payload": [
+        "user_id",
+        "action_type",
+        "room_id"
+      ]
+    },
+    {
+      "name": "room.power_levels.updated",
+      "description": "The room's power level configuration was changed",
+      "payload": [
+        "room_id",
+        "changed_by",
+        "new_state_group"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "room-state-history",
+      "type": "required",
+      "reason": "Power levels are persisted as a state event and consulted during every event authorization"
+    },
+    {
+      "feature": "room-invitations",
+      "type": "required",
+      "reason": "Invite, kick, and ban actions are gated by power level thresholds"
+    },
+    {
+      "feature": "event-redaction",
+      "type": "required",
+      "reason": "Redaction of other users' events requires meeting the redact power threshold"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/element-hq/synapse",
+      "project": "Synapse Matrix homeserver",
+      "tech_stack": "Python / Twisted async",
+      "files_traced": 4,
+      "entry_points": [
+        "synapse/event_auth.py",
+        "synapse/handlers/room.py"
+      ]
+    }
+  }
+}

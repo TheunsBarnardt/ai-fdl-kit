@@ -1,0 +1,315 @@
+# ============================================================
+# SERVER-TO-SERVER FEDERATION — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/element-hq/synapse
+# Source project: Synapse (Matrix homeserver, Python/Twisted)
+# ============================================================
+
+feature: server-federation
+version: "1.0.0"
+description: "Enable real-time event exchange and membership coordination between independently operated servers so users on different servers share rooms without a central authority."
+category: infrastructure
+tags: [federation, distributed, inter-server, decentralized, messaging]
+
+actors:
+  - id: local_server
+    name: Local Server
+    type: system
+    description: The originating homeserver processing a federation action
+  - id: remote_server
+    name: Remote Server
+    type: external
+    description: A foreign homeserver participating in a shared room
+  - id: local_user
+    name: Local User
+    type: human
+    description: A user whose account is hosted on the local server
+
+fields:
+  - name: event_id
+    type: token
+    required: true
+    label: "Globally unique identifier for each event in the distributed graph"
+  - name: room_id
+    type: token
+    required: true
+    label: "Identifier for the shared room spanning multiple servers"
+  - name: sender
+    type: text
+    required: true
+    label: "Fully-qualified user identifier including home server domain"
+  - name: event_type
+    type: text
+    required: true
+    label: "Type of matrix event (e.g. room message, membership change)"
+  - name: depth
+    type: number
+    required: true
+    label: "DAG depth of the event for topological ordering"
+  - name: prev_event_ids
+    type: json
+    required: true
+    label: "List of parent event IDs this event references in the DAG"
+  - name: auth_event_ids
+    type: json
+    required: true
+    label: "State events that cryptographically authorize this event"
+  - name: signatures
+    type: json
+    required: true
+    label: "Cryptographic signatures from sending and origin servers"
+  - name: partial_state
+    type: boolean
+    required: false
+    label: "Whether the server has full or partial room state for this event"
+
+states:
+  field: backfill_status
+  values:
+    - id: idle
+      description: No backfill in progress
+      initial: true
+    - id: backfilling
+      description: Actively fetching historical events from remote servers
+    - id: failed
+      description: Backfill exhausted all candidate servers
+      terminal: true
+    - id: complete
+      description: All requested events retrieved and persisted
+      terminal: true
+  transitions:
+    - from: idle
+      to: backfilling
+      actor: local_server
+      description: Client requests events near the earliest known room depth
+    - from: backfilling
+      to: complete
+      actor: remote_server
+      description: Remote server returns requested historical events
+    - from: backfilling
+      to: failed
+      actor: local_server
+      description: Five consecutive permanent rejections or all candidate servers exhausted
+
+rules:
+  federation_policy:
+    - "Rooms created with the federation flag disabled reject all membership events from other servers"
+    - "Only one backfill operation per room may run concurrently"
+    - "Backfill contacts candidate servers sequentially; after five consecutive 4xx rejections a server is skipped"
+    - "Every event must carry valid cryptographic signatures from both the sender's and origin server before acceptance"
+    - "Events received from servers on a federation blocklist are rejected without processing"
+    - "Servers in backoff state must not be contacted until the backoff window expires"
+    - "Join operations lock the room event queue until the join completes"
+    - "Rooms with partial state block certain operations until full state is obtained"
+    - "Invite events must be co-signed by the invitee's server before distribution"
+
+outcomes:
+  backfill_success:
+    priority: 1
+    given:
+      - "room has events older than earliest known depth"
+      - "at least one candidate remote server is reachable"
+      - "room allows federation"
+    then:
+      - action: create_record
+        type: events
+        target: event_store
+        description: Historical events persisted to local event store
+      - action: emit_event
+        event: federation.backfill.complete
+        payload: [room_id, events_retrieved_count, source_server]
+    result: "Missing historical events are available for client retrieval"
+
+  backfill_rejected:
+    priority: 2
+    error: FEDERATION_BACKFILL_FAILED
+    given:
+      - "all candidate servers return permanent errors or are unreachable"
+    then:
+      - action: emit_event
+        event: federation.backfill.failed
+        payload: [room_id, attempted_servers]
+    result: "Backfill aborted; room history remains incomplete"
+
+  join_via_federation:
+    priority: 3
+    given:
+      - "local user requests to join a room hosted on a remote server"
+      - "room join rules permit the join"
+    then:
+      - action: create_record
+        type: membership_event
+        target: event_store
+        description: Membership event created and distributed to all room servers
+      - action: emit_event
+        event: federation.room.joined
+        payload: [user_id, room_id, origin_server]
+    result: "User is a full member of the remote room and receives events"
+
+  invite_via_federation:
+    priority: 4
+    given:
+      - "local user invites a remote user"
+      - "inviter has sufficient permission in the room"
+    then:
+      - action: create_record
+        type: invite_event
+        target: event_store
+        description: Invite event signed by target server and distributed
+      - action: emit_event
+        event: federation.invite.sent
+        payload: [inviter_id, invitee_id, room_id]
+    result: "Remote user receives invite and can accept to join"
+
+  federation_denied:
+    priority: 5
+    error: FEDERATION_DENIED
+    given:
+      - any:
+          - "destination server is on the federation blocklist"
+          - "destination server is in backoff state"
+    then:
+      - action: emit_event
+        event: federation.request.denied
+        payload: [destination_server, reason]
+    result: "Request fails immediately without network contact"
+
+  event_signature_invalid:
+    priority: 6
+    error: FEDERATION_SIGNATURE_INVALID
+    given:
+      - "received event missing valid signature from sender or origin server"
+    then:
+      - action: emit_event
+        event: federation.event.rejected
+        payload: [event_id, rejection_reason]
+    result: "Event discarded; not persisted or forwarded"
+
+errors:
+  - code: FEDERATION_DENIED
+    status: 403
+    message: "Federation with this server is not permitted"
+  - code: FEDERATION_BACKFILL_FAILED
+    status: 503
+    message: "Unable to retrieve room history from any available server"
+  - code: FEDERATION_SIGNATURE_INVALID
+    status: 400
+    message: "Event rejected: invalid or missing server signatures"
+  - code: FEDERATION_REQUEST_FAILED
+    status: 503
+    message: "Remote server did not respond to the federation request"
+  - code: FEDERATION_ROOM_NOT_FEDERATED
+    status: 403
+    message: "This room does not permit federation"
+
+events:
+  - name: federation.backfill.complete
+    description: "Historical events successfully fetched from a remote server"
+    payload: [room_id, events_retrieved_count, source_server]
+  - name: federation.backfill.failed
+    description: "Backfill exhausted all candidate servers"
+    payload: [room_id, attempted_servers]
+  - name: federation.room.joined
+    description: "Local user successfully joined a remote room"
+    payload: [user_id, room_id, origin_server]
+  - name: federation.invite.sent
+    description: "Invite forwarded to and signed by target server"
+    payload: [inviter_id, invitee_id, room_id]
+  - name: federation.event.rejected
+    description: "Incoming event rejected due to signature or auth failure"
+    payload: [event_id, rejection_reason]
+  - name: federation.request.denied
+    description: "Outgoing request blocked by blocklist or backoff policy"
+    payload: [destination_server, reason]
+
+related:
+  - feature: room-lifecycle
+    type: required
+    reason: "Room creation initialises federation senders for each participating server"
+  - feature: room-power-levels
+    type: required
+    reason: "Event authorization rules are checked against room power levels"
+  - feature: room-state-history
+    type: required
+    reason: "State resolution is applied to events received via federation"
+  - feature: e2e-key-exchange
+    type: optional
+    reason: "Device keys are fetched from remote servers via federation"
+
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_server_federation
+      description: Enable real-time event exchange and membership coordination between independently operated servers so users
+        on different servers share rooms without a central authority.
+      success_metrics:
+        - metric: success_rate
+          target: ">= 99%"
+          measurement: Successful operations divided by total attempts
+        - metric: error_rate
+          target: < 1%
+          measurement: Failed operations divided by total attempts
+      constraints:
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before modifying sensitive data fields
+      - before transitioning to a terminal state
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+  safety:
+    action_permissions:
+      - action: backfill_success
+        permission: autonomous
+      - action: backfill_rejected
+        permission: supervised
+      - action: join_via_federation
+        permission: autonomous
+      - action: invite_via_federation
+        permission: autonomous
+      - action: federation_denied
+        permission: autonomous
+      - action: event_signature_invalid
+        permission: autonomous
+  tradeoffs:
+    - prefer: availability
+      over: cost
+      reason: infrastructure downtime impacts all dependent services
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+      - state transitions follow the defined state machine — no illegal transitions
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: room_lifecycle
+        from: room-lifecycle
+        fallback: fail
+      - capability: room_power_levels
+        from: room-power-levels
+        fallback: fail
+      - capability: room_state_history
+        from: room-state-history
+        fallback: fail
+
+extensions:
+  source:
+    repo: "https://github.com/element-hq/synapse"
+    project: "Synapse Matrix homeserver"
+    tech_stack: "Python / Twisted async"
+    files_traced: 15
+    entry_points:
+      - "synapse/handlers/federation.py"
+      - "synapse/federation/sender/__init__.py"
+      - "synapse/federation/federation_client.py"

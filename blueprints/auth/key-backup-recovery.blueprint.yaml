@@ -1,0 +1,264 @@
+# ============================================================
+# ENCRYPTED KEY BACKUP AND RECOVERY — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/element-hq/synapse
+# Source project: Synapse (Matrix homeserver, Python/Twisted)
+# ============================================================
+
+feature: key-backup-recovery
+version: "1.0.0"
+description: "Securely back up and restore end-to-end encryption session keys. Keys are client-encrypted before upload; server stores only opaque ciphertext with versioned etag tracking."
+category: auth
+tags: [key-backup, recovery, e2e, encryption, megolm, versioning]
+
+actors:
+  - id: user_device
+    name: User Device
+    type: human
+    description: Device uploading keys to backup or downloading them for recovery
+  - id: homeserver
+    name: Homeserver
+    type: system
+    description: Server storing encrypted backup data without access to plaintext keys
+
+fields:
+  - name: backup_version
+    type: text
+    required: true
+    label: "Identifier of the active backup version"
+  - name: etag
+    type: text
+    required: false
+    label: "Incrementing tag tracking the number of modifications to a backup version"
+  - name: room_id
+    type: token
+    required: false
+    label: "Room whose session keys are being backed up"
+  - name: session_id
+    type: token
+    required: false
+    label: "Identifier of the specific encryption session within a room"
+  - name: session_data
+    type: json
+    required: false
+    label: "Encrypted session key payload; opaque to the server"
+  - name: first_message_index
+    type: number
+    required: false
+    label: "Index of the earliest message this session key can decrypt"
+  - name: forwarded_count
+    type: number
+    required: false
+    label: "Number of times this key has been forwarded between devices"
+  - name: is_verified
+    type: boolean
+    required: false
+    label: "Whether the uploading device has verified the key's authenticity"
+
+states:
+  field: backup_version_status
+  values:
+    - id: active
+      description: This is the current backup version accepting uploads
+      initial: true
+    - id: superseded
+      description: A newer backup version has been created; this version is read-only
+      terminal: true
+  transitions:
+    - from: active
+      to: superseded
+      actor: user_device
+      description: User creates a new backup version, transitioning the old one to superseded
+
+rules:
+  integrity:
+    - "Backup data is encrypted by the client before upload; server never has access to plaintext session keys"
+    - "Uploads must specify the current backup version; mismatched versions are rejected"
+    - "Read operations acquire a shared lock; write operations acquire an exclusive lock per user to prevent races"
+    - "Version transitions are atomic; no writes are accepted to the old version after transition begins"
+    - "The etag is incremented on every successful upload to allow clients to detect missed updates"
+  isolation:
+    - "Backup versions are per-user; multiple users' backups are fully isolated"
+    - "Deleting a backup version removes all associated session key data irreversibly"
+
+outcomes:
+  backup_version_created:
+    priority: 1
+    given:
+      - "user is authenticated"
+      - "no concurrent version transition is in progress"
+    then:
+      - action: create_record
+        type: backup_version
+        target: key_backup
+        description: New backup version record created with initial etag of 0
+      - action: emit_event
+        event: key_backup.version_created
+        payload: [user_id, backup_version]
+    result: "New backup version is active and accepts key uploads"
+
+  keys_uploaded:
+    priority: 2
+    given:
+      - "uploaded version matches the current active version"
+      - "write lock is available"
+    then:
+      - action: create_record
+        type: session_keys
+        target: key_backup
+        description: Session keys merged into backup; etag incremented
+      - action: set_field
+        target: etag
+        description: Etag incremented to reflect the change
+      - action: emit_event
+        event: key_backup.keys_uploaded
+        payload: [user_id, backup_version, room_count, session_count, etag]
+    result: "Keys are safely stored; client can discard local copy"
+
+  keys_retrieved:
+    priority: 3
+    given:
+      - "requester is authenticated as the backup owner"
+      - "backup version exists"
+      - "read lock is available"
+    then:
+      - action: emit_event
+        event: key_backup.keys_retrieved
+        payload: [user_id, backup_version, room_id, session_id]
+    result: "Encrypted session keys returned; client decrypts and restores local encryption state"
+
+  version_mismatch:
+    priority: 4
+    error: KEY_BACKUP_VERSION_MISMATCH
+    given:
+      - "uploaded version does not match the current active backup version"
+    then: []
+    result: "Upload rejected; client should retrieve the current version and retry"
+
+  backup_not_found:
+    priority: 5
+    error: KEY_BACKUP_NOT_FOUND
+    given:
+      - "requested backup version does not exist"
+    then: []
+    result: "Operation fails; client should create a new backup version"
+
+  backup_version_deleted:
+    priority: 6
+    given:
+      - "user requests deletion of a backup version"
+      - "version exists"
+    then:
+      - action: delete_record
+        type: backup_version
+        target: key_backup
+        description: All session keys for the version removed; version record deleted
+      - action: emit_event
+        event: key_backup.version_deleted
+        payload: [user_id, backup_version]
+    result: "Backup version and all its key data permanently removed"
+
+errors:
+  - code: KEY_BACKUP_VERSION_MISMATCH
+    status: 403
+    message: "The specified backup version does not match the current version"
+  - code: KEY_BACKUP_NOT_FOUND
+    status: 404
+    message: "Backup version not found"
+
+events:
+  - name: key_backup.version_created
+    description: "A new key backup version has been created"
+    payload: [user_id, backup_version]
+  - name: key_backup.keys_uploaded
+    description: "Session keys were successfully uploaded to a backup version"
+    payload: [user_id, backup_version, room_count, session_count, etag]
+  - name: key_backup.keys_retrieved
+    description: "Encrypted session keys were retrieved for recovery"
+    payload: [user_id, backup_version]
+  - name: key_backup.version_deleted
+    description: "A backup version and all its key data were permanently removed"
+    payload: [user_id, backup_version]
+
+related:
+  - feature: e2e-key-exchange
+    type: required
+    reason: "Session keys generated during key exchange are the data being backed up"
+  - feature: cross-signing-verification
+    type: recommended
+    reason: "Cross-signing trust level of the uploading device is recorded in is_verified"
+
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_key_backup_recovery
+      description: Securely back up and restore end-to-end encryption session keys. Keys are client-encrypted before upload;
+        server stores only opaque ciphertext with versioned etag tracking.
+      success_metrics:
+        - metric: unauthorized_access_rate
+          target: 0%
+          measurement: Failed authorization attempts that succeed
+        - metric: response_time_p95
+          target: < 500ms
+          measurement: 95th percentile response time
+      constraints:
+        - type: security
+          description: Follow OWASP security recommendations
+          negotiable: false
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before modifying sensitive data fields
+      - before transitioning to a terminal state
+      - before permanently deleting records
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+  safety:
+    action_permissions:
+      - action: backup_version_created
+        permission: supervised
+      - action: keys_uploaded
+        permission: autonomous
+      - action: keys_retrieved
+        permission: autonomous
+      - action: version_mismatch
+        permission: autonomous
+      - action: backup_not_found
+        permission: autonomous
+      - action: backup_version_deleted
+        permission: human_required
+  tradeoffs:
+    - prefer: security
+      over: performance
+      reason: authentication must prioritize preventing unauthorized access
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+      - state transitions follow the defined state machine — no illegal transitions
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: e2e_key_exchange
+        from: e2e-key-exchange
+        fallback: fail
+
+extensions:
+  source:
+    repo: "https://github.com/element-hq/synapse"
+    project: "Synapse Matrix homeserver"
+    tech_stack: "Python / Twisted async"
+    files_traced: 4
+    entry_points:
+      - "synapse/handlers/e2e_room_keys.py"
+      - "synapse/storage/databases/main/e2e_room_keys.py"

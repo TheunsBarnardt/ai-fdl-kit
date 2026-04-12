@@ -15,7 +15,12 @@ Authentication, identity, and session management blueprints.
 |-----------|-------------|----------|
 | [Api Key Management]({{ site.baseurl }}/blueprints/auth/api-key-management/) | Create, rotate, revoke, and scope API keys for programmatic access | 1.0.0 |
 | [Biometric Auth]({{ site.baseurl }}/blueprints/auth/biometric-auth/) | Palm vein biometric authentication — alternative to password login with enrollment of up to 2 palms per user | 1.0.0 |
+| [Cross Signing Verification]({{ site.baseurl }}/blueprints/auth/cross-signing-verification/) | Three-key trust hierarchy for verifying devices and users. Master key signs self-signing and user-signing keys. All uploads are cryptographically validated before storage. | 1.0.0 |
+| [Device Management]({{ site.baseurl }}/blueprints/auth/device-management/) | Track all client sessions as named devices per user account. List, rename, and delete devices with cascading cleanup. Auto-purge devices inactive beyond retention period. | 1.0.0 |
+| [E2e Key Exchange]({{ site.baseurl }}/blueprints/auth/e2e-key-exchange/) | Manages cryptographic key material for end-to-end encrypted messaging. Handles device key publication, one-time pre-key upload/claiming, and cross-server key queries. | 1.0.0 |
 | [Email Verification]({{ site.baseurl }}/blueprints/auth/email-verification/) | Verify user email ownership via a one-time token link | 1.0.0 |
+| [Identity Lookup]({{ site.baseurl }}/blueprints/auth/identity-lookup/) | Bridge between user contact details (email, phone) and messaging identities via external identity servers. Enables invitations before account creation and contact binding. | 1.0.0 |
+| [Key Backup Recovery]({{ site.baseurl }}/blueprints/auth/key-backup-recovery/) | Securely back up and restore end-to-end encryption session keys. Keys are client-encrypted before upload; server stores only opaque ciphertext with versioned etag tracking. | 1.0.0 |
 | [Ldap Authentication Sync]({{ site.baseurl }}/blueprints/auth/ldap-authentication-sync/) | Directory service authentication and periodic synchronization that validates credentials against an LDAP/Active Directory server and keeps user profiles and group memberships current with the... | 1.0.0 |
 | [Login]({{ site.baseurl }}/blueprints/auth/login/) | Authenticate a user with email and password | 1.0.0 |
 | [Logout]({{ site.baseurl }}/blueprints/auth/logout/) | End a user session and clear all authentication tokens | 1.0.0 |

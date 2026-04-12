@@ -1,0 +1,212 @@
+# ============================================================
+# GUEST ACCESS TO ROOMS — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/element-hq/synapse
+# Source project: Synapse (Matrix homeserver, Python/Twisted)
+# ============================================================
+
+feature: guest-room-access
+version: "1.0.0"
+description: "Allow unauthenticated guest users to access rooms without a full account. Room owners control guest access via a state event. Revoking access removes existing guests."
+category: access
+tags: [guest, anonymous, access-control, room, membership]
+
+actors:
+  - id: guest_user
+    name: Guest User
+    type: human
+    description: User with a temporary identity not registered as a full account
+  - id: room_admin
+    name: Room Administrator
+    type: human
+    description: User with power to enable or disable guest access
+  - id: homeserver
+    name: Homeserver
+    type: system
+    description: Server enforcing the guest access policy
+
+fields:
+  - name: room_id
+    type: token
+    required: true
+    label: "Room the guest is attempting to access"
+  - name: guest_access
+    type: select
+    required: true
+    label: "Current guest access policy for the room"
+    options:
+      - value: can_join
+        label: "Can Join"
+      - value: forbidden
+        label: "Forbidden"
+  - name: is_guest
+    type: boolean
+    required: false
+    label: "Flag on the membership event indicating the member is a guest"
+
+states:
+  field: guest_access
+  values:
+    - id: forbidden
+      description: Guests may not join this room
+      initial: true
+    - id: can_join
+      description: Guests are permitted to join and observe the room
+  transitions:
+    - from: forbidden
+      to: can_join
+      actor: room_admin
+      description: Room admin sends a guest access state event enabling guest joins
+    - from: can_join
+      to: forbidden
+      actor: room_admin
+      description: Room admin revokes guest access; existing guests are kicked
+
+rules:
+  guest_access:
+    - "Guest access is a local-server concept; federation does not propagate guest identity across servers"
+    - "A room must have an explicit guest_access state event set to can_join before guests may enter"
+    - "If no guest_access state event exists the room is treated as having guest access forbidden"
+    - "Guest membership events carry a kind field set to guest to distinguish them from regular members"
+    - "When guest access is revoked all existing guest members are immediately removed from the room"
+    - "Guests may observe messages but their ability to send messages depends on the room's event power levels"
+    - "Server configuration may disable guest access globally regardless of per-room settings"
+
+outcomes:
+  guest_joined:
+    priority: 1
+    given:
+      - "room has a guest_access state event with value can_join"
+      - "server configuration permits guest access"
+    then:
+      - action: transition_state
+        field: membership
+        from: leave
+        to: join
+      - action: emit_event
+        event: guest.joined
+        payload: [guest_user_id, room_id]
+    result: "Guest user is a member and can receive room messages"
+
+  guest_access_revoked:
+    priority: 2
+    given:
+      - "room admin changes guest_access state event to forbidden"
+      - "existing guest members are present in the room"
+    then:
+      - action: set_field
+        target: guest_access
+        value: forbidden
+      - action: emit_event
+        event: guest.access_revoked
+        payload: [room_id, kicked_guest_count]
+    result: "All existing guests are removed; future guest joins are rejected"
+
+  guest_join_denied:
+    priority: 3
+    error: GUEST_ACCESS_FORBIDDEN
+    given:
+      - any:
+          - "no guest_access state event exists in the room"
+          - "guest_access state event is set to forbidden"
+          - "server configuration disables guest access"
+    then: []
+    result: "Guest join rejected with forbidden error"
+
+errors:
+  - code: GUEST_ACCESS_FORBIDDEN
+    status: 403
+    message: "Guest access is not permitted for this room"
+
+events:
+  - name: guest.joined
+    description: "A guest user has joined a room with guest access enabled"
+    payload: [guest_user_id, room_id]
+  - name: guest.access_revoked
+    description: "Guest access was disabled and existing guests were removed"
+    payload: [room_id, kicked_guest_count]
+
+related:
+  - feature: room-invitations
+    type: required
+    reason: "Guest join follows the same membership state machine as regular joins"
+  - feature: room-power-levels
+    type: required
+    reason: "Guest users' ability to send events is constrained by power level thresholds"
+  - feature: room-state-history
+    type: required
+    reason: "Guest access policy is stored as a room state event"
+
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_guest_room_access
+      description: Allow unauthenticated guest users to access rooms without a full account. Room owners control guest access
+        via a state event. Revoking access removes existing guests.
+      success_metrics:
+        - metric: unauthorized_access_rate
+          target: 0%
+          measurement: Failed authorization attempts that succeed
+        - metric: response_time_p95
+          target: < 500ms
+          measurement: 95th percentile response time
+      constraints:
+        - type: security
+          description: Follow OWASP security recommendations
+          negotiable: false
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before modifying sensitive data fields
+      - before transitioning to a terminal state
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+  safety:
+    action_permissions:
+      - action: guest_joined
+        permission: autonomous
+      - action: guest_access_revoked
+        permission: human_required
+      - action: guest_join_denied
+        permission: autonomous
+  tradeoffs:
+    - prefer: security
+      over: usability
+      reason: access control must enforce least-privilege principle
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+      - state transitions follow the defined state machine — no illegal transitions
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: room_invitations
+        from: room-invitations
+        fallback: fail
+      - capability: room_power_levels
+        from: room-power-levels
+        fallback: fail
+      - capability: room_state_history
+        from: room-state-history
+        fallback: fail
+
+extensions:
+  source:
+    repo: "https://github.com/element-hq/synapse"
+    project: "Synapse Matrix homeserver"
+    tech_stack: "Python / Twisted async"
+    files_traced: 5
+    entry_points:
+      - "synapse/handlers/room_member.py"
+      - "synapse/handlers/room.py"

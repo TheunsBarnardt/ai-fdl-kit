@@ -1,0 +1,271 @@
+# ============================================================
+# APPLICATION SERVICES / BRIDGES — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/element-hq/synapse
+# Source project: Synapse (Matrix homeserver, Python/Twisted)
+# ============================================================
+
+feature: application-services
+version: "1.0.0"
+description: "Connect the messaging server to external systems through registered bridges. Services receive a filtered event stream, provision virtual users/rooms, and respond to existence queries."
+category: integration
+tags: [bridge, appservice, integration, bot, virtual-users, webhooks]
+
+actors:
+  - id: application_service
+    name: Application Service
+    type: external
+    description: Registered external program that consumes and produces room events
+  - id: homeserver
+    name: Homeserver
+    type: system
+    description: Server routing events to registered services and enforcing namespace rules
+  - id: user
+    name: User
+    type: human
+    description: User whose events may be routed to application services
+
+fields:
+  - name: service_id
+    type: token
+    required: true
+    label: "Unique identifier for the registered application service"
+  - name: as_token
+    type: token
+    required: true
+    label: "Shared secret the service presents to authenticate inbound requests"
+  - name: hs_token
+    type: token
+    required: true
+    label: "Shared secret the homeserver presents when calling the service"
+  - name: user_namespace_regex
+    type: text
+    required: false
+    label: "Regular expression matching user IDs managed by this service"
+  - name: room_alias_regex
+    type: text
+    required: false
+    label: "Regular expression matching room aliases managed by this service"
+  - name: exclusive
+    type: boolean
+    required: false
+    label: "Whether the namespace is exclusively owned by this service"
+  - name: transaction_id
+    type: token
+    required: false
+    label: "Identifier for an event batch delivered to the service"
+  - name: last_processed_position
+    type: number
+    required: false
+    label: "Stream position tracking how far the service has received events"
+
+states:
+  field: service_delivery_status
+  values:
+    - id: idle
+      description: No pending events; service is up to date
+      initial: true
+    - id: delivering
+      description: Event batch is being sent to the service
+    - id: retrying
+      description: Delivery failed; waiting for backoff before retry
+    - id: failed
+      description: Service is consistently unreachable; events are queued
+  transitions:
+    - from: idle
+      to: delivering
+      actor: homeserver
+      description: New events arrive that match the service's interest patterns
+    - from: delivering
+      to: idle
+      actor: application_service
+      description: Service acknowledges successful receipt
+    - from: delivering
+      to: retrying
+      actor: homeserver
+      description: Service returns an error or does not respond
+    - from: retrying
+      to: delivering
+      actor: homeserver
+      description: Backoff window expires; retry attempted
+
+rules:
+  namespaces:
+    - "Application services register interest using regular expressions for user IDs, room aliases, and room IDs"
+    - "Exclusive namespaces prevent other users and services from creating users or aliases in that pattern"
+  delivery:
+    - "Events are delivered in strictly sequential order per service; new batch not sent until previous acknowledged"
+    - "Before delivering an event, the homeserver queries the service to check if an unknown user should be provisioned"
+    - "A maximum of 100 events are batched per transaction"
+    - "Failed deliveries are retried with exponential backoff; last processed position persisted for recovery"
+    - "Ephemeral events (typing, presence, read receipts) are delivered separately from room events"
+    - "Services may act as users in their namespace by authenticating with their service token"
+
+outcomes:
+  events_delivered:
+    priority: 1
+    given:
+      - "one or more room events match the service's interest patterns"
+      - "previous transaction was acknowledged"
+    then:
+      - action: notify
+        channel: appservice_transaction
+        description: Event batch sent as a transaction to the service's endpoint
+      - action: set_field
+        target: last_processed_position
+        description: Stream position advanced after acknowledgement
+      - action: emit_event
+        event: appservice.events_delivered
+        payload: [service_id, transaction_id, event_count]
+    result: "Service receives and processes the events"
+
+  user_provisioned:
+    priority: 2
+    given:
+      - "homeserver encounters an unknown user ID"
+      - "user ID matches the service's user namespace"
+    then:
+      - action: call_service
+        target: appservice_user_query
+        description: Homeserver queries the service's user existence endpoint
+      - action: emit_event
+        event: appservice.user_provisioned
+        payload: [service_id, user_id]
+    result: "Service creates the virtual user; subsequent operations proceed"
+
+  alias_provisioned:
+    priority: 3
+    given:
+      - "homeserver encounters an unknown room alias"
+      - "alias matches the service's alias namespace"
+    then:
+      - action: call_service
+        target: appservice_alias_query
+        description: Homeserver queries the service's alias existence endpoint
+      - action: emit_event
+        event: appservice.alias_provisioned
+        payload: [service_id, alias]
+    result: "Service creates the room for the alias; lookup resolves successfully"
+
+  delivery_failed:
+    priority: 4
+    given:
+      - "service endpoint returns an error or times out"
+    then:
+      - action: emit_event
+        event: appservice.delivery_failed
+        payload: [service_id, transaction_id, retry_count]
+    result: "Delivery retried with backoff; event stream paused for this service"
+
+  namespace_conflict:
+    priority: 5
+    error: APPSERVICE_NAMESPACE_CONFLICT
+    given:
+      - "user or alias creation targets an exclusive namespace owned by another service"
+    then: []
+    result: "Creation rejected; namespace is reserved"
+
+errors:
+  - code: APPSERVICE_NAMESPACE_CONFLICT
+    status: 403
+    message: "This alias or user ID is reserved by a registered application service"
+  - code: APPSERVICE_SERVICE_UNAVAILABLE
+    status: 503
+    message: "Application service is currently unavailable"
+
+events:
+  - name: appservice.events_delivered
+    description: "A batch of room events was successfully delivered to a service"
+    payload: [service_id, transaction_id, event_count]
+  - name: appservice.user_provisioned
+    description: "A service provisioned a virtual user in response to a query"
+    payload: [service_id, user_id]
+  - name: appservice.alias_provisioned
+    description: "A service provisioned a room in response to an alias query"
+    payload: [service_id, alias]
+  - name: appservice.delivery_failed
+    description: "Event delivery to a service failed; retry scheduled"
+    payload: [service_id, transaction_id, retry_count]
+
+related:
+  - feature: room-aliases
+    type: required
+    reason: "Application services enforce exclusive namespace rules on alias creation"
+  - feature: room-lifecycle
+    type: recommended
+    reason: "Services can create rooms on behalf of users in their namespace"
+  - feature: server-federation
+    type: recommended
+    reason: "Services may bridge federated rooms from external networks"
+
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_application_services
+      description: Connect the messaging server to external systems through registered bridges. Services receive a filtered
+        event stream, provision virtual users/rooms, and respond to existence queries.
+      success_metrics:
+        - metric: success_rate
+          target: ">= 99.5%"
+          measurement: Successful operations divided by total attempts
+        - metric: error_recovery_rate
+          target: ">= 95%"
+          measurement: Errors that auto-recover without manual intervention
+      constraints:
+        - type: availability
+          description: Must degrade gracefully when dependencies are unavailable
+          negotiable: false
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before modifying sensitive data fields
+      - before transitioning to a terminal state
+    escalation_triggers:
+      - error_rate > 5
+  safety:
+    action_permissions:
+      - action: events_delivered
+        permission: autonomous
+      - action: user_provisioned
+        permission: autonomous
+      - action: alias_provisioned
+        permission: autonomous
+      - action: delivery_failed
+        permission: autonomous
+      - action: namespace_conflict
+        permission: autonomous
+  tradeoffs:
+    - prefer: reliability
+      over: throughput
+      reason: integration failures can cascade across systems
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+      - state transitions follow the defined state machine — no illegal transitions
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: room_aliases
+        from: room-aliases
+        fallback: degrade
+
+extensions:
+  source:
+    repo: "https://github.com/element-hq/synapse"
+    project: "Synapse Matrix homeserver"
+    tech_stack: "Python / Twisted async"
+    files_traced: 10
+    entry_points:
+      - "synapse/handlers/appservice.py"
+      - "synapse/appservice/scheduler.py"
+      - "synapse/appservice/api.py"

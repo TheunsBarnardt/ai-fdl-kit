@@ -1,0 +1,247 @@
+# ============================================================
+# CROSS-SIGNING DEVICE VERIFICATION — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/element-hq/synapse
+# Source project: Synapse (Matrix homeserver, Python/Twisted)
+# ============================================================
+
+feature: cross-signing-verification
+version: "1.0.0"
+description: "Three-key trust hierarchy for verifying devices and users. Master key signs self-signing and user-signing keys. All uploads are cryptographically validated before storage."
+category: auth
+tags: [e2e, cross-signing, verification, trust, keys, identity, security]
+
+actors:
+  - id: key_owner
+    name: Key Owner
+    type: human
+    description: User uploading or updating their cross-signing keys
+  - id: verifying_user
+    name: Verifying User
+    type: human
+    description: User checking another user's key signatures to establish trust
+  - id: homeserver
+    name: Homeserver
+    type: system
+    description: Server validating cryptographic signatures and storing keys
+
+fields:
+  - name: master_key
+    type: json
+    required: false
+    label: "Root key for the account; all other keys must be signed by this key"
+  - name: self_signing_key
+    type: json
+    required: false
+    label: "Key used to sign the owner's own device keys; must be signed by master_key"
+  - name: user_signing_key
+    type: json
+    required: false
+    label: "Key used to sign other users' master keys (trust delegation); must be signed by master_key"
+  - name: user_id
+    type: text
+    required: true
+    label: "Account the cross-signing keys belong to"
+  - name: signatures
+    type: json
+    required: true
+    label: "Cryptographic signatures on each key proving its authority chain"
+
+rules:
+  key_hierarchy:
+    - "All three key types must be signed by the master key before they can be stored"
+    - "A master key must already exist before other keys can be uploaded, or all three can be uploaded together"
+    - "Uploading a new master key invalidates all existing device verifications for the account"
+    - "Self-signing keys sign the owner's own device keys"
+    - "User-signing keys sign other users' master keys for trust delegation"
+  notifications:
+    - "Master or self-signing key updates trigger device list update notifications to all users in shared rooms"
+    - "User-signing key updates only notify the key owner (not broadcast to room members)"
+    - "All signature verification uses canonical JSON serialization"
+
+outcomes:
+  keys_uploaded:
+    priority: 1
+    given:
+      - "all submitted keys carry valid signatures from the master key"
+      - any:
+          - "master key is being uploaded alongside other keys"
+          - "master key already exists on the server"
+    then:
+      - action: create_record
+        type: cross_signing_keys
+        target: key_store
+        description: Cross-signing keys persisted to key store
+      - action: emit_event
+        event: cross_signing.keys_uploaded
+        payload: [user_id, key_types_updated]
+    result: "Keys are stored and trust hierarchy is established"
+
+  master_key_updated:
+    priority: 2
+    given:
+      - "new master key is valid"
+      - "master key differs from the existing one"
+    then:
+      - action: create_record
+        type: cross_signing_keys
+        target: key_store
+        description: New master key stored; prior device verifications invalidated
+      - action: emit_event
+        event: cross_signing.master_key_updated
+        payload: [user_id]
+      - action: notify
+        channel: device_list_update
+        description: Device list update broadcast to all users in shared encrypted rooms
+    result: "Account's root of trust is rotated; remote devices are notified"
+
+  user_signing_key_updated:
+    priority: 3
+    given:
+      - "new user-signing key carries valid master key signature"
+    then:
+      - action: create_record
+        type: cross_signing_keys
+        target: key_store
+        description: User-signing key stored
+      - action: emit_event
+        event: cross_signing.user_signing_key_updated
+        payload: [user_id]
+      - action: notify
+        channel: user_signature_update
+        description: Signature update notification sent only to the key owner
+    result: "Key owner can now sign other users' master keys to extend trust"
+
+  keys_queried:
+    priority: 4
+    given:
+      - "requester is authenticated"
+      - "target user's keys are available locally or via federation"
+    then:
+      - action: emit_event
+        event: cross_signing.keys_retrieved
+        payload: [querying_user_id, target_user_id]
+    result: "Requester receives target user's cross-signing key bundle"
+
+  invalid_signature:
+    priority: 5
+    error: CROSS_SIGNING_SIGNATURE_INVALID
+    given:
+      - any:
+          - "master key signature fails cryptographic verification"
+          - "self-signing key is not validly signed by master key"
+          - "user-signing key is not validly signed by master key"
+    then: []
+    result: "Key upload rejected; no keys stored"
+
+  master_key_missing:
+    priority: 6
+    error: CROSS_SIGNING_MASTER_KEY_MISSING
+    given:
+      - "self-signing or user-signing key uploaded without a master key"
+      - "no master key exists on the server for this account"
+    then: []
+    result: "Upload rejected; master key must be established first"
+
+errors:
+  - code: CROSS_SIGNING_SIGNATURE_INVALID
+    status: 400
+    message: "One or more cross-signing keys have invalid signatures"
+  - code: CROSS_SIGNING_MASTER_KEY_MISSING
+    status: 400
+    message: "A master key must be provided before uploading other cross-signing keys"
+  - code: CROSS_SIGNING_KEY_NOT_FOUND
+    status: 404
+    message: "No cross-signing keys found for this user"
+
+events:
+  - name: cross_signing.keys_uploaded
+    description: "One or more cross-signing keys were successfully stored"
+    payload: [user_id, key_types_updated]
+  - name: cross_signing.master_key_updated
+    description: "The account's master key was replaced; device verifications may need renewal"
+    payload: [user_id]
+  - name: cross_signing.user_signing_key_updated
+    description: "The user-signing key was updated; only the key owner is notified"
+    payload: [user_id]
+  - name: cross_signing.keys_retrieved
+    description: "A user's cross-signing key bundle was returned to a requester"
+    payload: [querying_user_id, target_user_id]
+
+related:
+  - feature: e2e-key-exchange
+    type: required
+    reason: "Cross-signing keys are bundled with device keys in key query responses"
+  - feature: device-management
+    type: required
+    reason: "Cross-signing updates trigger device list broadcasts; device deletions affect key associations"
+
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_cross_signing_verification
+      description: Three-key trust hierarchy for verifying devices and users. Master key signs self-signing and user-signing
+        keys. All uploads are cryptographically validated before storage.
+      success_metrics:
+        - metric: unauthorized_access_rate
+          target: 0%
+          measurement: Failed authorization attempts that succeed
+        - metric: response_time_p95
+          target: < 500ms
+          measurement: 95th percentile response time
+      constraints:
+        - type: security
+          description: Follow OWASP security recommendations
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before making irreversible changes
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+  safety:
+    action_permissions:
+      - action: keys_uploaded
+        permission: autonomous
+      - action: master_key_updated
+        permission: supervised
+      - action: user_signing_key_updated
+        permission: supervised
+      - action: keys_queried
+        permission: autonomous
+      - action: invalid_signature
+        permission: autonomous
+      - action: master_key_missing
+        permission: autonomous
+  tradeoffs:
+    - prefer: security
+      over: performance
+      reason: authentication must prioritize preventing unauthorized access
+  verification:
+    invariants:
+      - error messages never expose internal system details
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: e2e_key_exchange
+        from: e2e-key-exchange
+        fallback: fail
+      - capability: device_management
+        from: device-management
+        fallback: fail
+
+extensions:
+  source:
+    repo: "https://github.com/element-hq/synapse"
+    project: "Synapse Matrix homeserver"
+    tech_stack: "Python / Twisted async"
+    files_traced: 5
+    entry_points:
+      - "synapse/handlers/e2e_keys.py"
+      - "synapse/storage/databases/main/end_to_end_keys.py"
