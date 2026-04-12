@@ -1,0 +1,503 @@
+# ============================================================
+# FRAUD-DETECTION — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Real-time transaction fraud detection and risk scoring for
+# payment terminals. Covers velocity checks, amount anomalies,
+# device fingerprinting, risk scoring, auto-blocking, manual
+# review queues, and whitelist/blacklist management.
+# ============================================================
+
+feature: fraud-detection
+version: "1.0.0"
+description: "Real-time transaction fraud detection with risk scoring, velocity checks, anomaly detection, and auto-blocking for payment terminals"
+category: payment
+tags: [fraud, risk-scoring, security, velocity, anomaly-detection]
+
+actors:
+  - id: terminal_app
+    name: "Terminal Application"
+    type: system
+    description: "Submits transactions for risk scoring before processing"
+    role: "risk-requester"
+
+  - id: risk_engine
+    name: "Risk Engine"
+    type: system
+    description: "Evaluates transactions against fraud rules and ML models"
+    role: "risk-evaluator"
+
+  - id: fraud_analyst
+    name: "Fraud Analyst"
+    type: human
+    description: "Reviews flagged transactions and makes final decisions"
+    role: "manual-reviewer"
+
+  - id: fleet_admin
+    name: "Fleet Administrator"
+    type: human
+    description: "Manages whitelists, blacklists, and risk thresholds"
+    role: "rule-manager"
+
+fields:
+  - name: risk_assessment_id
+    type: token
+    required: true
+    label: "Risk Assessment ID"
+
+  - name: transaction_id
+    type: token
+    required: true
+    label: "Transaction ID"
+
+  - name: terminal_id
+    type: text
+    required: true
+    label: "Terminal ID"
+
+  - name: merchant_id
+    type: text
+    required: true
+    label: "Merchant ID"
+
+  - name: payment_method
+    type: select
+    required: true
+    label: "Payment Method"
+    options:
+      - value: "palm"
+        label: "Palm Vein"
+      - value: "card"
+        label: "Card"
+
+  - name: amount
+    type: number
+    required: true
+    label: "Transaction Amount"
+    validation:
+      - type: min
+        value: 0.01
+        message: "Amount must be greater than zero"
+
+  - name: risk_score
+    type: number
+    required: false
+    label: "Risk Score (0-100)"
+    # 0 = no risk, 100 = certain fraud
+    validation:
+      - type: min
+        value: 0
+        message: "Risk score cannot be negative"
+      - type: max
+        value: 100
+        message: "Risk score cannot exceed 100"
+
+  - name: risk_verdict
+    type: select
+    required: true
+    label: "Risk Verdict"
+    options:
+      - value: "approved"
+        label: "Approved"
+      - value: "flagged"
+        label: "Flagged for Review"
+      - value: "blocked"
+        label: "Blocked"
+
+  - name: risk_factors
+    type: json
+    required: false
+    label: "Risk Factors"
+    # Array of factors that contributed to the risk score
+
+  - name: velocity_window_minutes
+    type: number
+    required: true
+    label: "Velocity Check Window (minutes)"
+    default: 5
+
+  - name: velocity_max_count
+    type: number
+    required: true
+    label: "Max Transactions in Window"
+    default: 5
+
+  - name: velocity_max_amount
+    type: number
+    required: true
+    label: "Max Amount in Window"
+    default: 10000
+
+  - name: auto_block_threshold
+    type: number
+    required: true
+    label: "Auto-Block Risk Score Threshold"
+    default: 85
+
+  - name: flag_threshold
+    type: number
+    required: true
+    label: "Flag for Review Threshold"
+    default: 60
+
+  - name: review_status
+    type: select
+    required: false
+    label: "Review Status"
+    options:
+      - value: "pending_review"
+        label: "Pending Review"
+      - value: "under_review"
+        label: "Under Review"
+      - value: "cleared"
+        label: "Cleared"
+      - value: "confirmed_fraud"
+        label: "Confirmed Fraud"
+
+  - name: reviewer_id
+    type: text
+    required: false
+    label: "Reviewer ID"
+
+  - name: review_notes
+    type: text
+    required: false
+    label: "Review Notes"
+
+  - name: device_fingerprint
+    type: text
+    required: false
+    label: "Device Fingerprint"
+    # Hash of terminal hardware identifiers
+
+states:
+  field: review_status
+  values:
+    - id: scoring
+      label: "Scoring"
+      initial: true
+    - id: approved
+      label: "Approved"
+      terminal: true
+    - id: flagged
+      label: "Flagged for Review"
+    - id: blocked
+      label: "Blocked"
+      terminal: true
+    - id: under_review
+      label: "Under Review"
+    - id: cleared
+      label: "Cleared"
+      terminal: true
+    - id: confirmed_fraud
+      label: "Confirmed Fraud"
+      terminal: true
+
+  transitions:
+    - from: scoring
+      to: approved
+      actor: risk_engine
+      description: "Risk score below flag threshold — transaction approved"
+
+    - from: scoring
+      to: flagged
+      actor: risk_engine
+      description: "Risk score between flag and block thresholds"
+
+    - from: scoring
+      to: blocked
+      actor: risk_engine
+      description: "Risk score above auto-block threshold"
+
+    - from: flagged
+      to: under_review
+      actor: fraud_analyst
+      description: "Analyst picks up flagged transaction for review"
+
+    - from: under_review
+      to: cleared
+      actor: fraud_analyst
+      description: "Analyst clears transaction as legitimate"
+
+    - from: under_review
+      to: confirmed_fraud
+      actor: fraud_analyst
+      description: "Analyst confirms fraud — triggers account suspension"
+
+    - from: blocked
+      to: under_review
+      actor: fraud_analyst
+      description: "Analyst reviews auto-blocked transaction"
+
+rules:
+  velocity_checks:
+    transaction_count: "Block if more than velocity_max_count transactions from same proxy/card in velocity_window_minutes"
+    amount_total: "Block if total amount from same proxy/card in velocity_window_minutes exceeds velocity_max_amount"
+    terminal_velocity: "Flag if single terminal processes more than 30 transactions in 5 minutes"
+
+  amount_anomaly:
+    customer_average: "Flag if transaction amount exceeds 3x the customer's 30-day average"
+    merchant_average: "Flag if transaction amount exceeds 5x the merchant's typical transaction size"
+    round_number: "Add risk points for suspiciously round amounts (e.g., R1,000, R5,000)"
+
+  device_trust:
+    known_terminal: "Reduce risk score for transactions from registered, healthy terminals"
+    unknown_device: "Block transactions from unregistered terminal IDs"
+    tampered_device: "Auto-block transactions from terminals reporting tamper alerts"
+
+  geographic:
+    location_change: "Flag if same proxy/card used at terminals more than 100km apart within 30 minutes"
+    known_location: "Reduce risk score for transactions at customer's usual locations"
+
+  thresholds:
+    auto_approve: "Risk score 0-59: approve without review"
+    flag_for_review: "Risk score 60-84: allow transaction but queue for analyst review"
+    auto_block: "Risk score 85-100: block transaction immediately"
+    # Thresholds are configurable per merchant via fleet management
+
+  blacklist:
+    proxy_blacklist: "Permanently block transactions from blacklisted PayShap proxies"
+    card_blacklist: "Permanently block transactions from blacklisted card fingerprints"
+    terminal_blacklist: "Permanently block transactions from blacklisted terminal IDs"
+
+  whitelist:
+    trusted_proxy: "Skip velocity checks for whitelisted proxies (e.g., corporate accounts)"
+    trusted_terminal: "Reduce risk score by 10 points for whitelisted terminals"
+
+  palm_specific:
+    failed_match_velocity: "3 failed palm matches in 5 minutes triggers proxy suspension review"
+    spoof_detection: "Liveness check failure adds 50 risk points"
+
+outcomes:
+  transaction_approved:
+    priority: 1
+    given:
+      - "Transaction submitted for risk assessment"
+      - field: risk_score
+        source: computed
+        operator: lt
+        value: 60
+        description: "Risk score below flag threshold"
+    then:
+      - action: set_field
+        target: risk_verdict
+        value: "approved"
+      - action: transition_state
+        field: review_status
+        from: scoring
+        to: approved
+      - action: emit_event
+        event: fraud.transaction.approved
+        payload: [risk_assessment_id, transaction_id, risk_score]
+    result: "Transaction approved — proceed to payment processing"
+
+  transaction_flagged:
+    priority: 2
+    given:
+      - "Transaction submitted for risk assessment"
+      - field: risk_score
+        source: computed
+        operator: gte
+        value: 60
+        description: "Risk score at or above flag threshold"
+      - field: risk_score
+        source: computed
+        operator: lt
+        value: 85
+        description: "Risk score below auto-block threshold"
+    then:
+      - action: set_field
+        target: risk_verdict
+        value: "flagged"
+      - action: transition_state
+        field: review_status
+        from: scoring
+        to: flagged
+      - action: notify
+        channel: fraud_queue
+        description: "Add to fraud analyst review queue"
+      - action: emit_event
+        event: fraud.transaction.flagged
+        payload: [risk_assessment_id, transaction_id, risk_score, risk_factors]
+    result: "Transaction allowed but queued for analyst review"
+
+  transaction_blocked:
+    priority: 3
+    error: FRAUD_TRANSACTION_BLOCKED
+    given:
+      - "Transaction submitted for risk assessment"
+      - field: risk_score
+        source: computed
+        operator: gte
+        value: 85
+        description: "Risk score at or above auto-block threshold"
+    then:
+      - action: set_field
+        target: risk_verdict
+        value: "blocked"
+      - action: transition_state
+        field: review_status
+        from: scoring
+        to: blocked
+      - action: notify
+        channel: fraud_queue
+        description: "Alert fraud team of blocked transaction"
+      - action: emit_event
+        event: fraud.transaction.blocked
+        payload: [risk_assessment_id, transaction_id, risk_score, risk_factors]
+    result: "Transaction blocked — customer informed, analyst notified"
+
+  velocity_exceeded:
+    priority: 4
+    error: FRAUD_VELOCITY_EXCEEDED
+    given:
+      - "Transaction submitted for risk assessment"
+      - "Transaction count or amount from same source exceeds velocity limits within window"
+    then:
+      - action: set_field
+        target: risk_verdict
+        value: "blocked"
+      - action: set_field
+        target: risk_score
+        value: 95
+      - action: transition_state
+        field: review_status
+        from: scoring
+        to: blocked
+      - action: emit_event
+        event: fraud.velocity.exceeded
+        payload: [risk_assessment_id, transaction_id, velocity_window_minutes]
+    result: "Transaction blocked — velocity limit exceeded"
+
+  review_cleared:
+    priority: 5
+    given:
+      - field: review_status
+        source: db
+        operator: eq
+        value: "under_review"
+      - "Fraud analyst determines transaction is legitimate"
+    then:
+      - action: transition_state
+        field: review_status
+        from: under_review
+        to: cleared
+      - action: emit_event
+        event: fraud.review.cleared
+        payload: [risk_assessment_id, transaction_id, reviewer_id]
+    result: "Transaction cleared after manual review"
+
+  review_confirmed_fraud:
+    priority: 6
+    given:
+      - field: review_status
+        source: db
+        operator: eq
+        value: "under_review"
+      - "Fraud analyst confirms fraudulent activity"
+    then:
+      - action: transition_state
+        field: review_status
+        from: under_review
+        to: confirmed_fraud
+      - action: call_service
+        target: "palm_pay.suspend_link"
+        description: "Suspend the palm-pay link if palm payment"
+      - action: emit_event
+        event: fraud.review.confirmed
+        payload: [risk_assessment_id, transaction_id, reviewer_id, review_notes]
+    result: "Fraud confirmed — proxy/card suspended, investigation opened"
+    transaction: true
+
+  blacklisted_source:
+    priority: 7
+    error: FRAUD_BLACKLISTED
+    given:
+      - "Transaction source (proxy, card, or terminal) is on the blacklist"
+    then:
+      - action: set_field
+        target: risk_score
+        value: 100
+      - action: set_field
+        target: risk_verdict
+        value: "blocked"
+      - action: transition_state
+        field: review_status
+        from: scoring
+        to: blocked
+      - action: emit_event
+        event: fraud.blacklist.hit
+        payload: [risk_assessment_id, transaction_id]
+    result: "Transaction blocked — source is blacklisted"
+
+errors:
+  - code: FRAUD_TRANSACTION_BLOCKED
+    status: 403
+    message: "Transaction blocked by fraud detection — contact support"
+
+  - code: FRAUD_VELOCITY_EXCEEDED
+    status: 429
+    message: "Too many transactions in a short period — please wait and try again"
+
+  - code: FRAUD_BLACKLISTED
+    status: 403
+    message: "This payment method has been blocked"
+
+  - code: FRAUD_DEVICE_UNTRUSTED
+    status: 403
+    message: "Transaction from unrecognised terminal"
+
+  - code: FRAUD_SCORING_ERROR
+    status: 500
+    message: "Risk scoring service unavailable — transaction held for review"
+    retry: true
+
+events:
+  - name: fraud.transaction.approved
+    payload: [risk_assessment_id, transaction_id, risk_score]
+    description: "Transaction passed risk assessment"
+
+  - name: fraud.transaction.flagged
+    payload: [risk_assessment_id, transaction_id, risk_score, risk_factors]
+    description: "Transaction allowed but flagged for review"
+
+  - name: fraud.transaction.blocked
+    payload: [risk_assessment_id, transaction_id, risk_score, risk_factors]
+    description: "Transaction auto-blocked by risk engine"
+
+  - name: fraud.velocity.exceeded
+    payload: [risk_assessment_id, transaction_id, velocity_window_minutes]
+    description: "Velocity limit exceeded — transaction blocked"
+
+  - name: fraud.review.cleared
+    payload: [risk_assessment_id, transaction_id, reviewer_id]
+    description: "Flagged transaction cleared by analyst"
+
+  - name: fraud.review.confirmed
+    payload: [risk_assessment_id, transaction_id, reviewer_id, review_notes]
+    description: "Fraud confirmed by analyst"
+
+  - name: fraud.blacklist.hit
+    payload: [risk_assessment_id, transaction_id]
+    description: "Transaction from blacklisted source"
+
+related:
+  - feature: palm-pay
+    type: recommended
+    reason: "Palm pay transactions are scored for fraud before processing"
+
+  - feature: terminal-payment-flow
+    type: required
+    reason: "Payment flow calls fraud detection before executing payment"
+
+  - feature: payshap-rail
+    type: recommended
+    reason: "PayShap transactions scored before credit push"
+
+  - feature: payment-gateway
+    type: recommended
+    reason: "Card transactions scored before authorisation"
+
+  - feature: audit-logging
+    type: required
+    reason: "All fraud decisions must be logged in immutable audit trail"

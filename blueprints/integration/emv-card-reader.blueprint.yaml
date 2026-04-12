@@ -1,0 +1,606 @@
+# ============================================================
+# EMV-CARD-READER — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# EMV card reader hardware SDK integration for Android payment
+# terminals. Covers chip (contact), NFC (contactless), and
+# magnetic stripe reading, PIN entry, EMV kernel processing,
+# and PCI PTS compliance.
+# ============================================================
+
+feature: emv-card-reader
+version: "1.0.0"
+description: "EMV card reader hardware SDK integration — chip, NFC contactless, and magnetic stripe with PIN entry and EMV kernel processing"
+category: integration
+tags: [emv, card-reader, nfc, contactless, pci, hardware, sdk]
+
+actors:
+  - id: terminal_app
+    name: "Terminal Application"
+    type: system
+    description: "Android app that calls the card reader SDK to process card payments"
+    role: "integration"
+
+  - id: card_reader
+    name: "Card Reader Hardware"
+    type: external
+    description: "Built-in EMV chip, NFC, and magnetic stripe reader"
+    role: "card-capture"
+
+  - id: customer
+    name: "Customer"
+    type: human
+    description: "Presents card for payment"
+    role: "cardholder"
+
+fields:
+  - name: reader_status
+    type: select
+    required: true
+    label: "Reader Status"
+    options:
+      - value: "uninitialized"
+        label: "Uninitialised"
+      - value: "initialized"
+        label: "Initialised"
+      - value: "idle"
+        label: "Idle"
+      - value: "waiting_card"
+        label: "Waiting for Card"
+      - value: "card_detected"
+        label: "Card Detected"
+      - value: "reading"
+        label: "Reading Card"
+      - value: "pin_entry"
+        label: "PIN Entry"
+      - value: "online_auth"
+        label: "Online Authorisation"
+      - value: "complete"
+        label: "Complete"
+
+  - name: card_entry_mode
+    type: select
+    required: false
+    label: "Card Entry Mode"
+    options:
+      - value: "chip"
+        label: "EMV Chip (Contact)"
+      - value: "contactless"
+        label: "NFC Contactless"
+      - value: "magnetic_stripe"
+        label: "Magnetic Stripe"
+      - value: "manual"
+        label: "Manual Entry"
+
+  - name: card_brand
+    type: text
+    required: false
+    label: "Card Brand"
+    # Visa, Mastercard, Amex, Diners, etc.
+
+  - name: card_last_four
+    type: text
+    required: false
+    label: "Last Four Digits"
+    validation:
+      - type: pattern
+        value: "^[0-9]{4}$"
+        message: "Must be exactly 4 digits"
+
+  - name: card_token
+    type: token
+    required: false
+    label: "Card Token"
+    sensitive: true
+    # Tokenised card number — raw PAN never stored
+
+  - name: application_id
+    type: text
+    required: false
+    label: "EMV Application ID (AID)"
+    # Selected EMV application identifier
+
+  - name: application_label
+    type: text
+    required: false
+    label: "Application Label"
+    # Human-readable application name (e.g., "VISA CREDIT")
+
+  - name: encrypted_pin_block
+    type: text
+    required: false
+    label: "Encrypted PIN Block"
+    sensitive: true
+    # ISO 9564 format, encrypted with DUKPT key
+
+  - name: authorization_code
+    type: text
+    required: false
+    label: "Authorisation Code"
+
+  - name: amount
+    type: number
+    required: true
+    label: "Transaction Amount"
+    validation:
+      - type: min
+        value: 0.01
+        message: "Amount must be greater than zero"
+
+  - name: currency_code
+    type: text
+    required: true
+    label: "Currency Code"
+    default: "710"
+    # ISO 4217 numeric code for ZAR
+
+  - name: cvm_result
+    type: select
+    required: false
+    label: "Cardholder Verification Method"
+    options:
+      - value: "online_pin"
+        label: "Online PIN"
+      - value: "offline_pin"
+        label: "Offline PIN"
+      - value: "signature"
+        label: "Signature"
+      - value: "no_cvm"
+        label: "No CVM Required"
+      - value: "cdcvm"
+        label: "Consumer Device CVM"
+
+  - name: contactless_limit
+    type: number
+    required: false
+    label: "Contactless CVM Limit"
+    # Issuer-defined limit above which PIN is required for contactless
+
+  - name: emv_tags
+    type: json
+    required: false
+    label: "EMV Tag Data"
+    # TLV-encoded EMV data for online authorisation
+
+  - name: track2_equivalent
+    type: text
+    required: false
+    label: "Track 2 Equivalent Data"
+    sensitive: true
+    # For online authorisation — never stored locally
+
+states:
+  field: reader_status
+  values:
+    - id: uninitialized
+      label: "Uninitialised"
+      initial: true
+    - id: initialized
+      label: "Initialised"
+    - id: idle
+      label: "Idle"
+    - id: waiting_card
+      label: "Waiting for Card"
+    - id: card_detected
+      label: "Card Detected"
+    - id: reading
+      label: "Reading Card Data"
+    - id: pin_entry
+      label: "PIN Entry"
+    - id: online_auth
+      label: "Online Authorisation"
+    - id: complete
+      label: "Complete"
+      terminal: true
+
+  transitions:
+    - from: uninitialized
+      to: initialized
+      actor: terminal_app
+      description: "Initialise EMV kernel and card reader SDK"
+
+    - from: initialized
+      to: idle
+      actor: card_reader
+      description: "Reader ready for operations"
+
+    - from: idle
+      to: waiting_card
+      actor: terminal_app
+      description: "Start transaction — activate chip slot, NFC antenna, and magnetic stripe reader"
+
+    - from: waiting_card
+      to: card_detected
+      actor: card_reader
+      description: "Card inserted, tapped, or swiped"
+
+    - from: card_detected
+      to: reading
+      actor: card_reader
+      description: "Reading card data — ATR for chip, PPSE for NFC, track data for stripe"
+
+    - from: reading
+      to: pin_entry
+      actor: terminal_app
+      description: "Card read successful — CVM requires PIN entry"
+      condition: "cvm_result is online_pin or offline_pin"
+
+    - from: reading
+      to: online_auth
+      actor: terminal_app
+      description: "Card read successful — no PIN required (NFC under limit, no CVM)"
+      condition: "cvm_result is no_cvm or cdcvm"
+
+    - from: pin_entry
+      to: online_auth
+      actor: customer
+      description: "Customer enters PIN on terminal keypad"
+
+    - from: online_auth
+      to: complete
+      actor: terminal_app
+      description: "Online authorisation result received"
+
+    - from: waiting_card
+      to: idle
+      actor: terminal_app
+      description: "Transaction cancelled or timeout"
+
+    - from: reading
+      to: idle
+      actor: card_reader
+      description: "Card read failed — card removed or unreadable"
+
+rules:
+  emv_kernel:
+    application_selection: "PPSE (contactless) or PSE (contact) for application selection — present list if multiple AIDs"
+    terminal_action_analysis: "EMV kernel performs Terminal Action Analysis to determine online/offline/decline"
+    issuer_script_processing: "Process issuer scripts received in authorisation response"
+
+  chip_contact:
+    atr_required: "Read ATR (Answer to Reset) on card insertion"
+    application_selection: "Select application via PSE or AID list"
+    offline_data_auth: "Perform SDA/DDA/CDA as supported by card"
+    cvm_processing: "Process CVM list — online PIN preferred"
+
+  nfc_contactless:
+    ppse_selection: "Select PPSE (2PAY.SYS.DDF01) for contactless application discovery"
+    ctls_kernel: "Use appropriate contactless kernel (Visa payWave, Mastercard CTLS, Amex CTLS)"
+    cvm_limit: "If amount exceeds contactless CVM limit, require PIN or fall back to chip"
+    tap_timeout: "NFC read must complete within 500ms"
+
+  magnetic_stripe:
+    track_data: "Read Track 1 and Track 2 data"
+    fallback_only: "Magnetic stripe is fallback — prefer chip or NFC when available"
+    chip_card_detection: "If stripe-read card has chip, prompt for chip insertion (fallback prevention)"
+
+  pin_entry:
+    encrypted: "PIN entered on PCI PTS certified keypad — never in plaintext"
+    pin_block_format: "ISO 9564 PIN block format"
+    dukpt: "PIN encrypted with DUKPT (Derived Unique Key Per Transaction)"
+    max_attempts: "Maximum 3 PIN attempts before card is blocked"
+    timeout: "PIN entry times out after 30 seconds"
+
+  pci_compliance:
+    no_pan_storage: "Raw PAN (Primary Account Number) never stored on terminal"
+    tokenisation: "PAN tokenised immediately after read — only token persisted"
+    no_track_storage: "Track data never stored — transmitted for online auth only"
+    key_management: "Encryption keys managed via DUKPT — unique key per transaction"
+    tamper_detection: "Hardware tamper triggers key erasure and terminal lockdown"
+    pts_certification: "Terminal must be PCI PTS certified for PIN entry"
+
+  card_brand_detection:
+    method: "Card brand determined from EMV Application Identifier (AID) prefix"
+    visa: "AID prefix A000-0000-0310-10"
+    mastercard: "AID prefix A000-0000-0410-10"
+    amex: "AID prefix A000-0000-2501"
+    discover: "AID prefix A000-0001-5230-10"
+
+outcomes:
+  reader_initialized:
+    priority: 1
+    given:
+      - "Terminal app initialises the card reader SDK"
+    then:
+      - action: transition_state
+        field: reader_status
+        from: uninitialized
+        to: initialized
+      - action: emit_event
+        event: card.reader.initialized
+        payload: [terminal_id]
+    result: "Card reader SDK initialised and ready"
+
+  card_detected_chip:
+    priority: 2
+    given:
+      - field: reader_status
+        source: db
+        operator: eq
+        value: "waiting_card"
+      - "Customer inserts chip card"
+    then:
+      - action: set_field
+        target: card_entry_mode
+        value: "chip"
+      - action: transition_state
+        field: reader_status
+        from: waiting_card
+        to: card_detected
+      - action: emit_event
+        event: card.detected
+        payload: [card_entry_mode]
+    result: "Chip card detected — reading ATR"
+
+  card_detected_nfc:
+    priority: 3
+    given:
+      - field: reader_status
+        source: db
+        operator: eq
+        value: "waiting_card"
+      - "Customer taps card or device on NFC reader"
+    then:
+      - action: set_field
+        target: card_entry_mode
+        value: "contactless"
+      - action: transition_state
+        field: reader_status
+        from: waiting_card
+        to: card_detected
+      - action: emit_event
+        event: card.detected
+        payload: [card_entry_mode]
+    result: "Contactless card detected — reading PPSE"
+
+  card_detected_swipe:
+    priority: 4
+    given:
+      - field: reader_status
+        source: db
+        operator: eq
+        value: "waiting_card"
+      - "Customer swipes card through magnetic stripe reader"
+    then:
+      - action: set_field
+        target: card_entry_mode
+        value: "magnetic_stripe"
+      - action: transition_state
+        field: reader_status
+        from: waiting_card
+        to: card_detected
+      - action: emit_event
+        event: card.detected
+        payload: [card_entry_mode]
+    result: "Magnetic stripe card detected — reading track data"
+
+  card_read_success:
+    priority: 5
+    given:
+      - field: reader_status
+        source: db
+        operator: eq
+        value: "card_detected"
+      - "Card data read successfully"
+    then:
+      - action: set_field
+        target: card_brand
+        value: "detected from AID"
+      - action: set_field
+        target: card_last_four
+        value: "last 4 digits of PAN"
+      - action: set_field
+        target: card_token
+        value: "tokenised PAN"
+      - action: transition_state
+        field: reader_status
+        from: card_detected
+        to: reading
+      - action: emit_event
+        event: card.read.success
+        payload: [card_entry_mode, card_brand, card_last_four]
+    result: "Card data read and tokenised — ready for CVM or online auth"
+
+  pin_verified:
+    priority: 6
+    given:
+      - field: reader_status
+        source: db
+        operator: eq
+        value: "pin_entry"
+      - "Customer enters PIN on keypad"
+    then:
+      - action: set_field
+        target: encrypted_pin_block
+        value: "DUKPT-encrypted PIN block"
+      - action: transition_state
+        field: reader_status
+        from: pin_entry
+        to: online_auth
+      - action: emit_event
+        event: card.pin.entered
+        payload: [card_entry_mode]
+    result: "PIN captured and encrypted — proceeding to online authorisation"
+
+  online_auth_approved:
+    priority: 7
+    given:
+      - field: reader_status
+        source: db
+        operator: eq
+        value: "online_auth"
+      - "Issuer approves the transaction"
+    then:
+      - action: set_field
+        target: authorization_code
+        value: "from issuer response"
+      - action: transition_state
+        field: reader_status
+        from: online_auth
+        to: complete
+      - action: emit_event
+        event: card.auth.approved
+        payload: [card_brand, card_last_four, authorization_code, amount]
+    result: "Card payment authorised by issuer"
+
+  online_auth_declined:
+    priority: 8
+    error: CARD_DECLINED
+    given:
+      - field: reader_status
+        source: db
+        operator: eq
+        value: "online_auth"
+      - "Issuer declines the transaction"
+    then:
+      - action: transition_state
+        field: reader_status
+        from: online_auth
+        to: complete
+      - action: emit_event
+        event: card.auth.declined
+        payload: [card_brand, card_last_four]
+    result: "Card declined by issuer"
+
+  card_read_failed:
+    priority: 9
+    error: CARD_READ_FAILED
+    given:
+      - field: reader_status
+        source: db
+        operator: in
+        value: ["card_detected", "reading"]
+      - "Card cannot be read — damaged, removed too early, or unsupported"
+    then:
+      - action: transition_state
+        field: reader_status
+        from: reading
+        to: idle
+      - action: emit_event
+        event: card.read.failed
+        payload: [card_entry_mode]
+    result: "Card read failed — customer should try again or use different card"
+
+  pin_attempts_exceeded:
+    priority: 10
+    error: CARD_PIN_BLOCKED
+    given:
+      - field: reader_status
+        source: db
+        operator: eq
+        value: "pin_entry"
+      - "Customer exceeds maximum PIN attempts (3)"
+    then:
+      - action: transition_state
+        field: reader_status
+        from: pin_entry
+        to: complete
+      - action: emit_event
+        event: card.pin.blocked
+        payload: [card_brand, card_last_four]
+    result: "Card blocked — too many incorrect PIN attempts"
+
+  chip_fallback_required:
+    priority: 11
+    error: CARD_CHIP_FALLBACK
+    given:
+      - field: card_entry_mode
+        source: db
+        operator: eq
+        value: "magnetic_stripe"
+      - "Swiped card has an EMV chip"
+    then:
+      - action: emit_event
+        event: card.chip_fallback
+        payload: [card_brand]
+    result: "Please insert chip card instead of swiping"
+
+errors:
+  - code: CARD_DECLINED
+    status: 422
+    message: "Card was declined by the issuer"
+
+  - code: CARD_READ_FAILED
+    status: 422
+    message: "Could not read card — please try again"
+    retry: true
+
+  - code: CARD_PIN_BLOCKED
+    status: 403
+    message: "Card blocked — too many incorrect PIN attempts"
+
+  - code: CARD_CHIP_FALLBACK
+    status: 400
+    message: "Please insert your chip card instead of swiping"
+
+  - code: CARD_READER_ERROR
+    status: 500
+    message: "Card reader hardware error"
+    retry: true
+
+  - code: CARD_UNSUPPORTED
+    status: 400
+    message: "Card type not supported on this terminal"
+
+  - code: CARD_EXPIRED
+    status: 400
+    message: "Card has expired"
+
+  - code: CARD_TIMEOUT
+    status: 422
+    message: "Card read timed out — please present card again"
+    retry: true
+
+events:
+  - name: card.reader.initialized
+    payload: [terminal_id]
+    description: "Card reader SDK initialised"
+
+  - name: card.detected
+    payload: [card_entry_mode]
+    description: "Card detected — chip, NFC, or magnetic stripe"
+
+  - name: card.read.success
+    payload: [card_entry_mode, card_brand, card_last_four]
+    description: "Card data read and tokenised"
+
+  - name: card.read.failed
+    payload: [card_entry_mode]
+    description: "Card read failed"
+
+  - name: card.pin.entered
+    payload: [card_entry_mode]
+    description: "PIN captured and encrypted"
+
+  - name: card.auth.approved
+    payload: [card_brand, card_last_four, authorization_code, amount]
+    description: "Card payment authorised"
+
+  - name: card.auth.declined
+    payload: [card_brand, card_last_four]
+    description: "Card payment declined by issuer"
+
+  - name: card.pin.blocked
+    payload: [card_brand, card_last_four]
+    description: "Card blocked after too many PIN attempts"
+
+  - name: card.chip_fallback
+    payload: [card_brand]
+    description: "Chip card swiped — insert chip instead"
+
+related:
+  - feature: terminal-payment-flow
+    type: required
+    reason: "Terminal payment flow uses card reader for card payment method"
+
+  - feature: payment-gateway
+    type: required
+    reason: "Online authorisation routed through payment gateway"
+
+  - feature: payment-methods
+    type: recommended
+    reason: "Card tokenisation and brand management"
+
+  - feature: palm-vein
+    type: optional
+    reason: "Companion hardware SDK — palm scanner and card reader on same terminal"
