@@ -1,0 +1,265 @@
+{
+  "feature": "multi-vehicle-route-optimization",
+  "version": "1.0.0",
+  "description": "Distribute tasks across a heterogeneous fleet, building one ordered route per vehicle that collectively covers all assignable tasks while minimising total fleet cost.",
+  "category": "workflow",
+  "tags": [
+    "fleet-management",
+    "route-optimization",
+    "multi-vehicle",
+    "logistics"
+  ],
+  "actors": [
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Defines the fleet and the set of tasks to complete"
+    },
+    {
+      "id": "dispatcher",
+      "name": "Dispatcher",
+      "type": "human",
+      "description": "Reviews and adjusts generated routes before dispatch"
+    },
+    {
+      "id": "optimization_engine",
+      "name": "Optimization Engine",
+      "type": "system",
+      "description": "Constructs and refines routes across all vehicles concurrently"
+    }
+  ],
+  "fields": [
+    {
+      "name": "vehicle_id",
+      "type": "number",
+      "label": "Vehicle ID",
+      "required": true
+    },
+    {
+      "name": "vehicle_start",
+      "type": "json",
+      "label": "Start Location",
+      "required": false
+    },
+    {
+      "name": "vehicle_end",
+      "type": "json",
+      "label": "End Location",
+      "required": false
+    },
+    {
+      "name": "vehicle_description",
+      "type": "text",
+      "label": "Vehicle Description",
+      "required": false
+    },
+    {
+      "name": "vehicle_type",
+      "type": "text",
+      "label": "Vehicle Type",
+      "required": false
+    },
+    {
+      "name": "max_tasks",
+      "type": "number",
+      "label": "Max Tasks",
+      "required": false
+    },
+    {
+      "name": "max_travel_time",
+      "type": "number",
+      "label": "Max Travel Time (s)",
+      "required": false
+    },
+    {
+      "name": "max_distance",
+      "type": "number",
+      "label": "Max Distance (m)",
+      "required": false
+    },
+    {
+      "name": "speed_factor",
+      "type": "number",
+      "label": "Speed Factor",
+      "required": false
+    }
+  ],
+  "rules": {
+    "one_route_per_vehicle": "Each vehicle produces at most one route; a vehicle may be unused if no tasks are assigned.",
+    "vehicle_sort_order": "Vehicles are sorted by decreasing max_tasks, capacity, time-window length, and range bounds before heuristic construction.",
+    "heterogeneous_cost_search": "When the fleet has heterogeneous costs, both availability-sorted and cost-sorted orderings are tried and the better result kept.",
+    "route_feasibility": "A route is valid only if it respects capacity, skill, time-window, max_tasks, max_travel_time, and max_distance for every step.",
+    "unassigned_not_error": "Unassigned tasks are reported in the solution; they do not cause an error.",
+    "open_trip": "If only start or only end is specified the route is an open trip; the free endpoint is placed at the first or last task.",
+    "round_trip": "A round trip is formed by setting start and end to the same location.",
+    "parallel_search": "Parallel threads run independent search paths; the path with the lowest lexicographic cost indicator is selected."
+  },
+  "states": {
+    "field": "fleet_route_status",
+    "values": [
+      {
+        "id": "unoptimized",
+        "description": "Routes not yet computed",
+        "initial": true
+      },
+      {
+        "id": "optimizing",
+        "description": "Solver assigning tasks to vehicles and ordering stops"
+      },
+      {
+        "id": "optimized",
+        "description": "Routes computed and ready for review or dispatch",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "unoptimized",
+        "to": "optimizing",
+        "actor": "fleet_manager",
+        "description": "Solve request submitted with vehicles and jobs"
+      },
+      {
+        "from": "optimizing",
+        "to": "optimized",
+        "actor": "optimization_engine",
+        "description": "Best multi-vehicle solution selected"
+      }
+    ]
+  },
+  "outcomes": {
+    "all_tasks_assigned": {
+      "priority": 10,
+      "given": [
+        "fleet has sufficient capacity and compatible skills for all jobs",
+        "all time windows and range constraints are satisfiable"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "fleet.routes.optimized",
+          "payload": [
+            "vehicle_routes",
+            "summary"
+          ]
+        },
+        {
+          "action": "transition_state",
+          "field": "fleet_route_status",
+          "from": "optimizing",
+          "to": "optimized"
+        }
+      ],
+      "result": "Every task assigned; summary reports zero unassigned, total cost, duration, and distance."
+    },
+    "partial_assignment": {
+      "priority": 7,
+      "given": [
+        "some tasks cannot be assigned due to capacity, skill, or range limits"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "fleet.routes.optimized",
+          "payload": [
+            "vehicle_routes",
+            "unassigned_tasks",
+            "summary"
+          ]
+        },
+        {
+          "action": "transition_state",
+          "field": "fleet_route_status",
+          "from": "optimizing",
+          "to": "optimized"
+        }
+      ],
+      "result": "Optimised routes returned with unassigned list."
+    },
+    "single_vehicle_tsp": {
+      "priority": 5,
+      "given": [
+        "only one vehicle is defined or has compatible skills for all tasks"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "fleet.routes.optimized",
+          "payload": [
+            "vehicle_routes",
+            "summary"
+          ]
+        }
+      ],
+      "result": "Solution degenerates to TSP; one route returned for the single vehicle."
+    }
+  },
+  "errors": [
+    {
+      "code": "FLEET_NO_VEHICLES",
+      "status": 400,
+      "message": "No vehicles defined in the problem."
+    },
+    {
+      "code": "FLEET_NO_TASKS",
+      "status": 400,
+      "message": "No jobs or shipments defined in the problem."
+    }
+  ],
+  "events": [
+    {
+      "name": "fleet.routes.optimized",
+      "description": "Multi-vehicle route optimization completed",
+      "payload": [
+        "vehicle_routes",
+        "unassigned_tasks",
+        "summary"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vrp-solving",
+      "type": "required"
+    },
+    {
+      "feature": "vehicle-capacity-constraints",
+      "type": "optional"
+    },
+    {
+      "feature": "time-window-constraints",
+      "type": "optional"
+    },
+    {
+      "feature": "skill-based-assignment",
+      "type": "optional"
+    },
+    {
+      "feature": "cost-based-route-optimization",
+      "type": "optional"
+    },
+    {
+      "feature": "routing-profile-selection",
+      "type": "optional"
+    },
+    {
+      "feature": "distance-matrix-calculation",
+      "type": "recommended"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/VROOM-Project/vroom",
+      "project": "VROOM",
+      "tech_stack": "C++20",
+      "files_traced": 15,
+      "entry_points": [
+        "src/structures/vroom/vehicle.h",
+        "src/problems/vrp.h",
+        "src/structures/vroom/solution/route.h",
+        "src/algorithms/heuristics/heuristics.h"
+      ]
+    }
+  }
+}

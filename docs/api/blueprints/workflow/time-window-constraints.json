@@ -1,0 +1,327 @@
+{
+  "feature": "time-window-constraints",
+  "version": "1.0.0",
+  "description": "Restrict when tasks may be serviced by associating time windows with jobs and vehicles. Optimizer schedules service within valid windows, inserting waiting time where necessary.",
+  "category": "workflow",
+  "tags": [
+    "time-windows",
+    "scheduling",
+    "delivery-windows",
+    "vrptw"
+  ],
+  "actors": [
+    {
+      "id": "customer",
+      "name": "Customer",
+      "type": "human",
+      "description": "Specifies acceptable delivery or pickup windows"
+    },
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Sets vehicle working-hours windows"
+    },
+    {
+      "id": "optimization_engine",
+      "name": "Optimization Engine",
+      "type": "system",
+      "description": "Selects service start times that satisfy all windows"
+    }
+  ],
+  "fields": [
+    {
+      "name": "time_window_start",
+      "type": "number",
+      "label": "Window Start (s)",
+      "required": true
+    },
+    {
+      "name": "time_window_end",
+      "type": "number",
+      "label": "Window End (s)",
+      "required": true
+    },
+    {
+      "name": "multiple_time_windows",
+      "type": "json",
+      "label": "Multiple Time Windows",
+      "required": false
+    },
+    {
+      "name": "waiting_time",
+      "type": "number",
+      "label": "Waiting Time (s)",
+      "required": false
+    },
+    {
+      "name": "lead_time_violation",
+      "type": "number",
+      "label": "Lead Time Violation (s)",
+      "required": false
+    },
+    {
+      "name": "delay_violation",
+      "type": "number",
+      "label": "Delay Violation (s)",
+      "required": false
+    }
+  ],
+  "rules": {
+    "window_inclusive": "A time window [start, end] is satisfied when service begins at or after start and at or before end (both inclusive).",
+    "early_arrival_wait": "If a vehicle arrives before a window opens it waits; waiting time is included in route duration and reported per step.",
+    "multi_window_selection": "Multiple time windows per task are tried; the optimizer selects the window that minimises total route cost.",
+    "vehicle_shift_window": "A vehicle's time window defines its working hours; no step may be scheduled outside this window in standard solving mode.",
+    "soft_constraints_plan_mode": "In plan/ETA mode all time constraints become soft; violations are reported as lead_time (early) or delay (late) with duration.",
+    "default_unconstrained": "A default unconstrained time window (0, +inf) is applied when no window is specified.",
+    "break_windows": "Breaks carry time windows; break scheduling follows the same feasibility rules as job time windows."
+  },
+  "states": {
+    "field": "window_status",
+    "values": [
+      {
+        "id": "unconstrained",
+        "description": "No time window defined; any arrival time is valid",
+        "initial": true
+      },
+      {
+        "id": "pending",
+        "description": "Vehicle en route; window not yet reached"
+      },
+      {
+        "id": "waiting",
+        "description": "Vehicle arrived before window opens; idling"
+      },
+      {
+        "id": "in_window",
+        "description": "Service start time falls within the window",
+        "terminal": true
+      },
+      {
+        "id": "violated",
+        "description": "Service time falls outside all windows (plan mode only)",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "pending",
+        "to": "waiting",
+        "actor": "optimization_engine",
+        "description": "Vehicle arrives before window start"
+      },
+      {
+        "from": "waiting",
+        "to": "in_window",
+        "actor": "optimization_engine",
+        "description": "Window opens; service begins"
+      },
+      {
+        "from": "pending",
+        "to": "in_window",
+        "actor": "optimization_engine",
+        "description": "Vehicle arrives within the window"
+      },
+      {
+        "from": "pending",
+        "to": "violated",
+        "actor": "optimization_engine",
+        "description": "Plan mode — service time outside all windows"
+      }
+    ]
+  },
+  "outcomes": {
+    "window_satisfied": {
+      "priority": 10,
+      "given": [
+        "service start time is between window_start and window_end (inclusive)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "waiting_time",
+          "description": "max(0, window_start - arrival_time)"
+        },
+        {
+          "action": "emit_event",
+          "event": "stop.window.satisfied",
+          "payload": [
+            "job_id",
+            "arrival_time",
+            "service_start",
+            "waiting_time"
+          ]
+        }
+      ],
+      "result": "Stop scheduled; waiting time recorded and added to route total."
+    },
+    "early_arrival": {
+      "priority": 8,
+      "given": [
+        "vehicle arrives before the earliest time window start"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "waiting_time",
+          "description": "window_start - arrival_time"
+        },
+        {
+          "action": "emit_event",
+          "event": "stop.window.waiting",
+          "payload": [
+            "job_id",
+            "arrival_time",
+            "window_start",
+            "waiting_time"
+          ]
+        }
+      ],
+      "result": "Vehicle waits at stop until window opens; waiting time increases route duration."
+    },
+    "multi_window_chosen": {
+      "priority": 7,
+      "given": [
+        "task has multiple time windows defined",
+        "vehicle can reach the task before at least one window closes"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "stop.window.selected",
+          "payload": [
+            "job_id",
+            "selected_window_index",
+            "arrival_time"
+          ]
+        }
+      ],
+      "result": "Optimizer picks the window minimising total route cost."
+    },
+    "window_violated_plan_mode": {
+      "priority": 5,
+      "given": [
+        "plan/ETA mode is active",
+        "service time falls outside all defined time windows"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "stop.window.violated",
+          "payload": [
+            "job_id",
+            "violation_type",
+            "violation_duration_seconds"
+          ]
+        }
+      ],
+      "result": "Violation recorded; cause is lead_time if early, delay if late."
+    },
+    "no_feasible_window": {
+      "priority": 1,
+      "error": "TW_NO_FEASIBLE_WINDOW",
+      "given": [
+        "standard solving mode",
+        "vehicle cannot reach any task window without violating vehicle working hours"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "stop.unassigned",
+          "payload": [
+            "job_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Job marked as unassigned; reported in solution unassigned list."
+    }
+  },
+  "errors": [
+    {
+      "code": "TW_NO_FEASIBLE_WINDOW",
+      "status": 422,
+      "message": "No vehicle can serve this task within its time windows and working-hours constraints."
+    },
+    {
+      "code": "TW_INVALID_WINDOW",
+      "status": 400,
+      "message": "Time window is invalid: end time must be greater than or equal to start time."
+    }
+  ],
+  "events": [
+    {
+      "name": "stop.window.satisfied",
+      "description": "Service scheduled within the task's time window",
+      "payload": [
+        "job_id",
+        "arrival_time",
+        "service_start",
+        "waiting_time"
+      ]
+    },
+    {
+      "name": "stop.window.waiting",
+      "description": "Vehicle waiting at stop for window to open",
+      "payload": [
+        "job_id",
+        "arrival_time",
+        "window_start",
+        "waiting_time"
+      ]
+    },
+    {
+      "name": "stop.window.selected",
+      "description": "One window chosen from multiple candidates for this task",
+      "payload": [
+        "job_id",
+        "selected_window_index",
+        "arrival_time"
+      ]
+    },
+    {
+      "name": "stop.window.violated",
+      "description": "Plan mode — service time outside all windows",
+      "payload": [
+        "job_id",
+        "violation_type",
+        "violation_duration_seconds"
+      ]
+    },
+    {
+      "name": "stop.unassigned",
+      "description": "Task could not be assigned due to infeasible windows",
+      "payload": [
+        "job_id",
+        "reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vrp-solving",
+      "type": "required"
+    },
+    {
+      "feature": "driver-shift-break-constraints",
+      "type": "recommended"
+    },
+    {
+      "feature": "stop-eta-calculation",
+      "type": "recommended"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/VROOM-Project/vroom",
+      "project": "VROOM",
+      "tech_stack": "C++20",
+      "files_traced": 8,
+      "entry_points": [
+        "src/structures/vroom/time_window.h",
+        "src/structures/vroom/tw_route.h",
+        "src/algorithms/validation/choose_ETA.h"
+      ]
+    }
+  }
+}

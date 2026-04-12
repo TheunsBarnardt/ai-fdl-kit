@@ -1,0 +1,184 @@
+# ============================================================
+# VEHICLE CAPACITY CONSTRAINTS — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/VROOM-Project/vroom
+# Source project: VROOM route optimization engine (C++20)
+# Files traced: 6 (structures/vroom/amount.h, structures/vroom/vehicle.h,
+#   structures/vroom/job.h, structures/vroom/break.h,
+#   structures/vroom/solution/step.h, structures/typedefs.h)
+# ============================================================
+
+feature: vehicle-capacity-constraints
+version: "1.0.0"
+description: "Model multidimensional load limits (weight, volume, items) for vehicles and ensure cumulative load never exceeds capacity at any point in the route."
+category: workflow
+tags:
+  - capacity-planning
+  - load-management
+  - cvrp
+  - logistics
+
+actors:
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: Defines vehicle capacities and job load amounts
+  - id: optimization_engine
+    name: Optimization Engine
+    type: system
+    description: Tracks cumulative load through each route and enforces capacity
+
+fields:
+  - name: vehicle_capacity
+    type: json
+    label: Vehicle Capacity
+    required: true
+  - name: job_delivery
+    type: json
+    label: Delivery Amount
+    required: false
+  - name: job_pickup
+    type: json
+    label: Pickup Amount
+    required: false
+  - name: shipment_amount
+    type: json
+    label: Shipment Amount
+    required: false
+  - name: current_load
+    type: json
+    label: Current Load
+    required: false
+  - name: break_max_load
+    type: json
+    label: Break Max Load
+    required: false
+
+rules:
+  consistent_dimensions: "All capacity arrays must have the same number of dimensions across vehicles, jobs, and shipments."
+  per_dimension_check: "Capacity is checked per dimension independently; every dimension must be within bounds simultaneously."
+  delivery_preloaded: "Delivery amounts are pre-loaded onto the vehicle before the route starts and reduced at each delivery stop."
+  pickup_accumulates: "Pickup amounts accumulate on the vehicle as pickup stops are served."
+  infeasible_rejection: "A route is infeasible if vehicle load exceeds capacity in any dimension at any point; such routes are rejected during construction."
+  break_max_load_rule: "If break_max_load is set, a break may only be scheduled when vehicle load is at or below the maximum on all dimensions."
+  zero_capacity: "Capacity dimension count of zero means no capacity constraint is applied."
+
+states:
+  field: load_status
+  values:
+    - id: empty
+      description: Vehicle carrying no load
+      initial: true
+    - id: loaded
+      description: Vehicle carrying delivery stock before first drop-off
+    - id: in_transit
+      description: Vehicle serving stops; load changes at each stop
+    - id: over_capacity
+      description: Load would exceed capacity (plan mode reports violation)
+      terminal: true
+  transitions:
+    - from: empty
+      to: loaded
+      actor: optimization_engine
+      description: Delivery amounts pre-loaded before route starts
+    - from: loaded
+      to: in_transit
+      actor: optimization_engine
+      description: First stop served
+    - from: in_transit
+      to: over_capacity
+      actor: optimization_engine
+      description: Accumulated load exceeds vehicle capacity on at least one dimension
+
+outcomes:
+  capacity_satisfied:
+    priority: 10
+    given:
+      - "sum of pickups minus deliveries does not exceed vehicle capacity on any dimension"
+      - "at every step the running load is within bounds"
+    then:
+      - action: set_field
+        target: current_load
+        description: "load after each step recorded in solution"
+      - action: emit_event
+        event: route.capacity.valid
+        payload: [vehicle_id, max_load_reached, dimensions]
+    result: "Route is feasible; step-level load reported in solution output."
+
+  capacity_exceeded_solving:
+    priority: 5
+    given:
+      - "route would require vehicle to carry more than capacity on at least one dimension"
+      - "standard solving mode"
+    then:
+      - action: emit_event
+        event: job.unassigned
+        payload: [job_id, reason]
+    result: "Job not added to this vehicle's route; optimizer tries other vehicles or leaves unassigned."
+
+  capacity_exceeded_plan_mode:
+    priority: 4
+    given:
+      - "plan/ETA mode is active"
+      - "vehicle load exceeds capacity at some step"
+    then:
+      - action: emit_event
+        event: route.capacity.violated
+        payload: [vehicle_id, step_id, exceeded_dimension, load, capacity]
+    result: "Violation of type load recorded in step and route."
+
+  break_load_enforced:
+    priority: 6
+    given:
+      - "break has max_load defined"
+      - "vehicle load at scheduled break time exceeds break max_load on any dimension"
+    then:
+      - action: emit_event
+        event: break.rescheduled
+        payload: [vehicle_id, break_id, reason]
+    result: "Break deferred until load drops below max_load, or reported as max_load violation in plan mode."
+
+errors:
+  - code: CAPACITY_DIMENSION_MISMATCH
+    status: 400
+    message: "Capacity arrays have different lengths across vehicles, jobs, or shipments."
+  - code: CAPACITY_NEGATIVE_VALUE
+    status: 400
+    message: "A capacity or amount value is negative."
+
+events:
+  - name: route.capacity.valid
+    description: All stops served within vehicle capacity limits
+    payload: [vehicle_id, max_load_reached, dimensions]
+  - name: route.capacity.violated
+    description: Vehicle load exceeds capacity at a step (plan mode)
+    payload: [vehicle_id, step_id, exceeded_dimension, load, capacity]
+  - name: job.unassigned
+    description: Job could not be placed on any vehicle without violating capacity
+    payload: [job_id, reason]
+  - name: break.rescheduled
+    description: Break deferred due to max_load constraint
+    payload: [vehicle_id, break_id, reason]
+
+related:
+  - feature: vrp-solving
+    type: required
+  - feature: multi-vehicle-route-optimization
+    type: required
+  - feature: driver-shift-break-constraints
+    type: optional
+  - feature: pickup-delivery-pairing
+    type: recommended
+
+extensions:
+  source:
+    repo: "https://github.com/VROOM-Project/vroom"
+    project: "VROOM"
+    tech_stack: "C++20"
+    files_traced: 6
+    entry_points:
+      - "src/structures/vroom/amount.h"
+      - "src/structures/vroom/vehicle.h"
+      - "src/structures/vroom/job.h"
+      - "src/structures/vroom/break.h"

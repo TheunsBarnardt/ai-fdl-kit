@@ -1,0 +1,183 @@
+# ============================================================
+# COST-BASED ROUTE OPTIMIZATION — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/VROOM-Project/vroom
+# Source project: VROOM route optimization engine (C++20)
+# Files traced: 8 (structures/vroom/vehicle.h, structures/vroom/cost_wrapper.h,
+#   structures/vroom/eval.h, structures/typedefs.h,
+#   structures/vroom/solution_indicators.h, structures/vroom/solution/route.h,
+#   structures/vroom/solution/summary.h, utils/helpers.h)
+# ============================================================
+
+feature: cost-based-route-optimization
+version: "1.0.0"
+description: "Configure per-vehicle cost models (fixed, per-hour travel, per-kilometre, per-task-hour) and minimize total fleet cost as the secondary objective after maximising task assignment."
+category: workflow
+tags:
+  - cost-optimization
+  - fuel-cost
+  - route-costing
+  - fleet-economics
+  - tco
+
+actors:
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: Configures cost parameters per vehicle
+  - id: optimization_engine
+    name: Optimization Engine
+    type: system
+    description: Evaluates route cost at every insertion and swap; selects the solution with lowest total cost among equal-assignment solutions
+
+fields:
+  - name: fixed_cost
+    type: number
+    label: Fixed Cost
+    required: false
+  - name: cost_per_hour
+    type: number
+    label: Cost Per Hour
+    required: false
+  - name: cost_per_km
+    type: number
+    label: Cost Per km
+    required: false
+  - name: cost_per_task_hour
+    type: number
+    label: Cost Per Task Hour
+    required: false
+  - name: route_cost
+    type: number
+    label: Route Cost
+    required: false
+  - name: solution_total_cost
+    type: number
+    label: Total Solution Cost
+    required: false
+
+rules:
+  cost_formula: "Route cost = fixed_cost + (cost_per_hour x travel_hours) + (cost_per_km x distance_km) + (cost_per_task_hour x task_hours)."
+  integer_arithmetic: "All costs are stored and evaluated as scaled integers internally to avoid floating-point rounding; output is rescaled to user-facing values."
+  cost_matrix_conflict: "A custom cost matrix for a vehicle may not be combined with per_hour or per_km cost parameters."
+  default_cost_equals_duration: "When only cost_per_hour is set to the default, cost equals travel duration in seconds."
+  heterogeneous_search: "When costs are heterogeneous across the fleet, the optimizer tries both availability-sorted and cost-sorted vehicle orderings."
+  lexicographic_objective: "Optimization objective is: 1. Maximise priority-weighted assignment, 2. Maximise assigned count, 3. Minimise total cost, 4. Minimise vehicles used, 5. Minimise duration, 6. Minimise distance."
+  fixed_cost_incentive: "fixed_cost incentivises using fewer vehicles; set to 0 to allow unconstrained vehicle use."
+
+states:
+  field: cost_evaluation_phase
+  values:
+    - id: pre_solve
+      description: Cost parameters loaded but no routes built yet
+      initial: true
+    - id: heuristic_phase
+      description: Cost evaluated during initial route construction
+    - id: local_search_phase
+      description: Cost delta evaluated for each local search move
+    - id: solution_reported
+      description: Final route costs computed and returned in solution
+      terminal: true
+  transitions:
+    - from: pre_solve
+      to: heuristic_phase
+      actor: optimization_engine
+      description: Heuristic begins inserting tasks into routes
+    - from: heuristic_phase
+      to: local_search_phase
+      actor: optimization_engine
+      description: Heuristic solution handed off to local search
+    - from: local_search_phase
+      to: solution_reported
+      actor: optimization_engine
+      description: Best solution selected; costs finalised
+
+outcomes:
+  cost_minimised:
+    priority: 10
+    given:
+      - "all tasks that can be assigned are assigned"
+      - "multiple route configurations have equal assignment"
+    then:
+      - action: emit_event
+        event: solution.cost.minimised
+        payload: [total_cost, routes_used, total_duration, total_distance]
+    result: "Solution with lowest total cost selected; route and summary objects include cost, duration, distance, and vehicle-count breakdowns."
+
+  fixed_cost_avoidance:
+    priority: 8
+    given:
+      - "fixed_cost > 0 for some vehicles"
+      - "all tasks can be served by a smaller fleet"
+    then:
+      - action: emit_event
+        event: solution.fleet.reduced
+        payload: [vehicles_used, vehicles_available, fixed_cost_saved]
+    result: "Optimizer consolidates routes to avoid activating high-fixed-cost vehicles."
+
+  distance_cost_applied:
+    priority: 7
+    given:
+      - "cost_per_km > 0 for at least one vehicle"
+    then:
+      - action: emit_event
+        event: route.cost.distance_weighted
+        payload: [vehicle_id, distance_km, distance_cost]
+    result: "Route cost includes distance component; optimizer balances shorter routes against time efficiency."
+
+  cost_reported:
+    priority: 6
+    given:
+      - "solve completed"
+    then:
+      - action: emit_event
+        event: solution.cost.reported
+        payload: [total_cost, per_route_costs, summary]
+    result: "Each route includes a cost field; summary includes total cost across all routes."
+
+errors:
+  - code: COST_MATRIX_CONFLICT
+    status: 400
+    message: "Custom cost matrix cannot be combined with per_hour or per_km vehicle cost parameters."
+  - code: COST_VALUE_OVERFLOW
+    status: 400
+    message: "Cost values are too large and would cause an internal overflow."
+
+events:
+  - name: solution.cost.minimised
+    description: Least-cost feasible solution selected from all search paths
+    payload: [total_cost, routes_used, total_duration, total_distance]
+  - name: solution.fleet.reduced
+    description: Fewer vehicles used to avoid fixed costs while maintaining assignment
+    payload: [vehicles_used, vehicles_available, fixed_cost_saved]
+  - name: route.cost.distance_weighted
+    description: Route cost includes per-kilometre distance component
+    payload: [vehicle_id, distance_km, distance_cost]
+  - name: solution.cost.reported
+    description: Final costs reported in solution output
+    payload: [total_cost, per_route_costs, summary]
+
+related:
+  - feature: vrp-solving
+    type: required
+  - feature: multi-vehicle-route-optimization
+    type: required
+  - feature: distance-matrix-calculation
+    type: recommended
+  - feature: routing-profile-selection
+    type: optional
+  - feature: priority-urgency-weighting
+    type: recommended
+
+extensions:
+  source:
+    repo: "https://github.com/VROOM-Project/vroom"
+    project: "VROOM"
+    tech_stack: "C++20"
+    files_traced: 8
+    entry_points:
+      - "src/structures/vroom/vehicle.h"
+      - "src/structures/vroom/cost_wrapper.h"
+      - "src/structures/vroom/eval.h"
+      - "src/structures/vroom/solution_indicators.h"

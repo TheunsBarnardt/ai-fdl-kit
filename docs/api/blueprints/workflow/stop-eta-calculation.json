@@ -1,0 +1,279 @@
+{
+  "feature": "stop-eta-calculation",
+  "version": "1.0.0",
+  "description": "Compute estimated arrival time and cumulative metrics for every route step (jobs, breaks, depots). Supports automatic ETA during solving and ETA-selection for provided route plans.",
+  "category": "workflow",
+  "tags": [
+    "eta",
+    "arrival-time",
+    "route-timing",
+    "plan-mode"
+  ],
+  "actors": [
+    {
+      "id": "optimization_engine",
+      "name": "Optimization Engine",
+      "type": "system",
+      "description": "Computes ETAs during solving and chooses optimal ETAs in plan mode"
+    },
+    {
+      "id": "dispatcher",
+      "name": "Dispatcher",
+      "type": "human",
+      "description": "Reviews per-stop ETAs and communicates them to drivers or customers"
+    }
+  ],
+  "fields": [
+    {
+      "name": "arrival_time",
+      "type": "number",
+      "label": "Arrival Time (s)",
+      "required": false
+    },
+    {
+      "name": "cumulative_travel_duration",
+      "type": "number",
+      "label": "Cumulative Travel Duration (s)",
+      "required": false
+    },
+    {
+      "name": "setup_duration",
+      "type": "number",
+      "label": "Setup Duration (s)",
+      "required": false
+    },
+    {
+      "name": "service_duration",
+      "type": "number",
+      "label": "Service Duration (s)",
+      "required": false
+    },
+    {
+      "name": "waiting_time",
+      "type": "number",
+      "label": "Waiting Time (s)",
+      "required": false
+    },
+    {
+      "name": "step_type",
+      "type": "select",
+      "label": "Step Type",
+      "required": true,
+      "options": [
+        {
+          "value": "start",
+          "label": "Start"
+        },
+        {
+          "value": "job",
+          "label": "Job"
+        },
+        {
+          "value": "pickup",
+          "label": "Pickup"
+        },
+        {
+          "value": "delivery",
+          "label": "Delivery"
+        },
+        {
+          "value": "break",
+          "label": "Break"
+        },
+        {
+          "value": "end",
+          "label": "End"
+        }
+      ]
+    },
+    {
+      "name": "cumulative_distance",
+      "type": "number",
+      "label": "Cumulative Distance (m)",
+      "required": false
+    }
+  ],
+  "rules": {
+    "eta_formula": "ETA at step n = ETA at step n-1 + service(n-1) + travel_time(n-1 to n) + waiting_time(n).",
+    "waiting_time_formula": "Waiting time at a step = max(0, time_window_start - arrival_time).",
+    "setup_before_service": "Setup time is applied before service time at each stop; both are included in the step record.",
+    "plan_mode_minimises_violations": "In plan mode, ETAs are chosen to minimise total timing violations while respecting the submitted stop ordering.",
+    "load_after_step": "A step's load field shows vehicle load AFTER the step is completed.",
+    "timing_in_seconds": "All timing values in solution output are in seconds; distances in metres.",
+    "depot_no_service": "For start and end depot steps, service and setup durations are zero."
+  },
+  "states": {
+    "field": "eta_mode",
+    "values": [
+      {
+        "id": "solving",
+        "description": "ETAs computed automatically during VRP optimization",
+        "initial": true
+      },
+      {
+        "id": "plan_mode",
+        "description": "ETAs chosen for a user-submitted route (soft constraints)"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "solving",
+        "to": "plan_mode",
+        "actor": "fleet_manager",
+        "description": "Solver invoked in plan/ETA mode with pre-defined route steps"
+      }
+    ]
+  },
+  "outcomes": {
+    "eta_computed_solving": {
+      "priority": 10,
+      "given": [
+        "VRP solver has produced a feasible route"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "route.eta.computed",
+          "payload": [
+            "vehicle_id",
+            "steps",
+            "total_duration",
+            "total_distance",
+            "total_waiting_time"
+          ]
+        }
+      ],
+      "result": "Each route step includes arrival, cumulative duration, setup, service, and waiting_time fields."
+    },
+    "eta_chosen_plan_mode": {
+      "priority": 9,
+      "given": [
+        "plan mode active",
+        "user submitted ordered route steps with optional service_at/after/before hints"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "route.eta.computed",
+          "payload": [
+            "vehicle_id",
+            "steps",
+            "violations"
+          ]
+        }
+      ],
+      "result": "Optimal ETA assigned to each step minimising violations; constraint breaches recorded."
+    },
+    "step_waiting_time_recorded": {
+      "priority": 7,
+      "given": [
+        "vehicle arrives before a step's time window opens"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "waiting_time",
+          "description": "window_start - arrival_time"
+        },
+        {
+          "action": "emit_event",
+          "event": "step.waiting_time.recorded",
+          "payload": [
+            "vehicle_id",
+            "step_id",
+            "waiting_time"
+          ]
+        }
+      ],
+      "result": "Waiting time added to step record; departure from stop is window_start + setup + service."
+    },
+    "distance_reported": {
+      "priority": 6,
+      "given": [
+        "distance reporting is enabled via geometry flag or distance matrix"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "route.distance.reported",
+          "payload": [
+            "vehicle_id",
+            "total_distance",
+            "per_step_cumulative_distance"
+          ]
+        }
+      ],
+      "result": "Cumulative distance reported at each step; total distance in route and solution summary."
+    }
+  },
+  "errors": [
+    {
+      "code": "ETA_ROUTING_UNAVAILABLE",
+      "status": 503,
+      "message": "Travel time data unavailable for a step pair; cannot compute ETA."
+    }
+  ],
+  "events": [
+    {
+      "name": "route.eta.computed",
+      "description": "ETAs calculated for all steps in a vehicle route",
+      "payload": [
+        "vehicle_id",
+        "steps",
+        "total_duration",
+        "total_distance",
+        "total_waiting_time"
+      ]
+    },
+    {
+      "name": "step.waiting_time.recorded",
+      "description": "Vehicle waited at a stop for a time window",
+      "payload": [
+        "vehicle_id",
+        "step_id",
+        "waiting_time"
+      ]
+    },
+    {
+      "name": "route.distance.reported",
+      "description": "Per-step and total distances appended to route",
+      "payload": [
+        "vehicle_id",
+        "total_distance",
+        "per_step_cumulative_distance"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vrp-solving",
+      "type": "required"
+    },
+    {
+      "feature": "time-window-constraints",
+      "type": "recommended"
+    },
+    {
+      "feature": "driver-shift-break-constraints",
+      "type": "recommended"
+    },
+    {
+      "feature": "distance-matrix-calculation",
+      "type": "required"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/VROOM-Project/vroom",
+      "project": "VROOM",
+      "tech_stack": "C++20",
+      "files_traced": 8,
+      "entry_points": [
+        "src/algorithms/validation/choose_ETA.h",
+        "src/algorithms/validation/check.h",
+        "src/structures/vroom/solution/step.h",
+        "src/structures/vroom/solution/route.h"
+      ]
+    }
+  }
+}

@@ -1,0 +1,332 @@
+{
+  "feature": "driver-shift-break-constraints",
+  "version": "1.0.0",
+  "description": "Enforce driver working-hours limits and mandatory rest breaks within routes. Each vehicle has a shift time window and breaks with their own time windows and durations.",
+  "category": "workflow",
+  "tags": [
+    "driver-hours",
+    "breaks",
+    "compliance",
+    "shift-scheduling"
+  ],
+  "actors": [
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Configures shift windows and break rules per vehicle"
+    },
+    {
+      "id": "driver",
+      "name": "Driver",
+      "type": "human",
+      "description": "Subject to working-hours and rest rules"
+    },
+    {
+      "id": "optimization_engine",
+      "name": "Optimization Engine",
+      "type": "system",
+      "description": "Schedules breaks within routes without violating stop time windows"
+    }
+  ],
+  "fields": [
+    {
+      "name": "shift_start",
+      "type": "number",
+      "label": "Shift Start (s)",
+      "required": false
+    },
+    {
+      "name": "shift_end",
+      "type": "number",
+      "label": "Shift End (s)",
+      "required": false
+    },
+    {
+      "name": "break_id",
+      "type": "number",
+      "label": "Break ID",
+      "required": true
+    },
+    {
+      "name": "break_time_windows",
+      "type": "json",
+      "label": "Break Time Windows",
+      "required": false
+    },
+    {
+      "name": "break_service_duration",
+      "type": "number",
+      "label": "Break Duration (s)",
+      "required": false
+    },
+    {
+      "name": "break_description",
+      "type": "text",
+      "label": "Break Description",
+      "required": false
+    },
+    {
+      "name": "break_max_load",
+      "type": "json",
+      "label": "Break Max Load",
+      "required": false
+    }
+  ],
+  "rules": {
+    "break_once_per_route": "Each break must appear exactly once in the vehicle's route; omitting a required break is a missing_break violation in plan mode.",
+    "break_between_stops": "Breaks are inserted between job stops; they cannot overlap with service at a job location.",
+    "break_window_timing": "A break's time window is satisfied when the break begins within the window; the same waiting-time logic used for jobs applies.",
+    "multiple_breaks_allowed": "Multiple breaks are allowed per vehicle and are scheduled independently.",
+    "break_max_load_rule": "If break_max_load is set the break may only start when vehicle load is at or below that threshold on all dimensions.",
+    "shift_window_enforced": "No stop (including breaks) may be scheduled outside the vehicle shift window in standard solving mode.",
+    "duplicate_break_rejected": "Duplicate break IDs for the same vehicle are rejected as input errors."
+  },
+  "states": {
+    "field": "break_status",
+    "values": [
+      {
+        "id": "unscheduled",
+        "description": "Break not yet placed in route",
+        "initial": true
+      },
+      {
+        "id": "scheduled",
+        "description": "Break assigned a position and start time in the route"
+      },
+      {
+        "id": "active",
+        "description": "Driver currently on break"
+      },
+      {
+        "id": "completed",
+        "description": "Break taken; driver back on duty",
+        "terminal": true
+      },
+      {
+        "id": "missed",
+        "description": "Break omitted from route (plan mode violation)",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "unscheduled",
+        "to": "scheduled",
+        "actor": "optimization_engine",
+        "description": "Break inserted at feasible position in route"
+      },
+      {
+        "from": "scheduled",
+        "to": "active",
+        "actor": "driver",
+        "description": "Driver reaches break position and begins rest"
+      },
+      {
+        "from": "active",
+        "to": "completed",
+        "actor": "driver",
+        "description": "Rest duration elapsed; driver resumes"
+      },
+      {
+        "from": "scheduled",
+        "to": "missed",
+        "actor": "optimization_engine",
+        "description": "Plan mode — break not present in provided route"
+      }
+    ]
+  },
+  "outcomes": {
+    "break_scheduled": {
+      "priority": 10,
+      "given": [
+        "vehicle has at least one break defined",
+        "a feasible position exists in the route within the break's time window"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "route.break.scheduled",
+          "payload": [
+            "vehicle_id",
+            "break_id",
+            "position_in_route",
+            "scheduled_start"
+          ]
+        }
+      ],
+      "result": "Break inserted between two stops; route step includes break with arrival, waiting_time, and service fields."
+    },
+    "break_waiting": {
+      "priority": 8,
+      "given": [
+        "vehicle arrives at break position before the break window opens"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "waiting_time",
+          "description": "time idled before break window opens"
+        },
+        {
+          "action": "emit_event",
+          "event": "route.break.waiting",
+          "payload": [
+            "vehicle_id",
+            "break_id",
+            "waiting_time"
+          ]
+        }
+      ],
+      "result": "Waiting time added to route; break starts at window open time."
+    },
+    "break_missed_plan_mode": {
+      "priority": 5,
+      "given": [
+        "plan/ETA mode active",
+        "break defined for vehicle but not included in submitted route steps"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "route.break.violated",
+          "payload": [
+            "vehicle_id",
+            "break_id",
+            "violation_cause"
+          ]
+        }
+      ],
+      "result": "missing_break violation recorded at route level."
+    },
+    "shift_window_exceeded": {
+      "priority": 4,
+      "given": [
+        "plan/ETA mode active",
+        "last route step completes after shift_end"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "route.shift.violated",
+          "payload": [
+            "vehicle_id",
+            "violation_type",
+            "delay_seconds"
+          ]
+        }
+      ],
+      "result": "delay violation recorded; severity expressed as seconds beyond shift end."
+    },
+    "no_feasible_break_position": {
+      "priority": 3,
+      "error": "BREAK_NO_FEASIBLE_POSITION",
+      "given": [
+        "standard solving mode",
+        "no position in route satisfies both break time window and max_load"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "route.break.infeasible",
+          "payload": [
+            "vehicle_id",
+            "break_id"
+          ]
+        }
+      ],
+      "result": "Optimizer may leave some jobs unassigned to create space for the break."
+    }
+  },
+  "errors": [
+    {
+      "code": "BREAK_DUPLICATE_ID",
+      "status": 400,
+      "message": "Two breaks for the same vehicle share the same id."
+    },
+    {
+      "code": "BREAK_NO_FEASIBLE_POSITION",
+      "status": 422,
+      "message": "No route position satisfies break time window and load constraints simultaneously."
+    }
+  ],
+  "events": [
+    {
+      "name": "route.break.scheduled",
+      "description": "Break placed at a feasible position in the route",
+      "payload": [
+        "vehicle_id",
+        "break_id",
+        "position_in_route",
+        "scheduled_start"
+      ]
+    },
+    {
+      "name": "route.break.waiting",
+      "description": "Vehicle waiting at break position for window to open",
+      "payload": [
+        "vehicle_id",
+        "break_id",
+        "waiting_time"
+      ]
+    },
+    {
+      "name": "route.break.violated",
+      "description": "Plan mode — required break omitted from submitted route",
+      "payload": [
+        "vehicle_id",
+        "break_id",
+        "violation_cause"
+      ]
+    },
+    {
+      "name": "route.shift.violated",
+      "description": "Plan mode — route extends beyond vehicle shift window",
+      "payload": [
+        "vehicle_id",
+        "violation_type",
+        "delay_seconds"
+      ]
+    },
+    {
+      "name": "route.break.infeasible",
+      "description": "No feasible break position found in route",
+      "payload": [
+        "vehicle_id",
+        "break_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vrp-solving",
+      "type": "required"
+    },
+    {
+      "feature": "time-window-constraints",
+      "type": "required"
+    },
+    {
+      "feature": "vehicle-capacity-constraints",
+      "type": "optional"
+    },
+    {
+      "feature": "stop-eta-calculation",
+      "type": "recommended"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/VROOM-Project/vroom",
+      "project": "VROOM",
+      "tech_stack": "C++20",
+      "files_traced": 7,
+      "entry_points": [
+        "src/structures/vroom/break.h",
+        "src/structures/vroom/vehicle.h",
+        "src/algorithms/validation/choose_ETA.h",
+        "src/structures/vroom/solution/violations.h"
+      ]
+    }
+  }
+}

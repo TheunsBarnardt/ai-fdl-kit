@@ -1,0 +1,273 @@
+{
+  "feature": "priority-urgency-weighting",
+  "version": "1.0.0",
+  "description": "Assign an integer priority weight (0-100) to tasks so the optimizer preferentially assigns high-priority tasks first. Priority maximisation takes lexicographic precedence over cost minimisation.",
+  "category": "workflow",
+  "tags": [
+    "priority",
+    "urgency",
+    "task-ranking",
+    "service-level",
+    "sla"
+  ],
+  "actors": [
+    {
+      "id": "operations_planner",
+      "name": "Operations Planner",
+      "type": "human",
+      "description": "Assigns priority values to tasks based on customer SLA or urgency"
+    },
+    {
+      "id": "optimization_engine",
+      "name": "Optimization Engine",
+      "type": "system",
+      "description": "Maximises total priority sum before minimising cost"
+    }
+  ],
+  "fields": [
+    {
+      "name": "task_priority",
+      "type": "number",
+      "label": "Task Priority (0-100)",
+      "required": false
+    },
+    {
+      "name": "priority_sum",
+      "type": "number",
+      "label": "Priority Sum",
+      "required": false
+    },
+    {
+      "name": "unassigned_priority_loss",
+      "type": "number",
+      "label": "Unassigned Priority Loss",
+      "required": false
+    }
+  ],
+  "rules": {
+    "priority_range": "Priority is an integer in [0, 100]; values outside this range are rejected as input errors.",
+    "lexicographic_objective": "The optimizer's primary objective is to maximise the sum of priorities of assigned tasks; cost minimisation is secondary.",
+    "priority_dominates_cost": "A higher-priority task unassigned is always worse than any increase in route cost from assigning it.",
+    "unassigned_high_priority": "When constraints prevent assigning a high-priority task to any vehicle, it is left unassigned and reported.",
+    "priority_replace_operator": "In local search, the PriorityReplace operator can evict a low-priority assigned task to make room for a higher-priority unassigned task.",
+    "shipment_priority": "For a shipment the priority contributes once to the sum when both stops are assigned.",
+    "same_priority_by_cost": "Tasks with the same priority are differentiated by cost in the objective."
+  },
+  "states": {
+    "field": "assignment_status",
+    "values": [
+      {
+        "id": "unassigned",
+        "description": "Task not yet placed in any route",
+        "initial": true
+      },
+      {
+        "id": "assigned",
+        "description": "Task placed in a route; priority contributes to objective",
+        "terminal": true
+      },
+      {
+        "id": "evicted",
+        "description": "Task removed from route by PriorityReplace to admit a higher-priority task"
+      },
+      {
+        "id": "final_unassigned",
+        "description": "Task could not be assigned in the final solution",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "unassigned",
+        "to": "assigned",
+        "actor": "optimization_engine",
+        "description": "Task inserted into a vehicle route"
+      },
+      {
+        "from": "assigned",
+        "to": "evicted",
+        "actor": "optimization_engine",
+        "description": "Lower-priority task removed to accommodate higher-priority task"
+      },
+      {
+        "from": "evicted",
+        "to": "assigned",
+        "actor": "optimization_engine",
+        "description": "Evicted task re-inserted in another vehicle"
+      },
+      {
+        "from": "evicted",
+        "to": "final_unassigned",
+        "actor": "optimization_engine",
+        "description": "No vehicle available for re-insertion"
+      },
+      {
+        "from": "unassigned",
+        "to": "final_unassigned",
+        "actor": "optimization_engine",
+        "description": "Solving complete; task remains unassigned"
+      }
+    ]
+  },
+  "outcomes": {
+    "high_priority_assigned": {
+      "priority": 10,
+      "given": [
+        "at least one vehicle is compatible (skills, capacity, time windows)",
+        "task has priority > 0"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "priority_sum",
+          "description": "task priority added to route and solution priority totals"
+        },
+        {
+          "action": "emit_event",
+          "event": "task.priority.assigned",
+          "payload": [
+            "job_id",
+            "priority",
+            "vehicle_id"
+          ]
+        }
+      ],
+      "result": "Task appears in a vehicle route; its priority value is included in route and summary priority_sum fields."
+    },
+    "low_priority_evicted": {
+      "priority": 8,
+      "given": [
+        "a higher-priority unassigned task can replace a lower-priority assigned task",
+        "route remains feasible after the swap"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "task.priority.replaced",
+          "payload": [
+            "evicted_job_id",
+            "evicted_priority",
+            "inserted_job_id",
+            "inserted_priority",
+            "vehicle_id"
+          ]
+        }
+      ],
+      "result": "Lower-priority task removed; higher-priority task inserted. Evicted task may be re-inserted or left unassigned."
+    },
+    "priority_task_unassigned": {
+      "priority": 5,
+      "given": [
+        "no vehicle can accommodate the task within its constraints",
+        "task has non-zero priority"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "task.priority.unassigned",
+          "payload": [
+            "job_id",
+            "priority",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Task reported in unassigned list."
+    },
+    "priority_summary_reported": {
+      "priority": 6,
+      "given": [
+        "solve completed"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "solution.priority.summary",
+          "payload": [
+            "total_priority_sum",
+            "unassigned_priority_loss"
+          ]
+        }
+      ],
+      "result": "Summary includes priority field showing total priority sum of all assigned tasks."
+    }
+  },
+  "errors": [
+    {
+      "code": "PRIORITY_OUT_OF_RANGE",
+      "status": 400,
+      "message": "Task priority must be an integer between 0 and 100."
+    }
+  ],
+  "events": [
+    {
+      "name": "task.priority.assigned",
+      "description": "High-priority task successfully placed in a vehicle route",
+      "payload": [
+        "job_id",
+        "priority",
+        "vehicle_id"
+      ]
+    },
+    {
+      "name": "task.priority.replaced",
+      "description": "Lower-priority task evicted to accommodate higher-priority task",
+      "payload": [
+        "evicted_job_id",
+        "evicted_priority",
+        "inserted_job_id",
+        "inserted_priority",
+        "vehicle_id"
+      ]
+    },
+    {
+      "name": "task.priority.unassigned",
+      "description": "Task with non-zero priority could not be assigned",
+      "payload": [
+        "job_id",
+        "priority",
+        "reason"
+      ]
+    },
+    {
+      "name": "solution.priority.summary",
+      "description": "Total priority sum of assigned tasks reported in solution",
+      "payload": [
+        "total_priority_sum",
+        "unassigned_priority_loss"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vrp-solving",
+      "type": "required"
+    },
+    {
+      "feature": "multi-vehicle-route-optimization",
+      "type": "recommended"
+    },
+    {
+      "feature": "skill-based-assignment",
+      "type": "optional"
+    },
+    {
+      "feature": "time-window-constraints",
+      "type": "optional"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/VROOM-Project/vroom",
+      "project": "VROOM",
+      "tech_stack": "C++20",
+      "files_traced": 6,
+      "entry_points": [
+        "src/structures/typedefs.h",
+        "src/structures/vroom/job.h",
+        "src/structures/vroom/solution_indicators.h",
+        "src/structures/vroom/solution/summary.h"
+      ]
+    }
+  }
+}

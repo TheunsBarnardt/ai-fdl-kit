@@ -1,0 +1,250 @@
+{
+  "feature": "skill-based-assignment",
+  "version": "1.0.0",
+  "description": "Restrict which vehicles may serve which tasks by tagging each task with required skills and each vehicle with held skills. A vehicle may only serve a task if it holds every required skill.",
+  "category": "workflow",
+  "tags": [
+    "skill-matching",
+    "driver-competency",
+    "task-qualification",
+    "workforce-management"
+  ],
+  "actors": [
+    {
+      "id": "fleet_manager",
+      "name": "Fleet Manager",
+      "type": "human",
+      "description": "Assigns skill sets to vehicles"
+    },
+    {
+      "id": "operations_planner",
+      "name": "Operations Planner",
+      "type": "human",
+      "description": "Specifies required skills on tasks and shipments"
+    },
+    {
+      "id": "optimization_engine",
+      "name": "Optimization Engine",
+      "type": "system",
+      "description": "Pre-filters vehicle-to-task compatibility using skill intersection"
+    }
+  ],
+  "fields": [
+    {
+      "name": "vehicle_skills",
+      "type": "json",
+      "label": "Vehicle Skills",
+      "required": false
+    },
+    {
+      "name": "job_skills",
+      "type": "json",
+      "label": "Required Job Skills",
+      "required": false
+    },
+    {
+      "name": "shipment_skills",
+      "type": "json",
+      "label": "Required Shipment Skills",
+      "required": false
+    },
+    {
+      "name": "skill_id",
+      "type": "number",
+      "label": "Skill ID",
+      "required": false
+    }
+  ],
+  "rules": {
+    "superset_required": "A vehicle may serve a task only if the vehicle's skill set contains all of the task's required skills.",
+    "opaque_identifiers": "Skills are opaque integer identifiers; the system does not interpret their meaning — that is the operator's responsibility.",
+    "empty_vehicle_skills": "A vehicle with no skills defined has an empty skill set; it can only serve tasks with no required skills.",
+    "empty_task_skills": "A task with no required skills can be served by any vehicle regardless of the vehicle's skills.",
+    "precomputed_compatibility": "Skill compatibility is computed once at load time as a matrix; it does not change during solving.",
+    "unassigned_when_no_match": "If no vehicle holds the skills required by a task, the task cannot be assigned and is reported as unassigned.",
+    "skills_violation_plan_mode": "In plan mode, assigning a task to a vehicle lacking required skills is recorded as a skills violation."
+  },
+  "states": {
+    "field": "skill_compatibility",
+    "values": [
+      {
+        "id": "compatible",
+        "description": "Vehicle holds all skills required by the task",
+        "initial": true
+      },
+      {
+        "id": "incompatible",
+        "description": "Vehicle is missing at least one required skill"
+      },
+      {
+        "id": "violation",
+        "description": "Plan mode — incompatible assignment submitted by user"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "compatible",
+        "to": "incompatible",
+        "actor": "optimization_engine",
+        "description": "Skill check fails during construction — vehicle skipped"
+      },
+      {
+        "from": "compatible",
+        "to": "violation",
+        "actor": "optimization_engine",
+        "description": "Plan mode — vehicle assigned to task it lacks skills for"
+      }
+    ]
+  },
+  "outcomes": {
+    "compatible_assignment": {
+      "priority": 10,
+      "given": [
+        "vehicle_skills is a superset of job_skills"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "task.skill.matched",
+          "payload": [
+            "vehicle_id",
+            "job_id",
+            "matched_skills"
+          ]
+        }
+      ],
+      "result": "Vehicle is eligible for this task; optimizer may assign it subject to other constraints."
+    },
+    "incompatible_skipped": {
+      "priority": 7,
+      "given": [
+        "vehicle_skills does not contain all job_skills",
+        "standard solving mode"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "task.skill.rejected",
+          "payload": [
+            "vehicle_id",
+            "job_id",
+            "missing_skills"
+          ]
+        }
+      ],
+      "result": "Vehicle excluded from consideration for this task; no violation recorded."
+    },
+    "task_unassigned_no_match": {
+      "priority": 5,
+      "given": [
+        "no vehicle in the fleet holds all required skills for this task"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "task.unassigned",
+          "payload": [
+            "job_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Task reported as unassigned; operator should add a compatible vehicle or relax skill requirements."
+    },
+    "skill_violation_plan_mode": {
+      "priority": 4,
+      "given": [
+        "plan/ETA mode active",
+        "submitted route assigns task to vehicle missing required skills"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "task.skill.violated",
+          "payload": [
+            "vehicle_id",
+            "job_id",
+            "missing_skills"
+          ]
+        }
+      ],
+      "result": "skills violation recorded on the affected step and route."
+    }
+  },
+  "errors": [
+    {
+      "code": "SKILL_NO_COMPATIBLE_VEHICLE",
+      "status": 422,
+      "message": "No vehicle holds the required skills for this task."
+    }
+  ],
+  "events": [
+    {
+      "name": "task.skill.matched",
+      "description": "Vehicle confirmed compatible with task skill requirements",
+      "payload": [
+        "vehicle_id",
+        "job_id",
+        "matched_skills"
+      ]
+    },
+    {
+      "name": "task.skill.rejected",
+      "description": "Vehicle lacks required skills for a task; skipped during optimization",
+      "payload": [
+        "vehicle_id",
+        "job_id",
+        "missing_skills"
+      ]
+    },
+    {
+      "name": "task.skill.violated",
+      "description": "Plan mode — task assigned to incompatible vehicle",
+      "payload": [
+        "vehicle_id",
+        "job_id",
+        "missing_skills"
+      ]
+    },
+    {
+      "name": "task.unassigned",
+      "description": "No compatible vehicle found; task left unassigned",
+      "payload": [
+        "job_id",
+        "reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vrp-solving",
+      "type": "required"
+    },
+    {
+      "feature": "multi-vehicle-route-optimization",
+      "type": "required"
+    },
+    {
+      "feature": "pickup-delivery-pairing",
+      "type": "optional"
+    },
+    {
+      "feature": "driver-shift-break-constraints",
+      "type": "optional"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/VROOM-Project/vroom",
+      "project": "VROOM",
+      "tech_stack": "C++20",
+      "files_traced": 6,
+      "entry_points": [
+        "src/structures/typedefs.h",
+        "src/structures/vroom/vehicle.h",
+        "src/structures/vroom/job.h",
+        "src/structures/vroom/solution/violations.h"
+      ]
+    }
+  }
+}

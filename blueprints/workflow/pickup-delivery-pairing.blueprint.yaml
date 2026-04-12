@@ -1,0 +1,220 @@
+# ============================================================
+# PICKUP-AND-DELIVERY PAIRING — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/VROOM-Project/vroom
+# Source project: VROOM route optimization engine (C++20)
+# Files traced: 8 (structures/vroom/job.h, structures/typedefs.h,
+#   structures/vroom/input/input.h, problems/vrptw/vrptw.h,
+#   algorithms/local_search/operator.h, structures/vroom/solution/violations.h,
+#   structures/vroom/tw_route.h, docs/API.md)
+# ============================================================
+
+feature: pickup-delivery-pairing
+version: "1.0.0"
+description: "Link a pickup and delivery stop as a paired shipment served by the same vehicle with pickup before delivery. Supports multidimensional load amounts and independent time windows per stop."
+category: workflow
+tags:
+  - pickup-delivery
+  - pdp
+  - shipments
+  - paired-stops
+  - precedence
+
+actors:
+  - id: shipper
+    name: Shipper
+    type: human
+    description: Defines paired pickup and delivery locations and amounts
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: Submits the problem including shipments
+  - id: optimization_engine
+    name: Optimization Engine
+    type: system
+    description: Enforces precedence and same-vehicle constraints during route building
+
+fields:
+  - name: pickup_id
+    type: number
+    label: Pickup ID
+    required: true
+  - name: pickup_location
+    type: json
+    label: Pickup Location
+    required: true
+  - name: pickup_time_windows
+    type: json
+    label: Pickup Time Windows
+    required: false
+  - name: pickup_service_duration
+    type: number
+    label: Pickup Service Duration (s)
+    required: false
+  - name: delivery_id
+    type: number
+    label: Delivery ID
+    required: true
+  - name: delivery_location
+    type: json
+    label: Delivery Location
+    required: true
+  - name: delivery_time_windows
+    type: json
+    label: Delivery Time Windows
+    required: false
+  - name: delivery_service_duration
+    type: number
+    label: Delivery Service Duration (s)
+    required: false
+  - name: shipment_amount
+    type: json
+    label: Shipment Amount
+    required: false
+  - name: shipment_skills
+    type: json
+    label: Required Skills
+    required: false
+  - name: shipment_priority
+    type: number
+    label: Priority (0-100)
+    required: false
+
+rules:
+  same_vehicle: "A pickup and its delivery must be served by the same vehicle; splitting a shipment across vehicles is forbidden."
+  pickup_before_delivery: "The pickup step must appear before the delivery step in the vehicle's route."
+  unique_ids: "Pickup and delivery IDs must be globally unique across all jobs and shipment steps."
+  capacity_tracking: "The shipment amount is loaded at pickup and removed at delivery; the vehicle must have sufficient capacity at both points."
+  skill_inheritance: "Skills defined on the shipment apply to both stops; the assigned vehicle must possess all listed skills."
+  priority_applies_to_both: "Priority defined on the shipment contributes to the objective for both stops."
+  independent_time_windows: "Pickup and delivery may have independent time windows; both must be feasibly schedulable on the same vehicle route."
+
+states:
+  field: shipment_status
+  values:
+    - id: pending
+      description: Shipment not yet assigned to a vehicle
+      initial: true
+    - id: assigned
+      description: Both stops allocated to a vehicle route
+    - id: pickup_done
+      description: Pickup stop served; goods on vehicle
+    - id: delivered
+      description: Delivery stop served; shipment complete
+      terminal: true
+    - id: unassigned
+      description: No vehicle could serve both stops
+      terminal: true
+    - id: violated
+      description: Precedence or assignment constraint broken (plan mode)
+      terminal: true
+  transitions:
+    - from: pending
+      to: assigned
+      actor: optimization_engine
+      description: Both stops placed on the same vehicle route in correct order
+    - from: assigned
+      to: pickup_done
+      actor: optimization_engine
+      description: Vehicle completes pickup stop
+    - from: pickup_done
+      to: delivered
+      actor: optimization_engine
+      description: Vehicle completes delivery stop
+    - from: pending
+      to: unassigned
+      actor: optimization_engine
+      description: No feasible vehicle for both stops
+    - from: assigned
+      to: violated
+      actor: optimization_engine
+      description: Plan mode — delivery appears before pickup in submitted route
+
+outcomes:
+  shipment_completed:
+    priority: 10
+    given:
+      - "same vehicle serves both pickup and delivery stops"
+      - "pickup appears before delivery in the route"
+      - "vehicle capacity is not exceeded after loading at pickup"
+    then:
+      - action: emit_event
+        event: shipment.completed
+        payload: [pickup_id, delivery_id, vehicle_id, pickup_eta, delivery_eta]
+    result: "Both steps in route with correct order; vehicle load increases at pickup and decreases at delivery."
+
+  shipment_unassigned:
+    priority: 5
+    given:
+      - "no vehicle has skills and capacity to serve both stops within their windows"
+    then:
+      - action: emit_event
+        event: shipment.unassigned
+        payload: [pickup_id, delivery_id, reason]
+    result: "Both stops in solution unassigned array."
+
+  precedence_violated_plan_mode:
+    priority: 4
+    given:
+      - "plan/ETA mode active"
+      - "delivery step appears before pickup step in submitted route"
+    then:
+      - action: emit_event
+        event: shipment.precedence.violated
+        payload: [pickup_id, delivery_id, vehicle_id]
+    result: "precedence violation recorded on the out-of-order step."
+
+  pickup_without_delivery:
+    priority: 3
+    error: SHIPMENT_MISSING_COUNTERPART
+    given:
+      - "plan/ETA mode active"
+      - "pickup step present in route but delivery step is absent"
+    then:
+      - action: emit_event
+        event: shipment.precedence.violated
+        payload: [pickup_id, delivery_id, vehicle_id]
+    result: "precedence violation recorded; the unpaired stop is flagged."
+
+errors:
+  - code: SHIPMENT_DUPLICATE_ID
+    status: 400
+    message: "Two pickup or two delivery steps share the same ID."
+  - code: SHIPMENT_MISSING_COUNTERPART
+    status: 400
+    message: "A pickup or delivery step has no matching counterpart in the problem."
+
+events:
+  - name: shipment.completed
+    description: Both pickup and delivery stops served in correct order by same vehicle
+    payload: [pickup_id, delivery_id, vehicle_id, pickup_eta, delivery_eta]
+  - name: shipment.unassigned
+    description: No feasible vehicle assignment found for this shipment
+    payload: [pickup_id, delivery_id, reason]
+  - name: shipment.precedence.violated
+    description: Plan mode — precedence or pairing constraint broken
+    payload: [pickup_id, delivery_id, vehicle_id]
+
+related:
+  - feature: vrp-solving
+    type: required
+  - feature: vehicle-capacity-constraints
+    type: recommended
+  - feature: time-window-constraints
+    type: optional
+  - feature: skill-based-assignment
+    type: optional
+  - feature: stop-eta-calculation
+    type: recommended
+
+extensions:
+  source:
+    repo: "https://github.com/VROOM-Project/vroom"
+    project: "VROOM"
+    tech_stack: "C++20"
+    files_traced: 8
+    entry_points:
+      - "src/structures/vroom/job.h"
+      - "src/structures/typedefs.h"
+      - "src/structures/vroom/solution/violations.h"

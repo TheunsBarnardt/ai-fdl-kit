@@ -1,0 +1,296 @@
+{
+  "feature": "distance-matrix-calculation",
+  "version": "1.0.0",
+  "description": "Build a travel-time and distance matrix between all locations by querying a routing engine or accepting pre-supplied matrices. Underpins all cost evaluations and ETA calculations.",
+  "category": "workflow",
+  "tags": [
+    "distance-matrix",
+    "travel-time",
+    "routing-engine",
+    "matrix-computation"
+  ],
+  "actors": [
+    {
+      "id": "optimization_engine",
+      "name": "Optimization Engine",
+      "type": "system",
+      "description": "Requests matrices from routing engine and stores them for solving"
+    },
+    {
+      "id": "routing_engine",
+      "name": "Routing Engine",
+      "type": "system",
+      "description": "External service that returns pairwise travel times and distances"
+    }
+  ],
+  "fields": [
+    {
+      "name": "locations",
+      "type": "json",
+      "label": "Locations",
+      "required": true
+    },
+    {
+      "name": "duration_matrix",
+      "type": "json",
+      "label": "Duration Matrix (s)",
+      "required": false
+    },
+    {
+      "name": "distance_matrix",
+      "type": "json",
+      "label": "Distance Matrix (m)",
+      "required": false
+    },
+    {
+      "name": "cost_matrix",
+      "type": "json",
+      "label": "Cost Matrix",
+      "required": false
+    },
+    {
+      "name": "matrix_profile",
+      "type": "text",
+      "label": "Routing Profile",
+      "required": false
+    },
+    {
+      "name": "location_index",
+      "type": "number",
+      "label": "Location Index",
+      "required": false
+    },
+    {
+      "name": "snapping_radius_metres",
+      "type": "number",
+      "label": "Snapping Radius (m)",
+      "required": false
+    }
+  ],
+  "rules": {
+    "one_matrix_per_profile": "A separate matrix is computed for each distinct vehicle profile; vehicles sharing a profile share a matrix.",
+    "custom_bypasses_engine": "If custom duration matrices are provided for all profiles no routing engine call is made.",
+    "distance_on_demand": "If distance matrices are omitted but distance-based costs or geometry are requested, the routing engine is queried separately for distances.",
+    "cost_matrix_conflict": "Custom cost matrices may not be combined with per_hour or per_km vehicle costs.",
+    "square_matrix": "All matrices must be square (N x N) where N is the number of distinct locations.",
+    "unfound_route_halts": "When a location cannot be snapped to the road network the routing engine reports an error which halts the solve.",
+    "integer_arithmetic": "Internally all durations and distances are scaled by fixed factors for consistent integer arithmetic; output is rescaled to user-facing seconds and metres.",
+    "sparse_matrix_mode": "Per-vehicle route requests are made for vehicles with predefined steps, updating only the relevant matrix cells."
+  },
+  "states": {
+    "field": "matrix_state",
+    "values": [
+      {
+        "id": "not_built",
+        "description": "Matrix not yet computed for this profile",
+        "initial": true
+      },
+      {
+        "id": "building",
+        "description": "Routing engine query or custom matrix ingestion in progress"
+      },
+      {
+        "id": "built",
+        "description": "Full matrix available; solving can proceed",
+        "terminal": true
+      },
+      {
+        "id": "error",
+        "description": "Matrix computation failed",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "not_built",
+        "to": "building",
+        "actor": "optimization_engine",
+        "description": "Problem loaded; matrix request initiated"
+      },
+      {
+        "from": "building",
+        "to": "built",
+        "actor": "routing_engine",
+        "description": "Valid matrix received and stored"
+      },
+      {
+        "from": "building",
+        "to": "error",
+        "actor": "routing_engine",
+        "description": "Routing engine unreachable or location unfound"
+      }
+    ]
+  },
+  "outcomes": {
+    "matrix_built_from_engine": {
+      "priority": 10,
+      "given": [
+        "all vehicle and job coordinates are provided",
+        "routing engine is reachable and can snap all locations"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "matrix.built",
+          "payload": [
+            "profile",
+            "location_count",
+            "build_duration_ms"
+          ]
+        },
+        {
+          "action": "transition_state",
+          "field": "matrix_state",
+          "from": "building",
+          "to": "built"
+        }
+      ],
+      "result": "Square N x N duration (and optionally distance) matrix stored per profile; optimizer proceeds."
+    },
+    "matrix_from_custom_input": {
+      "priority": 9,
+      "given": [
+        "caller provides duration_matrix and optionally distance_matrix or cost_matrix"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "matrix.built",
+          "payload": [
+            "profile",
+            "location_count",
+            "source"
+          ]
+        },
+        {
+          "action": "transition_state",
+          "field": "matrix_state",
+          "from": "building",
+          "to": "built"
+        }
+      ],
+      "result": "Custom matrix ingested directly; location_index fields used for lookup."
+    },
+    "sparse_matrix_update": {
+      "priority": 8,
+      "given": [
+        "vehicles have predefined route steps (plan mode or initial routes)"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "matrix.sparse.updated",
+          "payload": [
+            "vehicle_id",
+            "route_length",
+            "cells_updated"
+          ]
+        }
+      ],
+      "result": "Only cells relevant to each vehicle's route are queried; reduces routing engine load."
+    },
+    "routing_error": {
+      "priority": 1,
+      "error": "MATRIX_ROUTING_ERROR",
+      "given": [
+        "routing engine returns unfound route for at least one location pair"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "matrix.error",
+          "payload": [
+            "profile",
+            "problem_location",
+            "error_message"
+          ]
+        },
+        {
+          "action": "transition_state",
+          "field": "matrix_state",
+          "from": "building",
+          "to": "error"
+        }
+      ],
+      "result": "Solve aborted; caller should check coordinates or supply a custom matrix."
+    }
+  },
+  "errors": [
+    {
+      "code": "MATRIX_ROUTING_ERROR",
+      "status": 503,
+      "message": "Routing engine could not compute routes for one or more location pairs."
+    },
+    {
+      "code": "MATRIX_SIZE_MISMATCH",
+      "status": 400,
+      "message": "Provided matrix dimensions do not match the number of locations."
+    },
+    {
+      "code": "MATRIX_COST_CONFLICT",
+      "status": 400,
+      "message": "Custom cost matrix cannot be combined with per_hour or per_km vehicle costs."
+    }
+  ],
+  "events": [
+    {
+      "name": "matrix.built",
+      "description": "Travel-time and distance matrix successfully computed for a profile",
+      "payload": [
+        "profile",
+        "location_count",
+        "build_duration_ms"
+      ]
+    },
+    {
+      "name": "matrix.sparse.updated",
+      "description": "Sparse matrix cells updated for vehicles with predefined routes",
+      "payload": [
+        "vehicle_id",
+        "route_length",
+        "cells_updated"
+      ]
+    },
+    {
+      "name": "matrix.error",
+      "description": "Matrix computation failed for a profile",
+      "payload": [
+        "profile",
+        "problem_location",
+        "error_message"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vrp-solving",
+      "type": "required"
+    },
+    {
+      "feature": "routing-profile-selection",
+      "type": "required"
+    },
+    {
+      "feature": "stop-eta-calculation",
+      "type": "required"
+    },
+    {
+      "feature": "cost-based-route-optimization",
+      "type": "recommended"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/VROOM-Project/vroom",
+      "project": "VROOM",
+      "tech_stack": "C++20",
+      "files_traced": 9,
+      "entry_points": [
+        "src/routing/wrapper.h",
+        "src/structures/generic/matrix.h",
+        "src/structures/vroom/matrices.h",
+        "src/structures/vroom/input/input.h"
+      ]
+    }
+  }
+}

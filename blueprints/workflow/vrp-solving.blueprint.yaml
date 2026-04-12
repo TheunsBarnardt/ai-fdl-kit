@@ -1,0 +1,201 @@
+# ============================================================
+# VRP SOLVING — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/VROOM-Project/vroom
+# Source project: VROOM route optimization engine (C++20)
+# Files traced: ~20 (problems/vrp.h, problems/cvrp/, problems/vrptw/,
+#   algorithms/heuristics/, algorithms/local_search/, structures/vroom/input/input.h)
+# ============================================================
+
+feature: vrp-solving
+version: "1.0.0"
+description: "Solve a vehicle routing problem given jobs and vehicles, returning optimised routes that minimise total cost while satisfying all constraints."
+category: workflow
+tags:
+  - route-optimization
+  - vrp
+  - logistics
+  - scheduling
+
+actors:
+  - id: fleet_manager
+    name: Fleet Manager
+    type: human
+    description: Submits the problem definition and consumes the solution
+  - id: optimization_engine
+    name: Optimization Engine
+    type: system
+    description: Runs heuristic construction and local-search to find best solution
+
+fields:
+  - name: jobs
+    type: json
+    label: Jobs
+    required: true
+  - name: vehicles
+    type: json
+    label: Vehicles
+    required: true
+  - name: shipments
+    type: json
+    label: Shipments
+    required: false
+  - name: matrices
+    type: json
+    label: Custom Matrices
+    required: false
+  - name: exploration_level
+    type: number
+    label: Exploration Level
+    required: false
+  - name: timeout_ms
+    type: number
+    label: Timeout (ms)
+    required: false
+
+rules:
+  single_assignment: "Every job is assigned to at most one vehicle; unassigned jobs are reported separately."
+  constraint_satisfaction: "A vehicle route must not violate its capacity, skills, working-hours, max_tasks, max_travel_time, or max_distance constraints."
+  multi_start_search: "Solver runs multiple heuristic construction passes followed by local search; the pass with the lowest cost indicator is returned."
+  lexicographic_objective: "Optimization objective is lexicographic — maximise priority-weighted assignment first, then minimise total route cost."
+  initial_routes: "If initial routes are provided they seed a single-search refinement rather than multi-start exploration."
+  open_trip: "At least one of start or end must be defined per vehicle; if only one is given, the route is an open trip."
+
+states:
+  field: solving_status
+  values:
+    - id: idle
+      description: No solve request in progress
+      initial: true
+    - id: solving
+      description: Heuristic and local-search phases running
+    - id: solved
+      description: Solution returned to caller
+      terminal: true
+    - id: failed
+      description: Solver encountered an unrecoverable error
+      terminal: true
+  transitions:
+    - from: idle
+      to: solving
+      actor: fleet_manager
+      description: Problem submitted to solver
+    - from: solving
+      to: solved
+      actor: optimization_engine
+      description: Best solution selected and formatted
+    - from: solving
+      to: failed
+      actor: optimization_engine
+      description: Input error or routing error detected
+
+outcomes:
+  feasible_solution:
+    priority: 10
+    given:
+      - "all required fields are present and valid"
+      - "at least one vehicle and one job are defined"
+    then:
+      - action: emit_event
+        event: vrp.solved
+        payload: [routes, unassigned, summary]
+      - action: transition_state
+        field: solving_status
+        from: solving
+        to: solved
+    result: "Solution returned with routes, unassigned tasks, and summary statistics."
+
+  partial_assignment:
+    priority: 5
+    given:
+      - "solution is feasible but some jobs could not be assigned"
+    then:
+      - action: emit_event
+        event: vrp.solved
+        payload: [routes, unassigned, summary]
+      - action: transition_state
+        field: solving_status
+        from: solving
+        to: solved
+    result: "Solution returned with unassigned array populated."
+
+  input_error:
+    priority: 1
+    error: VRP_INPUT_ERROR
+    given:
+      - "required fields missing, duplicate IDs, or constraint values are invalid"
+    then:
+      - action: emit_event
+        event: vrp.failed
+        payload: [error_code, error_message]
+      - action: transition_state
+        field: solving_status
+        from: solving
+        to: failed
+    result: "Error code returned with descriptive message; no routes produced."
+
+  routing_error:
+    priority: 2
+    error: VRP_ROUTING_ERROR
+    given:
+      - "routing engine unreachable or returns unfound routes for a location"
+    then:
+      - action: emit_event
+        event: vrp.failed
+        payload: [error_code, error_message]
+      - action: transition_state
+        field: solving_status
+        from: solving
+        to: failed
+    result: "Error returned; caller should verify location coordinates or supply custom matrices."
+
+errors:
+  - code: VRP_INPUT_ERROR
+    status: 400
+    message: "Problem definition is invalid. Check for missing fields, duplicate IDs, or bad constraint values."
+  - code: VRP_ROUTING_ERROR
+    status: 503
+    message: "Could not compute travel times for one or more locations. Verify coordinates or supply custom matrices."
+
+events:
+  - name: vrp.solved
+    description: Optimization completed; solution is ready for consumption
+    payload: [routes, unassigned, summary]
+  - name: vrp.failed
+    description: Optimization could not complete due to input or routing error
+    payload: [error_code, error_message]
+
+related:
+  - feature: multi-vehicle-route-optimization
+    type: extends
+  - feature: time-window-constraints
+    type: optional
+  - feature: vehicle-capacity-constraints
+    type: optional
+  - feature: driver-shift-break-constraints
+    type: optional
+  - feature: pickup-delivery-pairing
+    type: optional
+  - feature: skill-based-assignment
+    type: optional
+  - feature: priority-urgency-weighting
+    type: optional
+  - feature: cost-based-route-optimization
+    type: optional
+  - feature: distance-matrix-calculation
+    type: recommended
+
+extensions:
+  source:
+    repo: "https://github.com/VROOM-Project/vroom"
+    project: "VROOM"
+    tech_stack: "C++20"
+    files_traced: 20
+    entry_points:
+      - "src/problems/vrp.h"
+      - "src/problems/cvrp/cvrp.h"
+      - "src/problems/vrptw/vrptw.h"
+      - "src/structures/vroom/input/input.h"
+      - "src/algorithms/heuristics/heuristics.h"
+      - "src/algorithms/local_search/local_search.h"
