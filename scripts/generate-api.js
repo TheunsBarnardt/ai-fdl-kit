@@ -13,6 +13,8 @@ import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, basename, dirname } from 'path';
 import { glob } from 'glob';
 import YAML from 'yaml';
+import { scoreBlueprint } from './fitness.js';
+import { checkBlueprint } from './completeness-check.js';
 
 const ROOT = dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1'));
 const PROJECT_ROOT = join(ROOT, '..');
@@ -49,11 +51,22 @@ async function main() {
       registry.categories[category] = { count: 0, blueprints: [] };
     }
     registry.categories[category].count++;
+    // Quality signals
+    const filePath = join(PROJECT_ROOT, file);
+    const fitness = scoreBlueprint(bp);
+    const completeness = checkBlueprint(filePath);
+    const structureRatio = fitness.dims.structure.max > 0
+      ? Math.round((fitness.dims.structure.score / fitness.dims.structure.max) * 100) / 100
+      : 0;
+
     registry.categories[category].blueprints.push({
       feature,
       version: bp.version,
       description: bp.description,
       tags: bp.tags || [],
+      fitness: fitness.percent,
+      completeness: { errors: completeness.errors.length, warnings: completeness.warnings.length },
+      structure_ratio: structureRatio,
       api_url: `${registry.base_url}/${category}/${feature}.json`,
       yaml_url: `https://raw.githubusercontent.com/TheunsBarnardt/ai-fdl-kit/master/${file.replace(/\\/g, '/')}`,
     });

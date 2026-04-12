@@ -531,6 +531,35 @@ if (!user || !(await bcrypt.compare(input.password, user.password_hash))) {
 
 ## What to Generate
 
+**CRITICAL: Always generate a buildable project, not just source files.** Every `/fdl-generate` run must produce project scaffolding alongside the feature code — the output must be something the user can open in their IDE and build immediately.
+
+### Project Scaffolding (MANDATORY for every framework)
+
+Always generate the build system, manifests, and entry points for the target framework. The user should never have to create these manually. Adapt to the framework:
+
+| Framework | Required scaffolding |
+|---|---|
+| **kotlin-android** | `build.gradle.kts` (root + per-module), `settings.gradle.kts`, `gradle.properties`, `gradle/libs.versions.toml`, `AndroidManifest.xml` (app + per-module), `Application` class, `MainActivity`, theme, navigation, Hilt setup, `proguard-rules.pro` |
+| **nextjs** | `package.json`, `next.config.js`, `tsconfig.json`, `tailwind.config.ts` (if Tailwind), `.env.example`, `src/app/layout.tsx`, `src/app/page.tsx` |
+| **express** | `package.json`, `tsconfig.json`, `.env.example`, `src/index.ts` (server entry), `src/app.ts` (Express app setup with middleware) |
+| **laravel** | `composer.json`, `.env.example`, `routes/web.php` or `routes/api.php`, `config/` entries, service provider registration |
+| **flutter** | `pubspec.yaml`, `analysis_options.yaml`, `lib/main.dart`, `lib/app.dart`, `android/app/build.gradle`, `ios/Runner/Info.plist` |
+| **python / fastapi** | `pyproject.toml` or `requirements.txt`, `main.py` (app entry), `alembic.ini` (if DB), `.env.example` |
+| **rust / axum** | `Cargo.toml`, `src/main.rs` (server entry), `src/lib.rs` (module re-exports) |
+| **go** | `go.mod`, `cmd/server/main.go` (entry), `internal/` package layout |
+| **csharp / aspnet** | `.csproj`, `Program.cs`, `appsettings.json`, `Startup.cs` or minimal API setup |
+| **angular** | `package.json`, `angular.json`, `tsconfig.json`, `src/main.ts`, `src/app/app.module.ts`, `src/app/app-routing.module.ts` |
+
+For **multi-module projects** (like Android with feature modules), generate:
+- Root build file with all module includes
+- Per-module build files with shared dependency versions (use a version catalog)
+- Per-module manifests
+- App module that wires all feature modules together via DI
+
+If the framework isn't in the table, use your knowledge of that framework's conventions to produce the equivalent scaffolding. The principle is: **the output directory should be a complete, buildable project**.
+
+### Feature Code
+
 For each feature, produce these files (adapt to framework conventions):
 
 **Backend:**

@@ -191,6 +191,81 @@ Outcomes use given/then/result format with structured conditions (field, source,
 
 All of them. Blueprints are framework-agnostic. Tested with: Next.js, Express, Laravel, Angular, React, Vue, C#/.NET, Rust, Python/Django, Go, Ruby on Rails, Flutter, Swift.
 
+## API Endpoints
+
+- Registry (all blueprints): https://theunsbarnardt.github.io/ai-fdl-kit/api/registry.json
+- Per-blueprint JSON: https://theunsbarnardt.github.io/ai-fdl-kit/api/blueprints/{category}/{feature}.json
+- Relationship graph: https://theunsbarnardt.github.io/ai-fdl-kit/api/relationship-graph.json
+- AGI capability registry: https://theunsbarnardt.github.io/ai-fdl-kit/api/agi-capability-registry.json
+
+## Blueprint Discovery Protocol (for AI systems)
+
+Step-by-step protocol for AI tools consuming FDL blueprints:
+
+1. FETCH the registry: GET registry.json — contains all blueprints with metadata
+2. SEARCH by tag, category, or description keyword within registry.categories[*].blueprints[]
+3. FILTER by quality: prefer entries with fitness >= 75 and completeness.errors == 0
+4. FETCH the relationship graph: GET relationship-graph.json — shows all dependencies upfront
+5. RESOLVE dependencies: for the selected feature, load all edges[feature].required[] features
+6. LOAD each blueprint: GET the api_url from the registry entry for full JSON
+7. EVALUATE outcomes in priority order (lower number = evaluate first, see below)
+
+For local projects with blueprints/ directory: use scripts/blueprint-lookup.js for O(1) lookup by feature name, falling back to the remote API if not found locally.
+
+## Outcome Evaluation Semantics
+
+Outcomes are guard clauses evaluated in priority order (lower priority number = evaluated first):
+
+- Priority 0-3: Guard clauses — rate limiting, account lockout, security blocks. These REJECT early.
+- Priority 4-9: Conditional logic — validation failures, permission checks, state conflicts.
+- Priority 10+: Happy path — only reached after all guards pass.
+
+For each outcome, in order:
+1. Check prerequisites[] if present — state that must already exist (e.g., "User record loaded from database")
+2. Evaluate given[] conditions — items are AND by default, use any: for OR groups
+3. If ALL given[] conditions match:
+   a. Execute then[] side effects in declaration order
+   b. If transaction: true, wrap all then[] in an atomic transaction (rollback on failure)
+   c. If error: is set, return that error code with its HTTP status and message
+   d. Return the result text as the response
+4. If given[] do NOT match, skip to the next outcome by priority
+
+When generating code: translate outcomes to an if/else-if chain ordered by priority. Each outcome becomes one guard clause or branch.
+
+## Event Handling Protocol
+
+Events use dot.notation names (e.g., auth.login.success). To wire events into generated code:
+
+1. Read events[] from the blueprint — each has a name and payload
+2. If payload_schema exists, use it for typed field definitions with sources (db, input, session, system)
+3. If only payload exists (string array), infer field sources from the blueprint's fields[] and outcomes
+4. In outcomes, find then[] actions with action: "emit_event" — these are the emission points
+5. Generate event emission code at each emit_event action location
+6. Check relationship-graph.json edges for features that might consume these events
+
+## Error Handling Pattern
+
+Errors follow a binding pattern — every error code connects to an outcome:
+
+1. errors[] defines available codes with HTTP status (401, 403, 422, 429, etc.) and user-safe message
+2. Each failure outcome binds to one error code via its error: field
+3. When generating code: outcome match + error binding = return that HTTP status + message
+4. Never expose internal state in error messages — use the blueprint's message field exactly
+5. If an error has retry: true, the client should be told to retry
+
+## Quality Signals in Registry
+
+Each blueprint entry in registry.json includes quality metadata:
+
+- fitness: 0-100 quality score measuring outcome coverage, rule structure, error binding, field validation
+- completeness: { errors, warnings } — 0 errors means production-ready, warnings are improvement opportunities
+- structure_ratio: 0.0-1.0 ratio of machine-parseable structured conditions vs plain-text conditions
+
+Recommended filters for AI consumption:
+- Production use: fitness >= 75 AND completeness.errors == 0
+- Exploratory use: fitness >= 50
+- Best-in-class: fitness >= 85 AND structure_ratio >= 0.7
+
 ## Why Blueprints Matter for Next-Gen AI Models
 
 As AI models become more agentic and autonomous (planning multi-step actions, executing across systems without human input at each stage), structured specifications become critical infrastructure. Blueprints give autonomous agents a complete contract — every field, rule, outcome, and error — so they implement exactly what's defined instead of guessing requirements. The better the model, the more it benefits from precise specifications. Blueprints are the interface between human intent and AI execution.

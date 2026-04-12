@@ -525,6 +525,29 @@ function renderFitness(bp, relPath) {
   return md;
 }
 
+function renderEvents(events) {
+  if (!Array.isArray(events) || events.length === 0) return '';
+  let md = '## Events\n\n';
+  for (const event of events) {
+    if (!event || !event.name) continue;
+    md += `**\`${event.name}\`**`;
+    if (event.description) md += ` — ${event.description}`;
+    md += '\n';
+    // Prefer payload_schema (typed) over payload (plain array)
+    if (Array.isArray(event.payload_schema) && event.payload_schema.length > 0) {
+      md += '\n| Field | Type | Source |\n|-------|------|--------|\n';
+      for (const p of event.payload_schema) {
+        md += `| \`${p.field}\` | ${p.type} | ${p.source} |\n`;
+      }
+      md += '\n';
+    } else if (Array.isArray(event.payload) && event.payload.length > 0) {
+      md += `  Payload: \`${event.payload.join('`, `')}\`\n`;
+    }
+    md += '\n';
+  }
+  return md;
+}
+
 function renderFooter(bp, category) {
   const yamlFile = `${bp.feature}.blueprint.yaml`;
   const siteUrl = `${DOCS_BASE_URL}/blueprints/${category}/${bp.feature}/`;
@@ -546,6 +569,7 @@ function renderBlueprint(bp, relPath) {
   md += renderOutcomesProse(bp.outcomes);
   md += renderFlowsProse(bp.flows);
   md += renderErrorsList(bp.errors);
+  md += renderEvents(bp.events);
   md += renderRelatedList(bp.related);
   md += renderFitness(bp, relPath);
   md += renderFooter(bp, category);

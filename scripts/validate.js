@@ -276,6 +276,20 @@ const blueprintJsonSchema = {
           type: "array",
           items: { type: "string" },
         },
+        payload_schema: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["field", "type", "source"],
+            properties: {
+              field: { type: "string" },
+              type: { type: "string" },
+              source: { type: "string" },
+              description: { type: "string" },
+            },
+            additionalProperties: false,
+          },
+        },
       },
       additionalProperties: false,
     },
@@ -799,7 +813,7 @@ function validateFile(filePath) {
   // ─── Validate outcomes ─────────────────────────────────
 
   if (data.outcomes) {
-    const validOutcomeKeys = new Set(["given", "then", "result", "priority", "error", "transaction"]);
+    const validOutcomeKeys = new Set(["given", "then", "result", "priority", "error", "transaction", "prerequisites"]);
     const errorCodes = new Set((data.errors || []).map((e) => e.code));
 
     for (const [name, outcome] of Object.entries(data.outcomes)) {
@@ -830,6 +844,19 @@ function validateFile(filePath) {
       // Validate transaction boundary
       if (outcome.transaction !== undefined && typeof outcome.transaction !== "boolean") {
         customErrors.push(`  outcomes.${name}.transaction: must be a boolean`);
+      }
+
+      // Validate prerequisites (optional array of strings)
+      if (outcome.prerequisites !== undefined) {
+        if (!Array.isArray(outcome.prerequisites)) {
+          customErrors.push(`  outcomes.${name}.prerequisites: must be an array of strings`);
+        } else {
+          for (let i = 0; i < outcome.prerequisites.length; i++) {
+            if (typeof outcome.prerequisites[i] !== "string") {
+              customErrors.push(`  outcomes.${name}.prerequisites[${i}]: must be a string`);
+            }
+          }
+        }
       }
 
       // Validate conditions in given[]
@@ -1058,6 +1085,19 @@ function validateRelationships(results) {
   const features = new Set(results.filter((r) => r.valid).map((r) => r.feature));
   const warnings = [];
 
+  // Build a map of what each blueprint exposes (for capability cross-validation)
+  const exposesMap = new Map(); // feature → Set<capability name>
+  for (const result of results) {
+    if (!result.valid) continue;
+    const absPath = resolve(result.file);
+    const content = readFileSync(absPath, "utf-8");
+    const data = YAML.parse(content);
+    if (data.agi?.coordination?.exposes) {
+      const caps = new Set(data.agi.coordination.exposes.map((e) => e.capability).filter(Boolean));
+      exposesMap.set(data.feature, caps);
+    }
+  }
+
   for (const result of results) {
     if (!result.valid) continue;
 
@@ -1082,6 +1122,14 @@ function validateRelationships(results) {
           warnings.push(
             `${result.feature} agi.coordination.consumes: capability "${c.capability}" references blueprint "${c.from}" which was not found`
           );
+        } else {
+          // Provider exists — check if it actually exposes the capability
+          const providerCaps = exposesMap.get(c.from);
+          if (providerCaps && !providerCaps.has(c.capability)) {
+            warnings.push(
+              `${result.feature} agi.coordination.consumes: capability "${c.capability}" from "${c.from}" — provider exists but does not expose this capability`
+            );
+          }
         }
       }
     }
@@ -1152,4 +1200,13 @@ async function main() {
   process.exit(failed > 0 ? 1 : 0);
 }
 
-main();
+// ─── Exports for testing ─────────────────────────────────
+
+export { validateFile, validateRelationships, blueprintJsonSchema };
+
+// ─── Run CLI only when invoked directly ──────────────────
+
+import { pathToFileURL } from "url";
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

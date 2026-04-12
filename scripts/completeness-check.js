@@ -79,11 +79,11 @@ class Issues {
     this.errors = [];
     this.warnings = [];
   }
-  error(path, message) {
-    this.errors.push({ path, message });
+  error(path, message, suggestion) {
+    this.errors.push({ path, message, ...(suggestion ? { suggestion } : {}) });
   }
-  warn(path, message) {
-    this.warnings.push({ path, message });
+  warn(path, message, suggestion) {
+    this.warnings.push({ path, message, ...(suggestion ? { suggestion } : {}) });
   }
   get hasErrors() {
     return this.errors.length > 0;
@@ -127,7 +127,8 @@ function checkDescription(bp, issues) {
   if (bp.description.length < MIN_DESCRIPTION_LENGTH) {
     issues.error(
       "description",
-      `description too short (${bp.description.length} chars, minimum ${MIN_DESCRIPTION_LENGTH})`
+      `description too short (${bp.description.length} chars, minimum ${MIN_DESCRIPTION_LENGTH})`,
+      `Expand to ${MIN_DESCRIPTION_LENGTH}+ chars explaining what this feature does and its primary purpose`
     );
   }
   if (containsPlaceholder(bp.description)) {
@@ -135,7 +136,9 @@ function checkDescription(bp, issues) {
   }
   // Description must not just repeat the feature name
   if (bp.feature && bp.description.trim().toLowerCase() === bp.feature.toLowerCase()) {
-    issues.error("description", "description is just the feature name — needs a real sentence");
+    issues.error("description", "description is just the feature name — needs a real sentence",
+      "Write a sentence like: 'Enable [who] to [do what] with [key detail]'"
+    );
   }
 }
 
@@ -233,7 +236,9 @@ function checkOutcomes(bp, issues) {
 
     // An outcome needs at least one of: then (side effects) or result (description)
     if (!hasThen && !hasResult) {
-      issues.warn(path, "outcome has no 'then' actions or 'result' description");
+      issues.warn(path, "outcome has no 'then' actions or 'result' description",
+        "Add then: [{action: 'emit_event', event: '...'}] or result: 'description of what happens'"
+      );
     }
 
     // Check bound error codes exist in errors[]
@@ -265,12 +270,15 @@ function checkOutcomes(bp, issues) {
     )
   );
   if (!looksSuccess) {
-    issues.warn("outcomes", "no outcome name suggests a success path (success/valid/approved/...)");
+    issues.warn("outcomes", "no outcome name suggests a success path (success/valid/approved/...)",
+      "Add an outcome named e.g. 'successful', 'validated', or 'approved' with given[], then[], and result"
+    );
   }
   if (!looksFailure) {
     issues.warn(
       "outcomes",
-      "no outcome name suggests a failure path (invalid/denied/expired/...) — every blueprint should cover error cases"
+      "no outcome name suggests a failure path (invalid/denied/expired/...) — every blueprint should cover error cases",
+      "Add an outcome named e.g. 'validation_failed' or 'unauthorized' with given[] condition and error: binding"
     );
   }
 }
@@ -438,9 +446,11 @@ async function main() {
       console.log(`\n${status} ${colors.cyan}${r.file}${colors.reset}`);
       for (const e of r.errors) {
         console.log(`  ${colors.red}error${colors.reset}   ${colors.dim}${e.path}${colors.reset}  ${e.message}`);
+        if (e.suggestion) console.log(`          ${colors.green}fix: ${e.suggestion}${colors.reset}`);
       }
       for (const w of r.warnings) {
         console.log(`  ${colors.yellow}warn${colors.reset}    ${colors.dim}${w.path}${colors.reset}  ${w.message}`);
+        if (w.suggestion) console.log(`          ${colors.green}fix: ${w.suggestion}${colors.reset}`);
       }
     }
 
@@ -455,7 +465,16 @@ async function main() {
   process.exit(totalErrors > 0 ? 1 : 0);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(2);
-});
+// ─── Exports for testing ─────────────────────────────────
+
+export { checkBlueprint, Issues, containsPlaceholder, SECRET_PATTERNS, PLACEHOLDER_TOKENS };
+
+// ─── Run CLI only when invoked directly ──────────────────
+
+import { pathToFileURL } from "url";
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(2);
+  });
+}

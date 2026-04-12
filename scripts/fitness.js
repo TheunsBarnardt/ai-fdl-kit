@@ -294,6 +294,11 @@ function scoreEvents(bp) {
   const ratio = withPayload / events.length;
   score += Math.round(ratio * 2);
   const notes = ratio < 1 ? [`${events.length - withPayload} events missing payload`] : [];
+  // Bonus: payload_schema (typed payloads with source) — cap total at max
+  const withSchema = events.filter((e) => Array.isArray(e?.payload_schema) && e.payload_schema.length > 0).length;
+  if (withSchema > 0) {
+    score = Math.min(score + 1, WEIGHTS.events);
+  }
   return { score, max: WEIGHTS.events, notes };
 }
 
@@ -573,7 +578,29 @@ async function main() {
   console.log("");
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(2);
-});
+// ─── Exports for testing ─────────────────────────────────
+
+export {
+  scoreBlueprint,
+  scoreDescription,
+  scoreRules,
+  scoreOutcomes,
+  scoreStructure,
+  scoreErrorBinding,
+  scoreFields,
+  scoreRelationships,
+  scoreEvents,
+  scoreAgi,
+  scoreSimplicity,
+  WEIGHTS,
+};
+
+// ─── Run CLI only when invoked directly ──────────────────
+
+import { pathToFileURL } from "url";
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(2);
+  });
+}
