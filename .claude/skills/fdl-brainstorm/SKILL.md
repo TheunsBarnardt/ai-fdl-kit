@@ -559,6 +559,61 @@ Never use plain text or backtick-only references — every blueprint name must b
 
 ### Next Steps
 Run `/fdl-create {feature-kebab-case}` to materialise this brainstorm into validated YAML blueprints.
+
+---
+
+## Appendix D: Build Commands
+
+### Production Readiness Status
+
+{Summary table showing:}
+
+| Metric | Value |
+| --- | --- |
+| **Initial assessment** | {X} / {Total} categories — **{percentage}%** |
+| **After gap resolution** | {Y} / {Total} categories — **{percentage}%** |
+| **Total blueprints** | {N} ({breakdown by new/gap-fill/existing}) |
+| **Verdict** | **{Production-ready / Near-ready / Not ready}** — {summary} |
+
+### Remaining Gaps to Fill Before Building
+
+{If any gaps remain unresolved, list each with the exact command to resolve it. If all gaps are resolved, write "None — all production categories covered."}
+
+| Gap | How to Fill | Command |
+| --- | --- | --- |
+| {gap name} | {approach: create from scratch / extract from repo / link existing} | {exact `/fdl-create` or `/fdl-recommend-discover` or `/fdl-extract-code-feature` command} |
+
+{Include pre-build validation gate:}
+
+```bash
+# Verify all blueprints are valid
+node scripts/validate.js
+
+# Verify no incomplete blueprints
+node scripts/completeness-check.js
+```
+
+**Do NOT proceed to build until all gaps read "Covered" and both checks pass.**
+
+---
+
+### Build Commands
+
+{List every `/fdl-generate` command needed to produce a complete implementation from the blueprints. Organise by phase matching the Implementation Roadmap (Section 10). Include ALL blueprints — both new and existing — that are part of this system.}
+
+```bash
+# Phase 1: {phase name}
+/fdl-generate {blueprint-name} {target-framework}
+/fdl-generate {blueprint-name} {target-framework}
+
+# Phase 2: {phase name}
+...
+```
+
+{End with validation and auto-evolve commands. Include a total count line:}
+"Total: {N} blueprints → {N} `/fdl-generate` commands → production-ready {system description}"
+
+**This section is mandatory.** The user must be able to copy-paste these commands and build the entire system. If a blueprint is in Appendix B but not in Appendix D, the system is incomplete.}
 ```
 
 **Writing guidelines:**
@@ -713,6 +768,19 @@ After the initial gap analysis:
 > **Remaining gaps (if any):** {list, or 'None — all categories covered'}"
 
 **The gap analysis is the brainstorm's quality gate.** A brainstorm that doesn't surface AND resolve gaps is a brainstorm that will fail in production. This step ensures the user leaves with a production-ready system, not just a happy-path design.
+
+**HARD RULE: No gap may remain as "Pending" when the brainstorm finishes.**
+
+Every row in Section 12.3 (Steps Taken) must have an actual result — either a created blueprint, an extracted blueprint, or an updated `related` array. If a gap cannot be resolved (e.g., requires a proprietary API the user must provide), it must be explicitly flagged as "BLOCKED — requires {specific thing from user}" with a clear action item, not silently left as "Pending".
+
+The brainstorm skill does NOT terminate until:
+1. Every gap has been acted on (blueprint created, extraction run, or explicitly blocked with reason)
+2. Every existing blueprint that needs integration has its `related` arrays updated
+3. Section 12.5 (Final Coverage) shows the actual final score (not "Pending")
+4. Appendix B lists ALL blueprints including gap-filling ones, with hyperlinks
+5. The proposal document is fully self-consistent — no section references a "Pending" action
+
+**Why this matters for `/fdl-generate`:** The proposal is ultimately a plan for code generation. `/fdl-generate` works from blueprints. If a gap blueprint doesn't exist, `/fdl-generate` cannot generate that capability, and the system ships with a hole. Every "Pending" in the proposal is a production defect waiting to happen.
 
 ### Step 10 — Ask about the project; create one if none exists
 

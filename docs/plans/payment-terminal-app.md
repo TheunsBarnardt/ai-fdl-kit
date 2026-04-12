@@ -584,3 +584,135 @@ The complete technical specifications for each system component are defined as F
 | Card Methods | [`payment/payment-methods`](../../blueprints/payment/payment-methods.md) | Card tokenisation and management |
 | Payment Gateway | [`integration/payment-gateway`](../../blueprints/integration/payment-gateway.md) | Card authorisation and capture |
 | Refunds | [`payment/refunds-returns`](../../blueprints/payment/refunds-returns.md) | Refund processing with approval workflow |
+| Fraud Detection | [`payment/fraud-detection`](../../blueprints/payment/fraud-detection.md) | Real-time risk scoring and transaction blocking |
+| Dispute Management | [`payment/dispute-management`](../../blueprints/payment/dispute-management.md) | Chargeback and dispute lifecycle |
+| EMV Card Reader | [`integration/emv-card-reader`](../../blueprints/integration/emv-card-reader.md) | Card reader hardware SDK integration |
+| Payment Observability | [`observability/payment-observability`](../../blueprints/observability/payment-observability.md) | Transaction metrics, alerting, dashboards |
+
+---
+
+## Appendix C: Build Commands
+
+### Production Readiness Status
+
+| Metric | Value |
+| --- | --- |
+| **Initial assessment** | 14 / 18 categories — **78%** |
+| **After gap resolution** | 18 / 18 categories — **100%** |
+| **Total blueprints** | 17 (6 new core + 4 gap-fill + 7 existing) |
+| **Verdict** | **Production-ready** — all categories covered |
+
+### Remaining Gaps to Fill Before Building
+
+If any gap blueprints are missing or incomplete, resolve them before running the build commands:
+
+| Gap | How to Fill | Command |
+| --- | --- | --- |
+| Fraud detection missing | Create from scratch — no upstream repo covers payment-specific risk scoring for PayShap | `/fdl-create fraud-detection payment` |
+| Dispute management missing | Create from scratch — domain-specific to SA payment rails and card network rules | `/fdl-create dispute-management payment` |
+| EMV card reader missing | Create modelled on `integration/palm-vein` blueprint structure | `/fdl-create emv-card-reader integration` |
+| Observability missing | Discover upstream repo for payment metrics, or create from scratch | `/fdl-recommend-discover payment observability metrics alerting` then `/fdl-extract-code-feature <repo>`, or `/fdl-create payment-observability observability` |
+| Related arrays not linked | Update existing blueprints to cross-reference terminal system | Edit `related:` arrays in each blueprint listed in Section 12.4 |
+
+**Do NOT proceed to build until all gaps read "Covered" in Section 12.5 and all blueprints pass validation:**
+
+```bash
+# Verify all blueprints are valid
+node scripts/validate.js
+
+# Verify no incomplete blueprints
+node scripts/completeness-check.js
+```
+
+If either check fails, fix the flagged blueprints before generating code.
+
+---
+
+### Build Commands
+
+The following commands generate a production-ready implementation from the blueprints listed above. Run them in order — each phase builds on the previous.
+
+### Phase 1: Core Payment Engine
+
+```bash
+# PayShap real-time payment rail
+/fdl-generate payshap-rail kotlin-android
+
+# Palm vein scanner SDK integration
+/fdl-generate palm-vein kotlin-android
+
+# Palm-to-proxy payment linking
+/fdl-generate palm-pay kotlin-android
+
+# Card reader hardware SDK
+/fdl-generate emv-card-reader kotlin-android
+
+# Payment gateway (card authorisation)
+/fdl-generate payment-gateway kotlin-android
+```
+
+### Phase 2: Terminal Application
+
+```bash
+# Main transaction flow (amount → method → pay → receipt)
+/fdl-generate terminal-payment-flow kotlin-android
+
+# Card tokenisation and management
+/fdl-generate payment-methods kotlin-android
+
+# Payment processing orchestration
+/fdl-generate payment-processing kotlin-android
+
+# POS session and register management
+/fdl-generate pos-core kotlin-android
+
+# Refund processing with manager auth
+/fdl-generate refunds-returns kotlin-android
+```
+
+### Phase 3: Enrolment & Fleet
+
+```bash
+# At-terminal palm enrolment with OTP
+/fdl-generate terminal-enrollment kotlin-android
+
+# Biometric authentication (palm enrol + verify)
+/fdl-generate biometric-auth kotlin-android
+
+# Fleet management (registration, OTA, monitoring)
+/fdl-generate terminal-fleet kotlin-android
+
+# Offline transaction queuing
+/fdl-generate terminal-offline-queue kotlin-android
+```
+
+### Phase 4: Security & Operations
+
+```bash
+# Fraud detection and risk scoring
+/fdl-generate fraud-detection kotlin-android
+
+# Dispute and chargeback management
+/fdl-generate dispute-management kotlin-android
+
+# Payment observability (metrics, alerts, dashboards)
+/fdl-generate payment-observability kotlin-android
+
+# Audit logging (immutable transaction trail)
+/fdl-generate audit-logging kotlin-android
+```
+
+### Phase 5: Validate & Build
+
+```bash
+# Validate all blueprints
+node scripts/validate.js
+
+# Generate documentation
+npm run generate
+
+# Run auto-evolve (validate + docs + AGI + commit)
+/fdl-auto-evolve
+```
+
+**Total: 17 blueprints → 17 `/fdl-generate` commands → production-ready Android payment terminal**
