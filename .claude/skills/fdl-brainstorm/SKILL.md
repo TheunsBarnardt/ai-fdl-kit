@@ -445,6 +445,12 @@ Claude: [Step 1a] Reading blueprints/INDEX.md and running blueprint-lookup.js fo
 
 User: It's distinct — these are regulatory complaints that need an ombudsman review.
 
+Claude: [Step 1b] Checking extraction-candidates.yaml for "complaint", "ombudsman",
+        "regulatory" in category "workflow"... no candidates found.
+        Two options: (1) discover a repo, or (2) create from scratch.
+
+User: Create from scratch — this is very specific to our domain.
+
 Claude: [Step 2] What problem does this solve for the user? What happens if they
         don't have this feature?
 
@@ -479,4 +485,36 @@ Claude: Created `projects/ombudsman-portal/` with README, brainstorms/, and blue
 
         [Step 11] Now invoking /fdl-create regulatory-complaint workflow with the
         specification we built.
+```
+
+### Example: extraction path (gap filled from a known repo)
+
+```
+User: /fdl-brainstorm I need role-based access control for my app
+
+Claude: [Step 1a] Reading blueprints/INDEX.md and running blueprint-lookup.js for
+        candidates: rbac, role, permission, access, authorization...
+        Found `access/role-based-access.blueprint.yaml` — but it's a basic RBAC
+        pattern. Let me check if it covers your needs.
+        Is this what you need, or is this distinct?
+
+User: I need something more advanced — policy-based, with conditions and deny rules.
+
+Claude: [Step 1b] Checking extraction-candidates.yaml for "access", "rbac", "policy",
+        "authorization" in category "access"...
+        Found candidates:
+        1. `openfga/openfga` — Relationship-based access control (ReBAC) with
+           conditional rules and policy evaluation
+        2. `cerbos/cerbos` — Policy-as-code access control with conditions, deny
+           rules, and audit logging
+
+        Three options:
+        1. **Extract from a repo** — I'll scan one of these and you pick the features
+        2. **Discover a different repo** — I'll search for other options
+        3. **Create from scratch** — Socratic design from your requirements
+
+User: Extract from cerbos — that's exactly what I need.
+
+Claude: Handing off to /fdl-extract-code-feature https://github.com/cerbos/cerbos
+        [brainstorm exits — extraction skill takes over]
 ```
