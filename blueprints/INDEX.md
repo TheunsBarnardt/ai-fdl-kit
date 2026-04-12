@@ -2,10 +2,10 @@
 
 # Blueprint Index
 
-Fast lookup for all **298** blueprints across **20** categories.
+Fast lookup for all **303** blueprints across **20** categories.
 Each entry links to the human-friendly summary (`.md`) and the underlying spec (`.blueprint.yaml`).
 
-**Jump to a category:** [Access](#access) (11) · [Ai](#ai) (6) · [Asset](#asset) (19) · [Auth](#auth) (18) · [Crm](#crm) (5) · [Data](#data) (45) · [Infrastructure](#infrastructure) (9) · [Integration](#integration) (30) · [Inventory](#inventory) (6) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (13) · [Observability](#observability) (3) · [Payment](#payment) (15) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Trading](#trading) (20) · [Ui](#ui) (23) · [Workflow](#workflow) (58)
+**Jump to a category:** [Access](#access) (11) · [Ai](#ai) (6) · [Asset](#asset) (19) · [Auth](#auth) (18) · [Crm](#crm) (5) · [Data](#data) (45) · [Infrastructure](#infrastructure) (9) · [Integration](#integration) (35) · [Inventory](#inventory) (6) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (13) · [Observability](#observability) (3) · [Payment](#payment) (15) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Trading](#trading) (20) · [Ui](#ui) (23) · [Workflow](#workflow) (58)
 
 ---
 
@@ -176,6 +176,11 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**identity-brokering-social-login**](./integration/identity-brokering-social-login.md) | OAuth 2.0 / OIDC social login with multi-provider identity brokering, account linking, profile normalization, PKCE/state/nonce CSRF protection, and configurable JWT or database session strategy. | 2.0.0 | [yaml](./integration/identity-brokering-social-login.blueprint.yaml) |
 | [**oauth-oidc-client-management**](./integration/oauth-oidc-client-management.md) | Lifecycle management of OAuth 2.0 and OpenID Connect clients — admin CRUD plus self-service OpenID Connect Dynamic Client Registration (RFC 7591). | 2.0.0 | [yaml](./integration/oauth-oidc-client-management.blueprint.yaml) |
 | [**oauth-provider**](./integration/oauth-provider.md) | OAuth 2.0 authorization server for issuing tokens to third-party applications | 1.0.0 | [yaml](./integration/oauth-provider.blueprint.yaml) |
+| [**obd-dtc-diagnostics**](./integration/obd-dtc-diagnostics.md) | Read, decode, and clear Diagnostic Trouble Codes (DTCs) from vehicle ECUs; report MIL (malfunction indicator lamp) status, DTC count, and human-readable fault descriptions | 1.0.0 | [yaml](./integration/obd-dtc-diagnostics.blueprint.yaml) |
+| [**obd-pid-reading**](./integration/obd-pid-reading.md) | Query vehicle ECUs for standardized Parameter IDs across OBD-II service modes, decoding raw byte responses into typed values with physical units and caching PID support per vehicle | 1.0.0 | [yaml](./integration/obd-pid-reading.blueprint.yaml) |
+| [**obd-port-connection**](./integration/obd-port-connection.md) | Discover serial ports, negotiate baud rate with a diagnostic adapter, initialize it, validate OBD-II socket voltage, and auto-detect the vehicle protocol to establish a ready connection | 1.0.0 | [yaml](./integration/obd-port-connection.blueprint.yaml) |
+| [**obd-realtime-sensors**](./integration/obd-realtime-sensors.md) | Poll and stream live vehicle sensor readings — RPM, speed, coolant temperature, throttle position, mass air flow, and fuel level — with physical units and callback-driven updates | 1.0.0 | [yaml](./integration/obd-realtime-sensors.blueprint.yaml) |
+| [**obd-vin-extraction**](./integration/obd-vin-extraction.md) | Read and decode the Vehicle Identification Number (VIN) from the vehicle ECU using OBD-II mode 9 service, stripping frame padding to produce a validated 17-character ISO 3779 string | 1.0.0 | [yaml](./integration/obd-vin-extraction.blueprint.yaml) |
 | [**openclaw-message-routing**](./integration/openclaw-message-routing.md) | Central message router resolving inbound messages to agents via binding precedence, role-based routing, and guild/channel/peer matching | 1.0.0 | [yaml](./integration/openclaw-message-routing.blueprint.yaml) |
 | [**openclaw-messaging-channel**](./integration/openclaw-messaging-channel.md) | Platform-agnostic messaging channel integration supporting Discord, Telegram, Slack, and 85+ platforms with unified message routing and delivery | 1.0.0 | [yaml](./integration/openclaw-messaging-channel.blueprint.yaml) |
 | [**openclaw-plugin-system**](./integration/openclaw-plugin-system.md) | Plugin registration, lifecycle management, and capability-based permissions system for extending OpenClaw functionality | 1.0.0 | [yaml](./integration/openclaw-plugin-system.blueprint.yaml) |

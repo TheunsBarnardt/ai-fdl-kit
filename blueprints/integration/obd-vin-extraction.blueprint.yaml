@@ -1,0 +1,159 @@
+# ============================================================
+# OBD-II VIN EXTRACTION — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Read the Vehicle Identification Number from the vehicle ECU
+# via OBD-II mode 9 service, decode multi-frame responses,
+# and validate the 17-character ISO 3779 format.
+# ============================================================
+# Extracted from: https://github.com/brendan-w/python-OBD
+# Source project: python-OBD (Python, pyserial, ELM327)
+# Files traced: 2 (commands.py, decoders.py)
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any language/stack.
+# ============================================================
+
+feature: obd-vin-extraction
+version: "1.0.0"
+description: "Read and decode the Vehicle Identification Number (VIN) from the vehicle ECU using OBD-II mode 9 service, stripping frame padding to produce a validated 17-character ISO 3779 string"
+category: integration
+tags: [obd, vehicle, vin, identification, mode9, vehicle-info]
+
+actors:
+  - id: system
+    name: Diagnostic System
+    type: system
+    description: "System querying, assembling, and validating the VIN from ECU response frames"
+
+fields:
+  - name: vin
+    type: text
+    required: false
+    label: "Vehicle Identification Number"
+    # 17 alphanumeric characters per ISO 3779; read-only from the vehicle ECU
+    validation:
+      - type: pattern
+        value: "^[A-HJ-NPR-Z0-9]{17}$"
+        message: "VIN must be exactly 17 alphanumeric characters (ISO 3779)"
+
+  - name: wmi
+    type: text
+    required: false
+    label: "World Manufacturer Identifier"
+    # Characters 1–3 of VIN — identifies the vehicle manufacturer and country of origin
+
+  - name: vds
+    type: text
+    required: false
+    label: "Vehicle Descriptor Section"
+    # Characters 4–9 of VIN — describes the vehicle model, body style, and engine type
+
+  - name: vis
+    type: text
+    required: false
+    label: "Vehicle Identifier Section"
+    # Characters 10–17 of VIN — identifies the individual vehicle (includes model year and plant code)
+
+rules:
+  protocol:
+    - "VIN is read via OBD-II mode 9 (vehicle information service), PID 0x02"
+    - "Before reading the VIN, query mode 9 PID 0x01 (VIN message count) to determine frame count"
+    - "The adapter reassembles multi-frame responses transparently; no manual frame sequencing is required"
+    - "VIN is read-only; it cannot be written or modified via OBD-II"
+  decoding:
+    - "The mode byte prefix in the ECU response is not part of the VIN data and must be discarded"
+    - "Strip leading and trailing null padding bytes (0x00, 0x01, 0x02) from the assembled response"
+    - "The result must be exactly 17 characters; reject anything shorter"
+    - "VIN characters are ASCII-encoded; non-ASCII bytes in the response indicate a malformed reply"
+    - "VIN segments: characters 1–3 = WMI (manufacturer), 4–9 = VDS (descriptor), 10–17 = VIS (identifier)"
+  validation:
+    - "A valid VIN contains only uppercase letters (excluding I, O, Q) and digits 0–9 per ISO 3779"
+    - "Do not return a partial or padded VIN; return null if the character count is not exactly 17"
+
+outcomes:
+  not_connected:
+    priority: 1
+    error: OBD_NOT_CONNECTED
+    given:
+      - "vehicle connection is not in vehicle_connected state"
+    then: []
+    result: "Returns null; no query is transmitted"
+
+  vin_not_supported:
+    priority: 2
+    error: OBD_VIN_NOT_SUPPORTED
+    given:
+      - "vehicle is connected"
+      - "vehicle does not advertise support for mode 9 VIN service"
+    then: []
+    result: "Returns null; this vehicle model does not expose a VIN via OBD-II"
+
+  no_response:
+    priority: 3
+    error: OBD_NO_RESPONSE
+    given:
+      - "vehicle is connected"
+      - "mode 9 VIN is advertised as supported"
+      - "ECU does not respond within the timeout period"
+    then: []
+    result: "Returns null; caller may retry"
+
+  vin_too_short:
+    priority: 4
+    error: OBD_VIN_INVALID
+    given:
+      - "ECU responds to the VIN query"
+      - "decoded string after stripping padding is fewer than 17 characters"
+    then: []
+    result: "Returns null; the ECU response is malformed or incomplete"
+
+  vin_read_successful:
+    priority: 10
+    given:
+      - "vehicle is connected"
+      - "mode 9 VIN service is advertised as supported"
+      - "ECU responds within timeout"
+      - "decoded string after stripping padding is exactly 17 characters"
+    then:
+      - action: emit_event
+        event: obd.vin.read
+        payload: [vin, wmi, vds, vis]
+    result: "Returns the validated 17-character VIN string with WMI, VDS, and VIS segments"
+
+errors:
+  - code: OBD_NOT_CONNECTED
+    status: 503
+    message: "No active vehicle connection. Connect before reading the VIN."
+  - code: OBD_VIN_NOT_SUPPORTED
+    status: 422
+    message: "This vehicle does not expose a VIN via OBD-II."
+  - code: OBD_NO_RESPONSE
+    status: 503
+    message: "The vehicle did not respond to the VIN request. Check the connection and retry."
+  - code: OBD_VIN_INVALID
+    status: 422
+    message: "The vehicle returned an invalid or incomplete VIN."
+
+events:
+  - name: obd.vin.read
+    description: "VIN was successfully read and decoded from the vehicle ECU"
+    payload: [vin, wmi, vds, vis]
+
+related:
+  - feature: obd-port-connection
+    type: required
+    reason: "Active vehicle_connected state required to issue mode 9 queries"
+  - feature: obd-pid-reading
+    type: required
+    reason: "VIN extraction uses the PID query infrastructure (mode 9, PID 0x02)"
+
+extensions:
+  source:
+    repo: "https://github.com/brendan-w/python-OBD"
+    project: "python-OBD"
+    tech_stack: "Python, pyserial, ELM327 adapter"
+    files_traced: 2
+    entry_points:
+      - "obd/commands.py"
+      - "obd/decoders.py"

@@ -1,0 +1,294 @@
+# ============================================================
+# OBD-II REAL-TIME SENSORS — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Continuously read and stream live vehicle sensor data:
+# RPM, speed, coolant temperature, throttle position,
+# mass air flow, and fuel level — with callback support.
+# ============================================================
+# Extracted from: https://github.com/brendan-w/python-OBD
+# Source project: python-OBD (Python, pyserial, ELM327)
+# Files traced: 4 (commands.py, decoders.py, asynchronous.py, UnitsAndScaling.py)
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any language/stack.
+# ============================================================
+
+feature: obd-realtime-sensors
+version: "1.0.0"
+description: "Poll and stream live vehicle sensor readings — RPM, speed, coolant temperature, throttle position, mass air flow, and fuel level — with physical units and callback-driven updates"
+category: integration
+tags: [obd, vehicle, sensors, realtime, rpm, speed, temperature, maf, throttle, fuel, streaming]
+
+actors:
+  - id: system
+    name: Diagnostic System
+    type: system
+    description: "Background polling loop that queries registered sensors and dispatches value-change callbacks"
+  - id: consumer
+    name: Data Consumer
+    type: system
+    description: "Application or UI layer receiving sensor updates via callbacks or direct queries"
+
+fields:
+  - name: engine_rpm
+    type: number
+    required: false
+    label: "Engine RPM"
+    # OBD mode 1, PID 0x0C | Formula: ((high_byte * 256) + low_byte) / 4
+    # Range: 0–16383.75 RPM | Unit: RPM
+
+  - name: vehicle_speed
+    type: number
+    required: false
+    label: "Vehicle Speed (km/h)"
+    # OBD mode 1, PID 0x0D | Formula: raw byte value (direct)
+    # Range: 0–255 km/h | Unit: km/h
+
+  - name: coolant_temp
+    type: number
+    required: false
+    label: "Engine Coolant Temperature (°C)"
+    # OBD mode 1, PID 0x05 | Formula: raw_byte - 40
+    # Range: -40 to +215 °C | Unit: °C
+
+  - name: throttle_position
+    type: number
+    required: false
+    label: "Absolute Throttle Position (%)"
+    # OBD mode 1, PID 0x11 | Formula: (raw_byte / 255) * 100
+    # Range: 0–100% | Unit: percent
+
+  - name: maf_rate
+    type: number
+    required: false
+    label: "Mass Air Flow Rate (g/s)"
+    # OBD mode 1, PID 0x10 | Formula: ((high_byte * 256) + low_byte) / 100
+    # Range: 0–655.35 g/s | Unit: g/s
+
+  - name: fuel_level
+    type: number
+    required: false
+    label: "Fuel Tank Level (%)"
+    # OBD mode 1, PID 0x2F | Formula: (raw_byte / 255) * 100
+    # Range: 0–100% | Unit: percent
+
+  - name: poll_interval_ms
+    type: number
+    required: false
+    label: "Poll Interval (milliseconds)"
+    # Delay between successive sensor query cycles when streaming
+    default: 250
+
+  - name: watched_sensors
+    type: json
+    required: false
+    label: "Registered Sensor Identifiers"
+    # List of sensor names active in the streaming loop
+
+  - name: streaming_state
+    type: select
+    required: false
+    label: "Streaming State"
+    options:
+      - { value: "idle", label: "Idle" }
+      - { value: "streaming", label: "Streaming" }
+      - { value: "paused", label: "Paused" }
+    default: "idle"
+
+states:
+  field: streaming_state
+  values:
+    - name: idle
+      description: "No active polling loop; sensors may still be queried on demand"
+      initial: true
+    - name: streaming
+      description: "Background loop continuously polls registered sensors and fires callbacks on value changes"
+    - name: paused
+      description: "Background loop is temporarily suspended; registered sensor list is preserved"
+  transitions:
+    - from: idle
+      to: streaming
+      actor: system
+      description: "At least one sensor is registered and vehicle is connected; polling loop starts"
+    - from: streaming
+      to: paused
+      actor: system
+      description: "Caller temporarily suspends the polling loop (e.g., during configuration changes)"
+    - from: paused
+      to: streaming
+      actor: system
+      description: "Caller resumes the polling loop after suspension"
+    - from: streaming
+      to: idle
+      actor: system
+      description: "All sensors are unregistered, vehicle disconnects, or caller stops the loop"
+    - from: paused
+      to: idle
+      actor: system
+      description: "Caller stops the loop while paused"
+
+rules:
+  sensor_support:
+    - "Only query sensors that the vehicle advertises as supported via the PID support listing"
+    - "Skip unsupported sensors silently during streaming; return null on direct query"
+    - "Support is cached at connection time; do not re-query the support listing on each poll cycle"
+  decoding:
+    - "RPM: two bytes — formula ((high × 256) + low) ÷ 4 — returns value in RPM"
+    - "Speed: one byte — raw value equals speed in km/h — returns value in km/h"
+    - "Coolant temperature: one byte — subtract 40 to get °C — range -40 to +215 °C"
+    - "Throttle position: one byte — (raw ÷ 255) × 100 — returns percentage 0–100"
+    - "MAF rate: two bytes — formula ((high × 256) + low) ÷ 100 — returns value in g/s"
+    - "Fuel level: one byte — (raw ÷ 255) × 100 — returns percentage 0–100"
+    - "All returned values carry explicit physical units; consumers must not assume a unit"
+  streaming:
+    - "The polling loop must run in a separate thread or async task; it must not block the caller"
+    - "Introduce a configurable delay between query cycles to avoid saturating the OBD-II bus"
+    - "Invoke registered callbacks only when a sensor value changes from the previous poll"
+    - "Multiple callbacks may be registered per sensor; invoke all of them in order"
+    - "Sensor registration and deregistration are safe to call while streaming is active"
+    - "A paused loop retains all registered sensors and callbacks"
+  direct_query:
+    - "Any sensor may be queried on demand without starting the streaming loop"
+    - "Direct queries follow the same support check and decoding rules as streaming"
+
+outcomes:
+  sensor_not_supported:
+    priority: 1
+    error: OBD_SENSOR_NOT_SUPPORTED
+    given:
+      - "the requested sensor PID is not in the vehicle's advertised support set"
+    then:
+      - action: emit_event
+        event: obd.sensor.unsupported
+        payload: [sensor_name]
+    result: "Returns a null response; sensor is excluded from streaming without error"
+
+  not_connected:
+    priority: 2
+    error: OBD_NOT_CONNECTED
+    given:
+      - "vehicle connection is not in vehicle_connected state"
+    then:
+      - action: transition_state
+        field: streaming_state
+        from: streaming
+        to: idle
+    result: "Active streaming loop stops; all pending sensor queries return null"
+
+  direct_query_success:
+    priority: 5
+    given:
+      - "vehicle is connected"
+      - "sensor PID is supported by the vehicle"
+      - "caller requests a single on-demand reading"
+    then:
+      - action: emit_event
+        event: obd.sensor.reading
+        payload: [sensor_name, sensor_value, sensor_unit, timestamp]
+    result: "Returns the decoded sensor value with its physical unit to the caller"
+
+  streaming_started:
+    priority: 6
+    given:
+      - "vehicle is connected"
+      - "at least one sensor is registered for watching"
+      - "streaming_state is idle"
+    then:
+      - action: transition_state
+        field: streaming_state
+        from: idle
+        to: streaming
+      - action: emit_event
+        event: obd.streaming.started
+        payload: [watched_sensors, poll_interval_ms]
+    result: "Background polling loop starts; all registered sensors are queried on each cycle"
+
+  sensor_value_changed:
+    priority: 7
+    given:
+      - "streaming_state is streaming"
+      - "a polled sensor returns a value different from the previous poll"
+    then:
+      - action: emit_event
+        event: obd.sensor.changed
+        payload: [sensor_name, sensor_value, previous_value, sensor_unit, timestamp]
+    result: "All callbacks registered for this sensor are invoked with the new value"
+
+  streaming_paused:
+    priority: 8
+    given:
+      - "streaming_state is streaming"
+      - "caller requests a temporary pause"
+    then:
+      - action: transition_state
+        field: streaming_state
+        from: streaming
+        to: paused
+      - action: emit_event
+        event: obd.streaming.paused
+        payload: [watched_sensors]
+    result: "Polling loop suspends; registered sensors and callbacks are retained"
+
+  streaming_stopped:
+    priority: 9
+    given:
+      - "streaming_state is streaming or paused"
+      - "caller stops the loop or deregisters all sensors"
+    then:
+      - action: transition_state
+        field: streaming_state
+        from: streaming
+        to: idle
+      - action: emit_event
+        event: obd.streaming.stopped
+        payload: [watched_sensors]
+    result: "Background polling loop terminates; no further callbacks are invoked"
+
+errors:
+  - code: OBD_SENSOR_NOT_SUPPORTED
+    status: 422
+    message: "This vehicle does not support the requested sensor."
+  - code: OBD_NOT_CONNECTED
+    status: 503
+    message: "No active vehicle connection. Connect before reading sensors."
+
+events:
+  - name: obd.sensor.reading
+    description: "A single on-demand sensor query returned a decoded value"
+    payload: [sensor_name, sensor_value, sensor_unit, timestamp]
+  - name: obd.sensor.changed
+    description: "A streaming sensor value changed from the previous poll cycle"
+    payload: [sensor_name, sensor_value, previous_value, sensor_unit, timestamp]
+  - name: obd.sensor.unsupported
+    description: "A query or registration was attempted for a sensor the vehicle does not support"
+    payload: [sensor_name]
+  - name: obd.streaming.started
+    description: "Continuous sensor polling loop has started"
+    payload: [watched_sensors, poll_interval_ms]
+  - name: obd.streaming.paused
+    description: "Sensor polling loop has been temporarily suspended"
+    payload: [watched_sensors]
+  - name: obd.streaming.stopped
+    description: "Sensor polling loop has terminated"
+    payload: [watched_sensors]
+
+related:
+  - feature: obd-port-connection
+    type: required
+    reason: "Active vehicle_connected state required for all sensor queries"
+  - feature: obd-pid-reading
+    type: required
+    reason: "Each sensor reading is a PID query dispatched through the PID reading layer"
+
+extensions:
+  source:
+    repo: "https://github.com/brendan-w/python-OBD"
+    project: "python-OBD"
+    tech_stack: "Python, pyserial, ELM327 adapter"
+    files_traced: 4
+    entry_points:
+      - "obd/commands.py"
+      - "obd/decoders.py"
+      - "obd/asynchronous.py"
+      - "obd/UnitsAndScaling.py"

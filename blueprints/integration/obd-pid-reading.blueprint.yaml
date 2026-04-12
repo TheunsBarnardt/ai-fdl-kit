@@ -1,0 +1,215 @@
+# ============================================================
+# OBD-II PID READING — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Query vehicle ECUs for Parameter IDs (PIDs) across all
+# standard OBD-II service modes, returning decoded values
+# with physical units and ECU source identification.
+# ============================================================
+# Extracted from: https://github.com/brendan-w/python-OBD
+# Source project: python-OBD (Python, pyserial, ELM327)
+# Files traced: 4 (commands.py, OBDCommand.py, decoders.py, obd.py)
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any language/stack.
+# ============================================================
+
+feature: obd-pid-reading
+version: "1.0.0"
+description: "Query vehicle ECUs for standardized Parameter IDs across OBD-II service modes, decoding raw byte responses into typed values with physical units and caching PID support per vehicle"
+category: integration
+tags: [obd, vehicle, diagnostics, pid, sensor, ecu, decoding, protocol]
+
+actors:
+  - id: system
+    name: Diagnostic System
+    type: system
+    description: "The application building and dispatching PID query commands to the vehicle"
+
+fields:
+  - name: service_mode
+    type: number
+    required: true
+    label: "OBD-II Service Mode"
+    # Mode 1: current data, Mode 2: freeze frame, Mode 3: DTCs,
+    # Mode 4: clear DTCs, Mode 6: monitor data (CAN only), Mode 9: vehicle info
+
+  - name: pid_code
+    type: text
+    required: true
+    label: "PID Hex Code"
+    # Two-character hex identifier, e.g. "0C" for RPM, "0D" for speed
+
+  - name: expected_bytes
+    type: number
+    required: false
+    label: "Expected Response Byte Count"
+    # Number of data bytes expected after the mode/PID echo bytes
+
+  - name: ecu_target
+    type: select
+    required: false
+    label: "ECU Target"
+    options:
+      - { value: "engine", label: "Engine ECU" }
+      - { value: "transmission", label: "Transmission ECU" }
+      - { value: "all", label: "All ECUs" }
+    default: "engine"
+
+  - name: response_value
+    type: json
+    required: false
+    label: "Decoded Response Value"
+    # Decoded quantity with unit, e.g. { value: 1500, unit: "rpm" }
+
+  - name: is_supported
+    type: boolean
+    required: false
+    label: "PID Supported by Vehicle"
+
+  - name: force_query
+    type: boolean
+    required: false
+    label: "Force Query Even If Unsupported"
+    default: false
+
+rules:
+  support_discovery:
+    - "At connection time, query PID support listing commands (mode 1, PIDs 0x00/0x20/0x40/0x60/0x80/0xA0/0xC0) to build the vehicle's supported PID set"
+    - "Cache the supported PID set for the lifetime of the connection; do not re-query on each command"
+    - "Mode 6 (monitor data) is only valid on CAN protocols; flag it as unsupported on non-CAN connections"
+  query_execution:
+    - "Set the ECU target header on the adapter before each query when targeting a specific ECU"
+    - "Append an optional frame-count digit to PID commands for early response termination when the adapter supports it"
+    - "Flush the receive buffer before sending each command to discard stale data"
+    - "Append a carriage return to every command byte sequence before transmission"
+    - "Read the response until the adapter prompt character is received or the timeout expires"
+  response_parsing:
+    - "Strip null bytes and normalize line endings from raw adapter output"
+    - "Split response into frames; each frame identifies its source ECU via the header"
+    - "Filter frames by ECU target bitmask to exclude responses from unintended ECUs"
+    - "Constrain data bytes to the expected length for the PID; discard extra bytes"
+    - "Pass constrained bytes to the PID-specific decoder function"
+  return_values:
+    - "All numeric sensor values must be returned with their physical unit (RPM, km/h, °C, %, g/s, kPa, V, etc.)"
+    - "A null/empty response must be distinguishable from a zero-value response"
+    - "If the decoder raises an error, return a null response rather than propagating the exception"
+  unsupported_handling:
+    - "Do not transmit a PID command if the vehicle has not advertised support for it, unless force_query is true"
+    - "Return a null response immediately for unsupported PIDs"
+
+outcomes:
+  not_connected:
+    priority: 1
+    error: OBD_NOT_CONNECTED
+    given:
+      - "vehicle connection is not in vehicle_connected state"
+    then: []
+    result: "Returns a null response immediately without transmitting any command"
+
+  pid_not_supported:
+    priority: 2
+    error: OBD_PID_NOT_SUPPORTED
+    given:
+      - "vehicle is connected"
+      - "requested PID is not in the vehicle's advertised support set"
+      - "force_query is false"
+    then:
+      - action: emit_event
+        event: obd.pid.unsupported
+        payload: [service_mode, pid_code]
+    result: "Returns a null response; no command is transmitted to the vehicle"
+
+  no_response:
+    priority: 3
+    error: OBD_NO_RESPONSE
+    given:
+      - "vehicle is connected"
+      - "PID is supported or force_query is true"
+      - "adapter sends the command but no ECU response arrives before timeout"
+    then: []
+    result: "Returns a null response; caller may retry the query"
+
+  no_matching_ecu:
+    priority: 4
+    error: OBD_NO_MATCHING_ECU
+    given:
+      - "vehicle is connected"
+      - "ECU response frames are received"
+      - "no frame matches the target ECU filter"
+    then: []
+    result: "Returns a null response; the targeted ECU did not reply"
+
+  decode_error:
+    priority: 5
+    error: OBD_DECODE_ERROR
+    given:
+      - "a response is received from the target ECU"
+      - "the decoder cannot interpret the response bytes"
+    then: []
+    result: "Returns a null response; raw bytes are logged for diagnostics"
+
+  successful_query:
+    priority: 10
+    given:
+      - "vehicle is in vehicle_connected state"
+      - "PID is supported or force_query is true"
+      - "ECU responds within timeout"
+      - "at least one response frame matches the ECU target"
+      - "decoder produces a valid typed value"
+    then:
+      - action: emit_event
+        event: obd.pid.response
+        payload: [service_mode, pid_code, response_value, ecu_target]
+    result: "Returns decoded value with physical unit; caller receives a non-null response object"
+
+errors:
+  - code: OBD_NOT_CONNECTED
+    status: 503
+    message: "No active vehicle connection. Connect before querying."
+  - code: OBD_PID_NOT_SUPPORTED
+    status: 422
+    message: "This vehicle does not support the requested parameter."
+  - code: OBD_NO_RESPONSE
+    status: 503
+    message: "The vehicle did not respond to the query. Check the connection and retry."
+  - code: OBD_NO_MATCHING_ECU
+    status: 404
+    message: "No response from the targeted ECU. It may not be present in this vehicle."
+  - code: OBD_DECODE_ERROR
+    status: 422
+    message: "The vehicle returned data that could not be decoded for this parameter."
+
+events:
+  - name: obd.pid.response
+    description: "A PID was queried and a decoded value was received from the ECU"
+    payload: [service_mode, pid_code, response_value, ecu_target]
+  - name: obd.pid.unsupported
+    description: "A query was skipped because the vehicle does not advertise support for the PID"
+    payload: [service_mode, pid_code]
+
+related:
+  - feature: obd-port-connection
+    type: required
+    reason: "Active vehicle_connected state must exist before PID queries are possible"
+  - feature: obd-realtime-sensors
+    type: required
+    reason: "Real-time sensor readings use this PID query infrastructure"
+  - feature: obd-dtc-diagnostics
+    type: required
+    reason: "DTC read (mode 3) and clear (mode 4) are implemented as PID-layer commands"
+  - feature: obd-vin-extraction
+    type: optional
+    reason: "VIN reads via mode 9 PID query"
+
+extensions:
+  source:
+    repo: "https://github.com/brendan-w/python-OBD"
+    project: "python-OBD"
+    tech_stack: "Python, pyserial, ELM327 adapter"
+    files_traced: 4
+    entry_points:
+      - "obd/commands.py"
+      - "obd/OBDCommand.py"
+      - "obd/decoders.py"
+      - "obd/obd.py"

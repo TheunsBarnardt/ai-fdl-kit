@@ -1,0 +1,195 @@
+# ============================================================
+# OBD-II DTC DIAGNOSTICS — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Read and clear Diagnostic Trouble Codes from vehicle ECUs,
+# decode them into human-readable descriptions, and report
+# MIL (check-engine lamp) status and DTC count.
+# ============================================================
+# Extracted from: https://github.com/brendan-w/python-OBD
+# Source project: python-OBD (Python, pyserial, ELM327)
+# Files traced: 3 (commands.py, decoders.py, codes.py)
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any language/stack.
+# ============================================================
+
+feature: obd-dtc-diagnostics
+version: "1.0.0"
+description: "Read, decode, and clear Diagnostic Trouble Codes (DTCs) from vehicle ECUs; report MIL (malfunction indicator lamp) status, DTC count, and human-readable fault descriptions"
+category: integration
+tags: [obd, vehicle, diagnostics, dtc, fault, mil, check-engine, mode3, mode4]
+
+actors:
+  - id: technician
+    name: Technician or Vehicle Owner
+    type: human
+    description: "Person requesting retrieval or clearance of stored fault codes"
+  - id: system
+    name: Diagnostic System
+    type: system
+    description: "System translating raw OBD responses into decoded fault information"
+
+fields:
+  - name: dtc_codes
+    type: json
+    required: false
+    label: "Stored DTC List"
+    # Array of { code: "P0100", description: "Mass or Volume Air Flow Circuit" }
+
+  - name: dtc_code
+    type: text
+    required: false
+    label: "DTC Code String"
+    # Format: [P|C|B|U][0-3][0-9A-F]{3}  e.g. P0100, C0035, B1234, U0100
+
+  - name: dtc_type
+    type: select
+    required: false
+    label: "DTC Category"
+    options:
+      - { value: "powertrain", label: "Powertrain (P)" }
+      - { value: "chassis", label: "Chassis (C)" }
+      - { value: "body", label: "Body (B)" }
+      - { value: "network", label: "Network / Communication (U)" }
+
+  - name: dtc_description
+    type: text
+    required: false
+    label: "Fault Description"
+    # Human-readable description from the standardized DTC lookup table
+
+  - name: mil_active
+    type: boolean
+    required: false
+    label: "MIL Active (Check Engine Light)"
+
+  - name: dtc_count
+    type: number
+    required: false
+    label: "Stored DTC Count"
+    # 0–255; reported by mode 1 PID 0x01 status query
+
+  - name: ignition_type
+    type: select
+    required: false
+    label: "Engine Ignition Type"
+    options:
+      - { value: "spark", label: "Spark Ignition (petrol)" }
+      - { value: "compression", label: "Compression Ignition (diesel)" }
+
+rules:
+  dtc_encoding:
+    - "DTCs are transmitted as 2-byte pairs; zero-value pairs (0x0000) are padding and must be ignored"
+    - "Bits 7–6 of the first byte encode the DTC type: 00=P (Powertrain), 01=C (Chassis), 10=B (Body), 11=U (Network)"
+    - "Bits 5–4 of the first byte form the first decimal digit of the sub-code (0–3)"
+    - "The remaining 12 bits (second byte + lower nibble of first byte) form three hex digits"
+    - "Concatenate type letter + first digit + three hex digits to produce the code string (e.g. P0100)"
+  dtc_lookup:
+    - "Match the decoded code string against the standardized DTC description table"
+    - "If no description is found for a code, return the code with an empty or 'Unknown' description"
+    - "Descriptions must be user-safe and must not include internal system references"
+  reading:
+    - "Use OBD-II mode 3 (0x03) to retrieve stored DTCs from all responding ECUs"
+    - "Iterate response in 2-byte steps; stop at end of data or on the first zero-value pair"
+    - "Use mode 1 PID 0x01 (vehicle status) to read MIL flag, DTC count, and ignition type independently"
+    - "DTC reads are non-destructive; reading does not clear or modify stored codes"
+  clearing:
+    - "Use OBD-II mode 4 (0x04) to clear all stored DTCs and freeze frame data simultaneously"
+    - "Clearing affects all ECUs that respond to the broadcast; selective clearing per ECU is not standard"
+    - "After clearing, re-query to confirm codes are removed; the MIL resets only if no recurring faults exist"
+    - "Clearing is irreversible within the current ignition cycle; warn the caller before proceeding"
+
+outcomes:
+  not_connected:
+    priority: 1
+    error: OBD_NOT_CONNECTED
+    given:
+      - "vehicle connection is not in vehicle_connected state"
+    then: []
+    result: "Returns null; no DTC query or clear command is transmitted"
+
+  no_dtcs_stored:
+    priority: 5
+    given:
+      - "vehicle is connected"
+      - "mode 3 query returns only zero-value padding pairs or an empty response"
+    then:
+      - action: emit_event
+        event: obd.dtc.read
+        payload: [dtc_codes, dtc_count, mil_active]
+    result: "Returns an empty DTC list; MIL is off and no faults are active"
+
+  dtcs_found:
+    priority: 6
+    given:
+      - "vehicle is connected"
+      - "mode 3 query returns one or more non-zero DTC byte pairs"
+    then:
+      - action: emit_event
+        event: obd.dtc.read
+        payload: [dtc_codes, dtc_count, mil_active]
+    result: "Returns list of decoded DTC objects with code strings and human-readable descriptions; MIL is typically active"
+
+  dtcs_cleared:
+    priority: 7
+    given:
+      - "vehicle is connected"
+      - "caller explicitly requests a DTC clear operation"
+    then:
+      - action: emit_event
+        event: obd.dtc.cleared
+        payload: [mil_active]
+    result: "All stored DTCs and freeze frame data are erased from all ECUs; MIL resets if no recurring faults remain"
+
+  status_read:
+    priority: 8
+    given:
+      - "vehicle is connected"
+      - "caller requests MIL status and DTC count (mode 1 PID 0x01)"
+    then:
+      - action: emit_event
+        event: obd.status.read
+        payload: [mil_active, dtc_count, ignition_type]
+    result: "Returns MIL on/off state, count of stored codes, and engine ignition type"
+
+errors:
+  - code: OBD_NOT_CONNECTED
+    status: 503
+    message: "No active vehicle connection. Connect before reading diagnostics."
+  - code: OBD_DTC_READ_FAILED
+    status: 503
+    message: "Could not retrieve fault codes from the vehicle. Check the connection."
+  - code: OBD_DTC_CLEAR_FAILED
+    status: 500
+    message: "Could not clear fault codes. Ensure the vehicle ignition is on and retry."
+
+events:
+  - name: obd.dtc.read
+    description: "Diagnostic trouble codes were retrieved and decoded from the vehicle"
+    payload: [dtc_codes, dtc_count, mil_active]
+  - name: obd.dtc.cleared
+    description: "All stored DTCs and freeze frame data were erased from the vehicle ECUs"
+    payload: [mil_active, timestamp]
+  - name: obd.status.read
+    description: "Vehicle OBD status was read including MIL state, DTC count, and ignition type"
+    payload: [mil_active, dtc_count, ignition_type]
+
+related:
+  - feature: obd-port-connection
+    type: required
+    reason: "Active vehicle_connected state required for all DTC operations"
+  - feature: obd-pid-reading
+    type: required
+    reason: "DTC queries and status reads are dispatched via the PID query infrastructure"
+
+extensions:
+  source:
+    repo: "https://github.com/brendan-w/python-OBD"
+    project: "python-OBD"
+    tech_stack: "Python, pyserial, ELM327 adapter"
+    files_traced: 3
+    entry_points:
+      - "obd/commands.py"
+      - "obd/decoders.py"
+      - "obd/codes.py"
