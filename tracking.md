@@ -120,7 +120,7 @@ Features to select:
 
 ---
 
-## 4. TeslaMate — Trip analytics, places, charging, behavior (Busy)
+## 4. TeslaMate — Trip analytics, places, charging, behavior (Done)
 
 **Repo:** `https://github.com/adriankumpf/teslamate`
 **Strength:** Best-in-class patterns for **trip segmentation, places/geofence UX, charging sessions, and energy analytics**. Tesla-specific but the data model is fully extractable.
@@ -143,7 +143,7 @@ Features to select:
 
 ---
 
-## 5. VROOM — Route optimization (VRP)
+## 5. VROOM — Route optimization (VRP) (Busy)
 
 **Repo:** `https://github.com/VROOM-Project/vroom`
 **Companion:** `https://github.com/GIScience/openrouteservice` (routing engine with truck/HGV profile)
