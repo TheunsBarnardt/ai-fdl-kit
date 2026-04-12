@@ -320,24 +320,18 @@ _No candidates mapped for `asset` + `error_binding`. Run `/fdl-recommend-discove
   /fdl-extract-code https://github.com/directus/directus payload-globals data
   ```
 
-### 🟡 workflow/cost-based-route-optimization — 65/100  *(+2 from last extraction)*
+### 🔴 workflow/cost-based-route-optimization — 65/100
 **Weakest dimension:** `error_binding` (2/10) — 2 of 2 codes unbound
-
-⚠ Previous attempt: a previous attempt lifted score 63 → 65 but still below 75. Try next:
 
 _No candidates mapped for `workflow` + `error_binding`. Run `/fdl-recommend-discover cost-based-route-optimization` to find some._
 
-### 🟡 workflow/multi-vehicle-route-optimization — 65/100  *(+2 from last extraction)*
+### 🔴 workflow/multi-vehicle-route-optimization — 65/100
 **Weakest dimension:** `error_binding` (2/10) — 2 of 2 codes unbound
-
-⚠ Previous attempt: a previous attempt lifted score 63 → 65 but still below 75. Try next:
 
 _No candidates mapped for `workflow` + `error_binding`. Run `/fdl-recommend-discover multi-vehicle-route-optimization` to find some._
 
-### 🟡 workflow/vehicle-capacity-constraints — 65/100  *(+2 from last extraction)*
+### 🔴 workflow/vehicle-capacity-constraints — 65/100
 **Weakest dimension:** `error_binding` (2/10) — 2 of 2 codes unbound
-
-⚠ Previous attempt: a previous attempt lifted score 63 → 65 but still below 75. Try next:
 
 _No candidates mapped for `workflow` + `error_binding`. Run `/fdl-recommend-discover vehicle-capacity-constraints` to find some._
 
@@ -387,17 +381,13 @@ _No candidates mapped for `notification` + `error_binding`. Run `/fdl-recommend-
   /fdl-extract-code https://github.com/quantlib/quantlib commodity-derivatives-eod-data-delivery trading
   ```
 
-### 🟡 workflow/priority-urgency-weighting — 66/100  *(+2 from last extraction)*
+### 🔴 workflow/priority-urgency-weighting — 66/100
 **Weakest dimension:** `error_binding` (2/10) — 1 of 1 codes unbound
-
-⚠ Previous attempt: a previous attempt lifted score 64 → 66 but still below 75. Try next:
 
 _No candidates mapped for `workflow` + `error_binding`. Run `/fdl-recommend-discover priority-urgency-weighting` to find some._
 
-### 🟡 workflow/skill-based-assignment — 66/100  *(+2 from last extraction)*
+### 🔴 workflow/skill-based-assignment — 66/100
 **Weakest dimension:** `error_binding` (2/10) — 1 of 1 codes unbound
-
-⚠ Previous attempt: a previous attempt lifted score 64 → 66 but still below 75. Try next:
 
 _No candidates mapped for `workflow` + `error_binding`. Run `/fdl-recommend-discover skill-based-assignment` to find some._
 
@@ -430,10 +420,8 @@ _No candidates mapped for `workflow` + `error_binding`. Run `/fdl-recommend-disc
   /fdl-extract-code https://github.com/quantlib/quantlib interest-rates-derivatives-eod-data-delivery trading
   ```
 
-### 🟡 workflow/stop-eta-calculation — 67/100  *(+2 from last extraction)*
+### 🔴 workflow/stop-eta-calculation — 67/100
 **Weakest dimension:** `error_binding` (2/10) — 1 of 1 codes unbound
-
-⚠ Previous attempt: a previous attempt lifted score 65 → 67 but still below 75. Try next:
 
 _No candidates mapped for `workflow` + `error_binding`. Run `/fdl-recommend-discover stop-eta-calculation` to find some._
 
@@ -587,10 +575,8 @@ _No candidates mapped for `asset` + `error_binding`. Run `/fdl-recommend-discove
 
 _No candidates mapped for `notification` + `error_binding`. Run `/fdl-recommend-discover overspeed-alerts` to find some._
 
-### 🟡 workflow/routing-profile-selection — 70/100  *(+2 from last extraction)*
+### 🔴 workflow/routing-profile-selection — 70/100
 **Weakest dimension:** `structure` (4/10)
-
-⚠ Previous attempt: a previous attempt lifted score 68 → 70 but still below 75. Try next:
 
 _No candidates mapped for `workflow` + `structure`. Run `/fdl-recommend-discover routing-profile-selection` to find some._
 
@@ -621,10 +607,8 @@ _No candidates mapped for `asset` + `error_binding`. Run `/fdl-recommend-discove
   /fdl-extract-code https://github.com/directus/directus ignition-detection data
   ```
 
-### 🟡 integration/obd-dtc-diagnostics — 71/100  *(+2 from last extraction)*
+### 🔴 integration/obd-dtc-diagnostics — 71/100
 **Weakest dimension:** `structure` (3/10)
-
-⚠ Previous attempt: `ory/hydra` lifted score 69 → 71 but still below 75. Try next:
 
 - **ory/hydra** — Canonical OAuth2/OIDC reference
   ```
@@ -645,10 +629,8 @@ _No candidates mapped for `notification` + `error_binding`. Run `/fdl-recommend-
 
 _No candidates mapped for `security` + `error_binding`. Run `/fdl-recommend-discover prompt-attack-augmentation` to find some._
 
-### 🟡 workflow/driver-shift-break-constraints — 71/100  *(+2 from last extraction)*
+### 🔴 workflow/driver-shift-break-constraints — 71/100
 **Weakest dimension:** `structure` (4/10)
-
-⚠ Previous attempt: a previous attempt lifted score 69 → 71 but still below 75. Try next:
 
 _No candidates mapped for `workflow` + `structure`. Run `/fdl-recommend-discover driver-shift-break-constraints` to find some._
 

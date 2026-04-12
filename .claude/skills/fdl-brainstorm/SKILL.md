@@ -23,6 +23,7 @@ Help a user go from "I have a vague idea" to "a concrete FDL blueprint" through 
 
 - User already knows what they want → use `/fdl-create <feature>` directly
 - User has a codebase or document to extract from → use `/fdl-extract-code` or `/fdl-extract`
+- User already knows which repo to extract specific features from → use `/fdl-extract-code-feature <repo>` directly
 - User is describing an existing feature → search blueprints first
 
 ## Core principle — borrowed from Superpowers `brainstorming`, re-bound to FDL
@@ -31,7 +32,7 @@ Superpowers' brainstorming skill ends by writing a design doc to `docs/superpowe
 
 ## Workflow (11 steps, executed one at a time)
 
-### Step 1 — Explore existing context (INDEX-first, skill-aware)
+### Step 1 — Explore existing context (INDEX-first, skill-aware, extraction-aware)
 
 Before asking anything, gather the full picture of what already exists. **You MUST do both of these before asking any question — the user should never hear "let me think about that" when the answer is a one-command lookup.**
 
@@ -52,7 +53,88 @@ The repo ships a deterministic catalog at `blueprints/INDEX.md` (auto-generated,
 
 **Fallback only when `blueprints/INDEX.md` is missing:** if Read returns "file not found", tell the user *"INDEX.md is missing — run `npm run generate:readmes` to rebuild it"* and stop. Do NOT silently glob the repo. The index is the source of truth.
 
-#### 1b. Scan the idea for skill-delegation signals
+#### 1b. Gap-filling via extraction (when no blueprint exists)
+
+**Trigger:** This step runs only when Step 1a found NO close matches, OR when the user chose "(c) build something distinct" after seeing matches. If 1a found a usable blueprint and the user chose extend/variant, skip this step entirely.
+
+The FDL system maintains `data/extraction-candidates.yaml` — a curated map of open-source repos known to implement features that could become blueprints. Before falling through to "create from scratch," check whether the gap can be filled by extracting from one of these repos.
+
+**1b.1 — Read the extraction candidates map:**
+
+Read `data/extraction-candidates.yaml` in one call. If the file doesn't exist, print *"extraction-candidates.yaml not found — skipping extraction lookup"* and fall through to Step 1c (skill-delegation signals), then Step 2.
+
+**1b.2 — Look up candidates for the gap:**
+
+Reuse the candidate feature names extracted in Step 1a (e.g., for *"I need something to handle fleet dispatch"* → candidates `fleet`, `dispatch`, `delivery`, `order`). Also infer the most likely FDL category from keyword signals:
+
+| Keywords in idea | Inferred category |
+|---|---|
+| login, auth, password, MFA, 2FA, session, SSO, SAML | auth |
+| permission, role, access, RBAC, policy, authorization | access |
+| OAuth, OIDC, federation, LDAP, API gateway, webhook | integration |
+| CMS, CRUD, collection, schema, migration, data model | data |
+| trade, derivative, commodity, portfolio, pricing | trading |
+| UI, component, editor, drag, canvas, form, layout | ui |
+| payment, checkout, billing, invoice, subscription | payment |
+| notification, email, SMS, push, alert | notification |
+| workflow, approval, process, state machine | workflow |
+| vehicle, fleet, tracking, GPS, geofence, dispatch, route | data or integration |
+| inventory, stock, warehouse | inventory |
+| manufacturing, production, BOM | manufacturing |
+| CRM, customer, lead, pipeline | crm |
+| asset, equipment, depreciation | asset |
+
+Look up repos using the same priority order as `scripts/fitness-recommend.js`:
+
+1. `features.<candidate-name>` — exact feature-level override (highest priority)
+2. `categories.<inferred-category>.<any-dimension>` — any dimension entries for the category
+3. `categories.<inferred-category>.any` — generic category fallback
+
+Collect all unique repos (deduplicate by URL), keeping up to 3 candidates.
+
+**1b.3 — Present the user with options:**
+
+**When candidates are found:**
+
+> "I didn't find an existing blueprint for this, but I found open-source repos in the extraction candidates map that implement similar features:
+>
+> 1. **Extract from a repo** — I'll scan it, show you the features it implements, and you pick which ones to extract into blueprints:
+>    - `org/repo-1` — {description}
+>    - `org/repo-2` — {description}
+>
+> 2. **Discover a different repo** — I'll search the web for open-source projects that implement this feature and add them to the candidates map.
+>
+> 3. **Create from scratch** — I'll walk you through designing the feature step-by-step using Socratic questioning.
+>
+> Which approach?"
+
+**When no candidates are found:**
+
+> "I didn't find an existing blueprint or any mapped extraction candidates for this feature area. Two options:
+>
+> 1. **Discover a repo** — I'll search the web for open-source projects that implement this feature.
+>
+> 2. **Create from scratch** — I'll walk you through designing the feature step-by-step.
+>
+> Which approach?"
+
+**1b.4 — Handle the user's choice:**
+
+- **"Extract from repo"**: If multiple repos were listed, ask which one. Then invoke `/fdl-extract-code-feature <repo-url>` and **EXIT the brainstorm entirely**. The extraction skill handles everything from there (feature menu, blueprint creation, auto-evolve).
+
+- **"Discover a repo"**: Invoke `/fdl-recommend-discover` and **EXIT the brainstorm entirely**. The discovery skill handles WebSearch, user approval, and YAML append.
+
+- **"Create from scratch"**: Continue to Step 1c (skill-delegation signals), then Step 2 as normal. No change to the existing Socratic flow.
+
+**Edge cases:**
+
+- **Idea spans multiple features, some exist as blueprints, some don't:** Step 1a handles the "exists" portion. Step 1b only fires for the unmatched portion of the idea.
+- **Multiple repos cover different aspects of the idea:** Group them by which aspect they cover — e.g., *"For the dispatch part: fleetbase. For the vehicle lifecycle part: erpnext. Which repo, or create from scratch?"*
+- **User picks extract but the repo lacks the feature they need:** Handled by `/fdl-extract-code-feature`'s feature menu. If the user doesn't find what they need, they can come back and run `/fdl-brainstorm` again.
+
+**Execution order note:** If the user chooses "extract" or "discover" in this step, the brainstorm exits and Steps 1c through 11 never run. Step 1c (skill-delegation signals) and the Socratic flow only execute when the user chose "create from scratch."
+
+#### 1c. Scan the idea for skill-delegation signals
 
 While you have the user's rough idea in front of you, also scan it for keywords that map to known companion/data-source skills. These become **informed options** in Step 5 instead of generic alternatives.
 
@@ -106,13 +188,13 @@ Ask ONE question:
 
 ### Step 4b — Ask about third-party skills
 
-Before you propose approaches, give the user one explicit opening to plug in Claude skills that Step 1b didn't detect. This step runs ONCE and is non-negotiable — it's the user's chance to tell us about a skill pack we don't know about, so we frame the Step 5 trade-offs against their preferred tooling instead of ours.
+Before you propose approaches, give the user one explicit opening to plug in Claude skills that Step 1c didn't detect. This step runs ONCE and is non-negotiable — it's the user's chance to tell us about a skill pack we don't know about, so we frame the Step 5 trade-offs against their preferred tooling instead of ours.
 
 Ask ONE question:
 
 > "Before I lay out the options — are there any specific Claude skills or third-party skill packs you want to use?
 >
-> I already noticed: `{list from Step 1b signals, or "(nothing specific)"}`.
+> I already noticed: `{list from Step 1c signals, or "(nothing specific)"}`.
 >
 > You can browse more at:
 > - **skills.sh** — https://skills.sh (community catalog)
@@ -123,14 +205,14 @@ Ask ONE question:
 >
 > Example: `npx skills add https://github.com/shadcn/ui --skill shadcn`"
 
-**Do NOT search skills.sh yourself.** If the user answers 'none' or gives an empty response, move on with whatever Step 1b surfaced and don't prompt again. If they paste install commands or URLs, parse each line:
+**Do NOT search skills.sh yourself.** If the user answers 'none' or gives an empty response, move on with whatever Step 1c surfaced and don't prompt again. If they paste install commands or URLs, parse each line:
 
 - Extract the install command if present (starts with `npx skills add`, `npm i`, `pnpm add`, `npx shadcn`, `uv add`, etc.)
 - Extract the skill URL (skills.sh or github.com link)
 - Extract a short name (from `--skill <name>` or the URL's last path segment)
 - Classify as `data_source` (mentions calendar/payment/email/sms/storage/maps/crm/api keywords) or `stack_companion` (UI/ORM/auth keywords) or `user_skill` (neither)
 
-Store the parsed entries in working memory alongside the Step 1b signals. In Step 5, when you present Axis 2 (delegate vs. own), user-provided skills become first-class "delegate to X" options alongside the auto-detected ones. In Step 9 (brainstorm doc), they get listed under the skill-delegations section. In Step 11 (handoff), they're carried forward to `/fdl-create` as `user-skill:<name>` tags so `/fdl-generate` later wires them idiomatically — same pipeline as auto-detected delegations.
+Store the parsed entries in working memory alongside the Step 1c signals. In Step 5, when you present Axis 2 (delegate vs. own), user-provided skills become first-class "delegate to X" options alongside the auto-detected ones. In Step 9 (brainstorm doc), they get listed under the skill-delegations section. In Step 11 (handoff), they're carried forward to `/fdl-create` as `user-skill:<name>` tags so `/fdl-generate` later wires them idiomatically — same pipeline as auto-detected delegations.
 
 **Never auto-install.** The install commands go into the brainstorm doc so the user can run them themselves when they're ready to generate code.
 
@@ -150,9 +232,9 @@ Never jump to a single solution. Lay out alternatives across **two axes** and le
 >
 > Given what you described, I'd lean toward **B**. Which matches your mental model?"
 
-#### Axis 2: Delegate vs. own (only when Step 1b found skill-delegation signals)
+#### Axis 2: Delegate vs. own (only when Step 1c found skill-delegation signals)
 
-When Step 1b surfaced a known data-source or stack skill, the user has a real choice: own the data end-to-end or delegate to a specialist. Frame this explicitly — don't hide it, and don't assume the answer.
+When Step 1c surfaced a known data-source or stack skill, the user has a real choice: own the data end-to-end or delegate to a specialist. Frame this explicitly — don't hide it, and don't assume the answer.
 
 **Template when a data-source skill was detected (e.g., calendar → google-calendar):**
 
@@ -358,7 +440,7 @@ Claude: [Step 1a] Reading blueprints/INDEX.md and running blueprint-lookup.js fo
         candidates: complaint, ticket, feedback, customer-support, ombudsman...
         Found `workflow/customer-support-ticket.blueprint.yaml`. It covers ticket
         intake, assignment, and resolution.
-        [Step 1b] No stack or data-source keywords in the prompt — skipping skill scan.
+        [Step 1c] No stack or data-source keywords in the prompt — skipping skill scan.
         Is this what you need, or is this distinct?
 
 User: It's distinct — these are regulatory complaints that need an ombudsman review.
