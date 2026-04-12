@@ -1,0 +1,445 @@
+{
+  "feature": "data-retention-policies",
+  "version": "1.0.0",
+  "description": "Hierarchical message and file deletion policies that automatically remove content older than configured retention periods, with granular overrides per workspace or channel.\n",
+  "category": "data",
+  "tags": [
+    "retention",
+    "data-governance",
+    "gdpr",
+    "deletion",
+    "compliance",
+    "purge"
+  ],
+  "actors": [
+    {
+      "id": "system_admin",
+      "name": "System Administrator",
+      "type": "human",
+      "description": "Creates and manages retention policies; configures global defaults"
+    },
+    {
+      "id": "retention_job",
+      "name": "Retention Job",
+      "type": "system",
+      "description": "Scheduled background worker that identifies and deletes expired content"
+    }
+  ],
+  "fields": [
+    {
+      "name": "policy_id",
+      "type": "hidden",
+      "required": true,
+      "label": "Unique identifier for this retention policy"
+    },
+    {
+      "name": "display_name",
+      "type": "text",
+      "required": true,
+      "label": "Human-readable label for the policy",
+      "validation": [
+        {
+          "type": "maxLength",
+          "value": 64,
+          "message": "Maximum 64 characters"
+        }
+      ]
+    },
+    {
+      "name": "post_duration_days",
+      "type": "number",
+      "required": false,
+      "label": "Number of days to retain messages; null means messages are never deleted by this",
+      "validation": [
+        {
+          "type": "min",
+          "value": 1,
+          "message": "Minimum value is 1"
+        }
+      ]
+    },
+    {
+      "name": "team_ids",
+      "type": "json",
+      "required": false,
+      "label": "Array of team IDs this policy applies to (for team-scoped policies)"
+    },
+    {
+      "name": "channel_ids",
+      "type": "json",
+      "required": false,
+      "label": "Array of channel IDs this policy applies to (for channel-scoped policies)"
+    },
+    {
+      "name": "global_message_retention_hours",
+      "type": "number",
+      "required": false,
+      "label": "Global fallback retention duration in hours for all messages not covered by a sp",
+      "validation": [
+        {
+          "type": "min",
+          "value": 1,
+          "message": "Minimum value is 1"
+        }
+      ]
+    },
+    {
+      "name": "global_file_retention_hours",
+      "type": "number",
+      "required": false,
+      "label": "Global fallback retention duration in hours for all file uploads not covered by",
+      "validation": [
+        {
+          "type": "min",
+          "value": 1,
+          "message": "Minimum value is 1"
+        }
+      ]
+    },
+    {
+      "name": "deletion_job_start_time",
+      "type": "text",
+      "required": false,
+      "label": "Daily scheduled time for the deletion job to run (e"
+    },
+    {
+      "name": "batch_size",
+      "type": "number",
+      "required": false,
+      "label": "Number of records processed per deletion batch to limit database lock contention"
+    }
+  ],
+  "states": {
+    "field": "policy_status",
+    "values": [
+      {
+        "name": "active",
+        "description": "Policy is configured and will be applied by the next scheduled deletion job",
+        "initial": true
+      },
+      {
+        "name": "deleted",
+        "description": "Policy record removed; associated team/channel assignments cleared",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "active",
+        "to": "deleted",
+        "actor": "system_admin",
+        "description": "Administrator deletes the policy; teams and channels revert to global defaults"
+      }
+    ]
+  },
+  "rules": {
+    "rule_01": "Retention is hierarchical — channel-level policies override team-level policies, which override the global default.",
+    "rule_02": "If a channel is covered by both a team policy and a channel policy, the channel policy takes precedence.",
+    "rule_03": "A post_duration_days value of null means \"never delete\"; this is distinct from zero which is invalid.",
+    "rule_04": "Both message retention and file retention can be independently enabled or disabled at the global level.",
+    "rule_05": "Deletion runs in batches with a configurable inter-batch delay to avoid excessive database load.",
+    "rule_06": "The deletion job soft-deletes content by setting a delete_at timestamp; physical removal is handled separately.",
+    "rule_07": "Pinned messages may be optionally exempted from deletion via a preserve_pinned_posts global flag.",
+    "rule_08": "Team IDs and channel IDs must be validated to exist at the time the policy is created or patched.",
+    "rule_09": "When a policy is deleted, all team and channel assignments are removed in the same transaction; affected scopes revert to the global default."
+  },
+  "outcomes": {
+    "policy_created": {
+      "priority": 10,
+      "given": [
+        "actor is system administrator",
+        "display_name is provided",
+        "post_duration_days is null or a positive integer",
+        "team_ids and channel_ids reference existing workspaces and channels"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "retention_policy",
+          "description": "Policy record created with team and channel assignments",
+          "type": "retention"
+        },
+        {
+          "action": "emit_event",
+          "event": "retention.policy_created",
+          "payload": [
+            "policy_id",
+            "display_name",
+            "post_duration_days",
+            "team_ids",
+            "channel_ids",
+            "actor_id"
+          ]
+        }
+      ],
+      "result": "Policy active; affected content will be deleted at the next scheduled job run"
+    },
+    "policy_patched": {
+      "priority": 10,
+      "given": [
+        "actor is system administrator",
+        "policy exists"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "policy",
+          "description": "Duration, team assignments, and channel assignments updated"
+        },
+        {
+          "action": "emit_event",
+          "event": "retention.policy_updated",
+          "payload": [
+            "policy_id",
+            "changed_fields",
+            "actor_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Policy changes take effect at the next scheduled deletion run"
+    },
+    "retention_deletion_run": {
+      "priority": 10,
+      "given": [
+        "scheduled deletion job fires at the configured time",
+        "at least one retention policy (global or specific) has message or file deletion enabled"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "target": "expired_messages",
+          "description": "Messages older than the applicable retention period are soft-deleted in batches",
+          "type": "expired"
+        },
+        {
+          "action": "delete_record",
+          "target": "expired_files",
+          "description": "File records older than the applicable file retention period are soft-deleted in batches",
+          "type": "expired"
+        },
+        {
+          "action": "emit_event",
+          "event": "retention.deletion_completed",
+          "payload": [
+            "messages_deleted",
+            "files_deleted",
+            "duration_ms",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Expired content removed; compliance with retention obligations maintained"
+    },
+    "policy_invalid_duration": {
+      "priority": 2,
+      "error": "RETENTION_INVALID_DURATION",
+      "given": [
+        "post_duration_days is provided as zero or a negative number"
+      ],
+      "then": [],
+      "result": "Policy creation or patch rejected"
+    },
+    "policy_deleted": {
+      "priority": 10,
+      "given": [
+        "actor is system administrator"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "target": "retention_policy",
+          "description": "Policy and all team/channel assignments removed atomically",
+          "type": "retention"
+        },
+        {
+          "action": "emit_event",
+          "event": "retention.policy_deleted",
+          "payload": [
+            "policy_id",
+            "actor_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Affected workspaces and channels revert to global retention defaults"
+    }
+  },
+  "errors": [
+    {
+      "code": "RETENTION_INVALID_DURATION",
+      "message": "Retention duration must be a positive number of days or null (no deletion).",
+      "status": 400
+    },
+    {
+      "code": "RETENTION_INVALID_TEAM",
+      "message": "One or more specified teams do not exist.",
+      "status": 400
+    },
+    {
+      "code": "RETENTION_INVALID_CHANNEL",
+      "message": "One or more specified channels do not exist.",
+      "status": 400
+    },
+    {
+      "code": "RETENTION_POLICY_NOT_FOUND",
+      "message": "Retention policy not found.",
+      "status": 404
+    },
+    {
+      "code": "RETENTION_NOT_LICENSED",
+      "message": "Granular retention policies require an enterprise license.",
+      "status": 403
+    }
+  ],
+  "events": [
+    {
+      "name": "retention.policy_created",
+      "description": "A new retention policy was created",
+      "payload": [
+        "policy_id",
+        "display_name",
+        "post_duration_days",
+        "scope",
+        "actor_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "retention.policy_updated",
+      "description": "Retention policy settings were modified",
+      "payload": [
+        "policy_id",
+        "changed_fields",
+        "actor_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "retention.policy_deleted",
+      "description": "Retention policy was deleted",
+      "payload": [
+        "policy_id",
+        "actor_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "retention.deletion_completed",
+      "description": "Scheduled retention deletion job completed",
+      "payload": [
+        "messages_deleted",
+        "files_deleted",
+        "duration_ms",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "compliance-exports",
+      "type": "recommended",
+      "reason": "Compliance exports capture message records before retention deletes them"
+    },
+    {
+      "feature": "legal-hold",
+      "type": "recommended",
+      "reason": "Legal holds should exempt records from retention deletion"
+    },
+    {
+      "feature": "audit-logging",
+      "type": "required",
+      "reason": "All retention policy CRUD operations are recorded in the audit log"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_data_retention_policies",
+        "description": "Hierarchical message and file deletion policies that automatically remove content older than configured retention periods, with granular overrides per workspace or channel.\n",
+        "success_metrics": [
+          {
+            "metric": "data_accuracy",
+            "target": "100%",
+            "measurement": "Records matching source of truth"
+          },
+          {
+            "metric": "duplicate_rate",
+            "target": "0%",
+            "measurement": "Duplicate records detected post-creation"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "performance",
+            "description": "Data consistency must be maintained across concurrent operations",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before transitioning to a terminal state",
+        "before permanently deleting records"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "policy_created",
+          "permission": "supervised"
+        },
+        {
+          "action": "policy_patched",
+          "permission": "autonomous"
+        },
+        {
+          "action": "retention_deletion_run",
+          "permission": "human_required"
+        },
+        {
+          "action": "policy_invalid_duration",
+          "permission": "autonomous"
+        },
+        {
+          "action": "policy_deleted",
+          "permission": "human_required"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "data_integrity",
+        "over": "performance",
+        "reason": "data consistency must be maintained across all operations"
+      }
+    ],
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "audit_logging",
+          "from": "audit-logging",
+          "fallback": "degrade"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/mattermost/mattermost",
+      "project": "Mattermost",
+      "tech_stack": "Go (server), React + TypeScript (webapp)",
+      "files_traced": 4,
+      "entry_points": [
+        "server/public/model/data_retention_policy.go",
+        "server/channels/app/data_retention.go"
+      ]
+    }
+  }
+}

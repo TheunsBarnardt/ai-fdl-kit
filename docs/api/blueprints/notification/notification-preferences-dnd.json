@@ -1,0 +1,480 @@
+{
+  "feature": "notification-preferences-dnd",
+  "version": "1.0.0",
+  "description": "User-controlled notification preference system with per-channel overrides and a Do-Not-Disturb mode that suppresses all notifications for a configurable period with automatic expiry.\n",
+  "category": "notification",
+  "tags": [
+    "notifications",
+    "preferences",
+    "dnd",
+    "do-not-disturb",
+    "mute",
+    "quiet-hours"
+  ],
+  "actors": [
+    {
+      "id": "user",
+      "name": "End User",
+      "type": "human",
+      "description": "Configures their own notification preferences and DND schedule"
+    },
+    {
+      "id": "dnd_expiry_job",
+      "name": "DND Expiry Job",
+      "type": "system",
+      "description": "Background process that checks and expires timed DND statuses every minute"
+    }
+  ],
+  "fields": [
+    {
+      "name": "desktop_notifications",
+      "type": "select",
+      "required": true,
+      "label": "Desktop notification trigger level",
+      "options": [
+        {
+          "value": "all",
+          "label": "All"
+        },
+        {
+          "value": "mention",
+          "label": "Mention"
+        },
+        {
+          "value": "none",
+          "label": "None"
+        }
+      ]
+    },
+    {
+      "name": "mobile_notifications",
+      "type": "select",
+      "required": true,
+      "label": "Mobile push notification trigger level",
+      "options": [
+        {
+          "value": "all",
+          "label": "All"
+        },
+        {
+          "value": "mention",
+          "label": "Mention"
+        },
+        {
+          "value": "none",
+          "label": "None"
+        }
+      ]
+    },
+    {
+      "name": "email_notifications",
+      "type": "boolean",
+      "required": true,
+      "label": "Whether email notifications are enabled"
+    },
+    {
+      "name": "notification_comments",
+      "type": "select",
+      "required": true,
+      "label": "When to notify about thread replies",
+      "options": [
+        {
+          "value": "never",
+          "label": "Never"
+        },
+        {
+          "value": "root",
+          "label": "Root"
+        },
+        {
+          "value": "any",
+          "label": "Any"
+        },
+        {
+          "value": "crt",
+          "label": "Crt"
+        }
+      ]
+    },
+    {
+      "name": "mention_keys",
+      "type": "text",
+      "required": false,
+      "label": "Comma-separated custom keywords that trigger notifications when they appear in m"
+    },
+    {
+      "name": "notify_on_first_name",
+      "type": "boolean",
+      "required": false,
+      "label": "Whether the user's first name is treated as a mention keyword"
+    },
+    {
+      "name": "channel_notification_override",
+      "type": "json",
+      "required": false,
+      "label": "Per-channel overrides for desktop, mobile, and email notification levels; overri"
+    },
+    {
+      "name": "channel_mark_unread",
+      "type": "select",
+      "required": false,
+      "label": "Per-channel mute control — whether all messages or only mentions mark the channe",
+      "options": [
+        {
+          "value": "all",
+          "label": "All"
+        },
+        {
+          "value": "mention",
+          "label": "Mention"
+        }
+      ]
+    },
+    {
+      "name": "dnd_end_time",
+      "type": "datetime",
+      "required": false,
+      "label": "Unix timestamp in seconds at which a timed DND status expires; zero means DND is"
+    },
+    {
+      "name": "prev_status",
+      "type": "text",
+      "required": false,
+      "label": "Previous availability status stored so it can be restored when DND expires"
+    }
+  ],
+  "states": {
+    "field": "availability_status",
+    "values": [
+      {
+        "name": "online",
+        "description": "User is actively using the application",
+        "initial": true
+      },
+      {
+        "name": "away",
+        "description": "User is inactive but available"
+      },
+      {
+        "name": "dnd",
+        "description": "Do Not Disturb — push notifications are suppressed regardless of other preferences"
+      },
+      {
+        "name": "offline",
+        "description": "User not connected"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "online",
+        "to": "dnd",
+        "actor": "user",
+        "description": "User activates DND (indefinite or timed)"
+      },
+      {
+        "from": "away",
+        "to": "dnd",
+        "actor": "user",
+        "description": "User activates DND from away state"
+      },
+      {
+        "from": "dnd",
+        "to": "online",
+        "actor": "user",
+        "description": "User manually deactivates DND"
+      },
+      {
+        "from": "dnd",
+        "to": "online",
+        "actor": "dnd_expiry_job",
+        "description": "Timed DND expires; status restored to prev_status"
+      }
+    ]
+  },
+  "rules": {
+    "rule_01": "Notification preference resolution follows a three-level hierarchy: channel-level override → user-level default → system default.",
+    "rule_02": "A channel-level setting of 'default' falls back to the user's global preference for that notification type.",
+    "rule_03": "When DND is active, push notifications are suppressed even if the user's push preference is set to 'all'.",
+    "rule_04": "DND does not suppress email notifications by default; email is governed only by the email notification preference.",
+    "rule_05": "Direct messages apply 'all' push notification logic even if the user has 'mention' set as their general push preference.",
+    "rule_06": "Group messages also use 'all' push logic, treating them equivalently to direct messages.",
+    "rule_07": "A timed DND end_time is truncated to one-minute intervals, aligning with the expiry job's polling interval.",
+    "rule_08": "DND expiry checks run every minute; the status reverts to prev_status on expiry.",
+    "rule_09": "Custom mention keys are comma-separated; they trigger notifications identically to username @-mentions.",
+    "rule_10": "Thread notification preferences (desktop_threads, push_threads, email_threads) are independent of top-level preferences and apply specifically to replies in followed threads."
+  },
+  "outcomes": {
+    "preferences_updated": {
+      "priority": 10,
+      "given": [
+        "user submits updated notification preferences",
+        "all preference values are within allowed option sets"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "user.notify_props",
+          "description": "All updated preference fields persisted"
+        },
+        {
+          "action": "emit_event",
+          "event": "notification_prefs.updated",
+          "payload": [
+            "user_id",
+            "changed_fields",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "New preferences take effect for the next incoming notification"
+    },
+    "channel_preference_overridden": {
+      "priority": 10,
+      "given": [
+        "user sets a channel-level notification override",
+        "channel_notification_override contains a valid level"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "channel_member.notify_props",
+          "description": "Channel-specific preference stored on the membership record"
+        }
+      ],
+      "result": "That channel uses the override instead of the user's global default"
+    },
+    "dnd_activated": {
+      "priority": 10,
+      "given": [
+        "user enables DND (optionally with an end time)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "user.status",
+          "value": "dnd"
+        },
+        {
+          "action": "set_field",
+          "target": "user.prev_status",
+          "description": "Current status saved so it can be restored on DND expiry"
+        },
+        {
+          "action": "set_field",
+          "target": "user.dnd_end_time",
+          "description": "If timed, end time truncated to next minute boundary and stored"
+        },
+        {
+          "action": "emit_event",
+          "event": "user.status_changed",
+          "payload": [
+            "user_id",
+            "status",
+            "dnd_end_time",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Push notifications suppressed until DND is manually disabled or expires"
+    },
+    "dnd_expired": {
+      "priority": 10,
+      "given": [
+        "dnd_expiry_job runs",
+        "user's dnd_end_time is in the past"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "user.status",
+          "value": "prev_status"
+        },
+        {
+          "action": "set_field",
+          "target": "user.dnd_end_time",
+          "value": 0
+        },
+        {
+          "action": "emit_event",
+          "event": "user.status_changed",
+          "payload": [
+            "user_id",
+            "restored_status",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "DND lifted; notifications resume according to user preferences"
+    },
+    "push_suppressed_by_dnd": {
+      "priority": 1,
+      "given": [
+        "incoming push notification triggered for a user",
+        "user's current status is dnd"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "notification.suppressed",
+          "payload": [
+            "user_id",
+            "notification_type",
+            "reason",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Push notification not delivered; notification reason recorded as user status"
+    }
+  },
+  "errors": [
+    {
+      "code": "NOTIFICATION_INVALID_PREFERENCE",
+      "message": "The selected notification level is not valid.",
+      "status": 400
+    },
+    {
+      "code": "NOTIFICATION_CHANNEL_NOT_FOUND",
+      "message": "The specified channel was not found.",
+      "status": 404
+    }
+  ],
+  "events": [
+    {
+      "name": "notification_prefs.updated",
+      "description": "User updated their global notification preferences",
+      "payload": [
+        "user_id",
+        "changed_fields",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "user.status_changed",
+      "description": "User availability status changed (online/away/dnd/offline)",
+      "payload": [
+        "user_id",
+        "old_status",
+        "new_status",
+        "dnd_end_time",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "notification.suppressed",
+      "description": "A notification was suppressed due to user preference or DND status",
+      "payload": [
+        "user_id",
+        "notification_type",
+        "reason",
+        "channel_id",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "email-notifications",
+      "type": "required",
+      "reason": "Email notification preferences are part of the same preference set"
+    },
+    {
+      "feature": "mobile-push-notifications",
+      "type": "required",
+      "reason": "DND status directly suppresses push notifications"
+    },
+    {
+      "feature": "channel-moderation",
+      "type": "recommended",
+      "reason": "Channel-level muting (mark_unread = mention) is implemented via the same notification preference mechanism"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_notification_preferences_dnd",
+        "description": "User-controlled notification preference system with per-channel overrides and a Do-Not-Disturb mode that suppresses all notifications for a configurable period with automatic expiry.\n",
+        "success_metrics": [
+          {
+            "metric": "success_rate",
+            "target": ">= 99%",
+            "measurement": "Successful operations divided by total attempts"
+          },
+          {
+            "metric": "error_rate",
+            "target": "< 1%",
+            "measurement": "Failed operations divided by total attempts"
+          }
+        ],
+        "constraints": []
+      }
+    ],
+    "autonomy": {
+      "level": "semi_autonomous",
+      "human_checkpoints": [
+        "before transitioning to a terminal state"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "preferences_updated",
+          "permission": "supervised"
+        },
+        {
+          "action": "channel_preference_overridden",
+          "permission": "autonomous"
+        },
+        {
+          "action": "dnd_activated",
+          "permission": "autonomous"
+        },
+        {
+          "action": "dnd_expired",
+          "permission": "autonomous"
+        },
+        {
+          "action": "push_suppressed_by_dnd",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "delivery_reliability",
+        "over": "speed",
+        "reason": "notifications must reach recipients even if delayed"
+      }
+    ],
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "email_notifications",
+          "from": "email-notifications",
+          "fallback": "degrade"
+        },
+        {
+          "capability": "mobile_push_notifications",
+          "from": "mobile-push-notifications",
+          "fallback": "degrade"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/mattermost/mattermost",
+      "project": "Mattermost",
+      "tech_stack": "Go (server), React + TypeScript (webapp)",
+      "files_traced": 6,
+      "entry_points": [
+        "server/public/model/user.go",
+        "server/channels/app/notification.go"
+      ]
+    }
+  }
+}

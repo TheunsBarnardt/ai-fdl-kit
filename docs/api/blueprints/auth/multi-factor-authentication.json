@@ -1,69 +1,269 @@
 {
   "feature": "multi-factor-authentication",
-  "version": "1.0.0",
-  "description": "MFA with OTP, WebAuthn, and recovery codes",
+  "version": "2.0.0",
+  "description": "TOTP-based second authentication factor using RFC 6238 time-based one-time passwords. Users enroll via QR code and submit 6-digit codes at login to verify possession of the registered...",
   "category": "auth",
   "tags": [
     "mfa",
-    "credentials"
+    "totp",
+    "two-factor",
+    "otp",
+    "authenticator",
+    "security"
+  ],
+  "actors": [
+    {
+      "id": "user",
+      "name": "End User",
+      "type": "human",
+      "description": "Enrolls and uses their authenticator app during login"
+    },
+    {
+      "id": "system_admin",
+      "name": "System Administrator",
+      "type": "human",
+      "description": "Enforces MFA globally or resets MFA for locked-out users"
+    }
   ],
   "fields": [
     {
-      "name": "credential_type",
-      "type": "select",
+      "name": "secret",
+      "type": "token",
       "required": true,
-      "label": "Credential Type",
-      "validation": [
-        {
-          "type": "required",
-          "message": "Type required"
-        }
-      ]
+      "label": "Base32-encoded shared TOTP secret (160-bit, cryptographically random)"
     },
     {
-      "name": "otp_code",
-      "type": "text",
+      "name": "qr_code",
+      "type": "file",
       "required": false,
-      "label": "OTP Code",
+      "label": "PNG QR code encoding the otpauth:// URI for authenticator app enrollment"
+    },
+    {
+      "name": "totp_code",
+      "type": "text",
+      "required": true,
+      "label": "6-digit time-based one-time password submitted by the user",
       "validation": [
         {
           "type": "pattern",
           "value": "^[0-9]{6}$",
-          "message": "Must be 6 digits"
+          "message": "Invalid format"
         }
       ]
+    },
+    {
+      "name": "mfa_active",
+      "type": "boolean",
+      "required": true,
+      "label": "Whether MFA is currently enabled for the user"
+    },
+    {
+      "name": "used_timestamps",
+      "type": "json",
+      "required": false,
+      "label": "Array of recently used TOTP time windows to prevent code reuse"
     }
   ],
+  "states": {
+    "field": "mfa_status",
+    "values": [
+      {
+        "name": "disabled",
+        "description": "MFA not configured; user logs in with primary credential only",
+        "initial": true
+      },
+      {
+        "name": "enrollment_pending",
+        "description": "Secret generated and QR code presented; awaiting first valid code to confirm enrollment"
+      },
+      {
+        "name": "active",
+        "description": "MFA enrolled and enforced; TOTP code required at every login",
+        "terminal": false
+      }
+    ],
+    "transitions": [
+      {
+        "from": "disabled",
+        "to": "enrollment_pending",
+        "actor": "user",
+        "description": "User initiates MFA setup; secret and QR code generated"
+      },
+      {
+        "from": "enrollment_pending",
+        "to": "active",
+        "actor": "user",
+        "description": "User submits a valid TOTP code confirming possession of the authenticator"
+      },
+      {
+        "from": "active",
+        "to": "disabled",
+        "actor": "user",
+        "description": "User deactivates MFA"
+      },
+      {
+        "from": "active",
+        "to": "disabled",
+        "actor": "system_admin",
+        "description": "Administrator resets MFA for a locked-out user"
+      }
+    ]
+  },
   "rules": {
-    "core": "MFA credential management"
+    "rule_01": "The TOTP algorithm follows RFC 6238 with a 30-second time step and a validation window of ±1 code (approximately 90 seconds tolerance) to accommodate clock skew.",
+    "rule_02": "Each validated code is recorded to prevent replay attacks within the same time window.",
+    "rule_03": "Only users authenticated via local email or directory (LDAP) credentials may activate MFA; SSO (SAML, OAuth) users cannot, as MFA is delegated to their identity provider.",
+    "rule_04": "When MFA enforcement is enabled globally, users who have not enrolled are blocked from all operations except MFA enrollment endpoints.",
+    "rule_05": "Bots and service accounts are exempt from MFA enforcement.",
+    "rule_06": "A 160-bit secret is generated using a cryptographically secure random source and never transmitted after initial enrollment.",
+    "rule_07": "Deactivating MFA clears both the secret and the used-timestamp list atomically."
   },
   "outcomes": {
-    "mfa_verified": {
-      "priority": 5,
+    "mfa_enrollment_initiated": {
+      "priority": 10,
       "given": [
-        {
-          "field": "otp_code",
-          "operator": "exists",
-          "value": null
-        }
+        "MFA is enabled in system configuration",
+        "user is authenticated via email or directory credentials",
+        "user does not already have active MFA"
       ],
       "then": [
+        {
+          "action": "create_record",
+          "target": "mfa_secret",
+          "description": "Cryptographically random 20-byte secret stored; QR code URI generated",
+          "type": "mfa"
+        },
+        {
+          "action": "emit_event",
+          "event": "auth.mfa_enrollment_started",
+          "payload": [
+            "user_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "QR code and manual entry key returned to the user for authenticator app enrollment"
+    },
+    "mfa_activation_success": {
+      "priority": 10,
+      "given": [
+        "user is in enrollment_pending state",
+        "submitted TOTP code is valid and has not been used in the current window"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "user.mfa_active",
+          "value": true
+        },
+        {
+          "action": "set_field",
+          "target": "used_timestamps",
+          "description": "Current time window recorded to prevent immediate replay"
+        },
+        {
+          "action": "emit_event",
+          "event": "auth.mfa_activated",
+          "payload": [
+            "user_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "MFA active; future logins require a valid TOTP code"
+    },
+    "mfa_verified": {
+      "priority": 10,
+      "given": [
+        "user has active MFA",
+        "primary credential validated",
+        "submitted TOTP code is valid for current or adjacent time window",
+        "code has not been used before in this window"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "used_timestamps",
+          "description": "Code's time window added to anti-replay list"
+        },
+        {
+          "action": "create_record",
+          "target": "session",
+          "description": "Session created after both factors verified",
+          "type": "session"
+        },
         {
           "action": "emit_event",
           "event": "mfa.verified",
           "payload": [
-            "user_id"
+            "user_id",
+            "session_id"
           ]
         }
       ],
-      "result": "MFA verified"
+      "result": "User fully authenticated; session established"
+    },
+    "mfa_code_invalid": {
+      "priority": 5,
+      "error": "INVALID_OTP",
+      "given": [
+        "user has active MFA",
+        "submitted TOTP code is incorrect or outside the valid time window"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "user.failed_attempts",
+          "description": "Failed attempt counter incremented"
+        }
+      ],
+      "result": "Login rejected; user prompted to retry with a fresh code"
+    },
+    "mfa_code_replayed": {
+      "priority": 4,
+      "error": "MFA_CODE_ALREADY_USED",
+      "given": [
+        "TOTP code is mathematically valid",
+        "code's time window is already present in used_timestamps"
+      ],
+      "then": [],
+      "result": "Login rejected to prevent replay attack"
+    },
+    "mfa_not_available_for_sso_user": {
+      "priority": 3,
+      "error": "MFA_NOT_SUPPORTED_FOR_SSO",
+      "given": [
+        "user authenticated via SAML or OAuth attempts to activate MFA"
+      ],
+      "then": [],
+      "result": "Activation blocked; MFA must be configured at the identity provider"
     }
   },
   "errors": [
     {
       "code": "INVALID_OTP",
-      "status": 401,
-      "message": "Invalid OTP code"
+      "message": "The verification code you entered is incorrect. Please try again.",
+      "status": 401
+    },
+    {
+      "code": "MFA_CODE_ALREADY_USED",
+      "message": "This code has already been used. Please wait for a new code.",
+      "status": 409
+    },
+    {
+      "code": "MFA_NOT_ENABLED",
+      "message": "Multi-factor authentication is not enabled on this server.",
+      "status": 403
+    },
+    {
+      "code": "MFA_NOT_SUPPORTED_FOR_SSO",
+      "message": "Multi-factor authentication is managed by your identity provider.",
+      "status": 403
+    },
+    {
+      "code": "MFA_ALREADY_ACTIVE",
+      "message": "Multi-factor authentication is already enabled for this account.",
+      "status": 409
     }
   ],
   "events": [
@@ -71,11 +271,63 @@
       "name": "mfa.verified",
       "description": "MFA verification successful",
       "payload": [
-        "user_id"
+        "user_id",
+        "session_id"
+      ]
+    },
+    {
+      "name": "auth.mfa_enrollment_started",
+      "description": "User initiated MFA enrollment; secret generated",
+      "payload": [
+        "user_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "auth.mfa_activated",
+      "description": "MFA successfully enrolled after first code verification",
+      "payload": [
+        "user_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "auth.mfa_failed",
+      "description": "Invalid or replayed TOTP code submitted",
+      "payload": [
+        "user_id",
+        "reason",
+        "attempt_count",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "auth.mfa_deactivated",
+      "description": "MFA removed from user account",
+      "payload": [
+        "user_id",
+        "actor_id",
+        "timestamp"
       ]
     }
   ],
-  "related": [],
+  "related": [
+    {
+      "feature": "session-management",
+      "type": "required",
+      "reason": "Sessions are only created after both primary credential and MFA are verified"
+    },
+    {
+      "feature": "ldap-authentication-sync",
+      "type": "recommended",
+      "reason": "LDAP users are the primary population for MFA enforcement alongside email users"
+    },
+    {
+      "feature": "saml-sso",
+      "type": "optional",
+      "reason": "SAML users are excluded from MFA; the feature relationship documents this boundary"
+    }
+  ],
   "agi": {
     "goals": [
       {

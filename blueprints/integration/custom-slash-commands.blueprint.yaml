@@ -1,0 +1,346 @@
+# ============================================================
+# CUSTOM SLASH COMMANDS — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/mattermost/mattermost
+# Source project: Mattermost (Go + React)
+# Files traced: server/public/model/command.go,
+#               server/channels/app/command.go
+# ============================================================
+feature: custom-slash-commands
+version: 1.0.0
+description: >
+  User-defined slash commands that POST to external webhook endpoints on execution, enabling integration of external
+  services with in-channel command syntax and configurable response visibility.
+category: integration
+tags:
+  - slash-commands
+  - webhooks
+  - integrations
+  - bots
+  - custom-commands
+actors:
+  - id: workspace_admin
+    name: Workspace Administrator
+    type: human
+    description: Creates, manages, and deletes slash commands for a workspace
+  - id: member
+    name: Channel Member
+    type: human
+    description: Executes slash commands in channels they belong to
+  - id: external_service
+    name: External Service
+    type: external
+    description: HTTP endpoint that receives the command payload and returns a response
+fields:
+  - name: command_id
+    type: hidden
+    required: true
+    label: Unique identifier for the slash command
+  - name: trigger
+    type: text
+    required: true
+    label: Command keyword (without leading slash), 1–128 characters, alphanumeric plus
+    validation:
+      - type: pattern
+        value: ^[A-Za-z0-9_./-]+$
+        message: Invalid format
+      - type: minLength
+        value: 1
+        message: Minimum 1 characters
+      - type: maxLength
+        value: 128
+        message: Maximum 128 characters
+  - name: display_name
+    type: text
+    required: false
+    label: Human-readable name shown in the command management UI
+    validation:
+      - type: maxLength
+        value: 64
+        message: Maximum 64 characters
+  - name: description
+    type: text
+    required: false
+    label: Brief explanation of what the command does, shown in command help
+    validation:
+      - type: maxLength
+        value: 128
+        message: Maximum 128 characters
+  - name: auto_complete_hint
+    type: text
+    required: false
+    label: Usage example displayed in the autocomplete suggestions
+  - name: url
+    type: url
+    required: true
+    label: HTTP endpoint that receives the command execution payload
+    validation:
+      - type: maxLength
+        value: 1024
+        message: Maximum 1024 characters
+  - name: method
+    type: select
+    required: true
+    label: HTTP method used when calling the endpoint
+    options:
+      - value: GET
+        label: GET
+      - value: POST
+        label: POST
+  - name: username
+    type: text
+    required: false
+    label: Username shown as the author of in-channel responses from this command
+  - name: icon_url
+    type: url
+    required: false
+    label: URL of the icon shown alongside command responses
+  - name: auto_complete
+    type: boolean
+    required: true
+    label: Whether this command appears in the autocomplete suggestion list
+  - name: token
+    type: token
+    required: true
+    label: Secret token included in every request to the endpoint for authentication; can b
+states:
+  field: command_status
+  values:
+    - name: active
+      description: Command is registered and can be executed in the team
+      initial: true
+    - name: deleted
+      description: Command soft-deleted; trigger no longer responds
+      terminal: true
+  transitions:
+    - from: active
+      to: deleted
+      actor: workspace_admin
+      description: Administrator deletes the slash command
+rules:
+  rule_01: Trigger keywords must not include a leading slash; the slash prefix is implicit.
+  rule_02: Trigger names are unique per workspace; duplicate triggers within the same team are rejected.
+  rule_03: The token is auto-generated at creation and is the primary security mechanism; the endpoint must validate it on
+    every request.
+  rule_04: When the endpoint is called, the payload includes the trigger, command arguments, channel ID, team ID, user ID,
+    and the command token.
+  rule_05: Responses can be ephemeral (visible only to the command executor) or in_channel (posted publicly to the channel).
+  rule_06: Responses may include text, attachments, and a goto_location for navigation.
+  rule_07: A response may include extra_responses to post multiple messages in a single execution.
+  rule_08: Commands can be created either by workspace members (with the appropriate permission) or by plugins (which set
+    the plugin_id field instead of a creator user ID).
+  rule_09: Plugin-registered commands and user-created commands cannot coexist with the same trigger; the system
+    deduplicates across all sources.
+  rule_10: Token and endpoint URL are redacted from command objects returned to non-admin callers.
+outcomes:
+  command_created:
+    priority: 10
+    given:
+      - actor has permission to manage slash commands
+      - trigger is unique within the workspace
+      - url is a valid HTTP endpoint
+    then:
+      - action: create_record
+        target: slash_command
+        description: Command record stored with auto-generated token
+        type: slash
+      - action: emit_event
+        event: command.created
+        payload:
+          - command_id
+          - trigger
+          - team_id
+          - actor_id
+          - timestamp
+    result: Command immediately active; users can invoke it via /<trigger>
+  command_executed:
+    priority: 10
+    given:
+      - member types /<trigger> in a channel
+      - command is registered and active for this workspace
+    then:
+      - action: call_service
+        target: command_url
+        description: POST or GET request sent to the configured endpoint with command context payload
+      - action: emit_event
+        event: command.executed
+        payload:
+          - command_id
+          - trigger
+          - channel_id
+          - user_id
+          - timestamp
+    result: Endpoint response processed; ephemeral or in-channel message posted
+  command_response_ephemeral:
+    priority: 10
+    given:
+      - endpoint returns response with response_type = ephemeral
+    then:
+      - action: notify
+        target: executing_user
+        description: Response message delivered only to the user who ran the command
+        channel: system
+    result: Only the command executor sees the response; channel is unaffected
+  command_response_in_channel:
+    priority: 10
+    given:
+      - endpoint returns response with response_type = in_channel
+    then:
+      - action: create_record
+        target: post
+        description: Response posted as a visible message in the channel
+        type: post
+    result: Response visible to all channel members
+  command_trigger_conflict:
+    priority: 2
+    error: COMMAND_TRIGGER_ALREADY_EXISTS
+    given:
+      - new command trigger matches an existing active command in the same workspace
+    then: []
+    result: Creation rejected; trigger must be unique within the workspace
+  command_endpoint_unreachable:
+    priority: 5
+    error: COMMAND_ENDPOINT_FAILED
+    given:
+      - command executed
+      - HTTP request to the endpoint times out or returns a non-200 status
+    then:
+      - action: notify
+        target: executing_user
+        description: Error message delivered ephemerally to the user
+        channel: system
+    result: Execution fails gracefully; error shown only to the executor
+errors:
+  - code: COMMAND_TRIGGER_ALREADY_EXISTS
+    message: A command with that trigger already exists in this workspace.
+    status: 409
+  - code: COMMAND_INVALID_TRIGGER
+    message: Trigger may only contain letters, numbers, periods, slashes, and hyphens.
+    status: 400
+  - code: COMMAND_ENDPOINT_FAILED
+    message: The command service could not be reached. Please try again later.
+    status: 500
+  - code: COMMAND_NOT_FOUND
+    message: Slash command not found.
+    status: 404
+  - code: COMMAND_PERMISSION_DENIED
+    message: You do not have permission to manage slash commands.
+    status: 403
+events:
+  - name: command.created
+    description: New slash command registered
+    payload:
+      - command_id
+      - trigger
+      - team_id
+      - actor_id
+      - timestamp
+  - name: command.updated
+    description: Slash command configuration modified
+    payload:
+      - command_id
+      - trigger
+      - changed_fields
+      - actor_id
+      - timestamp
+  - name: command.deleted
+    description: Slash command removed
+    payload:
+      - command_id
+      - trigger
+      - actor_id
+      - timestamp
+  - name: command.executed
+    description: Slash command triggered by a user
+    payload:
+      - command_id
+      - trigger
+      - channel_id
+      - user_id
+      - timestamp
+  - name: command.token_regenerated
+    description: Command security token was regenerated; old token no longer valid
+    payload:
+      - command_id
+      - actor_id
+      - timestamp
+related:
+  - feature: server-plugin-framework
+    type: optional
+    reason: Plugins can register slash commands in addition to API-created commands
+  - feature: role-based-access-control
+    type: required
+    reason: Permissions govern who can create, execute, and manage slash commands
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_custom_slash_commands
+      description: >
+        User-defined slash commands that POST to external webhook endpoints on execution, enabling integration of external
+        services with in-channel command syntax and configurable response visibility.
+      success_metrics:
+        - metric: success_rate
+          target: ">= 99.5%"
+          measurement: Successful operations divided by total attempts
+        - metric: error_recovery_rate
+          target: ">= 95%"
+          measurement: Errors that auto-recover without manual intervention
+      constraints:
+        - type: availability
+          description: Must degrade gracefully when dependencies are unavailable
+          negotiable: false
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before modifying sensitive data fields
+      - before transitioning to a terminal state
+    escalation_triggers:
+      - error_rate > 5
+  safety:
+    action_permissions:
+      - action: command_created
+        permission: supervised
+      - action: command_executed
+        permission: autonomous
+      - action: command_response_ephemeral
+        permission: autonomous
+      - action: command_response_in_channel
+        permission: autonomous
+      - action: command_trigger_conflict
+        permission: autonomous
+      - action: command_endpoint_unreachable
+        permission: autonomous
+  tradeoffs:
+    - prefer: reliability
+      over: throughput
+      reason: integration failures can cascade across systems
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+      - state transitions follow the defined state machine — no illegal transitions
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: role_based_access_control
+        from: role-based-access-control
+        fallback: degrade
+
+extensions:
+  source:
+    repo: https://github.com/mattermost/mattermost
+    project: Mattermost
+    tech_stack: Go (server), React + TypeScript (webapp)
+    files_traced: 5
+    entry_points:
+      - server/public/model/command.go
+      - server/channels/app/command.go

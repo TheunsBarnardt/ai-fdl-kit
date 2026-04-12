@@ -1,0 +1,319 @@
+# ============================================================
+# MESSAGING EMAIL NOTIFICATIONS — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/mattermost/mattermost
+# Source project: Mattermost (Go + React)
+# Files traced: server/channels/app/notification.go,
+#               server/channels/app/email/,
+#               server/public/model/email_notification.go
+# ============================================================
+feature: messaging-email-notifications
+version: 1.0.0
+description: Email delivery of missed message notifications with configurable batching intervals, mention-aware
+  triggering, and content level controls that determine how much message detail is included in each...
+category: notification
+tags:
+  - email
+  - notifications
+  - batching
+  - digest
+  - mentions
+  - messaging
+actors:
+  - id: user
+    name: End User
+    type: human
+    description: Receives email notifications for missed messages based on their preferences
+  - id: email_batching_job
+    name: Email Batching Job
+    type: system
+    description: Background worker that collects queued notifications and dispatches batch emails
+fields:
+  - name: recipient_user_id
+    type: hidden
+    required: true
+    label: User receiving the email notification
+  - name: sender_display_name
+    type: text
+    required: true
+    label: Name of the message author shown in the email
+  - name: channel_name
+    type: text
+    required: false
+    label: Name of the channel where the message was posted
+  - name: team_name
+    type: text
+    required: false
+    label: Name of the workspace containing the channel
+  - name: message_html
+    type: rich_text
+    required: false
+    label: HTML-formatted message body (included for full content level)
+  - name: message_text
+    type: text
+    required: false
+    label: Plain-text fallback message body
+  - name: notification_type
+    type: select
+    required: true
+    label: What triggered this notification
+    options:
+      - value: direct_mention
+        label: Direct Mention
+      - value: channel_mention
+        label: Channel Mention
+      - value: keyword_match
+        label: Keyword Match
+      - value: direct_message
+        label: Direct Message
+      - value: all_activity
+        label: All Activity
+      - value: thread_reply
+        label: Thread Reply
+  - name: email_interval
+    type: select
+    required: true
+    label: User's selected batching frequency for email notifications
+    options:
+      - value: immediately
+        label: Immediately
+      - value: fifteen_minutes
+        label: Fifteen Minutes
+      - value: one_hour
+        label: One Hour
+states:
+  field: notification_state
+  values:
+    - name: queued
+      description: Notification added to the batching queue; not yet sent
+      initial: true
+    - name: sent
+      description: Email dispatched to the mail server
+      terminal: true
+    - name: discarded
+      description: Notification dropped because user viewed the channel before the batch fired
+      terminal: true
+    - name: failed
+      description: Email send attempt returned an error
+      terminal: true
+  transitions:
+    - from: queued
+      to: sent
+      actor: email_batching_job
+      description: Batch interval elapsed; email assembled and sent
+    - from: queued
+      to: discarded
+      actor: system
+      description: User viewed the relevant channel before the batch interval elapsed
+    - from: queued
+      to: failed
+      actor: email_batching_job
+      description: SMTP delivery error
+rules:
+  rule_01: Email notifications are sent only when the user is not currently active in the application at the time of delivery.
+  rule_02: "Trigger evaluation follows this hierarchy: channel-level preference → user-level preference. A channel
+    override of 'default' falls back to the user's global email preference."
+  rule_03: "{\"Email is not sent for\":\"system messages, messages sent by the user themselves, channels where email is
+    set to 'none', mentions in muted channels when the user has 'mention' push level.\"}"
+  rule_04: The 'immediately' interval actually queues for a short delay (approximately 30 seconds) to allow message
+    threads to settle before sending.
+  rule_05: When batching is enabled, if the user views any channel in the workspace after a notification is queued but
+    before the batch fires, the entire batch for that workspace is discarded.
+  rule_06: Direct messages and thread replies in followed threads may have independent email preference settings from
+    global channel notifications.
+  rule_07: Content level determines how much of the message appears in the email body; some configurations send only a
+    generic alert without message content for privacy.
+  rule_08: Unverified email addresses are blocked from receiving notifications when email verification is required.
+  rule_09: Bots do not receive email notifications.
+outcomes:
+  email_queued:
+    priority: 10
+    given:
+      - message triggers notification for a recipient
+      - recipient's email preference is not 'none' at the applicable scope
+      - recipient's email address is verified (if verification required)
+      - recipient is not the message author
+      - channel notification level permits email
+      - recipient is a human user (not a bot)
+    then:
+      - action: create_record
+        target: email_notification_queue
+        description: Notification added to the per-user batch queue
+        type: email
+      - action: emit_event
+        event: email_notification.queued
+        payload:
+          - recipient_id
+          - channel_id
+          - post_id
+          - batch_interval
+          - timestamp
+    result: Notification queued; will be sent at or after the user's configured batch interval
+  email_batch_sent:
+    priority: 10
+    given:
+      - email_batching_job fires at its configured interval
+      - user has one or more queued notifications
+      - configured batch interval for the user has elapsed since the first queued notification
+      - user has not viewed the relevant channels since queueing
+    then:
+      - action: emit_event
+        event: email_notification.sent
+        payload:
+          - recipient_id
+          - notification_count
+          - batch_interval
+          - timestamp
+    result: Single email containing all queued notifications delivered to the recipient
+  email_batch_discarded:
+    priority: 8
+    given:
+      - user views a channel that has queued notifications before the batch interval elapses
+    then:
+      - action: delete_record
+        target: email_notification_queue
+        description: Queued batch for that workspace discarded
+        type: email
+      - action: emit_event
+        event: email_notification.discarded
+        payload:
+          - recipient_id
+          - reason
+          - timestamp
+    result: Email not sent; user has already seen the messages
+  email_send_failed:
+    priority: 5
+    error: EMAIL_SEND_FAILED
+    given:
+      - email send attempt made to mail server
+      - SMTP server returns an error or is unreachable
+    then:
+      - action: emit_event
+        event: email_notification.failed
+        payload:
+          - recipient_id
+          - error_reason
+          - timestamp
+    result: Notification recorded as failed; no automatic retry
+  email_unverified_blocked:
+    priority: 3
+    given:
+      - notification would be sent to user
+      - user's email address is not verified
+      - server requires email verification
+    then:
+      - action: emit_event
+        event: email_notification.suppressed
+        payload:
+          - recipient_id
+          - reason
+          - timestamp
+    result: Email suppressed; user must verify their email address first
+errors:
+  - code: EMAIL_SEND_FAILED
+    message: Email notification could not be delivered. Please check your email configuration.
+    status: 500
+  - code: EMAIL_NOT_ENABLED
+    message: Email notifications are not configured on this server.
+    status: 403
+events:
+  - name: email_notification.queued
+    description: Email notification added to the batch queue
+    payload:
+      - recipient_id
+      - channel_id
+      - post_id
+      - notification_type
+      - timestamp
+  - name: email_notification.sent
+    description: Email notification successfully dispatched to the mail server
+    payload:
+      - recipient_id
+      - notification_count
+      - timestamp
+  - name: email_notification.discarded
+    description: Queued email batch discarded because user viewed the channel
+    payload:
+      - recipient_id
+      - reason
+      - timestamp
+  - name: email_notification.suppressed
+    description: Email suppressed due to preference, verification, or bot status
+    payload:
+      - recipient_id
+      - reason
+      - timestamp
+  - name: email_notification.failed
+    description: Email send attempt returned an error
+    payload:
+      - recipient_id
+      - error_reason
+      - timestamp
+related:
+  - feature: notification-preferences-dnd
+    type: required
+    reason: Email notification preferences and DND status are evaluated before every email
+  - feature: mobile-push-notifications
+    type: recommended
+    reason: Email and push share notification trigger evaluation; they complement each other
+  - feature: user-deactivation-archiving
+    type: recommended
+    reason: Deactivated users should not receive email notifications
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_messaging_email_notifications
+      description: Email delivery of missed message notifications with configurable batching intervals, mention-aware
+        triggering, and content level controls that determine how much message detail is included in each...
+      success_metrics:
+        - metric: success_rate
+          target: ">= 99%"
+          measurement: Successful operations divided by total attempts
+        - metric: error_rate
+          target: < 1%
+          measurement: Failed operations divided by total attempts
+      constraints: []
+  autonomy:
+    level: semi_autonomous
+    human_checkpoints:
+      - before transitioning to a terminal state
+    escalation_triggers:
+      - error_rate > 5
+  safety:
+    action_permissions:
+      - action: email_queued
+        permission: autonomous
+      - action: email_batch_sent
+        permission: autonomous
+      - action: email_batch_discarded
+        permission: autonomous
+      - action: email_send_failed
+        permission: autonomous
+      - action: email_unverified_blocked
+        permission: human_required
+  tradeoffs:
+    - prefer: delivery_reliability
+      over: speed
+      reason: notifications must reach recipients even if delayed
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: notification_preferences_dnd
+        from: notification-preferences-dnd
+        fallback: degrade
+
+extensions:
+  source:
+    repo: https://github.com/mattermost/mattermost
+    project: Mattermost
+    tech_stack: Go (server), React + TypeScript (webapp)
+    files_traced: 8
+    entry_points:
+      - server/channels/app/notification.go
+      - server/channels/app/email/
+      - server/public/model/email_notification.go

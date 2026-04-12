@@ -15,6 +15,7 @@ Communication blueprints.
 |-----------|-------------|----------|
 | [Channel Directory]({{ site.baseurl }}/blueprints/communication/channel-directory/) | Browse and discover public channels and rooms available on the platform | 1.0.0 |
 | [Channel Messaging]({{ site.baseurl }}/blueprints/communication/channel-messaging/) | Public and private group channels for team-wide or restricted conversations with membership, roles, and moderation controls | 1.0.0 |
+| [Channel Moderation]({{ site.baseurl }}/blueprints/communication/channel-moderation/) | Tools for channel administrators to control member participation, including muting channels, removing members, and managing posting permissions through role-based moderation controls.  | 1.0.0 |
 | [Direct Messaging]({{ site.baseurl }}/blueprints/communication/direct-messaging/) | 1:1 and small-group private conversations between users with read receipts and notification preferences | 1.0.0 |
 | [File Upload Sharing]({{ site.baseurl }}/blueprints/communication/file-upload-sharing/) | Upload and share files, images, audio, and video in conversation channels with automatic thumbnail generation and inline preview | 1.0.0 |
 | [Full Text Message Search]({{ site.baseurl }}/blueprints/communication/full-text-message-search/) | Search message content across all channels accessible to the user, with pluggable search provider support and real-time result streaming | 1.0.0 |
@@ -25,5 +26,6 @@ Communication blueprints.
 | [Message Starring]({{ site.baseurl }}/blueprints/communication/message-starring/) | Allow users to star or bookmark individual messages for personal reference, independent of channel-level pinning | 1.0.0 |
 | [Message Threading]({{ site.baseurl }}/blueprints/communication/message-threading/) | Threaded replies to messages, keeping focused conversations nested under a parent message without cluttering the main channel timeline | 1.0.0 |
 | [Read Receipts]({{ site.baseurl }}/blueprints/communication/read-receipts/) | Track and display which users have read each message, providing per-user read confirmation for messages in conversations | 1.0.0 |
+| [Team Workspaces]({{ site.baseurl }}/blueprints/communication/team-workspaces/) | Multi-tenant workspace model where users belong to isolated teams, each with their own channels, members, and permission configurations.  | 1.0.0 |
 | [Typing Indicators]({{ site.baseurl }}/blueprints/communication/typing-indicators/) | Real-time indicators showing which users are currently typing, recording, uploading, or performing other in-progress actions in a conversation | 1.0.0 |
 | [User Presence]({{ site.baseurl }}/blueprints/communication/user-presence/) | Track and broadcast user presence status (online, away, busy, offline) with automatic detection based on connection and activity | 1.0.0 |

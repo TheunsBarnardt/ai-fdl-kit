@@ -1,0 +1,503 @@
+{
+  "feature": "role-based-access-control",
+  "version": "1.0.0",
+  "description": "Three-tier RBAC system where permissions are granted through roles assigned at system, workspace, and channel scopes. Roles are additive and hierarchical.\n",
+  "category": "access",
+  "tags": [
+    "rbac",
+    "roles",
+    "permissions",
+    "authorization",
+    "multi-scope"
+  ],
+  "actors": [
+    {
+      "id": "system_admin",
+      "name": "System Administrator",
+      "type": "human",
+      "description": "Holds unrestricted access; manages all roles and permissions globally"
+    },
+    {
+      "id": "team_admin",
+      "name": "Team Administrator",
+      "type": "human",
+      "description": "Manages roles and members within a specific team"
+    },
+    {
+      "id": "channel_admin",
+      "name": "Channel Administrator",
+      "type": "human",
+      "description": "Manages roles within a specific channel"
+    },
+    {
+      "id": "member",
+      "name": "Regular Member",
+      "type": "human",
+      "description": "Standard user with team and channel-level permissions"
+    },
+    {
+      "id": "guest",
+      "name": "Guest User",
+      "type": "human",
+      "description": "Restricted participant with limited cross-channel visibility"
+    }
+  ],
+  "fields": [
+    {
+      "name": "role_id",
+      "type": "hidden",
+      "required": true,
+      "label": "Unique role identifier"
+    },
+    {
+      "name": "role_name",
+      "type": "text",
+      "required": true,
+      "label": "Machine-readable unique role name (e",
+      "validation": [
+        {
+          "type": "maxLength",
+          "value": 64,
+          "message": "Maximum 64 characters"
+        }
+      ]
+    },
+    {
+      "name": "display_name",
+      "type": "text",
+      "required": true,
+      "label": "Human-readable role label"
+    },
+    {
+      "name": "permissions",
+      "type": "json",
+      "required": true,
+      "label": "Array of permission IDs granted by this role"
+    },
+    {
+      "name": "scheme_managed",
+      "type": "boolean",
+      "required": true,
+      "label": "True if the role is created and managed by a permission scheme"
+    },
+    {
+      "name": "built_in",
+      "type": "boolean",
+      "required": true,
+      "label": "True for platform-defined roles that cannot be deleted"
+    }
+  ],
+  "states": {
+    "field": "role_status",
+    "values": [
+      {
+        "name": "active",
+        "description": "Role is available for assignment; delete_at is zero",
+        "initial": true
+      },
+      {
+        "name": "deleted",
+        "description": "Custom role soft-deleted; assignments preserved but ignored",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "active",
+        "to": "deleted",
+        "actor": "system_admin",
+        "description": "System admin deletes a custom (non-built-in) role"
+      }
+    ]
+  },
+  "rules": {
+    "rule_01": "Three permission scopes exist: system (platform-wide), team (per workspace), and channel (per channel). Permissions granted at higher scopes apply to lower scopes.",
+    "rule_02": "Built-in roles (system_admin, system_user, team_admin, team_user, channel_admin, channel_user, guest variants) cannot be deleted.",
+    "rule_03": "Scheme-managed roles are controlled by permission schemes and cannot be directly reassigned via explicit role assignment.",
+    "rule_04": "A user holds a system role (from their user record), zero or more team roles (from each team membership), and zero or more channel roles (from each channel membership).",
+    "rule_05": "Permission resolution is additive: if any role at any scope grants a permission, access is allowed.",
+    "rule_06": "A system administrator bypasses all permission checks unless the RestrictSystemAdmin setting is enabled.",
+    "rule_07": "A member cannot simultaneously hold both the user and guest roles within the same team or channel.",
+    "rule_08": "Explicit roles (non-scheme roles) can be assigned in addition to scheme-assigned defaults.",
+    "rule_09": "Role permission updates take effect immediately for all users currently holding that role."
+  },
+  "outcomes": {
+    "permission_granted": {
+      "priority": 10,
+      "given": [
+        "actor requests access to a resource or action",
+        "actor holds at least one role that includes the required permission at the relevant scope"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "rbac.permission_checked",
+          "payload": [
+            "actor_id",
+            "permission_id",
+            "resource_id",
+            "scope",
+            "result"
+          ]
+        }
+      ],
+      "result": "Access granted; action proceeds"
+    },
+    "permission_denied": {
+      "priority": 5,
+      "error": "PERMISSION_DENIED",
+      "given": [
+        "actor requests access to a resource or action",
+        "no role held by the actor at any scope grants the required permission"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "rbac.permission_checked",
+          "payload": [
+            "actor_id",
+            "permission_id",
+            "resource_id",
+            "scope",
+            "result"
+          ]
+        }
+      ],
+      "result": "Access denied; action blocked with permission error"
+    },
+    "role_created": {
+      "priority": 10,
+      "given": [
+        "actor is system administrator",
+        "role name is unique",
+        "permissions list contains only valid permission IDs"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "role",
+          "description": "Custom role persisted with given permissions",
+          "type": "role"
+        },
+        {
+          "action": "emit_event",
+          "event": "rbac.role_created",
+          "payload": [
+            "role_id",
+            "role_name",
+            "permissions",
+            "actor_id"
+          ]
+        }
+      ],
+      "result": "Custom role available for assignment"
+    },
+    "role_updated": {
+      "priority": 10,
+      "given": [
+        "actor is system administrator",
+        "role exists and is not a scheme-managed role being modified outside a scheme"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "permissions",
+          "description": "Updated permissions list replaces existing"
+        },
+        {
+          "action": "emit_event",
+          "event": "rbac.role_updated",
+          "payload": [
+            "role_id",
+            "permissions",
+            "actor_id"
+          ]
+        }
+      ],
+      "result": "Permission change takes effect immediately for all role holders"
+    },
+    "built_in_role_delete_rejected": {
+      "priority": 2,
+      "error": "CANNOT_DELETE_BUILT_IN_ROLE",
+      "given": [
+        "actor attempts to delete a role with built_in or scheme_managed flag set"
+      ],
+      "then": [],
+      "result": "Deletion rejected"
+    },
+    "team_member_role_assigned": {
+      "priority": 10,
+      "given": [
+        "actor has permission to manage team roles",
+        "target user is an active member of the team",
+        "new roles are valid and compatible (not both user and guest)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "team_member.roles",
+          "description": "Explicit roles updated for team membership record"
+        },
+        {
+          "action": "emit_event",
+          "event": "rbac.team_member_role_changed",
+          "payload": [
+            "team_id",
+            "user_id",
+            "old_roles",
+            "new_roles",
+            "actor_id"
+          ]
+        }
+      ],
+      "result": "Role change reflected immediately in permission checks for that team"
+    },
+    "guest_user_role_conflict": {
+      "priority": 3,
+      "error": "GUEST_USER_ROLE_CONFLICT",
+      "given": [
+        "actor attempts to assign both guest and user roles to the same member"
+      ],
+      "then": [],
+      "result": "Assignment rejected; a member may only be guest or user, not both"
+    }
+  },
+  "errors": [
+    {
+      "code": "PERMISSION_DENIED",
+      "message": "You do not have permission to perform this action.",
+      "status": 403
+    },
+    {
+      "code": "ROLE_NOT_FOUND",
+      "message": "The specified role does not exist.",
+      "status": 404
+    },
+    {
+      "code": "CANNOT_DELETE_BUILT_IN_ROLE",
+      "message": "Built-in and scheme-managed roles cannot be deleted.",
+      "status": 403
+    },
+    {
+      "code": "ROLE_NAME_CONFLICT",
+      "message": "A role with that name already exists.",
+      "status": 409
+    },
+    {
+      "code": "INVALID_PERMISSION",
+      "message": "One or more permission IDs are not valid for this scope.",
+      "status": 403
+    },
+    {
+      "code": "GUEST_USER_ROLE_CONFLICT",
+      "message": "A member cannot simultaneously hold both guest and user roles.",
+      "status": 409
+    }
+  ],
+  "events": [
+    {
+      "name": "rbac.role_created",
+      "description": "A new custom role was created",
+      "payload": [
+        "role_id",
+        "role_name",
+        "permissions",
+        "actor_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "rbac.role_updated",
+      "description": "A role's permission set was modified",
+      "payload": [
+        "role_id",
+        "permissions",
+        "actor_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "rbac.role_deleted",
+      "description": "A custom role was deleted",
+      "payload": [
+        "role_id",
+        "actor_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "rbac.permission_checked",
+      "description": "An authorization check was performed (for audit/observability)",
+      "payload": [
+        "actor_id",
+        "permission_id",
+        "resource_id",
+        "scope",
+        "result",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "rbac.team_member_role_changed",
+      "description": "A team member's roles were updated",
+      "payload": [
+        "team_id",
+        "user_id",
+        "old_roles",
+        "new_roles",
+        "actor_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "rbac.channel_member_role_changed",
+      "description": "A channel member's roles were updated",
+      "payload": [
+        "channel_id",
+        "user_id",
+        "old_roles",
+        "new_roles",
+        "actor_id",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "team-workspaces",
+      "type": "required",
+      "reason": "Teams are the primary boundary where team-scoped roles are applied"
+    },
+    {
+      "feature": "permission-scheme-management",
+      "type": "required",
+      "reason": "Schemes define default role assignments for teams and channels"
+    },
+    {
+      "feature": "guest-accounts",
+      "type": "required",
+      "reason": "Guest role is a special system-level role with restricted defaults"
+    },
+    {
+      "feature": "channel-moderation",
+      "type": "recommended",
+      "reason": "Channel moderation patches role permissions at the channel scope"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_role_based_access_control",
+        "description": "Three-tier RBAC system where permissions are granted through roles assigned at system, workspace, and channel scopes. Roles are additive and hierarchical.\n",
+        "success_metrics": [
+          {
+            "metric": "unauthorized_access_rate",
+            "target": "0%",
+            "measurement": "Failed authorization attempts that succeed"
+          },
+          {
+            "metric": "response_time_p95",
+            "target": "< 500ms",
+            "measurement": "95th percentile response time"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "security",
+            "description": "Follow OWASP security recommendations",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before transitioning to a terminal state",
+        "before permanently deleting records"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5",
+        "consecutive_failures > 3"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "permission_granted",
+          "permission": "autonomous"
+        },
+        {
+          "action": "permission_denied",
+          "permission": "autonomous"
+        },
+        {
+          "action": "role_created",
+          "permission": "supervised"
+        },
+        {
+          "action": "role_updated",
+          "permission": "supervised"
+        },
+        {
+          "action": "built_in_role_delete_rejected",
+          "permission": "human_required"
+        },
+        {
+          "action": "team_member_role_assigned",
+          "permission": "autonomous"
+        },
+        {
+          "action": "guest_user_role_conflict",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "security",
+        "over": "usability",
+        "reason": "access control must enforce least-privilege principle"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "error messages never expose internal system details",
+        "state transitions follow the defined state machine — no illegal transitions"
+      ]
+    },
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "team_workspaces",
+          "from": "team-workspaces",
+          "fallback": "fail"
+        },
+        {
+          "capability": "permission_scheme_management",
+          "from": "permission-scheme-management",
+          "fallback": "fail"
+        },
+        {
+          "capability": "guest_accounts",
+          "from": "guest-accounts",
+          "fallback": "fail"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/mattermost/mattermost",
+      "project": "Mattermost",
+      "tech_stack": "Go (server), React + TypeScript (webapp)",
+      "files_traced": 6,
+      "entry_points": [
+        "server/public/model/role.go",
+        "server/public/model/permission.go",
+        "server/channels/app/authorization.go"
+      ]
+    }
+  }
+}

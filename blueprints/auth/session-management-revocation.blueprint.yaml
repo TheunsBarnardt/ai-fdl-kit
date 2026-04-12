@@ -1,0 +1,391 @@
+# ============================================================
+# SESSION MANAGEMENT AND REVOCATION — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/mattermost/mattermost
+# Source project: Mattermost (Go + React)
+# Files traced: server/public/model/session.go,
+#               server/channels/app/session.go (app layer)
+# ============================================================
+
+feature: session-management-revocation
+version: 1.0.0
+description: >
+  Lifecycle management for authenticated user sessions including creation, activity-based expiry extension, idle timeout
+  enforcement, and explicit revocation by users or administrators.
+category: auth
+tags:
+  - sessions
+  - tokens
+  - revocation
+  - idle-timeout
+  - security
+actors:
+  - id: user
+    name: End User
+    type: human
+    description: Owns sessions created by their logins; can revoke their own sessions
+  - id: system_admin
+    name: System Administrator
+    type: human
+    description: Can revoke any user's sessions including all sessions globally
+  - id: system
+    name: System
+    type: system
+    description: Enforces expiry, idle timeout, and per-user session limits
+fields:
+  - name: session_id
+    type: hidden
+    required: true
+    label: Unique session identifier
+  - name: session_token
+    type: token
+    required: true
+    label: Cryptographic bearer token presented on every authenticated request
+  - name: user_id
+    type: hidden
+    required: true
+    label: Owner of the session
+  - name: roles
+    type: text
+    required: true
+    label: Space-separated role identifiers captured at session creation time
+  - name: device_id
+    type: text
+    required: false
+    label: Optional identifier for the mobile/desktop device that created the session
+  - name: expires_at
+    type: datetime
+    required: true
+    label: Absolute timestamp after which the session is no longer valid
+  - name: last_activity_at
+    type: datetime
+    required: true
+    label: Timestamp of the most recent authenticated request; used for idle timeout
+  - name: session_type
+    type: select
+    required: true
+    label: Classification of the session
+    options:
+      - value: web
+        label: Web
+      - value: mobile
+        label: Mobile
+      - value: sso
+        label: SSO
+      - value: user_access_token
+        label: User Access Token
+      - value: bot
+        label: Bot
+  - name: csrf_token
+    type: token
+    required: true
+    label: Per-session CSRF token validated on state-mutating requests
+states:
+  field: session_status
+  values:
+    - name: active
+      description: Token valid; expires_at is in the future; idle timeout not exceeded
+      initial: true
+    - name: expired
+      description: expires_at is in the past or idle timeout exceeded
+      terminal: false
+    - name: revoked
+      description: Session explicitly deleted; token rejected on all future requests
+      terminal: true
+  transitions:
+    - from: active
+      to: expired
+      actor: system
+      description: expires_at timestamp passes or idle timeout period exceeded without activity
+    - from: active
+      to: revoked
+      actor: user
+      description: User explicitly signs out or revokes a session from device list
+    - from: active
+      to: revoked
+      actor: system_admin
+      description: Administrator revokes user sessions (e.g., on account deactivation)
+    - from: active
+      to: active
+      actor: system
+      description: "Activity-based extension: expires_at pushed forward when session is used"
+rules:
+  rule_01: Sessions are validated on every authenticated request by looking up the token in the database and an in-memory
+    cache; a token not found in either is rejected.
+  rule_02: The per-user maximum session count is 500; when exceeded, the least-recently-used sessions are revoked to make room.
+  rule_03: Session length differs by type — mobile sessions, SSO sessions, and web sessions each have independently
+    configurable maximum durations.
+  rule_04: When activity-based extension is enabled, the expiry timestamp is extended on each request, but at most once
+    per approximately 1% of the total session lifetime or once per day to limit write frequency.
+  rule_05: Idle timeout is enforced separately from absolute expiry; if a configurable inactivity period elapses without
+    requests, the session is revoked asynchronously.
+  rule_06: User access tokens create sessions with a lifespan of 100 years; they are revoked by disabling or deleting the
+    token, not by expiry.
+  rule_07: When a session is revoked, the in-memory cache for that user is cleared to ensure all nodes reject the token
+    immediately.
+  rule_08: Revoking all sessions for a user also invalidates any associated OAuth access data.
+  rule_09: Device-level revocation removes all sessions associated with a specific device ID, except optionally the
+    current session.
+  rule_10: A CSRF token is issued per session and validated on all state-mutating requests.
+outcomes:
+  session_created:
+    priority: 10
+    given:
+      - user has successfully authenticated (password + optional MFA)
+      - user account is active
+      - session limit not exceeded or LRU revocation makes room
+    then:
+      - action: create_record
+        target: session
+        description: Session record created with token, expiry, and CSRF token; cached in memory
+        type: session
+      - action: emit_event
+        event: session.created
+        payload:
+          - session_id
+          - user_id
+          - session_type
+          - device_id
+          - expires_at
+    result: Session token returned to client for use on subsequent requests
+  request_authenticated:
+    priority: 10
+    given:
+      - request includes a valid session token
+      - token found in cache or database
+      - expires_at is in the future
+      - idle timeout has not elapsed
+    then:
+      - action: set_field
+        target: session.last_activity_at
+        value: now
+      - action: set_field
+        target: session.expires_at
+        description: Extended if activity-based extension is enabled and extension threshold met
+    result: Request proceeds as authenticated
+  session_token_invalid:
+    priority: 2
+    error: SESSION_INVALID_TOKEN
+    given:
+      - session token not found in cache or database
+    then: []
+    result: Request rejected with 401 Unauthorized
+  session_expired:
+    priority: 3
+    error: SESSION_EXPIRED
+    given:
+      - token found but expires_at is in the past
+    then:
+      - action: delete_record
+        target: session
+        description: Expired session removed from database and cache
+        type: session
+    result: Request rejected; client must re-authenticate
+  idle_timeout_exceeded:
+    priority: 3
+    error: SESSION_IDLE_TIMEOUT
+    given:
+      - time since last_activity_at exceeds configured idle timeout
+      - activity-based extension is not enabled
+    then:
+      - action: delete_record
+        target: session
+        description: Session revoked asynchronously
+        type: session
+      - action: emit_event
+        event: session.revoked
+        payload:
+          - session_id
+          - user_id
+          - reason
+    result: Session terminated; user must log in again
+  session_revoked_by_user:
+    priority: 10
+    given:
+      - user requests sign-out or revokes a specific session
+    then:
+      - action: delete_record
+        target: session
+        description: Session deleted from database; user cache invalidated
+        type: session
+      - action: emit_event
+        event: session.revoked
+        payload:
+          - session_id
+          - user_id
+          - reason
+    result: Token invalid on all subsequent requests
+  all_sessions_revoked:
+    priority: 10
+    given:
+      - administrator or system revokes all sessions for a user (e.g., on deactivation)
+    then:
+      - action: delete_record
+        target: all_user_sessions
+        description: All session records for the user deleted; cache flushed
+        type: all
+      - action: invalidate
+        target: oauth_access_data
+        description: OAuth access tokens associated with the user revoked
+      - action: emit_event
+        event: session.all_revoked
+        payload:
+          - user_id
+          - actor_id
+          - reason
+    result: User is signed out everywhere immediately
+  session_limit_enforced:
+    priority: 5
+    given:
+      - new session would exceed the per-user maximum session count
+    then:
+      - action: delete_record
+        target: oldest_session
+        description: Least-recently-used session revoked to make room
+        type: oldest
+    result: Oldest session silently terminated; new session proceeds
+errors:
+  - code: SESSION_INVALID_TOKEN
+    message: Your session is invalid. Please sign in again.
+    status: 401
+  - code: SESSION_EXPIRED
+    message: Your session has expired. Please sign in again.
+    status: 401
+  - code: SESSION_IDLE_TIMEOUT
+    message: You have been signed out due to inactivity.
+    status: 401
+  - code: SESSION_NOT_FOUND
+    message: Session not found.
+    status: 404
+  - code: SESSION_USER_DEACTIVATED
+    message: Your account has been deactivated.
+    status: 403
+events:
+  - name: session.created
+    description: New authenticated session established
+    payload:
+      - session_id
+      - user_id
+      - session_type
+      - device_id
+      - expires_at
+      - timestamp
+  - name: session.revoked
+    description: Session explicitly terminated
+    payload:
+      - session_id
+      - user_id
+      - reason
+      - actor_id
+      - timestamp
+  - name: session.all_revoked
+    description: All sessions for a user revoked in a single operation
+    payload:
+      - user_id
+      - actor_id
+      - reason
+      - timestamp
+  - name: session.extended
+    description: Session expiry pushed forward due to user activity
+    payload:
+      - session_id
+      - user_id
+      - new_expires_at
+      - timestamp
+related:
+  - feature: multi-factor-authentication
+    type: required
+    reason: Sessions are created only after MFA verification (when MFA is active)
+  - feature: saml-sso
+    type: required
+    reason: SSO logins produce sessions with the SSO session type and extended lifetime
+  - feature: ldap-authentication-sync
+    type: required
+    reason: LDAP logins create web-type sessions with directory-auth markers
+  - feature: user-deactivation-archiving
+    type: recommended
+    reason: User deactivation triggers all-session revocation
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_session_management_revocation
+      description: >
+        Lifecycle management for authenticated user sessions including creation, activity-based expiry extension, idle
+        timeout enforcement, and explicit revocation by users or administrators.
+      success_metrics:
+        - metric: unauthorized_access_rate
+          target: 0%
+          measurement: Failed authorization attempts that succeed
+        - metric: response_time_p95
+          target: < 500ms
+          measurement: 95th percentile response time
+      constraints:
+        - type: security
+          description: Follow OWASP security recommendations
+          negotiable: false
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before modifying sensitive data fields
+      - before transitioning to a terminal state
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+  safety:
+    action_permissions:
+      - action: session_created
+        permission: supervised
+      - action: request_authenticated
+        permission: autonomous
+      - action: session_token_invalid
+        permission: autonomous
+      - action: session_expired
+        permission: autonomous
+      - action: idle_timeout_exceeded
+        permission: autonomous
+      - action: session_revoked_by_user
+        permission: human_required
+      - action: all_sessions_revoked
+        permission: human_required
+      - action: session_limit_enforced
+        permission: autonomous
+  tradeoffs:
+    - prefer: security
+      over: performance
+      reason: authentication must prioritize preventing unauthorized access
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+      - state transitions follow the defined state machine — no illegal transitions
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: multi_factor_authentication
+        from: multi-factor-authentication
+        fallback: fail
+      - capability: saml_sso
+        from: saml-sso
+        fallback: fail
+      - capability: ldap_authentication_sync
+        from: ldap-authentication-sync
+        fallback: fail
+
+extensions:
+  source:
+    repo: https://github.com/mattermost/mattermost
+    project: Mattermost
+    tech_stack: Go (server), React + TypeScript (webapp)
+    files_traced: 5
+    entry_points:
+      - server/public/model/session.go
+      - server/channels/app/session.go

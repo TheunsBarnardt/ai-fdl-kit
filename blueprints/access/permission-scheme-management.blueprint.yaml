@@ -1,0 +1,356 @@
+# ============================================================
+# PERMISSION SCHEME MANAGEMENT — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/mattermost/mattermost
+# Source project: Mattermost (Go + React)
+# Files traced: server/public/model/scheme.go,
+#               server/public/model/permission.go,
+#               server/channels/app/permissions.go
+# ============================================================
+feature: permission-scheme-management
+version: 1.0.0
+description: Named collections of default role assignments that can be applied to workspaces or channels to customize
+  the permission baseline for all members, replacing system-wide role defaults with...
+category: access
+tags:
+  - permissions
+  - schemes
+  - rbac
+  - role-defaults
+  - access-control
+  - customization
+actors:
+  - id: system_admin
+    name: System Administrator
+    type: human
+    description: Creates, updates, deletes, and assigns permission schemes
+fields:
+  - name: scheme_id
+    type: hidden
+    required: true
+    label: Unique identifier for the permission scheme
+  - name: name
+    type: text
+    required: true
+    label: Unique machine-readable scheme name
+    validation:
+      - type: maxLength
+        value: 64
+        message: Maximum 64 characters
+  - name: display_name
+    type: text
+    required: true
+    label: Human-readable label for the scheme
+    validation:
+      - type: maxLength
+        value: 128
+        message: Maximum 128 characters
+  - name: description
+    type: text
+    required: false
+    label: Description of the scheme's purpose
+    validation:
+      - type: maxLength
+        value: 1024
+        message: Maximum 1024 characters
+  - name: scope
+    type: select
+    required: true
+    label: What type of scope this scheme applies to
+    options:
+      - value: team
+        label: Team
+      - value: channel
+        label: Channel
+  - name: default_team_admin_role
+    type: text
+    required: false
+    label: Role ID applied to team administrators in workspaces using this scheme
+  - name: default_team_user_role
+    type: text
+    required: false
+    label: Role ID applied to regular members in workspaces using this scheme
+  - name: default_team_guest_role
+    type: text
+    required: false
+    label: Role ID applied to guests in workspaces using this scheme
+  - name: default_channel_admin_role
+    type: text
+    required: false
+    label: Role ID applied to channel administrators in channels using this scheme
+  - name: default_channel_user_role
+    type: text
+    required: false
+    label: Role ID applied to regular members in channels using this scheme
+  - name: default_channel_guest_role
+    type: text
+    required: false
+    label: Role ID applied to guests in channels using this scheme
+states:
+  field: scheme_status
+  values:
+    - name: active
+      description: Scheme available for assignment to workspaces or channels
+      initial: true
+    - name: deleted
+      description: Scheme soft-deleted; assignments are cleared; affected scopes revert to system defaults
+      terminal: true
+  transitions:
+    - from: active
+      to: deleted
+      actor: system_admin
+      description: Administrator deletes the scheme; all team/channel assignments removed atomically
+rules:
+  rule_01: A scheme may have either team scope (defines team-level defaults) or channel scope (defines channel-level
+    defaults) but not both.
+  rule_02: Each workspace may have at most one scheme assigned; each channel may have at most one scheme assigned.
+  rule_03: When a scheme is assigned to a workspace, new members joining that workspace receive the scheme's default role
+    for their membership type (admin, user, or guest).
+  rule_04: Scheme-managed roles may not be directly assigned or removed as explicit roles; they are controlled exclusively
+    through scheme assignment.
+  rule_05: System-level permissions cannot be overridden by team or channel schemes.
+  rule_06: Permission resolution is additive across scopes — if any role grants a permission at any scope, access is granted.
+  rule_07: Deleting a scheme removes all team and channel assignments in the same transaction; affected scopes immediately
+    revert to system defaults.
+  rule_08: All referenced role IDs in a scheme must exist at the time the scheme is created or updated.
+  rule_09: When scheme permissions are updated, changes take effect immediately for all current role holders.
+  rule_10: The system provides a reset mechanism that wipes all custom schemes and roles, restoring factory defaults; this
+    is typically used during major permission system migrations.
+outcomes:
+  scheme_created:
+    priority: 10
+    given:
+      - actor is system administrator
+      - name is unique
+      - scope is valid (team or channel)
+      - all referenced role IDs exist
+    then:
+      - action: create_record
+        target: permission_scheme
+        description: Scheme record created with all specified default role references
+        type: permission
+      - action: emit_event
+        event: scheme.created
+        payload:
+          - scheme_id
+          - name
+          - scope
+          - actor_id
+          - timestamp
+    result: Scheme available for assignment to workspaces or channels
+  scheme_assigned_to_workspace:
+    priority: 10
+    given:
+      - actor is system administrator
+      - scheme scope is 'team'
+      - workspace exists and is active
+    then:
+      - action: set_field
+        target: workspace.scheme_id
+        description: Workspace now references this scheme for default roles
+      - action: emit_event
+        event: scheme.assigned_to_workspace
+        payload:
+          - scheme_id
+          - workspace_id
+          - actor_id
+          - timestamp
+    result: All future members joining this workspace receive the scheme's default roles; existing members are updated to
+      use scheme roles
+  scheme_assigned_to_channel:
+    priority: 10
+    given:
+      - actor is system administrator
+      - scheme scope is 'channel'
+      - channel exists and is active
+    then:
+      - action: set_field
+        target: channel.scheme_id
+        description: Channel now references this scheme for member role defaults
+      - action: emit_event
+        event: scheme.assigned_to_channel
+        payload:
+          - scheme_id
+          - channel_id
+          - actor_id
+          - timestamp
+    result: Channel members receive the scheme's channel-level role defaults
+  scheme_permissions_updated:
+    priority: 10
+    given:
+      - actor is system administrator
+      - new permissions list contains only valid permission IDs for the scheme's scope
+    then:
+      - action: set_field
+        target: scheme_roles.permissions
+        description: Role permission sets updated; changes propagate to all role holders
+      - action: emit_event
+        event: scheme.updated
+        payload:
+          - scheme_id
+          - changed_roles
+          - actor_id
+          - timestamp
+    result: Permission changes take effect immediately across all workspaces and channels using this scheme
+  scheme_deleted:
+    priority: 10
+    given:
+      - actor is system administrator
+    then:
+      - action: set_field
+        target: scheme.delete_at
+        value: now
+      - action: set_field
+        target: all_assigned_workspaces.scheme_id
+        value: null
+      - action: set_field
+        target: all_assigned_channels.scheme_id
+        value: null
+      - action: emit_event
+        event: scheme.deleted
+        payload:
+          - scheme_id
+          - actor_id
+          - timestamp
+    result: All assignments removed; affected scopes revert to system permission defaults
+  scheme_name_conflict:
+    priority: 2
+    error: SCHEME_NAME_ALREADY_EXISTS
+    given:
+      - new scheme name matches an existing active scheme
+    then: []
+    result: Creation rejected
+errors:
+  - code: SCHEME_NAME_ALREADY_EXISTS
+    message: A permission scheme with that name already exists.
+    status: 409
+  - code: SCHEME_NOT_FOUND
+    message: Permission scheme not found.
+    status: 404
+  - code: SCHEME_INVALID_SCOPE
+    message: Scheme scope must be either 'team' or 'channel'.
+    status: 400
+  - code: SCHEME_INVALID_ROLE
+    message: One or more referenced role IDs do not exist.
+    status: 400
+  - code: SCHEME_DESCRIPTION_TOO_LONG
+    message: Scheme description must be 1024 characters or fewer.
+    status: 400
+events:
+  - name: scheme.created
+    description: A new permission scheme was created
+    payload:
+      - scheme_id
+      - name
+      - scope
+      - actor_id
+      - timestamp
+  - name: scheme.updated
+    description: Scheme settings or role permissions were modified
+    payload:
+      - scheme_id
+      - changed_fields
+      - actor_id
+      - timestamp
+  - name: scheme.deleted
+    description: Permission scheme was deleted and all assignments cleared
+    payload:
+      - scheme_id
+      - actor_id
+      - timestamp
+  - name: scheme.assigned_to_workspace
+    description: Scheme applied to a workspace to customize member role defaults
+    payload:
+      - scheme_id
+      - workspace_id
+      - actor_id
+      - timestamp
+  - name: scheme.assigned_to_channel
+    description: Scheme applied to a channel to customize member role defaults
+    payload:
+      - scheme_id
+      - channel_id
+      - actor_id
+      - timestamp
+related:
+  - feature: role-based-access-control
+    type: required
+    reason: Schemes reference and configure roles; RBAC is the underlying mechanism
+  - feature: team-workspaces
+    type: required
+    reason: Workspaces reference schemes; scheme changes affect all members of assigned workspaces
+  - feature: channel-moderation
+    type: recommended
+    reason: Channel moderation patches permissions at the channel level, working alongside channel schemes
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_permission_scheme_management
+      description: Named collections of default role assignments that can be applied to workspaces or channels to customize
+        the permission baseline for all members, replacing system-wide role defaults with...
+      success_metrics:
+        - metric: unauthorized_access_rate
+          target: 0%
+          measurement: Failed authorization attempts that succeed
+        - metric: response_time_p95
+          target: < 500ms
+          measurement: 95th percentile response time
+      constraints:
+        - type: security
+          description: Follow OWASP security recommendations
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before transitioning to a terminal state
+      - before permanently deleting records
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+  safety:
+    action_permissions:
+      - action: scheme_created
+        permission: supervised
+      - action: scheme_assigned_to_workspace
+        permission: autonomous
+      - action: scheme_assigned_to_channel
+        permission: autonomous
+      - action: scheme_permissions_updated
+        permission: supervised
+      - action: scheme_deleted
+        permission: human_required
+      - action: scheme_name_conflict
+        permission: autonomous
+  tradeoffs:
+    - prefer: security
+      over: usability
+      reason: access control must enforce least-privilege principle
+  verification:
+    invariants:
+      - error messages never expose internal system details
+      - state transitions follow the defined state machine — no illegal transitions
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: role_based_access_control
+        from: role-based-access-control
+        fallback: fail
+      - capability: team_workspaces
+        from: team-workspaces
+        fallback: fail
+
+extensions:
+  source:
+    repo: https://github.com/mattermost/mattermost
+    project: Mattermost
+    tech_stack: Go (server), React + TypeScript (webapp)
+    files_traced: 6
+    entry_points:
+      - server/public/model/scheme.go
+      - server/public/model/permission.go
+      - server/channels/app/permissions.go

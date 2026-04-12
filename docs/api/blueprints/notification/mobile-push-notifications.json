@@ -1,0 +1,482 @@
+{
+  "feature": "mobile-push-notifications",
+  "version": "1.0.0",
+  "description": "Delivery of real-time alert payloads to registered mobile devices via a push proxy service, with per-device session targeting, JWT signing for security, and content-level controls from minimal...",
+  "category": "notification",
+  "tags": [
+    "push",
+    "mobile",
+    "apns",
+    "fcm",
+    "proxy",
+    "device",
+    "jwt",
+    "notifications"
+  ],
+  "actors": [
+    {
+      "id": "user",
+      "name": "End User",
+      "type": "human",
+      "description": "Receives push notifications on registered mobile devices"
+    },
+    {
+      "id": "push_proxy",
+      "name": "Push Proxy Service",
+      "type": "external",
+      "description": "Relay service that forwards signed notification payloads to APNS and FCM"
+    },
+    {
+      "id": "notification_system",
+      "name": "Notification System",
+      "type": "system",
+      "description": "Evaluates eligibility, assembles payload, signs, and dispatches notifications"
+    }
+  ],
+  "fields": [
+    {
+      "name": "device_id",
+      "type": "text",
+      "required": true,
+      "label": "Unique identifier for the registered mobile device"
+    },
+    {
+      "name": "platform",
+      "type": "select",
+      "required": true,
+      "label": "Mobile operating system platform",
+      "options": [
+        {
+          "value": "apple",
+          "label": "Apple"
+        },
+        {
+          "value": "android",
+          "label": "Android"
+        },
+        {
+          "value": "apple_rn",
+          "label": "Apple Rn"
+        },
+        {
+          "value": "android_rn",
+          "label": "Android Rn"
+        }
+      ]
+    },
+    {
+      "name": "ack_id",
+      "type": "token",
+      "required": true,
+      "label": "Per-delivery unique identifier for acknowledgement tracking"
+    },
+    {
+      "name": "notification_type",
+      "type": "select",
+      "required": true,
+      "label": "Category of notification payload",
+      "options": [
+        {
+          "value": "message",
+          "label": "Message"
+        },
+        {
+          "value": "clear",
+          "label": "Clear"
+        },
+        {
+          "value": "update_badge",
+          "label": "Update Badge"
+        },
+        {
+          "value": "session",
+          "label": "Session"
+        },
+        {
+          "value": "test",
+          "label": "Test"
+        }
+      ]
+    },
+    {
+      "name": "message",
+      "type": "text",
+      "required": false,
+      "label": "Notification body text; may be omitted in ID-loaded or generic modes"
+    },
+    {
+      "name": "badge",
+      "type": "number",
+      "required": false,
+      "label": "Unread message count to display on the app badge"
+    },
+    {
+      "name": "channel_id",
+      "type": "hidden",
+      "required": false,
+      "label": "Channel where the triggering message was posted"
+    },
+    {
+      "name": "sender_name",
+      "type": "text",
+      "required": false,
+      "label": "Display name of the message author"
+    },
+    {
+      "name": "content_level",
+      "type": "select",
+      "required": true,
+      "label": "How much message content to include in the payload",
+      "options": [
+        {
+          "value": "full",
+          "label": "Full"
+        },
+        {
+          "value": "generic",
+          "label": "Generic"
+        },
+        {
+          "value": "id_loaded",
+          "label": "Id Loaded"
+        }
+      ]
+    },
+    {
+      "name": "signature",
+      "type": "token",
+      "required": true,
+      "label": "ES256 JWT signature covering the ack_id and device_id to prevent spoofing"
+    }
+  ],
+  "rules": {
+    "rule_01": "Push notifications are delivered independently to each active mobile session for the recipient user; each session receives its own uniquely signed payload with a distinct ack_id.",
+    "rule_02": "Notifications are suppressed entirely when the user's status is DND (Do Not Disturb); this check takes priority over all other preferences.",
+    "rule_03": "Push is also suppressed when the user is currently active in the same channel where the triggering message was posted (unless the notify-active-channel setting overrides this).",
+    "rule_04": "The id_loaded content level sends only the channel ID and post ID; the device fetches the full message content after receiving the notification, protecting content from being stored in push infrastructure.",
+    "rule_05": "Direct messages and group messages use \"all\" push logic regardless of the user's global push preference of \"mention\", because every DM is implicitly a personal communication.",
+    "rule_06": "Muted channels (mark_unread = mention) suppress push notifications for non-mention messages.",
+    "rule_07": "Each notification payload is signed with the server's asymmetric key using ES256; the push proxy validates the signature before forwarding to APNS or FCM.",
+    "rule_08": "When the push proxy responds with \"remove\", the device's push token is considered stale and the session is flagged for cleanup.",
+    "rule_09": "Plugin hooks can intercept, modify, or cancel push notifications before delivery.",
+    "rule_10": "Bots do not receive push notifications."
+  },
+  "outcomes": {
+    "push_delivered": {
+      "priority": 10,
+      "given": [
+        "message triggers a notification for the recipient",
+        "recipient has at least one active mobile session with a registered device",
+        "user's push preference permits the notification type (all or mention when mentioned)",
+        "user is not in DND status",
+        "user is not active in the triggering channel (or notify-when-active is set)",
+        "no plugin hook rejected the notification"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "push.notification_sent",
+          "payload": [
+            "user_id",
+            "device_id",
+            "ack_id",
+            "channel_id",
+            "post_id",
+            "platform",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Signed payload delivered to push proxy; proxy forwards to APNS or FCM"
+    },
+    "push_suppressed_dnd": {
+      "priority": 2,
+      "given": [
+        "notification would be delivered",
+        "user's status is dnd"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "push.notification_suppressed",
+          "payload": [
+            "user_id",
+            "reason",
+            "post_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Notification not delivered; reason recorded as user_status"
+    },
+    "push_suppressed_active_channel": {
+      "priority": 3,
+      "given": [
+        "notification would be delivered",
+        "user is actively viewing the channel where the message was posted"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "push.notification_suppressed",
+          "payload": [
+            "user_id",
+            "reason",
+            "post_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Notification not delivered; user is already aware of the message"
+    },
+    "push_suppressed_muted_channel": {
+      "priority": 4,
+      "given": [
+        "notification would be delivered",
+        "channel is muted for the recipient (mark_unread = mention)",
+        "message does not directly mention the user"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "push.notification_suppressed",
+          "payload": [
+            "user_id",
+            "reason",
+            "channel_id",
+            "post_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Notification not delivered; channel is muted"
+    },
+    "push_device_stale": {
+      "priority": 5,
+      "given": [
+        "notification sent to push proxy",
+        "push proxy returns 'remove' response for a device"
+      ],
+      "then": [
+        {
+          "action": "invalidate",
+          "target": "device_session",
+          "description": "Session with the stale device token flagged for cleanup"
+        },
+        {
+          "action": "emit_event",
+          "event": "push.device_removed",
+          "payload": [
+            "user_id",
+            "device_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Stale device registration removed; future notifications skip this device"
+    },
+    "push_proxy_error": {
+      "priority": 5,
+      "given": [
+        "push proxy returns an error response"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "push.delivery_failed",
+          "payload": [
+            "user_id",
+            "device_id",
+            "error",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Delivery failure logged; no retry (stateless delivery model)"
+    }
+  },
+  "errors": [
+    {
+      "code": "PUSH_PROXY_ERROR",
+      "message": "Push notification could not be delivered. Please check your connection.",
+      "status": 400
+    },
+    {
+      "code": "PUSH_NOT_ENABLED",
+      "message": "Mobile push notifications are not configured on this server.",
+      "status": 403
+    },
+    {
+      "code": "PUSH_NOT_LICENSED",
+      "message": "Mobile push notifications require an active license for the hosted proxy service.",
+      "status": 403
+    }
+  ],
+  "events": [
+    {
+      "name": "push.notification_sent",
+      "description": "Push notification payload dispatched to the proxy service",
+      "payload": [
+        "user_id",
+        "device_id",
+        "ack_id",
+        "platform",
+        "channel_id",
+        "post_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "push.notification_suppressed",
+      "description": "Push notification eligible but suppressed for a documented reason",
+      "payload": [
+        "user_id",
+        "reason",
+        "channel_id",
+        "post_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "push.delivery_failed",
+      "description": "Push proxy reported a delivery error",
+      "payload": [
+        "user_id",
+        "device_id",
+        "error_reason",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "push.device_removed",
+      "description": "Device registration removed because push proxy reported stale token",
+      "payload": [
+        "user_id",
+        "device_id",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "notification-preferences-dnd",
+      "type": "required",
+      "reason": "User preferences and DND status are checked before every push delivery"
+    },
+    {
+      "feature": "session-management-revocation",
+      "type": "required",
+      "reason": "Mobile sessions carry device IDs; session revocation removes device registrations"
+    },
+    {
+      "feature": "email-notifications",
+      "type": "recommended",
+      "reason": "Email and push share notification trigger logic; the two complement each other"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_mobile_push_notifications",
+        "description": "Delivery of real-time alert payloads to registered mobile devices via a push proxy service, with per-device session targeting, JWT signing for security, and content-level controls from minimal...",
+        "success_metrics": [
+          {
+            "metric": "success_rate",
+            "target": ">= 99%",
+            "measurement": "Successful operations divided by total attempts"
+          },
+          {
+            "metric": "error_rate",
+            "target": "< 1%",
+            "measurement": "Failed operations divided by total attempts"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "semi_autonomous",
+      "human_checkpoints": [
+        "before modifying sensitive data fields"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "push_delivered",
+          "permission": "autonomous"
+        },
+        {
+          "action": "push_suppressed_dnd",
+          "permission": "autonomous"
+        },
+        {
+          "action": "push_suppressed_active_channel",
+          "permission": "autonomous"
+        },
+        {
+          "action": "push_suppressed_muted_channel",
+          "permission": "autonomous"
+        },
+        {
+          "action": "push_device_stale",
+          "permission": "autonomous"
+        },
+        {
+          "action": "push_proxy_error",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "delivery_reliability",
+        "over": "speed",
+        "reason": "notifications must reach recipients even if delayed"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details"
+      ]
+    },
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "notification_preferences_dnd",
+          "from": "notification-preferences-dnd",
+          "fallback": "degrade"
+        },
+        {
+          "capability": "session_management_revocation",
+          "from": "session-management-revocation",
+          "fallback": "degrade"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/mattermost/mattermost",
+      "project": "Mattermost",
+      "tech_stack": "Go (server), React + TypeScript (webapp)",
+      "files_traced": 7,
+      "entry_points": [
+        "server/channels/app/notification.go",
+        "server/public/model/notification.go"
+      ]
+    }
+  }
+}

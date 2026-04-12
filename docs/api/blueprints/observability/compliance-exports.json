@@ -1,0 +1,474 @@
+{
+  "feature": "compliance-exports",
+  "version": "1.0.0",
+  "description": "Scheduled and on-demand export of communication records in regulatory-grade formats (CSV, Actiance XML, GlobalRelay email) for eDiscovery, legal review, and compliance archival.\n",
+  "category": "observability",
+  "tags": [
+    "compliance",
+    "ediscovery",
+    "export",
+    "actiance",
+    "globalrelay",
+    "regulatory"
+  ],
+  "actors": [
+    {
+      "id": "compliance_officer",
+      "name": "Compliance Officer",
+      "type": "human",
+      "description": "Creates export jobs, downloads reports, reviews compliance records"
+    },
+    {
+      "id": "system_admin",
+      "name": "System Administrator",
+      "type": "human",
+      "description": "Configures compliance settings and GlobalRelay delivery parameters"
+    },
+    {
+      "id": "export_job",
+      "name": "Export Job",
+      "type": "system",
+      "description": "Background worker that generates export archives"
+    }
+  ],
+  "fields": [
+    {
+      "name": "job_id",
+      "type": "hidden",
+      "required": true,
+      "label": "Unique identifier for the compliance export job"
+    },
+    {
+      "name": "description",
+      "type": "text",
+      "required": true,
+      "label": "Human-readable label for this export job"
+    },
+    {
+      "name": "start_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Start of the time range for exported messages (inclusive)"
+    },
+    {
+      "name": "end_at",
+      "type": "datetime",
+      "required": false,
+      "label": "End of the time range for exported messages (inclusive)"
+    },
+    {
+      "name": "keywords",
+      "type": "text",
+      "required": false,
+      "label": "Space or comma-delimited keywords to filter messages; empty means all messages"
+    },
+    {
+      "name": "emails",
+      "type": "text",
+      "required": false,
+      "label": "Comma-delimited email addresses to filter messages by participant"
+    },
+    {
+      "name": "export_format",
+      "type": "select",
+      "required": true,
+      "label": "Output format for the compliance archive",
+      "options": [
+        {
+          "value": "csv",
+          "label": "Csv"
+        },
+        {
+          "value": "actiance",
+          "label": "Actiance"
+        },
+        {
+          "value": "globalrelay",
+          "label": "Globalrelay"
+        },
+        {
+          "value": "globalrelay_zip",
+          "label": "Globalrelay Zip"
+        }
+      ]
+    },
+    {
+      "name": "job_type",
+      "type": "select",
+      "required": true,
+      "label": "Whether this job is scheduled (daily) or created on demand",
+      "options": [
+        {
+          "value": "daily",
+          "label": "Daily"
+        },
+        {
+          "value": "adhoc",
+          "label": "Adhoc"
+        }
+      ]
+    },
+    {
+      "name": "status",
+      "type": "select",
+      "required": true,
+      "label": "Current execution state of the job",
+      "options": [
+        {
+          "value": "created",
+          "label": "Created"
+        },
+        {
+          "value": "running",
+          "label": "Running"
+        },
+        {
+          "value": "finished",
+          "label": "Finished"
+        },
+        {
+          "value": "failed",
+          "label": "Failed"
+        },
+        {
+          "value": "removed",
+          "label": "Removed"
+        }
+      ]
+    },
+    {
+      "name": "count",
+      "type": "number",
+      "required": false,
+      "label": "Number of message records processed by the job"
+    }
+  ],
+  "states": {
+    "field": "status",
+    "values": [
+      {
+        "name": "created",
+        "description": "Job enqueued but not yet started",
+        "initial": true
+      },
+      {
+        "name": "running",
+        "description": "Job actively generating the export archive"
+      },
+      {
+        "name": "finished",
+        "description": "Export archive successfully produced and available for download",
+        "terminal": true
+      },
+      {
+        "name": "failed",
+        "description": "Job encountered an error; partial output may or may not be available",
+        "terminal": true
+      },
+      {
+        "name": "removed",
+        "description": "Job record or output file deleted",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "created",
+        "to": "running",
+        "actor": "export_job",
+        "description": "Background worker picks up the job"
+      },
+      {
+        "from": "running",
+        "to": "finished",
+        "actor": "export_job",
+        "description": "All records processed and archive written successfully"
+      },
+      {
+        "from": "running",
+        "to": "failed",
+        "actor": "export_job",
+        "description": "Unrecoverable error during export processing"
+      }
+    ]
+  },
+  "rules": {
+    "rule_01": "Compliance exports require an enterprise license with the compliance feature enabled.",
+    "rule_02": "Messages are exported in batches (default 30,000 records per batch) to prevent database lock contention.",
+    "rule_03": "Pagination uses a cursor combining the message timestamp and message ID to correctly handle ties when multiple messages share the same creation timestamp.",
+    "rule_04": "Deleted messages are included in exports with their deletion timestamp recorded; deletion does not suppress compliance records.",
+    "rule_05": "Keyword filtering is case-insensitive; multiple keywords are matched with OR logic.",
+    "rule_06": "CSV output sanitizes fields that begin with formula-injection characters (=, +, -) by prepending a single quote.",
+    "rule_07": "All timestamps in exports are formatted as RFC 3339.",
+    "rule_08": "GlobalRelay exports are delivered to the configured recipient address via SMTP; the customer type determines the SMTP server endpoint.",
+    "rule_09": "Daily exports run automatically at the configured time each day if enabled.",
+    "rule_10": "Export archives are stored in the configured compliance directory on the server filesystem.",
+    "rule_11": "Both channels and direct messages are exported; they are paginated separately."
+  },
+  "outcomes": {
+    "export_job_created": {
+      "priority": 10,
+      "given": [
+        "actor is compliance officer or system administrator",
+        "compliance feature is licensed",
+        "description is provided"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "compliance_job",
+          "description": "Job record created with unique ID and status = created",
+          "type": "compliance"
+        },
+        {
+          "action": "emit_event",
+          "event": "compliance.export_created",
+          "payload": [
+            "job_id",
+            "description",
+            "export_format",
+            "actor_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Job queued; background worker will begin processing asynchronously"
+    },
+    "export_completed": {
+      "priority": 10,
+      "given": [
+        "export job is running",
+        "all matching messages have been paginated and written to the archive"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "job.status",
+          "value": "finished"
+        },
+        {
+          "action": "set_field",
+          "target": "job.count",
+          "description": "Total number of records exported recorded"
+        },
+        {
+          "action": "emit_event",
+          "event": "compliance.export_completed",
+          "payload": [
+            "job_id",
+            "count",
+            "file_path",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Archive file available for download at the configured location"
+    },
+    "export_downloaded": {
+      "priority": 10,
+      "given": [
+        "actor is compliance officer or administrator",
+        "job status is finished",
+        "archive file exists on the server"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "compliance.export_downloaded",
+          "payload": [
+            "job_id",
+            "actor_id",
+            "file_size",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Archive file streamed to the requester"
+    },
+    "export_not_licensed": {
+      "priority": 1,
+      "error": "COMPLIANCE_NOT_LICENSED",
+      "given": [
+        "compliance feature is not licensed on this server"
+      ],
+      "then": [],
+      "result": "Request rejected with 501 Not Implemented"
+    },
+    "export_file_missing": {
+      "priority": 3,
+      "error": "COMPLIANCE_FILE_NOT_FOUND",
+      "given": [
+        "job status is finished",
+        "archive file no longer exists on the server filesystem"
+      ],
+      "then": [],
+      "result": "Download rejected; administrator must re-run the export job"
+    }
+  },
+  "errors": [
+    {
+      "code": "COMPLIANCE_NOT_LICENSED",
+      "message": "Compliance exports require an enterprise license.",
+      "status": 403
+    },
+    {
+      "code": "COMPLIANCE_FILE_NOT_FOUND",
+      "message": "The export file is no longer available. Please re-run the export.",
+      "status": 404
+    },
+    {
+      "code": "COMPLIANCE_JOB_FAILED",
+      "message": "The export job encountered an error. Please check server logs and try again.",
+      "status": 500
+    },
+    {
+      "code": "COMPLIANCE_INVALID_REQUEST",
+      "message": "Invalid compliance export parameters.",
+      "status": 400
+    }
+  ],
+  "events": [
+    {
+      "name": "compliance.export_created",
+      "description": "A compliance export job was created",
+      "payload": [
+        "job_id",
+        "description",
+        "export_format",
+        "actor_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "compliance.export_completed",
+      "description": "Export archive successfully generated",
+      "payload": [
+        "job_id",
+        "record_count",
+        "file_path",
+        "duration_ms",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "compliance.export_failed",
+      "description": "Export job failed during processing",
+      "payload": [
+        "job_id",
+        "error_reason",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "compliance.export_downloaded",
+      "description": "Export archive downloaded by a compliance officer",
+      "payload": [
+        "job_id",
+        "actor_id",
+        "file_size_bytes",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "audit-logging",
+      "type": "required",
+      "reason": "All compliance export operations are recorded in the audit log"
+    },
+    {
+      "feature": "data-retention-policies",
+      "type": "recommended",
+      "reason": "Retention policies determine how long messages remain available for export"
+    },
+    {
+      "feature": "legal-hold",
+      "type": "recommended",
+      "reason": "Legal holds prevent retention deletion of records pending in compliance exports"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_compliance_exports",
+        "description": "Scheduled and on-demand export of communication records in regulatory-grade formats (CSV, Actiance XML, GlobalRelay email) for eDiscovery, legal review, and compliance archival.\n",
+        "success_metrics": [
+          {
+            "metric": "success_rate",
+            "target": ">= 99%",
+            "measurement": "Successful operations divided by total attempts"
+          },
+          {
+            "metric": "error_rate",
+            "target": "< 1%",
+            "measurement": "Failed operations divided by total attempts"
+          }
+        ],
+        "constraints": []
+      }
+    ],
+    "autonomy": {
+      "level": "semi_autonomous",
+      "human_checkpoints": [
+        "before transitioning to a terminal state"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "export_job_created",
+          "permission": "supervised"
+        },
+        {
+          "action": "export_completed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "export_downloaded",
+          "permission": "autonomous"
+        },
+        {
+          "action": "export_not_licensed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "export_file_missing",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "completeness",
+        "over": "performance",
+        "reason": "observability gaps hide production issues"
+      }
+    ],
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "audit_logging",
+          "from": "audit-logging",
+          "fallback": "degrade"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/mattermost/mattermost",
+      "project": "Mattermost",
+      "tech_stack": "Go (server), React + TypeScript (webapp)",
+      "files_traced": 6,
+      "entry_points": [
+        "server/public/model/compliance.go",
+        "server/channels/app/compliance.go",
+        "server/public/model/message_export.go"
+      ]
+    }
+  }
+}

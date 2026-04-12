@@ -1,0 +1,297 @@
+# ============================================================
+# LEGAL HOLD — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/mattermost/mattermost
+# Source project: Mattermost (Go + React)
+# Note: Legal hold is typically implemented as an enterprise
+#       module. This blueprint describes the canonical behavior
+#       pattern based on data retention integration points.
+# ============================================================
+feature: legal-hold
+version: 1.0.0
+description: Preservation order that suspends automated deletion of specific communications, files, and user data
+  pending litigation, regulatory investigation, or legal request, overriding any data retention...
+category: data
+tags:
+  - legal-hold
+  - ediscovery
+  - litigation
+  - preservation
+  - compliance
+  - regulatory
+actors:
+  - id: legal_admin
+    name: Legal Administrator
+    type: human
+    description: Creates and manages legal holds; defines custodians and date ranges
+  - id: system_admin
+    name: System Administrator
+    type: human
+    description: Grants legal admin access; configures hold storage destinations
+  - id: retention_system
+    name: Retention System
+    type: system
+    description: Checks hold status before deleting any content
+fields:
+  - name: hold_id
+    type: hidden
+    required: true
+    label: Unique identifier for this legal hold
+  - name: name
+    type: text
+    required: true
+    label: Human-readable label describing the legal matter
+    validation:
+      - type: maxLength
+        value: 128
+        message: Maximum 128 characters
+  - name: custodian_user_ids
+    type: json
+    required: true
+    label: Array of user IDs whose content is subject to preservation
+  - name: channel_ids
+    type: json
+    required: false
+    label: Optional array of channel IDs to scope the hold; empty means all channels for th
+  - name: start_at
+    type: datetime
+    required: false
+    label: Earliest message timestamp covered by this hold (inclusive)
+  - name: end_at
+    type: datetime
+    required: false
+    label: Latest message timestamp covered by this hold (inclusive); null means ongoing
+  - name: include_files
+    type: boolean
+    required: true
+    label: Whether file attachments sent by custodians are also preserved
+  - name: export_path
+    type: text
+    required: false
+    label: Storage destination where preserved content is archived for legal review
+states:
+  field: hold_status
+  values:
+    - name: active
+      description: Hold is in force; retention deletion is blocked for covered content
+      initial: true
+    - name: released
+      description: Hold lifted; content is again subject to normal retention policies
+      terminal: true
+  transitions:
+    - from: active
+      to: released
+      actor: legal_admin
+      description: Legal matter resolved; legal admin releases the hold
+rules:
+  rule_01: An active legal hold overrides any data retention policy; covered content must not be deleted regardless of its age.
+  rule_02: Content covered by a hold is determined by the intersection of custodian identities, channel scope, and date range.
+  rule_03: When the hold is released, covered content immediately becomes subject to the applicable retention policy;
+    content already past the retention window must be evaluated for immediate deletion.
+  rule_04: A hold does not affect the users' ability to continue messaging; they are not notified that a hold exists
+    unless required by law.
+  rule_05: Holds are logged in the audit trail with the identity of the legal administrator who created or released them.
+  rule_06: Multiple holds may overlap; content is preserved as long as at least one active hold covers it.
+  rule_07: File attachments are included only when include_files is true; the hold is independently configurable for
+    messages and files.
+  rule_08: The hold preservation archive is stored in a separate, access-controlled location independent of the primary
+    message store.
+  rule_09: Releasing a hold should trigger a review to determine whether retained content must be deleted to comply with
+    data retention obligations.
+outcomes:
+  hold_created:
+    priority: 10
+    given:
+      - actor is legal administrator
+      - custodian_user_ids are valid active users
+      - name is provided
+    then:
+      - action: create_record
+        target: legal_hold
+        description: Hold record created; retention system begins excluding covered content from deletion
+        type: legal
+      - action: emit_event
+        event: legal_hold.created
+        payload:
+          - hold_id
+          - name
+          - custodian_user_ids
+          - channel_ids
+          - start_at
+          - end_at
+          - actor_id
+    result: All covered content is immediately protected from any automated or manual deletion
+  deletion_blocked_by_hold:
+    priority: 1
+    given:
+      - retention job or administrator attempts to delete content
+      - content is within the date range and custodian scope of at least one active hold
+    then:
+      - action: emit_event
+        event: legal_hold.deletion_blocked
+        payload:
+          - hold_id
+          - content_id
+          - content_type
+          - timestamp
+    result: Deletion skipped for held content; other non-held content proceeds normally
+  hold_content_exported:
+    priority: 10
+    given:
+      - legal administrator requests export of held content
+      - hold is active
+    then:
+      - action: create_record
+        target: hold_export
+        description: Preserved content packaged into archive at export_path
+        type: hold
+      - action: emit_event
+        event: legal_hold.exported
+        payload:
+          - hold_id
+          - export_path
+          - record_count
+          - actor_id
+          - timestamp
+    result: Archive of held content available for legal review
+  hold_released:
+    priority: 10
+    given:
+      - legal administrator releases the hold
+      - legal matter is resolved
+    then:
+      - action: set_field
+        target: hold.status
+        value: released
+      - action: emit_event
+        event: legal_hold.released
+        payload:
+          - hold_id
+          - actor_id
+          - timestamp
+    result: Content previously held is now subject to normal retention policies
+  overlapping_hold_maintained:
+    priority: 5
+    given:
+      - one hold covering content is released
+      - at least one other active hold still covers the same content
+    then: []
+    result: Content remains preserved because the remaining hold is still active
+errors:
+  - code: LEGAL_HOLD_NOT_FOUND
+    message: Legal hold not found.
+    status: 404
+  - code: LEGAL_HOLD_INVALID_CUSTODIAN
+    message: One or more specified users do not exist.
+    status: 400
+  - code: LEGAL_HOLD_ALREADY_RELEASED
+    message: This hold has already been released.
+    status: 409
+  - code: LEGAL_HOLD_NOT_LICENSED
+    message: Legal hold requires an enterprise compliance license.
+    status: 403
+events:
+  - name: legal_hold.created
+    description: A new legal hold was placed
+    payload:
+      - hold_id
+      - name
+      - custodian_count
+      - channel_count
+      - actor_id
+      - timestamp
+  - name: legal_hold.released
+    description: A legal hold was lifted
+    payload:
+      - hold_id
+      - actor_id
+      - timestamp
+  - name: legal_hold.deletion_blocked
+    description: Retention deletion was skipped because content is under a legal hold
+    payload:
+      - hold_id
+      - content_id
+      - content_type
+      - timestamp
+  - name: legal_hold.exported
+    description: Held content packaged into an export archive for legal review
+    payload:
+      - hold_id
+      - export_path
+      - record_count
+      - actor_id
+      - timestamp
+related:
+  - feature: data-retention-policies
+    type: required
+    reason: Legal holds override retention deletion; the two systems must coordinate
+  - feature: compliance-exports
+    type: recommended
+    reason: Held content can be exported in compliance formats for eDiscovery
+  - feature: audit-logging
+    type: required
+    reason: All hold creation, release, and export operations are recorded in the audit log
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_legal_hold
+      description: Preservation order that suspends automated deletion of specific communications, files, and user data
+        pending litigation, regulatory investigation, or legal request, overriding any data retention...
+      success_metrics:
+        - metric: data_accuracy
+          target: 100%
+          measurement: Records matching source of truth
+        - metric: duplicate_rate
+          target: 0%
+          measurement: Duplicate records detected post-creation
+      constraints:
+        - type: performance
+          description: Data consistency must be maintained across concurrent operations
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before transitioning to a terminal state
+      - before permanently deleting records
+    escalation_triggers:
+      - error_rate > 5
+  safety:
+    action_permissions:
+      - action: hold_created
+        permission: supervised
+      - action: deletion_blocked_by_hold
+        permission: human_required
+      - action: hold_content_exported
+        permission: autonomous
+      - action: hold_released
+        permission: autonomous
+      - action: overlapping_hold_maintained
+        permission: autonomous
+  tradeoffs:
+    - prefer: data_integrity
+      over: performance
+      reason: data consistency must be maintained across all operations
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: data_retention_policies
+        from: data-retention-policies
+        fallback: degrade
+      - capability: audit_logging
+        from: audit-logging
+        fallback: degrade
+
+extensions:
+  source:
+    repo: https://github.com/mattermost/mattermost
+    project: Mattermost
+    tech_stack: Go (server), React + TypeScript (webapp)
+    files_traced: 2
+    entry_points:
+      - server/channels/app/data_retention.go
+      - server/public/model/data_retention_policy.go

@@ -1,0 +1,488 @@
+{
+  "feature": "channel-moderation",
+  "version": "1.0.0",
+  "description": "Tools for channel administrators to control member participation, including muting channels, removing members, and managing posting permissions through role-based moderation controls.\n",
+  "category": "communication",
+  "tags": [
+    "moderation",
+    "channel-admin",
+    "mute",
+    "kick",
+    "ban",
+    "permissions"
+  ],
+  "actors": [
+    {
+      "id": "channel_admin",
+      "name": "Channel Administrator",
+      "type": "human",
+      "description": "Moderates membership, posting rights, and notification state for a channel"
+    },
+    {
+      "id": "team_admin",
+      "name": "Team Administrator",
+      "type": "human",
+      "description": "Can moderate all channels within a team"
+    },
+    {
+      "id": "member",
+      "name": "Channel Member",
+      "type": "human",
+      "description": "Regular participant; can mute the channel for themselves"
+    }
+  ],
+  "fields": [
+    {
+      "name": "channel_id",
+      "type": "hidden",
+      "required": true,
+      "label": "Target channel for moderation actions"
+    },
+    {
+      "name": "user_id",
+      "type": "hidden",
+      "required": true,
+      "label": "Target member for moderation actions"
+    },
+    {
+      "name": "mark_unread",
+      "type": "select",
+      "required": false,
+      "label": "Controls the member's mute state — whether all messages or only mentions mark th",
+      "options": [
+        {
+          "value": "all",
+          "label": "All"
+        },
+        {
+          "value": "mention",
+          "label": "Mention"
+        }
+      ]
+    },
+    {
+      "name": "roles",
+      "type": "text",
+      "required": false,
+      "label": "Space-separated role IDs for the channel member"
+    },
+    {
+      "name": "scheme_guest",
+      "type": "boolean",
+      "required": false,
+      "label": "True if this member participates as a guest in the channel"
+    },
+    {
+      "name": "scheme_admin",
+      "type": "boolean",
+      "required": false,
+      "label": "True if this member is a channel administrator"
+    },
+    {
+      "name": "moderation_permissions",
+      "type": "json",
+      "required": false,
+      "label": "Per-role permission overrides applied at the channel level, controlling which ro"
+    }
+  ],
+  "states": {
+    "field": "member_moderation_status",
+    "values": [
+      {
+        "name": "active_unmuted",
+        "description": "Member participates normally; all messages mark the channel unread",
+        "initial": true
+      },
+      {
+        "name": "active_muted",
+        "description": "Member is present but only mentions mark the channel unread; other messages are suppressed"
+      },
+      {
+        "name": "removed",
+        "description": "Member has been removed from the channel",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "active_unmuted",
+        "to": "active_muted",
+        "actor": "member",
+        "description": "Member mutes the channel from their notification preferences"
+      },
+      {
+        "from": "active_unmuted",
+        "to": "active_muted",
+        "actor": "channel_admin",
+        "description": "Channel admin mutes a member"
+      },
+      {
+        "from": "active_muted",
+        "to": "active_unmuted",
+        "actor": "member",
+        "description": "Member unmutes the channel"
+      },
+      {
+        "from": "active_unmuted",
+        "to": "removed",
+        "actor": "channel_admin",
+        "description": "Channel admin removes the member from the channel"
+      },
+      {
+        "from": "active_muted",
+        "to": "removed",
+        "actor": "channel_admin",
+        "description": "Channel admin removes a muted member"
+      }
+    ]
+  },
+  "rules": {
+    "rule_01": "Muting is implemented as a notification preference toggle (mark_unread = mention), not a suspension of membership; muted members are still visible in the member list and can still read the channel.",
+    "rule_02": "Removal from a channel is the mechanism for banning; there is no separate \"banned\" membership state.",
+    "rule_03": "A system-generated message is posted to the channel when a member is removed by a moderator.",
+    "rule_04": "Members cannot be removed from the default channel (typically the first channel all users join) unless they are guests.",
+    "rule_05": "Group-constrained channels reject removal of members who are in a linked directory group; removal is only permitted for members not in the synchronized group or for members being removed by the synchronization process.",
+    "rule_06": "Bots cannot be removed from group-constrained channels.",
+    "rule_07": "Channel moderation patches update role-based posting and reaction permissions for all members of a given role simultaneously (not per-user).",
+    "rule_08": "When a member is removed, their thread memberships within that channel are also cleared.",
+    "rule_09": "A channel admin can promote a member to channel admin or demote a channel admin to member."
+  },
+  "outcomes": {
+    "member_muted": {
+      "priority": 10,
+      "given": [
+        "actor has permission to manage channel members or is the target user (self-mute)",
+        "member is active in the channel"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "channel_member.notify_props.mark_unread",
+          "value": "mention"
+        },
+        {
+          "action": "emit_event",
+          "event": "channel.member_updated",
+          "payload": [
+            "channel_id",
+            "user_id",
+            "changed_field",
+            "actor_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Only direct mentions mark the channel unread for this member"
+    },
+    "member_unmuted": {
+      "priority": 10,
+      "given": [
+        "actor has permission to manage channel members or is the target user",
+        "member is muted"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "channel_member.notify_props.mark_unread",
+          "value": "all"
+        },
+        {
+          "action": "emit_event",
+          "event": "channel.member_updated",
+          "payload": [
+            "channel_id",
+            "user_id",
+            "changed_field",
+            "actor_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "All messages mark the channel unread again for this member"
+    },
+    "member_removed": {
+      "priority": 10,
+      "given": [
+        "actor has permission to manage channel members",
+        "target user is a member of the channel",
+        "channel is not the default channel (unless target is a guest)",
+        "channel is not group-constrained with the user in a linked group"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "target": "channel_membership",
+          "description": "Membership record removed; thread memberships in this channel cleared",
+          "type": "channel"
+        },
+        {
+          "action": "emit_event",
+          "event": "channel.member_removed",
+          "payload": [
+            "channel_id",
+            "user_id",
+            "actor_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "User loses access to the channel; removal message posted in channel"
+    },
+    "removal_from_default_channel_rejected": {
+      "priority": 3,
+      "error": "CHANNEL_CANNOT_REMOVE_DEFAULT",
+      "given": [
+        "actor attempts to remove a non-guest member from the default channel"
+      ],
+      "then": [],
+      "result": "Removal rejected"
+    },
+    "group_constrained_removal_rejected": {
+      "priority": 3,
+      "error": "CHANNEL_GROUP_CONSTRAINED_REMOVAL",
+      "given": [
+        "channel is group-constrained",
+        "target user is a member of a linked directory group for this channel"
+      ],
+      "then": [],
+      "result": "Manual removal rejected; member must be removed via group synchronization"
+    },
+    "channel_permissions_patched": {
+      "priority": 10,
+      "given": [
+        "actor has permission to manage channel roles",
+        "moderation_permissions specifies valid role and permission combinations"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "channel_scheme_roles.permissions",
+          "description": "Role permissions at the channel level updated"
+        },
+        {
+          "action": "emit_event",
+          "event": "channel.scheme_updated",
+          "payload": [
+            "channel_id",
+            "changed_roles",
+            "actor_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Affected role holders immediately gain or lose the patched permissions in this channel"
+    },
+    "member_role_promoted": {
+      "priority": 10,
+      "given": [
+        "actor has permission to manage channel roles",
+        "target member is a regular member (not already an admin)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "channel_member.scheme_admin",
+          "value": true
+        },
+        {
+          "action": "emit_event",
+          "event": "channel.member_updated",
+          "payload": [
+            "channel_id",
+            "user_id",
+            "new_role",
+            "actor_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Member becomes a channel administrator with moderation capabilities"
+    }
+  },
+  "errors": [
+    {
+      "code": "CHANNEL_CANNOT_REMOVE_DEFAULT",
+      "message": "Members cannot be removed from the default channel.",
+      "status": 403
+    },
+    {
+      "code": "CHANNEL_GROUP_CONSTRAINED_REMOVAL",
+      "message": "This member can only be removed through group synchronization.",
+      "status": 400
+    },
+    {
+      "code": "CHANNEL_MEMBER_NOT_FOUND",
+      "message": "This user is not a member of the channel.",
+      "status": 404
+    },
+    {
+      "code": "CHANNEL_PERMISSION_DENIED",
+      "message": "You do not have permission to moderate this channel.",
+      "status": 403
+    },
+    {
+      "code": "CHANNEL_INVALID_MODERATION_PERMISSION",
+      "message": "Invalid permission specified for channel moderation.",
+      "status": 403
+    }
+  ],
+  "events": [
+    {
+      "name": "channel.member_removed",
+      "description": "A member was removed from the channel by a moderator",
+      "payload": [
+        "channel_id",
+        "user_id",
+        "actor_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "channel.member_updated",
+      "description": "A member's role or notification preferences were changed",
+      "payload": [
+        "channel_id",
+        "user_id",
+        "changed_field",
+        "new_value",
+        "actor_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "channel.scheme_updated",
+      "description": "Channel-level permission overrides were modified",
+      "payload": [
+        "channel_id",
+        "changed_roles",
+        "actor_id",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "role-based-access-control",
+      "type": "required",
+      "reason": "Channel moderation operates through the role and permission system"
+    },
+    {
+      "feature": "team-workspaces",
+      "type": "required",
+      "reason": "Channels exist within teams; team context determines available permissions"
+    },
+    {
+      "feature": "notification-preferences-dnd",
+      "type": "recommended",
+      "reason": "Muting a channel is an extension of notification preference control"
+    },
+    {
+      "feature": "guest-accounts",
+      "type": "recommended",
+      "reason": "Guests have distinct channel membership rules (e.g., can be removed from default channels)"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_channel_moderation",
+        "description": "Tools for channel administrators to control member participation, including muting channels, removing members, and managing posting permissions through role-based moderation controls.\n",
+        "success_metrics": [
+          {
+            "metric": "data_accuracy",
+            "target": "100%",
+            "measurement": "Records matching source of truth"
+          },
+          {
+            "metric": "duplicate_rate",
+            "target": "0%",
+            "measurement": "Duplicate records detected post-creation"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "performance",
+            "description": "Data consistency must be maintained across concurrent operations",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before transitioning to a terminal state",
+        "before permanently deleting records"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "member_muted",
+          "permission": "autonomous"
+        },
+        {
+          "action": "member_unmuted",
+          "permission": "autonomous"
+        },
+        {
+          "action": "member_removed",
+          "permission": "human_required"
+        },
+        {
+          "action": "removal_from_default_channel_rejected",
+          "permission": "human_required"
+        },
+        {
+          "action": "group_constrained_removal_rejected",
+          "permission": "human_required"
+        },
+        {
+          "action": "channel_permissions_patched",
+          "permission": "autonomous"
+        },
+        {
+          "action": "member_role_promoted",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "data_integrity",
+        "over": "performance",
+        "reason": "data consistency must be maintained across all operations"
+      }
+    ],
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "role_based_access_control",
+          "from": "role-based-access-control",
+          "fallback": "degrade"
+        },
+        {
+          "capability": "team_workspaces",
+          "from": "team-workspaces",
+          "fallback": "degrade"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/mattermost/mattermost",
+      "project": "Mattermost",
+      "tech_stack": "Go (server), React + TypeScript (webapp)",
+      "files_traced": 5,
+      "entry_points": [
+        "server/channels/app/channel.go",
+        "server/public/model/channel_member.go"
+      ]
+    }
+  }
+}

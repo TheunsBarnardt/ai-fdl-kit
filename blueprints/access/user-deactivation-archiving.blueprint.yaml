@@ -1,0 +1,308 @@
+# ============================================================
+# USER DEACTIVATION AND ARCHIVING — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/mattermost/mattermost
+# Source project: Mattermost (Go + React)
+# Files traced: server/channels/app/user.go,
+#               server/public/model/user.go
+# ============================================================
+feature: user-deactivation-archiving
+version: 1.0.0
+description: >
+  Controlled suspension and permanent deletion of user accounts, preserving message history and audit trails on
+  soft-deactivation while supporting hard deletion for GDPR right-to-erasure requests.
+category: access
+tags:
+  - deactivation
+  - archiving
+  - gdpr
+  - erasure
+  - soft-delete
+  - account-lifecycle
+actors:
+  - id: system_admin
+    name: System Administrator
+    type: human
+    description: Deactivates, reactivates, and permanently deletes user accounts
+  - id: user
+    name: End User
+    type: human
+    description: May request their own account deletion for GDPR compliance
+  - id: ldap_sync
+    name: LDAP Sync Job
+    type: system
+    description: Automatically deactivates users removed from the directory
+fields:
+  - name: user_id
+    type: hidden
+    required: true
+    label: Unique identifier for the user account
+  - name: delete_at
+    type: datetime
+    required: true
+    label: Timestamp when the account was soft-deactivated; zero means the account is activ
+  - name: update_at
+    type: datetime
+    required: true
+    label: Timestamp of the last status change
+  - name: disable_bots_on_owner_deactivation
+    type: boolean
+    required: false
+    label: When true, bots owned by a deactivated user are also deactivated
+states:
+  field: account_status
+  values:
+    - name: active
+      description: User can log in and participate; delete_at is zero
+      initial: true
+    - name: deactivated
+      description: Account suspended; delete_at is set; user cannot log in; messages preserved
+      terminal: false
+    - name: permanently_deleted
+      description: All user data and associated records removed from the system
+      terminal: true
+  transitions:
+    - from: active
+      to: deactivated
+      actor: system_admin
+      description: Administrator suspends the account
+    - from: active
+      to: deactivated
+      actor: ldap_sync
+      description: LDAP sync detects user removed from directory
+    - from: deactivated
+      to: active
+      actor: system_admin
+      description: Administrator reactivates a suspended account (subject to seat limits)
+    - from: active
+      to: permanently_deleted
+      actor: system_admin
+      description: Administrator permanently deletes the account and all associated data
+    - from: deactivated
+      to: permanently_deleted
+      actor: system_admin
+      description: Administrator permanently deletes a suspended account
+rules:
+  rule_01: Deactivation is a soft-delete — the delete_at timestamp is set but all message content, channel memberships,
+    and audit records are preserved.
+  rule_02: Deactivated users cannot log in; all existing sessions are immediately revoked upon deactivation.
+  rule_03: Deactivated users' messages remain visible in channels with attribution to the original author.
+  rule_04: Deactivated accounts cannot be added to channels or teams.
+  rule_05: Reactivating a deactivated account is subject to the server's seat limit; activation is rejected if the limit
+    is reached.
+  rule_06: '{"Permanent deletion is a hard-delete — all related records are removed":"sessions, OAuth data, webhooks,
+    slash commands, preferences, channel memberships, and posts."}'
+  rule_07: Profile images and file uploads associated with the user are deleted from storage during permanent deletion.
+  rule_08: When a user who owns bots is deactivated, bots they own are also deactivated if the relevant server setting is
+    enabled.
+  rule_09: Deactivating the only system administrator generates a warning; the operation is not blocked but should be done
+    with caution.
+  rule_10: Deactivation triggers a cache invalidation for all affected users across all teams.
+  rule_11: Plugin hooks are notified asynchronously when a user is deactivated.
+outcomes:
+  user_deactivated:
+    priority: 10
+    given:
+      - actor is system administrator or LDAP sync
+      - user account is currently active
+    then:
+      - action: set_field
+        target: user.delete_at
+        value: now
+      - action: invalidate
+        target: all_user_sessions
+        description: All active sessions for this user revoked
+      - action: set_field
+        target: owned_bots.active
+        value: false
+        description: Owned bots deactivated (if policy enabled)
+      - action: emit_event
+        event: user.deactivated
+        payload:
+          - user_id
+          - actor_id
+          - timestamp
+    result: User cannot log in; existing sessions terminated; messages and history preserved
+  user_reactivated:
+    priority: 10
+    given:
+      - actor is system administrator
+      - user account is deactivated
+      - seat limit is not exceeded
+    then:
+      - action: set_field
+        target: user.delete_at
+        value: 0
+      - action: emit_event
+        event: user.reactivated
+        payload:
+          - user_id
+          - actor_id
+          - timestamp
+    result: User can log in again; history and memberships restored
+  reactivation_seat_limit_exceeded:
+    priority: 3
+    error: USER_SEAT_LIMIT_EXCEEDED
+    given:
+      - actor attempts to reactivate a deactivated user
+      - server is at or above the licensed seat limit
+    then: []
+    result: Reactivation blocked; administrator must free a seat first
+  user_permanently_deleted:
+    priority: 10
+    given:
+      - actor is system administrator
+      - GDPR right-to-erasure request confirmed
+    then:
+      - action: delete_record
+        target: user_record
+        description: User account and all directly associated records deleted
+        type: user
+      - action: delete_record
+        target: user_sessions
+        type: user
+      - action: delete_record
+        target: user_oauth_data
+        type: user
+      - action: delete_record
+        target: user_webhooks
+        type: user
+      - action: delete_record
+        target: user_commands
+        type: user
+      - action: delete_record
+        target: user_preferences
+        type: user
+      - action: delete_record
+        target: user_posts
+        type: user
+      - action: delete_record
+        target: user_profile_image
+        type: user
+      - action: emit_event
+        event: user.permanently_deleted
+        payload:
+          - user_id
+          - actor_id
+          - timestamp
+    result: All user data removed; action is irreversible
+errors:
+  - code: USER_SEAT_LIMIT_EXCEEDED
+    message: The server has reached its user limit. Please contact your administrator.
+    status: 422
+  - code: USER_NOT_FOUND
+    message: User account not found.
+    status: 404
+  - code: USER_ALREADY_DEACTIVATED
+    message: This account is already deactivated.
+    status: 409
+  - code: USER_CANNOT_DELETE_SELF
+    message: Administrators cannot permanently delete their own account through this operation.
+    status: 403
+events:
+  - name: user.deactivated
+    description: User account suspended; all sessions revoked
+    payload:
+      - user_id
+      - actor_id
+      - reason
+      - timestamp
+  - name: user.reactivated
+    description: Suspended user account restored to active status
+    payload:
+      - user_id
+      - actor_id
+      - timestamp
+  - name: user.permanently_deleted
+    description: User account and all associated data permanently removed
+    payload:
+      - user_id
+      - actor_id
+      - timestamp
+  - name: user.bot_deactivated_on_owner_suspend
+    description: Bot deactivated because its owner was deactivated
+    payload:
+      - bot_user_id
+      - owner_user_id
+      - timestamp
+related:
+  - feature: session-management-revocation
+    type: required
+    reason: Deactivation immediately revokes all active sessions
+  - feature: gdpr-data-export
+    type: recommended
+    reason: GDPR export should be run before permanent deletion to satisfy portability requests
+  - feature: ldap-authentication-sync
+    type: optional
+    reason: LDAP sync can trigger automatic deactivation when directory entries are removed
+  - feature: audit-logging
+    type: required
+    reason: All deactivation and deletion events are recorded in the immutable audit log
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_user_deactivation_archiving
+      description: >
+        Controlled suspension and permanent deletion of user accounts, preserving message history and audit trails on
+        soft-deactivation while supporting hard deletion for GDPR right-to-erasure requests.
+      success_metrics:
+        - metric: unauthorized_access_rate
+          target: 0%
+          measurement: Failed authorization attempts that succeed
+        - metric: response_time_p95
+          target: < 500ms
+          measurement: 95th percentile response time
+      constraints:
+        - type: security
+          description: Follow OWASP security recommendations
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before transitioning to a terminal state
+      - before permanently deleting records
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+  safety:
+    action_permissions:
+      - action: user_deactivated
+        permission: autonomous
+      - action: user_reactivated
+        permission: autonomous
+      - action: reactivation_seat_limit_exceeded
+        permission: autonomous
+      - action: user_permanently_deleted
+        permission: human_required
+  tradeoffs:
+    - prefer: security
+      over: usability
+      reason: access control must enforce least-privilege principle
+  verification:
+    invariants:
+      - error messages never expose internal system details
+      - state transitions follow the defined state machine — no illegal transitions
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: session_management_revocation
+        from: session-management-revocation
+        fallback: fail
+      - capability: audit_logging
+        from: audit-logging
+        fallback: fail
+
+extensions:
+  source:
+    repo: https://github.com/mattermost/mattermost
+    project: Mattermost
+    tech_stack: Go (server), React + TypeScript (webapp)
+    files_traced: 5
+    entry_points:
+      - server/channels/app/user.go
+      - server/public/model/user.go

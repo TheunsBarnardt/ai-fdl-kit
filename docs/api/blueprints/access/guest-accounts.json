@@ -1,0 +1,504 @@
+{
+  "feature": "guest-accounts",
+  "version": "1.0.0",
+  "description": "Restricted user accounts that can be invited to specific channels only, cannot access broader workspace content, and are automatically removed from a workspace when they have no remaining channel...",
+  "category": "access",
+  "tags": [
+    "guests",
+    "restricted-access",
+    "invitation",
+    "external-users",
+    "channel-scoped"
+  ],
+  "actors": [
+    {
+      "id": "system_admin",
+      "name": "System Administrator",
+      "type": "human",
+      "description": "Configures guest policies, bulk-deactivates guests, invites guests"
+    },
+    {
+      "id": "team_admin",
+      "name": "Team Administrator",
+      "type": "human",
+      "description": "Invites guests to specific channels within their team"
+    },
+    {
+      "id": "guest",
+      "name": "Guest User",
+      "type": "human",
+      "description": "External participant with visibility limited to invited channels only"
+    }
+  ],
+  "fields": [
+    {
+      "name": "user_id",
+      "type": "hidden",
+      "required": true,
+      "label": "Unique identifier for the guest user account"
+    },
+    {
+      "name": "email",
+      "type": "email",
+      "required": true,
+      "label": "Guest's email address; used for invitation and login",
+      "validation": [
+        {
+          "type": "maxLength",
+          "value": 128,
+          "message": "Maximum 128 characters"
+        }
+      ]
+    },
+    {
+      "name": "invite_token",
+      "type": "token",
+      "required": true,
+      "label": "Single-use token included in the invitation link"
+    },
+    {
+      "name": "allowed_domains",
+      "type": "text",
+      "required": false,
+      "label": "Optional comma-separated email domains permitted for guest accounts; empty means"
+    },
+    {
+      "name": "channel_ids",
+      "type": "json",
+      "required": true,
+      "label": "Array of channel IDs the guest is being invited to"
+    },
+    {
+      "name": "auth_service",
+      "type": "select",
+      "required": true,
+      "label": "Authentication method for the guest account",
+      "options": [
+        {
+          "value": "email",
+          "label": "Email"
+        },
+        {
+          "value": "magic_link",
+          "label": "Magic Link"
+        }
+      ]
+    },
+    {
+      "name": "scheme_guest",
+      "type": "boolean",
+      "required": true,
+      "label": "Channel membership flag marking this member as a guest role holder"
+    }
+  ],
+  "states": {
+    "field": "guest_status",
+    "values": [
+      {
+        "name": "invited",
+        "description": "Invitation sent; guest has not yet accepted",
+        "initial": true
+      },
+      {
+        "name": "active",
+        "description": "Guest accepted invitation; account operational with channel access",
+        "terminal": false
+      },
+      {
+        "name": "deactivated",
+        "description": "Guest account disabled; cannot log in but data preserved",
+        "terminal": false
+      }
+    ],
+    "transitions": [
+      {
+        "from": "invited",
+        "to": "active",
+        "actor": "guest",
+        "description": "Guest follows invitation link and completes account setup"
+      },
+      {
+        "from": "active",
+        "to": "deactivated",
+        "actor": "system_admin",
+        "description": "Administrator manually deactivates guest or runs bulk deactivation"
+      },
+      {
+        "from": "active",
+        "to": "deactivated",
+        "actor": "system",
+        "description": "Guest is removed from their last channel in all teams, triggering automatic team removal"
+      }
+    ]
+  },
+  "rules": {
+    "rule_01": "Guests can only see and interact with the specific channels they have been explicitly invited to; other channels are invisible to them.",
+    "rule_02": "When a guest is removed from their last channel within a team, they are automatically removed from that team.",
+    "rule_03": "Guests cannot be converted to regular members and regular members cannot be converted to guests; the roles are mutually exclusive.",
+    "rule_04": "A guest cannot simultaneously hold both the guest and member roles in the same team or channel.",
+    "rule_05": "If allowed_domains is configured, the guest's email domain must match one of the permitted domains; invitations to other domains are rejected.",
+    "rule_06": "Magic-link guest accounts log in via passwordless email links; links expire after a configured duration.",
+    "rule_07": "Deactivating a guest revokes all active sessions; message content and channel history is preserved.",
+    "rule_08": "Bulk guest deactivation is available as a single administrative operation affecting all guest accounts system-wide.",
+    "rule_09": "Invitation tokens are single-use; once accepted or expired they cannot be reused."
+  },
+  "outcomes": {
+    "guest_invited": {
+      "priority": 10,
+      "given": [
+        "actor has permission to invite guests",
+        "guest email domain matches allowed_domains (if configured)",
+        "channel_ids list is not empty and all channels exist",
+        "guest account limits not exceeded"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "guest_invitation",
+          "description": "Invitation record created with single-use token",
+          "type": "guest"
+        },
+        {
+          "action": "notify",
+          "target": "guest_email",
+          "description": "Invitation email sent with link containing the invite token",
+          "channel": "system"
+        },
+        {
+          "action": "emit_event",
+          "event": "guest.invited",
+          "payload": [
+            "user_id",
+            "channel_ids",
+            "actor_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Guest receives email invitation to join the specified channels"
+    },
+    "guest_account_created": {
+      "priority": 10,
+      "given": [
+        "guest follows valid invitation link",
+        "invite token has not been used or expired"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "user",
+          "description": "Guest user account created with system_guest role",
+          "type": "user"
+        },
+        {
+          "action": "create_record",
+          "target": "channel_memberships",
+          "description": "Guest added to each invited channel with scheme_guest flag",
+          "type": "channel"
+        },
+        {
+          "action": "emit_event",
+          "event": "guest.joined",
+          "payload": [
+            "user_id",
+            "channel_ids",
+            "team_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Guest can access the invited channels; all other content is hidden"
+    },
+    "guest_removed_from_last_channel": {
+      "priority": 8,
+      "given": [
+        "guest is removed from a channel",
+        "guest has no remaining channel memberships in this team"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "target": "team_membership",
+          "description": "Guest automatically removed from the team with no channels",
+          "type": "team"
+        },
+        {
+          "action": "emit_event",
+          "event": "guest.auto_removed_from_team",
+          "payload": [
+            "user_id",
+            "team_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Guest loses team access; if no teams remain, account is effectively isolated"
+    },
+    "guest_role_change_rejected": {
+      "priority": 3,
+      "error": "GUEST_ROLE_CHANGE_NOT_ALLOWED",
+      "given": [
+        "actor attempts to convert a guest to a regular member or vice versa"
+      ],
+      "then": [],
+      "result": "Role change rejected; accounts must be managed through proper invitation flows"
+    },
+    "guest_domain_rejected": {
+      "priority": 2,
+      "error": "GUEST_DOMAIN_NOT_ALLOWED",
+      "given": [
+        "allowed_domains is configured",
+        "guest email domain does not match any permitted domain"
+      ],
+      "then": [],
+      "result": "Invitation rejected"
+    },
+    "bulk_guest_deactivation": {
+      "priority": 10,
+      "given": [
+        "actor is system administrator"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "all_guest_accounts.delete_at",
+          "value": "now"
+        },
+        {
+          "action": "invalidate",
+          "target": "all_guest_sessions",
+          "description": "All sessions for all guest accounts revoked"
+        },
+        {
+          "action": "emit_event",
+          "event": "guest.bulk_deactivated",
+          "payload": [
+            "deactivated_count",
+            "actor_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "All guest accounts deactivated system-wide; existing sessions terminated"
+    }
+  },
+  "errors": [
+    {
+      "code": "GUEST_DOMAIN_NOT_ALLOWED",
+      "message": "Guests from that email domain are not permitted on this server.",
+      "status": 400
+    },
+    {
+      "code": "GUEST_ROLE_CHANGE_NOT_ALLOWED",
+      "message": "Guest and member roles cannot be converted between each other.",
+      "status": 400
+    },
+    {
+      "code": "GUEST_INVITE_TOKEN_INVALID",
+      "message": "This invitation link is invalid or has expired.",
+      "status": 401
+    },
+    {
+      "code": "GUEST_ACCOUNT_LIMIT_EXCEEDED",
+      "message": "The guest account limit for this server has been reached.",
+      "status": 422
+    },
+    {
+      "code": "GUEST_NOT_FOUND",
+      "message": "Guest account not found.",
+      "status": 404
+    }
+  ],
+  "events": [
+    {
+      "name": "guest.invited",
+      "description": "Invitation sent to a guest user",
+      "payload": [
+        "invitee_email",
+        "channel_ids",
+        "team_id",
+        "actor_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "guest.joined",
+      "description": "Guest accepted invitation and created their account",
+      "payload": [
+        "user_id",
+        "channel_ids",
+        "team_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "guest.auto_removed_from_team",
+      "description": "Guest automatically removed from team after leaving last channel",
+      "payload": [
+        "user_id",
+        "team_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "guest.deactivated",
+      "description": "Individual guest account deactivated",
+      "payload": [
+        "user_id",
+        "actor_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "guest.bulk_deactivated",
+      "description": "All guest accounts deactivated in a single administrative operation",
+      "payload": [
+        "deactivated_count",
+        "actor_id",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "team-workspaces",
+      "type": "required",
+      "reason": "Guests are scoped to specific teams and auto-removed when channel-less"
+    },
+    {
+      "feature": "role-based-access-control",
+      "type": "required",
+      "reason": "The guest role determines restricted default permissions"
+    },
+    {
+      "feature": "session-management-revocation",
+      "type": "required",
+      "reason": "Deactivating guests triggers session revocation"
+    },
+    {
+      "feature": "email-notifications",
+      "type": "recommended",
+      "reason": "Invitation delivery relies on email notification infrastructure"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_guest_accounts",
+        "description": "Restricted user accounts that can be invited to specific channels only, cannot access broader workspace content, and are automatically removed from a workspace when they have no remaining channel...",
+        "success_metrics": [
+          {
+            "metric": "unauthorized_access_rate",
+            "target": "0%",
+            "measurement": "Failed authorization attempts that succeed"
+          },
+          {
+            "metric": "response_time_p95",
+            "target": "< 500ms",
+            "measurement": "95th percentile response time"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "security",
+            "description": "Follow OWASP security recommendations",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before modifying sensitive data fields",
+        "before transitioning to a terminal state",
+        "before permanently deleting records"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5",
+        "consecutive_failures > 3"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "guest_invited",
+          "permission": "autonomous"
+        },
+        {
+          "action": "guest_account_created",
+          "permission": "supervised"
+        },
+        {
+          "action": "guest_removed_from_last_channel",
+          "permission": "human_required"
+        },
+        {
+          "action": "guest_role_change_rejected",
+          "permission": "supervised"
+        },
+        {
+          "action": "guest_domain_rejected",
+          "permission": "supervised"
+        },
+        {
+          "action": "bulk_guest_deactivation",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "security",
+        "over": "usability",
+        "reason": "access control must enforce least-privilege principle"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details",
+        "state transitions follow the defined state machine — no illegal transitions"
+      ]
+    },
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "team_workspaces",
+          "from": "team-workspaces",
+          "fallback": "fail"
+        },
+        {
+          "capability": "role_based_access_control",
+          "from": "role-based-access-control",
+          "fallback": "fail"
+        },
+        {
+          "capability": "session_management_revocation",
+          "from": "session-management-revocation",
+          "fallback": "fail"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/mattermost/mattermost",
+      "project": "Mattermost",
+      "tech_stack": "Go (server), React + TypeScript (webapp)",
+      "files_traced": 6,
+      "entry_points": [
+        "server/public/model/guest_invite.go",
+        "server/public/model/user.go",
+        "server/channels/app/user.go"
+      ]
+    }
+  }
+}

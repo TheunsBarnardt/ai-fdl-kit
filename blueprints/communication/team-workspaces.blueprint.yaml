@@ -1,0 +1,404 @@
+# ============================================================
+# TEAM WORKSPACES — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/mattermost/mattermost
+# Source project: Mattermost (Go + React)
+# Files traced: server/public/model/team.go, server/channels/app/team.go
+# ============================================================
+# This blueprint describes BEHAVIOR, not implementation.
+# It can be used to generate this feature for any framework.
+# ============================================================
+feature: team-workspaces
+version: 1.0.0
+description: >
+  Multi-tenant workspace model where users belong to isolated teams, each with their own channels, members, and
+  permission configurations.
+category: communication
+tags:
+  - multi-tenant
+  - workspaces
+  - teams
+  - collaboration
+  - isolation
+actors:
+  - id: system_admin
+    name: System Administrator
+    type: human
+    description: Manages all teams across the platform
+  - id: team_admin
+    name: Team Administrator
+    type: human
+    description: Manages a specific team's membership and settings
+  - id: member
+    name: Team Member
+    type: human
+    description: Regular participant in a team
+fields:
+  - name: team_id
+    type: hidden
+    required: true
+    label: Unique identifier for the team (auto-generated)
+  - name: name
+    type: text
+    required: true
+    label: URL-friendly unique slug, 2–64 alphanumeric characters and hyphens
+    validation:
+      - type: pattern
+        value: ^[a-z0-9-]+$
+        message: Invalid format
+      - type: minLength
+        value: 2
+        message: Minimum 2 characters
+      - type: maxLength
+        value: 64
+        message: Maximum 64 characters
+  - name: display_name
+    type: text
+    required: true
+    label: User-visible team name, up to 64 Unicode characters
+    validation:
+      - type: minLength
+        value: 1
+        message: Minimum 1 characters
+      - type: maxLength
+        value: 64
+        message: Maximum 64 characters
+  - name: description
+    type: text
+    required: false
+    label: Team description shown to members
+    validation:
+      - type: maxLength
+        value: 255
+        message: Maximum 255 characters
+  - name: type
+    type: select
+    required: true
+    label: Membership model — open (anyone can join) or invite-only
+    options:
+      - value: open
+        label: Open
+      - value: invite_only
+        label: Invite Only
+  - name: allowed_domains
+    type: text
+    required: false
+    label: Comma-separated email domains permitted to join; empty means no restriction
+    validation:
+      - type: maxLength
+        value: 500
+        message: Maximum 500 characters
+  - name: allow_open_invite
+    type: boolean
+    required: false
+    label: Whether the team publishes an open invite link
+  - name: group_constrained
+    type: boolean
+    required: false
+    label: When true, membership is limited to members of linked identity provider groups
+  - name: scheme_id
+    type: hidden
+    required: false
+    label: Reference to the permission scheme applied to this team
+  - name: invite_id
+    type: token
+    required: false
+    label: Unique invite token used to join the team via link
+states:
+  field: status
+  values:
+    - name: active
+      description: Team is operational; DeleteAt is zero
+      initial: true
+    - name: archived
+      description: Team soft-deleted; DeleteAt timestamp set; data preserved
+      terminal: false
+    - name: cloud_limit_archived
+      description: Team archived automatically because a subscription seat limit was exceeded
+      terminal: false
+  transitions:
+    - from: active
+      to: archived
+      actor: team_admin
+      description: Team admin or system admin deletes the team
+    - from: archived
+      to: active
+      actor: system_admin
+      description: System admin restores an archived team
+    - from: active
+      to: cloud_limit_archived
+      actor: system
+      description: Subscription enforcement archives oldest teams when seat limit is exceeded
+    - from: cloud_limit_archived
+      to: active
+      actor: system_admin
+      description: Subscription upgraded or seats freed; team restored
+rules:
+  rule_01: Team name must be unique across the platform; duplicate names are rejected.
+  rule_02: Team name may not start with reserved system prefixes.
+  rule_03: Display name is required and must be between 1 and 64 Unicode characters.
+  rule_04: When allowed_domains is set, users may only join if their email domain matches.
+  rule_05: When group_constrained is true, membership changes are driven by the linked identity provider group sync;
+    manual additions are rejected unless the user is in a synced group.
+  rule_06: An invite_id is auto-generated at creation and can be regenerated to invalidate existing invite links.
+  rule_07: Archiving a team preserves all messages, channels, and membership records.
+  rule_08: When a subscription plan enforces a team limit, the system archives the oldest active teams first; teams are
+    restored automatically if the limit increases.
+  rule_09: A team may have at most one permission scheme assigned at a time.
+outcomes:
+  team_created:
+    priority: 10
+    given:
+      - actor has permission to create teams
+      - team name is unique and valid
+      - display name is provided
+    then:
+      - action: create_record
+        target: team
+        description: New team record created with active status and generated invite_id
+        type: team
+      - action: emit_event
+        event: team.created
+        payload:
+          - team_id
+          - name
+          - type
+          - actor_id
+    result: Team is created and the creating user is added as team administrator
+  team_name_conflict:
+    priority: 2
+    error: TEAM_NAME_ALREADY_EXISTS
+    given:
+      - team name already used by another active team
+    then: []
+    result: Creation rejected with conflict error
+  team_updated:
+    priority: 10
+    given:
+      - actor has permission to manage this team
+      - updated fields pass validation
+    then:
+      - action: set_field
+        target: update_at
+        value: now
+      - action: emit_event
+        event: team.updated
+        payload:
+          - team_id
+          - changed_fields
+          - actor_id
+    result: Team settings updated and all members notified in real time
+  team_archived:
+    priority: 10
+    given:
+      - actor has permission to delete this team
+      - team is currently active
+    then:
+      - action: set_field
+        target: delete_at
+        value: now
+      - action: emit_event
+        event: team.archived
+        payload:
+          - team_id
+          - actor_id
+    result: Team marked archived; members can no longer send messages
+  team_restored:
+    priority: 10
+    given:
+      - actor is system administrator
+      - team is currently archived
+    then:
+      - action: set_field
+        target: delete_at
+        value: 0
+      - action: emit_event
+        event: team.restored
+        payload:
+          - team_id
+          - actor_id
+    result: Team returned to active state
+  invite_link_regenerated:
+    priority: 10
+    given:
+      - actor has permission to manage this team
+    then:
+      - action: set_field
+        target: invite_id
+        description: New unique token generated, old invite links invalidated
+    result: All previous invite links are immediately revoked
+  group_constrained_join_rejected:
+    priority: 3
+    error: TEAM_GROUP_CONSTRAINED
+    given:
+      - group_constrained is true
+      - user is not a member of any linked identity provider group for this team
+    then: []
+    result: Join attempt rejected; user must be added via group sync
+errors:
+  - code: TEAM_NAME_ALREADY_EXISTS
+    message: A team with that name already exists.
+    status: 409
+  - code: TEAM_INVALID_NAME
+    message: Team name may only contain lowercase letters, numbers, and hyphens and must be 2–64 characters.
+    status: 400
+  - code: TEAM_DISPLAY_NAME_REQUIRED
+    message: A display name is required.
+    status: 400
+  - code: TEAM_GROUP_CONSTRAINED
+    message: This team only accepts members through group synchronization.
+    status: 400
+  - code: TEAM_DOMAIN_NOT_ALLOWED
+    message: Your email domain is not permitted to join this team.
+    status: 400
+  - code: TEAM_NOT_FOUND
+    message: Team not found.
+    status: 404
+  - code: TEAM_PERMISSION_DENIED
+    message: You do not have permission to perform this action on this team.
+    status: 403
+events:
+  - name: team.created
+    description: A new team workspace was created
+    payload:
+      - team_id
+      - name
+      - type
+      - actor_id
+      - timestamp
+  - name: team.updated
+    description: Team settings were modified
+    payload:
+      - team_id
+      - changed_fields
+      - actor_id
+      - timestamp
+  - name: team.archived
+    description: Team was soft-deleted
+    payload:
+      - team_id
+      - actor_id
+      - timestamp
+  - name: team.restored
+    description: Archived team was reactivated
+    payload:
+      - team_id
+      - actor_id
+      - timestamp
+  - name: team.member_added
+    description: A user joined or was added to the team
+    payload:
+      - team_id
+      - user_id
+      - roles
+      - actor_id
+      - timestamp
+  - name: team.member_removed
+    description: A user left or was removed from the team
+    payload:
+      - team_id
+      - user_id
+      - actor_id
+      - timestamp
+  - name: team.scheme_updated
+    description: Permission scheme assignment for the team changed
+    payload:
+      - team_id
+      - scheme_id
+      - actor_id
+      - timestamp
+related:
+  - feature: role-based-access-control
+    type: required
+    reason: Roles and permissions govern what team members can do
+  - feature: permission-scheme-management
+    type: optional
+    reason: Schemes customize default role permissions per team
+  - feature: channel-workspaces
+    type: required
+    reason: Teams contain channels where communication happens
+  - feature: ldap-authentication-sync
+    type: optional
+    reason: Group-constrained teams sync membership from LDAP groups
+  - feature: guest-accounts
+    type: optional
+    reason: Guests may be invited to specific channels within a team
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_team_workspaces
+      description: >
+        Multi-tenant workspace model where users belong to isolated teams, each with their own channels, members, and
+        permission configurations.
+      success_metrics:
+        - metric: data_accuracy
+          target: 100%
+          measurement: Records matching source of truth
+        - metric: duplicate_rate
+          target: 0%
+          measurement: Duplicate records detected post-creation
+      constraints:
+        - type: performance
+          description: Data consistency must be maintained across concurrent operations
+          negotiable: false
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before modifying sensitive data fields
+      - before transitioning to a terminal state
+    escalation_triggers:
+      - error_rate > 5
+  safety:
+    action_permissions:
+      - action: team_created
+        permission: supervised
+      - action: team_name_conflict
+        permission: autonomous
+      - action: team_updated
+        permission: supervised
+      - action: team_archived
+        permission: autonomous
+      - action: team_restored
+        permission: autonomous
+      - action: invite_link_regenerated
+        permission: autonomous
+      - action: group_constrained_join_rejected
+        permission: supervised
+  tradeoffs:
+    - prefer: data_integrity
+      over: performance
+      reason: data consistency must be maintained across all operations
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+      - state transitions follow the defined state machine — no illegal transitions
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: role_based_access_control
+        from: role-based-access-control
+        fallback: degrade
+      - capability: channel_workspaces
+        from: channel-workspaces
+        fallback: degrade
+
+extensions:
+  source:
+    repo: https://github.com/mattermost/mattermost
+    project: Mattermost
+    tech_stack: Go (server), React + TypeScript (webapp)
+    files_traced: 8
+    entry_points:
+      - server/public/model/team.go
+      - server/channels/app/team.go
+      - server/public/model/team_member.go

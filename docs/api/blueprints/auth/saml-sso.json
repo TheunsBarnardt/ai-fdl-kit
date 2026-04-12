@@ -1,0 +1,421 @@
+{
+  "feature": "saml-sso",
+  "version": "1.0.0",
+  "description": "SAML 2.0 identity provider integration enabling users to authenticate via a federated identity provider without maintaining local passwords.\n",
+  "category": "auth",
+  "tags": [
+    "saml",
+    "sso",
+    "federation",
+    "identity-provider",
+    "enterprise-auth"
+  ],
+  "actors": [
+    {
+      "id": "user",
+      "name": "End User",
+      "type": "human",
+      "description": "Initiates login and is redirected to the identity provider"
+    },
+    {
+      "id": "identity_provider",
+      "name": "Identity Provider",
+      "type": "external",
+      "description": "External SAML IdP that authenticates users and issues assertions"
+    },
+    {
+      "id": "system_admin",
+      "name": "System Administrator",
+      "type": "human",
+      "description": "Configures SAML settings and certificate management"
+    }
+  ],
+  "fields": [
+    {
+      "name": "idp_metadata_url",
+      "type": "url",
+      "required": true,
+      "label": "URL of the identity provider's SAML metadata XML endpoint"
+    },
+    {
+      "name": "idp_certificate",
+      "type": "file",
+      "required": true,
+      "label": "Public certificate of the identity provider for signature verification"
+    },
+    {
+      "name": "service_provider_certificate",
+      "type": "file",
+      "required": false,
+      "label": "Service provider public certificate sent to IdP for encryption"
+    },
+    {
+      "name": "service_provider_private_key",
+      "type": "file",
+      "required": false,
+      "label": "Service provider private key used to decrypt SAML assertions"
+    },
+    {
+      "name": "attribute_email",
+      "type": "text",
+      "required": true,
+      "label": "SAML assertion attribute name that maps to user email"
+    },
+    {
+      "name": "attribute_username",
+      "type": "text",
+      "required": true,
+      "label": "SAML assertion attribute name that maps to username"
+    },
+    {
+      "name": "attribute_first_name",
+      "type": "text",
+      "required": false,
+      "label": "SAML assertion attribute name that maps to first name"
+    },
+    {
+      "name": "attribute_last_name",
+      "type": "text",
+      "required": false,
+      "label": "SAML assertion attribute name that maps to last name"
+    },
+    {
+      "name": "enable_sync_with_ldap",
+      "type": "boolean",
+      "required": false,
+      "label": "When true, SAML user profiles are also synced against an LDAP directory"
+    },
+    {
+      "name": "relay_state",
+      "type": "token",
+      "required": false,
+      "label": "Opaque token generated per authentication request to prevent CSRF in the SAML fl"
+    }
+  ],
+  "states": {
+    "field": "auth_status",
+    "values": [
+      {
+        "name": "redirect_pending",
+        "description": "Authentication request generated; user redirected to identity provider",
+        "initial": true
+      },
+      {
+        "name": "assertion_received",
+        "description": "IdP has posted a SAML assertion back to the service provider"
+      },
+      {
+        "name": "authenticated",
+        "description": "Assertion validated; session created",
+        "terminal": true
+      },
+      {
+        "name": "failed",
+        "description": "Assertion invalid, signature check failed, or attribute mapping error",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "redirect_pending",
+        "to": "assertion_received",
+        "actor": "identity_provider",
+        "description": "Identity provider posts SAML response to the assertion consumer service URL"
+      },
+      {
+        "from": "assertion_received",
+        "to": "authenticated",
+        "actor": "system",
+        "description": "Assertion signature and attributes verified; user session created"
+      },
+      {
+        "from": "assertion_received",
+        "to": "failed",
+        "actor": "system",
+        "description": "Signature invalid, certificate expired, or required attributes missing"
+      }
+    ]
+  },
+  "rules": {
+    "rule_01": "Users authenticated via SAML do not have or use a local password; password authentication is bypassed.",
+    "rule_02": "User profile attributes (email, username, first name, last name) are populated from SAML assertion attributes on each login.",
+    "rule_03": "A relay_state token is generated per authentication request and validated on callback to prevent CSRF attacks.",
+    "rule_04": "SAML users cannot activate TOTP multi-factor authentication; MFA is delegated to the identity provider.",
+    "rule_05": "Sessions created from SAML logins are marked as SSO sessions and may have a distinct session length configured separately from password-based sessions.",
+    "rule_06": "When LDAP sync is enabled alongside SAML, user attributes are additionally reconciled against the LDAP directory after assertion validation.",
+    "rule_07": "IdP metadata (certificates, endpoints) can be fetched automatically from a metadata URL or uploaded manually.",
+    "rule_08": "Certificate rotation requires updating both the IdP certificate in configuration and the service provider certificate exchange with the IdP."
+  },
+  "outcomes": {
+    "sso_login_success": {
+      "priority": 10,
+      "given": [
+        "SAML is enabled in system configuration",
+        "user initiated login and was redirected to the identity provider",
+        "identity provider posted a valid signed assertion with required attributes",
+        "relay_state token matches the pending authentication request"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "session",
+          "description": "SSO session created with SAML identity marker and configured SSO session length",
+          "type": "session"
+        },
+        {
+          "action": "emit_event",
+          "event": "auth.saml_login_success",
+          "payload": [
+            "user_id",
+            "email",
+            "session_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "User is authenticated and redirected to the application"
+    },
+    "sso_login_invalid_signature": {
+      "priority": 3,
+      "error": "SAML_INVALID_SIGNATURE",
+      "given": [
+        "assertion received from identity provider",
+        "signature verification against IdP certificate fails"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "auth.saml_login_failed",
+          "payload": [
+            "reason",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Login rejected; user sees authentication error"
+    },
+    "sso_login_missing_attributes": {
+      "priority": 3,
+      "error": "SAML_MISSING_ATTRIBUTES",
+      "given": [
+        "assertion signature is valid",
+        "required attribute mappings (email or username) are absent in the assertion"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "auth.saml_login_failed",
+          "payload": [
+            "reason",
+            "missing_attributes",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Login rejected; administrator must fix attribute mapping configuration"
+    },
+    "sso_login_relay_state_invalid": {
+      "priority": 2,
+      "error": "SAML_INVALID_RELAY_STATE",
+      "given": [
+        "callback received from identity provider",
+        "relay_state does not match any pending authentication request"
+      ],
+      "then": [],
+      "result": "Login rejected to prevent CSRF replay attack"
+    },
+    "mfa_not_available_for_saml": {
+      "priority": 5,
+      "error": "MFA_NOT_SUPPORTED_FOR_SSO",
+      "given": [
+        "user authenticated via SAML attempts to enable TOTP MFA"
+      ],
+      "then": [],
+      "result": "MFA activation blocked; user must configure MFA at the identity provider level"
+    }
+  },
+  "errors": [
+    {
+      "code": "SAML_INVALID_SIGNATURE",
+      "message": "Authentication failed. Please contact your administrator.",
+      "status": 401
+    },
+    {
+      "code": "SAML_MISSING_ATTRIBUTES",
+      "message": "Authentication failed due to a configuration error. Please contact your administrator.",
+      "status": 401
+    },
+    {
+      "code": "SAML_INVALID_RELAY_STATE",
+      "message": "Authentication request is invalid or has expired. Please try again.",
+      "status": 401
+    },
+    {
+      "code": "SAML_NOT_ENABLED",
+      "message": "Single sign-on is not configured on this server.",
+      "status": 401
+    },
+    {
+      "code": "MFA_NOT_SUPPORTED_FOR_SSO",
+      "message": "Multi-factor authentication is managed by your identity provider.",
+      "status": 403
+    },
+    {
+      "code": "SAML_CERTIFICATE_ERROR",
+      "message": "Identity provider certificate is missing or invalid.",
+      "status": 401
+    }
+  ],
+  "events": [
+    {
+      "name": "auth.saml_login_success",
+      "description": "User successfully authenticated via SAML SSO",
+      "payload": [
+        "user_id",
+        "email",
+        "session_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "auth.saml_login_failed",
+      "description": "SAML authentication attempt failed",
+      "payload": [
+        "reason",
+        "ip_address",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "auth.saml_user_provisioned",
+      "description": "New user account created from SAML assertion on first login",
+      "payload": [
+        "user_id",
+        "email",
+        "actor",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "session-management",
+      "type": "required",
+      "reason": "SSO login produces a session with SSO-specific lifecycle settings"
+    },
+    {
+      "feature": "ldap-authentication-sync",
+      "type": "optional",
+      "reason": "SAML can coexist with LDAP sync for attribute enrichment"
+    },
+    {
+      "feature": "multi-factor-authentication",
+      "type": "optional",
+      "reason": "MFA is not applicable for SAML users; delegated to the IdP"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_saml_sso",
+        "description": "SAML 2.0 identity provider integration enabling users to authenticate via a federated identity provider without maintaining local passwords.\n",
+        "success_metrics": [
+          {
+            "metric": "unauthorized_access_rate",
+            "target": "0%",
+            "measurement": "Failed authorization attempts that succeed"
+          },
+          {
+            "metric": "response_time_p95",
+            "target": "< 500ms",
+            "measurement": "95th percentile response time"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "security",
+            "description": "Follow OWASP security recommendations",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before modifying sensitive data fields",
+        "before transitioning to a terminal state"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5",
+        "consecutive_failures > 3"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "sso_login_success",
+          "permission": "autonomous"
+        },
+        {
+          "action": "sso_login_invalid_signature",
+          "permission": "autonomous"
+        },
+        {
+          "action": "sso_login_missing_attributes",
+          "permission": "autonomous"
+        },
+        {
+          "action": "sso_login_relay_state_invalid",
+          "permission": "autonomous"
+        },
+        {
+          "action": "mfa_not_available_for_saml",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "security",
+        "over": "performance",
+        "reason": "authentication must prioritize preventing unauthorized access"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details",
+        "state transitions follow the defined state machine — no illegal transitions"
+      ]
+    },
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "session_management",
+          "from": "session-management",
+          "fallback": "fail"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/mattermost/mattermost",
+      "project": "Mattermost",
+      "tech_stack": "Go (server), React + TypeScript (webapp)",
+      "files_traced": 5,
+      "entry_points": [
+        "server/channels/app/authentication.go",
+        "server/einterfaces/saml.go"
+      ]
+    }
+  }
+}

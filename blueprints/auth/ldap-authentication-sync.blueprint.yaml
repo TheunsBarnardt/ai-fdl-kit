@@ -1,0 +1,339 @@
+# ============================================================
+# AD/LDAP AUTHENTICATION AND SYNC — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/mattermost/mattermost
+# Source project: Mattermost (Go + React)
+# Files traced: server/channels/app/authentication.go,
+#               server/channels/app/ldap.go,
+#               server/einterfaces/ldap.go
+# ============================================================
+feature: ldap-authentication-sync
+version: 1.0.0
+description: Directory service authentication and periodic synchronization that validates credentials against an
+  LDAP/Active Directory server and keeps user profiles and group memberships current with the...
+category: auth
+tags:
+  - ldap
+  - active-directory
+  - directory-sync
+  - enterprise-auth
+  - group-sync
+actors:
+  - id: user
+    name: End User
+    type: human
+    description: Authenticates with directory credentials
+  - id: system_admin
+    name: System Administrator
+    type: human
+    description: Configures LDAP settings, runs diagnostic tests, triggers manual syncs
+  - id: sync_job
+    name: Sync Job
+    type: system
+    description: Background process that periodically synchronizes users and groups from the directory
+fields:
+  - name: server_url
+    type: url
+    required: true
+    label: LDAP/AD server connection URL (ldap:// or ldaps://)
+  - name: bind_username
+    type: text
+    required: true
+    label: Service account DN used to bind to the directory for searches
+  - name: bind_password
+    type: password
+    required: true
+    label: Password for the bind service account
+  - name: base_dn
+    type: text
+    required: true
+    label: Base distinguished name from which to search for users
+  - name: user_filter
+    type: text
+    required: false
+    label: LDAP filter to restrict which directory entries are treated as users
+  - name: group_filter
+    type: text
+    required: false
+    label: LDAP filter to restrict which directory entries are treated as groups
+  - name: attribute_username
+    type: text
+    required: true
+    label: Directory attribute mapped to application username
+  - name: attribute_email
+    type: text
+    required: true
+    label: Directory attribute mapped to user email address
+  - name: attribute_first_name
+    type: text
+    required: false
+    label: Directory attribute mapped to first name
+  - name: attribute_last_name
+    type: text
+    required: false
+    label: Directory attribute mapped to last name
+  - name: sync_interval_minutes
+    type: number
+    required: false
+    label: How frequently the background sync job runs (in minutes)
+    validation:
+      - type: min
+        value: 1
+        message: Minimum value is 1
+  - name: max_login_attempts
+    type: number
+    required: false
+    label: Maximum consecutive failed login attempts before account lockout
+    validation:
+      - type: min
+        value: 1
+        message: Minimum value is 1
+states:
+  field: user_ldap_status
+  values:
+    - name: active
+      description: User exists in the directory and is synchronized with the application
+      initial: true
+    - name: deactivated
+      description: User record removed from the directory; account disabled in the application on next sync
+      terminal: false
+    - name: migrated
+      description: Non-LDAP user account switched to LDAP authentication
+  transitions:
+    - from: active
+      to: deactivated
+      actor: sync_job
+      description: Sync detects user is no longer present in the directory
+    - from: deactivated
+      to: active
+      actor: sync_job
+      description: User re-added to the directory; account reactivated on next sync
+rules:
+  rule_01: User passwords are never stored in the application; credentials are validated directly against the directory
+    server on every login.
+  rule_02: Failed login attempts are counted per user; exceeding the configured maximum triggers an account lockout.
+  rule_03: A distributed lock prevents concurrent authentication attempts for the same user, eliminating race conditions.
+  rule_04: On successful login, the failed attempt counter is reset to zero.
+  rule_05: User profile attributes (email, first name, last name, username) are synchronized from directory attributes on
+    every login and during background sync.
+  rule_06: When a user is removed from the directory, the background sync deactivates their application account.
+  rule_07: Group memberships in the directory are mapped to application group memberships during sync; group-constrained
+    workspaces enforce this.
+  rule_08: LDAP users can activate TOTP multi-factor authentication; after successful directory password validation, the
+    TOTP code is checked before a session is created.
+  rule_09: Non-LDAP accounts can be migrated to LDAP by providing valid directory credentials during a switch operation.
+  rule_10: Diagnostic tests can be run against the live directory configuration without saving changes.
+outcomes:
+  ldap_login_success:
+    priority: 10
+    given:
+      - LDAP authentication is enabled
+      - user provides valid directory username and password
+      - account is not locked due to excessive failed attempts
+      - MFA code is valid (if MFA is activated for this user)
+    then:
+      - action: set_field
+        target: user.failed_attempts
+        value: 0
+      - action: create_record
+        target: session
+        description: Session created with configured web/LDAP session length
+        type: session
+      - action: emit_event
+        event: auth.ldap_login_success
+        payload:
+          - user_id
+          - timestamp
+    result: User is authenticated and a session is established
+  ldap_login_invalid_credentials:
+    priority: 5
+    error: LDAP_INVALID_CREDENTIALS
+    given:
+      - user provides incorrect directory password
+    then:
+      - action: set_field
+        target: user.failed_attempts
+        description: Increment failed login attempt counter
+    result: Login rejected; attempt counter incremented
+  ldap_account_locked:
+    priority: 2
+    error: LDAP_ACCOUNT_LOCKED
+    given:
+      - failed login attempts equal or exceed max_login_attempts
+    then: []
+    result: Login blocked until administrator resets the attempt counter
+  ldap_server_unreachable:
+    priority: 3
+    error: LDAP_SERVER_UNAVAILABLE
+    given:
+      - LDAP server cannot be reached or connection refused
+    then: []
+    result: Login rejected with temporary error; no change to attempt counter
+  sync_completed:
+    priority: 10
+    given:
+      - background sync job triggers at configured interval
+      - directory is reachable
+    then:
+      - action: set_field
+        target: user_profiles
+        description: Profile attributes updated from directory attributes for all active LDAP users
+      - action: set_field
+        target: group_memberships
+        description: Application group memberships reconciled with directory group membership
+      - action: emit_event
+        event: auth.ldap_sync_completed
+        payload:
+          - users_synced
+          - groups_synced
+          - timestamp
+    result: User profiles and group memberships reflect current directory state
+  user_deactivated_by_sync:
+    priority: 8
+    given:
+      - sync job runs
+      - user exists in the application but is no longer present in the directory
+    then:
+      - action: set_field
+        target: user.delete_at
+        value: now
+      - action: invalidate
+        target: user_sessions
+        description: All active sessions for the deactivated user are revoked
+      - action: emit_event
+        event: auth.ldap_user_deactivated
+        payload:
+          - user_id
+          - timestamp
+    result: User account deactivated; existing sessions terminated
+errors:
+  - code: LDAP_INVALID_CREDENTIALS
+    message: Your username or password is incorrect.
+    status: 401
+  - code: LDAP_ACCOUNT_LOCKED
+    message: Your account has been locked due to too many failed login attempts.
+    status: 423
+  - code: LDAP_SERVER_UNAVAILABLE
+    message: Unable to reach the directory server. Please try again later.
+    status: 503
+  - code: LDAP_NOT_ENABLED
+    message: Directory authentication is not configured on this server.
+    status: 403
+  - code: LDAP_INVALID_FILTER
+    message: The directory search filter is invalid. Please contact your administrator.
+    status: 401
+  - code: LDAP_USER_NOT_FOUND
+    message: No matching account was found in the directory.
+    status: 404
+events:
+  - name: auth.ldap_login_success
+    description: User authenticated successfully via directory credentials
+    payload:
+      - user_id
+      - timestamp
+  - name: auth.ldap_login_failed
+    description: Directory authentication attempt failed
+    payload:
+      - reason
+      - attempt_count
+      - timestamp
+  - name: auth.ldap_sync_completed
+    description: Background directory synchronization completed
+    payload:
+      - users_synced
+      - users_deactivated
+      - groups_synced
+      - duration_ms
+      - timestamp
+  - name: auth.ldap_user_deactivated
+    description: User account deactivated because directory entry was removed
+    payload:
+      - user_id
+      - timestamp
+related:
+  - feature: multi-factor-authentication
+    type: recommended
+    reason: LDAP users can activate TOTP MFA; MFA check occurs after directory password validation
+  - feature: session-management
+    type: required
+    reason: Successful LDAP login creates a managed session
+  - feature: team-workspaces
+    type: optional
+    reason: Group-constrained workspaces use LDAP group sync to manage membership
+  - feature: saml-sso
+    type: optional
+    reason: SAML and LDAP can coexist; SAML may delegate attribute enrichment to LDAP
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_ldap_authentication_sync
+      description: Directory service authentication and periodic synchronization that validates credentials against an
+        LDAP/Active Directory server and keeps user profiles and group memberships current with the...
+      success_metrics:
+        - metric: unauthorized_access_rate
+          target: 0%
+          measurement: Failed authorization attempts that succeed
+        - metric: response_time_p95
+          target: < 500ms
+          measurement: 95th percentile response time
+      constraints:
+        - type: security
+          description: Follow OWASP security recommendations
+          negotiable: false
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before modifying sensitive data fields
+      - before transitioning to a terminal state
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+  safety:
+    action_permissions:
+      - action: ldap_login_success
+        permission: autonomous
+      - action: ldap_login_invalid_credentials
+        permission: autonomous
+      - action: ldap_account_locked
+        permission: autonomous
+      - action: ldap_server_unreachable
+        permission: autonomous
+      - action: sync_completed
+        permission: autonomous
+      - action: user_deactivated_by_sync
+        permission: autonomous
+  tradeoffs:
+    - prefer: security
+      over: performance
+      reason: authentication must prioritize preventing unauthorized access
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+      - state transitions follow the defined state machine — no illegal transitions
+  coordination:
+    protocol: orchestrated
+    consumes:
+      - capability: session_management
+        from: session-management
+        fallback: fail
+
+extensions:
+  source:
+    repo: https://github.com/mattermost/mattermost
+    project: Mattermost
+    tech_stack: Go (server), React + TypeScript (webapp)
+    files_traced: 6
+    entry_points:
+      - server/channels/app/authentication.go
+      - server/einterfaces/ldap.go
+      - server/public/model/ldap.go

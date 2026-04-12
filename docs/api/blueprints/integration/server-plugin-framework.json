@@ -1,0 +1,482 @@
+{
+  "feature": "server-plugin-framework",
+  "version": "1.0.0",
+  "description": "Isolated server-side extension system where plugins run as separate processes, communicate with the host via RPC, and react to application lifecycle events through a standardized hook interface.\n",
+  "category": "integration",
+  "tags": [
+    "plugins",
+    "extensions",
+    "hooks",
+    "rpc",
+    "isolation",
+    "server-side",
+    "extensibility"
+  ],
+  "actors": [
+    {
+      "id": "system_admin",
+      "name": "System Administrator",
+      "type": "human",
+      "description": "Installs, enables, disables, and configures plugins"
+    },
+    {
+      "id": "plugin_developer",
+      "name": "Plugin Developer",
+      "type": "human",
+      "description": "Authors the plugin binary and manifest"
+    },
+    {
+      "id": "plugin_process",
+      "name": "Plugin Process",
+      "type": "system",
+      "description": "Isolated child process hosting the plugin code"
+    }
+  ],
+  "fields": [
+    {
+      "name": "plugin_id",
+      "type": "text",
+      "required": true,
+      "label": "Globally unique plugin identifier in reverse-DNS notation (e",
+      "validation": [
+        {
+          "type": "pattern",
+          "value": "^[a-zA-Z0-9-_\\.]+$",
+          "message": "Invalid format"
+        },
+        {
+          "type": "minLength",
+          "value": 3,
+          "message": "Minimum 3 characters"
+        },
+        {
+          "type": "maxLength",
+          "value": 190,
+          "message": "Maximum 190 characters"
+        }
+      ]
+    },
+    {
+      "name": "version",
+      "type": "text",
+      "required": true,
+      "label": "Semantic version of the plugin (e"
+    },
+    {
+      "name": "min_server_version",
+      "type": "text",
+      "required": false,
+      "label": "Minimum server version required for this plugin to run"
+    },
+    {
+      "name": "executable_path",
+      "type": "text",
+      "required": true,
+      "label": "Path to the plugin binary within the plugin archive, relative to the plugin root"
+    },
+    {
+      "name": "webapp_bundle_path",
+      "type": "text",
+      "required": false,
+      "label": "Path to the client-side JavaScript bundle (optional; omit for server-only plugin"
+    },
+    {
+      "name": "settings_schema",
+      "type": "json",
+      "required": false,
+      "label": "JSON schema defining the plugin's configurable settings and their UI presentatio"
+    },
+    {
+      "name": "enabled",
+      "type": "boolean",
+      "required": true,
+      "label": "Whether the plugin is currently activated"
+    },
+    {
+      "name": "cluster_id",
+      "type": "text",
+      "required": false,
+      "label": "Cluster node where this plugin instance is running"
+    }
+  ],
+  "states": {
+    "field": "plugin_state",
+    "values": [
+      {
+        "name": "not_running",
+        "description": "Plugin installed but not active",
+        "initial": true
+      },
+      {
+        "name": "running",
+        "description": "Plugin process started and OnActivate hook completed successfully",
+        "terminal": false
+      },
+      {
+        "name": "failed_to_start",
+        "description": "Plugin process exited or OnActivate returned an error during activation",
+        "terminal": false
+      },
+      {
+        "name": "failed_to_stay_running",
+        "description": "Plugin was previously running but crashed or was terminated unexpectedly",
+        "terminal": false
+      }
+    ],
+    "transitions": [
+      {
+        "from": "not_running",
+        "to": "running",
+        "actor": "system",
+        "description": "Server enables plugin; process starts; OnConfigurationChange then OnActivate called in sequence"
+      },
+      {
+        "from": "running",
+        "to": "not_running",
+        "actor": "system_admin",
+        "description": "Administrator disables plugin; OnDeactivate called; process terminated"
+      },
+      {
+        "from": "not_running",
+        "to": "failed_to_start",
+        "actor": "system",
+        "description": "Plugin process fails to start or OnActivate returns an error"
+      },
+      {
+        "from": "running",
+        "to": "failed_to_stay_running",
+        "actor": "system",
+        "description": "Plugin process crashes after successful activation"
+      }
+    ]
+  },
+  "rules": {
+    "rule_01": "Plugins run in isolated child processes; a crashing plugin cannot affect the host server or other plugins.",
+    "rule_02": "The OnConfigurationChange hook is called once before OnActivate; plugins should not call the server API until OnActivate has been entered.",
+    "rule_03": "If OnActivate returns an error, the plugin transitions to failed_to_start and does not receive any further hooks.",
+    "rule_04": "Plugins with a webapp bundle are flagged as client-side capable; the server serves the bundle to the browser.",
+    "rule_05": "Plugin configuration changes are delivered via OnConfigurationChange; plugins must not cache configuration across calls.",
+    "rule_06": "Plugin ID must be unique across all installed plugins; installing a plugin with a conflicting ID replaces the existing version.",
+    "rule_07": "Cluster-aware installations run one plugin process per server node; the cluster_id field identifies which node hosts the instance.",
+    "rule_08": "Plugins can register additional slash commands, HTTP handlers, and WebSocket event listeners during activation.",
+    "rule_09": "Deactivation is the plugin's final opportunity to use the API; all resources must be released in OnDeactivate."
+  },
+  "outcomes": {
+    "plugin_installed": {
+      "priority": 10,
+      "given": [
+        "actor is system administrator",
+        "plugin archive is a valid bundle with manifest and executable",
+        "plugin_id is unique or replaces an existing version",
+        "min_server_version is satisfied by the current server version"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "plugin_installation",
+          "description": "Plugin files extracted to plugin directory; manifest validated and stored",
+          "type": "plugin"
+        },
+        {
+          "action": "emit_event",
+          "event": "plugin.installed",
+          "payload": [
+            "plugin_id",
+            "version",
+            "actor_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Plugin available for activation; state is not_running"
+    },
+    "plugin_activated": {
+      "priority": 10,
+      "given": [
+        "system admin enables the plugin",
+        "plugin is in not_running or failed state"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "plugin_process",
+          "description": "Child process spawned; RPC channel established; OnConfigurationChange then OnActivate called",
+          "type": "plugin"
+        },
+        {
+          "action": "emit_event",
+          "event": "plugin.activated",
+          "payload": [
+            "plugin_id",
+            "version",
+            "cluster_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Plugin running and receiving hooks"
+    },
+    "plugin_activation_failed": {
+      "priority": 5,
+      "error": "PLUGIN_ACTIVATION_FAILED",
+      "given": [
+        "plugin process cannot start or OnActivate returns non-nil error"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "plugin.state",
+          "value": "failed_to_start"
+        },
+        {
+          "action": "emit_event",
+          "event": "plugin.activation_failed",
+          "payload": [
+            "plugin_id",
+            "error_reason",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Plugin in failed_to_start state; administrator must investigate logs and retry"
+    },
+    "plugin_deactivated": {
+      "priority": 10,
+      "given": [
+        "system admin disables the plugin or server is shutting down"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "plugin.deactivating",
+          "payload": [
+            "plugin_id",
+            "timestamp"
+          ]
+        },
+        {
+          "action": "delete_record",
+          "target": "plugin_process",
+          "description": "OnDeactivate called; process terminated after return",
+          "type": "plugin"
+        },
+        {
+          "action": "emit_event",
+          "event": "plugin.deactivated",
+          "payload": [
+            "plugin_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Plugin process terminated; hooks no longer called"
+    },
+    "plugin_crashed": {
+      "priority": 5,
+      "given": [
+        "plugin process exits unexpectedly while in running state"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "plugin.state",
+          "value": "failed_to_stay_running"
+        },
+        {
+          "action": "emit_event",
+          "event": "plugin.crashed",
+          "payload": [
+            "plugin_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Plugin in failed_to_stay_running; server continues running; plugin can be restarted"
+    }
+  },
+  "errors": [
+    {
+      "code": "PLUGIN_ACTIVATION_FAILED",
+      "message": "The plugin could not be activated. Check server logs for details.",
+      "status": 500
+    },
+    {
+      "code": "PLUGIN_NOT_FOUND",
+      "message": "Plugin not found.",
+      "status": 404
+    },
+    {
+      "code": "PLUGIN_VERSION_INCOMPATIBLE",
+      "message": "This plugin requires a newer version of the server.",
+      "status": 400
+    },
+    {
+      "code": "PLUGIN_ID_CONFLICT",
+      "message": "A plugin with this ID is already installed.",
+      "status": 409
+    },
+    {
+      "code": "PLUGIN_INVALID_MANIFEST",
+      "message": "The plugin manifest is missing required fields or contains invalid values.",
+      "status": 400
+    }
+  ],
+  "events": [
+    {
+      "name": "plugin.installed",
+      "description": "Plugin archive uploaded and extracted",
+      "payload": [
+        "plugin_id",
+        "version",
+        "actor_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "plugin.activated",
+      "description": "Plugin process started and running",
+      "payload": [
+        "plugin_id",
+        "version",
+        "cluster_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "plugin.deactivated",
+      "description": "Plugin process gracefully stopped",
+      "payload": [
+        "plugin_id",
+        "actor_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "plugin.crashed",
+      "description": "Plugin process terminated unexpectedly",
+      "payload": [
+        "plugin_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "plugin.activation_failed",
+      "description": "Plugin failed to start or OnActivate returned an error",
+      "payload": [
+        "plugin_id",
+        "error_reason",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "plugin.configuration_changed",
+      "description": "Plugin settings were updated; OnConfigurationChange delivered to plugin",
+      "payload": [
+        "plugin_id",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "custom-slash-commands",
+      "type": "optional",
+      "reason": "Plugins can register slash commands in addition to custom commands created via the API"
+    },
+    {
+      "feature": "role-based-access-control",
+      "type": "required",
+      "reason": "Plugin installation and management requires system administrator permission"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_server_plugin_framework",
+        "description": "Isolated server-side extension system where plugins run as separate processes, communicate with the host via RPC, and react to application lifecycle events through a standardized hook interface.\n",
+        "success_metrics": [
+          {
+            "metric": "success_rate",
+            "target": ">= 99.5%",
+            "measurement": "Successful operations divided by total attempts"
+          },
+          {
+            "metric": "error_recovery_rate",
+            "target": ">= 95%",
+            "measurement": "Errors that auto-recover without manual intervention"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "availability",
+            "description": "Must degrade gracefully when dependencies are unavailable",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before transitioning to a terminal state"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "plugin_installed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "plugin_activated",
+          "permission": "autonomous"
+        },
+        {
+          "action": "plugin_activation_failed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "plugin_deactivated",
+          "permission": "autonomous"
+        },
+        {
+          "action": "plugin_crashed",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "reliability",
+        "over": "throughput",
+        "reason": "integration failures can cascade across systems"
+      }
+    ],
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "role_based_access_control",
+          "from": "role-based-access-control",
+          "fallback": "degrade"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/mattermost/mattermost",
+      "project": "Mattermost",
+      "tech_stack": "Go (server), React + TypeScript (webapp)",
+      "files_traced": 8,
+      "entry_points": [
+        "server/public/plugin/plugin.go",
+        "server/public/model/plugin_status.go",
+        "server/public/model/marketplace_plugin.go"
+      ]
+    }
+  }
+}
