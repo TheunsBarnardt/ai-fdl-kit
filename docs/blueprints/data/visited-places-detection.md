@@ -187,6 +187,66 @@ description: "Automatically clusters stationary GPS points into candidate visit 
 | trip-stay-timeline | recommended | Confirmed visits appear as stay entries in the timeline feed. |
 | geofence-places | optional | Named geofences provide semantic labels and radius constraints for visits. |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Visited Places Detection
+
+Automatically clusters stationary GPS points into candidate visit records, merges adjacent stays at the same location, and surfaces them for user confirmation or dismissal.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `location_history_storage` | location-history-storage | degrade |
+| `gps_position_history` | gps-position-history | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| smart_detection_triggered | `autonomous` | - | - |
+| no_qualifying_points | `autonomous` | - | - |
+| place_visit_scan_triggered | `autonomous` | - | - |
+| visit_confirmed | `autonomous` | - | - |
+| visit_declined | `autonomous` | - | - |
+| duplicate_prevented | `autonomous` | - | - |
+| detection_failed | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

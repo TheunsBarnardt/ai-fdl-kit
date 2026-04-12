@@ -195,6 +195,63 @@ description: "Interactive map rendering GPS history as points, connected routes 
 | visited-places-detection | recommended | Visit clusters can be rendered as an overlay on the same map. |
 | trip-stay-timeline | recommended | Timeline selection drives the map date range and highlighted segments. |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Location History Map Visualization
+
+Interactive map rendering GPS history as points, connected routes (optionally speed-coloured), and a density heatmap with layer toggles and point-position correction.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `location_history_storage` | location-history-storage | degrade |
+| `gps_position_history` | gps-position-history | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| map_loaded | `autonomous` | - | - |
+| layers_rendered | `autonomous` | - | - |
+| no_data_for_range | `autonomous` | - | - |
+| speed_coloured_routes | `autonomous` | - | - |
+| point_position_corrected | `autonomous` | - | - |
+| point_drag_failed | `autonomous` | - | - |
+| layer_toggled | `autonomous` | - | - |
+| data_load_failed | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -219,6 +219,65 @@ description: "Chronological feed of day-grouped journeys and place stays with si
 | gps-position-history | required | Provides track records (journeys) rendered as timeline entries. |
 | location-history-map-visualization | recommended | Companion map that syncs its viewport and highlights to timeline selections. |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Trip Stay Timeline
+
+Chronological feed of day-grouped journeys and place stays with single-expand accordion, companion map synchronisation, and hover highlighting.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `visited_places_detection` | visited-places-detection | degrade |
+| `gps_position_history` | gps-position-history | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| timeline_loaded | `autonomous` | - | - |
+| day_expanded | `autonomous` | - | - |
+| different_day_opened | `autonomous` | - | - |
+| day_collapsed | `autonomous` | - | - |
+| journey_detail_opened | `autonomous` | - | - |
+| journey_detail_closed | `autonomous` | - | - |
+| entry_hovered | `autonomous` | - | - |
+| entry_unhovered | `autonomous` | - | - |
+| trip_saved | `autonomous` | - | - |
+| trip_date_invalid | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
