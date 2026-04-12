@@ -1,0 +1,442 @@
+{
+  "feature": "registration-lock-pin",
+  "version": "1.0.0",
+  "description": "Account registration lock using a user-set PIN backed by a secure value recovery service, protecting re-registration after SIM theft or device loss",
+  "category": "auth",
+  "tags": [
+    "registration-lock",
+    "pin",
+    "secure-value-recovery",
+    "account-recovery",
+    "re-registration",
+    "credential-freeze"
+  ],
+  "fields": [
+    {
+      "name": "registration_lock_token",
+      "type": "password",
+      "required": false,
+      "label": "Registration Lock PIN Token",
+      "sensitive": true
+    },
+    {
+      "name": "svr_credentials",
+      "type": "json",
+      "required": false,
+      "label": "Secure Value Recovery Credentials",
+      "sensitive": true
+    },
+    {
+      "name": "time_remaining_ms",
+      "type": "number",
+      "required": false,
+      "label": "Lock Time Remaining (ms)"
+    },
+    {
+      "name": "lock_status",
+      "type": "select",
+      "required": false,
+      "label": "Registration Lock Status",
+      "options": [
+        {
+          "value": "ABSENT",
+          "label": "No lock configured"
+        },
+        {
+          "value": "REQUIRED",
+          "label": "Lock is active and must be verified"
+        },
+        {
+          "value": "EXPIRED",
+          "label": "Lock has expired due to account inactivity"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "lock_states": {
+      "absent_skips_check": true,
+      "expired_skips_check": true,
+      "required_enforces_pin": true
+    },
+    "pin_security": {
+      "rate_limited_per_phone_number": true,
+      "pin_never_stored_in_plaintext": true
+    },
+    "credential_freeze": {
+      "freeze_on_first_mismatch": true,
+      "timeout_begins_at_freeze": true,
+      "disconnect_all_devices_on_freeze": true,
+      "push_notification_on_freeze": true
+    },
+    "recovery_password_handling": {
+      "preserve_on_empty_token_plus_recovery_password_path": true,
+      "delete_on_all_other_mismatch_paths": true
+    },
+    "success_clearing": {
+      "clear_rate_limit_on_correct_pin": true
+    },
+    "svr_credentials": {
+      "returned_on_lock_failure": true
+    }
+  },
+  "outcomes": {
+    "lock_absent": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "lock_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "ABSENT",
+          "description": "Account has no registration lock configured"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "registration_lock.check_skipped",
+          "payload": [
+            "phone_number"
+          ]
+        }
+      ],
+      "result": "Registration proceeds without PIN check"
+    },
+    "lock_expired": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "lock_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "EXPIRED",
+          "description": "Account has not been active within the lock retention window"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "registration_lock.expired",
+          "payload": [
+            "phone_number"
+          ]
+        }
+      ],
+      "result": "Registration proceeds; expired lock is not enforced"
+    },
+    "pin_rate_limited": {
+      "priority": 3,
+      "error": "LOCK_PIN_RATE_LIMITED",
+      "given": [
+        {
+          "field": "lock_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "REQUIRED",
+          "description": "Account has an active registration lock"
+        },
+        {
+          "field": "registration_lock_token",
+          "source": "input",
+          "operator": "exists",
+          "description": "Client submitted a PIN token"
+        },
+        "rate limit for PIN attempts on this phone number is exhausted"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "registration_lock.pin_rate_limited",
+          "payload": [
+            "phone_number"
+          ]
+        }
+      ],
+      "result": "HTTP 429 — too many PIN attempts"
+    },
+    "pin_missing": {
+      "priority": 4,
+      "error": "LOCK_PIN_REQUIRED",
+      "given": [
+        {
+          "field": "lock_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "REQUIRED",
+          "description": "Account has an active registration lock"
+        },
+        {
+          "field": "registration_lock_token",
+          "source": "input",
+          "operator": "not_exists",
+          "description": "Client did not supply a PIN token"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "registration_lock.pin_required",
+          "payload": [
+            "phone_number",
+            "time_remaining_ms"
+          ]
+        }
+      ],
+      "result": "HTTP 423 with time_remaining_ms and secure value recovery credentials"
+    },
+    "pin_incorrect": {
+      "priority": 5,
+      "error": "LOCK_PIN_INCORRECT",
+      "transaction": true,
+      "given": [
+        {
+          "field": "lock_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "REQUIRED",
+          "description": "Account has an active registration lock"
+        },
+        {
+          "field": "registration_lock_token",
+          "source": "input",
+          "operator": "exists",
+          "description": "Client submitted a PIN token"
+        },
+        "submitted registration lock token does not match stored lock"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "account_credentials_status",
+          "value": "locked"
+        },
+        {
+          "action": "call_service",
+          "target": "disconnection_manager",
+          "description": "Terminate all active sessions for the account"
+        },
+        {
+          "action": "notify",
+          "channel": "push",
+          "message": "Attempt login notification sent to registered device to signal credential freeze"
+        },
+        {
+          "action": "emit_event",
+          "event": "registration_lock.pin_incorrect",
+          "payload": [
+            "phone_number",
+            "time_remaining_ms"
+          ]
+        }
+      ],
+      "result": "HTTP 423 with time_remaining_ms and secure value recovery credentials; device receives push notification"
+    },
+    "pin_correct": {
+      "priority": 6,
+      "given": [
+        {
+          "field": "lock_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "REQUIRED",
+          "description": "Account has an active registration lock"
+        },
+        {
+          "field": "registration_lock_token",
+          "source": "input",
+          "operator": "exists",
+          "description": "Client submitted a PIN token"
+        },
+        "submitted registration lock token matches stored lock"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "pin_rate_limit_counter",
+          "value": 0
+        },
+        {
+          "action": "emit_event",
+          "event": "registration_lock.pin_verified",
+          "payload": [
+            "phone_number"
+          ]
+        }
+      ],
+      "result": "Registration proceeds; PIN rate-limit counter cleared"
+    }
+  },
+  "errors": [
+    {
+      "code": "LOCK_PIN_REQUIRED",
+      "status": 423,
+      "message": "A registration lock PIN is required to re-register this number.",
+      "retry": true
+    },
+    {
+      "code": "LOCK_PIN_INCORRECT",
+      "status": 423,
+      "message": "Incorrect registration lock PIN. Your previous device has been notified.",
+      "retry": true
+    },
+    {
+      "code": "LOCK_PIN_RATE_LIMITED",
+      "status": 429,
+      "message": "Too many PIN attempts. Please wait before trying again.",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "registration_lock.pin_verified",
+      "description": "Correct PIN supplied; registration lock check passed",
+      "payload": [
+        "phone_number"
+      ]
+    },
+    {
+      "name": "registration_lock.pin_incorrect",
+      "description": "Incorrect PIN supplied; account credentials frozen and device notified",
+      "payload": [
+        "phone_number",
+        "time_remaining_ms"
+      ]
+    },
+    {
+      "name": "registration_lock.pin_required",
+      "description": "Lock is active but no PIN was provided",
+      "payload": [
+        "phone_number",
+        "time_remaining_ms"
+      ]
+    },
+    {
+      "name": "registration_lock.expired",
+      "description": "Lock exists but has expired due to account inactivity",
+      "payload": [
+        "phone_number"
+      ]
+    },
+    {
+      "name": "registration_lock.check_skipped",
+      "description": "No lock configured; check skipped",
+      "payload": [
+        "phone_number"
+      ]
+    },
+    {
+      "name": "registration_lock.pin_rate_limited",
+      "description": "PIN attempts rate-limited",
+      "payload": [
+        "phone_number"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "phone-number-registration",
+      "type": "required",
+      "reason": "Registration lock is enforced as a gate within the phone number registration flow"
+    },
+    {
+      "feature": "signal-prekey-bundle",
+      "type": "optional",
+      "reason": "After successful registration, pre-key bundles are required for messaging"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_registration_lock_pin",
+        "description": "Account registration lock using a user-set PIN backed by a secure value recovery service, protecting re-registration after SIM theft or device loss",
+        "success_metrics": [
+          {
+            "metric": "unauthorized_access_rate",
+            "target": "0%",
+            "measurement": "Failed authorization attempts that succeed"
+          },
+          {
+            "metric": "response_time_p95",
+            "target": "< 500ms",
+            "measurement": "95th percentile response time"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "security",
+            "description": "Follow OWASP security recommendations",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before modifying sensitive data fields"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5",
+        "consecutive_failures > 3"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "lock_absent",
+          "permission": "autonomous"
+        },
+        {
+          "action": "lock_expired",
+          "permission": "autonomous"
+        },
+        {
+          "action": "pin_rate_limited",
+          "permission": "autonomous"
+        },
+        {
+          "action": "pin_missing",
+          "permission": "autonomous"
+        },
+        {
+          "action": "pin_incorrect",
+          "permission": "autonomous"
+        },
+        {
+          "action": "pin_correct",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "security",
+        "over": "performance",
+        "reason": "authentication must prioritize preventing unauthorized access"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details"
+      ]
+    },
+    "coordination": {
+      "protocol": "request_response",
+      "consumes": [
+        {
+          "capability": "phone_number_registration",
+          "from": "phone-number-registration",
+          "fallback": "fail"
+        }
+      ]
+    }
+  }
+}

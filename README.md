@@ -8,7 +8,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/ai-fdl-kit"><img src="https://img.shields.io/npm/v/ai-fdl-kit.svg?color=cb3837&label=npm" alt="npm"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="MIT"></a>
-  <a href="blueprints/"><img src="https://img.shields.io/badge/blueprints-330-blue" alt="Blueprints"></a>
+  <a href="blueprints/"><img src="https://img.shields.io/badge/blueprints-381-blue" alt="Blueprints"></a>
   <a href="https://theunsbarnardt.github.io/ai-fdl-kit/using-with-other-ai/"><img src="https://img.shields.io/badge/AI_Tools-Claude_|_ChatGPT_|_Copilot_|_Cursor-purple.svg" alt="AI Tools"></a>
   <a href="https://theunsbarnardt.github.io/ai-fdl-kit/"><img src="https://img.shields.io/badge/docs-github_pages-green.svg" alt="Docs"></a>
 </p>

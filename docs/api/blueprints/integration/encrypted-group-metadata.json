@@ -1,0 +1,392 @@
+{
+  "feature": "encrypted-group-metadata",
+  "version": "1.0.0",
+  "description": "Server-blind encrypted group management where the server stores opaque ciphertext and issues zero-knowledge credentials for group membership and group-send authorization",
+  "category": "integration",
+  "tags": [
+    "encryption",
+    "zero-knowledge",
+    "groups",
+    "privacy",
+    "credentials",
+    "server-blind"
+  ],
+  "fields": [
+    {
+      "name": "group_auth_credential",
+      "type": "token",
+      "required": true,
+      "label": "Group Auth Credential",
+      "sensitive": true
+    },
+    {
+      "name": "call_link_auth_credential",
+      "type": "token",
+      "required": true,
+      "label": "Call Link Auth Credential",
+      "sensitive": true
+    },
+    {
+      "name": "redemption_time",
+      "type": "number",
+      "required": true,
+      "label": "Redemption Time"
+    },
+    {
+      "name": "redemption_start",
+      "type": "number",
+      "required": true,
+      "label": "Redemption Window Start"
+    },
+    {
+      "name": "redemption_end",
+      "type": "number",
+      "required": true,
+      "label": "Redemption Window End"
+    },
+    {
+      "name": "pni",
+      "type": "token",
+      "required": false,
+      "label": "Phone Number Identity",
+      "sensitive": true
+    },
+    {
+      "name": "group_send_token",
+      "type": "token",
+      "required": false,
+      "label": "Group Send Token",
+      "sensitive": true
+    }
+  ],
+  "rules": {
+    "server_blind": {
+      "note": "The messaging server never stores group membership lists, group titles, group avatars, or any group metadata in plaintext; all such data is held by a separate group-management service as opaque client-encrypted blobs"
+    },
+    "credential_issuance": {
+      "batch": true,
+      "max_window_days": 7,
+      "alignment": "day",
+      "min_start": "yesterday",
+      "max_end": "today_plus_8_days",
+      "note": "Group authentication credentials are issued in daily batches for a client-specified window up to 7 days; clients cache credentials locally and present the day-matched credential at redemption"
+    },
+    "identity_linking": {
+      "note": "Credentials incorporate both the ACI and PNI service identifiers so the group service can correlate identities for membership checks without the messaging server learning group structure"
+    },
+    "group_send": {
+      "verification": "zk_server_secret_params",
+      "expiry": "embedded_in_token",
+      "member_check": "all_recipients_must_be_in_token",
+      "exclusive_with": "unidentified_access_key",
+      "note": "Group send tokens allow senders to prove group membership without the server learning the group identity or sender membership"
+    },
+    "access_control": {
+      "authenticated_only": true,
+      "note": "Only authenticated accounts may request credential batches; credentials are bound to the requesting account's ACI"
+    }
+  },
+  "outcomes": {
+    "credential_batch_issued": {
+      "priority": 1,
+      "given": [
+        "Caller is authenticated",
+        {
+          "field": "redemption_start",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "redemption_end",
+          "source": "input",
+          "operator": "exists"
+        },
+        "redemption_start is day-aligned and not earlier than yesterday",
+        "redemption_end is day-aligned and not later than today plus 8 days",
+        "redemption_end is not earlier than redemption_start",
+        "redemption_end is within 7 days of redemption_start"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "group_credentials.issued",
+          "payload": [
+            "account_id",
+            "redemption_start",
+            "redemption_end",
+            "credential_count"
+          ]
+        }
+      ],
+      "result": "Array of daily group-auth credentials and call-link auth credentials returned, one entry per day in the range, along with the account PNI"
+    },
+    "invalid_redemption_range": {
+      "priority": 2,
+      "given": [
+        "Caller is authenticated",
+        {
+          "any": [
+            "redemption_start is before yesterday",
+            "redemption_end is after today plus 8 days",
+            "redemption_end is earlier than redemption_start",
+            "range between redemption_start and redemption_end exceeds 7 days",
+            "redemption_start or redemption_end is not day-aligned"
+          ]
+        }
+      ],
+      "then": [],
+      "result": "Request rejected with bad-request error",
+      "error": "GROUP_CRED_INVALID_RANGE"
+    },
+    "unauthenticated": {
+      "priority": 3,
+      "given": [
+        "Caller is not authenticated"
+      ],
+      "then": [],
+      "result": "Request rejected as unauthorized",
+      "error": "GROUP_CRED_UNAUTHORIZED"
+    },
+    "group_send_authorized": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "group_send_token",
+          "source": "request",
+          "operator": "exists"
+        },
+        "Token cryptographic verification passes against current server ZK parameters",
+        "Token has not expired",
+        "All target service identifiers are listed in the token member set"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "group_send.authorized",
+          "payload": [
+            "target_identifiers",
+            "token_expiry"
+          ]
+        }
+      ],
+      "result": "Request authorized for message delivery or profile retrieval to the listed recipients"
+    },
+    "group_send_token_invalid": {
+      "priority": 5,
+      "given": [
+        {
+          "field": "group_send_token",
+          "source": "request",
+          "operator": "exists"
+        },
+        {
+          "any": [
+            "Token cryptographic verification fails",
+            "Token has expired",
+            "A target service identifier is not listed in the token member set"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "group_send.rejected",
+          "payload": [
+            "reason"
+          ]
+        }
+      ],
+      "result": "Request rejected as unauthorized",
+      "error": "GROUP_SEND_TOKEN_INVALID"
+    },
+    "duplicate_auth_headers": {
+      "priority": 6,
+      "given": [
+        {
+          "field": "group_send_token",
+          "source": "request",
+          "operator": "exists"
+        },
+        "Unidentified-access key header is also present in the same request"
+      ],
+      "then": [],
+      "result": "Request rejected because both a group send token and unidentified-access key were supplied",
+      "error": "GROUP_CRED_DUPLICATE_AUTH"
+    }
+  },
+  "errors": [
+    {
+      "code": "GROUP_CRED_UNAUTHORIZED",
+      "status": 401,
+      "message": "Authentication required to request group credentials.",
+      "retry": false
+    },
+    {
+      "code": "GROUP_CRED_INVALID_RANGE",
+      "status": 400,
+      "message": "Invalid redemption time range. Range must be day-aligned, start at yesterday or later, and span at most 7 days.",
+      "retry": false
+    },
+    {
+      "code": "GROUP_SEND_TOKEN_INVALID",
+      "status": 401,
+      "message": "Group send token is invalid or has expired.",
+      "retry": false
+    },
+    {
+      "code": "GROUP_CRED_DUPLICATE_AUTH",
+      "status": 400,
+      "message": "Provide either a group send token or an unidentified-access key, not both.",
+      "retry": false
+    }
+  ],
+  "events": [
+    {
+      "name": "group_credentials.issued",
+      "description": "A batch of daily group authentication and call-link authentication credentials was issued for an account",
+      "payload": [
+        "account_id",
+        "redemption_start",
+        "redemption_end",
+        "credential_count"
+      ]
+    },
+    {
+      "name": "group_send.authorized",
+      "description": "A group send token was successfully verified, authorizing message delivery or profile access",
+      "payload": [
+        "target_identifiers",
+        "token_expiry"
+      ]
+    },
+    {
+      "name": "group_send.rejected",
+      "description": "A group send token failed cryptographic verification or has expired",
+      "payload": [
+        "reason"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "encrypted-profile-storage",
+      "type": "recommended",
+      "reason": "Group send tokens may authorize unversioned profile lookups for group members"
+    },
+    {
+      "feature": "login",
+      "type": "required",
+      "reason": "Credential batch issuance requires account authentication"
+    },
+    {
+      "feature": "e2e-key-exchange",
+      "type": "required",
+      "reason": "ZK credentials are derived from account identity keys managed by the key-exchange feature"
+    },
+    {
+      "feature": "group-call-signaling",
+      "type": "recommended",
+      "reason": "Call-link auth credentials issued in this batch are consumed by the group-call-signaling feature"
+    },
+    {
+      "feature": "device-management",
+      "type": "recommended",
+      "reason": "Credentials are bound to account identifiers; device sessions must be valid at issuance time"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_encrypted_group_metadata",
+        "description": "Server-blind encrypted group management where the server stores opaque ciphertext and issues zero-knowledge credentials for group membership and group-send authorization",
+        "success_metrics": [
+          {
+            "metric": "success_rate",
+            "target": ">= 99.5%",
+            "measurement": "Successful operations divided by total attempts"
+          },
+          {
+            "metric": "error_recovery_rate",
+            "target": ">= 95%",
+            "measurement": "Errors that auto-recover without manual intervention"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "availability",
+            "description": "Must degrade gracefully when dependencies are unavailable",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "credential_batch_issued",
+          "permission": "autonomous"
+        },
+        {
+          "action": "invalid_redemption_range",
+          "permission": "autonomous"
+        },
+        {
+          "action": "unauthenticated",
+          "permission": "autonomous"
+        },
+        {
+          "action": "group_send_authorized",
+          "permission": "autonomous"
+        },
+        {
+          "action": "group_send_token_invalid",
+          "permission": "autonomous"
+        },
+        {
+          "action": "duplicate_auth_headers",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "reliability",
+        "over": "throughput",
+        "reason": "integration failures can cascade across systems"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details"
+      ]
+    },
+    "coordination": {
+      "protocol": "request_response",
+      "consumes": [
+        {
+          "capability": "login",
+          "from": "login",
+          "fallback": "degrade"
+        },
+        {
+          "capability": "e2e_key_exchange",
+          "from": "e2e-key-exchange",
+          "fallback": "degrade"
+        }
+      ]
+    }
+  }
+}

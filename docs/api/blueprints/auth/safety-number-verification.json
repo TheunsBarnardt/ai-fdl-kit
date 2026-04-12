@@ -1,0 +1,365 @@
+{
+  "feature": "safety-number-verification",
+  "version": "1.0.0",
+  "description": "Contact identity verification via cryptographic fingerprints that detects when a contact's identity key has changed, alerting users to potential key-change events",
+  "category": "auth",
+  "tags": [
+    "identity",
+    "key-verification",
+    "fingerprint",
+    "trust",
+    "end-to-end-encryption",
+    "key-transparency"
+  ],
+  "fields": [
+    {
+      "name": "service_identifier",
+      "type": "text",
+      "required": true,
+      "label": "Service Identifier"
+    },
+    {
+      "name": "identity_key",
+      "type": "token",
+      "required": true,
+      "label": "Identity Key"
+    },
+    {
+      "name": "fingerprint",
+      "type": "token",
+      "required": true,
+      "label": "Identity Key Fingerprint"
+    },
+    {
+      "name": "identity_type",
+      "type": "select",
+      "required": true,
+      "label": "Identity Type"
+    },
+    {
+      "name": "sender_certificate",
+      "type": "token",
+      "required": false,
+      "label": "Sender Certificate"
+    }
+  ],
+  "rules": {
+    "identity_keys": [
+      "Each account holds one public identity key per identity type; these keys are set at registration and may change only when explicitly rotated by the user",
+      "The server must store and return the full 33-byte serialised identity key so that clients can compute the safety number independently",
+      "When an identity key changes the server must not silently reuse the old fingerprint; clients must re-verify after any key rotation",
+      "Signed pre-key signatures must be validated against the account's identity key when keys are uploaded or a new device is linked, preventing key substitution attacks"
+    ],
+    "fingerprint_checks": [
+      "Batch identity key checks accept up to 1000 entries per request; each entry carries a service identifier and a 4-byte fingerprint",
+      "The server computes the SHA-256 hash of each stored identity key, extracts the 4 most-significant bytes, and compares them to the client-supplied fingerprint using a constant-time comparison",
+      "Only entries where the fingerprint does not match are returned in the response; a match means the client's view is consistent with the server's view"
+    ],
+    "sender_certificates": [
+      "Sender certificates are short-lived (configurable expiry, typically 24 hours) and signed by a server-held private key; they embed the account UUID, device ID, and public identity key",
+      "Clients verify the sender certificate signature against the known server public key to confirm messages originate from the claimed sender",
+      "Key transparency proofs may supplement fingerprint checks by providing a publicly auditable, append-only log of identity key bindings"
+    ]
+  },
+  "outcomes": {
+    "fingerprint_match": {
+      "priority": 10,
+      "given": [
+        "batch identity check request contains at least one element",
+        "every submitted fingerprint matches the server-stored identity key fingerprint for that service identifier"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "identity.verified",
+          "payload": [
+            "service_identifier",
+            "identity_type"
+          ]
+        }
+      ],
+      "result": "HTTP 200 is returned with an empty elements array; the client's view is consistent with the server's view"
+    },
+    "fingerprint_mismatch": {
+      "priority": 5,
+      "given": [
+        "batch identity check request contains at least one element",
+        "at least one submitted fingerprint does not match the server-stored identity key for its service identifier"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "identity.key_mismatch",
+          "payload": [
+            "service_identifier",
+            "identity_key",
+            "identity_type"
+          ]
+        }
+      ],
+      "result": "HTTP 200 is returned; the response body contains only the mismatched entries with their current server-side identity keys so the client can detect key changes"
+    },
+    "identity_key_not_found": {
+      "priority": 4,
+      "given": [
+        "the service identifier in the request does not correspond to any registered account"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "identity.lookup_failed",
+          "payload": [
+            "service_identifier"
+          ]
+        }
+      ],
+      "result": "The entry is omitted from the mismatch response; clients treat absent entries as unknown contacts rather than mismatches"
+    },
+    "invalid_request": {
+      "priority": 2,
+      "given": [
+        {
+          "any": [
+            "request contains more than 1000 elements",
+            {
+              "field": "fingerprint",
+              "source": "input",
+              "operator": "not_exists"
+            },
+            "a service identifier field is malformed"
+          ]
+        }
+      ],
+      "then": [],
+      "result": "HTTP 422 is returned; client must correct the request before retrying",
+      "error": "IDENTITY_CHECK_INVALID_REQUEST"
+    },
+    "sender_certificate_issued": {
+      "priority": 10,
+      "given": [
+        "authenticated device requests a sender certificate",
+        "device has a valid registered identity key"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "sender_certificate",
+          "target": "sender_certificate_cache",
+          "fields": [
+            "service_identifier",
+            "identity_key",
+            "device_id",
+            "expires_at"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "identity.certificate_issued",
+          "payload": [
+            "service_identifier",
+            "device_id",
+            "expires_at"
+          ]
+        }
+      ],
+      "result": "A signed certificate binding the account UUID, device ID, and identity key is returned; the certificate is valid for the configured TTL"
+    },
+    "signed_prekey_invalid": {
+      "priority": 3,
+      "given": [
+        "a signed pre-key or last-resort key is uploaded",
+        "the signature on the key does not verify against the account's stored identity key"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "identity.prekey_validation_failed",
+          "payload": [
+            "service_identifier",
+            "device_id"
+          ]
+        }
+      ],
+      "result": "HTTP 422 is returned; the key upload is rejected to prevent key substitution",
+      "error": "IDENTITY_PREKEY_INVALID_SIGNATURE"
+    }
+  },
+  "errors": [
+    {
+      "code": "IDENTITY_CHECK_INVALID_REQUEST",
+      "status": 422,
+      "message": "Identity check request is malformed; check fingerprint sizes and identifier formats",
+      "retry": false
+    },
+    {
+      "code": "IDENTITY_PREKEY_INVALID_SIGNATURE",
+      "status": 422,
+      "message": "Pre-key signature does not match the account identity key",
+      "retry": false
+    }
+  ],
+  "events": [
+    {
+      "name": "identity.verified",
+      "description": "A batch identity check confirmed all submitted fingerprints match the server-stored keys",
+      "payload": [
+        "service_identifier",
+        "identity_type"
+      ]
+    },
+    {
+      "name": "identity.key_mismatch",
+      "description": "At least one submitted fingerprint did not match the stored identity key, indicating a possible key change",
+      "payload": [
+        "service_identifier",
+        "identity_key",
+        "identity_type"
+      ]
+    },
+    {
+      "name": "identity.lookup_failed",
+      "description": "The requested service identifier was not found in the account store during a batch identity check",
+      "payload": [
+        "service_identifier"
+      ]
+    },
+    {
+      "name": "identity.certificate_issued",
+      "description": "A short-lived sender certificate was issued to an authenticated device",
+      "payload": [
+        "service_identifier",
+        "device_id",
+        "expires_at"
+      ]
+    },
+    {
+      "name": "identity.prekey_validation_failed",
+      "description": "A signed pre-key upload was rejected because its signature was invalid",
+      "payload": [
+        "service_identifier",
+        "device_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "e2e-key-exchange",
+      "type": "required",
+      "reason": "Identity keys established during key exchange are the source of truth that safety number verification checks"
+    },
+    {
+      "feature": "phone-number-registration",
+      "type": "required",
+      "reason": "Identity keys are created and stored at registration; the registered account must exist for verification to operate"
+    },
+    {
+      "feature": "sealed-sender-delivery",
+      "type": "recommended",
+      "reason": "Sender certificates produced by this feature are embedded in sealed-sender messages so recipients can verify sender identity"
+    },
+    {
+      "feature": "multi-device-linking",
+      "type": "recommended",
+      "reason": "Each linked device registers its own pre-keys but shares the account identity key; key verification spans all devices on the account"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_safety_number_verification",
+        "description": "Contact identity verification via cryptographic fingerprints that detects when a contact's identity key has changed, alerting users to potential key-change events",
+        "success_metrics": [
+          {
+            "metric": "unauthorized_access_rate",
+            "target": "0%",
+            "measurement": "Failed authorization attempts that succeed"
+          },
+          {
+            "metric": "response_time_p95",
+            "target": "< 500ms",
+            "measurement": "95th percentile response time"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "security",
+            "description": "Follow OWASP security recommendations",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before modifying sensitive data fields"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5",
+        "consecutive_failures > 3"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "fingerprint_match",
+          "permission": "autonomous"
+        },
+        {
+          "action": "fingerprint_mismatch",
+          "permission": "autonomous"
+        },
+        {
+          "action": "identity_key_not_found",
+          "permission": "autonomous"
+        },
+        {
+          "action": "invalid_request",
+          "permission": "autonomous"
+        },
+        {
+          "action": "sender_certificate_issued",
+          "permission": "autonomous"
+        },
+        {
+          "action": "signed_prekey_invalid",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "security",
+        "over": "performance",
+        "reason": "authentication must prioritize preventing unauthorized access"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details"
+      ]
+    },
+    "coordination": {
+      "protocol": "request_response",
+      "consumes": [
+        {
+          "capability": "e2e_key_exchange",
+          "from": "e2e-key-exchange",
+          "fallback": "fail"
+        },
+        {
+          "capability": "phone_number_registration",
+          "from": "phone-number-registration",
+          "fallback": "fail"
+        }
+      ]
+    }
+  }
+}

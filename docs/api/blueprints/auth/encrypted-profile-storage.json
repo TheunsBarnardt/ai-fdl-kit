@@ -1,0 +1,641 @@
+{
+  "feature": "encrypted-profile-storage",
+  "version": "1.0.0",
+  "description": "Versioned, client-encrypted profile storage with avatar upload credential issuance and zero-knowledge profile key credential system",
+  "category": "auth",
+  "tags": [
+    "encryption",
+    "profile",
+    "zero-knowledge",
+    "avatar",
+    "versioning",
+    "privacy"
+  ],
+  "fields": [
+    {
+      "name": "profile_version",
+      "type": "text",
+      "required": true,
+      "label": "Profile Version"
+    },
+    {
+      "name": "commitment",
+      "type": "token",
+      "required": true,
+      "label": "Profile Key Commitment",
+      "sensitive": true
+    },
+    {
+      "name": "name",
+      "type": "token",
+      "required": false,
+      "label": "Encrypted Name",
+      "sensitive": true
+    },
+    {
+      "name": "about",
+      "type": "token",
+      "required": false,
+      "label": "Encrypted About",
+      "sensitive": true
+    },
+    {
+      "name": "about_emoji",
+      "type": "token",
+      "required": false,
+      "label": "Encrypted About Emoji",
+      "sensitive": true
+    },
+    {
+      "name": "payment_address",
+      "type": "token",
+      "required": false,
+      "label": "Encrypted Payment Address",
+      "sensitive": true
+    },
+    {
+      "name": "phone_number_sharing",
+      "type": "token",
+      "required": false,
+      "label": "Encrypted Phone Number Sharing",
+      "sensitive": true
+    },
+    {
+      "name": "has_avatar",
+      "type": "boolean",
+      "required": false,
+      "label": "Has Avatar",
+      "default": false
+    },
+    {
+      "name": "same_avatar",
+      "type": "boolean",
+      "required": false,
+      "label": "Same Avatar",
+      "default": false
+    },
+    {
+      "name": "credential_request",
+      "type": "token",
+      "required": false,
+      "label": "Credential Request",
+      "sensitive": true
+    },
+    {
+      "name": "credential_type",
+      "type": "select",
+      "required": false,
+      "label": "Credential Type"
+    }
+  ],
+  "rules": {
+    "encryption": {
+      "client_side_only": true,
+      "note": "All profile field values (name, about, about_emoji, payment_address, phone_number_sharing) are encrypted on the client before upload; the server stores opaque ciphertext and never accesses plaintext",
+      "padding_required": true,
+      "padding_purpose": "Fixed-size padding prevents traffic-analysis leakage of plaintext length"
+    },
+    "versioning": {
+      "key": "account_identifier_plus_version",
+      "multi_version": true,
+      "note": "Each profile version is keyed by both the account identifier and the version string; multiple versions may coexist per account",
+      "commitment_immutable": true,
+      "commitment_note": "The profile key commitment is written once per version using a conditional update; it cannot be overwritten after creation"
+    },
+    "payment_address": {
+      "scope": "current_version_only",
+      "note": "Payment addresses are only returned when the requested version matches the account's current profile version",
+      "region_blocking": "configurable",
+      "region_note": "Payment addresses are blocked for phone-number prefixes on a configurable disallowed-regions list, unless a payment address was already set"
+    },
+    "avatar": {
+      "max_size_bytes": 10485760,
+      "storage": "object_storage_profiles_prefix",
+      "upload": "presigned_post_policy",
+      "note": "Avatar uploads require pre-signed form credentials; the server generates an object name from random bytes and signs a timed upload form",
+      "cleanup": "Previous avatar is deleted when an account sets a new avatar"
+    },
+    "access_control": {
+      "methods": [
+        "authenticated",
+        "unidentified_access_key",
+        "group_send_token"
+      ],
+      "note": "Profile retrieval requires authenticated access, a valid unidentified-access key, or a group send token (unversioned endpoint only)",
+      "rate_limiting": "per_authenticated_account"
+    },
+    "credentials": {
+      "type": "expiring_profile_key",
+      "validity_days": 7,
+      "note": "ZK expiring profile key credentials are valid for 7 days from issuance"
+    },
+    "deletion": {
+      "on_account_delete": "all_versions_deleted",
+      "avatar_on_explicit_delete": "deleted",
+      "avatar_on_reimplicit_register": "preserved_for_pin_recovery"
+    }
+  },
+  "outcomes": {
+    "rate_limited": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "requester_uuid",
+          "source": "session",
+          "operator": "exists",
+          "description": "Caller is authenticated"
+        },
+        "Profile read rate limit is exceeded for this account"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "profile.rate_limited",
+          "payload": [
+            "requester_uuid"
+          ]
+        }
+      ],
+      "result": "Request rejected with rate-limit error",
+      "error": "PROFILE_RATE_LIMITED"
+    },
+    "unauthorized_access": {
+      "priority": 2,
+      "given": [
+        "Caller provides neither valid authentication nor a valid unidentified-access key nor a valid group send token"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "profile.access_denied",
+          "payload": []
+        }
+      ],
+      "result": "Request rejected as unauthorized",
+      "error": "PROFILE_UNAUTHORIZED"
+    },
+    "payment_address_region_blocked": {
+      "priority": 3,
+      "given": [
+        "Caller is authenticated and is updating their own profile",
+        {
+          "field": "payment_address",
+          "source": "input",
+          "operator": "exists",
+          "description": "Request includes a payment address"
+        },
+        "Account phone number matches a blocked-region prefix and no payment address exists yet for this version"
+      ],
+      "then": [],
+      "result": "Profile update rejected because payment addresses are not supported in this region",
+      "error": "PROFILE_PAYMENT_ADDRESS_REGION_BLOCKED"
+    },
+    "profile_set_new_avatar": {
+      "priority": 4,
+      "given": [
+        "Caller is authenticated",
+        {
+          "field": "commitment",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "has_avatar",
+          "source": "input",
+          "operator": "eq",
+          "value": true
+        },
+        {
+          "field": "same_avatar",
+          "source": "input",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "versioned_profile",
+          "description": "Persist encrypted profile fields and new avatar path"
+        },
+        {
+          "action": "delete_record",
+          "type": "previous_avatar_object",
+          "description": "Remove old avatar from object storage"
+        },
+        {
+          "action": "set_field",
+          "target": "current_profile_version",
+          "value": "profile_version"
+        },
+        {
+          "action": "emit_event",
+          "event": "profile.updated",
+          "payload": [
+            "account_id",
+            "profile_version",
+            "avatar_changed"
+          ]
+        }
+      ],
+      "result": "Profile stored; response contains pre-signed avatar upload form credentials"
+    },
+    "profile_set_clear_avatar": {
+      "priority": 5,
+      "given": [
+        "Caller is authenticated",
+        {
+          "field": "commitment",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "has_avatar",
+          "source": "input",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "versioned_profile",
+          "description": "Persist encrypted profile fields without avatar"
+        },
+        {
+          "action": "delete_record",
+          "type": "previous_avatar_object",
+          "description": "Remove old avatar from object storage"
+        },
+        {
+          "action": "set_field",
+          "target": "current_profile_version",
+          "value": "profile_version"
+        },
+        {
+          "action": "emit_event",
+          "event": "profile.updated",
+          "payload": [
+            "account_id",
+            "profile_version",
+            "avatar_cleared"
+          ]
+        }
+      ],
+      "result": "Profile stored with no avatar; empty 200 response"
+    },
+    "profile_set_unchanged_avatar": {
+      "priority": 6,
+      "given": [
+        "Caller is authenticated",
+        {
+          "field": "commitment",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "same_avatar",
+          "source": "input",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "versioned_profile",
+          "description": "Persist encrypted profile fields reusing existing avatar path"
+        },
+        {
+          "action": "set_field",
+          "target": "current_profile_version",
+          "value": "profile_version"
+        },
+        {
+          "action": "emit_event",
+          "event": "profile.updated",
+          "payload": [
+            "account_id",
+            "profile_version"
+          ]
+        }
+      ],
+      "result": "Profile stored; existing avatar object reused; empty 200 response"
+    },
+    "versioned_profile_retrieved": {
+      "priority": 7,
+      "given": [
+        "Caller provides valid authentication or unidentified-access key",
+        {
+          "field": "profile_version",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "profile.accessed",
+          "payload": [
+            "target_account_id",
+            "profile_version",
+            "requester_type"
+          ]
+        }
+      ],
+      "result": "Encrypted profile fields returned (name, about, about_emoji, avatar path, payment_address, phone_number_sharing); fields absent if version not found"
+    },
+    "profile_key_credential_issued": {
+      "priority": 8,
+      "given": [
+        "Caller provides valid authentication or unidentified-access key",
+        {
+          "field": "credential_request",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "credential_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "expiringProfileKey"
+        },
+        "Profile version exists in storage"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "profile.credential_issued",
+          "payload": [
+            "target_account_id",
+            "profile_version",
+            "expiry"
+          ]
+        }
+      ],
+      "result": "Versioned profile fields returned alongside an expiring ZK profile key credential valid for 7 days"
+    },
+    "batch_identity_check_mismatch": {
+      "priority": 9,
+      "given": [
+        "Unauthenticated batch identity check request submitted",
+        "At least one element 4-byte SHA-256 fingerprint does not match the stored identity key"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "profile.identity_mismatch",
+          "payload": [
+            "mismatched_identifiers"
+          ]
+        }
+      ],
+      "result": "Response contains only the elements whose fingerprints differ from stored identity keys"
+    }
+  },
+  "errors": [
+    {
+      "code": "PROFILE_RATE_LIMITED",
+      "status": 429,
+      "message": "Too many profile requests. Please wait before trying again.",
+      "retry": true
+    },
+    {
+      "code": "PROFILE_UNAUTHORIZED",
+      "status": 401,
+      "message": "Not authorized to access this profile.",
+      "retry": false
+    },
+    {
+      "code": "PROFILE_NOT_FOUND",
+      "status": 404,
+      "message": "The requested profile or account was not found.",
+      "retry": false
+    },
+    {
+      "code": "PROFILE_INVALID_REQUEST",
+      "status": 400,
+      "message": "Invalid profile request. Check field sizes and formats.",
+      "retry": false
+    },
+    {
+      "code": "PROFILE_PAYMENT_ADDRESS_REGION_BLOCKED",
+      "status": 403,
+      "message": "Payment addresses are not supported in your region.",
+      "retry": false
+    },
+    {
+      "code": "PROFILE_INVALID_CREDENTIAL_TYPE",
+      "status": 400,
+      "message": "Unsupported credential type requested.",
+      "retry": false
+    },
+    {
+      "code": "PROFILE_INVALID_CREDENTIAL_REQUEST",
+      "status": 400,
+      "message": "The credential request is invalid or does not match the stored commitment.",
+      "retry": false
+    }
+  ],
+  "events": [
+    {
+      "name": "profile.updated",
+      "description": "A versioned profile was created or replaced by its owner",
+      "payload": [
+        "account_id",
+        "profile_version",
+        "avatar_changed"
+      ]
+    },
+    {
+      "name": "profile.accessed",
+      "description": "A profile version was retrieved by a requester",
+      "payload": [
+        "target_account_id",
+        "profile_version",
+        "requester_type"
+      ]
+    },
+    {
+      "name": "profile.credential_issued",
+      "description": "An expiring ZK profile key credential was issued for a profile version",
+      "payload": [
+        "target_account_id",
+        "profile_version",
+        "expiry"
+      ]
+    },
+    {
+      "name": "profile.rate_limited",
+      "description": "A profile read request was rejected due to rate limiting",
+      "payload": [
+        "requester_uuid"
+      ]
+    },
+    {
+      "name": "profile.access_denied",
+      "description": "A profile read was denied due to missing or invalid credentials",
+      "payload": [
+        "target_account_id"
+      ]
+    },
+    {
+      "name": "profile.identity_mismatch",
+      "description": "One or more accounts returned mismatched identity key fingerprints in a batch check",
+      "payload": [
+        "mismatched_identifiers"
+      ]
+    },
+    {
+      "name": "profile.deleted",
+      "description": "All versioned profiles for an account were deleted on account deletion or re-registration",
+      "payload": [
+        "account_id",
+        "avatars_deleted"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "e2e-key-exchange",
+      "type": "required",
+      "reason": "Profile key commitment is derived from the user's end-to-end encryption key material"
+    },
+    {
+      "feature": "device-management",
+      "type": "required",
+      "reason": "Authenticated profile updates require a valid device session"
+    },
+    {
+      "feature": "login",
+      "type": "required",
+      "reason": "Authenticated profile read/write endpoints require account authentication"
+    },
+    {
+      "feature": "encrypted-group-metadata",
+      "type": "recommended",
+      "reason": "Group send tokens can gate unversioned profile retrieval for group members"
+    },
+    {
+      "feature": "multi-device-sync",
+      "type": "recommended",
+      "reason": "Profile version changes should be synced across all devices belonging to the account"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_encrypted_profile_storage",
+        "description": "Versioned, client-encrypted profile storage with avatar upload credential issuance and zero-knowledge profile key credential system",
+        "success_metrics": [
+          {
+            "metric": "unauthorized_access_rate",
+            "target": "0%",
+            "measurement": "Failed authorization attempts that succeed"
+          },
+          {
+            "metric": "response_time_p95",
+            "target": "< 500ms",
+            "measurement": "95th percentile response time"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "security",
+            "description": "Follow OWASP security recommendations",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before modifying sensitive data fields"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5",
+        "consecutive_failures > 3"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "rate_limited",
+          "permission": "autonomous"
+        },
+        {
+          "action": "unauthorized_access",
+          "permission": "autonomous"
+        },
+        {
+          "action": "payment_address_region_blocked",
+          "permission": "human_required"
+        },
+        {
+          "action": "profile_set_new_avatar",
+          "permission": "autonomous"
+        },
+        {
+          "action": "profile_set_clear_avatar",
+          "permission": "autonomous"
+        },
+        {
+          "action": "profile_set_unchanged_avatar",
+          "permission": "supervised"
+        },
+        {
+          "action": "versioned_profile_retrieved",
+          "permission": "autonomous"
+        },
+        {
+          "action": "profile_key_credential_issued",
+          "permission": "autonomous"
+        },
+        {
+          "action": "batch_identity_check_mismatch",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "security",
+        "over": "performance",
+        "reason": "authentication must prioritize preventing unauthorized access"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details"
+      ]
+    },
+    "coordination": {
+      "protocol": "request_response",
+      "consumes": [
+        {
+          "capability": "e2e_key_exchange",
+          "from": "e2e-key-exchange",
+          "fallback": "fail"
+        },
+        {
+          "capability": "device_management",
+          "from": "device-management",
+          "fallback": "fail"
+        },
+        {
+          "capability": "login",
+          "from": "login",
+          "fallback": "fail"
+        }
+      ]
+    }
+  }
+}

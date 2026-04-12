@@ -1,0 +1,320 @@
+{
+  "feature": "encrypted-attachment-storage",
+  "version": "1.0.0",
+  "description": "Issue signed upload descriptors so authenticated clients can upload client-side encrypted attachments directly to cloud object storage, with server-enforced size limits and dual rate limiting",
+  "category": "data",
+  "tags": [
+    "attachments",
+    "encryption",
+    "upload",
+    "resumable",
+    "cloud-storage",
+    "signed-url",
+    "e2ee"
+  ],
+  "fields": [
+    {
+      "name": "upload_length",
+      "type": "number",
+      "required": false,
+      "label": "Upload Length (bytes)",
+      "validation": [
+        {
+          "type": "min",
+          "value": 1,
+          "message": "Upload length must be at least 1 byte"
+        }
+      ]
+    },
+    {
+      "name": "cdn_number",
+      "type": "number",
+      "required": false,
+      "label": "CDN Number"
+    },
+    {
+      "name": "attachment_key",
+      "type": "token",
+      "required": false,
+      "label": "Attachment Key"
+    },
+    {
+      "name": "signed_upload_location",
+      "type": "url",
+      "required": false,
+      "label": "Signed Upload Location"
+    },
+    {
+      "name": "upload_headers",
+      "type": "json",
+      "required": false,
+      "label": "Upload Headers"
+    },
+    {
+      "name": "max_upload_bytes",
+      "type": "number",
+      "required": false,
+      "label": "Maximum Upload Size (bytes)"
+    }
+  ],
+  "rules": {
+    "authentication": {
+      "require_active_session": true
+    },
+    "privacy": {
+      "server_never_receives_plaintext": true,
+      "client_must_encrypt_before_upload": true
+    },
+    "size_limits": {
+      "reject_before_rate_limiting": true
+    },
+    "rate_limiting": {
+      "upload_count_limiter": "per_account",
+      "byte_quota_limiter": "per_account",
+      "restore_count_permit_on_byte_failure": true
+    },
+    "upload_protocol": {
+      "selection": "server_side_experiment_enrollment",
+      "key_generation": "cryptographically_secure_random"
+    }
+  },
+  "outcomes": {
+    "descriptor_issued": {
+      "priority": 10,
+      "given": [
+        {
+          "field": "account_identifier",
+          "source": "session",
+          "operator": "exists",
+          "description": "Caller holds a valid authenticated session"
+        },
+        {
+          "field": "upload_length",
+          "source": "input",
+          "operator": "lte",
+          "value": "max_upload_bytes",
+          "description": "Requested size is within the server maximum (or omitted)"
+        },
+        "per-account upload count rate limiter has available permits",
+        "per-account byte quota rate limiter has available permits when upload_length is provided"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "attachment_descriptor",
+          "target": "descriptor",
+          "description": "Generate a random attachment key, select the storage backend, produce signed upload headers and location URL"
+        },
+        {
+          "action": "emit_event",
+          "event": "attachment.descriptor_issued",
+          "payload": [
+            "account_identifier",
+            "cdn_number",
+            "attachment_key",
+            "upload_length"
+          ]
+        }
+      ],
+      "result": "Returns a JSON object with cdn number, attachment key, upload headers, and a pre-signed upload URL; client uploads encrypted bytes directly to the returned location"
+    },
+    "unauthenticated": {
+      "priority": 1,
+      "error": "ATTACHMENT_UNAUTHENTICATED",
+      "given": [
+        {
+          "field": "account_identifier",
+          "source": "session",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [],
+      "result": "Request rejected with 401 Unauthorized"
+    },
+    "upload_too_large": {
+      "priority": 2,
+      "error": "ATTACHMENT_TOO_LARGE",
+      "given": [
+        {
+          "field": "upload_length",
+          "source": "input",
+          "operator": "gt",
+          "value": "max_upload_bytes",
+          "description": "Requested size exceeds the server-configured maximum"
+        }
+      ],
+      "then": [],
+      "result": "Request rejected with 413 Request Entity Too Large"
+    },
+    "rate_limited": {
+      "priority": 3,
+      "error": "ATTACHMENT_RATE_LIMITED",
+      "given": [
+        "per-account upload count or byte quota rate limiter is exhausted"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "attachment.rate_limited",
+          "payload": [
+            "account_identifier"
+          ]
+        }
+      ],
+      "result": "Request rejected with 429 Too Many Requests and Retry-After header"
+    }
+  },
+  "errors": [
+    {
+      "code": "ATTACHMENT_UNAUTHENTICATED",
+      "status": 401,
+      "message": "Authentication required to upload attachments.",
+      "retry": false
+    },
+    {
+      "code": "ATTACHMENT_TOO_LARGE",
+      "status": 413,
+      "message": "Attachment exceeds the maximum allowed size.",
+      "retry": false
+    },
+    {
+      "code": "ATTACHMENT_RATE_LIMITED",
+      "status": 429,
+      "message": "Too many attachment uploads. Please wait before trying again.",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "attachment.descriptor_issued",
+      "description": "A signed upload descriptor was successfully issued to an authenticated client",
+      "payload": [
+        "account_identifier",
+        "cdn_number",
+        "attachment_key",
+        "upload_length"
+      ]
+    },
+    {
+      "name": "attachment.rate_limited",
+      "description": "An attachment upload descriptor request was rejected due to rate limiting",
+      "payload": [
+        "account_identifier"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "login",
+      "type": "required",
+      "reason": "User must hold a valid authenticated session before requesting an upload descriptor"
+    },
+    {
+      "feature": "rate-limiting-abuse-prevention",
+      "type": "required",
+      "reason": "Both upload count and byte quota are enforced through leaky-bucket rate limiters"
+    },
+    {
+      "feature": "cloud-storage",
+      "type": "required",
+      "reason": "Attachment bytes are stored in and retrieved from cloud object storage via the issued signed URL"
+    },
+    {
+      "feature": "e2e-key-exchange",
+      "type": "recommended",
+      "reason": "Attachment encryption keys are typically exchanged via the end-to-end key infrastructure before upload"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_encrypted_attachment_storage",
+        "description": "Issue signed upload descriptors so authenticated clients can upload client-side encrypted attachments directly to cloud object storage, with server-enforced size limits and dual rate limiting",
+        "success_metrics": [
+          {
+            "metric": "data_accuracy",
+            "target": "100%",
+            "measurement": "Records matching source of truth"
+          },
+          {
+            "metric": "duplicate_rate",
+            "target": "0%",
+            "measurement": "Duplicate records detected post-creation"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "performance",
+            "description": "Data consistency must be maintained across concurrent operations",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "descriptor_issued",
+          "permission": "autonomous"
+        },
+        {
+          "action": "unauthenticated",
+          "permission": "autonomous"
+        },
+        {
+          "action": "upload_too_large",
+          "permission": "autonomous"
+        },
+        {
+          "action": "rate_limited",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "data_integrity",
+        "over": "performance",
+        "reason": "data consistency must be maintained across all operations"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details"
+      ]
+    },
+    "coordination": {
+      "protocol": "request_response",
+      "consumes": [
+        {
+          "capability": "login",
+          "from": "login",
+          "fallback": "degrade"
+        },
+        {
+          "capability": "rate_limiting_abuse_prevention",
+          "from": "rate-limiting-abuse-prevention",
+          "fallback": "degrade"
+        },
+        {
+          "capability": "cloud_storage",
+          "from": "cloud-storage",
+          "fallback": "degrade"
+        }
+      ]
+    }
+  }
+}

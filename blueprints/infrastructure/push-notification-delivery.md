@@ -1,0 +1,93 @@
+<!-- AUTO-GENERATED FROM push-notification-delivery.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Push Notification Delivery
+
+> Route urgent and background notifications to mobile devices via the correct platform push service, with token expiry cleanup, scheduled background delivery, and challenge notification support
+
+**Category:** Infrastructure · **Version:** 1.0.0 · **Tags:** push-notification · mobile · android · ios · background-delivery · device-token · challenge
+
+## What this does
+
+Route urgent and background notifications to mobile devices via the correct platform push service, with token expiry cleanup, scheduled background delivery, and challenge notification support
+
+Specifies 6 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **device_token** *(token, required)* — Device Push Token
+- **token_type** *(select, required)* — Token Type
+- **notification_type** *(select, required)* — Notification Type
+- **urgent** *(boolean, required)* — Urgent
+- **notification_data** *(text, optional)* — Notification Data
+- **account_identifier** *(token, optional)* — Account Identifier
+- **device_identifier** *(token, optional)* — Device Identifier
+- **background_notification_period_minutes** *(number, optional)* — Background Notification Period (minutes)
+
+## What must be true
+
+- **routing → platform_selection:** based_on_registered_token_type
+- **routing → fallback:** none
+- **delivery_priority → urgent_true:** immediate_high_priority
+- **delivery_priority → urgent_false:** scheduled_background_delivery
+- **payload_format → new_message_ios_urgent:** mutable_content_alert
+- **payload_format → new_message_ios_background:** content_available_silent
+- **payload_format → new_message_android_urgent:** high_priority_data_message
+- **payload_format → new_message_android_background:** normal_priority_data_message
+- **payload_format → challenge:** background_silent_with_token_payload
+- **payload_format → rate_limit_challenge:** background_silent_with_token_payload
+- **payload_format → login_attempt_alert:** high_priority_alert_with_context
+- **token_lifecycle → clear_on_unregistered:** true
+- **token_lifecycle → expiry_check:** compare_invalidation_timestamp_to_last_registration
+- **background_scheduling → storage:** distributed_in_memory
+- **background_scheduling → deduplication:** true
+- **background_scheduling → cancel_on_messages_retrieved:** true
+- **collapse → urgent_new_message_collapse_key:** incoming_message
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Token Unregistered** — when platform push service reports the device token as unregistered, expired, or invalid; platform invalidation timestamp post-dates the last device token registration timestamp, then Stale token cleared; future push attempts return not-registered until the client re-registers a token.
+- **Background Notification Scheduled** — when urgent eq false; device_token exists, then Background notification queued for deferred delivery; no immediate push is sent.
+- **Urgent Notification Sent** — when urgent eq true; A valid push token is registered for the target device, then Notification submitted to the platform push service for immediate dispatch to the device.
+- **Background Notifications Cancelled** — when account has retrieved its pending messages; device_identifier exists, then Pending background notifications removed; no further silent pings are sent until new messages arrive.
+
+**❌ Failure paths**
+
+- **Device Not Registered** — when No push token is registered for the target device, then Not-registered error returned to the caller; no notification is sent. *(error: `PUSH_DEVICE_NOT_REGISTERED`)*
+- **Delivery Failed** — when platform push service returns an error other than token-unregistered, then Delivery failure recorded in metrics; error is not propagated to the original request caller (best-effort delivery). *(error: `PUSH_DELIVERY_FAILED`)*
+
+## Errors it can return
+
+- `PUSH_DEVICE_NOT_REGISTERED` — No push token registered for this device. Please update your push registration.
+- `PUSH_DELIVERY_FAILED` — Push notification delivery failed. The message will be available for retrieval.
+
+## Connects to
+
+- **rate-limiting-abuse-prevention** *(required)* — Push challenges are issued and verified through the rate limiting subsystem; this feature is the delivery transport
+- **device-management** *(required)* — Push tokens are registered and maintained as part of device management; token clearing relies on device records
+- **message-queue** *(recommended)* — Background push notifications signal that messages are waiting; the message queue holds the actual content
+- **login** *(recommended)* — Login-attempt alert notifications are part of the sign-in approval flow
+
+## Quality fitness 🟢 90/100
+
+Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
+
+| Dimension | Score | Points |
+|-----------|-------|--------|
+| Description | `██████████` | 10/10 |
+| Rules | `█████████░` | 9/10 |
+| Outcomes | `███████████████████████░░` | 23/25 |
+| Structured conditions | `████████░░` | 8/10 |
+| Error binding | `██████████` | 10/10 |
+| Field validation | `██████░░░░` | 6/10 |
+| Relationships | `██████████` | 10/10 |
+| Events | `█████` | 5/5 |
+| AGI readiness | `████░` | 4/5 |
+| Simplicity | `█████` | 5/5 |
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/infrastructure/push-notification-delivery/) · **Spec source:** [`push-notification-delivery.blueprint.yaml`](./push-notification-delivery.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

@@ -1,0 +1,303 @@
+{
+  "feature": "voip-call-signaling",
+  "version": "1.0.0",
+  "description": "1:1 voice and video call signaling with TURN relay credential issuance and ICE candidate relay for authenticated accounts",
+  "category": "integration",
+  "tags": [
+    "voip",
+    "calling",
+    "turn",
+    "ice",
+    "webrtc",
+    "relay",
+    "signaling"
+  ],
+  "fields": [
+    {
+      "name": "turn_username",
+      "type": "text",
+      "required": true,
+      "label": "TURN Username",
+      "sensitive": true
+    },
+    {
+      "name": "turn_password",
+      "type": "token",
+      "required": true,
+      "label": "TURN Password",
+      "sensitive": true
+    },
+    {
+      "name": "turn_ttl_seconds",
+      "type": "number",
+      "required": true,
+      "label": "TURN TTL"
+    },
+    {
+      "name": "turn_urls",
+      "type": "json",
+      "required": true,
+      "label": "TURN URLs"
+    },
+    {
+      "name": "turn_urls_with_ips",
+      "type": "json",
+      "required": false,
+      "label": "TURN URLs With IPs"
+    },
+    {
+      "name": "turn_hostname",
+      "type": "text",
+      "required": false,
+      "label": "TURN Hostname"
+    }
+  ],
+  "rules": {
+    "access_control": {
+      "authenticated_only": true,
+      "note": "Only authenticated accounts may request TURN relay credentials"
+    },
+    "rate_limiting": {
+      "scope": "per_account",
+      "note": "Per-account rate limiting is enforced on the relay credential endpoint to prevent credential farming"
+    },
+    "credential_proxy": {
+      "note": "TURN credentials are fetched from an external relay provider API; the server acts as a credential proxy and never stores long-lived TURN secrets in user-accessible storage",
+      "no_logging": true,
+      "note2": "TURN credentials must not be logged or included in error responses to prevent credential leakage"
+    },
+    "dns_resolution": {
+      "server_side": true,
+      "ipv6_bracket_notation": true,
+      "note": "The server resolves the TURN relay hostname at request time via DNS; IPv6 addresses are returned in bracket notation inside URL strings"
+    },
+    "ab_experiment": {
+      "note": "A/B experiment enrollment may route accounts to an alternative relay configuration (different URLs, hostname, and IP list) to support testing and gradual rollout"
+    },
+    "error_handling": {
+      "propagate_provider_errors": true,
+      "metric_on_error": true,
+      "note": "If the external relay credential API returns a non-success response, the error is propagated to the client and a metric counter is incremented"
+    }
+  },
+  "outcomes": {
+    "rate_limited": {
+      "priority": 1,
+      "given": [
+        "Caller is authenticated",
+        "Call endpoint rate limit is exceeded for this account"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "call_relay.rate_limited",
+          "payload": [
+            "account_id"
+          ]
+        }
+      ],
+      "result": "Request rejected with rate-limit error",
+      "error": "CALL_RELAY_RATE_LIMITED"
+    },
+    "unauthenticated": {
+      "priority": 2,
+      "given": [
+        "Caller is not authenticated"
+      ],
+      "then": [],
+      "result": "Request rejected as unauthorized",
+      "error": "CALL_RELAY_UNAUTHORIZED"
+    },
+    "relay_provider_error": {
+      "priority": 3,
+      "given": [
+        "Caller is authenticated and within rate limit",
+        "External relay credential API returns a non-success HTTP status or connection fails"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "call_relay.provider_error",
+          "payload": [
+            "account_id",
+            "http_status"
+          ]
+        }
+      ],
+      "result": "Internal server error returned to client; relay credentials not issued",
+      "error": "CALL_RELAY_PROVIDER_ERROR"
+    },
+    "relay_credentials_issued": {
+      "priority": 4,
+      "given": [
+        "Caller is authenticated and within rate limit",
+        "External relay credential API returns valid credentials"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "call_relay.credentials_issued",
+          "payload": [
+            "account_id",
+            "turn_ttl_seconds"
+          ]
+        }
+      ],
+      "result": "TURN relay credentials returned; response includes username, password, TTL, standard domain URLs, IP-embedded URLs, and hostname"
+    }
+  },
+  "errors": [
+    {
+      "code": "CALL_RELAY_RATE_LIMITED",
+      "status": 429,
+      "message": "Too many relay credential requests. Please wait before trying again.",
+      "retry": true
+    },
+    {
+      "code": "CALL_RELAY_UNAUTHORIZED",
+      "status": 401,
+      "message": "Authentication required to obtain call relay credentials.",
+      "retry": false
+    },
+    {
+      "code": "CALL_RELAY_PROVIDER_ERROR",
+      "status": 500,
+      "message": "Unable to obtain relay credentials at this time. Please try again.",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "call_relay.credentials_issued",
+      "description": "TURN relay credentials were successfully issued for a 1:1 call",
+      "payload": [
+        "account_id",
+        "turn_ttl_seconds"
+      ]
+    },
+    {
+      "name": "call_relay.rate_limited",
+      "description": "A relay credential request was rejected due to per-account rate limiting",
+      "payload": [
+        "account_id"
+      ]
+    },
+    {
+      "name": "call_relay.provider_error",
+      "description": "The external relay credential provider returned an error or was unreachable",
+      "payload": [
+        "account_id",
+        "http_status"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "login",
+      "type": "required",
+      "reason": "TURN credential issuance requires a valid authenticated device session"
+    },
+    {
+      "feature": "device-management",
+      "type": "required",
+      "reason": "The calling account must have an active registered device"
+    },
+    {
+      "feature": "group-call-signaling",
+      "type": "optional",
+      "reason": "Group calls use a separate room-based credential flow built on top of the same TURN relay infrastructure"
+    },
+    {
+      "feature": "encrypted-profile-storage",
+      "type": "optional",
+      "reason": "Profile access may be needed during call initiation to resolve the callee identity key"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_voip_call_signaling",
+        "description": "1:1 voice and video call signaling with TURN relay credential issuance and ICE candidate relay for authenticated accounts",
+        "success_metrics": [
+          {
+            "metric": "success_rate",
+            "target": ">= 99.5%",
+            "measurement": "Successful operations divided by total attempts"
+          },
+          {
+            "metric": "error_recovery_rate",
+            "target": ">= 95%",
+            "measurement": "Errors that auto-recover without manual intervention"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "availability",
+            "description": "Must degrade gracefully when dependencies are unavailable",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "rate_limited",
+          "permission": "autonomous"
+        },
+        {
+          "action": "unauthenticated",
+          "permission": "autonomous"
+        },
+        {
+          "action": "relay_provider_error",
+          "permission": "autonomous"
+        },
+        {
+          "action": "relay_credentials_issued",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "reliability",
+        "over": "throughput",
+        "reason": "integration failures can cascade across systems"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details"
+      ]
+    },
+    "coordination": {
+      "protocol": "request_response",
+      "consumes": [
+        {
+          "capability": "login",
+          "from": "login",
+          "fallback": "degrade"
+        },
+        {
+          "capability": "device_management",
+          "from": "device-management",
+          "fallback": "degrade"
+        }
+      ]
+    }
+  }
+}

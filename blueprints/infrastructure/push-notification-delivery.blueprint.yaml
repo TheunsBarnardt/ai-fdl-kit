@@ -1,0 +1,324 @@
+# ============================================================
+# PUSH NOTIFICATION DELIVERY — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Route urgent and background notifications to registered
+# mobile devices via the appropriate platform push service,
+# with automatic token expiry handling, scheduled background
+# delivery, and challenge notification support.
+# ============================================================
+
+feature: push-notification-delivery
+version: "1.0.0"
+description: Route urgent and background notifications to mobile devices via the correct platform push service, with token expiry cleanup, scheduled background delivery, and challenge notification support
+category: infrastructure
+tags: [push-notification, mobile, android, ios, background-delivery, device-token, challenge]
+
+fields:
+  - name: device_token
+    type: token
+    required: true
+    label: "Device Push Token"
+
+  - name: token_type
+    type: select
+    required: true
+    label: "Token Type"
+    options:
+      - value: android_push_service
+        label: "Android Push Service"
+      - value: ios_push_service
+        label: "iOS Push Service"
+
+  - name: notification_type
+    type: select
+    required: true
+    label: "Notification Type"
+    options:
+      - value: new_message
+        label: "New Message"
+      - value: challenge
+        label: "Challenge"
+      - value: rate_limit_challenge
+        label: "Rate Limit Challenge"
+      - value: login_attempt_alert
+        label: "Login Attempt Alert"
+
+  - name: urgent
+    type: boolean
+    required: true
+    label: "Urgent"
+
+  - name: notification_data
+    type: text
+    required: false
+    label: "Notification Data"
+
+  - name: account_identifier
+    type: token
+    required: false
+    label: "Account Identifier"
+
+  - name: device_identifier
+    type: token
+    required: false
+    label: "Device Identifier"
+
+  - name: background_notification_period_minutes
+    type: number
+    required: false
+    label: "Background Notification Period (minutes)"
+    default: 20
+
+rules:
+  routing:
+    platform_selection: based_on_registered_token_type
+    # Server determines the push service from the token type stored on the device;
+    # clients have no control over routing
+    fallback: none
+    # If no token is registered, a not-registered error is returned
+
+  delivery_priority:
+    urgent_true: immediate_high_priority
+    urgent_false: scheduled_background_delivery
+    # Non-urgent notifications are queued in a distributed store and dispatched
+    # by a background worker after the configured minimum interval
+
+  payload_format:
+    new_message_ios_urgent: mutable_content_alert
+    # Mutable-content enables a notification service extension to decrypt
+    # and render the message on-device before display
+    new_message_ios_background: content_available_silent
+    new_message_android_urgent: high_priority_data_message
+    new_message_android_background: normal_priority_data_message
+    challenge: background_silent_with_token_payload
+    rate_limit_challenge: background_silent_with_token_payload
+    login_attempt_alert: high_priority_alert_with_context
+
+  token_lifecycle:
+    clear_on_unregistered: true
+    # When the platform push service reports a token as unregistered,
+    # expired, or invalid, the server clears it from the device record
+    expiry_check: compare_invalidation_timestamp_to_last_registration
+    # A token is only cleared if the platform invalidation timestamp
+    # post-dates the last timestamp the device registered the token;
+    # this avoids clearing a re-registered token due to a stale feedback
+
+  background_scheduling:
+    storage: distributed_in_memory
+    deduplication: true
+    # A second background notification is not dispatched if one is already
+    # pending for the same device within the configured period
+    cancel_on_messages_retrieved: true
+    # Pending background notifications are cancelled when the account
+    # retrieves its messages, as the alert is no longer needed
+
+  collapse:
+    urgent_new_message_collapse_key: incoming_message
+    # Collapse prevents notification storms on devices coming online
+    # after queuing many messages
+
+outcomes:
+  urgent_notification_sent:
+    priority: 10
+    given:
+      - field: urgent
+        source: input
+        operator: eq
+        value: true
+      - field: device_token
+        source: db
+        operator: exists
+        description: "A valid push token is registered for the target device"
+    then:
+      - action: call_service
+        target: platform_push_service
+        description: "Route the notification payload to the appropriate platform push service based on token type, with high-priority delivery flag and correct platform payload format"
+      - action: emit_event
+        event: push_notification.sent
+        payload: [account_identifier, device_identifier, token_type, notification_type, urgent]
+    result: "Notification submitted to the platform push service for immediate dispatch to the device"
+
+  background_notification_scheduled:
+    priority: 9
+    given:
+      - field: urgent
+        source: input
+        operator: eq
+        value: false
+      - field: device_token
+        source: db
+        operator: exists
+    then:
+      - action: create_record
+        type: scheduled_background_notification
+        target: pending_notification
+        description: "Record the pending background notification in the distributed store; a background worker dispatches it after the minimum interval"
+      - action: emit_event
+        event: push_notification.scheduled
+        payload: [account_identifier, device_identifier, token_type]
+    result: "Background notification queued for deferred delivery; no immediate push is sent"
+
+  token_unregistered:
+    priority: 2
+    given:
+      - "platform push service reports the device token as unregistered, expired, or invalid"
+      - "platform invalidation timestamp post-dates the last device token registration timestamp"
+    then:
+      - action: set_field
+        target: device_token
+        value: null
+        description: "Clear the stale push token from the device record"
+      - action: emit_event
+        event: push_notification.token_expired
+        payload: [account_identifier, device_identifier, token_type]
+    result: "Stale token cleared; future push attempts return not-registered until the client re-registers a token"
+
+  device_not_registered:
+    priority: 1
+    error: PUSH_DEVICE_NOT_REGISTERED
+    given:
+      - field: device_token
+        source: db
+        operator: not_exists
+        description: "No push token is registered for the target device"
+    then: []
+    result: "Not-registered error returned to the caller; no notification is sent"
+
+  delivery_failed:
+    priority: 3
+    error: PUSH_DELIVERY_FAILED
+    given:
+      - "platform push service returns an error other than token-unregistered"
+    then:
+      - action: emit_event
+        event: push_notification.delivery_failed
+        payload: [account_identifier, token_type, notification_type]
+    result: "Delivery failure recorded in metrics; error is not propagated to the original request caller (best-effort delivery)"
+
+  background_notifications_cancelled:
+    priority: 10
+    given:
+      - "account has retrieved its pending messages"
+      - field: device_identifier
+        source: input
+        operator: exists
+    then:
+      - action: delete_record
+        type: scheduled_background_notification
+        target: scheduled_background_notification
+        description: "Remove pending background notifications for this account and device from the scheduled store"
+      - action: emit_event
+        event: push_notification.cancelled
+        payload: [account_identifier, device_identifier]
+    result: "Pending background notifications removed; no further silent pings are sent until new messages arrive"
+
+errors:
+  - code: PUSH_DEVICE_NOT_REGISTERED
+    status: 404
+    message: "No push token registered for this device. Please update your push registration."
+    retry: false
+
+  - code: PUSH_DELIVERY_FAILED
+    status: 503
+    message: "Push notification delivery failed. The message will be available for retrieval."
+    retry: true
+
+events:
+  - name: push_notification.sent
+    description: "A push notification was submitted to the platform push service for immediate delivery"
+    payload: [account_identifier, device_identifier, token_type, notification_type, urgent]
+
+  - name: push_notification.scheduled
+    description: "A background push notification was queued for deferred delivery"
+    payload: [account_identifier, device_identifier, token_type]
+
+  - name: push_notification.token_expired
+    description: "A push token was cleared because the platform push service reported it as unregistered or expired"
+    payload: [account_identifier, device_identifier, token_type]
+
+  - name: push_notification.delivery_failed
+    description: "A push notification could not be delivered due to a platform push service error"
+    payload: [account_identifier, token_type, notification_type]
+
+  - name: push_notification.cancelled
+    description: "Pending background push notifications were cancelled because the device retrieved its messages"
+    payload: [account_identifier, device_identifier]
+
+related:
+  - feature: rate-limiting-abuse-prevention
+    type: required
+    reason: "Push challenges are issued and verified through the rate limiting subsystem; this feature is the delivery transport"
+
+  - feature: device-management
+    type: required
+    reason: "Push tokens are registered and maintained as part of device management; token clearing relies on device records"
+
+  - feature: message-queue
+    type: recommended
+    reason: "Background push notifications signal that messages are waiting; the message queue holds the actual content"
+
+  - feature: login
+    type: recommended
+    reason: "Login-attempt alert notifications are part of the sign-in approval flow"
+
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_push_notification_delivery
+      description: Route urgent and background notifications to mobile devices via the correct platform push service, with
+        token expiry cleanup, scheduled background delivery, and challenge notification support
+      success_metrics:
+        - metric: success_rate
+          target: ">= 99%"
+          measurement: Successful operations divided by total attempts
+        - metric: error_rate
+          target: < 1%
+          measurement: Failed operations divided by total attempts
+      constraints:
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before modifying sensitive data fields
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+  safety:
+    action_permissions:
+      - action: urgent_notification_sent
+        permission: autonomous
+      - action: background_notification_scheduled
+        permission: autonomous
+      - action: token_unregistered
+        permission: autonomous
+      - action: device_not_registered
+        permission: autonomous
+      - action: delivery_failed
+        permission: autonomous
+      - action: background_notifications_cancelled
+        permission: supervised
+  tradeoffs:
+    - prefer: availability
+      over: cost
+      reason: infrastructure downtime impacts all dependent services
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+  coordination:
+    protocol: request_response
+    consumes:
+      - capability: rate_limiting_abuse_prevention
+        from: rate-limiting-abuse-prevention
+        fallback: fail
+      - capability: device_management
+        from: device-management
+        fallback: fail

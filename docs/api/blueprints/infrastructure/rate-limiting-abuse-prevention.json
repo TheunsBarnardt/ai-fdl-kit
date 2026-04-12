@@ -1,0 +1,510 @@
+{
+  "feature": "rate-limiting-abuse-prevention",
+  "version": "1.0.0",
+  "description": "Leaky-bucket rate limiting backed by distributed in-memory storage, with push-challenge and CAPTCHA-challenge flows that restore access for legitimate users when limits are exceeded",
+  "category": "infrastructure",
+  "tags": [
+    "rate-limiting",
+    "abuse-prevention",
+    "captcha",
+    "push-challenge",
+    "leaky-bucket",
+    "security"
+  ],
+  "fields": [
+    {
+      "name": "rate_limiter_name",
+      "type": "text",
+      "required": true,
+      "label": "Rate Limiter Name"
+    },
+    {
+      "name": "subject_key",
+      "type": "text",
+      "required": true,
+      "label": "Subject Key"
+    },
+    {
+      "name": "bucket_size",
+      "type": "number",
+      "required": true,
+      "label": "Bucket Size (permits)",
+      "validation": [
+        {
+          "type": "min",
+          "value": 1,
+          "message": "Bucket size must be at least 1"
+        }
+      ]
+    },
+    {
+      "name": "permit_regeneration_duration",
+      "type": "text",
+      "required": true,
+      "label": "Permit Regeneration Duration"
+    },
+    {
+      "name": "fail_open",
+      "type": "boolean",
+      "required": false,
+      "label": "Fail Open",
+      "default": false
+    },
+    {
+      "name": "retry_after_seconds",
+      "type": "number",
+      "required": false,
+      "label": "Retry After (seconds)"
+    },
+    {
+      "name": "challenge_token",
+      "type": "token",
+      "required": false,
+      "label": "Challenge Token"
+    },
+    {
+      "name": "challenge_type",
+      "type": "select",
+      "required": false,
+      "label": "Challenge Type",
+      "options": [
+        {
+          "value": "push",
+          "label": "Push Challenge"
+        },
+        {
+          "value": "captcha",
+          "label": "CAPTCHA Challenge"
+        }
+      ]
+    },
+    {
+      "name": "captcha_response",
+      "type": "text",
+      "required": false,
+      "label": "CAPTCHA Response"
+    },
+    {
+      "name": "challenge_ttl_minutes",
+      "type": "number",
+      "required": false,
+      "label": "Challenge TTL (minutes)",
+      "default": 5
+    }
+  ],
+  "rules": {
+    "leaky_bucket": {
+      "storage": "distributed_in_memory",
+      "atomicity": "lua_script",
+      "retry_after_calculation": "deficit_divided_by_leak_rate",
+      "fail_open_default": false
+    },
+    "push_challenge": {
+      "token_length_bytes": 16,
+      "storage": "durable_key_value_store",
+      "ttl_minutes": 5,
+      "one_time_use": true,
+      "requires_registered_push_token": true,
+      "targets_primary_device_only": true
+    },
+    "captcha_challenge": {
+      "verification": "external_captcha_service",
+      "score_threshold": "configurable_per_request",
+      "client_metadata_used": [
+        "ip_address",
+        "user_agent"
+      ]
+    },
+    "challenge_rate_limits": {
+      "push_attempt_limiter": "per_account",
+      "push_success_limiter": "per_account",
+      "captcha_attempt_limiter": "per_account",
+      "captcha_success_limiter": "per_account",
+      "rate_limit_reset_limiter": "per_account"
+    }
+  },
+  "outcomes": {
+    "permit_granted": {
+      "priority": 10,
+      "given": [
+        {
+          "field": "subject_key",
+          "source": "input",
+          "operator": "exists"
+        },
+        "leaky bucket has sufficient permits for the requested amount after accounting for the current fill level and elapsed time"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "bucket_level",
+          "description": "Atomically deduct permits from the bucket and record the current timestamp"
+        }
+      ],
+      "result": "Request proceeds normally; no response header added"
+    },
+    "permit_denied": {
+      "priority": 2,
+      "error": "RATE_LIMIT_EXCEEDED",
+      "given": [
+        "leaky bucket deficit after deduction is greater than zero"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "rate_limit.exceeded",
+          "payload": [
+            "rate_limiter_name",
+            "subject_key",
+            "retry_after_seconds"
+          ]
+        }
+      ],
+      "result": "Request rejected with 429 Too Many Requests and Retry-After header indicating the calculated wait"
+    },
+    "push_challenge_sent": {
+      "priority": 10,
+      "given": [
+        "account has a registered push token on its primary device",
+        "push challenge issuance is permitted by the per-request constraint checker"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "push_challenge_token",
+          "target": "challenge",
+          "description": "Generate a 16-byte random token, persist it with a 5-minute TTL, and dispatch it to the primary device via push notification"
+        },
+        {
+          "action": "emit_event",
+          "event": "rate_limit.push_challenge_sent",
+          "payload": [
+            "account_identifier",
+            "challenge_ttl_minutes"
+          ]
+        }
+      ],
+      "result": "Push notification with the challenge token dispatched to the account's primary device"
+    },
+    "push_challenge_no_token": {
+      "priority": 1,
+      "error": "PUSH_CHALLENGE_NOT_REGISTERED",
+      "given": [
+        "account has no registered push token on its primary device"
+      ],
+      "then": [],
+      "result": "404 returned; client must register a push token before requesting a push challenge"
+    },
+    "push_challenge_verified": {
+      "priority": 10,
+      "given": [
+        {
+          "field": "challenge_token",
+          "source": "input",
+          "operator": "exists",
+          "description": "Client supplied a challenge token"
+        },
+        "submitted token matches the stored token for this account and has not expired",
+        "push challenge attempt rate limiter has permits",
+        "push challenge success rate limiter has permits",
+        "rate limit reset frequency limiter has permits"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "push_challenge_token",
+          "target": "push_challenge_token",
+          "description": "Consume and delete the one-time token"
+        },
+        {
+          "action": "set_field",
+          "target": "rate_limiters",
+          "description": "Reset the relevant leaky-bucket rate limiters for the account"
+        },
+        {
+          "action": "emit_event",
+          "event": "rate_limit.challenge_answered",
+          "payload": [
+            "account_identifier",
+            "challenge_type"
+          ]
+        }
+      ],
+      "result": "Challenge accepted; associated rate limiters reset; client may retry the original request"
+    },
+    "push_challenge_invalid": {
+      "priority": 3,
+      "given": [
+        "submitted push challenge token does not match the stored token or has expired"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "rate_limit.challenge_failed",
+          "payload": [
+            "account_identifier",
+            "challenge_type"
+          ]
+        }
+      ],
+      "result": "Challenge silently rejected (token not consumed); rate limiters remain in effect"
+    },
+    "captcha_challenge_verified": {
+      "priority": 10,
+      "given": [
+        {
+          "field": "captcha_response",
+          "source": "input",
+          "operator": "exists",
+          "description": "Client supplied a CAPTCHA solution"
+        },
+        "external CAPTCHA service validates the solution as genuine at or above the configured score threshold",
+        "captcha challenge attempt rate limiter has permits",
+        "captcha challenge success rate limiter has permits",
+        "rate limit reset frequency limiter has permits"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "rate_limiters",
+          "description": "Reset the relevant leaky-bucket rate limiters for the account"
+        },
+        {
+          "action": "emit_event",
+          "event": "rate_limit.challenge_answered",
+          "payload": [
+            "account_identifier",
+            "challenge_type"
+          ]
+        }
+      ],
+      "result": "CAPTCHA accepted; associated rate limiters reset; client may retry the original request"
+    },
+    "captcha_challenge_failed": {
+      "priority": 3,
+      "error": "CAPTCHA_CHALLENGE_FAILED",
+      "given": [
+        "external CAPTCHA service rejects the solution or the score is below the configured threshold"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "rate_limit.challenge_failed",
+          "payload": [
+            "account_identifier",
+            "challenge_type"
+          ]
+        }
+      ],
+      "result": "Request rejected with 428 Precondition Required; client must obtain a valid CAPTCHA solution"
+    },
+    "rate_limit_reset_exhausted": {
+      "priority": 1,
+      "error": "RATE_LIMIT_RESET_EXCEEDED",
+      "given": [
+        "rate limit reset frequency limiter for this account is exhausted"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "rate_limit.reset_limit_exceeded",
+          "payload": [
+            "account_identifier"
+          ]
+        }
+      ],
+      "result": "Request rejected with 429 Too Many Requests; challenge farming is blocked"
+    }
+  },
+  "errors": [
+    {
+      "code": "RATE_LIMIT_EXCEEDED",
+      "status": 429,
+      "message": "Request rate limit exceeded. Please wait before retrying.",
+      "retry": true
+    },
+    {
+      "code": "PUSH_CHALLENGE_NOT_REGISTERED",
+      "status": 404,
+      "message": "No push token registered for this device. Please update your push registration and try again.",
+      "retry": false
+    },
+    {
+      "code": "CAPTCHA_CHALLENGE_FAILED",
+      "status": 422,
+      "message": "CAPTCHA verification failed. Please try again.",
+      "retry": true
+    },
+    {
+      "code": "RATE_LIMIT_RESET_EXCEEDED",
+      "status": 429,
+      "message": "Too many rate limit resets. Please wait before attempting another challenge.",
+      "retry": true
+    }
+  ],
+  "events": [
+    {
+      "name": "rate_limit.exceeded",
+      "description": "A request was rejected because the leaky-bucket rate limiter had insufficient permits",
+      "payload": [
+        "rate_limiter_name",
+        "subject_key",
+        "retry_after_seconds"
+      ]
+    },
+    {
+      "name": "rate_limit.push_challenge_sent",
+      "description": "A push challenge notification was dispatched to the account's primary device",
+      "payload": [
+        "account_identifier",
+        "challenge_ttl_minutes"
+      ]
+    },
+    {
+      "name": "rate_limit.challenge_answered",
+      "description": "A challenge (push or CAPTCHA) was successfully verified and rate limiters were reset",
+      "payload": [
+        "account_identifier",
+        "challenge_type"
+      ]
+    },
+    {
+      "name": "rate_limit.challenge_failed",
+      "description": "A submitted challenge response was invalid",
+      "payload": [
+        "account_identifier",
+        "challenge_type"
+      ]
+    },
+    {
+      "name": "rate_limit.reset_limit_exceeded",
+      "description": "An account attempted to reset rate limits via challenge too frequently",
+      "payload": [
+        "account_identifier"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "push-notification-delivery",
+      "type": "required",
+      "reason": "Push challenges are delivered to devices via the push notification subsystem"
+    },
+    {
+      "feature": "caching",
+      "type": "required",
+      "reason": "Leaky-bucket state is stored in a distributed in-memory cache with atomic Lua scripting"
+    },
+    {
+      "feature": "login",
+      "type": "recommended",
+      "reason": "Authentication endpoints are typically among the first to be rate-limited"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_rate_limiting_abuse_prevention",
+        "description": "Leaky-bucket rate limiting backed by distributed in-memory storage, with push-challenge and CAPTCHA-challenge flows that restore access for legitimate users when limits are exceeded",
+        "success_metrics": [
+          {
+            "metric": "success_rate",
+            "target": ">= 99%",
+            "measurement": "Successful operations divided by total attempts"
+          },
+          {
+            "metric": "error_rate",
+            "target": "< 1%",
+            "measurement": "Failed operations divided by total attempts"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before modifying sensitive data fields"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5",
+        "consecutive_failures > 3"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "permit_granted",
+          "permission": "autonomous"
+        },
+        {
+          "action": "permit_denied",
+          "permission": "autonomous"
+        },
+        {
+          "action": "push_challenge_sent",
+          "permission": "autonomous"
+        },
+        {
+          "action": "push_challenge_no_token",
+          "permission": "autonomous"
+        },
+        {
+          "action": "push_challenge_verified",
+          "permission": "autonomous"
+        },
+        {
+          "action": "push_challenge_invalid",
+          "permission": "autonomous"
+        },
+        {
+          "action": "captcha_challenge_verified",
+          "permission": "autonomous"
+        },
+        {
+          "action": "captcha_challenge_failed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "rate_limit_reset_exhausted",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "availability",
+        "over": "cost",
+        "reason": "infrastructure downtime impacts all dependent services"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details"
+      ]
+    },
+    "coordination": {
+      "protocol": "request_response",
+      "consumes": [
+        {
+          "capability": "push_notification_delivery",
+          "from": "push-notification-delivery",
+          "fallback": "fail"
+        },
+        {
+          "capability": "caching",
+          "from": "caching",
+          "fallback": "fail"
+        }
+      ]
+    }
+  }
+}

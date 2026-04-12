@@ -1,0 +1,326 @@
+{
+  "feature": "group-call-signaling",
+  "version": "1.0.0",
+  "description": "Group call signaling via call links with zero-knowledge room creation credential issuance and per-account call-link authentication",
+  "category": "integration",
+  "tags": [
+    "calling",
+    "group-call",
+    "zero-knowledge",
+    "call-link",
+    "turn",
+    "webrtc",
+    "privacy"
+  ],
+  "fields": [
+    {
+      "name": "create_call_link_credential_request",
+      "type": "token",
+      "required": true,
+      "label": "Create Call Link Credential Request",
+      "sensitive": true
+    },
+    {
+      "name": "call_link_credential",
+      "type": "token",
+      "required": true,
+      "label": "Call Link Credential",
+      "sensitive": true
+    },
+    {
+      "name": "redemption_time",
+      "type": "number",
+      "required": true,
+      "label": "Redemption Time"
+    },
+    {
+      "name": "call_link_auth_credential",
+      "type": "token",
+      "required": true,
+      "label": "Call Link Auth Credential",
+      "sensitive": true
+    },
+    {
+      "name": "account_identifier",
+      "type": "token",
+      "required": true,
+      "label": "Account Identifier",
+      "sensitive": true
+    }
+  ],
+  "rules": {
+    "access_control": {
+      "authenticated_only": true,
+      "note": "Only authenticated accounts may request call-link creation credentials"
+    },
+    "rate_limiting": {
+      "scope": "per_account",
+      "note": "Per-account rate limiting is enforced on the call-link credential endpoint"
+    },
+    "server_blind": {
+      "note": "The server issues a ZK credential over the requesting account ACI and the day-truncated current timestamp combined with the client-supplied room ID commitment; the server learns only the account identity, never the room ID or call participants"
+    },
+    "credential_validity": {
+      "granularity": "calendar_day_utc",
+      "note": "Credentials are valid for the current calendar day only; the timestamp is truncated to midnight UTC; clients must request a fresh credential each day",
+      "deterministic": true,
+      "note2": "The credential is computed deterministically from the truncated day timestamp so multiple requests on the same day produce equivalent credentials"
+    },
+    "credential_batch": {
+      "note": "Call-link authentication credentials are issued in the same batch as group authentication credentials but may also be used independently for call-link room access"
+    },
+    "room_service_responsibility": {
+      "note": "The room service (separate from the messaging server) is responsible for enforcing call-link membership, capacity limits, and expiry; the messaging server only issues credentials"
+    }
+  },
+  "outcomes": {
+    "rate_limited": {
+      "priority": 1,
+      "given": [
+        "Caller is authenticated",
+        "Call-link creation rate limit is exceeded for this account"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "call_link.rate_limited",
+          "payload": [
+            "account_id"
+          ]
+        }
+      ],
+      "result": "Request rejected with rate-limit error",
+      "error": "CALL_LINK_RATE_LIMITED"
+    },
+    "unauthenticated": {
+      "priority": 2,
+      "given": [
+        "Caller is not authenticated"
+      ],
+      "then": [],
+      "result": "Request rejected as unauthorized",
+      "error": "CALL_LINK_UNAUTHORIZED"
+    },
+    "invalid_credential_request": {
+      "priority": 3,
+      "given": [
+        "Caller is authenticated and within rate limit",
+        {
+          "field": "create_call_link_credential_request",
+          "source": "input",
+          "operator": "exists"
+        },
+        "Credential request blob is malformed or cannot be parsed as a valid ZK request"
+      ],
+      "then": [],
+      "result": "Request rejected with bad-request error",
+      "error": "CALL_LINK_INVALID_REQUEST"
+    },
+    "credential_issued": {
+      "priority": 4,
+      "given": [
+        "Caller is authenticated and within rate limit",
+        {
+          "field": "create_call_link_credential_request",
+          "source": "input",
+          "operator": "exists"
+        },
+        "Credential request blob is a valid ZK request"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "call_link.credential_issued",
+          "payload": [
+            "account_id",
+            "redemption_time"
+          ]
+        }
+      ],
+      "result": "ZK call-link creation credential and the truncated-day redemption timestamp returned to the client"
+    },
+    "call_link_auth_batch_issued": {
+      "priority": 5,
+      "given": [
+        "Caller is authenticated",
+        "Valid day-aligned redemption range provided within the allowed 7-day window"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "call_link.auth_batch_issued",
+          "payload": [
+            "account_id",
+            "redemption_start",
+            "redemption_end"
+          ]
+        }
+      ],
+      "result": "Array of daily call-link auth credentials returned, one per day in the requested range"
+    }
+  },
+  "errors": [
+    {
+      "code": "CALL_LINK_RATE_LIMITED",
+      "status": 429,
+      "message": "Too many call-link credential requests. Please wait before trying again.",
+      "retry": true
+    },
+    {
+      "code": "CALL_LINK_UNAUTHORIZED",
+      "status": 401,
+      "message": "Authentication required to create call links.",
+      "retry": false
+    },
+    {
+      "code": "CALL_LINK_INVALID_REQUEST",
+      "status": 400,
+      "message": "Invalid call-link credential request.",
+      "retry": false
+    }
+  ],
+  "events": [
+    {
+      "name": "call_link.credential_issued",
+      "description": "A ZK call-link creation credential was issued for the requesting account",
+      "payload": [
+        "account_id",
+        "redemption_time"
+      ]
+    },
+    {
+      "name": "call_link.auth_batch_issued",
+      "description": "A batch of daily call-link authentication credentials was issued alongside group auth credentials",
+      "payload": [
+        "account_id",
+        "redemption_start",
+        "redemption_end"
+      ]
+    },
+    {
+      "name": "call_link.rate_limited",
+      "description": "A call-link credential request was rejected due to per-account rate limiting",
+      "payload": [
+        "account_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "encrypted-group-metadata",
+      "type": "required",
+      "reason": "Call-link authentication credentials are co-issued with group authentication credentials and share the same ZK server secret parameters"
+    },
+    {
+      "feature": "voip-call-signaling",
+      "type": "recommended",
+      "reason": "Group calls use the same TURN relay infrastructure as 1:1 calls; TURN credentials may be fetched before joining a call-link room"
+    },
+    {
+      "feature": "login",
+      "type": "required",
+      "reason": "Call-link credential issuance requires a valid authenticated device session"
+    },
+    {
+      "feature": "device-management",
+      "type": "required",
+      "reason": "The requesting account must have a valid registered device"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_group_call_signaling",
+        "description": "Group call signaling via call links with zero-knowledge room creation credential issuance and per-account call-link authentication",
+        "success_metrics": [
+          {
+            "metric": "success_rate",
+            "target": ">= 99.5%",
+            "measurement": "Successful operations divided by total attempts"
+          },
+          {
+            "metric": "error_recovery_rate",
+            "target": ">= 95%",
+            "measurement": "Errors that auto-recover without manual intervention"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "availability",
+            "description": "Must degrade gracefully when dependencies are unavailable",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "rate_limited",
+          "permission": "autonomous"
+        },
+        {
+          "action": "unauthenticated",
+          "permission": "autonomous"
+        },
+        {
+          "action": "invalid_credential_request",
+          "permission": "autonomous"
+        },
+        {
+          "action": "credential_issued",
+          "permission": "autonomous"
+        },
+        {
+          "action": "call_link_auth_batch_issued",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "reliability",
+        "over": "throughput",
+        "reason": "integration failures can cascade across systems"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details"
+      ]
+    },
+    "coordination": {
+      "protocol": "request_response",
+      "consumes": [
+        {
+          "capability": "encrypted_group_metadata",
+          "from": "encrypted-group-metadata",
+          "fallback": "degrade"
+        },
+        {
+          "capability": "login",
+          "from": "login",
+          "fallback": "degrade"
+        },
+        {
+          "capability": "device_management",
+          "from": "device-management",
+          "fallback": "degrade"
+        }
+      ]
+    }
+  }
+}

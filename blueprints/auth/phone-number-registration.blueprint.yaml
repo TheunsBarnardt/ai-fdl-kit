@@ -1,0 +1,483 @@
+feature: phone-number-registration
+version: "1.0.0"
+description: Phone number registration with SMS/voice verification sessions, push challenge, and captcha gating before account creation
+category: auth
+tags:
+  - registration
+  - phone-verification
+  - sms
+  - voice
+  - captcha
+  - push-challenge
+  - account-creation
+  - identity-keys
+
+fields:
+  - name: phone_number
+    type: phone
+    required: true
+    label: "Phone Number"
+    validation:
+      - type: required
+        message: "Phone number is required"
+      - type: phone
+        message: "Phone number must be a valid E.164 number"
+
+  - name: session_id
+    type: token
+    required: false
+    label: "Verification Session ID"
+
+  - name: recovery_password
+    type: token
+    required: false
+    label: "Registration Recovery Password"
+    sensitive: true
+
+  - name: aci_identity_key
+    type: token
+    required: true
+    label: "ACI Identity Key"
+    sensitive: true
+    validation:
+      - type: required
+        message: "Account identity key is required"
+
+  - name: pni_identity_key
+    type: token
+    required: true
+    label: "PNI Identity Key"
+    sensitive: true
+    validation:
+      - type: required
+        message: "Phone-number identity key is required"
+
+  - name: account_name
+    type: text
+    required: false
+    label: "Device Name"
+
+  - name: registration_id
+    type: number
+    required: true
+    label: "Registration ID"
+
+  - name: pni_registration_id
+    type: number
+    required: true
+    label: "PNI Registration ID"
+
+  - name: fetches_messages
+    type: boolean
+    required: true
+    label: "Fetches Messages via WebSocket"
+    default: false
+
+  - name: apn_token
+    type: token
+    required: false
+    label: "Apple Push Notification Token"
+
+  - name: gcm_token
+    type: token
+    required: false
+    label: "Google Cloud Messaging Token"
+
+  - name: aci_signed_prekey
+    type: json
+    required: true
+    label: "ACI Signed Pre-Key"
+
+  - name: pni_signed_prekey
+    type: json
+    required: true
+    label: "PNI Signed Pre-Key"
+
+  - name: aci_pq_last_resort_prekey
+    type: json
+    required: true
+    label: "ACI Post-Quantum Last-Resort Pre-Key"
+
+  - name: pni_pq_last_resort_prekey
+    type: json
+    required: true
+    label: "PNI Post-Quantum Last-Resort Pre-Key"
+
+  - name: skip_device_transfer
+    type: boolean
+    required: true
+    label: "Skip Device Transfer"
+    default: false
+
+  - name: registration_lock
+    type: password
+    required: false
+    label: "Registration Lock PIN"
+    sensitive: true
+
+rules:
+  verification:
+    methods: [session, recovery_password]
+    mutually_exclusive: true
+    session_must_be_verified: true
+    # A verified session is obtained through the multi-step verification flow
+    # (push challenge or captcha followed by SMS/voice code submission)
+
+  identity_keys:
+    all_signed_prekeys_must_be_valid: true
+    # All EC and KEM pre-keys submitted during registration must carry valid
+    # signatures from the corresponding identity key (ACI or PNI)
+
+  device_channel:
+    exactly_one_delivery_channel: true
+    # Either fetches_messages=true (WebSocket) OR exactly one push token (APN xor GCM)
+    # Not both; not neither when fetches_messages is false
+
+  capabilities:
+    new_devices_must_support_pq_ratchet: true
+    # Devices that do not declare required capabilities are rejected (HTTP 499)
+
+  rate_limiting:
+    per_phone_number: true
+    # Registration attempts are rate-limited by phone number
+
+  registration_lock:
+    status_checked_on_reregistration: true
+    lock_statuses: [ABSENT, REQUIRED, EXPIRED]
+    expired_lock_is_ignored: true
+    # Accounts inactive beyond the inactivity window have their lock ignored
+    pin_attempts_rate_limited: true
+    freeze_credentials_on_mismatch: true
+    # When the wrong PIN is supplied, the existing account's auth token hash
+    # is locked immediately to start the timeout window
+    delete_recovery_password_on_mismatch: true
+    # Except when verification was via recovery password and no PIN was supplied
+
+  device_transfer:
+    conflict_returned_when_transfer_possible: true
+    # Client must explicitly set skip_device_transfer=true to proceed past the conflict
+
+  fraud_check:
+    notify_anti_abuse_on_session_verification: true
+
+outcomes:
+  rate_limited:
+    priority: 1
+    error: REGISTRATION_RATE_LIMITED
+    given:
+      - "registration attempt rate limit exceeded for phone number"
+    then:
+      - action: emit_event
+        event: registration.rate_limited
+        payload: [phone_number]
+    result: "HTTP 429 with Retry-After header"
+
+  invalid_signatures:
+    priority: 2
+    error: REGISTRATION_INVALID_SIGNATURES
+    given:
+      - "one or more pre-key signatures fail validation against the identity key"
+    then:
+      - action: emit_event
+        event: registration.invalid_key_signatures
+        payload: [phone_number]
+    result: "HTTP 422 — invalid pre-key signature"
+
+  missing_capabilities:
+    priority: 3
+    error: REGISTRATION_MISSING_CAPABILITIES
+    given:
+      - "device capabilities do not include all capabilities required for new device registration"
+    then:
+      - action: emit_event
+        event: registration.missing_capabilities
+        payload: [phone_number]
+    result: "HTTP 499 — client must support post-quantum ratchet"
+
+  unverified_session:
+    priority: 4
+    error: REGISTRATION_SESSION_NOT_VERIFIED
+    given:
+      - field: session_id
+        source: input
+        operator: exists
+        description: "Session-based verification path chosen"
+      - "session is not in a verified state"
+    then:
+      - action: emit_event
+        event: registration.unverified_session
+        payload: [session_id]
+    result: "HTTP 401 — verification session is not verified"
+
+  invalid_recovery_password:
+    priority: 5
+    error: REGISTRATION_RECOVERY_INVALID
+    given:
+      - field: recovery_password
+        source: input
+        operator: exists
+        description: "Recovery-password verification path chosen"
+      - "recovery_password does not match stored registration recovery password"
+    then:
+      - action: emit_event
+        event: registration.recovery_password_invalid
+        payload: [phone_number]
+    result: "HTTP 403 — registration recovery password is invalid"
+
+  device_transfer_available:
+    priority: 6
+    error: REGISTRATION_DEVICE_TRANSFER_AVAILABLE
+    given:
+      - field: skip_device_transfer
+        source: input
+        operator: eq
+        value: false
+        description: "Client has not opted out of transfer"
+      - "existing account for this phone number has a device capable of transfer"
+    then:
+      - action: emit_event
+        event: registration.device_transfer_available
+        payload: [phone_number]
+    result: "HTTP 409 — client should prompt user to decide on device transfer"
+
+  registration_lock_required:
+    priority: 7
+    error: REGISTRATION_LOCK_REQUIRED
+    given:
+      - "existing account has an active, non-expired registration lock"
+      - field: registration_lock
+        source: input
+        operator: not_exists
+        description: "No registration lock PIN was provided"
+    then:
+      - action: emit_event
+        event: registration.lock_required
+        payload: [phone_number]
+    result: "HTTP 423 with time-remaining milliseconds and secure value recovery credentials"
+
+  registration_lock_mismatch:
+    priority: 8
+    error: REGISTRATION_LOCK_MISMATCH
+    transaction: true
+    given:
+      - "existing account has an active, non-expired registration lock"
+      - field: registration_lock
+        source: input
+        operator: exists
+        description: "A PIN was supplied"
+      - "supplied registration_lock does not match the stored lock"
+    then:
+      - action: set_field
+        target: account_credentials_status
+        value: locked
+      - action: emit_event
+        event: registration.lock_mismatch
+        payload: [phone_number]
+      - action: notify
+        channel: push
+        message: "Attempt login push notification sent to locked-out device"
+    result: "HTTP 423 — credentials frozen; device receives push notification"
+
+  success_new_account:
+    priority: 9
+    transaction: true
+    given:
+      - "session is verified or recovery_password is valid"
+      - "no existing account for this phone number OR registration lock check passes"
+      - "all signed pre-keys are valid"
+      - "device has all required capabilities"
+    then:
+      - action: create_record
+        type: account
+        target: account
+      - action: create_record
+        type: device
+        target: device
+      - action: emit_event
+        event: registration.success
+        payload: [phone_number, account_uuid, pni_uuid, verification_type]
+    result: "HTTP 200 — account UUID, PNI UUID, identity keys; reregistered=false"
+
+  success_reregistration:
+    priority: 10
+    transaction: true
+    given:
+      - "session is verified or recovery_password is valid"
+      - "existing account found for this phone number"
+      - "registration lock check passes"
+      - "all signed pre-keys are valid"
+    then:
+      - action: create_record
+        type: account
+        target: account
+      - action: emit_event
+        event: registration.reregistration_success
+        payload: [phone_number, account_uuid, verification_type]
+    result: "HTTP 200 — account UUID, PNI UUID, identity keys; reregistered=true"
+
+errors:
+  - code: REGISTRATION_RATE_LIMITED
+    status: 429
+    message: "Too many registration attempts. Please wait before trying again."
+    retry: true
+
+  - code: REGISTRATION_INVALID_SIGNATURES
+    status: 422
+    message: "One or more pre-key signatures are invalid."
+    retry: false
+
+  - code: REGISTRATION_MISSING_CAPABILITIES
+    status: 422
+    message: "This version of the app does not support required security features. Please update."
+    retry: false
+
+  - code: REGISTRATION_SESSION_NOT_VERIFIED
+    status: 401
+    message: "Phone number verification has not been completed."
+    retry: true
+
+  - code: REGISTRATION_RECOVERY_INVALID
+    status: 403
+    message: "The account recovery credential is invalid."
+    retry: false
+
+  - code: REGISTRATION_DEVICE_TRANSFER_AVAILABLE
+    status: 409
+    message: "A device transfer is available. Please confirm whether to transfer data from your existing device."
+    retry: true
+
+  - code: REGISTRATION_LOCK_REQUIRED
+    status: 423
+    message: "This account has a registration lock. Enter your PIN to continue."
+    retry: true
+
+  - code: REGISTRATION_LOCK_MISMATCH
+    status: 423
+    message: "Incorrect registration lock PIN."
+    retry: true
+
+events:
+  - name: registration.success
+    description: "New account successfully created"
+    payload: [phone_number, account_uuid, pni_uuid, verification_type]
+
+  - name: registration.reregistration_success
+    description: "Existing account successfully re-registered"
+    payload: [phone_number, account_uuid, verification_type]
+
+  - name: registration.rate_limited
+    description: "Registration attempt was rate-limited"
+    payload: [phone_number]
+
+  - name: registration.lock_mismatch
+    description: "Registration lock PIN was incorrect; existing credentials frozen"
+    payload: [phone_number]
+
+  - name: registration.lock_required
+    description: "Registration lock PIN required but not supplied"
+    payload: [phone_number]
+
+  - name: registration.invalid_key_signatures
+    description: "Pre-key upload rejected due to invalid signatures"
+    payload: [phone_number]
+
+  - name: registration.missing_capabilities
+    description: "Device does not have required capabilities"
+    payload: [phone_number]
+
+  - name: registration.unverified_session
+    description: "Attempted registration with an unverified session"
+    payload: [session_id]
+
+  - name: registration.recovery_password_invalid
+    description: "Recovery password did not match stored credential"
+    payload: [phone_number]
+
+  - name: registration.device_transfer_available
+    description: "Device transfer is possible and user has not opted out"
+    payload: [phone_number]
+
+related:
+  - feature: registration-lock-pin
+    type: required
+    reason: "Registration lock verification is an integral gate in the registration flow"
+
+  - feature: signal-prekey-bundle
+    type: required
+    reason: "Signed pre-keys for both identities must be provided during registration"
+
+  - feature: one-time-prekey-replenishment
+    type: recommended
+    reason: "After registration, clients should replenish one-time pre-key pools for both identities"
+
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_phone_number_registration
+      description: Phone number registration with SMS/voice verification sessions, push challenge, and captcha gating before
+        account creation
+      success_metrics:
+        - metric: unauthorized_access_rate
+          target: 0%
+          measurement: Failed authorization attempts that succeed
+        - metric: response_time_p95
+          target: < 500ms
+          measurement: 95th percentile response time
+      constraints:
+        - type: security
+          description: Follow OWASP security recommendations
+          negotiable: false
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before modifying sensitive data fields
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+  safety:
+    action_permissions:
+      - action: rate_limited
+        permission: autonomous
+      - action: invalid_signatures
+        permission: autonomous
+      - action: missing_capabilities
+        permission: autonomous
+      - action: unverified_session
+        permission: autonomous
+      - action: invalid_recovery_password
+        permission: autonomous
+      - action: device_transfer_available
+        permission: autonomous
+      - action: registration_lock_required
+        permission: autonomous
+      - action: registration_lock_mismatch
+        permission: autonomous
+      - action: success_new_account
+        permission: autonomous
+      - action: success_reregistration
+        permission: autonomous
+  tradeoffs:
+    - prefer: security
+      over: performance
+      reason: authentication must prioritize preventing unauthorized access
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+  coordination:
+    protocol: request_response
+    consumes:
+      - capability: registration_lock_pin
+        from: registration-lock-pin
+        fallback: fail
+      - capability: signal_prekey_bundle
+        from: signal-prekey-bundle
+        fallback: fail

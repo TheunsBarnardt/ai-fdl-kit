@@ -1,0 +1,366 @@
+feature: multi-device-linking
+version: "1.0.0"
+description: Provisioning and management of linked devices on an existing account, allowing a user to register up to a configured maximum of secondary devices that share the account identity
+category: auth
+tags:
+  - devices
+  - provisioning
+  - multi-device
+  - linking
+  - pre-keys
+
+fields:
+  - name: device_id
+    type: number
+    required: true
+    label: "Device ID"
+
+  - name: device_name
+    type: token
+    required: false
+    label: "Device Name"
+
+  - name: linking_token
+    type: token
+    required: true
+    label: "Linking Token"
+
+  - name: provisioning_address
+    type: text
+    required: true
+    label: "Provisioning Address"
+
+  - name: aci_signed_pre_key
+    type: json
+    required: true
+    label: "ACI Signed Pre-Key"
+
+  - name: pni_signed_pre_key
+    type: json
+    required: true
+    label: "PNI Signed Pre-Key"
+
+  - name: aci_pq_last_resort_key
+    type: json
+    required: true
+    label: "ACI Post-Quantum Last-Resort Key"
+
+  - name: pni_pq_last_resort_key
+    type: json
+    required: true
+    label: "PNI Post-Quantum Last-Resort Key"
+
+  - name: registration_id
+    type: number
+    required: true
+    label: "Registration ID"
+
+  - name: pni_registration_id
+    type: number
+    required: true
+    label: "PNI Registration ID"
+
+  - name: capabilities
+    type: json
+    required: true
+    label: "Device Capabilities"
+
+  - name: fetches_messages
+    type: boolean
+    required: true
+    label: "Fetches Messages"
+
+  - name: push_token
+    type: text
+    required: false
+    label: "Push Token"
+
+rules:
+  linking_flow:
+    - "Only the primary device (device ID 1) may initiate device linking by generating a signed linking token"
+    - "The linking token is single-use; attempting to reuse it must return 403 Forbidden"
+    - "A new device must submit the linking token, its cryptographic keys, and its capabilities atomically; the server accepts or rejects the entire request"
+    - "The primary device listens for linking completion events and may time out if the new device does not complete registration within the waiting period"
+  key_validation:
+    - "Pre-key signatures must be verified against the account's existing identity keys before the device is added; a signature failure returns 422"
+    - "The new device must declare a valid set of capabilities; capabilities required for new devices are enforced and requests without them are rejected with 422"
+    - "All linked devices inherit the account's identity keys; each device maintains its own pre-key bundles and registration identifiers"
+    - "Capability downgrades are prevented — if the account already has a capability that requires all devices to support it, a new device without that capability cannot be linked"
+  device_management:
+    - "Linking a new device when the account has already reached its maximum device count returns 411 Device Limit Exceeded"
+    - "A device may only remove itself or, in the case of the primary device, any linked device; a linked device cannot remove another linked device"
+    - "The primary device cannot be deleted via the device removal endpoint"
+    - "Device names are stored encrypted; the server cannot read them"
+
+outcomes:
+  linking_token_generated:
+    priority: 10
+    given:
+      - "primary device is authenticated"
+      - "account has not reached its maximum linked device count"
+    then:
+      - action: create_record
+        type: linking_token
+        target: device_linking_tokens
+        fields: [linking_token, account_id, expires_at]
+      - action: emit_event
+        event: device.linking_token_issued
+        payload: [account_id, expires_at]
+    result: A signed linking token is returned to the primary device for inclusion in a provisioning message
+
+  device_limit_exceeded:
+    priority: 2
+    given:
+      - "primary device requests a linking token"
+      - "account device count is at or above the configured maximum"
+    then:
+      - action: emit_event
+        event: device.limit_exceeded
+        payload: [account_id, current_count, max_count]
+    result: HTTP 411 is returned; no token is issued until an existing linked device is removed
+    error: DEVICE_LIMIT_EXCEEDED
+
+  provisioning_message_sent:
+    priority: 10
+    given:
+      - "primary device has a valid linking token"
+      - "new device is listening on a provisioning WebSocket address"
+    then:
+      - action: create_record
+        type: provisioning_message
+        target: provisioning_queue
+        fields: [provisioning_address, encrypted_provisioning_message]
+      - action: emit_event
+        event: device.provisioning_sent
+        payload: [provisioning_address]
+    result: Encrypted provisioning message is delivered to the new device via its temporary WebSocket connection
+
+  provisioning_address_not_found:
+    priority: 3
+    given:
+      - "primary device sends provisioning message"
+      - "no WebSocket subscriber is listening at the given provisioning address"
+    then:
+      - action: emit_event
+        event: device.provisioning_failed
+        payload: [provisioning_address]
+    result: HTTP 404 is returned; the new device must re-initiate the linking flow and display a new QR code
+    error: DEVICE_PROVISIONING_ADDRESS_NOT_FOUND
+
+  invalid_prekeys:
+    priority: 4
+    given:
+      - "new device submits link request"
+      - "any signed pre-key or post-quantum last-resort key signature fails verification"
+    then:
+      - action: emit_event
+        event: device.link_failed
+        payload: [account_id, reason]
+    result: HTTP 422 is returned; the device is not added and must regenerate its keys before retrying
+    error: DEVICE_INVALID_PREKEY_SIGNATURE
+
+  capability_downgrade:
+    priority: 5
+    given:
+      - "new device submits link request"
+      - "device capabilities would downgrade a capability that requires all devices to support it"
+    then:
+      - action: emit_event
+        event: device.link_failed
+        payload: [account_id, reason]
+    result: HTTP 409 is returned; the new device must update its software to support all required capabilities
+    error: DEVICE_CAPABILITY_DOWNGRADE
+
+  missing_capabilities:
+    priority: 6
+    given:
+      - "new device submits link request"
+      - "the capabilities field is absent or does not include all required capabilities"
+    then:
+      - action: emit_event
+        event: device.link_failed
+        payload: [account_id, reason]
+    result: HTTP 422 is returned; capabilities are mandatory for new devices
+    error: DEVICE_MISSING_CAPABILITIES
+
+  token_already_used:
+    priority: 3
+    given:
+      - "new device submits a linking token that has already been consumed"
+    then:
+      - action: emit_event
+        event: device.link_failed
+        payload: [account_id]
+    result: HTTP 403 is returned; the primary device must generate a new token and restart the linking flow
+    error: DEVICE_TOKEN_ALREADY_USED
+
+  device_linked:
+    priority: 20
+    given:
+      - "new device submits valid linking token, pre-keys, registration IDs, and capabilities"
+      - "account is below its device limit"
+    then:
+      - action: create_record
+        type: device
+        target: devices
+        fields: [device_id, device_name, registration_id, pni_registration_id, capabilities, fetches_messages, push_token]
+      - action: create_record
+        type: pre_keys
+        target: pre_key_store
+        fields: [device_id, aci_signed_pre_key, pni_signed_pre_key, aci_pq_last_resort_key, pni_pq_last_resort_key]
+      - action: emit_event
+        event: device.linked
+        payload: [account_id, device_id]
+    result: Device is added to the account; account and phone-number identity identifiers are returned alongside the assigned device ID
+
+  device_removed:
+    priority: 10
+    given:
+      - "authenticated device requests removal of a device ID"
+      - "requesting device is the primary device or is removing itself"
+      - "target device ID is not the primary device ID"
+    then:
+      - action: delete_record
+        type: device
+        target: devices
+        fields: [device_id]
+      - action: emit_event
+        event: device.removed
+        payload: [account_id, device_id, removed_by]
+    result: Device record and associated keys are deleted; remaining devices receive a sync notification
+
+errors:
+  - code: DEVICE_LIMIT_EXCEEDED
+    status: 409
+    message: Maximum number of linked devices reached; remove an existing device before adding a new one
+    retry: false
+  - code: DEVICE_PROVISIONING_ADDRESS_NOT_FOUND
+    status: 404
+    message: The new device is no longer reachable; scan the QR code again to restart the linking process
+    retry: false
+  - code: DEVICE_INVALID_PREKEY_SIGNATURE
+    status: 422
+    message: Device key signature verification failed; regenerate keys and retry
+    retry: false
+  - code: DEVICE_CAPABILITY_DOWNGRADE
+    status: 409
+    message: Device does not support a capability required by this account; update the app and retry
+    retry: false
+  - code: DEVICE_MISSING_CAPABILITIES
+    status: 422
+    message: Device capability declaration is missing or incomplete
+    retry: false
+  - code: DEVICE_TOKEN_ALREADY_USED
+    status: 403
+    message: Linking token has already been used; the primary device must generate a new token
+    retry: false
+
+events:
+  - name: device.linking_token_issued
+    description: Primary device generated a signed linking token to begin the device provisioning flow
+    payload: [account_id, expires_at]
+  - name: device.provisioning_sent
+    description: Encrypted provisioning message was delivered to the new device's temporary WebSocket address
+    payload: [provisioning_address]
+  - name: device.provisioning_failed
+    description: Provisioning message delivery failed because no subscriber was connected at the target address
+    payload: [provisioning_address]
+  - name: device.linked
+    description: A new device was successfully linked to the account
+    payload: [account_id, device_id]
+  - name: device.removed
+    description: A linked device was removed from the account
+    payload: [account_id, device_id, removed_by]
+  - name: device.link_failed
+    description: A device linking attempt failed due to invalid keys, capabilities, or a used token
+    payload: [account_id, reason]
+  - name: device.limit_exceeded
+    description: A linking token request was rejected because the account is at its device limit
+    payload: [account_id, current_count, max_count]
+
+related:
+  - feature: phone-number-registration
+    type: required
+    reason: An account must exist with a primary device before additional devices can be linked
+  - feature: e2e-key-exchange
+    type: required
+    reason: Each linked device uploads its own pre-key bundles during linking; senders fetch per-device keys to establish independent encrypted sessions
+  - feature: safety-number-verification
+    type: recommended
+    reason: All devices on an account share the same identity key; safety number verification confirms the key has not changed after linking
+  - feature: sealed-sender-delivery
+    type: recommended
+    reason: Messages are delivered independently to each linked device over the sealed-sender path
+
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_multi_device_linking
+      description: Provisioning and management of linked devices on an existing account, allowing a user to register up to a
+        configured maximum of secondary devices that share the account identity
+      success_metrics:
+        - metric: unauthorized_access_rate
+          target: 0%
+          measurement: Failed authorization attempts that succeed
+        - metric: response_time_p95
+          target: < 500ms
+          measurement: 95th percentile response time
+      constraints:
+        - type: security
+          description: Follow OWASP security recommendations
+          negotiable: false
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before modifying sensitive data fields
+      - before permanently deleting records
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+  safety:
+    action_permissions:
+      - action: linking_token_generated
+        permission: autonomous
+      - action: device_limit_exceeded
+        permission: autonomous
+      - action: provisioning_message_sent
+        permission: autonomous
+      - action: provisioning_address_not_found
+        permission: autonomous
+      - action: invalid_prekeys
+        permission: autonomous
+      - action: capability_downgrade
+        permission: autonomous
+      - action: missing_capabilities
+        permission: autonomous
+      - action: token_already_used
+        permission: autonomous
+      - action: device_linked
+        permission: autonomous
+      - action: device_removed
+        permission: human_required
+  tradeoffs:
+    - prefer: security
+      over: performance
+      reason: authentication must prioritize preventing unauthorized access
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+  coordination:
+    protocol: request_response
+    consumes:
+      - capability: phone_number_registration
+        from: phone-number-registration
+        fallback: fail
+      - capability: e2e_key_exchange
+        from: e2e-key-exchange
+        fallback: fail

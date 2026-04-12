@@ -1,0 +1,713 @@
+{
+  "feature": "signal-prekey-bundle",
+  "version": "1.0.0",
+  "description": "Upload and retrieval of pre-key bundles combining EC signed keys, one-time EC keys, and post-quantum KEM keys for establishing end-to-end encrypted sessions",
+  "category": "auth",
+  "tags": [
+    "prekeys",
+    "end-to-end-encryption",
+    "ec-keys",
+    "kem-keys",
+    "double-ratchet",
+    "post-quantum",
+    "identity-keys",
+    "key-exchange"
+  ],
+  "fields": [
+    {
+      "name": "identity_type",
+      "type": "select",
+      "required": true,
+      "label": "Identity Type",
+      "options": [
+        {
+          "value": "aci",
+          "label": "Account Identity (ACI)"
+        },
+        {
+          "value": "pni",
+          "label": "Phone-Number Identity (PNI)"
+        }
+      ]
+    },
+    {
+      "name": "ec_one_time_prekeys",
+      "type": "json",
+      "required": false,
+      "label": "EC One-Time Pre-Keys"
+    },
+    {
+      "name": "ec_signed_prekey",
+      "type": "json",
+      "required": false,
+      "label": "Signed EC Pre-Key"
+    },
+    {
+      "name": "pq_one_time_prekeys",
+      "type": "json",
+      "required": false,
+      "label": "KEM One-Time Pre-Keys"
+    },
+    {
+      "name": "pq_last_resort_prekey",
+      "type": "json",
+      "required": false,
+      "label": "KEM Last-Resort Pre-Key"
+    },
+    {
+      "name": "target_identifier",
+      "type": "token",
+      "required": false,
+      "label": "Target Account Identifier"
+    },
+    {
+      "name": "target_device_id",
+      "type": "text",
+      "required": false,
+      "label": "Target Device ID"
+    },
+    {
+      "name": "unidentified_access_key",
+      "type": "token",
+      "required": false,
+      "label": "Unidentified Access Key",
+      "sensitive": true
+    },
+    {
+      "name": "group_send_token",
+      "type": "token",
+      "required": false,
+      "label": "Group Send Endorsement Token",
+      "sensitive": true
+    },
+    {
+      "name": "digest",
+      "type": "token",
+      "required": false,
+      "label": "Key Consistency Digest"
+    }
+  ],
+  "rules": {
+    "signatures": {
+      "all_signed_keys_must_validate_against_identity_key": true
+    },
+    "upload_limits": {
+      "max_ec_one_time_prekeys_per_upload": 100,
+      "max_kem_one_time_prekeys_per_upload": 100,
+      "non_empty_ec_list_replaces_existing_pool": true,
+      "non_empty_kem_list_replaces_existing_pool": true
+    },
+    "identity_key_changes": {
+      "only_primary_device_may_change": true
+    },
+    "fetch_authorization": {
+      "requires_exactly_one_of": [
+        "account_credentials",
+        "unidentified_access_key",
+        "group_send_token"
+      ],
+      "group_send_token_must_be_verified_against_server_secret": true
+    },
+    "fetch_rate_limiting": {
+      "per_requesting_account": true
+    },
+    "key_consumption": {
+      "ec_one_time_keys_are_consumed_on_fetch": true,
+      "kem_one_time_keys_are_consumed_on_fetch": true,
+      "missing_signed_ec_or_kem_key_excludes_device": true
+    },
+    "consistency_check": {
+      "digest_algorithm": "SHA-256",
+      "digest_covers": [
+        "identity_key",
+        "signed_ec_prekey_id",
+        "signed_ec_prekey_bytes",
+        "last_resort_kem_key_id",
+        "last_resort_kem_key_bytes"
+      ]
+    }
+  },
+  "outcomes": {
+    "upload_invalid_signatures": {
+      "priority": 1,
+      "error": "PREKEY_INVALID_SIGNATURE",
+      "given": [
+        "one or more submitted pre-keys have signatures that do not match the account identity key"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prekey.upload_signature_invalid",
+          "payload": [
+            "account_id",
+            "identity_type"
+          ]
+        }
+      ],
+      "result": "HTTP 422 — invalid signature; no keys stored"
+    },
+    "upload_identity_change_non_primary": {
+      "priority": 2,
+      "error": "PREKEY_IDENTITY_CHANGE_FORBIDDEN",
+      "given": [
+        "ec_signed_prekey is present",
+        "requesting device is not the primary device"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prekey.identity_change_unauthorized",
+          "payload": [
+            "account_id",
+            "device_id"
+          ]
+        }
+      ],
+      "result": "HTTP 403 — only the primary device may change identity keys"
+    },
+    "upload_success": {
+      "priority": 3,
+      "transaction": true,
+      "given": [
+        "device is authenticated",
+        "all submitted keys have valid signatures"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "ec_one_time_prekey",
+          "target": "ec_one_time_prekey_pool",
+          "description": "Store EC one-time pre-keys if list is non-empty"
+        },
+        {
+          "action": "create_record",
+          "type": "ec_signed_prekey",
+          "target": "ec_signed_prekey_store",
+          "description": "Replace signed EC pre-key if provided"
+        },
+        {
+          "action": "create_record",
+          "type": "kem_one_time_prekey",
+          "target": "kem_one_time_prekey_pool",
+          "description": "Store KEM one-time pre-keys if list is non-empty"
+        },
+        {
+          "action": "create_record",
+          "type": "kem_last_resort_prekey",
+          "target": "kem_last_resort_prekey_store",
+          "description": "Replace KEM last-resort key if provided"
+        },
+        {
+          "action": "emit_event",
+          "event": "prekey.uploaded",
+          "payload": [
+            "account_id",
+            "device_id",
+            "identity_type",
+            "ec_count",
+            "pq_count"
+          ]
+        }
+      ],
+      "result": "HTTP 200 — pre-keys stored successfully"
+    },
+    "fetch_unauthenticated": {
+      "priority": 4,
+      "error": "PREKEY_FETCH_UNAUTHORIZED",
+      "given": [
+        {
+          "field": "target_identifier",
+          "source": "input",
+          "operator": "exists",
+          "description": "Bundle retrieval requested"
+        },
+        "requesting device is not authenticated",
+        {
+          "field": "unidentified_access_key",
+          "source": "input",
+          "operator": "not_exists",
+          "description": "No unidentified access key"
+        },
+        {
+          "field": "group_send_token",
+          "source": "input",
+          "operator": "not_exists",
+          "description": "No group send token"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prekey.fetch_unauthorized",
+          "payload": [
+            "target_identifier"
+          ]
+        }
+      ],
+      "result": "HTTP 401 — at least one authorization mechanism required"
+    },
+    "fetch_ambiguous_auth": {
+      "priority": 5,
+      "error": "PREKEY_FETCH_AMBIGUOUS_AUTH",
+      "given": [
+        {
+          "field": "group_send_token",
+          "source": "input",
+          "operator": "exists",
+          "description": "Group send token provided"
+        },
+        {
+          "any": [
+            "requesting device is authenticated",
+            {
+              "field": "unidentified_access_key",
+              "source": "input",
+              "operator": "exists",
+              "description": "Unidentified access key also provided"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prekey.fetch_ambiguous_auth",
+          "payload": [
+            "target_identifier"
+          ]
+        }
+      ],
+      "result": "HTTP 400 — only one authorization mechanism may be used per request"
+    },
+    "fetch_group_token_invalid": {
+      "priority": 6,
+      "error": "PREKEY_GROUP_TOKEN_INVALID",
+      "given": [
+        {
+          "field": "group_send_token",
+          "source": "input",
+          "operator": "exists",
+          "description": "Group send token provided"
+        },
+        "token verification fails against server secret params or target identifier"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prekey.fetch_group_token_invalid",
+          "payload": [
+            "target_identifier"
+          ]
+        }
+      ],
+      "result": "HTTP 401 — group send token is invalid or expired"
+    },
+    "fetch_rate_limited": {
+      "priority": 7,
+      "error": "PREKEY_FETCH_RATE_LIMITED",
+      "given": [
+        "authenticated account has exceeded pre-key fetch rate limit"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prekey.fetch_rate_limited",
+          "payload": [
+            "account_id",
+            "target_identifier"
+          ]
+        }
+      ],
+      "result": "HTTP 429 with Retry-After header"
+    },
+    "fetch_not_found": {
+      "priority": 8,
+      "error": "PREKEY_NOT_FOUND",
+      "given": [
+        {
+          "field": "target_identifier",
+          "source": "input",
+          "operator": "exists",
+          "description": "Bundle retrieval requested"
+        },
+        "target account or device does not exist or has no available pre-keys for any requested device"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prekey.fetch_not_found",
+          "payload": [
+            "target_identifier",
+            "target_device_id"
+          ]
+        }
+      ],
+      "result": "HTTP 404 — target not found or has no keys"
+    },
+    "fetch_success": {
+      "priority": 9,
+      "given": [
+        {
+          "field": "target_identifier",
+          "source": "input",
+          "operator": "exists",
+          "description": "Bundle retrieval requested"
+        },
+        "target account exists and at least one device has both a signed EC key and a KEM key",
+        "requester holds valid authorization credentials"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "ec_one_time_prekey",
+          "description": "Consume one EC one-time pre-key per device if available"
+        },
+        {
+          "action": "delete_record",
+          "type": "kem_one_time_prekey",
+          "description": "Consume one KEM one-time pre-key per device; fall back to last-resort if pool empty"
+        },
+        {
+          "action": "emit_event",
+          "event": "prekey.fetched",
+          "payload": [
+            "target_identifier",
+            "device_count",
+            "ec_one_time_available",
+            "kem_one_time_available"
+          ]
+        }
+      ],
+      "result": "HTTP 200 — pre-key bundle with identity key, signed EC key, optional unsigned EC key, and KEM key per device"
+    },
+    "consistency_check_pass": {
+      "priority": 10,
+      "given": [
+        {
+          "field": "digest",
+          "source": "input",
+          "operator": "exists",
+          "description": "Client submitted a key consistency digest"
+        },
+        "computed SHA-256 over identity key and repeated-use keys matches submitted digest"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prekey.consistency_verified",
+          "payload": [
+            "account_id",
+            "device_id",
+            "identity_type"
+          ]
+        }
+      ],
+      "result": "HTTP 200 — client and server have consistent repeated-use key views"
+    },
+    "consistency_check_fail": {
+      "priority": 11,
+      "error": "PREKEY_CONSISTENCY_MISMATCH",
+      "given": [
+        {
+          "field": "digest",
+          "source": "input",
+          "operator": "exists",
+          "description": "Client submitted a key consistency digest"
+        },
+        {
+          "any": [
+            "computed digest does not match submitted digest",
+            "signed EC pre-key or last-resort KEM key not found on server"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prekey.consistency_mismatch",
+          "payload": [
+            "account_id",
+            "device_id",
+            "identity_type"
+          ]
+        }
+      ],
+      "result": "HTTP 409 — key views inconsistent; client should re-upload repeated-use keys"
+    }
+  },
+  "errors": [
+    {
+      "code": "PREKEY_INVALID_SIGNATURE",
+      "status": 422,
+      "message": "One or more pre-key signatures are invalid.",
+      "retry": false
+    },
+    {
+      "code": "PREKEY_IDENTITY_CHANGE_FORBIDDEN",
+      "status": 403,
+      "message": "Identity key changes can only be made from the primary device.",
+      "retry": false
+    },
+    {
+      "code": "PREKEY_FETCH_UNAUTHORIZED",
+      "status": 401,
+      "message": "Authentication required to retrieve pre-key bundles.",
+      "retry": false
+    },
+    {
+      "code": "PREKEY_FETCH_AMBIGUOUS_AUTH",
+      "status": 400,
+      "message": "Multiple authorization methods were provided. Use only one.",
+      "retry": false
+    },
+    {
+      "code": "PREKEY_GROUP_TOKEN_INVALID",
+      "status": 401,
+      "message": "Group send authorization token is invalid.",
+      "retry": false
+    },
+    {
+      "code": "PREKEY_FETCH_RATE_LIMITED",
+      "status": 429,
+      "message": "Too many key fetch requests. Please wait before trying again.",
+      "retry": true
+    },
+    {
+      "code": "PREKEY_NOT_FOUND",
+      "status": 404,
+      "message": "The requested account or device has no available pre-keys.",
+      "retry": false
+    },
+    {
+      "code": "PREKEY_CONSISTENCY_MISMATCH",
+      "status": 409,
+      "message": "Your device keys are out of sync. Please re-upload your pre-keys.",
+      "retry": false
+    }
+  ],
+  "events": [
+    {
+      "name": "prekey.uploaded",
+      "description": "Pre-keys successfully stored for a device",
+      "payload": [
+        "account_id",
+        "device_id",
+        "identity_type",
+        "ec_count",
+        "pq_count"
+      ]
+    },
+    {
+      "name": "prekey.fetched",
+      "description": "Pre-key bundle retrieved for a target account",
+      "payload": [
+        "target_identifier",
+        "device_count",
+        "ec_one_time_available",
+        "kem_one_time_available"
+      ]
+    },
+    {
+      "name": "prekey.upload_signature_invalid",
+      "description": "Pre-key upload rejected due to invalid signature",
+      "payload": [
+        "account_id",
+        "identity_type"
+      ]
+    },
+    {
+      "name": "prekey.identity_change_unauthorized",
+      "description": "Non-primary device attempted to change identity key",
+      "payload": [
+        "account_id",
+        "device_id"
+      ]
+    },
+    {
+      "name": "prekey.consistency_verified",
+      "description": "Client and server have consistent repeated-use key views",
+      "payload": [
+        "account_id",
+        "device_id",
+        "identity_type"
+      ]
+    },
+    {
+      "name": "prekey.consistency_mismatch",
+      "description": "Client and server pre-key views are inconsistent",
+      "payload": [
+        "account_id",
+        "device_id",
+        "identity_type"
+      ]
+    },
+    {
+      "name": "prekey.fetch_rate_limited",
+      "description": "Pre-key fetch rate limit exceeded",
+      "payload": [
+        "account_id",
+        "target_identifier"
+      ]
+    },
+    {
+      "name": "prekey.fetch_unauthorized",
+      "description": "Pre-key fetch attempted without authorization",
+      "payload": [
+        "target_identifier"
+      ]
+    },
+    {
+      "name": "prekey.fetch_ambiguous_auth",
+      "description": "Pre-key fetch provided multiple conflicting authorization mechanisms",
+      "payload": [
+        "target_identifier"
+      ]
+    },
+    {
+      "name": "prekey.fetch_group_token_invalid",
+      "description": "Group send token failed verification",
+      "payload": [
+        "target_identifier"
+      ]
+    },
+    {
+      "name": "prekey.fetch_not_found",
+      "description": "Target account or device has no available pre-keys",
+      "payload": [
+        "target_identifier",
+        "target_device_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "phone-number-registration",
+      "type": "required",
+      "reason": "Signed pre-keys for both identities are required at account registration time"
+    },
+    {
+      "feature": "one-time-prekey-replenishment",
+      "type": "required",
+      "reason": "One-time pre-key pools must be monitored and replenished after keys are consumed during key exchange"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_signal_prekey_bundle",
+        "description": "Upload and retrieval of pre-key bundles combining EC signed keys, one-time EC keys, and post-quantum KEM keys for establishing end-to-end encrypted sessions",
+        "success_metrics": [
+          {
+            "metric": "unauthorized_access_rate",
+            "target": "0%",
+            "measurement": "Failed authorization attempts that succeed"
+          },
+          {
+            "metric": "response_time_p95",
+            "target": "< 500ms",
+            "measurement": "95th percentile response time"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "security",
+            "description": "Follow OWASP security recommendations",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before modifying sensitive data fields"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5",
+        "consecutive_failures > 3"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "upload_invalid_signatures",
+          "permission": "autonomous"
+        },
+        {
+          "action": "upload_identity_change_non_primary",
+          "permission": "supervised"
+        },
+        {
+          "action": "upload_success",
+          "permission": "autonomous"
+        },
+        {
+          "action": "fetch_unauthenticated",
+          "permission": "autonomous"
+        },
+        {
+          "action": "fetch_ambiguous_auth",
+          "permission": "autonomous"
+        },
+        {
+          "action": "fetch_group_token_invalid",
+          "permission": "autonomous"
+        },
+        {
+          "action": "fetch_rate_limited",
+          "permission": "autonomous"
+        },
+        {
+          "action": "fetch_not_found",
+          "permission": "autonomous"
+        },
+        {
+          "action": "fetch_success",
+          "permission": "autonomous"
+        },
+        {
+          "action": "consistency_check_pass",
+          "permission": "autonomous"
+        },
+        {
+          "action": "consistency_check_fail",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "security",
+        "over": "performance",
+        "reason": "authentication must prioritize preventing unauthorized access"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details"
+      ]
+    },
+    "coordination": {
+      "protocol": "request_response",
+      "consumes": [
+        {
+          "capability": "phone_number_registration",
+          "from": "phone-number-registration",
+          "fallback": "fail"
+        },
+        {
+          "capability": "one_time_prekey_replenishment",
+          "from": "one-time-prekey-replenishment",
+          "fallback": "fail"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,340 @@
+{
+  "feature": "disappearing-messages",
+  "version": "1.0.0",
+  "description": "Per-conversation timer that automatically deletes messages on all participant devices after a configurable duration, with the server assisting by propagating timer changes",
+  "category": "auth",
+  "tags": [
+    "messaging",
+    "privacy",
+    "ephemeral",
+    "timer",
+    "client-enforced"
+  ],
+  "fields": [
+    {
+      "name": "conversation_id",
+      "type": "text",
+      "required": true,
+      "label": "Conversation ID"
+    },
+    {
+      "name": "expire_timer_seconds",
+      "type": "number",
+      "required": true,
+      "label": "Expire Timer (seconds)"
+    },
+    {
+      "name": "set_by",
+      "type": "text",
+      "required": false,
+      "label": "Set By"
+    },
+    {
+      "name": "message_received_at",
+      "type": "number",
+      "required": false,
+      "label": "Message Received At"
+    },
+    {
+      "name": "message_id",
+      "type": "text",
+      "required": false,
+      "label": "Message ID"
+    }
+  ],
+  "rules": {
+    "client_enforcement": [
+      "Disappearing message deletion is enforced entirely on client devices; the server does not delete message content",
+      "Clients must schedule local deletion at message_received_at + expire_timer_seconds * 1000; messages must be deleted even if the app is backgrounded or restarted",
+      "Clients must not rely on the server to confirm or enforce deletion; the server merely relays the timer value"
+    ],
+    "timer_propagation": [
+      "The server propagates timer-change messages to all participant devices as standard encrypted messages so every device applies the same timer",
+      "A timer value of 0 disables disappearing messages for the conversation",
+      "Valid non-zero timer values are positive integers representing seconds; recommended presets include 5 seconds, 1 minute, 5 minutes, 1 hour, 1 day, and 1 week",
+      "When a new participant joins a group conversation they receive the current timer value as part of the group state",
+      "Timer-change messages must be delivered to all linked devices of each participant so deletion is consistent across devices",
+      "A timer-change by any participant overrides the previous timer for all participants; the last-writer-wins rule applies"
+    ],
+    "group_rules": [
+      "Groups may restrict timer changes to administrators only; clients enforce this restriction, and the server passes through the encrypted control message without inspecting it"
+    ]
+  },
+  "outcomes": {
+    "timer_updated": {
+      "priority": 10,
+      "given": [
+        "authenticated participant sends a timer-change control message",
+        {
+          "field": "expire_timer_seconds",
+          "source": "input",
+          "operator": "gte",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "timer_change_message",
+          "target": "message_queue",
+          "fields": [
+            "conversation_id",
+            "expire_timer_seconds",
+            "set_by",
+            "timestamp"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "disappearing.timer_changed",
+          "payload": [
+            "conversation_id",
+            "expire_timer_seconds",
+            "set_by"
+          ]
+        }
+      ],
+      "result": "Timer-change control message is enqueued for delivery to all participant devices; each device updates its local conversation state"
+    },
+    "timer_disabled": {
+      "priority": 9,
+      "given": [
+        "authenticated participant sends a timer-change control message",
+        {
+          "field": "expire_timer_seconds",
+          "source": "input",
+          "operator": "eq",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "timer_change_message",
+          "target": "message_queue",
+          "fields": [
+            "conversation_id",
+            "expire_timer_seconds",
+            "set_by",
+            "timestamp"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "disappearing.timer_disabled",
+          "payload": [
+            "conversation_id",
+            "set_by"
+          ]
+        }
+      ],
+      "result": "Disappearing messages are disabled for the conversation; all participant devices receive the change and stop scheduling future deletions"
+    },
+    "message_expired_client": {
+      "priority": 8,
+      "given": [
+        "client's local clock passes the calculated deletion deadline for a stored message",
+        {
+          "field": "expire_timer_seconds",
+          "source": "db",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "message",
+          "target": "local_message_store",
+          "fields": [
+            "message_id"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "disappearing.message_deleted",
+          "payload": [
+            "message_id",
+            "conversation_id"
+          ]
+        }
+      ],
+      "result": "Message content and metadata are removed from the device's local storage; no server action is taken"
+    },
+    "invalid_timer_value": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "expire_timer_seconds",
+          "source": "input",
+          "operator": "lt",
+          "value": 0
+        }
+      ],
+      "then": [],
+      "result": "Timer-change message is rejected; negative timer values are not permitted",
+      "error": "DISAPPEARING_INVALID_TIMER"
+    },
+    "offline_queued": {
+      "priority": 7,
+      "given": [
+        "participant device is offline when timer-change message is sent"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "timer_change_message",
+          "target": "offline_message_queue",
+          "fields": [
+            "conversation_id",
+            "expire_timer_seconds",
+            "set_by",
+            "timestamp"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "disappearing.timer_queued",
+          "payload": [
+            "conversation_id",
+            "expire_timer_seconds"
+          ]
+        }
+      ],
+      "result": "Timer-change message is stored in the offline queue and delivered when the device reconnects"
+    }
+  },
+  "errors": [
+    {
+      "code": "DISAPPEARING_INVALID_TIMER",
+      "status": 422,
+      "message": "Timer value must be zero or a positive number of seconds",
+      "retry": false
+    }
+  ],
+  "events": [
+    {
+      "name": "disappearing.timer_changed",
+      "description": "A participant updated the disappearing-message timer for a conversation",
+      "payload": [
+        "conversation_id",
+        "expire_timer_seconds",
+        "set_by"
+      ]
+    },
+    {
+      "name": "disappearing.timer_disabled",
+      "description": "A participant disabled the disappearing-message timer for a conversation",
+      "payload": [
+        "conversation_id",
+        "set_by"
+      ]
+    },
+    {
+      "name": "disappearing.message_deleted",
+      "description": "A client deleted a message after its expiry timer elapsed (client-side event only)",
+      "payload": [
+        "message_id",
+        "conversation_id"
+      ]
+    },
+    {
+      "name": "disappearing.timer_queued",
+      "description": "A timer-change control message was queued for offline delivery",
+      "payload": [
+        "conversation_id",
+        "expire_timer_seconds"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "sealed-sender-delivery",
+      "type": "recommended",
+      "reason": "Timer-change control messages travel as encrypted sealed-sender messages so the server cannot inspect the timer value"
+    },
+    {
+      "feature": "e2e-key-exchange",
+      "type": "recommended",
+      "reason": "All messages carrying timer updates are encrypted end-to-end using keys managed by the key exchange feature"
+    },
+    {
+      "feature": "multi-device-linking",
+      "type": "recommended",
+      "reason": "Timer changes must be delivered to all linked devices to keep deletion consistent across a user's devices"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_disappearing_messages",
+        "description": "Per-conversation timer that automatically deletes messages on all participant devices after a configurable duration, with the server assisting by propagating timer changes",
+        "success_metrics": [
+          {
+            "metric": "unauthorized_access_rate",
+            "target": "0%",
+            "measurement": "Failed authorization attempts that succeed"
+          },
+          {
+            "metric": "response_time_p95",
+            "target": "< 500ms",
+            "measurement": "95th percentile response time"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "security",
+            "description": "Follow OWASP security recommendations",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before making irreversible changes"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5",
+        "consecutive_failures > 3"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "timer_updated",
+          "permission": "supervised"
+        },
+        {
+          "action": "timer_disabled",
+          "permission": "human_required"
+        },
+        {
+          "action": "message_expired_client",
+          "permission": "autonomous"
+        },
+        {
+          "action": "invalid_timer_value",
+          "permission": "autonomous"
+        },
+        {
+          "action": "offline_queued",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "security",
+        "over": "performance",
+        "reason": "authentication must prioritize preventing unauthorized access"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "error messages never expose internal system details"
+      ]
+    }
+  }
+}

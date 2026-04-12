@@ -1,0 +1,549 @@
+{
+  "feature": "one-time-prekey-replenishment",
+  "version": "1.0.0",
+  "description": "Client-driven one-time pre-key pool monitoring and replenishment to ensure uninterrupted secure session establishment",
+  "category": "auth",
+  "tags": [
+    "prekeys",
+    "replenishment",
+    "pool-management",
+    "end-to-end-encryption",
+    "ec-keys",
+    "kem-keys",
+    "device-maintenance"
+  ],
+  "fields": [
+    {
+      "name": "identity_type",
+      "type": "select",
+      "required": false,
+      "label": "Identity Type",
+      "options": [
+        {
+          "value": "aci",
+          "label": "Account Identity (ACI)"
+        },
+        {
+          "value": "pni",
+          "label": "Phone-Number Identity (PNI)"
+        }
+      ]
+    },
+    {
+      "name": "ec_prekey_count",
+      "type": "number",
+      "required": false,
+      "label": "Available EC One-Time Pre-Key Count"
+    },
+    {
+      "name": "pq_prekey_count",
+      "type": "number",
+      "required": false,
+      "label": "Available KEM One-Time Pre-Key Count"
+    },
+    {
+      "name": "aci_ec_count",
+      "type": "number",
+      "required": false,
+      "label": "ACI EC One-Time Pre-Key Count"
+    },
+    {
+      "name": "pni_ec_count",
+      "type": "number",
+      "required": false,
+      "label": "PNI EC One-Time Pre-Key Count"
+    },
+    {
+      "name": "aci_pq_count",
+      "type": "number",
+      "required": false,
+      "label": "ACI KEM One-Time Pre-Key Count"
+    },
+    {
+      "name": "pni_pq_count",
+      "type": "number",
+      "required": false,
+      "label": "PNI KEM One-Time Pre-Key Count"
+    },
+    {
+      "name": "ec_one_time_prekeys",
+      "type": "json",
+      "required": false,
+      "label": "EC One-Time Pre-Keys to Upload"
+    },
+    {
+      "name": "pq_one_time_prekeys",
+      "type": "json",
+      "required": false,
+      "label": "KEM One-Time Pre-Keys to Upload"
+    }
+  ],
+  "rules": {
+    "polling": {
+      "client_polls_on_startup": true,
+      "client_polls_after_wake": true,
+      "client_polls_after_key_consumption": true
+    },
+    "identity_management": {
+      "four_pools_per_device": true,
+      "combined_count_endpoint_available": true
+    },
+    "upload_constraints": {
+      "max_ec_keys_per_upload": 100,
+      "max_kem_keys_per_upload": 100,
+      "non_empty_list_replaces_existing_pool": true,
+      "all_kem_keys_must_be_signed_by_identity_key": true
+    },
+    "last_resort_fallback": {
+      "kem_last_resort_key_used_when_pool_empty": true,
+      "last_resort_key_is_never_consumed": true
+    },
+    "orphan_cleanup": {
+      "background_process_removes_unreferenced_pages": true,
+      "minimum_retention_before_deletion": true,
+      "cleanup_is_non_disruptive": true
+    },
+    "authentication": {
+      "required_for_count_queries": true,
+      "required_for_uploads": true
+    }
+  },
+  "outcomes": {
+    "count_query_unauthenticated": {
+      "priority": 1,
+      "error": "PREKEY_REPLENISHMENT_UNAUTHORIZED",
+      "given": [
+        "request does not carry valid account credentials"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prekey_replenishment.unauthorized",
+          "payload": [
+            "device_id"
+          ]
+        }
+      ],
+      "result": "HTTP 401 — authentication required"
+    },
+    "count_query_success": {
+      "priority": 2,
+      "given": [
+        "device is authenticated",
+        {
+          "field": "identity_type",
+          "source": "input",
+          "operator": "exists",
+          "description": "Specific identity type requested"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prekey_replenishment.count_queried",
+          "payload": [
+            "account_id",
+            "device_id",
+            "identity_type",
+            "ec_prekey_count",
+            "pq_prekey_count"
+          ]
+        }
+      ],
+      "result": "HTTP 200 — current EC and KEM one-time pre-key counts for the specified identity"
+    },
+    "combined_count_query_success": {
+      "priority": 3,
+      "given": [
+        "device is authenticated",
+        "combined count for all identity types requested"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prekey_replenishment.combined_count_queried",
+          "payload": [
+            "account_id",
+            "device_id",
+            "aci_ec_count",
+            "pni_ec_count",
+            "aci_pq_count",
+            "pni_pq_count"
+          ]
+        }
+      ],
+      "result": "HTTP 200 — EC and KEM counts for both ACI and PNI identities"
+    },
+    "pool_adequate": {
+      "priority": 4,
+      "given": [
+        "device is authenticated",
+        "all pools are at or above client replenishment threshold"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prekey_replenishment.pool_adequate",
+          "payload": [
+            "account_id",
+            "device_id",
+            "ec_prekey_count",
+            "pq_prekey_count"
+          ]
+        }
+      ],
+      "result": "No upload required; client continues normal operation"
+    },
+    "pool_below_threshold": {
+      "priority": 5,
+      "given": [
+        "device is authenticated",
+        {
+          "any": [
+            {
+              "field": "ec_prekey_count",
+              "source": "db",
+              "operator": "lt",
+              "value": 1,
+              "description": "EC one-time key pool is empty"
+            },
+            {
+              "field": "pq_prekey_count",
+              "source": "db",
+              "operator": "lt",
+              "value": 1,
+              "description": "KEM one-time key pool is empty"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prekey_replenishment.threshold_crossed",
+          "payload": [
+            "account_id",
+            "device_id",
+            "identity_type",
+            "ec_prekey_count",
+            "pq_prekey_count"
+          ]
+        }
+      ],
+      "result": "Client initiates a pre-key upload to replenish the depleted pool"
+    },
+    "upload_unauthenticated": {
+      "priority": 6,
+      "error": "PREKEY_REPLENISHMENT_UNAUTHORIZED",
+      "given": [
+        "upload request does not carry valid account credentials"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prekey_replenishment.upload_unauthorized",
+          "payload": [
+            "device_id"
+          ]
+        }
+      ],
+      "result": "HTTP 401 — authentication required"
+    },
+    "upload_invalid_signature": {
+      "priority": 7,
+      "error": "PREKEY_REPLENISHMENT_INVALID_SIGNATURE",
+      "given": [
+        "device is authenticated",
+        "pq_one_time_prekeys batch is provided",
+        "one or more KEM pre-keys fail signature validation against the identity key"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prekey_replenishment.upload_signature_invalid",
+          "payload": [
+            "account_id",
+            "device_id",
+            "identity_type"
+          ]
+        }
+      ],
+      "result": "HTTP 422 — invalid KEM pre-key signature; no keys stored"
+    },
+    "upload_success": {
+      "priority": 8,
+      "transaction": true,
+      "given": [
+        "device is authenticated",
+        {
+          "any": [
+            "ec_one_time_prekeys is non-empty",
+            "pq_one_time_prekeys is non-empty"
+          ]
+        },
+        "all submitted KEM pre-keys have valid signatures"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "ec_one_time_prekey",
+          "target": "ec_one_time_prekey_pool",
+          "description": "Store new EC one-time pre-keys, replacing existing pool"
+        },
+        {
+          "action": "create_record",
+          "type": "kem_one_time_prekey",
+          "target": "kem_one_time_prekey_pool",
+          "description": "Store new KEM one-time pre-keys, replacing existing pool"
+        },
+        {
+          "action": "emit_event",
+          "event": "prekey_replenishment.upload_success",
+          "payload": [
+            "account_id",
+            "device_id",
+            "identity_type",
+            "ec_keys_uploaded",
+            "pq_keys_uploaded"
+          ]
+        }
+      ],
+      "result": "HTTP 200 — pool replenished; server-side counts updated"
+    },
+    "orphan_page_cleanup": {
+      "priority": 9,
+      "given": [
+        "background maintenance is running",
+        "a KEM pre-key storage page exists that is not referenced by any active device",
+        "the page has been unreferenced for longer than the minimum retention period"
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "kem_prekey_page",
+          "description": "Remove orphaned KEM pre-key storage page"
+        },
+        {
+          "action": "emit_event",
+          "event": "prekey_replenishment.orphan_page_removed",
+          "payload": [
+            "page_id"
+          ]
+        }
+      ],
+      "result": "Orphaned storage page deleted; no impact on active key exchange"
+    }
+  },
+  "errors": [
+    {
+      "code": "PREKEY_REPLENISHMENT_UNAUTHORIZED",
+      "status": 401,
+      "message": "Authentication required to manage pre-keys.",
+      "retry": false
+    },
+    {
+      "code": "PREKEY_REPLENISHMENT_INVALID_SIGNATURE",
+      "status": 422,
+      "message": "One or more pre-key signatures are invalid.",
+      "retry": false
+    }
+  ],
+  "events": [
+    {
+      "name": "prekey_replenishment.count_queried",
+      "description": "Pre-key pool count successfully retrieved for a device and identity type",
+      "payload": [
+        "account_id",
+        "device_id",
+        "identity_type",
+        "ec_prekey_count",
+        "pq_prekey_count"
+      ]
+    },
+    {
+      "name": "prekey_replenishment.combined_count_queried",
+      "description": "Combined ACI and PNI pre-key counts retrieved in a single call",
+      "payload": [
+        "account_id",
+        "device_id",
+        "aci_ec_count",
+        "pni_ec_count",
+        "aci_pq_count",
+        "pni_pq_count"
+      ]
+    },
+    {
+      "name": "prekey_replenishment.threshold_crossed",
+      "description": "Pre-key pool dropped below replenishment threshold; upload required",
+      "payload": [
+        "account_id",
+        "device_id",
+        "identity_type",
+        "ec_prekey_count",
+        "pq_prekey_count"
+      ]
+    },
+    {
+      "name": "prekey_replenishment.pool_adequate",
+      "description": "Pre-key pool is at or above threshold; no upload needed",
+      "payload": [
+        "account_id",
+        "device_id",
+        "ec_prekey_count",
+        "pq_prekey_count"
+      ]
+    },
+    {
+      "name": "prekey_replenishment.upload_success",
+      "description": "New pre-keys successfully stored; pool replenished",
+      "payload": [
+        "account_id",
+        "device_id",
+        "identity_type",
+        "ec_keys_uploaded",
+        "pq_keys_uploaded"
+      ]
+    },
+    {
+      "name": "prekey_replenishment.upload_signature_invalid",
+      "description": "Pre-key upload rejected due to invalid KEM key signature",
+      "payload": [
+        "account_id",
+        "device_id",
+        "identity_type"
+      ]
+    },
+    {
+      "name": "prekey_replenishment.orphan_page_removed",
+      "description": "An orphaned KEM pre-key storage page was removed during maintenance",
+      "payload": [
+        "page_id"
+      ]
+    },
+    {
+      "name": "prekey_replenishment.unauthorized",
+      "description": "Unauthenticated count query or upload attempt",
+      "payload": [
+        "device_id"
+      ]
+    },
+    {
+      "name": "prekey_replenishment.upload_unauthorized",
+      "description": "Unauthenticated pre-key upload attempt",
+      "payload": [
+        "device_id"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "signal-prekey-bundle",
+      "type": "required",
+      "reason": "One-time keys are consumed during pre-key bundle retrieval and must be replenished to avoid fallback to last-resort keys"
+    },
+    {
+      "feature": "phone-number-registration",
+      "type": "recommended",
+      "reason": "After registration, clients should immediately upload one-time pre-key pools for both ACI and PNI identities"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_one_time_prekey_replenishment",
+        "description": "Client-driven one-time pre-key pool monitoring and replenishment to ensure uninterrupted secure session establishment",
+        "success_metrics": [
+          {
+            "metric": "unauthorized_access_rate",
+            "target": "0%",
+            "measurement": "Failed authorization attempts that succeed"
+          },
+          {
+            "metric": "response_time_p95",
+            "target": "< 500ms",
+            "measurement": "95th percentile response time"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "security",
+            "description": "Follow OWASP security recommendations",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before making irreversible changes"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5",
+        "consecutive_failures > 3"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "count_query_unauthenticated",
+          "permission": "autonomous"
+        },
+        {
+          "action": "count_query_success",
+          "permission": "autonomous"
+        },
+        {
+          "action": "combined_count_query_success",
+          "permission": "autonomous"
+        },
+        {
+          "action": "pool_adequate",
+          "permission": "autonomous"
+        },
+        {
+          "action": "pool_below_threshold",
+          "permission": "autonomous"
+        },
+        {
+          "action": "upload_unauthenticated",
+          "permission": "autonomous"
+        },
+        {
+          "action": "upload_invalid_signature",
+          "permission": "autonomous"
+        },
+        {
+          "action": "upload_success",
+          "permission": "autonomous"
+        },
+        {
+          "action": "orphan_page_cleanup",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "security",
+        "over": "performance",
+        "reason": "authentication must prioritize preventing unauthorized access"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "error messages never expose internal system details"
+      ]
+    },
+    "coordination": {
+      "protocol": "request_response",
+      "consumes": [
+        {
+          "capability": "signal_prekey_bundle",
+          "from": "signal-prekey-bundle",
+          "fallback": "fail"
+        }
+      ]
+    }
+  }
+}

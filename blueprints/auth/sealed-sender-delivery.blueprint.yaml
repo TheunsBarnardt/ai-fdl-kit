@@ -1,0 +1,301 @@
+feature: sealed-sender-delivery
+version: "1.0.0"
+description: Metadata-hidden message delivery that conceals the sender's identity from the server using unidentified access keys or group send endorsement tokens
+category: auth
+tags:
+  - messaging
+  - privacy
+  - end-to-end-encryption
+  - anonymous-delivery
+  - group-messaging
+
+fields:
+  - name: unidentified_access_key
+    type: token
+    required: false
+    label: "Unidentified Access Key"
+
+  - name: group_send_token
+    type: token
+    required: false
+    label: "Group Send Token"
+
+  - name: destination_identifier
+    type: text
+    required: true
+    label: "Destination Identifier"
+
+  - name: message_payloads
+    type: json
+    required: true
+    label: "Message Payloads"
+
+  - name: unrestricted_unidentified_access
+    type: boolean
+    required: false
+    label: "Unrestricted Unidentified Access"
+
+  - name: timestamp
+    type: number
+    required: true
+    label: "Timestamp"
+
+  - name: online
+    type: boolean
+    required: false
+    label: "Online Only"
+
+  - name: urgent
+    type: boolean
+    required: false
+    label: "Urgent"
+
+rules:
+  authentication:
+    - "Exactly one authentication mechanism must be provided per request — either an unidentified access key or a group send endorsement token, never both"
+    - "An unidentified access key must match the 16-byte key stored on the recipient account using a constant-time comparison to prevent timing attacks"
+    - "Combined unidentified access keys for multi-recipient delivery are derived by XOR-ing each recipient's individual key; recipients with unrestricted access are excluded from the XOR"
+    - "Group send endorsement tokens must be cryptographically verified against the set of recipient service identifiers and a server-held expiry key before delivery proceeds"
+    - "An expired or invalid group send endorsement token must be rejected with a 401 response"
+  delivery:
+    - "Story messages bypass access key authentication; group send endorsement tokens must not accompany story sends"
+    - "When the recipient account does not exist the server must return 404 for single-recipient sends"
+    - "Multi-recipient sends with a group send endorsement token may tolerate unknown recipients, returning their identifiers in the response; single-access-key multi-recipient sends must fail if any recipient cannot be resolved"
+    - "The sender's identity is never recorded, logged, or stored by the server in sealed-sender delivery paths"
+    - "Rate limiting is applied to the recipient account identifier to prevent abuse without identifying the sender"
+
+outcomes:
+  missing_auth:
+    priority: 1
+    given:
+      - field: unidentified_access_key
+        source: request
+        operator: not_exists
+      - field: group_send_token
+        source: request
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: sealed_sender.rejected
+        payload: [destination_identifier, reason]
+    result: Request is rejected with HTTP 401 Unauthorized
+    error: SEALED_SENDER_MISSING_AUTH
+
+  conflicting_auth:
+    priority: 2
+    given:
+      - field: unidentified_access_key
+        source: request
+        operator: exists
+      - field: group_send_token
+        source: request
+        operator: exists
+    then:
+      - action: emit_event
+        event: sealed_sender.rejected
+        payload: [destination_identifier, reason]
+    result: Request is rejected with HTTP 400 Bad Request; both tokens must not be provided simultaneously
+    error: SEALED_SENDER_CONFLICTING_AUTH
+
+  invalid_group_send_token:
+    priority: 3
+    given:
+      - field: group_send_token
+        source: request
+        operator: exists
+      - "group send token signature verification fails or token is expired"
+    then:
+      - action: emit_event
+        event: sealed_sender.rejected
+        payload: [destination_identifier, reason]
+    result: Request is rejected with HTTP 401; sender is not enrolled in the group or the token has expired
+    error: SEALED_SENDER_INVALID_GROUP_TOKEN
+
+  access_key_mismatch:
+    priority: 4
+    given:
+      - field: unidentified_access_key
+        source: request
+        operator: exists
+      - "recipient account has a stored access key and the presented key does not match"
+    then:
+      - action: emit_event
+        event: sealed_sender.rejected
+        payload: [destination_identifier]
+    result: Request is rejected with HTTP 401; the caller cannot prove permission to send to this recipient
+    error: SEALED_SENDER_ACCESS_DENIED
+
+  recipient_not_found:
+    priority: 5
+    given:
+      - "destination account does not exist in the system"
+      - "request is a single-recipient send"
+    then:
+      - action: emit_event
+        event: sealed_sender.rejected
+        payload: [destination_identifier]
+    result: Request is rejected with HTTP 404; recipient unknown
+    error: SEALED_SENDER_RECIPIENT_NOT_FOUND
+
+  rate_limited:
+    priority: 6
+    given:
+      - "per-recipient delivery rate limit is exceeded"
+    then:
+      - action: emit_event
+        event: sealed_sender.rate_limited
+        payload: [destination_identifier]
+    result: Request is rejected with HTTP 429 and a Retry-After header
+    error: SEALED_SENDER_RATE_LIMITED
+
+  delivered_single_recipient:
+    priority: 10
+    given:
+      - "exactly one authentication mechanism is present and passes verification"
+      - "destination account exists"
+    then:
+      - action: create_record
+        type: queued_message
+        target: message_queue
+        fields: [destination_identifier, message_payloads, timestamp, online, urgent]
+      - action: emit_event
+        event: sealed_sender.delivered
+        payload: [destination_identifier, timestamp, device_count]
+    result: Encrypted payloads are enqueued for all registered recipient devices; HTTP 200 is returned with a sync flag
+
+  delivered_multi_recipient:
+    priority: 11
+    given:
+      - "exactly one authentication mechanism is present and passes verification"
+      - "message targets multiple recipients via group send"
+    then:
+      - action: create_record
+        type: queued_message
+        target: message_queue
+        fields: [destination_identifier, message_payloads, timestamp, online, urgent]
+      - action: emit_event
+        event: sealed_sender.multi_delivered
+        payload: [recipient_count, unresolved_recipients, timestamp]
+    result: Encrypted payloads are fanned out to all resolved recipient devices; unresolved recipient identifiers are returned in the HTTP 200 response body
+
+errors:
+  - code: SEALED_SENDER_MISSING_AUTH
+    status: 401
+    message: Authentication required to deliver this message
+    retry: false
+  - code: SEALED_SENDER_CONFLICTING_AUTH
+    status: 400
+    message: Provide either an access key or a group token, not both
+    retry: false
+  - code: SEALED_SENDER_INVALID_GROUP_TOKEN
+    status: 401
+    message: Group send authorisation token is invalid or has expired
+    retry: false
+  - code: SEALED_SENDER_ACCESS_DENIED
+    status: 401
+    message: Not authorised to deliver to this recipient
+    retry: false
+  - code: SEALED_SENDER_RECIPIENT_NOT_FOUND
+    status: 404
+    message: Recipient not found
+    retry: false
+  - code: SEALED_SENDER_RATE_LIMITED
+    status: 429
+    message: Too many messages sent to this recipient; please retry later
+    retry: true
+
+events:
+  - name: sealed_sender.delivered
+    description: A sealed-sender message was successfully enqueued for a single recipient
+    payload: [destination_identifier, timestamp, device_count]
+  - name: sealed_sender.multi_delivered
+    description: A sealed-sender multi-recipient message was fanned out to group members
+    payload: [recipient_count, unresolved_recipients, timestamp]
+  - name: sealed_sender.rejected
+    description: A sealed-sender delivery attempt was rejected due to failed authentication or a missing recipient
+    payload: [destination_identifier, reason]
+  - name: sealed_sender.rate_limited
+    description: A sealed-sender delivery attempt was rate-limited
+    payload: [destination_identifier]
+
+related:
+  - feature: e2e-key-exchange
+    type: required
+    reason: Pre-key bundles and identity keys established by the key exchange feature are used to encrypt messages that travel over the sealed-sender path
+  - feature: phone-number-registration
+    type: required
+    reason: Accounts must be registered and have an unidentified access key configured before sealed-sender delivery can be used
+  - feature: device-management
+    type: recommended
+    reason: Messages are fanned out to all registered devices on the recipient account; device management determines which devices are present
+  - feature: multi-device-linking
+    type: recommended
+    reason: Linked devices each receive a copy of sealed-sender messages independently
+
+
+# ─── AGI READINESS ─────────────────────────────────────────
+
+agi:
+  # --- AGI READINESS (auto-generated by propagate-agi.js) ---
+
+  goals:
+    - id: reliable_sealed_sender_delivery
+      description: Metadata-hidden message delivery that conceals the sender's identity from the server using unidentified
+        access keys or group send endorsement tokens
+      success_metrics:
+        - metric: unauthorized_access_rate
+          target: 0%
+          measurement: Failed authorization attempts that succeed
+        - metric: response_time_p95
+          target: < 500ms
+          measurement: 95th percentile response time
+      constraints:
+        - type: security
+          description: Follow OWASP security recommendations
+          negotiable: false
+        - type: security
+          description: Sensitive fields must be encrypted at rest and never logged in plaintext
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - before modifying sensitive data fields
+    escalation_triggers:
+      - error_rate > 5
+      - consecutive_failures > 3
+  safety:
+    action_permissions:
+      - action: missing_auth
+        permission: autonomous
+      - action: conflicting_auth
+        permission: autonomous
+      - action: invalid_group_send_token
+        permission: autonomous
+      - action: access_key_mismatch
+        permission: autonomous
+      - action: recipient_not_found
+        permission: autonomous
+      - action: rate_limited
+        permission: autonomous
+      - action: delivered_single_recipient
+        permission: autonomous
+      - action: delivered_multi_recipient
+        permission: autonomous
+  tradeoffs:
+    - prefer: security
+      over: performance
+      reason: authentication must prioritize preventing unauthorized access
+  verification:
+    invariants:
+      - sensitive fields are never logged in plaintext
+      - all data access is authenticated and authorized
+      - error messages never expose internal system details
+  coordination:
+    protocol: request_response
+    consumes:
+      - capability: e2e_key_exchange
+        from: e2e-key-exchange
+        fallback: fail
+      - capability: phone_number_registration
+        from: phone-number-registration
+        fallback: fail
