@@ -527,7 +527,17 @@ The appendix should contain reference tables (full API operation lists, SDK func
 
 ## Appendix B: Feature Blueprint Reference
 
-{Table listing all FDL blueprints (existing + new) with: Feature | Blueprint name | One-line description. This connects the business proposal to the technical implementation specs.}
+{Table listing all FDL blueprints (existing + new) with: Feature | Blueprint (hyperlinked) | One-line description.
+
+**CRITICAL: The Blueprint column must be a clickable hyperlink** to the co-located `.md` file for that blueprint. Use relative paths from the proposal's location to `blueprints/{category}/{feature}.md`. Example:
+
+```
+| Palm Pay | [`payment/palm-pay`](../../blueprints/payment/palm-pay.md) | Palm template to payment proxy linking |
+```
+
+Adjust the relative path depth (`../../`) based on where the proposal is saved. If saved under `projects/{name}/brainstorms/`, use `../../../blueprints/...`. If under `docs/plans/`, use `../../blueprints/...`. If under `docs/brainstorms/`, use `../../blueprints/...`.
+
+Never use plain text or backtick-only references — every blueprint name must be a working link.}
 
 ---
 
