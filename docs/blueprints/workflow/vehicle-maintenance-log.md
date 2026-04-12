@@ -161,6 +161,62 @@ description: "Record completed maintenance and service events for a vehicle incl
 | vehicle-expense-tracking | recommended | Service costs roll up into per-vehicle expense reporting |
 | workshop-directory | optional | Workshop reference on the log entry links to the service provider directory |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle Maintenance Log
+
+Record completed maintenance and service events for a vehicle including work performed, parts consumed, labour cost, technician details, and the next scheduled service.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_master_data` | vehicle-master-data | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| service_completed | `autonomous` | - | - |
+| invalid_odometer | `autonomous` | - | - |
+| next_service_scheduled | `autonomous` | - | - |
+| cost_recorded | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

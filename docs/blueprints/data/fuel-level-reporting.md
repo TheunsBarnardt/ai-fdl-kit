@@ -102,6 +102,61 @@ description: "Read fuel sensor data transmitted by GPS hardware, detect signific
 | trip-detection | recommended | Trip reports include fuel consumption from start to end of each trip |
 | fleet-scheduled-reports | recommended | Fuel summary reports aggregate consumption over configurable periods |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fuel Level Reporting
+
+Read fuel sensor data transmitted by GPS hardware, detect significant fuel drops (theft or fast consumption) and unexpected increases (refuelling), and provide fuel consumption summaries across tri...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `gps_position_ingestion` | gps-position-ingestion | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| fuel_drop_detected | `autonomous` | - | - |
+| fuel_increase_detected | `autonomous` | - | - |
+| no_fuel_sensor | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

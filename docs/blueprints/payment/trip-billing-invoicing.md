@@ -171,6 +171,72 @@ description: "Calculate and manage trip-based billing, service rates, and invoic
 | driver-earnings-payouts | recommended | Driver earnings are derived from trip billing |
 | fleet-customer-contacts | recommended | Customer billing details come from contact management |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Trip Billing Invoicing
+
+Calculate and manage trip-based billing, service rates, and invoice generation for completed deliveries
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `order_lifecycle` | order-lifecycle | fail |
+| `service_area_management` | service-area-management | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| bill_calculated | `autonomous` | - | - |
+| payment_successful | `autonomous` | - | - |
+| payment_failed | `autonomous` | - | - |
+| refund_issued | `autonomous` | - | - |
+| no_service_rate_found | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

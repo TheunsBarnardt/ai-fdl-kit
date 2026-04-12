@@ -150,6 +150,59 @@ description: "Maintain the canonical specification record for a fleet vehicle in
 | fuel-log | recommended | Fuel entries update the last_odometer field on the master record |
 | vehicle-depreciation | recommended | Acquisition cost and date from master data seed the depreciation calculation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle Master Data
+
+Maintain the canonical specification record for a fleet vehicle including make, model, year, VIN, fuel type, physical dimensions, and current assignment.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_registration` | vehicle-registration | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| vehicle_record_created | `supervised` | - | - |
+| duplicate_vin_rejected | `supervised` | - | - |
+| invalid_year_rejected | `supervised` | - | - |
+| vehicle_record_updated | `supervised` | - | - |
+| odometer_updated | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -129,6 +129,64 @@ description: "Define named geographic boundary zones as circles (centre point + 
 | gps-position-ingestion | required | Positions must be ingested and enriched with zone membership before alert evaluation |
 | overspeed-alerts | recommended | Zone-level speed limits override device-level limits for overspeed detection |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Geofence Management
+
+Define named geographic boundary zones as circles (centre point + radius) or polygons (closed coordinate ring), optionally with altitude constraints and calendar-based activation schedules, and eva...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `geofence_alerts` | geofence-alerts | degrade |
+| `gps_position_ingestion` | gps-position-ingestion | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| geofence_created | `supervised` | - | - |
+| geofence_updated | `supervised` | - | - |
+| geofence_deleted | `human_required` | - | - |
+| position_inside_zone | `autonomous` | - | - |
+| invalid_geometry | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

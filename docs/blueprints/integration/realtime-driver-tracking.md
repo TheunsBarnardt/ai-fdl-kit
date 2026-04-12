@@ -138,6 +138,65 @@ description: "Real-time GPS location tracking for drivers and vehicles with posi
 | dispatch-driver-assignment | recommended | Nearest-driver calculation requires real-time positions |
 | fleet-performance-dashboard | optional | Live map shows all driver positions on the dashboard |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Realtime Driver Tracking
+
+Real-time GPS location tracking for drivers and vehicles with position history and live map updates
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `driver_profile` | driver-profile | degrade |
+| `order_lifecycle` | order-lifecycle | degrade |
+| `route_planning` | route-planning | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| position_recorded | `autonomous` | - | - |
+| driver_arrives_at_waypoint | `autonomous` | - | - |
+| driver_departed_from_location | `autonomous` | - | - |
+| invalid_coordinates | `autonomous` | - | - |
+| unauthorized_tracking | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

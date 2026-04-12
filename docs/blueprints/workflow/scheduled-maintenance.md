@@ -195,6 +195,64 @@ description: "Define recurring maintenance schedules for vehicles based on calen
 | vehicle-maintenance-log | required | Completing a scheduled task creates a maintenance log record and advances the schedule |
 | odometer-tracking | recommended | Validated odometer readings trigger odometer-based due date re-evaluation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Scheduled Maintenance
+
+Define recurring maintenance schedules for vehicles based on calendar intervals or odometer milestones, track due dates, trigger work orders, and record completion to advance the schedule.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_master_data` | vehicle-master-data | degrade |
+| `vehicle_maintenance_log` | vehicle-maintenance-log | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| schedule_created | `supervised` | - | - |
+| task_due_soon | `autonomous` | - | - |
+| task_overdue | `autonomous` | - | - |
+| task_completed | `autonomous` | - | - |
+| odometer_due_triggered | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

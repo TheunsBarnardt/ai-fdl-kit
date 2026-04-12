@@ -183,6 +183,53 @@ description: "Maintain a registry of approved external workshops and service pro
 | vehicle-maintenance-log | recommended | Workshop records are referenced on each service log entry |
 | scheduled-maintenance | optional | Scheduled maintenance tasks can be pre-assigned to a preferred workshop |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Workshop Directory
+
+Maintain a registry of approved external workshops and service providers for fleet maintenance, including contact details, service specialisations, pricing, performance ratings, and contract status.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| workshop_registered | `autonomous` | - | - |
+| workshop_rated | `autonomous` | - | - |
+| workshop_suspended | `human_required` | - | - |
+| contract_expired | `autonomous` | - | - |
+| workshop_blacklisted | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -105,6 +105,66 @@ description: "Post-process probe attempts with obfuscation transforms (encoding,
 | llm-vulnerability-scan | required | The scan pipeline that configures and applies augmentations. |
 | prompt-obfuscation-pipeline | optional | Complementary converter-based obfuscation pipeline from PyRIT. |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Prompt Attack Augmentation
+
+Post-process probe attempts with obfuscation transforms (encoding, rephrasing, suffix injection) before submission so attacks bypass surface-level safety filters.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `llm_attack_probe_library` | llm-attack-probe-library | degrade |
+| `llm_vulnerability_scan` | llm-vulnerability-scan | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| augmentation_not_applicable | `autonomous` | - | - |
+| augmentation_applied | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

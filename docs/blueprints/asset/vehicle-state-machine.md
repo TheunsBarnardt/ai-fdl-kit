@@ -178,6 +178,60 @@ description: "Tracks the real-time operational state of a connected vehicle (onl
 | ev-charging-session | required |  |
 | vehicle-sleep-wake-detection | extends |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle State Machine
+
+Tracks the real-time operational state of a connected vehicle (online, driving, charging, asleep, offline, updating) by polling a vehicle API and persisting state transitions.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_trip_segmentation` | vehicle-trip-segmentation | degrade |
+| `ev_charging_session` | ev-charging-session | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| vehicle_transitions_to_driving | `autonomous` | - | - |
+| vehicle_transitions_to_charging | `autonomous` | - | - |
+| vehicle_falls_asleep | `autonomous` | - | - |
+| vehicle_goes_offline | `autonomous` | - | - |
+| vehicle_wakes_up | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

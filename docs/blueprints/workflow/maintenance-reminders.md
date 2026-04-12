@@ -102,6 +102,62 @@ description: "Define maintenance tasks that trigger notifications when a tracked
 | engine-hours-tracking | recommended | Engine hours provide an alternative maintenance trigger for equipment tracked by running time |
 | gps-position-ingestion | required | Each position update drives the maintenance threshold evaluation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Maintenance Reminders
+
+Define maintenance tasks that trigger notifications when a tracked vehicle crosses a configured odometer, engine hours, or time threshold, with automatic repeat reminders at regular intervals for o...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `odometer_tracking` | odometer-tracking | degrade |
+| `gps_position_ingestion` | gps-position-ingestion | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| initial_reminder_fired | `autonomous` | - | - |
+| periodic_reminder_fired | `autonomous` | - | - |
+| no_threshold_crossed | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

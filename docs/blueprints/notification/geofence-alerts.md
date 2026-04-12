@@ -111,6 +111,59 @@ description: "Detect and emit events when a tracked device crosses the boundary 
 | gps-position-ingestion | required | Positions trigger the zone membership comparison |
 | fleet-device-sharing | recommended | Only users with access to the device receive crossing notifications |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Geofence Alerts
+
+Detect and emit events when a tracked device crosses the boundary of a geofence zone, distinguishing entry (device was outside, now inside) from exit (device was inside, now outside), with calendar...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| delivery_reliability | speed | notifications must reach recipients even if delayed |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `geofence_management` | geofence-management | degrade |
+| `gps_position_ingestion` | gps-position-ingestion | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| geofence_entered | `autonomous` | - | - |
+| geofence_exited | `autonomous` | - | - |
+| calendar_suppressed | `autonomous` | - | - |
+| no_previous_position | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

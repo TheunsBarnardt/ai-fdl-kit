@@ -154,6 +154,75 @@ description: "RESTful public API with API key authentication and request logging
 | multi-tenant-organization | required | API credentials are scoped to an organization |
 | order-lifecycle-webhooks | recommended | API credentials can be linked to webhook endpoints |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fleet Public Api
+
+RESTful public API with API key authentication and request logging for third-party integrations
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `multi_tenant_organization` | multi-tenant-organization | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| credential_created | `supervised` | - | - |
+| request_authenticated | `autonomous` | - | - |
+| credential_revoked | `human_required` | - | - |
+| invalid_api_key | `autonomous` | - | - |
+| rate_limit_exceeded | `autonomous` | - | - |
+| credential_expired | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

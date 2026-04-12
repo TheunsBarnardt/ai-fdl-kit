@@ -235,6 +235,57 @@ Mutually exclusive with shuffle=True.
 |---------|-------------|--------|
 | model-training | recommended | Supplies batched training data to model.fit() |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Dataset Pipeline
+
+Build efficient input data pipelines for ML training and inference — covers tf.data (caching, prefetching, AUTOTUNE) and PyTorch DataLoader (multi-process workers, samplers, collate) patterns
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `fully_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| safety | capability | AI systems must operate within defined safety boundaries |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| pipeline_ready | `autonomous` | - | - |
+| pipeline_failed_source_not_found | `autonomous` | - | - |
+| pipeline_failed_shape_mismatch | `autonomous` | - | - |
+| pipeline_failed_deserialization | `autonomous` | - | - |
+| epoch_exhausted | `autonomous` | - | - |
+| cache_written | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

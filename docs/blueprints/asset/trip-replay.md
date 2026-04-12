@@ -130,6 +130,57 @@ description: "Records a dense telemetry time-series (position, speed, power, ele
 | vehicle-trip-segmentation | required |  |
 | driver-behaviour-scoring | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Trip Replay
+
+Records a dense telemetry time-series (position, speed, power, elevation, battery) throughout every trip, enabling post-hoc replay with full speed and elevation profiles.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_trip_segmentation` | vehicle-trip-segmentation | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| position_recorded_during_trip | `autonomous` | - | - |
+| elevation_backfilled | `autonomous` | - | - |
+| trip_aggregates_computed | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

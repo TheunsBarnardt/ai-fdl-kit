@@ -193,6 +193,61 @@ description: "Automatically generate and send renewal reminders for vehicle lice
 | vehicle-registration | required | Registration expiry dates trigger renewal reminders |
 | vehicle-documents | recommended | Document expiry dates (permits, roadworthiness) are managed alongside renewal reminders |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle Renewal Reminders
+
+Automatically generate and send renewal reminders for vehicle licenses, registrations, roadworthiness certificates, and insurance policies before they expire.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| delivery_reliability | speed | notifications must reach recipients even if delayed |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_insurance` | vehicle-insurance | degrade |
+| `vehicle_registration` | vehicle-registration | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| reminder_triggered | `autonomous` | - | - |
+| reminder_resent | `autonomous` | - | - |
+| reminder_acknowledged | `autonomous` | - | - |
+| renewal_completed | `autonomous` | - | - |
+| escalation_triggered | `autonomous` | - | - |
+| item_turned_overdue | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

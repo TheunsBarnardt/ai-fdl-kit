@@ -170,6 +170,59 @@ description: "Track insurance policies for fleet vehicles including coverage typ
 | vehicle-renewal-reminders | recommended | Centralised reminder system can manage insurance renewal alongside other document renewals |
 | vehicle-documents | recommended | Policy documents and certificates of insurance are stored in the document management feature |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle Insurance
+
+Track insurance policies for fleet vehicles including coverage type, premium, excess, validity dates, and renewal lifecycle.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_registration` | vehicle-registration | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| policy_activated | `autonomous` | - | - |
+| policy_end_date_invalid | `autonomous` | - | - |
+| policy_renewed | `autonomous` | - | - |
+| policy_cancelled | `supervised` | - | - |
+| expiry_reminder_triggered | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

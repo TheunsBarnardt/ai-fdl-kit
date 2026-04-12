@@ -101,6 +101,57 @@ description: "Detect transitions in vehicle ignition state by comparing the igni
 | engine-hours-tracking | recommended | Engine hours are accumulated while ignition is on |
 | trip-detection | recommended | Ignition transitions can serve as alternative trip start/end signals |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Ignition Detection
+
+Detect transitions in vehicle ignition state by comparing the ignition attribute between consecutive position records, and emit ignition-on and ignition-off events to drive engine hours calculation...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `gps_position_ingestion` | gps-position-ingestion | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| ignition_turned_on | `autonomous` | - | - |
+| ignition_turned_off | `autonomous` | - | - |
+| no_ignition_attribute | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

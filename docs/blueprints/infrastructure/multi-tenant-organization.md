@@ -162,6 +162,68 @@ description: "Multi-tenant organization model with isolated data, user managemen
 | order-lifecycle-webhooks | required | Webhooks are isolated per organization |
 | fleet-customer-contacts | recommended | Contacts are scoped to the organization |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Multi Tenant Organization
+
+Multi-tenant organization model with isolated data, user management, and role-based access control
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| availability | cost | infrastructure downtime impacts all dependent services |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fleet_public_api` | fleet-public-api | fail |
+| `order_lifecycle_webhooks` | order-lifecycle-webhooks | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| org_created | `supervised` | - | - |
+| member_invited | `autonomous` | - | - |
+| member_joined | `autonomous` | - | - |
+| org_suspended | `human_required` | - | - |
+| cross_tenant_access_blocked | `human_required` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

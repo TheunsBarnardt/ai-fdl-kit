@@ -189,6 +189,64 @@ description: "Record vehicle accidents, breakdowns, and operational incidents wi
 | vehicle-master-data | required | Vehicle identification and assignment details are sourced from the master record |
 | vehicle-expense-tracking | recommended | Incident repair costs and insurance shortfalls roll into per-vehicle expense reporting |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle Incident Log
+
+Record vehicle accidents, breakdowns, and operational incidents with damage assessment, third-party details, injury reporting, police report linkage, and insurance claim lifecycle management.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_insurance` | vehicle-insurance | degrade |
+| `vehicle_master_data` | vehicle-master-data | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| incident_reported | `autonomous` | - | - |
+| injury_escalated | `autonomous` | - | - |
+| insurance_claim_submitted | `autonomous` | - | - |
+| repair_completed_and_closed | `autonomous` | - | - |
+| missing_third_party_details | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

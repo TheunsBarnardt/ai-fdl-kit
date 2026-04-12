@@ -127,6 +127,59 @@ description: "Accept raw GPS position messages from heterogeneous hardware devic
 | overspeed-alerts | recommended | Pipeline detects overspeed conditions from position speed and configured limits |
 | ignition-detection | recommended | Pipeline reads ignition attribute to track engine state changes |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Gps Position Ingestion
+
+Accept raw GPS position messages from heterogeneous hardware devices over multiple transport protocols, decode them into a normalised position record, and route through a processing pipeline before...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `gps_device_registration` | gps-device-registration | degrade |
+| `gps_position_history` | gps-position-history | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| position_accepted | `autonomous` | - | - |
+| position_outdated | `autonomous` | - | - |
+| invalid_coordinates | `autonomous` | - | - |
+| device_not_found | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

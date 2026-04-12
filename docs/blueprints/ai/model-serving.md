@@ -275,6 +275,69 @@ Model weights can contain malicious operations via custom ops.
 | model-training | required | Consumes SavedModel checkpoint exported by the training workflow |
 | dataset-pipeline | optional | Batch inference can reuse tf.data pipelines for preprocessing |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Model Serving
+
+Export trained ML models for production inference — covers TF SavedModel/TF Serving versioning and PyTorch export patterns (torch.export, ONNX, torch.compile)
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `fully_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| safety | capability | AI systems must operate within defined safety boundaries |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `model_training` | model-training | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| model_loaded | `autonomous` | - | - |
+| model_serving_ready | `autonomous` | - | - |
+| inference_succeeded | `autonomous` | - | - |
+| inference_failed_shape_mismatch | `autonomous` | - | - |
+| model_not_found | `autonomous` | - | - |
+| model_load_failed | `autonomous` | - | - |
+| inference_timeout | `autonomous` | - | - |
+| max_batch_exceeded | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

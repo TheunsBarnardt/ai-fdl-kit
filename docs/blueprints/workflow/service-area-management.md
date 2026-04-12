@@ -148,6 +148,53 @@ description: "Define and manage geographic service areas and zones that control 
 | vehicle-fleet-registry | recommended | Fleet assignments can be scoped to service areas |
 | trip-billing-invoicing | optional | Service rates are linked to specific areas and zones |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Service Area Management
+
+Define and manage geographic service areas and zones that control where fleet operations are permitted
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| area_created | `supervised` | - | - |
+| zone_added | `autonomous` | - | - |
+| area_deactivated | `autonomous` | - | - |
+| order_outside_area | `autonomous` | - | - |
+| invalid_boundary | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

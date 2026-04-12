@@ -149,6 +149,64 @@ description: "Register and identify GPS tracking devices by unique hardware ID (
 | device-status-tracking | required | Status transitions are computed from position timestamps |
 | fleet-device-sharing | recommended | Groups and user permissions govern who can see and manage each device |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Gps Device Registration
+
+Register and identify GPS tracking devices by unique hardware ID (IMEI or custom identifier), with per-device metadata, grouping, and lifecycle management.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `gps_position_ingestion` | gps-position-ingestion | degrade |
+| `device_status_tracking` | device-status-tracking | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| device_registered | `autonomous` | - | - |
+| duplicate_rejected | `supervised` | - | - |
+| device_updated | `supervised` | - | - |
+| device_disabled | `human_required` | - | - |
+| device_expired | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

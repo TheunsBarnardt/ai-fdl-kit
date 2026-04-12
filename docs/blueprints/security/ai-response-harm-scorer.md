@@ -141,6 +141,63 @@ description: "Evaluate AI model responses for harm or policy violation using a p
 | llm-vulnerability-scan | optional | Scan pipeline that can use this scorer as a detector backend. |
 | redteam-conversation-memory | recommended | Persists score records alongside conversation history for audit. |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Ai Response Harm Scorer
+
+Evaluate AI model responses for harm or policy violation using a pluggable scorer — binary, float-scale, LLM-as-judge, or human review. Results are stored for audit.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `multi_turn_attack_orchestration` | multi-turn-attack-orchestration | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| scorer_config_invalid | `autonomous` | - | - |
+| response_ambiguous | `autonomous` | - | - |
+| human_review_requested | `autonomous` | - | - |
+| scored_harmful | `autonomous` | - | - |
+| scored_safe | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

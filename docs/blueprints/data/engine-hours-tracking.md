@@ -98,6 +98,58 @@ description: "Accumulate the total time a vehicle engine has been running by mea
 | gps-position-ingestion | required | Position records carry device timestamps and ignition attributes |
 | maintenance-reminders | recommended | Engine hours thresholds trigger scheduled maintenance events |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Engine Hours Tracking
+
+Accumulate the total time a vehicle engine has been running by measuring the duration between consecutive positions while the ignition is on, providing accurate engine-hours data for maintenance sc...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `ignition_detection` | ignition-detection | degrade |
+| `gps_position_ingestion` | gps-position-ingestion | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| hours_calculated | `autonomous` | - | - |
+| ignition_off_interval_skipped | `autonomous` | - | - |
+| hardware_hours_used | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

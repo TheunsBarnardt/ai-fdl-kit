@@ -111,6 +111,63 @@ description: "Identify the driver operating a vehicle by matching hardware-repor
 | gps-device-registration | required | Devices carry the optional linked driver configuration |
 | trip-detection | recommended | Trip reports include driver attribution when available |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Driver Identification
+
+Identify the driver operating a vehicle by matching hardware-reported credentials (RFID tag or iButton key) against a registry of named drivers, and emit an event whenever the driver assignment cha...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `gps_position_ingestion` | gps-position-ingestion | degrade |
+| `gps_device_registration` | gps-device-registration | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| driver_identified | `autonomous` | - | - |
+| driver_changed | `supervised` | - | - |
+| linked_driver_applied | `autonomous` | - | - |
+| unknown_credential | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

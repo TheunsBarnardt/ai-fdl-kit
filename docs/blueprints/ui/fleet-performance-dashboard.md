@@ -136,6 +136,60 @@ description: "Configurable dashboards with widgets showing fleet KPIs, live driv
 | vehicle-fleet-registry | recommended | Vehicle status metrics appear on fleet dashboard |
 | driver-profile | recommended | Driver availability and performance metrics |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fleet Performance Dashboard
+
+Configurable dashboards with widgets showing fleet KPIs, live driver map, order metrics, and performance analytics
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `realtime_driver_tracking` | realtime-driver-tracking | degrade |
+| `order_lifecycle` | order-lifecycle | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| dashboard_created | `supervised` | - | - |
+| widget_added | `autonomous` | - | - |
+| live_map_loaded | `autonomous` | - | - |
+| metrics_refreshed | `autonomous` | - | - |
+| report_exported | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -104,6 +104,58 @@ description: "Detect when a tracked device exceeds a configured speed limit for 
 | geofence-management | recommended | Geofence-level speed limits override device-level limits |
 | gps-device-registration | required | Speed limits are configured as device attributes |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Overspeed Alerts
+
+Detect when a tracked device exceeds a configured speed limit for a minimum duration, using a four-level speed limit hierarchy (position > geofence > device > server), and emit a single event at th...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| delivery_reliability | speed | notifications must reach recipients even if delayed |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `gps_position_ingestion` | gps-position-ingestion | degrade |
+| `gps_device_registration` | gps-device-registration | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| overspeed_event_emitted | `autonomous` | - | - |
+| overspeed_cleared | `autonomous` | - | - |
+| no_speed_limit_configured | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

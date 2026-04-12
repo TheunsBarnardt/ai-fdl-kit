@@ -122,6 +122,58 @@ description: "Registry of modular attack probes for testing AI model vulnerabili
 | prompt-attack-augmentation | optional | Augmentations that transform probe prompts before submission. |
 | security-scan-report | recommended | Aggregates probe results into a human-readable scan report. |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Llm Attack Probe Library
+
+Registry of modular attack probes for testing AI model vulnerabilities — each probe targets a category (jailbreak, prompt injection, data leakage, toxicity) and pairs with a detector.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `llm_vulnerability_scan` | llm-vulnerability-scan | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| probe_config_invalid | `autonomous` | - | - |
+| prompt_generation_failed | `autonomous` | - | - |
+| attack_detected | `autonomous` | - | - |
+| attack_not_triggered | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

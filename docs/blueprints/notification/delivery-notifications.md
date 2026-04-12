@@ -173,6 +173,61 @@ description: "Send automated SMS and email notifications to customers and driver
 | fleet-customer-contacts | required | Customer contact information for notification delivery |
 | driver-profile | recommended | Driver contact info for dispatch notifications |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Delivery Notifications
+
+Send automated SMS and email notifications to customers and drivers at each order status change
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| delivery_reliability | speed | notifications must reach recipients even if delayed |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `order_lifecycle` | order-lifecycle | degrade |
+| `fleet_customer_contacts` | fleet-customer-contacts | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| notification_sent_on_dispatch | `autonomous` | - | - |
+| notification_sent_on_completion | `autonomous` | - | - |
+| driver_notified_on_dispatch | `autonomous` | - | - |
+| notification_delivered | `autonomous` | - | - |
+| notification_failed | `autonomous` | - | - |
+| recipient_opted_out | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

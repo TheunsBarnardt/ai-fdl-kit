@@ -175,6 +175,63 @@ description: "Store, categorise, and manage fleet vehicle documents — permits,
 | vehicle-renewal-reminders | recommended | Document expiry dates feed the centralised renewal reminder system |
 | vehicle-insurance | recommended | Insurance certificates are stored as documents in the vehicle document register |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle Documents
+
+Store, categorise, and manage fleet vehicle documents — permits, roadworthiness certificates, registration papers, inspection reports, photos — with expiry tracking and renewal reminders.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_registration` | vehicle-registration | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| document_uploaded | `autonomous` | - | - |
+| expiry_reminder_triggered | `autonomous` | - | - |
+| document_expired | `autonomous` | - | - |
+| document_archived | `autonomous` | - | - |
+| invalid_file_rejected | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

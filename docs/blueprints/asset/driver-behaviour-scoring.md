@@ -115,6 +115,57 @@ description: "Analyses vehicle telemetry (speed and power time series) to detect
 | trip-replay | recommended |  |
 | vehicle-efficiency-metrics | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Driver Behaviour Scoring
+
+Analyses vehicle telemetry (speed and power time series) to detect hard braking and rapid acceleration events, producing a per-trip smoothness score for driver feedback.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_trip_segmentation` | vehicle-trip-segmentation | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| trip_scored_successfully | `autonomous` | - | - |
+| aggressive_event_detected | `autonomous` | - | - |
+| trip_score_insufficient_data | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

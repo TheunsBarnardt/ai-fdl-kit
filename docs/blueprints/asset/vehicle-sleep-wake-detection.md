@@ -150,6 +150,48 @@ description: "Detects when a connected vehicle enters and exits sleep mode by ob
 | vehicle-state-machine | extends |  |
 | vehicle-trip-segmentation | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle Sleep Wake Detection
+
+Detects when a connected vehicle enters and exits sleep mode by observing API availability, persists sleep period records, and adapts the polling schedule to minimise battery drain.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| vehicle_enters_sleep | `autonomous` | - | - |
+| vehicle_wakes | `autonomous` | - | - |
+| vehicle_goes_offline | `autonomous` | - | - |
+| vehicle_recovers_from_offline | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

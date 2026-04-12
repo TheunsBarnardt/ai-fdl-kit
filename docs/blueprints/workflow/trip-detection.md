@@ -126,6 +126,62 @@ description: "Automatically detect the start and end of vehicle trips by monitor
 | driver-identification | recommended | Trips are attributed to the identified driver for reporting |
 | fleet-scheduled-reports | recommended | Trip records feed into scheduled trip reports |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Trip Detection
+
+Automatically detect the start and end of vehicle trips by monitoring movement patterns across consecutive position records, applying configurable distance and duration thresholds to filter noise, ...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `gps_position_ingestion` | gps-position-ingestion | degrade |
+| `stop_detection` | stop-detection | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| trip_started | `autonomous` | - | - |
+| trip_ended | `autonomous` | - | - |
+| noise_filtered | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

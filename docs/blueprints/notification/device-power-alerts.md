@@ -98,6 +98,58 @@ description: "Monitor battery voltage, battery level percentage, and external po
 | gps-position-ingestion | required | Power telemetry and alarm codes arrive as position attributes |
 | device-status-tracking | recommended | Power cut may correlate with device going offline shortly after |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Device Power Alerts
+
+Monitor battery voltage, battery level percentage, and external power supply state transmitted by GPS tracking hardware, and emit alerts when power conditions threaten continuous device operation (...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| delivery_reliability | speed | notifications must reach recipients even if delayed |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `device_alarm_notifications` | device-alarm-notifications | degrade |
+| `gps_position_ingestion` | gps-position-ingestion | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| power_alarm_generated | `autonomous` | - | - |
+| battery_data_recorded | `autonomous` | - | - |
+| no_power_data | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

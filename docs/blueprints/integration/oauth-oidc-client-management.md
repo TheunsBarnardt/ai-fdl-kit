@@ -307,6 +307,84 @@ description: "Lifecycle management of OAuth 2.0 and OpenID Connect clients — a
 | openid-connect-server | recommended | Governs token lifespans, supported subject types, and default scopes referenced by client registrations.  |
 | user-consent-management | recommended | Consent screen logic triggered during authorization for clients where skip_consent is false.  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Oauth Oidc Client Management
+
+Lifecycle management of OAuth 2.0 and OpenID Connect clients — admin CRUD plus self-service OpenID Connect Dynamic Client Registration (RFC 7591).
+
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `oauth_provider` | oauth-provider | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| dynamic_registration_disabled | `human_required` | - | - |
+| dynamic_registration_unauthorized | `autonomous` | - | - |
+| invalid_redirect_uri | `autonomous` | - | - |
+| dynamic_field_violation | `autonomous` | - | - |
+| invalid_client_metadata | `autonomous` | - | - |
+| client_not_found | `autonomous` | - | - |
+| client_created | `supervised` | - | - |
+| clients_listed | `autonomous` | - | - |
+| client_retrieved | `autonomous` | - | - |
+| client_replaced | `autonomous` | - | - |
+| client_patched | `autonomous` | - | - |
+| client_deleted | `human_required` | - | - |
+| client_lifespans_updated | `supervised` | - | - |
+| client_registered_dynamic | `autonomous` | - | - |
+| dynamic_client_self_managed | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

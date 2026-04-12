@@ -163,6 +163,64 @@ description: "Manage vehicle check-out and check-in workflows including conditio
 | field-incident-reporting | recommended | Damage found at check-in can trigger an incident report |
 | order-lifecycle | optional | Checkout can be linked to a specific delivery order |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle Checkout
+
+Manage vehicle check-out and check-in workflows including condition verification, mileage tracking, and responsibility handoff
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_fleet_registry` | vehicle-fleet-registry | degrade |
+| `driver_profile` | driver-profile | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| checkout_requested | `autonomous` | - | - |
+| checkout_approved | `supervised` | - | - |
+| vehicle_returned | `autonomous` | - | - |
+| vehicle_already_checked_out | `autonomous` | - | - |
+| invalid_odometer | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

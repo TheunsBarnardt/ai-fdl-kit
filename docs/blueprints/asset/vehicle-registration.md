@@ -166,6 +166,59 @@ description: "Register a vehicle into the fleet with legal identification, assig
 | vehicle-insurance | recommended | Insurance policy is typically linked to a registered vehicle |
 | vehicle-documents | recommended | Registration certificate and permit documents are stored against the vehicle record |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle Registration
+
+Register a vehicle into the fleet with legal identification, assign ownership, and track registration status and renewal dates.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_master_data` | vehicle-master-data | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| vehicle_registered | `autonomous` | - | - |
+| duplicate_plate_rejected | `supervised` | - | - |
+| duplicate_chassis_rejected | `supervised` | - | - |
+| registration_renewed | `autonomous` | - | - |
+| ownership_transferred | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

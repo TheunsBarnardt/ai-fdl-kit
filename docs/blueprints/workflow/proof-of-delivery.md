@@ -135,6 +135,63 @@ description: "Capture digital proof of delivery including signature, photo, and 
 | route-planning | recommended | POD is captured at specific route waypoints |
 | delivery-notifications | optional | Customer may receive POD confirmation notification |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Proof Of Delivery
+
+Capture digital proof of delivery including signature, photo, and notes at delivery completion
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `order_lifecycle` | order-lifecycle | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| signature_captured | `autonomous` | - | - |
+| photo_captured | `autonomous` | - | - |
+| notes_captured | `autonomous` | - | - |
+| pod_required_missing | `autonomous` | - | - |
+| invalid_photo_format | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

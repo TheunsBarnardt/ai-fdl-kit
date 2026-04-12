@@ -148,6 +148,61 @@ description: "User-defined named circular geofences that tag trip start/end and 
 | vehicle-trip-segmentation | recommended |  |
 | location-visit-history | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Geofence Places
+
+User-defined named circular geofences that tag trip start/end and charging events with place labels and optionally apply billing tariffs to sessions at that location.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `ev_charging_session` | ev-charging-session | degrade |
+| `ev_charging_cost_tariff` | ev-charging-cost-tariff | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| geofence_created | `supervised` | - | - |
+| geofence_matched_at_event | `autonomous` | - | - |
+| geofence_not_matched | `autonomous` | - | - |
+| geofence_updated | `supervised` | - | - |
+| geofence_radius_invalid | `autonomous` | - | - |
+| session_fee_invalid | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

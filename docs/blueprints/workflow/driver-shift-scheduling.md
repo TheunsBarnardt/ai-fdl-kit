@@ -177,6 +177,65 @@ description: "Schedule and manage driver work shifts, availability windows, and 
 | dispatch-driver-assignment | required | Drivers can only be dispatched during active shifts |
 | service-area-management | optional | Shifts can be scoped to specific service areas |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Driver Shift Scheduling
+
+Schedule and manage driver work shifts, availability windows, and hours-of-service compliance
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `driver_profile` | driver-profile | degrade |
+| `dispatch_driver_assignment` | dispatch-driver-assignment | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| shift_scheduled | `autonomous` | - | - |
+| shift_confirmed | `autonomous` | - | - |
+| driver_clocked_in | `autonomous` | - | - |
+| driver_clocked_out | `autonomous` | - | - |
+| shift_overlap_rejected | `supervised` | - | - |
+| hos_limit_exceeded | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

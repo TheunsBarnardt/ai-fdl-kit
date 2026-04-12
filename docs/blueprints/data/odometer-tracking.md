@@ -113,6 +113,62 @@ description: "Track cumulative vehicle mileage either by reading the hardware od
 | maintenance-reminders | recommended | Maintenance intervals are triggered when odometer values cross configured thresholds |
 | trip-detection | recommended | Trip distance is derived from odometer or calculated distance over the trip interval |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Odometer Tracking
+
+Track cumulative vehicle mileage either by reading the hardware odometer transmitted by the GPS device or by calculating distance from GPS coordinates, with per-position incremental distances and a...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `gps_position_ingestion` | gps-position-ingestion | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| distance_calculated | `autonomous` | - | - |
+| noise_filtered | `autonomous` | - | - |
+| error_position_excluded | `autonomous` | - | - |
+| hardware_odometer_used | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

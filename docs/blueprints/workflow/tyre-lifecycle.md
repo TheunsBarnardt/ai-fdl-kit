@@ -195,6 +195,65 @@ description: "Track tyre fitment, rotation, tread depth assessments, and replace
 | odometer-tracking | recommended | Validated odometer readings feed into km-on-tyre calculations and age-based alerts |
 | vehicle-maintenance-log | recommended | Tyre changes are typically recorded as service events in the maintenance log |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Tyre Lifecycle
+
+Track tyre fitment, rotation, tread depth assessments, and replacement across the fleet with a per-position history and automated low-tread warnings.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_master_data` | vehicle-master-data | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| tyre_fitted | `autonomous` | - | - |
+| tyre_inspected | `autonomous` | - | - |
+| low_tread_warning | `autonomous` | - | - |
+| tyre_removed | `human_required` | - | - |
+| tyre_disposed | `autonomous` | - | - |
+| position_conflict_rejected | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

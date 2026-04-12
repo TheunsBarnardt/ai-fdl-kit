@@ -103,6 +103,62 @@ description: "Detect and record periods when a vehicle is stationary, capturing 
 | geofence-management | recommended | Stops inside geofences are annotated with zone context |
 | fleet-scheduled-reports | recommended | Stop records feed into scheduled stop reports |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Stop Detection
+
+Detect and record periods when a vehicle is stationary, capturing stop location, start time, end time, and duration, to support idle time analysis, delivery dwell time reporting, and route compliance.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `trip_detection` | trip-detection | degrade |
+| `gps_position_ingestion` | gps-position-ingestion | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| stop_detected | `autonomous` | - | - |
+| stop_ended | `autonomous` | - | - |
+| brief_halt_ignored | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -131,6 +131,59 @@ description: "Analyse fuel consumption, cost trends, and efficiency metrics acro
 | odometer-tracking | recommended | Validated odometer data improves distance and efficiency accuracy |
 | vehicle-expense-tracking | recommended | Fuel cost analytics feed into the broader per-vehicle expense reporting |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fuel Analytics
+
+Analyse fuel consumption, cost trends, and efficiency metrics across the fleet or per vehicle with configurable grouping periods, anomaly detection, and benchmark comparisons.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accessibility | aesthetics | UI must be usable by all users including those with disabilities |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `fuel_log` | fuel-log | degrade |
+| `vehicle_master_data` | vehicle-master-data | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| report_generated | `autonomous` | - | - |
+| no_data_in_period | `autonomous` | - | - |
+| anomaly_detected | `autonomous` | - | - |
+| invalid_date_range | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

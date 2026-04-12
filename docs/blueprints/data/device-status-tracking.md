@@ -128,6 +128,62 @@ description: "Continuously monitor whether GPS devices are actively reporting, a
 | gps-position-ingestion | required | Receiving a position is the trigger for transitioning to online |
 | device-alarm-notifications | recommended | Offline events can be routed as notifications to fleet users |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Device Status Tracking
+
+Continuously monitor whether GPS devices are actively reporting, and automatically transition them between online, offline, and unknown states based on configurable inactivity thresholds, emitting ...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `gps_device_registration` | gps-device-registration | degrade |
+| `gps_position_ingestion` | gps-position-ingestion | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| device_comes_online | `autonomous` | - | - |
+| device_goes_offline | `autonomous` | - | - |
+| device_remains_inactive | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

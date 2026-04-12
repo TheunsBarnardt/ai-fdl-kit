@@ -142,6 +142,72 @@ description: "Persist all red-team prompts, model responses, scores, and attack 
 | ai-response-harm-scorer | recommended | Scores are stored as linked entries in the memory store. |
 | security-scan-report | optional | Scan reports can query memory to include attempt-level evidence. |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Redteam Conversation Memory
+
+Persist all red-team prompts, model responses, scores, and attack metadata to a queryable store — enables session replay, cross-run analysis, and compliance reporting.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `multi_turn_attack_orchestration` | multi-turn-attack-orchestration | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| entry_missing_required_fields | `autonomous` | - | - |
+| entry_contains_secrets | `autonomous` | - | - |
+| entry_persisted | `autonomous` | - | - |
+| conversation_retrieved | `autonomous` | - | - |
+| export_requested | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

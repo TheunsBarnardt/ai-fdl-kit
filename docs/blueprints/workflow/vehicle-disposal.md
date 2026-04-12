@@ -201,6 +201,65 @@ description: "Manage end-of-life decommissioning of fleet vehicles through inspe
 | vehicle-insurance | recommended | Active insurance policies are flagged for cancellation when a vehicle is disposed |
 | driver-vehicle-assignment | recommended | Active driver assignments are automatically ended when the vehicle is disposed |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle Disposal
+
+Manage end-of-life decommissioning of fleet vehicles through inspection, management approval, method selection (sale, auction, scrap, trade-in), disposal value recording, and final asset closure.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_depreciation` | vehicle-depreciation | degrade |
+| `vehicle_master_data` | vehicle-master-data | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| disposal_initiated | `autonomous` | - | - |
+| inspection_recorded | `autonomous` | - | - |
+| disposal_approved | `supervised` | - | - |
+| vehicle_disposed | `autonomous` | - | - |
+| vehicle_scrapped | `autonomous` | - | - |
+| disposal_cancelled | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

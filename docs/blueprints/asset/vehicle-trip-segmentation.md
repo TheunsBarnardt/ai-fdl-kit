@@ -181,6 +181,56 @@ description: "Automatically detects trip start and end from gear state signals, 
 | geofence-places | recommended |  |
 | odometer-validation | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle Trip Segmentation
+
+Automatically detects trip start and end from gear state signals, records position telemetry, and aggregates each completed trip into a drive record with distance, duration, and energy metadata.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_state_machine` | vehicle-state-machine | degrade |
+| `trip_energy_consumption` | trip-energy-consumption | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| trip_started | `autonomous` | - | - |
+| position_recorded | `autonomous` | - | - |
+| trip_completed | `autonomous` | - | - |
+| trip_discarded_insufficient_data | `autonomous` | - | - |
+| trip_auto_completed_offline | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

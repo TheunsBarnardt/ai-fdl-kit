@@ -109,6 +109,57 @@ description: "Monitors EV battery health over time by comparing reported range c
 | trip-energy-consumption | recommended |  |
 | vehicle-efficiency-metrics | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Battery Health Tracking
+
+Monitors EV battery health over time by comparing reported range capacity against a manufacturer baseline, detecting degradation trends and alerting when capacity loss exceeds a threshold.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `ev_charging_session` | ev-charging-session | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| health_snapshot_created | `supervised` | - | - |
+| degradation_alert_triggered | `autonomous` | - | - |
+| health_trending_normal | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -153,6 +153,58 @@ description: "Records the full lifecycle of an EV charging session — opening o
 | trip-energy-consumption | recommended |  |
 | battery-health-tracking | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Ev Charging Session
+
+Records the full lifecycle of an EV charging session — opening on plug-in, appending per-reading telemetry throughout, and aggregating energy, duration, cost, and battery change on close.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_state_machine` | vehicle-state-machine | degrade |
+| `ev_charging_cost_tariff` | ev-charging-cost-tariff | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| session_started | `autonomous` | - | - |
+| telemetry_reading_recorded | `autonomous` | - | - |
+| session_completed | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

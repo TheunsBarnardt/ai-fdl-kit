@@ -118,6 +118,63 @@ description: "Generate, schedule, and distribute fleet tracking reports covering
 | fleet-device-sharing | required | Permission model controls which devices each user's reports include |
 | geofence-alerts | recommended | Geofence reports summarise zone entry and exit events |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fleet Scheduled Reports
+
+Generate, schedule, and distribute fleet tracking reports covering trips, stops, route history, events, geofence activity, device summaries, and fuel consumption, with on-demand and automated perio...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `gps_position_history` | gps-position-history | degrade |
+| `fleet_device_sharing` | fleet-device-sharing | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| report_generated | `autonomous` | - | - |
+| scheduled_report_dispatched | `autonomous` | - | - |
+| access_denied | `autonomous` | - | - |
+| invalid_range | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

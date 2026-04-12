@@ -161,6 +161,63 @@ description: "Plan multi-stop delivery routes with ordered waypoints, route opti
 | order-sla-eta | recommended | Route time estimates feed into ETA calculations |
 | proof-of-delivery | optional | POD collected at final delivery waypoint |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Route Planning
+
+Plan multi-stop delivery routes with ordered waypoints, route optimization, and distance/time estimation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `order_lifecycle` | order-lifecycle | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| route_created | `supervised` | - | - |
+| route_optimized | `autonomous` | - | - |
+| waypoint_completed | `autonomous` | - | - |
+| route_completed | `autonomous` | - | - |
+| missing_coordinates | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

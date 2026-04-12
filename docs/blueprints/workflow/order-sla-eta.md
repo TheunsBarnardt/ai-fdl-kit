@@ -167,6 +167,65 @@ description: "Track estimated time of arrival and service level agreement compli
 | route-planning | required | Remaining route distance is used for ETA calculation |
 | delivery-notifications | recommended | ETA milestones trigger customer notifications |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Order Sla Eta
+
+Track estimated time of arrival and service level agreement compliance per delivery order
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `order_lifecycle` | order-lifecycle | degrade |
+| `realtime_driver_tracking` | realtime-driver-tracking | degrade |
+| `route_planning` | route-planning | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| eta_calculated | `autonomous` | - | - |
+| sla_at_risk | `autonomous` | - | - |
+| sla_breached | `autonomous` | - | - |
+| sla_met | `autonomous` | - | - |
+| eta_customer_notification | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

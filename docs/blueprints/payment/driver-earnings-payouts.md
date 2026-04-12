@@ -169,6 +169,73 @@ description: "Track driver earnings per trip, manage payout schedules, and proce
 | trip-billing-invoicing | required | Trip revenue is the basis for driver earnings |
 | driver-profile | required | Earnings are attributed to a specific driver |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Driver Earnings Payouts
+
+Track driver earnings per trip, manage payout schedules, and process driver compensation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| policy_violation_rate | 0% | Operations that violate defined policies |
+| audit_completeness | 100% | All decisions have complete audit trails |
+
+**Constraints:**
+
+- **regulatory** (non-negotiable): All operations must be auditable and traceable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | financial transactions must be precise and auditable |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `order_lifecycle` | order-lifecycle | fail |
+| `trip_billing_invoicing` | trip-billing-invoicing | fail |
+| `driver_profile` | driver-profile | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| earning_created | `supervised` | - | - |
+| earning_approved | `supervised` | - | - |
+| payout_processed | `autonomous` | - | - |
+| payout_failed | `autonomous` | - | - |
+| earning_reversed_on_cancellation | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

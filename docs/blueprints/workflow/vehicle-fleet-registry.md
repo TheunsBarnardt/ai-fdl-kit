@@ -165,6 +165,63 @@ description: "Register and manage fleet vehicles, track availability, maintenanc
 | realtime-driver-tracking | recommended | Vehicle telemetry feeds real-time tracking |
 | field-incident-reporting | optional | Incidents are reported against specific vehicles |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle Fleet Registry
+
+Register and manage fleet vehicles, track availability, maintenance status, and telematics data
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `dispatch_driver_assignment` | dispatch-driver-assignment | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| vehicle_registered | `autonomous` | - | - |
+| vehicle_sent_to_maintenance | `autonomous` | - | - |
+| vehicle_cleared_from_maintenance | `autonomous` | - | - |
+| duplicate_plate_rejected | `supervised` | - | - |
+| unavailable_for_dispatch | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

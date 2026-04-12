@@ -131,6 +131,61 @@ description: "Manage customers and contacts who place orders, including contact 
 | delivery-notifications | required | Contact email and phone used for delivery notifications |
 | multi-tenant-organization | required | Contacts are scoped to the organization |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fleet Customer Contacts
+
+Manage customers and contacts who place orders, including contact details, order history, and communication preferences
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_quality | volume | CRM data quality directly impacts customer relationship decisions |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `order_lifecycle` | order-lifecycle | degrade |
+| `delivery_notifications` | delivery-notifications | degrade |
+| `multi_tenant_organization` | multi-tenant-organization | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| contact_created | `supervised` | - | - |
+| contact_updated | `supervised` | - | - |
+| contact_linked_to_order | `autonomous` | - | - |
+| duplicate_detected | `autonomous` | - | - |
+| missing_contact_method | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -161,6 +161,74 @@ description: "Orchestrate automated multi-turn adversarial conversations that in
 | prompt-obfuscation-pipeline | optional | Converter chain applied to each turn's prompt before submission. |
 | redteam-conversation-memory | required | Persists all conversation turns and scores for audit and replay. |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Multi Turn Attack Orchestration
+
+Orchestrate automated multi-turn adversarial conversations that incrementally steer an AI model toward a harmful objective using crescendo, TAP, or red-team-LLM strategies.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `ai_response_harm_scorer` | ai-response-harm-scorer | degrade |
+| `redteam_conversation_memory` | redteam-conversation-memory | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| objective_achieved | `autonomous` | - | - |
+| refusal_detected | `autonomous` | - | - |
+| backtrack_limit_reached | `autonomous` | - | - |
+| max_turns_reached | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

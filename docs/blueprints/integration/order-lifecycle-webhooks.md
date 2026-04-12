@@ -158,6 +158,65 @@ description: "Configure and deliver webhook notifications to third-party endpoin
 | fleet-public-api | required | Webhooks complement the public API for event-driven integrations |
 | multi-tenant-organization | required | Webhook endpoints are scoped per organization |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Order Lifecycle Webhooks
+
+Configure and deliver webhook notifications to third-party endpoints for order lifecycle events
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `order_lifecycle` | order-lifecycle | degrade |
+| `fleet_public_api` | fleet-public-api | degrade |
+| `multi_tenant_organization` | multi-tenant-organization | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| webhook_registered | `autonomous` | - | - |
+| event_delivered | `autonomous` | - | - |
+| delivery_failed | `autonomous` | - | - |
+| max_retries_exceeded | `autonomous` | - | - |
+| http_url_rejected | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

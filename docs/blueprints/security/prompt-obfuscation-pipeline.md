@@ -112,6 +112,51 @@ description: "Chain converters to transform a prompt into an obfuscated form des
 | multi-turn-attack-orchestration | recommended | Multi-turn attacks that apply converter chains per turn. |
 | llm-vulnerability-scan | optional | Scan pipeline that can integrate obfuscated prompts as augmented attempts. |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Prompt Obfuscation Pipeline
+
+Chain converters to transform a prompt into an obfuscated form designed to bypass AI safety filters — supports encoding, character substitution, language translation, and 40+ transforms.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| modality_mismatch | `autonomous` | - | - |
+| converter_error | `autonomous` | - | - |
+| pipeline_complete | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

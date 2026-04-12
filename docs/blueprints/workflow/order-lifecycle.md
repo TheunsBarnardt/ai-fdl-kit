@@ -210,6 +210,66 @@ description: "End-to-end delivery order lifecycle management from creation throu
 | order-sla-eta | recommended | ETA tracking per order for SLA monitoring |
 | order-lifecycle-webhooks | optional | Webhook delivery of order lifecycle events to third parties |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Order Lifecycle
+
+End-to-end delivery order lifecycle management from creation through completion or cancellation
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `dispatch_driver_assignment` | dispatch-driver-assignment | degrade |
+| `route_planning` | route-planning | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| order_created | `supervised` | - | - |
+| order_dispatched | `autonomous` | - | - |
+| driver_started | `autonomous` | - | - |
+| delivery_completed | `autonomous` | - | - |
+| order_cancelled | `supervised` | - | - |
+| dispatch_rejected_no_driver | `supervised` | - | - |
+| pod_missing | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

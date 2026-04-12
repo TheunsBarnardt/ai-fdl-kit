@@ -178,6 +178,60 @@ description: "Record parts and materials consumed during vehicle service or repa
 | vehicle-maintenance-log | required | Parts consumption is linked to a maintenance log record and contributes to service parts cost |
 | scheduled-maintenance | optional | Scheduled service tasks may have standard parts lists that pre-populate consumption lines |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Parts Consumption
+
+Record parts and materials consumed during vehicle service or repair events, validate stock availability, trigger inventory deductions, and attribute parts cost to the service record.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | speed | inventory counts must be precise to prevent stockouts and overstock |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_maintenance_log` | vehicle-maintenance-log | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| parts_issued | `autonomous` | - | - |
+| insufficient_stock_blocked | `human_required` | - | - |
+| invalid_quantity_rejected | `supervised` | - | - |
+| serial_number_invalid | `autonomous` | - | - |
+| consumption_cancelled | `supervised` | - | - |
+| cost_attributed_to_service | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

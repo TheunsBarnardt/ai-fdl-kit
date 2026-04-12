@@ -138,6 +138,62 @@ description: "Record fuel fill-up events for fleet vehicles capturing date, odom
 | fuel-analytics | recommended | Fuel log entries are the source data for efficiency and cost analytics |
 | vehicle-expense-tracking | recommended | Fuel costs from this log roll up into per-vehicle expense reporting |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Fuel Log
+
+Record fuel fill-up events for fleet vehicles capturing date, odometer, quantity, cost, and station details; each entry updates the vehicle's last known odometer.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_master_data` | vehicle-master-data | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| fuel_entry_recorded | `autonomous` | - | - |
+| odometer_rollback_rejected | `supervised` | - | - |
+| fuel_type_mismatch_warning | `autonomous` | - | - |
+| full_tank_exceeded_warning | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

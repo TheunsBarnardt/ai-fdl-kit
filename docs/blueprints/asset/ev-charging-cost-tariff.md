@@ -146,6 +146,61 @@ description: "Calculates EV charging session cost using location-linked tariffs 
 | ev-charging-session | required |  |
 | geofence-places | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Ev Charging Cost Tariff
+
+Calculates EV charging session cost using location-linked tariffs (per-kWh or per-minute) with optional flat session fees and free-charging programme exemptions.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `ev_charging_session` | ev-charging-session | degrade |
+| `geofence_places` | geofence-places | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| cost_calculated_per_kwh | `autonomous` | - | - |
+| cost_calculated_per_minute | `autonomous` | - | - |
+| cost_zero_free_charging | `autonomous` | - | - |
+| cost_null_no_tariff | `autonomous` | - | - |
+| tariff_retroactively_applied | `autonomous` | - | - |
+| session_fee_invalid | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

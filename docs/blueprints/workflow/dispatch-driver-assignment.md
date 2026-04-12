@@ -174,6 +174,66 @@ description: "Assign drivers and vehicles to orders, manage dispatch queue, and 
 | vehicle-fleet-registry | required | Vehicle availability comes from fleet registry |
 | realtime-driver-tracking | recommended | Driver location used for nearest-driver auto-assignment |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Dispatch Driver Assignment
+
+Assign drivers and vehicles to orders, manage dispatch queue, and handle driver acceptance or rejection
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `order_lifecycle` | order-lifecycle | degrade |
+| `driver_profile` | driver-profile | degrade |
+| `vehicle_fleet_registry` | vehicle-fleet-registry | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| manual_assignment_success | `autonomous` | - | - |
+| auto_assignment_success | `autonomous` | - | - |
+| driver_accepted | `autonomous` | - | - |
+| driver_rejected | `supervised` | - | - |
+| no_available_drivers | `autonomous` | - | - |
+| driver_unavailable | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -169,6 +169,64 @@ description: "Allow drivers and fleet staff to report field issues and incidents
 | vehicle-fleet-registry | required | Incidents can be linked to specific vehicles |
 | realtime-driver-tracking | recommended | Driver GPS location captured with incident report |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Field Incident Reporting
+
+Allow drivers and fleet staff to report field issues and incidents against vehicles, orders, or locations
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `driver_profile` | driver-profile | degrade |
+| `vehicle_fleet_registry` | vehicle-fleet-registry | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| incident_reported | `autonomous` | - | - |
+| critical_incident_escalated | `autonomous` | - | - |
+| incident_assigned | `autonomous` | - | - |
+| incident_resolved | `autonomous` | - | - |
+| incident_closed_without_action | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

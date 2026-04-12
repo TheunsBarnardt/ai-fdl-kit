@@ -153,6 +153,53 @@ description: "Record and categorise all costs attributable to individual fleet v
 | vehicle-depreciation | recommended | Periodic depreciation amounts can be posted as depreciation expense records |
 | vehicle-incident-log | recommended | Incident repair costs and insurance shortfalls roll into vehicle expense records |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle Expense Tracking
+
+Record and categorise all costs attributable to individual fleet vehicles — fuel, maintenance, insurance, tolls, fines, and depreciation — and generate per-vehicle cost reports with budget variance.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| expense_recorded | `autonomous` | - | - |
+| high_value_approval_required | `supervised` | - | - |
+| expense_approved | `supervised` | - | - |
+| cost_report_generated | `autonomous` | - | - |
+| budget_threshold_exceeded | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

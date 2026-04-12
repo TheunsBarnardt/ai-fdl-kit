@@ -117,6 +117,64 @@ description: "Query, replay, and export the historical sequence of GPS positions
 | trip-detection | recommended | Trip segments can be overlaid on the position route for context |
 | fleet-scheduled-reports | recommended | Scheduled route reports use position history as their data source |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Gps Position History
+
+Query, replay, and export the historical sequence of GPS positions recorded for one or more devices over a user-specified time range, supporting route visualisation, speed analysis, and multi-forma...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `gps_position_ingestion` | gps-position-ingestion | degrade |
+| `fleet_device_sharing` | fleet-device-sharing | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| history_returned | `autonomous` | - | - |
+| empty_result | `autonomous` | - | - |
+| export_requested | `autonomous` | - | - |
+| invalid_range | `autonomous` | - | - |
+| access_denied | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

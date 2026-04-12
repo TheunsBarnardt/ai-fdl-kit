@@ -181,6 +181,63 @@ description: "Maintain a complete, validated history of odometer readings for ea
 | scheduled-maintenance | recommended | Validated odometer readings trigger re-evaluation of odometer-based maintenance schedules |
 | vehicle-maintenance-log | recommended | Service records include odometer readings that feed into this validation history |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Odometer Tracking
+
+Maintain a complete, validated history of odometer readings for each vehicle, detecting rollbacks and anomalous jumps, with an approval workflow for corrections.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_master_data` | vehicle-master-data | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| reading_validated | `autonomous` | - | - |
+| rollback_flagged | `autonomous` | - | - |
+| anomaly_flagged | `autonomous` | - | - |
+| correction_approved | `supervised` | - | - |
+| reading_rejected | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -277,6 +277,67 @@ optimizer.load_state_dict() to avoid overwriting loaded LRs.
 | dataset-pipeline | required | Training requires a tf.data.Dataset pipeline to supply batches |
 | model-serving | recommended | Trained model exported as SavedModel for serving |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Model Training
+
+Train, evaluate, and checkpoint ML models with configurable optimizers, LR schedulers, mixed precision, and distributed strategies — covers Keras fit API and PyTorch training loop
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `fully_autonomous`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| safety | capability | AI systems must operate within defined safety boundaries |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `dataset_pipeline` | dataset-pipeline | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| training_completed | `autonomous` | - | - |
+| early_stopping_triggered | `autonomous` | - | - |
+| checkpoint_saved | `autonomous` | - | - |
+| training_failed_oom | `autonomous` | - | - |
+| training_failed_nan_loss | `autonomous` | - | - |
+| training_failed_shape_mismatch | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

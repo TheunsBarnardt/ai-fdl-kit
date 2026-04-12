@@ -118,6 +118,58 @@ description: "Calculates energy consumed per trip from battery range delta and a
 | ev-charging-session | required |  |
 | vehicle-efficiency-metrics | extends |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Trip Energy Consumption
+
+Calculates energy consumed per trip from battery range delta and a per-vehicle efficiency factor derived statistically from charging history and updated after each qualifying session.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_trip_segmentation` | vehicle-trip-segmentation | degrade |
+| `ev_charging_session` | ev-charging-session | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| energy_estimated_at_trip_close | `autonomous` | - | - |
+| efficiency_updated_after_charge | `supervised` | - | - |
+| efficiency_unchanged_insufficient_data | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -111,6 +111,57 @@ description: "Tracks a vehicle's energy efficiency (Wh/km) over time by statisti
 | trip-energy-consumption | extends |  |
 | battery-health-tracking | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle Efficiency Metrics
+
+Tracks a vehicle's energy efficiency (Wh/km) over time by statistically deriving an efficiency factor from charging sessions and applying it to trips for trend analysis.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `ev_charging_session` | ev-charging-session | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| efficiency_derived_successfully | `autonomous` | - | - |
+| efficiency_derivation_inconclusive | `autonomous` | - | - |
+| efficiency_applied_to_trip | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

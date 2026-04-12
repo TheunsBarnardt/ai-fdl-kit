@@ -198,6 +198,61 @@ description: "Calculate and record periodic depreciation for fleet vehicles usin
 | vehicle-expense-tracking | recommended | Periodic depreciation amounts can be posted as expense records for management reporting |
 | vehicle-maintenance-log | optional | Capitalised repairs from the maintenance log can increase the depreciable base and trigger schedule recalculation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Vehicle Depreciation
+
+Calculate and record periodic depreciation for fleet vehicles using configurable methods, track book value over time, and generate depreciation schedules per finance book.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_master_data` | vehicle-master-data | degrade |
+| `vehicle_disposal` | vehicle-disposal | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| schedule_generated | `autonomous` | - | - |
+| depreciation_posted | `autonomous` | - | - |
+| fully_depreciated | `autonomous` | - | - |
+| disposal_entries_posted | `autonomous` | - | - |
+| schedule_recalculated_after_repair | `autonomous` | - | - |
+| invalid_salvage_value | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

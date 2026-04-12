@@ -139,6 +139,55 @@ description: "Validates vehicle odometer readings ingested from telemetry, enfor
 |---------|-------------|--------|
 | vehicle-trip-segmentation | required |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Odometer Validation
+
+Validates vehicle odometer readings ingested from telemetry, enforcing minimum trip distance thresholds, detecting negative distance anomalies, and flagging unexpected odometer jumps.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_trip_segmentation` | vehicle-trip-segmentation | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| odometer_converted_and_stored | `autonomous` | - | - |
+| trip_distance_valid | `autonomous` | - | - |
+| trip_discarded_below_threshold | `autonomous` | - | - |
+| trip_discarded_negative_distance | `autonomous` | - | - |
+| odometer_jump_flagged | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -169,6 +169,63 @@ description: "Assign drivers to fleet vehicles for defined periods, maintain a f
 | vehicle-master-data | required | Vehicle master stores the currently assigned driver and must be updated on each assignment change |
 | vehicle-expense-tracking | optional | Costs can be attributed to the driver assigned during a given period via assignment history |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Driver Vehicle Assignment
+
+Assign drivers to fleet vehicles for defined periods, maintain a full assignment history, and enforce constraints preventing double-assignment and unauthorised transfers.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| processing_time | < 5s | Time from request to completion |
+| success_rate | >= 99% | Successful operations divided by total attempts |
+
+**Constraints:**
+
+- **performance** (negotiable): Must not block dependent workflows
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | speed | workflow steps must complete correctly before proceeding |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_master_data` | vehicle-master-data | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| assignment_created | `supervised` | - | - |
+| assignment_conflict_rejected | `supervised` | - | - |
+| previous_permanent_auto_ended | `autonomous` | - | - |
+| assignment_ended | `autonomous` | - | - |
+| history_query | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

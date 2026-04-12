@@ -137,6 +137,59 @@ description: "Tracks where a vehicle parks by linking trip and charge events to 
 | ev-charging-session | required |  |
 | geofence-places | recommended |  |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Location Visit History
+
+Tracks where a vehicle parks by linking trip and charge events to reverse-geocoded addresses and named geofences, enabling reporting on dwell time and visit frequency per location.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| accuracy | convenience | asset tracking must maintain precise location and status records |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `vehicle_trip_segmentation` | vehicle-trip-segmentation | degrade |
+| `ev_charging_session` | ev-charging-session | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| address_resolved | `autonomous` | - | - |
+| address_not_resolved | `autonomous` | - | - |
+| geofence_tagged_on_visit | `autonomous` | - | - |
+| parking_duration_calculated | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

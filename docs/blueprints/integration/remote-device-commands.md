@@ -118,6 +118,63 @@ description: "Send control commands from the platform to GPS tracking hardware u
 | gps-device-registration | required | Devices must be registered to receive commands |
 | fleet-device-sharing | required | Permission model controls who can send commands |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Remote Device Commands
+
+Send control commands from the platform to GPS tracking hardware using the device's native protocol channel or SMS fallback, supporting engine control, configuration, alarm management, and informat...
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `gps_device_registration` | gps-device-registration | degrade |
+| `fleet_device_sharing` | fleet-device-sharing | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| command_sent | `autonomous` | - | - |
+| command_queued | `autonomous` | - | - |
+| unsupported_command | `autonomous` | - | - |
+| permission_denied | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
