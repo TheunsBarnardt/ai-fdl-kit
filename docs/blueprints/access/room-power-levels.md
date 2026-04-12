@@ -148,6 +148,75 @@ description: "Fine-grained numeric permission system controlling which users may
 | room-invitations | required | Invite, kick, and ban actions are gated by power level thresholds |
 | event-redaction | required | Redaction of other users' events requires meeting the redact power threshold |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Room Power Levels
+
+Fine-grained numeric permission system controlling which users may send event types and perform membership actions. Higher numbers grant broader permissions.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | usability | access control must enforce least-privilege principle |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `room_state_history` | room-state-history | fail |
+| `room_invitations` | room-invitations | fail |
+| `event_redaction` | event-redaction | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| action_permitted | `autonomous` | - | - |
+| invite_permitted | `autonomous` | - | - |
+| kick_permitted | `autonomous` | - | - |
+| ban_permitted | `autonomous` | - | - |
+| insufficient_power_for_invite | `autonomous` | - | - |
+| insufficient_power_for_kick | `autonomous` | - | - |
+| insufficient_power_for_ban | `autonomous` | - | - |
+| insufficient_power_for_event | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

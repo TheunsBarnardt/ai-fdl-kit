@@ -111,6 +111,75 @@ description: "Allow unauthenticated guest users to access rooms without a full a
 | room-power-levels | required | Guest users' ability to send events is constrained by power level thresholds |
 | room-state-history | required | Guest access policy is stored as a room state event |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Guest Room Access
+
+Allow unauthenticated guest users to access rooms without a full account. Room owners control guest access via a state event. Revoking access removes existing guests.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | usability | access control must enforce least-privilege principle |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `room_invitations` | room-invitations | fail |
+| `room_power_levels` | room-power-levels | fail |
+| `room_state_history` | room-state-history | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| guest_joined | `autonomous` | - | - |
+| guest_access_revoked | `human_required` | - | - |
+| guest_join_denied | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

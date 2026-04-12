@@ -163,6 +163,78 @@ description: "Human-readable addresses for rooms enabling lookup and sharing by 
 | server-federation | recommended | Remote alias resolution uses federation directory queries |
 | application-services | optional | Application services enforce exclusive alias namespace reservations |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Room Aliases
+
+Human-readable addresses for rooms enabling lookup and sharing by name. Supports local alias creation with namespace enforcement and federated alias resolution.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `room_lifecycle` | room-lifecycle | degrade |
+| `room_power_levels` | room-power-levels | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| alias_created | `supervised` | - | - |
+| alias_created_by_service | `supervised` | - | - |
+| alias_deleted | `human_required` | - | - |
+| alias_resolved_locally | `autonomous` | - | - |
+| alias_resolved_via_federation | `autonomous` | - | - |
+| alias_creation_rejected_format | `supervised` | - | - |
+| alias_creation_rejected_membership | `supervised` | - | - |
+| alias_creation_rejected_namespace | `supervised` | - | - |
+| alias_resolution_failed | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

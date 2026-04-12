@@ -165,6 +165,77 @@ description: "Enable real-time event exchange and membership coordination betwee
 | room-state-history | required | State resolution is applied to events received via federation |
 | e2e-key-exchange | optional | Device keys are fetched from remote servers via federation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Server Federation
+
+Enable real-time event exchange and membership coordination between independently operated servers so users on different servers share rooms without a central authority.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+**Constraints:**
+
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| availability | cost | infrastructure downtime impacts all dependent services |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `room_lifecycle` | room-lifecycle | fail |
+| `room_power_levels` | room-power-levels | fail |
+| `room_state_history` | room-state-history | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| backfill_success | `autonomous` | - | - |
+| backfill_rejected | `supervised` | - | - |
+| join_via_federation | `autonomous` | - | - |
+| invite_via_federation | `autonomous` | - | - |
+| federation_denied | `autonomous` | - | - |
+| event_signature_invalid | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

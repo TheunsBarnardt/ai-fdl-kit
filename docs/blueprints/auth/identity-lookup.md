@@ -142,6 +142,65 @@ description: "Bridge between user contact details (email, phone) and messaging i
 | room-invitations | recommended | Third-party invites use identity lookup to invite users by email or phone |
 | push-notification-gateway | recommended | Email pushers verify their pushkey against the user's bound identities |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Identity Lookup
+
+Bridge between user contact details (email, phone) and messaging identities via external identity servers. Enables invitations before account creation and contact binding.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| validation_token_sent | `autonomous` | - | - |
+| validation_completed | `autonomous` | - | - |
+| address_bound | `autonomous` | - | - |
+| address_lookup | `autonomous` | - | - |
+| rate_limited | `autonomous` | - | - |
+| identity_server_unreachable | `autonomous` | - | - |
+| lookup_disabled | `human_required` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -150,6 +150,76 @@ description: "Immutable append-only event graph forming a room's history and der
 | room-lifecycle | required | Room creation writes the genesis event that anchors the entire state graph |
 | event-redaction | recommended | Redaction prunes event content while preserving its position in the graph |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Room State History
+
+Immutable append-only event graph forming a room's history and derived state. Handles state resolution on conflicts, efficient state caching, and authorization at every event.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `room_power_levels` | room-power-levels | degrade |
+| `server_federation` | server-federation | degrade |
+| `room_lifecycle` | room-lifecycle | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| event_accepted | `autonomous` | - | - |
+| state_conflict_resolved | `autonomous` | - | - |
+| event_rejected_auth | `supervised` | - | - |
+| event_rejected_signature | `supervised` | - | - |
+| event_rejected_size | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -152,6 +152,77 @@ description: "Organize rooms into hierarchical trees called spaces. Browse and n
 | room-power-levels | required | Only users with sufficient power may manage child state events |
 | server-federation | recommended | Remote child rooms are resolved via federated hierarchy queries |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Space Hierarchy
+
+Organize rooms into hierarchical trees called spaces. Browse and navigate nested room structures with paginated breadth-first traversal and federated child resolution.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `room_lifecycle` | room-lifecycle | degrade |
+| `room_state_history` | room-state-history | degrade |
+| `room_power_levels` | room-power-levels | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| hierarchy_page_returned | `autonomous` | - | - |
+| hierarchy_traversal_complete | `autonomous` | - | - |
+| remote_child_resolved | `autonomous` | - | - |
+| remote_child_unresolvable | `autonomous` | - | - |
+| access_denied | `autonomous` | - | - |
+| session_expired | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

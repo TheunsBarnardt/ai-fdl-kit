@@ -170,6 +170,76 @@ description: "Manage user-registered notification endpoints and deliver async pu
 | device-management | required | Pusher deletion is cascaded when the associated device is removed |
 | identity-lookup | recommended | Email pushers validate their pushkey against verified identities on the account |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Push Notification Gateway
+
+Manage user-registered notification endpoints and deliver async push notifications to HTTP or email gateways when room events match configurable push rules.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99% | Successful operations divided by total attempts |
+| error_rate | < 1% | Failed operations divided by total attempts |
+
+**Constraints:**
+
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `semi_autonomous`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before transitioning to a terminal state
+- before permanently deleting records
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| delivery_reliability | speed | notifications must reach recipients even if delayed |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `device_management` | device-management | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| pusher_registered | `autonomous` | - | - |
+| pusher_updated | `supervised` | - | - |
+| notification_delivered | `autonomous` | - | - |
+| notification_delivery_failed | `autonomous` | - | - |
+| pusher_disabled | `human_required` | - | - |
+| pusher_deleted | `human_required` | - | - |
+| email_pusher_rejected | `supervised` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

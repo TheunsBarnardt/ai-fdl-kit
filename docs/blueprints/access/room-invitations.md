@@ -183,6 +183,79 @@ description: "Controls how users enter rooms via invitation, direct join, or kno
 | identity-lookup | optional | Third-party invitations are validated through an identity server |
 | server-federation | recommended | Cross-server invitations are delivered and co-signed via federation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Room Invitations
+
+Controls how users enter rooms via invitation, direct join, or knock. Enforces join rules and rate-limits invitations. Supports third-party invitations via identity servers.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | usability | access control must enforce least-privilege principle |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `room_power_levels` | room-power-levels | fail |
+| `room_lifecycle` | room-lifecycle | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| invite_sent | `autonomous` | - | - |
+| join_public_room | `autonomous` | - | - |
+| join_restricted_room | `autonomous` | - | - |
+| knock_sent | `autonomous` | - | - |
+| invite_rate_limited | `autonomous` | - | - |
+| invite_permission_denied | `autonomous` | - | - |
+| join_denied_banned | `autonomous` | - | - |
+| knock_denied_rule | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

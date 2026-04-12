@@ -111,6 +111,72 @@ description: "Remove sensitive content from previously sent events. Creates a re
 | room-state-history | required | Redaction events are appended to the room's immutable event graph |
 | room-lifecycle | recommended | Room version determines which pruning rules apply during redaction |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Event Redaction
+
+Remove sensitive content from previously sent events. Creates a redaction event that prunes original content while preserving graph position and essential metadata.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `room_power_levels` | room-power-levels | degrade |
+| `room_state_history` | room-state-history | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| self_redaction | `autonomous` | - | - |
+| moderator_redaction | `autonomous` | - | - |
+| redaction_permission_denied | `autonomous` | - | - |
+| already_redacted | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

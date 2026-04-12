@@ -161,6 +161,76 @@ description: "Manages cryptographic key material for end-to-end encrypted messag
 | key-backup-recovery | recommended | Session keys established during key exchange are backed up for recovery |
 | server-federation | recommended | Remote device keys are fetched via federation queries |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable E2e Key Exchange
+
+Manages cryptographic key material for end-to-end encrypted messaging. Handles device key publication, one-time pre-key upload/claiming, and cross-server key queries.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `device_management` | device-management | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| device_keys_uploaded | `autonomous` | - | - |
+| one_time_keys_uploaded | `autonomous` | - | - |
+| one_time_key_claimed | `autonomous` | - | - |
+| fallback_key_used | `autonomous` | - | - |
+| keys_queried_local | `autonomous` | - | - |
+| keys_queried_federated | `autonomous` | - | - |
+| key_query_partial_failure | `autonomous` | - | - |
+| no_keys_available | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

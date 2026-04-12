@@ -147,6 +147,74 @@ description: "Connect the messaging server to external systems through registere
 | room-lifecycle | recommended | Services can create rooms on behalf of users in their namespace |
 | server-federation | recommended | Services may bridge federated rooms from external networks |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Application Services
+
+Connect the messaging server to external systems through registered bridges. Services receive a filtered event stream, provision virtual users/rooms, and respond to existence queries.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| success_rate | >= 99.5% | Successful operations divided by total attempts |
+| error_recovery_rate | >= 95% | Errors that auto-recover without manual intervention |
+
+**Constraints:**
+
+- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| reliability | throughput | integration failures can cascade across systems |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `room_aliases` | room-aliases | degrade |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| events_delivered | `autonomous` | - | - |
+| user_provisioned | `autonomous` | - | - |
+| alias_provisioned | `autonomous` | - | - |
+| delivery_failed | `autonomous` | - | - |
+| namespace_conflict | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

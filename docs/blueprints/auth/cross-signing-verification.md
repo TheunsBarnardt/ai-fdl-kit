@@ -131,6 +131,72 @@ description: "Three-key trust hierarchy for verifying devices and users. Master 
 | e2e-key-exchange | required | Cross-signing keys are bundled with device keys in key query responses |
 | device-management | required | Cross-signing updates trigger device list broadcasts; device deletions affect key associations |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Cross Signing Verification
+
+Three-key trust hierarchy for verifying devices and users. Master key signs self-signing and user-signing keys. All uploads are cryptographically validated before storage.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| unauthorized_access_rate | 0% | Failed authorization attempts that succeed |
+| response_time_p95 | < 500ms | 95th percentile response time |
+
+**Constraints:**
+
+- **security** (non-negotiable): Follow OWASP security recommendations
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before making irreversible changes
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+- `consecutive_failures > 3`
+
+### Verification
+
+**Invariants:**
+
+- error messages never expose internal system details
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| security | performance | authentication must prioritize preventing unauthorized access |
+
+### Coordination
+
+**Protocol:** `orchestrated`
+
+**Consumes:**
+
+| Capability | From | Fallback |
+|------------|------|----------|
+| `e2e_key_exchange` | e2e-key-exchange | fail |
+| `device_management` | device-management | fail |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| keys_uploaded | `autonomous` | - | - |
+| master_key_updated | `supervised` | - | - |
+| user_signing_key_updated | `supervised` | - | - |
+| keys_queried | `autonomous` | - | - |
+| invalid_signature | `autonomous` | - | - |
+| master_key_missing | `autonomous` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 

@@ -186,6 +186,68 @@ description: "Upload, store, retrieve, and auto-thumbnail media files. Cache rem
 |---------|-------------|--------|
 | server-federation | recommended | Remote media is fetched from origin servers via federation |
 
+## AGI Readiness
+
+### Goals
+
+#### Reliable Media Repository
+
+Upload, store, retrieve, and auto-thumbnail media files. Cache remote media locally, enforce size limits, support multiple storage backends, and run retention cleanup tasks.
+
+**Success Metrics:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| data_accuracy | 100% | Records matching source of truth |
+| duplicate_rate | 0% | Duplicate records detected post-creation |
+
+**Constraints:**
+
+- **performance** (non-negotiable): Data consistency must be maintained across concurrent operations
+- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+
+### Autonomy
+
+**Level:** `supervised`
+
+**Human Checkpoints:**
+
+- before modifying sensitive data fields
+- before transitioning to a terminal state
+
+**Escalation Triggers:**
+
+- `error_rate > 5`
+
+### Verification
+
+**Invariants:**
+
+- sensitive fields are never logged in plaintext
+- all data access is authenticated and authorized
+- error messages never expose internal system details
+- state transitions follow the defined state machine — no illegal transitions
+
+### Tradeoffs
+
+| Prefer | Over | Reason |
+|--------|------|--------|
+| data_integrity | performance | data consistency must be maintained across all operations |
+
+### Safety
+
+| Action | Permission | Cooldown | Max Auto |
+|--------|------------|----------|----------|
+| media_uploaded | `autonomous` | - | - |
+| media_deduplicated | `autonomous` | - | - |
+| media_retrieved_locally | `autonomous` | - | - |
+| remote_media_cached | `autonomous` | - | - |
+| thumbnail_generated | `autonomous` | - | - |
+| media_upload_rejected_size | `supervised` | - | - |
+| media_upload_rejected_pixels | `supervised` | - | - |
+| media_quarantined | `autonomous` | - | - |
+| remote_server_blocked | `human_required` | - | - |
+
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
 
