@@ -15,7 +15,9 @@ Checkout, invoicing, POS, and financial transaction blueprints.
 |-----------|-------------|----------|
 | [Cart Checkout]({{ site.baseurl }}/blueprints/payment/cart-checkout/) | Shopping cart and checkout flow with stock reservation, guest cart merge, multi-step checkout, tax, promo codes, and order placement. | 1.0.0 |
 | [Currency Conversion]({{ site.baseurl }}/blueprints/payment/currency-conversion/) | Convert amounts between currencies using live or cached exchange rates | 1.0.0 |
+| [Dispute Management]({{ site.baseurl }}/blueprints/payment/dispute-management/) | Payment dispute and chargeback lifecycle — initiation, evidence collection, investigation, and resolution for PayShap and card transactions | 1.0.0 |
 | [Driver Earnings Payouts]({{ site.baseurl }}/blueprints/payment/driver-earnings-payouts/) | Track driver earnings per trip, manage payout schedules, and process driver compensation | 1.0.0 |
+| [Fraud Detection]({{ site.baseurl }}/blueprints/payment/fraud-detection/) | Real-time transaction fraud detection with risk scoring, velocity checks, anomaly detection, and auto-blocking for payment terminals | 1.0.0 |
 | [Invoicing Payments]({{ site.baseurl }}/blueprints/payment/invoicing-payments/) | Invoicing and payment lifecycle: customer invoices, vendor bills, credit notes, receipts, payment registration, multi-currency, and follow-up.  | 1.0.0 |
 | [Loyalty Coupons]({{ site.baseurl }}/blueprints/payment/loyalty-coupons/) | Loyalty and promotion engine supporting points, coupons, gift cards, discount codes, buy-X-get-Y offers, e-wallets, and next-order rewards.  | 1.0.0 |
 | [Multi Currency Exchange]({{ site.baseurl }}/blueprints/payment/multi-currency-exchange/) | Manage exchange rates, perform multi-currency transactions, and revalue accounts for unrealized foreign exchange gains and losses | 1.0.0 |

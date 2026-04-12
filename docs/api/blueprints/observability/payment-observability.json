@@ -1,0 +1,643 @@
+{
+  "feature": "payment-observability",
+  "version": "1.0.0",
+  "description": "Payment observability — transaction metrics, latency tracking, error rate monitoring, business KPIs, alerting, and dashboards",
+  "category": "observability",
+  "tags": [
+    "metrics",
+    "monitoring",
+    "alerting",
+    "dashboard",
+    "health-check",
+    "kpi"
+  ],
+  "actors": [
+    {
+      "id": "metrics_collector",
+      "name": "Metrics Collector",
+      "type": "system",
+      "description": "Collects and aggregates transaction metrics from terminals and backend",
+      "role": "data-collector"
+    },
+    {
+      "id": "alerting_engine",
+      "name": "Alerting Engine",
+      "type": "system",
+      "description": "Evaluates alert rules and sends notifications",
+      "role": "alert-evaluator"
+    },
+    {
+      "id": "ops_team",
+      "name": "Operations Team",
+      "type": "human",
+      "description": "Monitors dashboards and responds to alerts",
+      "role": "operator"
+    },
+    {
+      "id": "merchant",
+      "name": "Merchant",
+      "type": "human",
+      "description": "Views merchant-facing reports and summaries",
+      "role": "report-viewer"
+    }
+  ],
+  "fields": [
+    {
+      "name": "metric_id",
+      "type": "token",
+      "required": true,
+      "label": "Metric ID"
+    },
+    {
+      "name": "metric_name",
+      "type": "text",
+      "required": true,
+      "label": "Metric Name"
+    },
+    {
+      "name": "metric_type",
+      "type": "select",
+      "required": true,
+      "label": "Metric Type",
+      "options": [
+        {
+          "value": "counter",
+          "label": "Counter"
+        },
+        {
+          "value": "gauge",
+          "label": "Gauge"
+        },
+        {
+          "value": "histogram",
+          "label": "Histogram"
+        },
+        {
+          "value": "summary",
+          "label": "Summary"
+        }
+      ]
+    },
+    {
+      "name": "dimensions",
+      "type": "json",
+      "required": false,
+      "label": "Metric Dimensions"
+    },
+    {
+      "name": "value",
+      "type": "number",
+      "required": true,
+      "label": "Metric Value"
+    },
+    {
+      "name": "timestamp",
+      "type": "datetime",
+      "required": true,
+      "label": "Timestamp"
+    },
+    {
+      "name": "alert_id",
+      "type": "token",
+      "required": false,
+      "label": "Alert ID"
+    },
+    {
+      "name": "alert_name",
+      "type": "text",
+      "required": false,
+      "label": "Alert Name"
+    },
+    {
+      "name": "alert_severity",
+      "type": "select",
+      "required": false,
+      "label": "Alert Severity",
+      "options": [
+        {
+          "value": "info",
+          "label": "Info"
+        },
+        {
+          "value": "warning",
+          "label": "Warning"
+        },
+        {
+          "value": "critical",
+          "label": "Critical"
+        }
+      ]
+    },
+    {
+      "name": "alert_status",
+      "type": "select",
+      "required": false,
+      "label": "Alert Status",
+      "options": [
+        {
+          "value": "firing",
+          "label": "Firing"
+        },
+        {
+          "value": "acknowledged",
+          "label": "Acknowledged"
+        },
+        {
+          "value": "resolved",
+          "label": "Resolved"
+        }
+      ]
+    },
+    {
+      "name": "retention_raw_days",
+      "type": "number",
+      "required": true,
+      "label": "Raw Metric Retention (days)",
+      "default": 7
+    },
+    {
+      "name": "retention_hourly_days",
+      "type": "number",
+      "required": true,
+      "label": "Hourly Aggregate Retention (days)",
+      "default": 90
+    },
+    {
+      "name": "retention_daily_days",
+      "type": "number",
+      "required": true,
+      "label": "Daily Aggregate Retention (days)",
+      "default": 730
+    }
+  ],
+  "states": {
+    "field": "alert_status",
+    "values": [
+      {
+        "id": "collecting",
+        "label": "Collecting",
+        "initial": true
+      },
+      {
+        "id": "firing",
+        "label": "Alert Firing"
+      },
+      {
+        "id": "acknowledged",
+        "label": "Acknowledged"
+      },
+      {
+        "id": "resolved",
+        "label": "Resolved",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "collecting",
+        "to": "firing",
+        "actor": "alerting_engine",
+        "description": "Alert condition met — threshold breached"
+      },
+      {
+        "from": "firing",
+        "to": "acknowledged",
+        "actor": "ops_team",
+        "description": "Operator acknowledges the alert"
+      },
+      {
+        "from": "acknowledged",
+        "to": "resolved",
+        "actor": "alerting_engine",
+        "description": "Metric returns to normal range"
+      },
+      {
+        "from": "firing",
+        "to": "resolved",
+        "actor": "alerting_engine",
+        "description": "Metric returns to normal before acknowledgement"
+      }
+    ]
+  },
+  "rules": {
+    "transaction_metrics": {
+      "count": "Count of transactions by terminal, merchant, payment method, and status (success/failure)",
+      "amount": "Sum and average of transaction amounts by terminal and method",
+      "method_split": "Percentage of palm vs card transactions",
+      "offline_usage": "Count and value of offline-queued transactions"
+    },
+    "latency_metrics": {
+      "palm_scan": "Palm scan time (feature extraction + template match) — p50, p95, p99",
+      "payshap_settlement": "PayShap end-to-end settlement time — p50, p95, p99 (SLA: < 10s)",
+      "card_authorization": "Card online authorisation time — p50, p95, p99",
+      "total_transaction": "Total transaction time from amount entry to receipt — p50, p95, p99"
+    },
+    "error_metrics": {
+      "by_code": "Error count grouped by error code",
+      "by_terminal": "Error rate per terminal (errors / total transactions)",
+      "by_method": "Error rate per payment method",
+      "consecutive": "Count of consecutive failures per terminal"
+    },
+    "business_kpis": {
+      "daily_volume": "Total transaction count per day",
+      "daily_gmv": "Gross merchandise value (total amount) per day",
+      "enrolment_rate": "New palm enrolments per day",
+      "palm_adoption": "Percentage of transactions using palm vs card over time",
+      "offline_queue_depth": "Average and peak offline queue depth"
+    },
+    "alerting_rules": {
+      "error_rate_high": "Alert when error rate > 5% over 5-minute window (severity: critical)",
+      "latency_breach": "Alert when PayShap p95 latency > 10s over 5-minute window (severity: critical)",
+      "terminal_offline": "Alert when terminal misses 3 heartbeats (severity: warning)",
+      "queue_depth_high": "Alert when offline queue > 8 transactions on any terminal (severity: warning)",
+      "consecutive_failures": "Alert when 5+ consecutive failures on same terminal (severity: critical)",
+      "daily_volume_drop": "Alert when daily volume drops > 30% vs 7-day average (severity: warning)"
+    },
+    "dashboards": {
+      "ops_realtime": "Real-time operations: live transaction feed, error rate gauge, active terminals, latency heatmap",
+      "merchant_daily": "Merchant daily summary: transaction count, GMV, palm vs card split, top terminals",
+      "fleet_health": "Fleet health: terminal status map, heartbeat status, hardware health, queue depths"
+    },
+    "retention": {
+      "raw_metrics": "7 days — full resolution",
+      "hourly_aggregates": "90 days — hourly rollups",
+      "daily_aggregates": "730 days (2 years) — daily rollups",
+      "alerts_history": "365 days — all alert events"
+    },
+    "health_checks": {
+      "liveness": "GET /health/live — returns 200 if process is running",
+      "readiness": "GET /health/ready — returns 200 if all dependencies are reachable",
+      "startup": "GET /health/startup — returns 200 after initialisation complete"
+    }
+  },
+  "outcomes": {
+    "metric_recorded": {
+      "priority": 1,
+      "given": [
+        "Transaction completes (success or failure)"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "metric",
+          "target": "metrics",
+          "description": "Record transaction metric with dimensions"
+        },
+        {
+          "action": "emit_event",
+          "event": "observability.metric.recorded",
+          "payload": [
+            "metric_name",
+            "value",
+            "dimensions",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Transaction metric recorded for aggregation"
+    },
+    "alert_fired": {
+      "priority": 2,
+      "given": [
+        "Metric value crosses alert threshold",
+        {
+          "field": "alert_severity",
+          "source": "computed",
+          "operator": "in",
+          "value": [
+            "warning",
+            "critical"
+          ],
+          "description": "Alert severity determined by rule"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "alert_status",
+          "from": "collecting",
+          "to": "firing"
+        },
+        {
+          "action": "notify",
+          "channel": "ops_alert",
+          "description": "Send alert to operations team via push notification and dashboard"
+        },
+        {
+          "action": "emit_event",
+          "event": "observability.alert.fired",
+          "payload": [
+            "alert_id",
+            "alert_name",
+            "alert_severity",
+            "metric_name",
+            "value"
+          ]
+        }
+      ],
+      "result": "Alert fired — operations team notified"
+    },
+    "alert_acknowledged": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "alert_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "firing"
+        },
+        "Operator acknowledges the alert"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "alert_status",
+          "from": "firing",
+          "to": "acknowledged"
+        },
+        {
+          "action": "emit_event",
+          "event": "observability.alert.acknowledged",
+          "payload": [
+            "alert_id",
+            "alert_name"
+          ]
+        }
+      ],
+      "result": "Alert acknowledged by operator"
+    },
+    "alert_resolved": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "alert_status",
+          "source": "db",
+          "operator": "in",
+          "value": [
+            "firing",
+            "acknowledged"
+          ]
+        },
+        "Metric returns to normal range"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "alert_status",
+          "from": "firing",
+          "to": "resolved"
+        },
+        {
+          "action": "emit_event",
+          "event": "observability.alert.resolved",
+          "payload": [
+            "alert_id",
+            "alert_name"
+          ]
+        }
+      ],
+      "result": "Alert resolved — metric back to normal"
+    },
+    "health_check_failed": {
+      "priority": 5,
+      "error": "OBSERVABILITY_HEALTH_FAILED",
+      "given": [
+        "Health check endpoint returns non-200 status"
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "ops_alert",
+          "description": "Critical: health check failed"
+        },
+        {
+          "action": "emit_event",
+          "event": "observability.health.failed",
+          "payload": [
+            "endpoint",
+            "status_code"
+          ]
+        }
+      ],
+      "result": "Health check failed — system may be degraded"
+    },
+    "metrics_aggregated": {
+      "priority": 6,
+      "given": [
+        "Aggregation interval reached (hourly or daily)"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "metrics_aggregator.rollup",
+          "description": "Aggregate raw metrics into hourly or daily rollups"
+        },
+        {
+          "action": "emit_event",
+          "event": "observability.metrics.aggregated",
+          "payload": [
+            "aggregation_level",
+            "period",
+            "metric_count"
+          ]
+        }
+      ],
+      "result": "Metrics aggregated and raw data eligible for expiry"
+    }
+  },
+  "errors": [
+    {
+      "code": "OBSERVABILITY_HEALTH_FAILED",
+      "status": 503,
+      "message": "Health check failed — system may be degraded"
+    },
+    {
+      "code": "OBSERVABILITY_METRIC_INVALID",
+      "status": 400,
+      "message": "Invalid metric data — check name, type, and dimensions"
+    },
+    {
+      "code": "OBSERVABILITY_STORAGE_FULL",
+      "status": 500,
+      "message": "Metrics storage capacity reached — check retention policies"
+    }
+  ],
+  "events": [
+    {
+      "name": "observability.metric.recorded",
+      "payload": [
+        "metric_name",
+        "value",
+        "dimensions",
+        "timestamp"
+      ],
+      "description": "Transaction metric recorded"
+    },
+    {
+      "name": "observability.alert.fired",
+      "payload": [
+        "alert_id",
+        "alert_name",
+        "alert_severity",
+        "metric_name",
+        "value"
+      ],
+      "description": "Alert threshold breached"
+    },
+    {
+      "name": "observability.alert.acknowledged",
+      "payload": [
+        "alert_id",
+        "alert_name"
+      ],
+      "description": "Alert acknowledged by operator"
+    },
+    {
+      "name": "observability.alert.resolved",
+      "payload": [
+        "alert_id",
+        "alert_name"
+      ],
+      "description": "Alert condition resolved"
+    },
+    {
+      "name": "observability.health.failed",
+      "payload": [
+        "endpoint",
+        "status_code"
+      ],
+      "description": "Health check endpoint failed"
+    },
+    {
+      "name": "observability.metrics.aggregated",
+      "payload": [
+        "aggregation_level",
+        "period",
+        "metric_count"
+      ],
+      "description": "Metrics rolled up to higher aggregation level"
+    }
+  ],
+  "related": [
+    {
+      "feature": "terminal-fleet",
+      "type": "required",
+      "reason": "Fleet monitoring provides device-level health; this provides application-level metrics"
+    },
+    {
+      "feature": "terminal-payment-flow",
+      "type": "required",
+      "reason": "Transaction events are the primary source of payment metrics"
+    },
+    {
+      "feature": "payshap-rail",
+      "type": "recommended",
+      "reason": "PayShap settlement latency tracked against 10s SLA"
+    },
+    {
+      "feature": "payment-gateway",
+      "type": "recommended",
+      "reason": "Card authorisation latency and error rates tracked"
+    },
+    {
+      "feature": "audit-logging",
+      "type": "optional",
+      "reason": "Alert events can be logged to audit trail"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_payment_observability",
+        "description": "Payment observability — transaction metrics, latency tracking, error rate monitoring, business KPIs, alerting, and dashboards",
+        "success_metrics": [
+          {
+            "metric": "success_rate",
+            "target": ">= 99%",
+            "measurement": "Successful operations divided by total attempts"
+          },
+          {
+            "metric": "error_rate",
+            "target": "< 1%",
+            "measurement": "Failed operations divided by total attempts"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "semi_autonomous",
+      "human_checkpoints": [
+        "before modifying sensitive data fields",
+        "before transitioning to a terminal state"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "metric_recorded",
+          "permission": "autonomous"
+        },
+        {
+          "action": "alert_fired",
+          "permission": "autonomous"
+        },
+        {
+          "action": "alert_acknowledged",
+          "permission": "autonomous"
+        },
+        {
+          "action": "alert_resolved",
+          "permission": "autonomous"
+        },
+        {
+          "action": "health_check_failed",
+          "permission": "autonomous"
+        },
+        {
+          "action": "metrics_aggregated",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "completeness",
+        "over": "performance",
+        "reason": "observability gaps hide production issues"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details",
+        "state transitions follow the defined state machine — no illegal transitions"
+      ]
+    },
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "terminal_fleet",
+          "from": "terminal-fleet",
+          "fallback": "degrade"
+        },
+        {
+          "capability": "terminal_payment_flow",
+          "from": "terminal-payment-flow",
+          "fallback": "degrade"
+        }
+      ]
+    }
+  }
+}

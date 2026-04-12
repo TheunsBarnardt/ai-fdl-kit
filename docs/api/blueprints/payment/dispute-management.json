@@ -1,0 +1,878 @@
+{
+  "feature": "dispute-management",
+  "version": "1.0.0",
+  "description": "Payment dispute and chargeback lifecycle — initiation, evidence collection, investigation, and resolution for PayShap and card transactions",
+  "category": "payment",
+  "tags": [
+    "dispute",
+    "chargeback",
+    "resolution",
+    "evidence",
+    "payment-protection"
+  ],
+  "actors": [
+    {
+      "id": "customer",
+      "name": "Customer",
+      "type": "human",
+      "description": "Raises a dispute against a transaction",
+      "role": "disputant"
+    },
+    {
+      "id": "merchant",
+      "name": "Merchant",
+      "type": "human",
+      "description": "Responds to disputes with evidence",
+      "role": "respondent"
+    },
+    {
+      "id": "dispute_analyst",
+      "name": "Dispute Analyst",
+      "type": "human",
+      "description": "Investigates and resolves disputes",
+      "role": "investigator"
+    },
+    {
+      "id": "payment_scheme",
+      "name": "Payment Scheme",
+      "type": "external",
+      "description": "PayShap or card network that arbitrates unresolved disputes",
+      "role": "arbitrator"
+    }
+  ],
+  "fields": [
+    {
+      "name": "dispute_id",
+      "type": "token",
+      "required": true,
+      "label": "Dispute ID"
+    },
+    {
+      "name": "original_transaction_id",
+      "type": "token",
+      "required": true,
+      "label": "Original Transaction ID"
+    },
+    {
+      "name": "original_uetr",
+      "type": "token",
+      "required": false,
+      "label": "Original UETR"
+    },
+    {
+      "name": "dispute_type",
+      "type": "select",
+      "required": true,
+      "label": "Dispute Type",
+      "options": [
+        {
+          "value": "unauthorized",
+          "label": "Unauthorised Transaction"
+        },
+        {
+          "value": "goods_not_received",
+          "label": "Goods/Services Not Received"
+        },
+        {
+          "value": "defective",
+          "label": "Defective Goods/Services"
+        },
+        {
+          "value": "duplicate",
+          "label": "Duplicate Charge"
+        },
+        {
+          "value": "amount_incorrect",
+          "label": "Incorrect Amount"
+        },
+        {
+          "value": "cancelled",
+          "label": "Cancelled Transaction"
+        }
+      ]
+    },
+    {
+      "name": "payment_method",
+      "type": "select",
+      "required": true,
+      "label": "Original Payment Method",
+      "options": [
+        {
+          "value": "palm_payshap",
+          "label": "Palm (PayShap)"
+        },
+        {
+          "value": "card",
+          "label": "Card"
+        }
+      ]
+    },
+    {
+      "name": "dispute_amount",
+      "type": "number",
+      "required": true,
+      "label": "Disputed Amount",
+      "validation": [
+        {
+          "type": "min",
+          "value": 0.01,
+          "message": "Disputed amount must be greater than zero"
+        }
+      ]
+    },
+    {
+      "name": "dispute_status",
+      "type": "select",
+      "required": true,
+      "label": "Dispute Status",
+      "options": [
+        {
+          "value": "opened",
+          "label": "Opened"
+        },
+        {
+          "value": "evidence_requested",
+          "label": "Evidence Requested"
+        },
+        {
+          "value": "under_investigation",
+          "label": "Under Investigation"
+        },
+        {
+          "value": "resolved_customer",
+          "label": "Resolved — Customer Wins"
+        },
+        {
+          "value": "resolved_merchant",
+          "label": "Resolved — Merchant Wins"
+        },
+        {
+          "value": "escalated",
+          "label": "Escalated to Scheme"
+        },
+        {
+          "value": "closed",
+          "label": "Closed"
+        }
+      ]
+    },
+    {
+      "name": "reason_description",
+      "type": "text",
+      "required": true,
+      "label": "Dispute Reason"
+    },
+    {
+      "name": "evidence_documents",
+      "type": "json",
+      "required": false,
+      "label": "Evidence Documents"
+    },
+    {
+      "name": "resolution_notes",
+      "type": "text",
+      "required": false,
+      "label": "Resolution Notes"
+    },
+    {
+      "name": "resolved_in_favour_of",
+      "type": "select",
+      "required": false,
+      "label": "Resolved In Favour Of",
+      "options": [
+        {
+          "value": "customer",
+          "label": "Customer"
+        },
+        {
+          "value": "merchant",
+          "label": "Merchant"
+        }
+      ]
+    },
+    {
+      "name": "refund_initiated",
+      "type": "boolean",
+      "required": false,
+      "label": "Refund Initiated",
+      "default": false
+    },
+    {
+      "name": "opened_at",
+      "type": "datetime",
+      "required": true,
+      "label": "Opened At"
+    },
+    {
+      "name": "evidence_deadline",
+      "type": "datetime",
+      "required": false,
+      "label": "Evidence Submission Deadline"
+    },
+    {
+      "name": "resolution_deadline",
+      "type": "datetime",
+      "required": false,
+      "label": "Resolution Deadline"
+    },
+    {
+      "name": "analyst_id",
+      "type": "text",
+      "required": false,
+      "label": "Assigned Analyst"
+    }
+  ],
+  "states": {
+    "field": "dispute_status",
+    "values": [
+      {
+        "id": "opened",
+        "label": "Opened",
+        "initial": true
+      },
+      {
+        "id": "evidence_requested",
+        "label": "Evidence Requested"
+      },
+      {
+        "id": "under_investigation",
+        "label": "Under Investigation"
+      },
+      {
+        "id": "resolved_customer",
+        "label": "Resolved — Customer",
+        "terminal": true
+      },
+      {
+        "id": "resolved_merchant",
+        "label": "Resolved — Merchant",
+        "terminal": true
+      },
+      {
+        "id": "escalated",
+        "label": "Escalated to Scheme"
+      },
+      {
+        "id": "closed",
+        "label": "Closed",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "opened",
+        "to": "evidence_requested",
+        "actor": "dispute_analyst",
+        "description": "Analyst requests evidence from merchant"
+      },
+      {
+        "from": "evidence_requested",
+        "to": "under_investigation",
+        "actor": "dispute_analyst",
+        "description": "Evidence received — analyst begins investigation"
+      },
+      {
+        "from": "evidence_requested",
+        "to": "resolved_customer",
+        "actor": "dispute_analyst",
+        "description": "Merchant fails to provide evidence within deadline",
+        "condition": "Current date exceeds evidence_deadline"
+      },
+      {
+        "from": "under_investigation",
+        "to": "resolved_customer",
+        "actor": "dispute_analyst",
+        "description": "Investigation finds in favour of customer"
+      },
+      {
+        "from": "under_investigation",
+        "to": "resolved_merchant",
+        "actor": "dispute_analyst",
+        "description": "Investigation finds in favour of merchant"
+      },
+      {
+        "from": "under_investigation",
+        "to": "escalated",
+        "actor": "dispute_analyst",
+        "description": "Dispute escalated to payment scheme for arbitration"
+      },
+      {
+        "from": "escalated",
+        "to": "resolved_customer",
+        "actor": "payment_scheme",
+        "description": "Scheme rules in favour of customer"
+      },
+      {
+        "from": "escalated",
+        "to": "resolved_merchant",
+        "actor": "payment_scheme",
+        "description": "Scheme rules in favour of merchant"
+      },
+      {
+        "from": "resolved_customer",
+        "to": "closed",
+        "actor": "dispute_analyst",
+        "description": "Refund processed, dispute closed"
+      },
+      {
+        "from": "resolved_merchant",
+        "to": "closed",
+        "actor": "dispute_analyst",
+        "description": "No refund, dispute closed"
+      }
+    ]
+  },
+  "rules": {
+    "time_limits": {
+      "customer_filing": "Customer must raise dispute within 120 days of transaction (card) or 30 days (PayShap)",
+      "evidence_deadline": "Merchant has 10 business days to submit evidence after request",
+      "resolution_target": "Dispute should be resolved within 30 calendar days of opening",
+      "escalation_deadline": "If unresolved after 30 days, automatically escalated to payment scheme"
+    },
+    "payshap_disputes": {
+      "refund_via_api": "PayShap refunds initiated via POST /transactions/outbound/refund-initiation",
+      "uetr_required": "Refund must reference original PAID transaction via UETR",
+      "new_uetr": "Refund requires a new UETR — cannot reuse original",
+      "amount_limit": "Refund amount must be less than or equal to original transaction amount"
+    },
+    "card_disputes": {
+      "chargeback_lifecycle": "First chargeback → representment → pre-arbitration → arbitration",
+      "reason_codes": "Mapped to card scheme reason codes (Visa, Mastercard)",
+      "provisional_credit": "Customer receives provisional credit upon dispute opening"
+    },
+    "evidence_requirements": {
+      "merchant_evidence": "Transaction receipt, delivery proof, customer signature, CCTV, communication records",
+      "palm_evidence": "Palm match confirmation log, terminal ID, timestamp, risk score at time of transaction",
+      "auto_resolve": "If merchant provides no evidence by deadline, dispute auto-resolves in customer's favour"
+    },
+    "notification": {
+      "customer_updates": "Customer notified at each status change via SMS/email",
+      "merchant_alerts": "Merchant notified immediately when dispute opened and when evidence requested"
+    }
+  },
+  "outcomes": {
+    "dispute_opened": {
+      "priority": 1,
+      "given": [
+        "Customer raises a dispute against a transaction",
+        {
+          "field": "original_transaction_id",
+          "source": "input",
+          "operator": "exists",
+          "description": "Original transaction reference provided"
+        },
+        {
+          "field": "dispute_type",
+          "source": "input",
+          "operator": "exists",
+          "description": "Dispute type selected"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "dispute",
+          "target": "disputes",
+          "description": "Create dispute record"
+        },
+        {
+          "action": "set_field",
+          "target": "opened_at",
+          "value": "current timestamp"
+        },
+        {
+          "action": "set_field",
+          "target": "resolution_deadline",
+          "value": "opened_at + 30 days"
+        },
+        {
+          "action": "notify",
+          "channel": "merchant",
+          "description": "Notify merchant of dispute"
+        },
+        {
+          "action": "emit_event",
+          "event": "dispute.opened",
+          "payload": [
+            "dispute_id",
+            "original_transaction_id",
+            "dispute_type",
+            "dispute_amount"
+          ]
+        }
+      ],
+      "result": "Dispute opened — merchant notified"
+    },
+    "evidence_requested": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "dispute_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "opened"
+        },
+        "Analyst assigns dispute and requests merchant evidence"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "dispute_status",
+          "from": "opened",
+          "to": "evidence_requested"
+        },
+        {
+          "action": "set_field",
+          "target": "evidence_deadline",
+          "value": "current timestamp + 10 business days"
+        },
+        {
+          "action": "notify",
+          "channel": "merchant",
+          "description": "Request evidence from merchant with deadline"
+        },
+        {
+          "action": "emit_event",
+          "event": "dispute.evidence_requested",
+          "payload": [
+            "dispute_id",
+            "evidence_deadline"
+          ]
+        }
+      ],
+      "result": "Evidence requested from merchant — 10 business day deadline"
+    },
+    "resolved_for_customer": {
+      "priority": 3,
+      "given": [
+        {
+          "field": "dispute_status",
+          "source": "db",
+          "operator": "in",
+          "value": [
+            "under_investigation",
+            "evidence_requested",
+            "escalated"
+          ]
+        },
+        "Decision made in favour of customer"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "dispute_status",
+          "from": "under_investigation",
+          "to": "resolved_customer"
+        },
+        {
+          "action": "set_field",
+          "target": "resolved_in_favour_of",
+          "value": "customer"
+        },
+        {
+          "action": "set_field",
+          "target": "refund_initiated",
+          "value": true
+        },
+        {
+          "action": "call_service",
+          "target": "payment_backend.process_refund",
+          "description": "Initiate refund via original payment method"
+        },
+        {
+          "action": "notify",
+          "channel": "customer",
+          "description": "Notify customer of resolution and refund"
+        },
+        {
+          "action": "emit_event",
+          "event": "dispute.resolved",
+          "payload": [
+            "dispute_id",
+            "resolved_in_favour_of",
+            "dispute_amount"
+          ]
+        }
+      ],
+      "result": "Dispute resolved for customer — refund initiated",
+      "transaction": true
+    },
+    "resolved_for_merchant": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "dispute_status",
+          "source": "db",
+          "operator": "in",
+          "value": [
+            "under_investigation",
+            "escalated"
+          ]
+        },
+        "Decision made in favour of merchant — evidence supports transaction"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "dispute_status",
+          "from": "under_investigation",
+          "to": "resolved_merchant"
+        },
+        {
+          "action": "set_field",
+          "target": "resolved_in_favour_of",
+          "value": "merchant"
+        },
+        {
+          "action": "notify",
+          "channel": "customer",
+          "description": "Notify customer that dispute was not upheld"
+        },
+        {
+          "action": "emit_event",
+          "event": "dispute.resolved",
+          "payload": [
+            "dispute_id",
+            "resolved_in_favour_of"
+          ]
+        }
+      ],
+      "result": "Dispute resolved for merchant — no refund"
+    },
+    "dispute_escalated": {
+      "priority": 5,
+      "given": [
+        {
+          "field": "dispute_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "under_investigation"
+        },
+        "Analyst cannot resolve — escalation to payment scheme required"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "dispute_status",
+          "from": "under_investigation",
+          "to": "escalated"
+        },
+        {
+          "action": "notify",
+          "channel": "payment_scheme",
+          "description": "Submit dispute to scheme for arbitration"
+        },
+        {
+          "action": "emit_event",
+          "event": "dispute.escalated",
+          "payload": [
+            "dispute_id",
+            "payment_method"
+          ]
+        }
+      ],
+      "result": "Dispute escalated to payment scheme for arbitration"
+    },
+    "filing_deadline_exceeded": {
+      "priority": 6,
+      "error": "DISPUTE_FILING_EXPIRED",
+      "given": [
+        "Customer attempts to raise dispute",
+        "Transaction date exceeds filing deadline (120 days card, 30 days PayShap)"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "dispute.filing_expired",
+          "payload": [
+            "original_transaction_id"
+          ]
+        }
+      ],
+      "result": "Cannot raise dispute — filing deadline has passed"
+    },
+    "evidence_deadline_expired": {
+      "priority": 7,
+      "given": [
+        {
+          "field": "dispute_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "evidence_requested"
+        },
+        "Merchant has not submitted evidence by deadline"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "dispute_status",
+          "from": "evidence_requested",
+          "to": "resolved_customer"
+        },
+        {
+          "action": "set_field",
+          "target": "resolved_in_favour_of",
+          "value": "customer"
+        },
+        {
+          "action": "set_field",
+          "target": "refund_initiated",
+          "value": true
+        },
+        {
+          "action": "emit_event",
+          "event": "dispute.auto_resolved",
+          "payload": [
+            "dispute_id",
+            "resolved_in_favour_of"
+          ]
+        }
+      ],
+      "result": "Merchant failed to submit evidence — auto-resolved for customer",
+      "transaction": true
+    }
+  },
+  "errors": [
+    {
+      "code": "DISPUTE_FILING_EXPIRED",
+      "status": 410,
+      "message": "Dispute filing deadline has passed for this transaction"
+    },
+    {
+      "code": "DISPUTE_ALREADY_EXISTS",
+      "status": 409,
+      "message": "A dispute already exists for this transaction"
+    },
+    {
+      "code": "DISPUTE_TRANSACTION_NOT_FOUND",
+      "status": 404,
+      "message": "Original transaction not found"
+    },
+    {
+      "code": "DISPUTE_INVALID_AMOUNT",
+      "status": 400,
+      "message": "Disputed amount exceeds original transaction amount"
+    },
+    {
+      "code": "DISPUTE_EVIDENCE_TOO_LARGE",
+      "status": 413,
+      "message": "Evidence file exceeds maximum upload size"
+    }
+  ],
+  "events": [
+    {
+      "name": "dispute.opened",
+      "payload": [
+        "dispute_id",
+        "original_transaction_id",
+        "dispute_type",
+        "dispute_amount"
+      ],
+      "description": "New dispute raised against a transaction"
+    },
+    {
+      "name": "dispute.evidence_requested",
+      "payload": [
+        "dispute_id",
+        "evidence_deadline"
+      ],
+      "description": "Evidence requested from merchant"
+    },
+    {
+      "name": "dispute.resolved",
+      "payload": [
+        "dispute_id",
+        "resolved_in_favour_of",
+        "dispute_amount"
+      ],
+      "description": "Dispute resolved"
+    },
+    {
+      "name": "dispute.escalated",
+      "payload": [
+        "dispute_id",
+        "payment_method"
+      ],
+      "description": "Dispute escalated to payment scheme"
+    },
+    {
+      "name": "dispute.auto_resolved",
+      "payload": [
+        "dispute_id",
+        "resolved_in_favour_of"
+      ],
+      "description": "Dispute auto-resolved due to evidence deadline expiry"
+    },
+    {
+      "name": "dispute.filing_expired",
+      "payload": [
+        "original_transaction_id"
+      ],
+      "description": "Dispute filing rejected — deadline passed"
+    }
+  ],
+  "sla": {
+    "first_response": {
+      "max_duration": "48h",
+      "description": "Analyst must acknowledge dispute within 48 hours"
+    },
+    "resolution": {
+      "max_duration": "30d",
+      "description": "Dispute must be resolved within 30 calendar days",
+      "escalation": {
+        "action": "Auto-escalate to payment scheme",
+        "notify": [
+          "merchant",
+          "customer",
+          "fleet_admin"
+        ]
+      }
+    },
+    "evidence_window": {
+      "max_duration": "10 business days",
+      "description": "Merchant must submit evidence within 10 business days"
+    }
+  },
+  "related": [
+    {
+      "feature": "payshap-rail",
+      "type": "required",
+      "reason": "PayShap refunds via POST /transactions/outbound/refund-initiation"
+    },
+    {
+      "feature": "payment-gateway",
+      "type": "required",
+      "reason": "Card chargebacks processed via payment gateway"
+    },
+    {
+      "feature": "refunds-returns",
+      "type": "required",
+      "reason": "Refund processing when dispute resolved for customer"
+    },
+    {
+      "feature": "terminal-payment-flow",
+      "type": "recommended",
+      "reason": "Original transactions come from terminal payment flow"
+    },
+    {
+      "feature": "audit-logging",
+      "type": "required",
+      "reason": "All dispute actions logged in immutable audit trail"
+    }
+  ],
+  "agi": {
+    "goals": [
+      {
+        "id": "reliable_dispute_management",
+        "description": "Payment dispute and chargeback lifecycle — initiation, evidence collection, investigation, and resolution for PayShap and card transactions",
+        "success_metrics": [
+          {
+            "metric": "policy_violation_rate",
+            "target": "0%",
+            "measurement": "Operations that violate defined policies"
+          },
+          {
+            "metric": "audit_completeness",
+            "target": "100%",
+            "measurement": "All decisions have complete audit trails"
+          }
+        ],
+        "constraints": [
+          {
+            "type": "regulatory",
+            "description": "All operations must be auditable and traceable",
+            "negotiable": false
+          },
+          {
+            "type": "security",
+            "description": "Sensitive fields must be encrypted at rest and never logged in plaintext",
+            "negotiable": false
+          }
+        ]
+      }
+    ],
+    "autonomy": {
+      "level": "supervised",
+      "human_checkpoints": [
+        "before modifying sensitive data fields",
+        "before transitioning to a terminal state"
+      ],
+      "escalation_triggers": [
+        "error_rate > 5",
+        "consecutive_failures > 3"
+      ]
+    },
+    "safety": {
+      "action_permissions": [
+        {
+          "action": "dispute_opened",
+          "permission": "autonomous"
+        },
+        {
+          "action": "evidence_requested",
+          "permission": "autonomous"
+        },
+        {
+          "action": "resolved_for_customer",
+          "permission": "autonomous"
+        },
+        {
+          "action": "resolved_for_merchant",
+          "permission": "autonomous"
+        },
+        {
+          "action": "dispute_escalated",
+          "permission": "autonomous"
+        },
+        {
+          "action": "filing_deadline_exceeded",
+          "permission": "autonomous"
+        },
+        {
+          "action": "evidence_deadline_expired",
+          "permission": "autonomous"
+        }
+      ]
+    },
+    "tradeoffs": [
+      {
+        "prefer": "accuracy",
+        "over": "speed",
+        "reason": "financial transactions must be precise and auditable"
+      }
+    ],
+    "verification": {
+      "invariants": [
+        "sensitive fields are never logged in plaintext",
+        "all data access is authenticated and authorized",
+        "error messages never expose internal system details",
+        "state transitions follow the defined state machine — no illegal transitions"
+      ]
+    },
+    "coordination": {
+      "protocol": "orchestrated",
+      "consumes": [
+        {
+          "capability": "payshap_rail",
+          "from": "payshap-rail",
+          "fallback": "fail"
+        },
+        {
+          "capability": "payment_gateway",
+          "from": "payment-gateway",
+          "fallback": "fail"
+        },
+        {
+          "capability": "refunds_returns",
+          "from": "refunds-returns",
+          "fallback": "fail"
+        },
+        {
+          "capability": "audit_logging",
+          "from": "audit-logging",
+          "fallback": "fail"
+        }
+      ]
+    }
+  }
+}

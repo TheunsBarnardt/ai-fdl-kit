@@ -2,10 +2,10 @@
 
 # Blueprint Index
 
-Fast lookup for all **401** blueprints across **21** categories.
+Fast lookup for all **405** blueprints across **21** categories.
 Each entry links to the human-friendly summary (`.md`) and the underlying spec (`.blueprint.yaml`).
 
-**Jump to a category:** [Access](#access) (18) · [Ai](#ai) (6) · [Asset](#asset) (20) · [Auth](#auth) (37) · [Communication](#communication) (16) · [Crm](#crm) (5) · [Data](#data) (58) · [Infrastructure](#infrastructure) (13) · [Integration](#integration) (55) · [Inventory](#inventory) (6) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (18) · [Observability](#observability) (4) · [Payment](#payment) (19) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Trading](#trading) (20) · [Ui](#ui) (25) · [Workflow](#workflow) (64)
+**Jump to a category:** [Access](#access) (18) · [Ai](#ai) (6) · [Asset](#asset) (20) · [Auth](#auth) (37) · [Communication](#communication) (16) · [Crm](#crm) (5) · [Data](#data) (58) · [Infrastructure](#infrastructure) (13) · [Integration](#integration) (56) · [Inventory](#inventory) (6) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (18) · [Observability](#observability) (5) · [Payment](#payment) (21) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Trading](#trading) (20) · [Ui](#ui) (25) · [Workflow](#workflow) (64)
 
 ---
 
@@ -239,6 +239,7 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**dataverse-client**](./integration/dataverse-client.md) | Enterprise service client for connecting to Microsoft Dataverse, managing authentication, executing CRUD operations on entities, batch processing, and discovery of available organizations | 1.0.0 | [yaml](./integration/dataverse-client.blueprint.yaml) |
 | [**driver-location-streaming**](./integration/driver-location-streaming.md) | Real-time GPS location updates from drivers, persisted as position history and broadcast to subscribers for live map tracking. | 1.0.0 | [yaml](./integration/driver-location-streaming.blueprint.yaml) |
 | [**email-service**](./integration/email-service.md) | Send transactional and marketing emails through a provider-agnostic abstraction supporting templates, attachments, delivery tracking, and batch sends | 1.0.0 | [yaml](./integration/email-service.blueprint.yaml) |
+| [**emv-card-reader**](./integration/emv-card-reader.md) | EMV card reader hardware SDK integration — chip, NFC contactless, and magnetic stripe with PIN entry and EMV kernel processing | 1.0.0 | [yaml](./integration/emv-card-reader.blueprint.yaml) |
 | [**encrypted-group-metadata**](./integration/encrypted-group-metadata.md) | Server-blind encrypted group management where the server stores opaque ciphertext and issues zero-knowledge credentials for group membership and group-send authorization | 1.0.0 | [yaml](./integration/encrypted-group-metadata.blueprint.yaml) |
 | [**event-redaction**](./integration/event-redaction.md) | Remove sensitive content from previously sent events. Creates a redaction event that prunes original content while preserving graph position and essential metadata. | 1.0.0 | [yaml](./integration/event-redaction.blueprint.yaml) |
 | [**fix-connection-management**](./integration/fix-connection-management.md) | Manages TCP connections for FIX protocol engines including server-side acceptors, client-side initiators, SSL/TLS encryption, automatic reconnection, and socket configuration | 1.0.0 | [yaml](./integration/fix-connection-management.blueprint.yaml) |
@@ -333,6 +334,7 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**audit-trail**](./observability/audit-trail.md) | Immutable field-level change tracking for any record with automatic capture on every write, configurable per-model opt-in, and sensitive field exclusion | 1.0.0 | [yaml](./observability/audit-trail.blueprint.yaml) |
 | [**compliance-exports**](./observability/compliance-exports.md) | Scheduled and on-demand export of communication records in regulatory-grade formats (CSV, Actiance XML, GlobalRelay email) for eDiscovery, legal review, and compliance archival. | 1.0.0 | [yaml](./observability/compliance-exports.blueprint.yaml) |
 | [**fix-engine-logging**](./observability/fix-engine-logging.md) | Provides per-session and global logging of all incoming messages, outgoing messages, and session lifecycle events with pluggable backends including screen, file, and database outputs | 1.0.0 | [yaml](./observability/fix-engine-logging.blueprint.yaml) |
+| [**payment-observability**](./observability/payment-observability.md) | Payment observability — transaction metrics, latency tracking, error rate monitoring, business KPIs, alerting, and dashboards | 1.0.0 | [yaml](./observability/payment-observability.blueprint.yaml) |
 
 ## Payment
 
@@ -340,7 +342,9 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 |---------|-------------|---------|------|
 | [**cart-checkout**](./payment/cart-checkout.md) | Shopping cart and checkout flow with stock reservation, guest cart merge, multi-step checkout, tax, promo codes, and order placement. | 1.0.0 | [yaml](./payment/cart-checkout.blueprint.yaml) |
 | [**currency-conversion**](./payment/currency-conversion.md) | Convert amounts between currencies using live or cached exchange rates | 1.0.0 | [yaml](./payment/currency-conversion.blueprint.yaml) |
+| [**dispute-management**](./payment/dispute-management.md) | Payment dispute and chargeback lifecycle — initiation, evidence collection, investigation, and resolution for PayShap and card transactions | 1.0.0 | [yaml](./payment/dispute-management.blueprint.yaml) |
 | [**driver-earnings-payouts**](./payment/driver-earnings-payouts.md) | Track driver earnings per trip, manage payout schedules, and process driver compensation | 1.0.0 | [yaml](./payment/driver-earnings-payouts.blueprint.yaml) |
+| [**fraud-detection**](./payment/fraud-detection.md) | Real-time transaction fraud detection with risk scoring, velocity checks, anomaly detection, and auto-blocking for payment terminals | 1.0.0 | [yaml](./payment/fraud-detection.blueprint.yaml) |
 | [**invoicing-payments**](./payment/invoicing-payments.md) | Invoicing and payment lifecycle: customer invoices, vendor bills, credit notes, receipts, payment registration, multi-currency, and follow-up. | 1.0.0 | [yaml](./payment/invoicing-payments.blueprint.yaml) |
 | [**loyalty-coupons**](./payment/loyalty-coupons.md) | Loyalty and promotion engine supporting points, coupons, gift cards, discount codes, buy-X-get-Y offers, e-wallets, and next-order rewards. | 1.0.0 | [yaml](./payment/loyalty-coupons.blueprint.yaml) |
 | [**multi-currency-exchange**](./payment/multi-currency-exchange.md) | Manage exchange rates, perform multi-currency transactions, and revalue accounts for unrealized foreign exchange gains and losses | 1.0.0 | [yaml](./payment/multi-currency-exchange.blueprint.yaml) |

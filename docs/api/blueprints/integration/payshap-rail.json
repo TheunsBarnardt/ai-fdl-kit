@@ -79,12 +79,20 @@
       "label": "Source Proxy Type",
       "options": [
         {
+          "value": "shap_id",
+          "label": "ShapID"
+        },
+        {
           "value": "phone",
-          "label": "Phone Number"
+          "label": "Mobile Phone Number"
         },
         {
           "value": "account",
           "label": "Account Number"
+        },
+        {
+          "value": "shap_name",
+          "label": "Shap Name (Business)"
         }
       ]
     },
@@ -101,12 +109,20 @@
       "label": "Destination Proxy Type",
       "options": [
         {
+          "value": "shap_id",
+          "label": "ShapID"
+        },
+        {
           "value": "phone",
-          "label": "Phone Number"
+          "label": "Mobile Phone Number"
         },
         {
           "value": "account",
           "label": "Account Number"
+        },
+        {
+          "value": "shap_name",
+          "label": "Shap Name (Business)"
         }
       ]
     },
@@ -123,8 +139,8 @@
         },
         {
           "type": "max",
-          "value": 5000,
-          "message": "Amount exceeds single-transaction limit"
+          "value": 50000,
+          "message": "Amount exceeds PayShap scheme maximum (R50,000)"
         }
       ]
     },
@@ -271,25 +287,66 @@
     ]
   },
   "rules": {
+    "scheme": {
+      "name": "ZA_RPP (Rapid Payments Programme / PayShap)",
+      "operator": "BankservAfrica (PayInc clearing house)",
+      "standard": "ISO 20022 compliant",
+      "settlement": "Settlement via Reserve Bank accounts",
+      "availability": "24/7 — always on"
+    },
     "proxy_resolution": {
-      "required_before_payment": "Proxy must be resolved to a valid account before submitting credit push",
-      "resolution_timeout": "Proxy resolution must complete within 3 seconds"
+      "required_before_payment": "Proxy (ShapID / phone / account) must be resolved to a valid bank account via identifier determination before submitting credit push",
+      "proxy_types": "ShapID (bank-generated ID), mobile phone number, account number, Shap Name (business identifier)",
+      "resolution_timeout": "Proxy resolution must complete within 3 seconds",
+      "proxy_management": "BankservAfrica manages the national proxy registry — each proxy maps to one bank account"
+    },
+    "api": {
+      "style": "Asynchronous — all operations return HTTP 202, responses delivered via webhook callbacks",
+      "authentication": "OAuth 2.0 bearer tokens",
+      "format": "RESTful JSON",
+      "tracing": "Optional traceparent and tracestate headers for distributed tracing",
+      "idempotency": "Duplicate requests return HTTP 409 Conflict with original error echoed"
+    },
+    "api_operations": {
+      "outbound_credit_transfer": "POST /transactions/outbound/credit-transfer (schemes: ZA_RPP)",
+      "outbound_bulk_credit_transfer": "POST /transactions/outbound/bulk/credit-transfer (schemes: ZA_RPP)",
+      "outbound_request_to_pay": "POST /transactions/outbound/request-to-pay (schemes: ZA_RPP only)",
+      "outbound_rtp_cancellation": "POST /transactions/outbound/request-to-pay/cancellation-request (schemes: ZA_RPP)",
+      "outbound_refund": "POST /transactions/outbound/refund-initiation (schemes: ZA_RPP)",
+      "outbound_status": "POST /transactions/outbound/credit-transfer/status-request (schemes: ZA_RPP)",
+      "inbound_credit_transfer_auth_response": "POST /transactions/inbound/credit-transfer-authorisation-response (schemes: ZA_RPP)",
+      "inbound_rtp_response": "POST /transactions/inbound/request-to-pay-response (schemes: ZA_RPP)",
+      "inbound_rtp_cancellation_response": "POST /transactions/inbound/request-to-pay/cancellation-response (schemes: ZA_RPP)",
+      "identifier_determination_report": "POST /identifiers/outbound/identifier-determination-report (callback)"
+    },
+    "request_to_pay": {
+      "description": "PayShap Request allows payment requests to be sent to a payer using ShapID, Business ShapID, or Shap Name",
+      "lifecycle_states": "PRESENTED, CANCELLED, REJECTED, EXPIRED, PAID",
+      "refund_rule": "Refund must reference original PAID transaction via UETR; refund amount must be less than or equal to original; new UETR required"
     },
     "sla": {
       "end_to_end_max": "10 seconds from initiation to settlement confirmation",
       "retry_window": "Failed payments may be retried within 60 seconds"
     },
     "transaction_limits": {
-      "single_transaction_max": "R5,000 per transaction",
-      "daily_limit": "R25,000 per merchant per day"
+      "scheme_maximum": "R50,000 per transaction (raised from R3,000 in August 2024)",
+      "bank_determined": "Actual per-transaction limit is set by the payer's bank — may be lower than scheme maximum",
+      "daily_limit": "Configurable per merchant agreement"
     },
-    "idempotency": {
-      "duplicate_prevention": "Each transaction_id + uetr combination is unique — duplicate submissions return the original result"
+    "fee_structure": {
+      "under_100": "R1 per transaction (under R100)",
+      "100_to_1000": "R5 per transaction (R100–R1,000)",
+      "over_1000": "Lesser of 0.05% of amount or R35 (R1,000–R50,000)"
+    },
+    "participating_banks": {
+      "initial_cohort": "Absa, FNB, Nedbank, Standard Bank (March 2023)",
+      "expanded": "African Bank, Capitec, Discovery, Investec, TymeBank, and others"
     },
     "security": {
       "tls_required": "All communication must use TLS 1.2 or higher",
       "oauth2_required": "API authentication via OAuth 2.0 bearer tokens",
-      "audit_trail": "Every transaction state change must be logged with timestamp and actor"
+      "audit_trail": "Every transaction state change must be logged with timestamp and actor",
+      "certification": "Comprehensive certification and market acceptance testing required before production access"
     },
     "currency": {
       "zar_only": "Only ZAR (South African Rand) is supported for domestic real-time payments"
@@ -345,8 +402,8 @@
           "field": "amount",
           "source": "input",
           "operator": "lte",
-          "value": 5000,
-          "description": "Amount is within single-transaction limit"
+          "value": 50000,
+          "description": "Amount is within PayShap scheme maximum (R50,000)"
         }
       ],
       "then": [
@@ -737,6 +794,41 @@
     "retry_window": {
       "max_duration": "60s",
       "description": "Failed payments may be retried within 60 seconds"
+    }
+  },
+  "extensions": {
+    "api": {
+      "name": "Electrum Regulated Payments API",
+      "version": "v23.0.1",
+      "base_url": "https://example.com/path/payments/api/v1",
+      "auth": "OAuth 2.0",
+      "content_type": "application/json",
+      "openapi_spec": "https://docs.electrumsoftware.com/_spec/openapi/elpapi/elpapi.json",
+      "documentation": "https://docs.electrumsoftware.com/chp/public/",
+      "style": "Asynchronous — HTTP 202 for all operations, responses via webhooks",
+      "endpoints": {
+        "credit_transfer": "POST /transactions/outbound/credit-transfer",
+        "bulk_credit_transfer": "POST /transactions/outbound/bulk/credit-transfer",
+        "request_to_pay": "POST /transactions/outbound/request-to-pay",
+        "rtp_cancellation": "POST /transactions/outbound/request-to-pay/cancellation-request",
+        "refund_initiation": "POST /transactions/outbound/refund-initiation",
+        "credit_transfer_status": "POST /transactions/outbound/credit-transfer/status-request",
+        "credit_transfer_auth_response": "POST /transactions/inbound/credit-transfer-authorisation-response",
+        "rtp_response": "POST /transactions/inbound/request-to-pay-response",
+        "rtp_cancellation_response": "POST /transactions/inbound/request-to-pay/cancellation-response",
+        "identifier_determination_report": "POST /identifiers/outbound/identifier-determination-report"
+      },
+      "iso_20022_messages": {
+        "credit_transfer": "pacs.008 (FIToFICustomerCreditTransfer)",
+        "payment_status": "pacs.002 (PaymentStatusReport)",
+        "request_to_pay": "pain.013 (CreditorPaymentActivationRequest)",
+        "refund": "camt.056 (FIToFIPaymentCancellationRequest)"
+      },
+      "schemes": {
+        "payshap": "ZA_RPP",
+        "rtc": "ZA_RTC",
+        "eft": "ZA_EFT"
+      }
     }
   },
   "related": [

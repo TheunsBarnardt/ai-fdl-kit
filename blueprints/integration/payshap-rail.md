@@ -31,16 +31,47 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 
 ## What must be true
 
-- **proxy_resolution → required_before_payment:** Proxy must be resolved to a valid account before submitting credit push
+- **scheme → name:** ZA_RPP (Rapid Payments Programme / PayShap)
+- **scheme → operator:** BankservAfrica (PayInc clearing house)
+- **scheme → standard:** ISO 20022 compliant
+- **scheme → settlement:** Settlement via Reserve Bank accounts
+- **scheme → availability:** 24/7 — always on
+- **proxy_resolution → required_before_payment:** Proxy (ShapID / phone / account) must be resolved to a valid bank account via identifier determination before submitting credit push
+- **proxy_resolution → proxy_types:** ShapID (bank-generated ID), mobile phone number, account number, Shap Name (business identifier)
 - **proxy_resolution → resolution_timeout:** Proxy resolution must complete within 3 seconds
+- **proxy_resolution → proxy_management:** BankservAfrica manages the national proxy registry — each proxy maps to one bank account
+- **api → style:** Asynchronous — all operations return HTTP 202, responses delivered via webhook callbacks
+- **api → authentication:** OAuth 2.0 bearer tokens
+- **api → format:** RESTful JSON
+- **api → tracing:** Optional traceparent and tracestate headers for distributed tracing
+- **api → idempotency:** Duplicate requests return HTTP 409 Conflict with original error echoed
+- **api_operations → outbound_credit_transfer:** POST /transactions/outbound/credit-transfer (schemes: ZA_RPP)
+- **api_operations → outbound_bulk_credit_transfer:** POST /transactions/outbound/bulk/credit-transfer (schemes: ZA_RPP)
+- **api_operations → outbound_request_to_pay:** POST /transactions/outbound/request-to-pay (schemes: ZA_RPP only)
+- **api_operations → outbound_rtp_cancellation:** POST /transactions/outbound/request-to-pay/cancellation-request (schemes: ZA_RPP)
+- **api_operations → outbound_refund:** POST /transactions/outbound/refund-initiation (schemes: ZA_RPP)
+- **api_operations → outbound_status:** POST /transactions/outbound/credit-transfer/status-request (schemes: ZA_RPP)
+- **api_operations → inbound_credit_transfer_auth_response:** POST /transactions/inbound/credit-transfer-authorisation-response (schemes: ZA_RPP)
+- **api_operations → inbound_rtp_response:** POST /transactions/inbound/request-to-pay-response (schemes: ZA_RPP)
+- **api_operations → inbound_rtp_cancellation_response:** POST /transactions/inbound/request-to-pay/cancellation-response (schemes: ZA_RPP)
+- **api_operations → identifier_determination_report:** POST /identifiers/outbound/identifier-determination-report (callback)
+- **request_to_pay:** PayShap Request allows payment requests to be sent to a payer using ShapID, Business ShapID, or Shap Name
+- **request_to_pay → lifecycle_states:** PRESENTED, CANCELLED, REJECTED, EXPIRED, PAID
+- **request_to_pay → refund_rule:** Refund must reference original PAID transaction via UETR; refund amount must be less than or equal to original; new UETR required
 - **sla → end_to_end_max:** 10 seconds from initiation to settlement confirmation
 - **sla → retry_window:** Failed payments may be retried within 60 seconds
-- **transaction_limits → single_transaction_max:** R5,000 per transaction
-- **transaction_limits → daily_limit:** R25,000 per merchant per day
-- **idempotency → duplicate_prevention:** Each transaction_id + uetr combination is unique — duplicate submissions return the original result
+- **transaction_limits → scheme_maximum:** R50,000 per transaction (raised from R3,000 in August 2024)
+- **transaction_limits → bank_determined:** Actual per-transaction limit is set by the payer's bank — may be lower than scheme maximum
+- **transaction_limits → daily_limit:** Configurable per merchant agreement
+- **fee_structure → under_100:** R1 per transaction (under R100)
+- **fee_structure → 100_to_1000:** R5 per transaction (R100–R1,000)
+- **fee_structure → over_1000:** Lesser of 0.05% of amount or R35 (R1,000–R50,000)
+- **participating_banks → initial_cohort:** Absa, FNB, Nedbank, Standard Bank (March 2023)
+- **participating_banks → expanded:** African Bank, Capitec, Discovery, Investec, TymeBank, and others
 - **security → tls_required:** All communication must use TLS 1.2 or higher
 - **security → oauth2_required:** API authentication via OAuth 2.0 bearer tokens
 - **security → audit_trail:** Every transaction state change must be logged with timestamp and actor
+- **security → certification:** Comprehensive certification and market acceptance testing required before production access
 - **currency → zar_only:** Only ZAR (South African Rand) is supported for domestic real-time payments
 
 ## Success & failure scenarios
@@ -48,7 +79,7 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 **✅ Success paths**
 
 - **Proxy Resolved** — when Payment request received with valid destination proxy; Destination proxy is provided, then Destination account resolved — ready to submit credit push.
-- **Payment Submitted** — when Proxy has been resolved; Amount is within single-transaction limit, then Credit push submitted to clearing system — awaiting settlement confirmation.
+- **Payment Submitted** — when Proxy has been resolved; Amount is within PayShap scheme maximum (R50,000), then Credit push submitted to clearing system — awaiting settlement confirmation.
 - **Payment Settled** — when Payment has been submitted; Positive response received from clearing system, then Payment confirmed — funds transferred to destination account.
 - **Payment Reversed** — when Payment was previously settled; Reversal is authorized by manager, then Payment reversed — funds returned to source account.
 
@@ -78,14 +109,14 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - **palm-pay** *(recommended)* — Palm vein biometric resolves to a payment proxy for hands-free payment
 - **payment-processing** *(recommended)* — General payment processing orchestration that may route to this rail
 
-## Quality fitness 🟢 85/100
+## Quality fitness 🟢 86/100
 
 Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
 
 | Dimension | Score | Points |
 |-----------|-------|--------|
 | Description | `██████████` | 10/10 |
-| Rules | `█████████░` | 9/10 |
+| Rules | `██████████` | 10/10 |
 | Outcomes | `██████████████████████░░░` | 22/25 |
 | Structured conditions | `████████░░` | 8/10 |
 | Error binding | `██████░░░░` | 6/10 |
