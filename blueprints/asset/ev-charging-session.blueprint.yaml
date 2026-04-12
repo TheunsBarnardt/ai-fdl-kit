@@ -1,0 +1,252 @@
+# ============================================================
+# EV CHARGING SESSION — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/adriankumpf/teslamate
+# Source project: TeslaMate (Elixir/Phoenix, PostgreSQL)
+# Files traced: 6
+# ============================================================
+
+feature: ev-charging-session
+version: "1.0.0"
+description: Records the full lifecycle of an EV charging session — opening on plug-in, appending per-reading telemetry throughout, and aggregating energy, duration, cost, and battery change on close.
+category: asset
+tags: [ev, charging, energy, kWh, telemetry, cost, vehicle]
+
+actors:
+  - id: polling_service
+    name: Polling Service
+    type: system
+    description: Detects charging state transitions and records per-reading telemetry
+  - id: vehicle_api
+    name: Vehicle API
+    type: external
+    description: Reports charging_state, energy_added, power, voltage, and battery level
+  - id: vehicle_owner
+    name: Vehicle Owner
+    type: human
+    description: Initiates and ends charging sessions at a charging location
+
+fields:
+  - name: session_id
+    type: hidden
+    required: false
+    label: Session ID
+  - name: vehicle_id
+    type: text
+    required: true
+    label: Vehicle ID
+  - name: start_date
+    type: datetime
+    required: true
+    label: Start Date
+  - name: end_date
+    type: datetime
+    required: false
+    label: End Date
+  - name: duration_min
+    type: number
+    required: false
+    label: Duration (minutes)
+  - name: start_battery_level
+    type: number
+    required: true
+    label: Start Battery Level (%)
+  - name: end_battery_level
+    type: number
+    required: false
+    label: End Battery Level (%)
+  - name: start_range_km
+    type: number
+    required: false
+    label: Start Range (km)
+  - name: end_range_km
+    type: number
+    required: false
+    label: End Range (km)
+  - name: charge_energy_added_kwh
+    type: number
+    required: false
+    label: Energy Added (kWh)
+  - name: charge_energy_used_kwh
+    type: number
+    required: false
+    label: Grid Energy Used (kWh)
+  - name: outside_temp_avg
+    type: number
+    required: false
+    label: Avg Outside Temp (°C)
+  - name: cost
+    type: number
+    required: false
+    label: Session Cost
+  - name: location_id
+    type: hidden
+    required: false
+    label: Location (Geofence)
+  - name: reading_date
+    type: datetime
+    required: true
+    label: Reading Timestamp
+  - name: battery_level
+    type: number
+    required: true
+    label: Battery Level at Reading (%)
+  - name: charger_power_kw
+    type: number
+    required: false
+    label: Charger Power (kW)
+  - name: charger_voltage
+    type: number
+    required: false
+    label: Charger Voltage (V)
+  - name: charger_actual_current
+    type: number
+    required: false
+    label: Charger Current (A)
+  - name: charger_phases
+    type: number
+    required: false
+    label: AC Phases
+  - name: fast_charger_type
+    type: text
+    required: false
+    label: Charger Network / Protocol
+
+states:
+  field: session_status
+  values:
+    - id: idle
+      initial: true
+      description: No charging session in progress
+    - id: in_progress
+      description: Vehicle is actively charging; telemetry is being recorded
+    - id: completed
+      terminal: true
+      description: Charging ended; session aggregated and closed
+
+  transitions:
+    - from: idle
+      to: in_progress
+      actor: polling_service
+      condition: charging_state transitions to Starting or Charging
+      description: Vehicle begins a charging session
+    - from: in_progress
+      to: completed
+      actor: polling_service
+      condition: charging_state is no longer Starting or Charging
+      description: Charging ends; session record is aggregated and closed
+
+rules:
+  session_opens_on_charging_state:
+    description: A charging session opens when the vehicle API reports charging_state as Starting or Charging
+  telemetry_every_five_seconds:
+    description: Per-reading telemetry is appended approximately every 5 seconds during the session, creating a detailed time series of the charging curve
+  aggregates_on_close:
+    description: When a session closes — charge_energy_added = last minus first reading; charge_energy_used = sum(voltage x current x phases x interval seconds / 3600); duration_min = (max_date - min_date) in minutes; outside_temp_avg = average of all readings
+  cost_from_geofence_tariff:
+    description: Cost is calculated based on the geofence tariff at the charging location. If no tariff is configured cost is null
+  free_charging_exemption:
+    description: If the vehicle holds a free-charging entitlement and the session used the qualifying network, cost is set to 0.00 regardless of tariff
+  location_from_nearest_geofence:
+    description: Location is determined at session start by finding the nearest geofence containing the vehicle's position
+  sessions_never_deleted:
+    description: Sessions are never deleted after completion — they serve as the source of truth for efficiency factor derivation and battery health analysis
+
+outcomes:
+  session_started:
+    priority: 1
+    given:
+      - "no charging session is currently in progress for this vehicle"
+      - field: charging_state
+        source: input
+        operator: in
+        value: [Starting, Charging]
+    then:
+      - action: create_record
+        type: charging_session
+        description: Create session record with start_date, start_battery_level, location
+      - action: transition_state
+        field: session_status
+        from: idle
+        to: in_progress
+      - action: emit_event
+        event: charging.session.started
+        payload: [vehicle_id, session_id, start_date, location_id]
+    result: Charging session opened; telemetry collection begins
+
+  telemetry_reading_recorded:
+    priority: 2
+    given:
+      - "a charging session is in_progress"
+    then:
+      - action: create_record
+        type: charging_reading
+        description: Append current charger telemetry to the session time series
+    result: One telemetry reading appended; charging curve grows
+
+  session_completed:
+    priority: 3
+    given:
+      - "a charging session is in_progress"
+      - field: charging_state
+        source: input
+        operator: not_in
+        value: [Starting, Charging]
+    then:
+      - action: set_field
+        target: end_date
+        value: current_timestamp
+      - action: set_field
+        target: charge_energy_added_kwh
+        value: last_reading_energy_added - first_reading_energy_added
+      - action: set_field
+        target: duration_min
+        value: elapsed minutes between start_date and end_date
+      - action: set_field
+        target: cost
+        value: calculated from geofence tariff
+      - action: transition_state
+        field: session_status
+        from: in_progress
+        to: completed
+      - action: emit_event
+        event: charging.session.completed
+        payload: [vehicle_id, session_id, charge_energy_added_kwh, duration_min, cost]
+    result: Session aggregated and closed; efficiency recalculation triggered
+
+errors:
+  - code: CHARGING_SESSION_NO_DATA
+    message: "Charging session ended without sufficient telemetry data."
+    status: 422
+
+events:
+  - name: charging.session.started
+    description: A charging session began at a location
+    payload: [vehicle_id, session_id, start_date, location_id, start_battery_level]
+  - name: charging.session.completed
+    description: A charging session completed
+    payload: [vehicle_id, session_id, charge_energy_added_kwh, duration_min, cost, end_battery_level]
+
+related:
+  - feature: vehicle-state-machine
+    type: required
+  - feature: ev-charging-cost-tariff
+    type: required
+  - feature: geofence-places
+    type: recommended
+  - feature: trip-energy-consumption
+    type: recommended
+  - feature: battery-health-tracking
+    type: recommended
+
+extensions:
+  source:
+    repo: "https://github.com/adriankumpf/teslamate"
+    project: "TeslaMate"
+    tech_stack: "Elixir, Phoenix, PostgreSQL"
+    files_traced: 6
+    entry_points:
+      - "lib/teslamate/vehicles/vehicle.ex"
+      - "lib/teslamate/log/charging_process.ex"
+      - "lib/teslamate/log/charge.ex"

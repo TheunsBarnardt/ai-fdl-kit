@@ -1,0 +1,254 @@
+{
+  "feature": "trip-energy-consumption",
+  "version": "1.0.0",
+  "description": "Calculates energy consumed per trip from battery range delta and a per-vehicle efficiency factor derived statistically from charging history and updated after each qualifying session.",
+  "category": "asset",
+  "tags": [
+    "vehicle",
+    "energy",
+    "efficiency",
+    "ev",
+    "telemetry",
+    "trip"
+  ],
+  "actors": [
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Calculates and stores energy metrics when trips and charging sessions close"
+    },
+    {
+      "id": "vehicle_owner",
+      "name": "Vehicle Owner",
+      "type": "human",
+      "description": "May configure preferred range metric (ideal vs rated)"
+    }
+  ],
+  "fields": [
+    {
+      "name": "trip_id",
+      "type": "hidden",
+      "required": false,
+      "label": "Trip ID"
+    },
+    {
+      "name": "vehicle_id",
+      "type": "text",
+      "required": true,
+      "label": "Vehicle ID"
+    },
+    {
+      "name": "start_range_km",
+      "type": "number",
+      "required": true,
+      "label": "Start Range (km)"
+    },
+    {
+      "name": "end_range_km",
+      "type": "number",
+      "required": true,
+      "label": "End Range (km)"
+    },
+    {
+      "name": "range_delta_km",
+      "type": "number",
+      "required": false,
+      "label": "Range Consumed (km)"
+    },
+    {
+      "name": "preferred_range_metric",
+      "type": "select",
+      "required": false,
+      "label": "Preferred Range Metric"
+    },
+    {
+      "name": "vehicle_efficiency_wh_per_km",
+      "type": "number",
+      "required": false,
+      "label": "Vehicle Efficiency (Wh/km)"
+    },
+    {
+      "name": "estimated_energy_kwh",
+      "type": "number",
+      "required": false,
+      "label": "Estimated Energy Consumed (kWh)"
+    }
+  ],
+  "rules": {
+    "energy_from_range_and_efficiency": {
+      "description": "Energy consumed per trip is estimated as range_delta_km x efficiency_wh_per_km divided by 1000"
+    },
+    "preferred_range_configurable": {
+      "description": "Range delta uses the configured preferred_range_metric (ideal or rated); changing this setting affects all future efficiency derivations"
+    },
+    "efficiency_from_charging_history": {
+      "description": "The efficiency factor is a per-vehicle value derived from the statistical mode of kWh-per-range-gained across qualifying charging sessions — not a fixed manufacturer specification"
+    },
+    "charging_session_qualifies": {
+      "description": "A session qualifies for efficiency derivation only when duration > 10 minutes, end_battery_level <= 95%, both start and end range values are present, and charge_energy_added > 0"
+    },
+    "precision_fallback_strategy": {
+      "description": "Derivation tries decreasing decimal precision (5 to 2) paired with decreasing minimum sample counts (8, 5, 3, 2) and accepts the first precision level with a consensus"
+    },
+    "retain_existing_if_no_consensus": {
+      "description": "If no precision level yields a consensus the existing efficiency factor is retained unchanged and never deleted or set to null"
+    },
+    "no_negative_energy": {
+      "description": "Negative range_delta (battery charged during trip via regeneration artifact) is treated as zero energy consumed"
+    }
+  },
+  "outcomes": {
+    "energy_estimated_at_trip_close": {
+      "priority": 1,
+      "given": [
+        "trip has just completed",
+        {
+          "field": "start_range_km",
+          "source": "db",
+          "operator": "exists"
+        },
+        {
+          "field": "end_range_km",
+          "source": "db",
+          "operator": "exists"
+        },
+        {
+          "field": "vehicle_efficiency_wh_per_km",
+          "source": "db",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "range_delta_km",
+          "value": "start_range_km - end_range_km"
+        },
+        {
+          "action": "set_field",
+          "target": "estimated_energy_kwh",
+          "value": "max(0, range_delta_km) x vehicle_efficiency_wh_per_km / 1000"
+        },
+        {
+          "action": "emit_event",
+          "event": "trip.energy.calculated",
+          "payload": [
+            "vehicle_id",
+            "trip_id",
+            "estimated_energy_kwh",
+            "range_delta_km"
+          ]
+        }
+      ],
+      "result": "Energy estimate attached to the completed trip record"
+    },
+    "efficiency_updated_after_charge": {
+      "priority": 2,
+      "given": [
+        "a qualifying charging session has just completed",
+        "at least 2 sessions meet the derivation criteria at some precision level"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "vehicle_efficiency_wh_per_km",
+          "value": "mode of charge_energy_added per range_added across qualifying sessions"
+        },
+        {
+          "action": "emit_event",
+          "event": "vehicle.efficiency.updated",
+          "payload": [
+            "vehicle_id",
+            "new_efficiency_wh_per_km",
+            "sample_count"
+          ]
+        }
+      ],
+      "result": "Vehicle efficiency factor updated; future trip energy estimates improve"
+    },
+    "efficiency_unchanged_insufficient_data": {
+      "priority": 3,
+      "given": [
+        "a charging session has just completed",
+        "no consensus found across all precision and threshold levels"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "vehicle.efficiency.unchanged",
+          "payload": [
+            "vehicle_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Efficiency factor unchanged; previous value used for future estimates"
+    }
+  },
+  "events": [
+    {
+      "name": "trip.energy.calculated",
+      "description": "Energy consumption estimate attached to a completed trip",
+      "payload": [
+        "vehicle_id",
+        "trip_id",
+        "estimated_energy_kwh",
+        "range_delta_km",
+        "efficiency_wh_per_km"
+      ]
+    },
+    {
+      "name": "vehicle.efficiency.updated",
+      "description": "Vehicle efficiency factor recalculated from charging history",
+      "payload": [
+        "vehicle_id",
+        "new_efficiency_wh_per_km",
+        "sample_count",
+        "precision_used"
+      ]
+    },
+    {
+      "name": "vehicle.efficiency.unchanged",
+      "description": "Efficiency derivation ran but found no consensus; value kept",
+      "payload": [
+        "vehicle_id",
+        "reason"
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": "EFFICIENCY_NO_DATA",
+      "message": "Not enough qualifying charging sessions to derive an efficiency factor.",
+      "status": 422
+    }
+  ],
+  "related": [
+    {
+      "feature": "vehicle-trip-segmentation",
+      "type": "required"
+    },
+    {
+      "feature": "ev-charging-session",
+      "type": "required"
+    },
+    {
+      "feature": "vehicle-efficiency-metrics",
+      "type": "extends"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/adriankumpf/teslamate",
+      "project": "TeslaMate",
+      "tech_stack": "Elixir, Phoenix, PostgreSQL",
+      "files_traced": 4,
+      "entry_points": [
+        "lib/teslamate/log/drive.ex",
+        "lib/teslamate/log/car.ex",
+        "lib/teslamate/settings/global_settings.ex"
+      ]
+    }
+  }
+}

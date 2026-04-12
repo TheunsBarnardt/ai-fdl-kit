@@ -1,0 +1,203 @@
+# ============================================================
+# LOCATION VISIT HISTORY — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/adriankumpf/teslamate
+# Source project: TeslaMate (Elixir/Phoenix, PostgreSQL + PostGIS)
+# Files traced: 5
+# ============================================================
+
+feature: location-visit-history
+version: "1.0.0"
+description: Tracks where a vehicle parks by linking trip and charge events to reverse-geocoded addresses and named geofences, enabling reporting on dwell time and visit frequency per location.
+category: asset
+tags: [vehicle, location, history, visits, parking, address, telemetry]
+
+actors:
+  - id: system
+    name: System
+    type: system
+    description: Reverse-geocodes positions, matches geofences, and builds visit records
+  - id: geocoding_service
+    name: Geocoding Service
+    type: external
+    description: Converts latitude and longitude to a structured address
+  - id: vehicle_owner
+    name: Vehicle Owner
+    type: human
+    description: Views visit history and may define geofences to name frequent places
+
+fields:
+  - name: address_id
+    type: hidden
+    required: false
+    label: Address ID
+  - name: display_name
+    type: text
+    required: false
+    label: Full Address
+  - name: latitude
+    type: number
+    required: true
+    label: Latitude
+  - name: longitude
+    type: number
+    required: true
+    label: Longitude
+  - name: street
+    type: text
+    required: false
+    label: Street Name
+  - name: house_number
+    type: text
+    required: false
+    label: House Number
+  - name: neighbourhood
+    type: text
+    required: false
+    label: Neighbourhood
+  - name: city
+    type: text
+    required: false
+    label: City
+  - name: state
+    type: text
+    required: false
+    label: State / Region
+  - name: country
+    type: text
+    required: false
+    label: Country
+  - name: osm_id
+    type: text
+    required: false
+    label: Map Service Object ID
+  - name: osm_type
+    type: text
+    required: false
+    label: Map Service Object Type
+  - name: geofence_id
+    type: hidden
+    required: false
+    label: Matched Geofence
+  - name: arrival_date
+    type: datetime
+    required: false
+    label: Arrival Date
+  - name: departure_date
+    type: datetime
+    required: false
+    label: Departure Date
+  - name: parking_duration_min
+    type: number
+    required: false
+    label: Parking Duration (minutes)
+
+rules:
+  reverse_geocode_on_event:
+    description: Every trip end and every charging session start triggers a reverse-geocoding lookup to resolve coordinates to a structured address
+  address_deduplication:
+    description: Addresses are cached by external map service identifier (osm_id + osm_type); if an address with those identifiers already exists it is reused rather than creating a duplicate
+  geocoding_failure_non_blocking:
+    description: Geocoding failures do not block event creation; events are persisted with a null address reference
+  language_configurable:
+    description: Address language is configurable; the system requests addresses in the configured language from the geocoding service
+  parking_duration_from_trip_boundary:
+    description: Visit duration is calculated as the time between a trip end (arrival) and the next trip start (departure) for the same vehicle
+  geofence_tagging_simultaneous:
+    description: Geofence matching is performed at the same time as address lookup; if a named geofence contains the position the event is tagged with both address and geofence
+  visit_frequency_by_address:
+    description: Visit frequency for a location is derived by counting events sharing the same address_id or geofence_id over a time period
+
+outcomes:
+  address_resolved:
+    priority: 1
+    given:
+      - "a trip just ended or a charging session just started"
+      - "geocoding service returns a valid address"
+    then:
+      - action: create_record
+        type: address
+        description: Persist the resolved address if it does not already exist (deduplicate by osm_id + osm_type)
+      - action: set_field
+        target: event.address_id
+        value: id of the resolved address
+      - action: emit_event
+        event: location.address.resolved
+        payload: [event_type, vehicle_id, address_id, display_name]
+    result: Event tagged with structured address; visit history queryable
+
+  address_not_resolved:
+    priority: 2
+    given:
+      - "a trip just ended or a charging session just started"
+      - "geocoding service fails or returns no result"
+    then:
+      - action: set_field
+        target: event.address_id
+        value: null
+    result: Event recorded without an address; coordinates retained for future resolution
+
+  geofence_tagged_on_visit:
+    priority: 3
+    given:
+      - "a trip just ended or a charging session just started"
+      - "a named geofence contains the vehicle's position"
+    then:
+      - action: set_field
+        target: event.geofence_id
+        value: id of the nearest matching geofence
+      - action: emit_event
+        event: location.geofence.matched
+        payload: [event_type, vehicle_id, geofence_id, geofence_name]
+    result: Event tagged with user-defined place name for friendly display
+
+  parking_duration_calculated:
+    priority: 4
+    given:
+      - "a new trip starts"
+      - "the vehicle was at the same location for a measurable duration"
+    then:
+      - action: set_field
+        target: parking_duration_min
+        value: departure_date - arrival_date in minutes
+      - action: emit_event
+        event: location.visit.completed
+        payload: [vehicle_id, address_id, parking_duration_min, geofence_id]
+    result: Parking duration recorded; visit history updated with dwell time
+
+events:
+  - name: location.address.resolved
+    description: A vehicle event was tagged with a reverse-geocoded address
+    payload: [event_type, vehicle_id, address_id, display_name, latitude, longitude]
+  - name: location.geofence.matched
+    description: A vehicle event was matched to a named geofence
+    payload: [event_type, vehicle_id, geofence_id, geofence_name]
+  - name: location.visit.completed
+    description: A parking period at a location has ended
+    payload: [vehicle_id, address_id, geofence_id, arrival_date, departure_date, parking_duration_min]
+
+errors:
+  - code: GEOCODING_UNAVAILABLE
+    message: "Location could not be resolved to an address. Coordinates were saved."
+    status: 503
+
+related:
+  - feature: vehicle-trip-segmentation
+    type: required
+  - feature: ev-charging-session
+    type: required
+  - feature: geofence-places
+    type: recommended
+
+extensions:
+  source:
+    repo: "https://github.com/adriankumpf/teslamate"
+    project: "TeslaMate"
+    tech_stack: "Elixir, Phoenix, PostgreSQL + PostGIS, OpenStreetMap Nominatim"
+    files_traced: 5
+    entry_points:
+      - "lib/teslamate/locations.ex"
+      - "lib/teslamate/locations/address.ex"
+      - "lib/teslamate/locations/geocoder.ex"
+      - "lib/teslamate/locations/geo_fence.ex"

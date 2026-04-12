@@ -1,0 +1,325 @@
+{
+  "feature": "trip-replay",
+  "version": "1.0.0",
+  "description": "Records a dense telemetry time-series (position, speed, power, elevation, battery) throughout every trip, enabling post-hoc replay with full speed and elevation profiles.",
+  "category": "asset",
+  "tags": [
+    "vehicle",
+    "trip",
+    "replay",
+    "telemetry",
+    "speed",
+    "elevation",
+    "ev"
+  ],
+  "actors": [
+    {
+      "id": "polling_service",
+      "name": "Polling Service",
+      "type": "system",
+      "description": "Captures telemetry at high frequency during driving and fills elevation gaps"
+    },
+    {
+      "id": "elevation_service",
+      "name": "Elevation Service",
+      "type": "external",
+      "description": "Provides altitude data for positions that lack it from the vehicle API"
+    },
+    {
+      "id": "vehicle_owner",
+      "name": "Vehicle Owner",
+      "type": "human",
+      "description": "Reviews trip replays, speed profiles, and elevation data"
+    }
+  ],
+  "fields": [
+    {
+      "name": "position_id",
+      "type": "hidden",
+      "required": false,
+      "label": "Position ID"
+    },
+    {
+      "name": "trip_id",
+      "type": "hidden",
+      "required": false,
+      "label": "Trip ID"
+    },
+    {
+      "name": "vehicle_id",
+      "type": "text",
+      "required": true,
+      "label": "Vehicle ID"
+    },
+    {
+      "name": "recorded_at",
+      "type": "datetime",
+      "required": true,
+      "label": "Recorded At"
+    },
+    {
+      "name": "latitude",
+      "type": "number",
+      "required": true,
+      "label": "Latitude"
+    },
+    {
+      "name": "longitude",
+      "type": "number",
+      "required": true,
+      "label": "Longitude"
+    },
+    {
+      "name": "speed_kmh",
+      "type": "number",
+      "required": false,
+      "label": "Speed (km/h)"
+    },
+    {
+      "name": "elevation_m",
+      "type": "number",
+      "required": false,
+      "label": "Elevation (m)"
+    },
+    {
+      "name": "power_kw",
+      "type": "number",
+      "required": false,
+      "label": "Power (kW)"
+    },
+    {
+      "name": "battery_level_pct",
+      "type": "number",
+      "required": false,
+      "label": "Battery Level (%)"
+    },
+    {
+      "name": "ideal_range_km",
+      "type": "number",
+      "required": false,
+      "label": "Ideal Range (km)"
+    },
+    {
+      "name": "rated_range_km",
+      "type": "number",
+      "required": false,
+      "label": "Rated Range (km)"
+    },
+    {
+      "name": "outside_temp_c",
+      "type": "number",
+      "required": false,
+      "label": "Outside Temp (°C)"
+    },
+    {
+      "name": "inside_temp_c",
+      "type": "number",
+      "required": false,
+      "label": "Inside Temp (°C)"
+    },
+    {
+      "name": "is_climate_on",
+      "type": "boolean",
+      "required": false,
+      "label": "Climate On"
+    },
+    {
+      "name": "odometer_km",
+      "type": "number",
+      "required": false,
+      "label": "Odometer (km)"
+    },
+    {
+      "name": "trip_ascent_m",
+      "type": "number",
+      "required": false,
+      "label": "Trip Total Ascent (m)"
+    },
+    {
+      "name": "trip_descent_m",
+      "type": "number",
+      "required": false,
+      "label": "Trip Total Descent (m)"
+    },
+    {
+      "name": "trip_speed_max_kmh",
+      "type": "number",
+      "required": false,
+      "label": "Trip Max Speed (km/h)"
+    },
+    {
+      "name": "trip_power_max_kw",
+      "type": "number",
+      "required": false,
+      "label": "Trip Max Power (kW)"
+    },
+    {
+      "name": "trip_power_min_kw",
+      "type": "number",
+      "required": false,
+      "label": "Trip Min Power / Max Regen (kW)"
+    }
+  ],
+  "rules": {
+    "high_frequency_capture": {
+      "description": "Position readings are captured at the polling interval during driving (~2.5 seconds) yielding roughly 1440 readings per hour"
+    },
+    "linked_by_trip_id": {
+      "description": "Each position reading is linked to its trip by a foreign key enabling ordered reconstruction of the full journey path"
+    },
+    "elevation_backfilled_asynchronously": {
+      "description": "Elevation data may be absent from the vehicle API and is backfilled asynchronously by querying an elevation service in batches of approximately 100 positions"
+    },
+    "ascent_descent_from_consecutive_deltas": {
+      "description": "Ascent accumulates positive elevation deltas; descent accumulates absolute negative elevation deltas; maximum values are capped to prevent integer overflow"
+    },
+    "power_sign_convention": {
+      "description": "Positive power means energy consumed by motor or climate systems; negative power means energy returned via regenerative braking"
+    },
+    "speed_converted_to_km_h": {
+      "description": "Speed is stored in km/h; the vehicle API typically provides it in mph and it is converted at ingestion time"
+    },
+    "positions_retained_indefinitely": {
+      "description": "All position readings for a trip are retained indefinitely and never pruned after trip aggregation enabling replay at any future time"
+    }
+  },
+  "outcomes": {
+    "position_recorded_during_trip": {
+      "priority": 1,
+      "given": [
+        "a trip is currently in progress"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "position",
+          "description": "Append telemetry snapshot to the trip position time series"
+        }
+      ],
+      "result": "One position reading added; trip replay fidelity increases"
+    },
+    "elevation_backfilled": {
+      "priority": 2,
+      "given": [
+        "positions exist with null elevation_m",
+        "elevation service is available"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "elevation_m",
+          "description": "Altitude resolved from external elevation service in batches"
+        },
+        {
+          "action": "emit_event",
+          "event": "trip.elevation.backfilled",
+          "payload": [
+            "vehicle_id",
+            "trip_id",
+            "position_count"
+          ]
+        }
+      ],
+      "result": "Elevation gaps filled; elevation profile becomes available"
+    },
+    "trip_aggregates_computed": {
+      "priority": 3,
+      "given": [
+        "a trip has just completed",
+        "position time series is available for the trip"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "trip_ascent_m",
+          "description": "Sum of positive elevation deltas across all ordered positions"
+        },
+        {
+          "action": "set_field",
+          "target": "trip_descent_m",
+          "description": "Sum of absolute negative elevation deltas across all ordered positions"
+        },
+        {
+          "action": "set_field",
+          "target": "trip_speed_max_kmh",
+          "description": "Maximum speed_kmh across all positions"
+        },
+        {
+          "action": "set_field",
+          "target": "trip_power_max_kw",
+          "description": "Maximum power_kw across all positions"
+        },
+        {
+          "action": "set_field",
+          "target": "trip_power_min_kw",
+          "description": "Minimum power_kw across all positions"
+        },
+        {
+          "action": "emit_event",
+          "event": "trip.replay.ready",
+          "payload": [
+            "vehicle_id",
+            "trip_id",
+            "position_count",
+            "trip_ascent_m",
+            "trip_descent_m"
+          ]
+        }
+      ],
+      "result": "Trip aggregates attached; replay with full speed and elevation profile is available"
+    }
+  },
+  "events": [
+    {
+      "name": "trip.replay.ready",
+      "description": "A completed trip has all position data and aggregates needed for replay",
+      "payload": [
+        "vehicle_id",
+        "trip_id",
+        "position_count",
+        "trip_ascent_m",
+        "trip_descent_m",
+        "trip_speed_max_kmh"
+      ]
+    },
+    {
+      "name": "trip.elevation.backfilled",
+      "description": "Elevation data was resolved for positions that previously had none",
+      "payload": [
+        "vehicle_id",
+        "trip_id",
+        "position_count_updated"
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": "ELEVATION_SERVICE_UNAVAILABLE",
+      "message": "Elevation data could not be retrieved. Profiles will be incomplete until resolved.",
+      "status": 503
+    }
+  ],
+  "related": [
+    {
+      "feature": "vehicle-trip-segmentation",
+      "type": "required"
+    },
+    {
+      "feature": "driver-behaviour-scoring",
+      "type": "recommended"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/adriankumpf/teslamate",
+      "project": "TeslaMate",
+      "tech_stack": "Elixir, Phoenix, PostgreSQL",
+      "files_traced": 4,
+      "entry_points": [
+        "lib/teslamate/log/position.ex",
+        "lib/teslamate/log/drive.ex",
+        "lib/teslamate/terrain.ex"
+      ]
+    }
+  }
+}

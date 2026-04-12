@@ -1,0 +1,343 @@
+{
+  "feature": "vehicle-sleep-wake-detection",
+  "version": "1.0.0",
+  "description": "Detects when a connected vehicle enters and exits sleep mode by observing API availability, persists sleep period records, and adapts the polling schedule to minimise battery drain.",
+  "category": "asset",
+  "tags": [
+    "vehicle",
+    "sleep",
+    "wake",
+    "battery",
+    "telemetry",
+    "ev",
+    "polling"
+  ],
+  "actors": [
+    {
+      "id": "polling_service",
+      "name": "Polling Service",
+      "type": "system",
+      "description": "Periodically queries the vehicle API to detect state changes"
+    },
+    {
+      "id": "vehicle_api",
+      "name": "Vehicle API",
+      "type": "external",
+      "description": "Returns vehicle state including explicit sleep/online/offline status"
+    },
+    {
+      "id": "vehicle_owner",
+      "name": "Vehicle Owner",
+      "type": "human",
+      "description": "May configure idle-to-sleep thresholds"
+    }
+  ],
+  "fields": [
+    {
+      "name": "vehicle_id",
+      "type": "text",
+      "required": true,
+      "label": "Vehicle ID"
+    },
+    {
+      "name": "sleep_state",
+      "type": "select",
+      "required": true,
+      "label": "Sleep State"
+    },
+    {
+      "name": "state_start_date",
+      "type": "datetime",
+      "required": true,
+      "label": "State Start Date"
+    },
+    {
+      "name": "state_end_date",
+      "type": "datetime",
+      "required": false,
+      "label": "State End Date"
+    },
+    {
+      "name": "suspend_after_idle_min",
+      "type": "number",
+      "required": false,
+      "label": "Suspend After Idle (minutes)"
+    },
+    {
+      "name": "polling_interval_sec",
+      "type": "number",
+      "required": false,
+      "label": "Current Polling Interval (seconds)"
+    }
+  ],
+  "states": {
+    "field": "sleep_state",
+    "values": [
+      {
+        "id": "online",
+        "initial": true,
+        "description": "Vehicle is awake and responding to API requests"
+      },
+      {
+        "id": "asleep",
+        "description": "Vehicle is in deep sleep mode; API explicitly returns asleep"
+      },
+      {
+        "id": "offline",
+        "description": "Vehicle is not responding; API times out or returns an error"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "online",
+        "to": "asleep",
+        "actor": "polling_service",
+        "condition": "API returns asleep AND all sleep eligibility conditions are satisfied",
+        "description": "Vehicle fulfilled sleep eligibility and entered deep sleep"
+      },
+      {
+        "from": "online",
+        "to": "offline",
+        "actor": "polling_service",
+        "condition": "API request fails, times out, or returns no valid response",
+        "description": "Vehicle stopped responding"
+      },
+      {
+        "from": "asleep",
+        "to": "online",
+        "actor": "polling_service",
+        "condition": "Next API poll returns a valid online response",
+        "description": "Vehicle woke from sleep"
+      },
+      {
+        "from": "offline",
+        "to": "online",
+        "actor": "polling_service",
+        "condition": "API request succeeds after one or more failures",
+        "description": "Vehicle came back online"
+      }
+    ]
+  },
+  "rules": {
+    "sleep_from_api_not_inferred": {
+      "description": "Sleep state is determined by the vehicle API — the API explicitly returns asleep when the vehicle is in deep sleep, not inferred locally"
+    },
+    "polling_interval_adapts": {
+      "description": "Polling interval adapts by state — asleep uses ~30s to avoid waking the vehicle, offline uses exponential backoff starting ~5s doubling to ~30s max, online uses ~15s"
+    },
+    "sleep_eligibility_all_conditions": {
+      "description": "A vehicle can only enter sleep when ALL of these are false — sentry mode, preconditioning, dog mode, user presence, open doors, battery heater active, software download in progress"
+    },
+    "suspend_threshold_configurable": {
+      "description": "The suspend_after_idle_min threshold controls how long active polling continues before stepping back to allow sleep. Default ~15-21 minutes; with streaming API ~3 minutes"
+    },
+    "state_periods_stored_with_timestamps": {
+      "description": "State periods are stored with explicit start_date and end_date enabling historical sleep duration analysis and battery-drain reporting"
+    },
+    "no_auto_resume_from_suspended": {
+      "description": "Logging cannot be resumed automatically while asleep or offline; only explicit operator action changes the suspended flag"
+    }
+  },
+  "outcomes": {
+    "vehicle_enters_sleep": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "sleep_state",
+          "source": "db",
+          "operator": "eq",
+          "value": "online"
+        },
+        "API response explicitly indicates vehicle is asleep",
+        "all sleep eligibility conditions are satisfied"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "state_end_date",
+          "value": "current_timestamp"
+        },
+        {
+          "action": "create_record",
+          "type": "sleep_state_record",
+          "description": "Open a new asleep state record with state_start_date"
+        },
+        {
+          "action": "transition_state",
+          "field": "sleep_state",
+          "from": "online",
+          "to": "asleep"
+        },
+        {
+          "action": "emit_event",
+          "event": "vehicle.sleep.entered",
+          "payload": [
+            "vehicle_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Sleep period begins; polling switches to low-frequency mode"
+    },
+    "vehicle_wakes": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "sleep_state",
+          "source": "db",
+          "operator": "in",
+          "value": [
+            "asleep",
+            "offline"
+          ]
+        },
+        "API request returns a valid online response"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "state_end_date",
+          "value": "current_timestamp"
+        },
+        {
+          "action": "create_record",
+          "type": "sleep_state_record",
+          "description": "Open a new online state record"
+        },
+        {
+          "action": "transition_state",
+          "field": "sleep_state",
+          "from": "asleep",
+          "to": "online"
+        },
+        {
+          "action": "emit_event",
+          "event": "vehicle.sleep.exited",
+          "payload": [
+            "vehicle_id",
+            "timestamp",
+            "sleep_duration_min"
+          ]
+        }
+      ],
+      "result": "Wake detected; polling resumes at normal interval"
+    },
+    "vehicle_goes_offline": {
+      "priority": 3,
+      "given": [
+        "API request for the vehicle fails or times out"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "sleep_state",
+          "from": "online",
+          "to": "offline"
+        },
+        {
+          "action": "emit_event",
+          "event": "vehicle.offline",
+          "payload": [
+            "vehicle_id",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Offline state recorded; polling continues with backoff strategy"
+    },
+    "vehicle_recovers_from_offline": {
+      "priority": 4,
+      "given": [
+        {
+          "field": "sleep_state",
+          "source": "db",
+          "operator": "eq",
+          "value": "offline"
+        },
+        "API request returns a valid response"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "sleep_state",
+          "from": "offline",
+          "to": "online"
+        },
+        {
+          "action": "emit_event",
+          "event": "vehicle.online",
+          "payload": [
+            "vehicle_id",
+            "timestamp",
+            "offline_duration_min"
+          ]
+        }
+      ],
+      "result": "Vehicle reconnected; normal polling resumes"
+    }
+  },
+  "events": [
+    {
+      "name": "vehicle.sleep.entered",
+      "description": "Vehicle transitioned into deep sleep mode",
+      "payload": [
+        "vehicle_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "vehicle.sleep.exited",
+      "description": "Vehicle woke from sleep and is responding normally",
+      "payload": [
+        "vehicle_id",
+        "timestamp",
+        "sleep_duration_min"
+      ]
+    },
+    {
+      "name": "vehicle.offline",
+      "description": "Vehicle stopped responding to API requests",
+      "payload": [
+        "vehicle_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "vehicle.online",
+      "description": "Vehicle is reachable and responding normally",
+      "payload": [
+        "vehicle_id",
+        "timestamp"
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": "VEHICLE_API_TIMEOUT",
+      "message": "Vehicle is not responding. Will retry with backoff.",
+      "status": 503
+    }
+  ],
+  "related": [
+    {
+      "feature": "vehicle-state-machine",
+      "type": "extends"
+    },
+    {
+      "feature": "vehicle-trip-segmentation",
+      "type": "recommended"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/adriankumpf/teslamate",
+      "project": "TeslaMate",
+      "tech_stack": "Elixir, Phoenix, PostgreSQL, GenServer",
+      "files_traced": 4,
+      "entry_points": [
+        "lib/teslamate/vehicles/vehicle.ex",
+        "lib/teslamate/log/state.ex"
+      ]
+    }
+  }
+}

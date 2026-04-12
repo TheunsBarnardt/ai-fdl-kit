@@ -1,0 +1,195 @@
+# ============================================================
+# ODOMETER VALIDATION — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/adriankumpf/teslamate
+# Source project: TeslaMate (Elixir/Phoenix, PostgreSQL)
+# Files traced: 3
+# ============================================================
+
+feature: odometer-validation
+version: "1.0.0"
+description: Validates vehicle odometer readings ingested from telemetry, enforcing minimum trip distance thresholds, detecting negative distance anomalies, and flagging unexpected odometer jumps.
+category: asset
+tags: [vehicle, odometer, validation, trip, sanity, telemetry, ev]
+
+actors:
+  - id: system
+    name: System
+    type: system
+    description: Validates odometer values at trip close and flags anomalies
+  - id: vehicle_api
+    name: Vehicle API
+    type: external
+    description: Source of raw odometer readings in the API native unit
+
+fields:
+  - name: vehicle_id
+    type: text
+    required: true
+    label: Vehicle ID
+  - name: raw_odometer
+    type: number
+    required: true
+    label: Raw Odometer (API unit)
+  - name: odometer_km
+    type: number
+    required: true
+    label: Odometer (km)
+  - name: trip_start_odometer_km
+    type: number
+    required: true
+    label: Trip Start Odometer (km)
+  - name: trip_end_odometer_km
+    type: number
+    required: false
+    label: Trip End Odometer (km)
+  - name: trip_distance_km
+    type: number
+    required: false
+    label: Trip Distance (km)
+  - name: previous_odometer_km
+    type: number
+    required: false
+    label: Previous Odometer Reading (km)
+  - name: odometer_jump_threshold_km
+    type: number
+    required: false
+    label: Jump Alert Threshold (km)
+  - name: min_trip_distance_km
+    type: number
+    required: false
+    label: Minimum Trip Distance (km)
+
+rules:
+  convert_at_ingestion:
+    description: Odometer values from the vehicle API are converted to kilometres at ingestion using a fixed conversion factor; the raw value is preserved for audit
+  minimum_trip_distance:
+    description: A trip with distance < 0.01 km (10 metres) is discarded; the raw value is preserved for audit
+  negative_distance_discard:
+    description: A trip with negative distance (end odometer less than start) is discarded — can occur due to sensor glitches, API errors, or data gaps
+  minimum_position_count:
+    description: A trip with fewer than 2 recorded position readings is discarded regardless of calculated distance
+  jump_flagged_not_corrected:
+    description: An odometer jump is detected when a new reading exceeds the previous by more than the threshold — flagged for review but not automatically corrected
+  no_smoothing_applied:
+    description: Odometer values are stored as-is from the API; no smoothing, interpolation, or backward correction is applied
+  positions_deleted_with_trip:
+    description: When a trip is discarded all associated position readings are also deleted; no record is retained for sub-threshold trips
+
+outcomes:
+  odometer_converted_and_stored:
+    priority: 1
+    given:
+      - "a new odometer reading arrives from the vehicle API"
+    then:
+      - action: set_field
+        target: odometer_km
+        value: raw_odometer converted to kilometres
+    result: Odometer stored in canonical unit; ready for trip distance calculation
+
+  trip_distance_valid:
+    priority: 2
+    given:
+      - "a trip has just ended"
+      - field: trip_distance_km
+        source: computed
+        operator: gte
+        value: 0.01
+      - "trip has >= 2 recorded position readings"
+    then:
+      - action: set_field
+        target: trip_distance_km
+        value: trip_end_odometer_km - trip_start_odometer_km
+      - action: emit_event
+        event: odometer.trip.distance_valid
+        payload: [vehicle_id, trip_id, trip_distance_km]
+    result: Trip distance accepted; record retained
+
+  trip_discarded_below_threshold:
+    priority: 3
+    error: TRIP_DISTANCE_BELOW_THRESHOLD
+    given:
+      - "a trip has just ended"
+      - any:
+          - field: trip_distance_km
+            source: computed
+            operator: lt
+            value: 0.01
+          - "trip has fewer than 2 position readings"
+    then:
+      - action: delete_record
+        type: trip
+        description: Remove the trip and all associated position readings
+      - action: emit_event
+        event: odometer.trip.discarded
+        payload: [vehicle_id, trip_id, reason]
+    result: Sub-threshold trip deleted; no record retained
+
+  trip_discarded_negative_distance:
+    priority: 4
+    error: TRIP_NEGATIVE_DISTANCE
+    given:
+      - "a trip has just ended"
+      - field: trip_distance_km
+        source: computed
+        operator: lt
+        value: 0
+    then:
+      - action: delete_record
+        type: trip
+        description: Remove the trip and all associated position readings
+      - action: emit_event
+        event: odometer.anomaly.negative_distance
+        payload: [vehicle_id, trip_id, trip_start_odometer_km, trip_end_odometer_km]
+    result: Trip with negative distance discarded; anomaly logged
+
+  odometer_jump_flagged:
+    priority: 5
+    given:
+      - "new odometer reading exceeds previous reading by more than odometer_jump_threshold_km"
+    then:
+      - action: emit_event
+        event: odometer.anomaly.jump_detected
+        payload: [vehicle_id, previous_odometer_km, current_odometer_km, jump_km]
+    result: Large unexpected odometer increase flagged for review; reading stored as-is
+
+errors:
+  - code: TRIP_DISTANCE_BELOW_THRESHOLD
+    message: "Trip did not meet minimum distance requirement and was not recorded."
+    status: 422
+  - code: TRIP_NEGATIVE_DISTANCE
+    message: "Trip distance was negative, indicating a data error. Trip was discarded."
+    status: 422
+  - code: ODOMETER_JUMP_DETECTED
+    message: "Unusually large odometer increase detected. Please review telemetry data."
+    status: 422
+
+events:
+  - name: odometer.trip.distance_valid
+    description: Trip distance passed validation and was retained
+    payload: [vehicle_id, trip_id, trip_distance_km]
+  - name: odometer.trip.discarded
+    description: Trip discarded for failing distance or position count threshold
+    payload: [vehicle_id, trip_id, reason, trip_distance_km, position_count]
+  - name: odometer.anomaly.negative_distance
+    description: Trip ended with a lower odometer than it started — data anomaly
+    payload: [vehicle_id, trip_id, start_odometer_km, end_odometer_km]
+  - name: odometer.anomaly.jump_detected
+    description: Odometer reading jumped unexpectedly between consecutive readings
+    payload: [vehicle_id, previous_odometer_km, current_odometer_km, jump_km]
+
+related:
+  - feature: vehicle-trip-segmentation
+    type: required
+
+extensions:
+  source:
+    repo: "https://github.com/adriankumpf/teslamate"
+    project: "TeslaMate"
+    tech_stack: "Elixir, Phoenix, PostgreSQL"
+    files_traced: 3
+    entry_points:
+      - "lib/teslamate/log/drive.ex"
+      - "lib/teslamate/log/position.ex"
+      - "lib/teslamate/convert.ex"

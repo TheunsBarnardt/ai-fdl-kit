@@ -1,0 +1,309 @@
+# ============================================================
+# VEHICLE STATE MACHINE — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/adriankumpf/teslamate
+# Source project: TeslaMate (Elixir/Phoenix, PostgreSQL)
+# Files traced: 8
+# ============================================================
+
+feature: vehicle-state-machine
+version: "1.0.0"
+description: Tracks the real-time operational state of a connected vehicle (online, driving, charging, asleep, offline, updating) by polling a vehicle API and persisting state transitions.
+category: asset
+tags: [vehicle, telemetry, state-machine, ev, fleet, polling]
+
+actors:
+  - id: vehicle_api
+    name: Vehicle API
+    type: external
+    description: Remote API providing vehicle state, telemetry, and commands
+  - id: polling_service
+    name: Polling Service
+    type: system
+    description: Background process that periodically fetches vehicle state
+  - id: vehicle_owner
+    name: Vehicle Owner
+    type: human
+    description: Person who owns or manages the vehicle
+
+fields:
+  - name: vehicle_id
+    type: text
+    required: true
+    label: Vehicle ID
+  - name: current_state
+    type: select
+    required: true
+    label: Current State
+  - name: shift_state
+    type: select
+    required: false
+    label: Shift State
+  - name: charging_state
+    type: select
+    required: false
+    label: Charging State
+  - name: is_sentry_mode
+    type: boolean
+    required: false
+    label: Sentry Mode Active
+  - name: is_preconditioning
+    type: boolean
+    required: false
+    label: Preconditioning Active
+  - name: is_dog_mode
+    type: boolean
+    required: false
+    label: Dog Mode Active
+  - name: is_user_present
+    type: boolean
+    required: false
+    label: Occupant Present
+  - name: software_update_status
+    type: text
+    required: false
+    label: Software Update Status
+  - name: state_start_date
+    type: datetime
+    required: true
+    label: State Start Date
+  - name: suspend_after_idle_min
+    type: number
+    required: false
+    label: Suspend After Idle (minutes)
+
+states:
+  field: current_state
+  values:
+    - id: start
+      description: Transient resolution state — determines which stable state to enter next
+    - id: online
+      initial: true
+      description: Vehicle is awake and responding to API requests normally
+    - id: driving
+      description: Vehicle is in motion (shift_state is D, N, or R)
+    - id: charging
+      description: Vehicle is connected to a charger and actively charging
+    - id: asleep
+      description: Vehicle has entered deep sleep mode; API returns asleep
+    - id: offline
+      description: Vehicle is not responding to API requests
+    - id: updating
+      description: Vehicle is installing a software update
+    - id: suspended
+      description: Logging has been manually paused by the operator
+
+  transitions:
+    - from: online
+      to: driving
+      actor: polling_service
+      condition: shift_state is D, N, or R
+      description: Vehicle begins moving
+    - from: online
+      to: charging
+      actor: polling_service
+      condition: charging_state is Starting or Charging
+      description: Vehicle begins a charging session
+    - from: online
+      to: updating
+      actor: polling_service
+      condition: software_update_status is installing
+      description: Vehicle starts installing a software update
+    - from: online
+      to: asleep
+      actor: polling_service
+      condition: idle duration exceeds threshold and all sleep eligibility conditions are satisfied
+      description: Vehicle meets all conditions to fall asleep
+    - from: online
+      to: offline
+      actor: polling_service
+      condition: API request fails or times out
+      description: Vehicle stops responding
+    - from: driving
+      to: online
+      actor: polling_service
+      condition: shift_state becomes P or null
+      description: Vehicle parks and returns to online monitoring
+    - from: charging
+      to: online
+      actor: polling_service
+      condition: charging_state is no longer Starting or Charging
+      description: Charging session ends
+    - from: asleep
+      to: online
+      actor: polling_service
+      condition: next API poll returns online response
+      description: Vehicle wakes from sleep
+    - from: offline
+      to: online
+      actor: polling_service
+      condition: next API poll returns a valid response
+      description: Vehicle comes back online
+    - from: updating
+      to: online
+      actor: polling_service
+      condition: software update installation completes
+      description: Software update finished
+    - from: online
+      to: suspended
+      actor: vehicle_owner
+      condition: operator manually pauses logging
+      description: Logging suspended by user
+    - from: suspended
+      to: online
+      actor: vehicle_owner
+      condition: operator manually resumes logging
+      description: Logging resumed by user
+
+rules:
+  polling_interval_by_state:
+    description: Polling interval varies by state — driving ~2.5s, charging ~5s, online/updating ~15s, asleep ~30s, offline exponential backoff starting at 5s up to 30s maximum
+  suspended_state_manual_only:
+    description: A vehicle cannot transition from suspended state due to API signals; only explicit operator action resumes logging
+  sleep_eligibility_all_conditions:
+    description: Sleep requires ALL of these to be false simultaneously — sentry mode, preconditioning, dog mode, user present, doors open, battery heater active, software download in progress
+  offline_during_drive_timeout:
+    description: When offline during a drive the system maintains the driving state for up to 15 minutes using the last known position before auto-completing the trip
+  state_records_open_end_date:
+    description: State records store state_start_date and state_end_date — the current state always has a null end date
+
+outcomes:
+  vehicle_transitions_to_driving:
+    priority: 1
+    given:
+      - field: current_state
+        source: db
+        operator: eq
+        value: online
+      - field: shift_state
+        source: input
+        operator: in
+        value: [D, N, R]
+    then:
+      - action: transition_state
+        field: current_state
+        from: online
+        to: driving
+      - action: emit_event
+        event: vehicle.state.driving_started
+        payload: [vehicle_id, timestamp]
+    result: Vehicle enters driving state; trip recording begins
+
+  vehicle_transitions_to_charging:
+    priority: 2
+    given:
+      - field: current_state
+        source: db
+        operator: eq
+        value: online
+      - field: charging_state
+        source: input
+        operator: in
+        value: [Starting, Charging]
+    then:
+      - action: transition_state
+        field: current_state
+        from: online
+        to: charging
+      - action: emit_event
+        event: vehicle.state.charging_started
+        payload: [vehicle_id, timestamp]
+    result: Vehicle enters charging state; charging session recording begins
+
+  vehicle_falls_asleep:
+    priority: 3
+    given:
+      - "vehicle is online and idle duration exceeds suspend_after_idle_min"
+      - "all sleep eligibility conditions are met"
+    then:
+      - action: transition_state
+        field: current_state
+        from: online
+        to: asleep
+      - action: emit_event
+        event: vehicle.state.asleep
+        payload: [vehicle_id, timestamp]
+    result: Vehicle enters sleep state; polling interval reduced
+
+  vehicle_goes_offline:
+    priority: 4
+    given:
+      - "API request fails or times out for the vehicle"
+    then:
+      - action: transition_state
+        field: current_state
+        from: online
+        to: offline
+      - action: emit_event
+        event: vehicle.state.offline
+        payload: [vehicle_id, timestamp]
+    result: Vehicle marked offline; polling continues with backoff
+
+  vehicle_wakes_up:
+    priority: 5
+    given:
+      - field: current_state
+        source: db
+        operator: in
+        value: [asleep, offline]
+      - "API poll returns a valid online response"
+    then:
+      - action: transition_state
+        field: current_state
+        from: asleep
+        to: online
+      - action: emit_event
+        event: vehicle.state.online
+        payload: [vehicle_id, timestamp]
+    result: Vehicle transitions to online; normal polling resumes
+
+events:
+  - name: vehicle.state.online
+    description: Vehicle became reachable via API
+    payload: [vehicle_id, timestamp]
+  - name: vehicle.state.driving_started
+    description: Vehicle shifted into a drive gear
+    payload: [vehicle_id, timestamp, shift_state]
+  - name: vehicle.state.driving_ended
+    description: Vehicle shifted into park or stopped responding
+    payload: [vehicle_id, timestamp, duration_min]
+  - name: vehicle.state.charging_started
+    description: Vehicle began a charging session
+    payload: [vehicle_id, timestamp, charging_state]
+  - name: vehicle.state.charging_ended
+    description: Vehicle completed or stopped a charging session
+    payload: [vehicle_id, timestamp, duration_min]
+  - name: vehicle.state.asleep
+    description: Vehicle entered sleep mode
+    payload: [vehicle_id, timestamp]
+  - name: vehicle.state.offline
+    description: Vehicle stopped responding to API requests
+    payload: [vehicle_id, timestamp]
+
+errors:
+  - code: VEHICLE_API_UNREACHABLE
+    message: "Vehicle is not responding. Polling will continue with backoff."
+    status: 503
+  - code: VEHICLE_SUSPENDED
+    message: "Vehicle logging is suspended. Resume logging to track activity."
+    status: 409
+
+related:
+  - feature: vehicle-trip-segmentation
+    type: required
+  - feature: ev-charging-session
+    type: required
+  - feature: vehicle-sleep-wake-detection
+    type: extends
+
+extensions:
+  source:
+    repo: "https://github.com/adriankumpf/teslamate"
+    project: "TeslaMate"
+    tech_stack: "Elixir, Phoenix, PostgreSQL, GenServer state machine"
+    files_traced: 8
+    entry_points:
+      - "lib/teslamate/vehicles/vehicle.ex"
+      - "lib/teslamate/log/state.ex"
+      - "lib/teslamate/vehicles/vehicle/summary.ex"

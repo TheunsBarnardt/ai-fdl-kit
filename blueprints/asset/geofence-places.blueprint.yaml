@@ -1,0 +1,211 @@
+# ============================================================
+# GEOFENCE PLACES — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/adriankumpf/teslamate
+# Source project: TeslaMate (Elixir/Phoenix, PostgreSQL + PostGIS)
+# Files traced: 3
+# ============================================================
+
+feature: geofence-places
+version: "1.0.0"
+description: User-defined named circular geofences that tag trip start/end and charging events with place labels and optionally apply billing tariffs to sessions at that location.
+category: asset
+tags: [geofence, location, places, vehicle, trip, charging, spatial]
+
+actors:
+  - id: vehicle_owner
+    name: Vehicle Owner
+    type: human
+    description: Creates, names, and configures geofences and their tariffs
+  - id: system
+    name: System
+    type: system
+    description: Matches vehicle positions to geofences at trip and charge events
+
+fields:
+  - name: geofence_id
+    type: hidden
+    required: false
+    label: Geofence ID
+  - name: name
+    type: text
+    required: true
+    label: Place Name
+  - name: latitude
+    type: number
+    required: true
+    label: Centre Latitude
+  - name: longitude
+    type: number
+    required: true
+    label: Centre Longitude
+  - name: radius_m
+    type: number
+    required: true
+    label: Radius (metres)
+  - name: billing_type
+    type: select
+    required: false
+    label: Billing Type
+  - name: cost_per_unit
+    type: number
+    required: false
+    label: Cost Per Unit
+  - name: session_fee
+    type: number
+    required: false
+    label: Session Fee
+
+rules:
+  freeform_names_only:
+    description: Geofences are user-defined with no system-reserved place types — no hardcoded home or work semantics; names are free-form strings
+  circle_geometry:
+    description: A geofence is a circle defined by a centre point and a radius; valid radius range is 1 to 5000 metres
+  nearest_wins:
+    description: When a vehicle event occurs the system finds the closest geofence whose circle contains the vehicle's position; if multiple geofences overlap the nearest centre wins
+  no_match_is_valid:
+    description: If no geofence contains the position the event is recorded without a geofence reference
+  spatial_matching_required:
+    description: Geofence matching uses spatial distance calculations; simple bounding-box or string matching is not sufficient
+  retroactive_tariff_update:
+    description: Changing a geofence tariff retroactively updates the cost of all historical charging sessions matched to that geofence
+  delete_removes_future_only:
+    description: Deleting a geofence removes it from future matching; historical events retain their geofence reference for audit continuity
+  session_fee_non_negative:
+    description: Session fee must be zero or positive; negative fees are rejected
+
+outcomes:
+  geofence_created:
+    priority: 1
+    given:
+      - "operator provides name, latitude, longitude, and radius"
+      - field: radius_m
+        source: input
+        operator: gte
+        value: 1
+      - field: radius_m
+        source: input
+        operator: lte
+        value: 5000
+      - field: session_fee
+        source: input
+        operator: gte
+        value: 0
+    then:
+      - action: create_record
+        type: geofence
+      - action: emit_event
+        event: geofence.created
+        payload: [geofence_id, name, latitude, longitude, radius_m]
+    result: Geofence persisted; future vehicle events within the area will be tagged
+
+  geofence_matched_at_event:
+    priority: 2
+    given:
+      - "a vehicle event occurs (trip start, trip end, or charge start)"
+      - "at least one geofence circle contains the vehicle's position"
+    then:
+      - action: set_field
+        target: event.geofence_id
+        value: id of the nearest matching geofence
+      - action: emit_event
+        event: geofence.matched
+        payload: [geofence_id, event_type, vehicle_id]
+    result: Event tagged with the matching place name; tariff applied if charging
+
+  geofence_not_matched:
+    priority: 3
+    given:
+      - "a vehicle event occurs"
+      - "no geofence circle contains the vehicle's position"
+    then:
+      - action: set_field
+        target: event.geofence_id
+        value: null
+    result: Event recorded without a place label
+
+  geofence_updated:
+    priority: 4
+    given:
+      - "operator modifies a geofence tariff"
+    then:
+      - action: emit_event
+        event: geofence.tariff_updated
+        payload: [geofence_id, billing_type, cost_per_unit, session_fee]
+      - action: set_field
+        target: historical_charging_sessions_at_location
+        description: Recalculate cost for all historical sessions matched to this geofence
+    result: Tariff changes applied retroactively to all sessions at this location
+
+  geofence_radius_invalid:
+    priority: 5
+    error: GEOFENCE_RADIUS_OUT_OF_RANGE
+    given:
+      - any:
+          - field: radius_m
+            source: input
+            operator: lt
+            value: 1
+          - field: radius_m
+            source: input
+            operator: gt
+            value: 5000
+    then: []
+    result: Geofence not saved; user informed of valid radius range
+
+  session_fee_invalid:
+    priority: 6
+    error: GEOFENCE_NEGATIVE_SESSION_FEE
+    given:
+      - field: session_fee
+        source: input
+        operator: lt
+        value: 0
+    then: []
+    result: Geofence not saved; user informed that session fee must be non-negative
+
+errors:
+  - code: GEOFENCE_RADIUS_OUT_OF_RANGE
+    message: "Geofence radius must be between 1 and 5000 metres."
+    status: 422
+  - code: GEOFENCE_NEGATIVE_SESSION_FEE
+    message: "Session fee must be zero or a positive value."
+    status: 422
+  - code: GEOFENCE_NAME_REQUIRED
+    message: "A name is required to identify this place."
+    status: 422
+
+events:
+  - name: geofence.created
+    description: A new named place geofence was created
+    payload: [geofence_id, name, latitude, longitude, radius_m]
+  - name: geofence.matched
+    description: A vehicle event was matched to a geofence
+    payload: [geofence_id, name, event_type, vehicle_id, distance_from_centre_m]
+  - name: geofence.tariff_updated
+    description: A geofence charging tariff was modified
+    payload: [geofence_id, billing_type, cost_per_unit, session_fee]
+  - name: geofence.deleted
+    description: A geofence was removed
+    payload: [geofence_id, name]
+
+related:
+  - feature: ev-charging-session
+    type: required
+  - feature: ev-charging-cost-tariff
+    type: required
+  - feature: vehicle-trip-segmentation
+    type: recommended
+  - feature: location-visit-history
+    type: recommended
+
+extensions:
+  source:
+    repo: "https://github.com/adriankumpf/teslamate"
+    project: "TeslaMate"
+    tech_stack: "Elixir, Phoenix, PostgreSQL + PostGIS"
+    files_traced: 3
+    entry_points:
+      - "lib/teslamate/locations/geo_fence.ex"
+      - "lib/teslamate/locations.ex"

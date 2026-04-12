@@ -1,0 +1,215 @@
+{
+  "feature": "vehicle-efficiency-metrics",
+  "version": "1.0.0",
+  "description": "Tracks a vehicle's energy efficiency (Wh/km) over time by statistically deriving an efficiency factor from charging sessions and applying it to trips for trend analysis.",
+  "category": "asset",
+  "tags": [
+    "vehicle",
+    "efficiency",
+    "energy",
+    "ev",
+    "analytics",
+    "telemetry"
+  ],
+  "actors": [
+    {
+      "id": "system",
+      "name": "System",
+      "type": "system",
+      "description": "Recalculates efficiency after each qualifying charging session"
+    },
+    {
+      "id": "vehicle_owner",
+      "name": "Vehicle Owner",
+      "type": "human",
+      "description": "May configure preferred range metric and review efficiency trends"
+    }
+  ],
+  "fields": [
+    {
+      "name": "vehicle_id",
+      "type": "text",
+      "required": true,
+      "label": "Vehicle ID"
+    },
+    {
+      "name": "efficiency_wh_per_km",
+      "type": "number",
+      "required": false,
+      "label": "Efficiency (Wh/km)"
+    },
+    {
+      "name": "efficiency_sample_count",
+      "type": "number",
+      "required": false,
+      "label": "Confirmed Sample Count"
+    },
+    {
+      "name": "efficiency_last_updated",
+      "type": "datetime",
+      "required": false,
+      "label": "Efficiency Last Updated"
+    },
+    {
+      "name": "preferred_range_metric",
+      "type": "select",
+      "required": false,
+      "label": "Preferred Range Metric"
+    },
+    {
+      "name": "derivation_min_sessions",
+      "type": "number",
+      "required": false,
+      "label": "Minimum Sessions for Derivation"
+    }
+  ],
+  "rules": {
+    "efficiency_from_statistical_mode": {
+      "description": "The efficiency factor is derived by calculating energy_added_kwh / range_gained_km for each qualifying session then taking the statistical mode with sufficient samples"
+    },
+    "session_qualification_criteria": {
+      "description": "A session qualifies only when duration > 10 minutes, end_battery_level <= 95%, both start and end range values are present, and charge_energy_added > 0"
+    },
+    "precision_fallback_strategy": {
+      "description": "Derivation tries precision levels 5 through 2 paired with minimum sample counts 8, 5, 3, 2 — the first level with a consensus wins"
+    },
+    "retain_if_no_consensus": {
+      "description": "If no precision level yields a consensus the existing factor is kept unchanged and never deleted or set to null"
+    },
+    "efficiency_unit": {
+      "description": "Efficiency is expressed in Wh/km; convert to kWh/100km by dividing by 10, or to Wh/mi by dividing by 1.609"
+    },
+    "no_retroactive_recalculation": {
+      "description": "Historical trips are not retroactively recalculated when efficiency changes — each trip uses the factor current at close time"
+    }
+  },
+  "outcomes": {
+    "efficiency_derived_successfully": {
+      "priority": 1,
+      "given": [
+        "a qualifying charging session has just completed",
+        "a consensus efficiency value found at some precision level"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "efficiency_wh_per_km",
+          "value": "new consensus value"
+        },
+        {
+          "action": "set_field",
+          "target": "efficiency_sample_count",
+          "value": "number of sessions that matched"
+        },
+        {
+          "action": "set_field",
+          "target": "efficiency_last_updated",
+          "value": "current_timestamp"
+        },
+        {
+          "action": "emit_event",
+          "event": "vehicle.efficiency.updated",
+          "payload": [
+            "vehicle_id",
+            "efficiency_wh_per_km",
+            "sample_count",
+            "precision_used"
+          ]
+        }
+      ],
+      "result": "Efficiency factor updated; new trips will use the improved estimate"
+    },
+    "efficiency_derivation_inconclusive": {
+      "priority": 2,
+      "given": [
+        "a qualifying charging session has just completed",
+        "no consensus found at any precision level"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "vehicle.efficiency.unchanged",
+          "payload": [
+            "vehicle_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Efficiency factor unchanged; previous value retained"
+    },
+    "efficiency_applied_to_trip": {
+      "priority": 3,
+      "given": [
+        "a trip has just completed",
+        {
+          "field": "efficiency_wh_per_km",
+          "source": "db",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "estimated_energy_kwh",
+          "description": "trip.range_delta_km x efficiency_wh_per_km / 1000"
+        }
+      ],
+      "result": "Energy consumed estimate attached to trip for analytics"
+    }
+  },
+  "events": [
+    {
+      "name": "vehicle.efficiency.updated",
+      "description": "Efficiency factor successfully recalculated from charging history",
+      "payload": [
+        "vehicle_id",
+        "efficiency_wh_per_km",
+        "sample_count",
+        "precision_used"
+      ]
+    },
+    {
+      "name": "vehicle.efficiency.unchanged",
+      "description": "Efficiency derivation ran but found no consensus; value unchanged",
+      "payload": [
+        "vehicle_id",
+        "sessions_evaluated",
+        "reason"
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": "EFFICIENCY_DERIVATION_FAILED",
+      "message": "Could not derive an efficiency factor. More charging data required.",
+      "status": 422
+    }
+  ],
+  "related": [
+    {
+      "feature": "ev-charging-session",
+      "type": "required"
+    },
+    {
+      "feature": "trip-energy-consumption",
+      "type": "extends"
+    },
+    {
+      "feature": "battery-health-tracking",
+      "type": "recommended"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/adriankumpf/teslamate",
+      "project": "TeslaMate",
+      "tech_stack": "Elixir, Phoenix, PostgreSQL",
+      "files_traced": 4,
+      "entry_points": [
+        "lib/teslamate/log/car.ex",
+        "lib/teslamate/log/charging_process.ex",
+        "lib/teslamate/settings/global_settings.ex"
+      ]
+    }
+  }
+}

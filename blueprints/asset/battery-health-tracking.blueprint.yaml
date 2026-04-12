@@ -1,0 +1,146 @@
+# ============================================================
+# BATTERY HEALTH TRACKING — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/adriankumpf/teslamate
+# Source project: TeslaMate (Elixir/Phoenix, PostgreSQL)
+# Files traced: 4
+# ============================================================
+
+feature: battery-health-tracking
+version: "1.0.0"
+description: Monitors EV battery health over time by comparing reported range capacity against a manufacturer baseline, detecting degradation trends and alerting when capacity loss exceeds a threshold.
+category: asset
+tags: [vehicle, battery, health, degradation, ev, telemetry, analytics]
+
+actors:
+  - id: system
+    name: System
+    type: system
+    description: Calculates battery health snapshots from charging telemetry
+  - id: vehicle_owner
+    name: Vehicle Owner
+    type: human
+    description: Reviews battery health trends and configures degradation alert thresholds
+
+fields:
+  - name: vehicle_id
+    type: text
+    required: true
+    label: Vehicle ID
+  - name: snapshot_date
+    type: datetime
+    required: true
+    label: Snapshot Date
+  - name: measured_range_km
+    type: number
+    required: false
+    label: Measured Max Range (km)
+  - name: baseline_range_km
+    type: number
+    required: true
+    label: Baseline Range (km)
+  - name: degradation_pct
+    type: number
+    required: false
+    label: Degradation (%)
+  - name: energy_per_soc_pct_kwh
+    type: number
+    required: false
+    label: Energy per SOC Point (kWh)
+  - name: degradation_alert_threshold_pct
+    type: number
+    required: false
+    label: Alert Threshold (%)
+
+rules:
+  health_from_range_at_high_soc:
+    description: Battery health is estimated by comparing the vehicle's reported range at high SOC against the baseline range for the vehicle model
+  high_soc_sessions_most_reliable:
+    description: The most reliable health snapshots come from charging sessions that end near 100% SOC — these give the clearest picture of current maximum capacity
+  degradation_formula:
+    description: Degradation percentage = (baseline_range_km - measured_range_km) / baseline_range_km x 100; positive values indicate degradation
+  secondary_health_indicator:
+    description: Energy-per-SOC (kWh added per percentage point gained) is a secondary health indicator — a higher value means more energy is needed to reach the same SOC
+  rolling_average_over_outliers:
+    description: A single outlier reading due to extreme temperature or partial charge should not override the trend; use rolling averages over multiple data points
+  alert_on_threshold_exceeded:
+    description: Alerts fire when degradation_pct exceeds the configured degradation_alert_threshold_pct
+
+outcomes:
+  health_snapshot_created:
+    priority: 1
+    given:
+      - "a charging session completed with end_battery_level >= 90%"
+      - field: measured_range_km
+        source: computed
+        operator: exists
+    then:
+      - action: create_record
+        type: battery_health_snapshot
+        description: Persist a new health data point with snapshot_date, measured_range_km, and degradation_pct
+      - action: emit_event
+        event: battery.health.snapshot_taken
+        payload: [vehicle_id, snapshot_date, measured_range_km, degradation_pct]
+    result: Health snapshot recorded; trend analysis can be updated
+
+  degradation_alert_triggered:
+    priority: 2
+    given:
+      - field: degradation_pct
+        source: computed
+        operator: gte
+        value: degradation_alert_threshold_pct
+    then:
+      - action: notify
+        channel: in_app
+        message: "Battery degradation has reached the configured alert threshold."
+      - action: emit_event
+        event: battery.health.degradation_alert
+        payload: [vehicle_id, degradation_pct, threshold_pct, measured_range_km, baseline_range_km]
+    result: Owner notified of significant capacity loss
+
+  health_trending_normal:
+    priority: 3
+    given:
+      - field: degradation_pct
+        source: computed
+        operator: lt
+        value: degradation_alert_threshold_pct
+    then:
+      - action: emit_event
+        event: battery.health.snapshot_taken
+        payload: [vehicle_id, snapshot_date, degradation_pct]
+    result: Health snapshot recorded; degradation within acceptable range
+
+events:
+  - name: battery.health.snapshot_taken
+    description: A battery health data point was recorded
+    payload: [vehicle_id, snapshot_date, measured_range_km, baseline_range_km, degradation_pct]
+  - name: battery.health.degradation_alert
+    description: Battery degradation exceeded the configured alert threshold
+    payload: [vehicle_id, degradation_pct, threshold_pct, measured_range_km]
+
+errors:
+  - code: BATTERY_BASELINE_NOT_CONFIGURED
+    message: "No baseline range is configured for this vehicle model. Health tracking requires a reference value."
+    status: 422
+
+related:
+  - feature: ev-charging-session
+    type: required
+  - feature: trip-energy-consumption
+    type: recommended
+  - feature: vehicle-efficiency-metrics
+    type: recommended
+
+extensions:
+  source:
+    repo: "https://github.com/adriankumpf/teslamate"
+    project: "TeslaMate"
+    tech_stack: "Elixir, Phoenix, PostgreSQL"
+    files_traced: 4
+    entry_points:
+      - "lib/teslamate/log/charge.ex"
+      - "lib/teslamate/log/charging_process.ex"
+      - "grafana/dashboards/battery-health.json"

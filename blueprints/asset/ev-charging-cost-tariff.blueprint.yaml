@@ -1,0 +1,221 @@
+# ============================================================
+# EV CHARGING COST TARIFF — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/adriankumpf/teslamate
+# Source project: TeslaMate (Elixir/Phoenix, PostgreSQL)
+# Files traced: 4
+# ============================================================
+
+feature: ev-charging-cost-tariff
+version: "1.0.0"
+description: Calculates EV charging session cost using location-linked tariffs (per-kWh or per-minute) with optional flat session fees and free-charging programme exemptions.
+category: asset
+tags: [ev, charging, cost, tariff, billing, geofence, vehicle]
+
+actors:
+  - id: system
+    name: System
+    type: system
+    description: Applies tariff rules and calculates cost when a session closes
+  - id: vehicle_owner
+    name: Vehicle Owner
+    type: human
+    description: Configures tariffs on charging locations and free-charging eligibility
+
+fields:
+  - name: location_id
+    type: hidden
+    required: false
+    label: Charging Location (Geofence)
+  - name: billing_type
+    type: select
+    required: false
+    label: Billing Type
+  - name: cost_per_unit
+    type: number
+    required: false
+    label: Cost Per Unit
+  - name: session_fee
+    type: number
+    required: false
+    label: Session Fee
+  - name: charge_energy_added_kwh
+    type: number
+    required: false
+    label: Energy Added (kWh)
+  - name: charge_energy_used_kwh
+    type: number
+    required: false
+    label: Grid Energy Used (kWh)
+  - name: duration_min
+    type: number
+    required: false
+    label: Session Duration (minutes)
+  - name: is_free_charging_eligible
+    type: boolean
+    required: false
+    label: Free Charging Eligible
+  - name: charger_network
+    type: text
+    required: false
+    label: Charger Network
+  - name: calculated_cost
+    type: number
+    required: false
+    label: Calculated Cost
+
+rules:
+  cost_requires_tariff:
+    description: Cost is only calculated when billing_type and cost_per_unit are both configured for the charging location; sessions without a tariff have null cost
+  per_kwh_uses_higher_value:
+    description: Per-kWh billing uses max(charge_energy_used_kwh, charge_energy_added_kwh) x cost_per_unit + session_fee — the larger value protects against under-charging due to metering differences
+  per_minute_billing:
+    description: Per-minute billing uses duration_min x cost_per_unit + session_fee
+  free_charging_exemption:
+    description: If the vehicle holds a free-charging entitlement and the session used the qualifying network, cost is set to 0.00 regardless of any configured tariff
+  session_fee_non_negative:
+    description: Session fee must be zero or positive; negative fees are rejected
+  retroactive_tariff_update:
+    description: Updating a geofence tariff retroactively recalculates the cost of all historical sessions matched to that geofence
+
+outcomes:
+  cost_calculated_per_kwh:
+    priority: 1
+    given:
+      - field: billing_type
+        source: db
+        operator: eq
+        value: per_kwh
+      - field: is_free_charging_eligible
+        source: db
+        operator: neq
+        value: true
+      - field: cost_per_unit
+        source: db
+        operator: exists
+    then:
+      - action: set_field
+        target: calculated_cost
+        value: max(charge_energy_used_kwh, charge_energy_added_kwh) x cost_per_unit + session_fee
+      - action: emit_event
+        event: charging.cost.calculated
+        payload: [session_id, calculated_cost, billing_type]
+    result: Cost computed from energy delivered; attached to the session record
+
+  cost_calculated_per_minute:
+    priority: 2
+    given:
+      - field: billing_type
+        source: db
+        operator: eq
+        value: per_minute
+      - field: is_free_charging_eligible
+        source: db
+        operator: neq
+        value: true
+      - field: cost_per_unit
+        source: db
+        operator: exists
+    then:
+      - action: set_field
+        target: calculated_cost
+        value: duration_min x cost_per_unit + session_fee
+      - action: emit_event
+        event: charging.cost.calculated
+        payload: [session_id, calculated_cost, billing_type]
+    result: Cost computed from session duration; attached to the session record
+
+  cost_zero_free_charging:
+    priority: 3
+    given:
+      - field: is_free_charging_eligible
+        source: db
+        operator: eq
+        value: true
+      - "session charger_network matches the qualifying free-charging network"
+    then:
+      - action: set_field
+        target: calculated_cost
+        value: 0
+      - action: emit_event
+        event: charging.cost.free
+        payload: [session_id, reason]
+    result: Session cost set to zero under free-charging entitlement
+
+  cost_null_no_tariff:
+    priority: 4
+    given:
+      - any:
+          - field: billing_type
+            source: db
+            operator: not_exists
+          - field: cost_per_unit
+            source: db
+            operator: not_exists
+          - "no geofence matched the charging location"
+    then:
+      - action: set_field
+        target: calculated_cost
+        value: null
+    result: Cost left as null; session recorded without financial data
+
+  tariff_retroactively_applied:
+    priority: 5
+    given:
+      - "a location tariff has been created or updated by the operator"
+    then:
+      - action: emit_event
+        event: charging.cost.tariff_changed
+        payload: [location_id, billing_type, cost_per_unit, session_fee]
+      - action: set_field
+        target: calculated_cost
+        description: Recalculated using new tariff for all historical sessions at this location
+    result: Historical charging costs updated to reflect the new tariff
+
+  session_fee_invalid:
+    priority: 6
+    error: TARIFF_INVALID_SESSION_FEE
+    given:
+      - field: session_fee
+        source: input
+        operator: lt
+        value: 0
+    then: []
+    result: Tariff not saved; user informed that session fee must be non-negative
+
+errors:
+  - code: TARIFF_INVALID_SESSION_FEE
+    message: "Session fee must be zero or a positive value."
+    status: 422
+  - code: TARIFF_MISSING_COST_PER_UNIT
+    message: "A billing type is set but no cost per unit is configured."
+    status: 422
+
+events:
+  - name: charging.cost.calculated
+    description: Session cost calculated using a location tariff
+    payload: [session_id, calculated_cost, billing_type, cost_per_unit, session_fee]
+  - name: charging.cost.free
+    description: Session cost set to zero due to free-charging programme eligibility
+    payload: [session_id, reason, charger_network]
+  - name: charging.cost.tariff_changed
+    description: A location tariff was changed; historical session costs may be updated
+    payload: [location_id, billing_type, cost_per_unit, session_fee]
+
+related:
+  - feature: ev-charging-session
+    type: required
+  - feature: geofence-places
+    type: required
+
+extensions:
+  source:
+    repo: "https://github.com/adriankumpf/teslamate"
+    project: "TeslaMate"
+    tech_stack: "Elixir, Phoenix, PostgreSQL"
+    files_traced: 4
+    entry_points:
+      - "lib/teslamate/log/charging_process.ex"
+      - "lib/teslamate/locations/geo_fence.ex"
+      - "lib/teslamate/settings/car_settings.ex"

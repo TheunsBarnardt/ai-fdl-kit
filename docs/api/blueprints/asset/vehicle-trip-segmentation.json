@@ -1,0 +1,495 @@
+{
+  "feature": "vehicle-trip-segmentation",
+  "version": "1.0.0",
+  "description": "Automatically detects trip start and end from gear state signals, records position telemetry, and aggregates each completed trip into a drive record with distance, duration, and energy metadata.",
+  "category": "asset",
+  "tags": [
+    "vehicle",
+    "trip",
+    "telemetry",
+    "odometer",
+    "ev",
+    "fleet"
+  ],
+  "actors": [
+    {
+      "id": "polling_service",
+      "name": "Polling Service",
+      "type": "system",
+      "description": "Continuously polls vehicle API and triggers trip lifecycle transitions"
+    },
+    {
+      "id": "vehicle_api",
+      "name": "Vehicle API",
+      "type": "external",
+      "description": "Source of shift_state, odometer, battery range, and position data"
+    }
+  ],
+  "fields": [
+    {
+      "name": "trip_id",
+      "type": "hidden",
+      "required": false,
+      "label": "Trip ID"
+    },
+    {
+      "name": "vehicle_id",
+      "type": "text",
+      "required": true,
+      "label": "Vehicle ID"
+    },
+    {
+      "name": "start_date",
+      "type": "datetime",
+      "required": true,
+      "label": "Start Date"
+    },
+    {
+      "name": "end_date",
+      "type": "datetime",
+      "required": false,
+      "label": "End Date"
+    },
+    {
+      "name": "start_odometer_km",
+      "type": "number",
+      "required": true,
+      "label": "Start Odometer (km)"
+    },
+    {
+      "name": "end_odometer_km",
+      "type": "number",
+      "required": false,
+      "label": "End Odometer (km)"
+    },
+    {
+      "name": "distance_km",
+      "type": "number",
+      "required": false,
+      "label": "Distance (km)"
+    },
+    {
+      "name": "duration_min",
+      "type": "number",
+      "required": false,
+      "label": "Duration (minutes)"
+    },
+    {
+      "name": "start_battery_level",
+      "type": "number",
+      "required": false,
+      "label": "Start Battery Level (%)"
+    },
+    {
+      "name": "end_battery_level",
+      "type": "number",
+      "required": false,
+      "label": "End Battery Level (%)"
+    },
+    {
+      "name": "start_ideal_range_km",
+      "type": "number",
+      "required": false,
+      "label": "Start Ideal Range (km)"
+    },
+    {
+      "name": "end_ideal_range_km",
+      "type": "number",
+      "required": false,
+      "label": "End Ideal Range (km)"
+    },
+    {
+      "name": "speed_max_kmh",
+      "type": "number",
+      "required": false,
+      "label": "Max Speed (km/h)"
+    },
+    {
+      "name": "power_max_kw",
+      "type": "number",
+      "required": false,
+      "label": "Max Power (kW)"
+    },
+    {
+      "name": "power_min_kw",
+      "type": "number",
+      "required": false,
+      "label": "Min Power / Max Regen (kW)"
+    },
+    {
+      "name": "ascent_m",
+      "type": "number",
+      "required": false,
+      "label": "Total Ascent (m)"
+    },
+    {
+      "name": "descent_m",
+      "type": "number",
+      "required": false,
+      "label": "Total Descent (m)"
+    },
+    {
+      "name": "outside_temp_avg",
+      "type": "number",
+      "required": false,
+      "label": "Avg Outside Temp (°C)"
+    },
+    {
+      "name": "position_count",
+      "type": "number",
+      "required": false,
+      "label": "Position Readings"
+    }
+  ],
+  "states": {
+    "field": "trip_status",
+    "values": [
+      {
+        "id": "inactive",
+        "initial": true,
+        "description": "No trip in progress"
+      },
+      {
+        "id": "in_progress",
+        "description": "Vehicle is actively on a trip; positions are being recorded"
+      },
+      {
+        "id": "completed",
+        "terminal": true,
+        "description": "Trip has ended and drive record has been aggregated"
+      },
+      {
+        "id": "discarded",
+        "terminal": true,
+        "description": "Trip did not meet minimum thresholds and was deleted"
+      }
+    ],
+    "transitions": [
+      {
+        "from": "inactive",
+        "to": "in_progress",
+        "actor": "polling_service",
+        "condition": "shift_state changes to D, N, or R",
+        "description": "Vehicle shifts out of park — trip begins"
+      },
+      {
+        "from": "in_progress",
+        "to": "completed",
+        "actor": "polling_service",
+        "condition": "shift_state becomes P or null AND position_count >= 2 AND distance_km >= 0.01",
+        "description": "Vehicle parks with sufficient data — trip aggregated and saved"
+      },
+      {
+        "from": "in_progress",
+        "to": "discarded",
+        "actor": "polling_service",
+        "condition": "trip ends with fewer than 2 positions OR distance_km < 0.01 OR distance_km < 0",
+        "description": "Trip below minimum threshold — record deleted"
+      },
+      {
+        "from": "in_progress",
+        "to": "completed",
+        "actor": "polling_service",
+        "condition": "vehicle has been offline for more than 15 minutes during the trip",
+        "description": "Auto-complete trip after offline timeout"
+      }
+    ]
+  },
+  "rules": {
+    "trip_start_on_motion_gear": {
+      "description": "A trip starts when the vehicle shifts into any motion gear (D, N, or R)"
+    },
+    "minimum_distance_threshold": {
+      "description": "A trip must have at least 2 recorded positions and a distance of at least 0.01 km (10 metres) to be retained"
+    },
+    "negative_distance_discarded": {
+      "description": "A trip with negative distance (end odometer less than start) is discarded — indicates sensor glitch or API error"
+    },
+    "offline_during_drive": {
+      "description": "If the vehicle goes offline during a trip the driving state is maintained for up to 15 minutes before auto-completing with the last known data"
+    },
+    "distance_from_odometer": {
+      "description": "Distance is derived from odometer delta (end minus start), not from GPS geometry — odometer is converted from the API native unit to kilometres"
+    },
+    "aggregates_on_close": {
+      "description": "Speed max, power min/max, ascent, descent, and avg temperature are computed from the position time series when the trip closes"
+    }
+  },
+  "outcomes": {
+    "trip_started": {
+      "priority": 1,
+      "given": [
+        "no trip is currently in progress for this vehicle",
+        {
+          "field": "shift_state",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "D",
+            "N",
+            "R"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "trip",
+          "description": "Create a new in-progress trip record with start_date and start_odometer_km"
+        },
+        {
+          "action": "transition_state",
+          "field": "trip_status",
+          "from": "inactive",
+          "to": "in_progress"
+        },
+        {
+          "action": "emit_event",
+          "event": "trip.started",
+          "payload": [
+            "vehicle_id",
+            "trip_id",
+            "start_date",
+            "start_odometer_km"
+          ]
+        }
+      ],
+      "result": "Trip record created; position collection begins"
+    },
+    "position_recorded": {
+      "priority": 2,
+      "given": [
+        "trip is currently in_progress for this vehicle"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "position",
+          "description": "Append current telemetry to the position log for this trip"
+        }
+      ],
+      "result": "Position record appended; trip telemetry grows"
+    },
+    "trip_completed": {
+      "priority": 3,
+      "given": [
+        "trip is currently in_progress",
+        {
+          "field": "shift_state",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "P"
+          ]
+        },
+        "position_count >= 2",
+        {
+          "field": "distance_km",
+          "source": "computed",
+          "operator": "gte",
+          "value": 0.01
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "end_date",
+          "value": "current_timestamp"
+        },
+        {
+          "action": "set_field",
+          "target": "end_odometer_km",
+          "value": "current_odometer_reading"
+        },
+        {
+          "action": "set_field",
+          "target": "distance_km",
+          "value": "end_odometer_km - start_odometer_km"
+        },
+        {
+          "action": "set_field",
+          "target": "duration_min",
+          "value": "elapsed minutes between start_date and end_date"
+        },
+        {
+          "action": "transition_state",
+          "field": "trip_status",
+          "from": "in_progress",
+          "to": "completed"
+        },
+        {
+          "action": "emit_event",
+          "event": "trip.completed",
+          "payload": [
+            "vehicle_id",
+            "trip_id",
+            "distance_km",
+            "duration_min"
+          ]
+        }
+      ],
+      "result": "Trip record finalised with all aggregate metrics"
+    },
+    "trip_discarded_insufficient_data": {
+      "priority": 4,
+      "error": "TRIP_BELOW_THRESHOLD",
+      "given": [
+        "trip is currently in_progress",
+        {
+          "any": [
+            "position_count < 2",
+            {
+              "field": "distance_km",
+              "source": "computed",
+              "operator": "lt",
+              "value": 0.01
+            },
+            {
+              "field": "distance_km",
+              "source": "computed",
+              "operator": "lt",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "delete_record",
+          "type": "trip",
+          "description": "Remove the trip record and all associated positions"
+        },
+        {
+          "action": "transition_state",
+          "field": "trip_status",
+          "from": "in_progress",
+          "to": "discarded"
+        },
+        {
+          "action": "emit_event",
+          "event": "trip.discarded",
+          "payload": [
+            "vehicle_id",
+            "trip_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Trip and positions deleted; no record retained"
+    },
+    "trip_auto_completed_offline": {
+      "priority": 5,
+      "given": [
+        "trip is currently in_progress",
+        "vehicle has been offline for more than 15 consecutive minutes"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "end_date",
+          "value": "last_known_position_timestamp"
+        },
+        {
+          "action": "transition_state",
+          "field": "trip_status",
+          "from": "in_progress",
+          "to": "completed"
+        },
+        {
+          "action": "emit_event",
+          "event": "trip.auto_completed",
+          "payload": [
+            "vehicle_id",
+            "trip_id",
+            "reason"
+          ]
+        }
+      ],
+      "result": "Trip closed with last known data; prevents indefinitely open records"
+    }
+  },
+  "errors": [
+    {
+      "code": "TRIP_BELOW_THRESHOLD",
+      "message": "Trip did not meet minimum distance or data requirements and was discarded.",
+      "status": 422
+    }
+  ],
+  "events": [
+    {
+      "name": "trip.started",
+      "description": "A new trip began — vehicle shifted out of park",
+      "payload": [
+        "vehicle_id",
+        "trip_id",
+        "start_date",
+        "start_odometer_km",
+        "start_battery_level"
+      ]
+    },
+    {
+      "name": "trip.completed",
+      "description": "A trip was successfully completed and aggregated",
+      "payload": [
+        "vehicle_id",
+        "trip_id",
+        "distance_km",
+        "duration_min",
+        "end_battery_level"
+      ]
+    },
+    {
+      "name": "trip.discarded",
+      "description": "A trip was discarded for failing minimum thresholds",
+      "payload": [
+        "vehicle_id",
+        "trip_id",
+        "reason"
+      ]
+    },
+    {
+      "name": "trip.auto_completed",
+      "description": "A trip was closed automatically after extended offline period",
+      "payload": [
+        "vehicle_id",
+        "trip_id",
+        "offline_duration_min"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "vehicle-state-machine",
+      "type": "required"
+    },
+    {
+      "feature": "trip-energy-consumption",
+      "type": "required"
+    },
+    {
+      "feature": "trip-replay",
+      "type": "recommended"
+    },
+    {
+      "feature": "geofence-places",
+      "type": "recommended"
+    },
+    {
+      "feature": "odometer-validation",
+      "type": "recommended"
+    }
+  ],
+  "extensions": {
+    "source": {
+      "repo": "https://github.com/adriankumpf/teslamate",
+      "project": "TeslaMate",
+      "tech_stack": "Elixir, Phoenix, PostgreSQL",
+      "files_traced": 5,
+      "entry_points": [
+        "lib/teslamate/vehicles/vehicle.ex",
+        "lib/teslamate/log/drive.ex",
+        "lib/teslamate/log/position.ex"
+      ]
+    }
+  }
+}

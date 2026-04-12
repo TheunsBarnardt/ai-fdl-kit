@@ -1,0 +1,160 @@
+# ============================================================
+# DRIVER BEHAVIOUR SCORING — Portable Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/adriankumpf/teslamate
+# Source project: TeslaMate (Elixir/Phoenix, PostgreSQL)
+# Files traced: 3
+# ============================================================
+
+feature: driver-behaviour-scoring
+version: "1.0.0"
+description: Analyses vehicle telemetry (speed and power time series) to detect hard braking and rapid acceleration events, producing a per-trip smoothness score for driver feedback.
+category: asset
+tags: [vehicle, driver, behaviour, scoring, ev, safety, efficiency, telemetry]
+
+actors:
+  - id: system
+    name: System
+    type: system
+    description: Analyses position telemetry after each trip to score driving behaviour
+  - id: vehicle_owner
+    name: Vehicle Owner
+    type: human
+    description: Reviews per-trip scores and historical behaviour trends
+
+fields:
+  - name: trip_id
+    type: hidden
+    required: false
+    label: Trip ID
+  - name: vehicle_id
+    type: text
+    required: true
+    label: Vehicle ID
+  - name: score
+    type: number
+    required: false
+    label: Smoothness Score (0-100)
+  - name: hard_braking_events
+    type: number
+    required: false
+    label: Hard Braking Events
+  - name: rapid_acceleration_events
+    type: number
+    required: false
+    label: Rapid Acceleration Events
+  - name: high_power_events
+    type: number
+    required: false
+    label: High Power Events
+  - name: max_deceleration_ms2
+    type: number
+    required: false
+    label: Max Deceleration (m/s2)
+  - name: max_acceleration_ms2
+    type: number
+    required: false
+    label: Max Acceleration (m/s2)
+  - name: hard_braking_threshold_ms2
+    type: number
+    required: false
+    label: Hard Braking Threshold (m/s2)
+  - name: rapid_acceleration_threshold_ms2
+    type: number
+    required: false
+    label: Rapid Acceleration Threshold (m/s2)
+  - name: high_power_threshold_kw
+    type: number
+    required: false
+    label: High Power Threshold (kW)
+
+rules:
+  acceleration_from_consecutive_speeds:
+    description: Acceleration and deceleration are calculated from consecutive speed readings as delta_v / delta_t in m/s2; the telemetry sampling interval must be known and consistent
+  hard_braking_from_deceleration_rate:
+    description: Hard braking is detected when deceleration rate exceeds the configured threshold regardless of whether regenerative braking is active; rate of speed change is the primary signal
+  rapid_acceleration_from_acceleration_rate:
+    description: Rapid acceleration is detected when acceleration rate exceeds the configured threshold whether from zero or already in motion
+  high_power_from_instantaneous_draw:
+    description: High-power events are detected when instantaneous power draw exceeds the configured threshold capturing both aggressive motor use and heavy climate load
+  score_normalised_to_100:
+    description: Score = 100 x (1 - aggressive_intervals / total_intervals) scaled by event severity; 100 is perfectly smooth, 0 is continuous aggressive behaviour
+  minimum_readings_required:
+    description: A minimum number of position readings is required for a valid score; trips with fewer readings return a null score
+  thresholds_configurable_per_vehicle:
+    description: Thresholds should be configurable per vehicle type — sport vehicles may have higher thresholds than standard passenger vehicles
+
+outcomes:
+  trip_scored_successfully:
+    priority: 1
+    given:
+      - "a trip has just completed"
+      - "trip has sufficient position readings to calculate rates of change"
+    then:
+      - action: set_field
+        target: hard_braking_events
+        value: count of intervals with deceleration > hard_braking_threshold_ms2
+      - action: set_field
+        target: rapid_acceleration_events
+        value: count of intervals with acceleration > rapid_acceleration_threshold_ms2
+      - action: set_field
+        target: score
+        value: 100 x (1 - aggressive_event_intervals / total_intervals)
+      - action: emit_event
+        event: driver.score.calculated
+        payload: [vehicle_id, trip_id, score, hard_braking_events, rapid_acceleration_events]
+    result: Driving score attached to trip; driver can review behaviour
+
+  aggressive_event_detected:
+    priority: 2
+    given:
+      - "a position interval shows acceleration or deceleration exceeding threshold"
+    then:
+      - action: create_record
+        type: driving_event
+        description: Record the event type, magnitude, timestamp, and position for review
+      - action: emit_event
+        event: driver.event.aggressive
+        payload: [vehicle_id, trip_id, event_type, magnitude, recorded_at, latitude, longitude]
+    result: Individual aggressive driving event recorded for detailed post-trip review
+
+  trip_score_insufficient_data:
+    priority: 3
+    error: SCORE_INSUFFICIENT_DATA
+    given:
+      - "a trip has just completed"
+      - "trip has fewer than the minimum required position readings"
+    then: []
+    result: Score not calculated; trip too short for meaningful behaviour analysis
+
+events:
+  - name: driver.score.calculated
+    description: A per-trip driving behaviour score was calculated
+    payload: [vehicle_id, trip_id, score, hard_braking_events, rapid_acceleration_events, high_power_events]
+  - name: driver.event.aggressive
+    description: An individual aggressive driving event was detected during a trip
+    payload: [vehicle_id, trip_id, event_type, magnitude_ms2, recorded_at, latitude, longitude]
+
+errors:
+  - code: SCORE_INSUFFICIENT_DATA
+    message: "Trip too short to calculate a driving score. More position data required."
+    status: 422
+
+related:
+  - feature: vehicle-trip-segmentation
+    type: required
+  - feature: trip-replay
+    type: recommended
+  - feature: vehicle-efficiency-metrics
+    type: recommended
+
+extensions:
+  source:
+    repo: "https://github.com/adriankumpf/teslamate"
+    project: "TeslaMate"
+    tech_stack: "Elixir, Phoenix, PostgreSQL"
+    files_traced: 3
+    entry_points:
+      - "lib/teslamate/log/position.ex"
+      - "lib/teslamate/log/drive.ex"

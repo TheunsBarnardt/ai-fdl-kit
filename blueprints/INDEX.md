@@ -2,10 +2,10 @@
 
 # Blueprint Index
 
-Fast lookup for all **273** blueprints across **20** categories.
+Fast lookup for all **286** blueprints across **20** categories.
 Each entry links to the human-friendly summary (`.md`) and the underlying spec (`.blueprint.yaml`).
 
-**Jump to a category:** [Access](#access) (11) · [Ai](#ai) (6) · [Asset](#asset) (6) · [Auth](#auth) (18) · [Crm](#crm) (5) · [Data](#data) (45) · [Infrastructure](#infrastructure) (9) · [Integration](#integration) (30) · [Inventory](#inventory) (6) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (13) · [Observability](#observability) (3) · [Payment](#payment) (15) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Trading](#trading) (20) · [Ui](#ui) (23) · [Workflow](#workflow) (46)
+**Jump to a category:** [Access](#access) (11) · [Ai](#ai) (6) · [Asset](#asset) (19) · [Auth](#auth) (18) · [Crm](#crm) (5) · [Data](#data) (45) · [Infrastructure](#infrastructure) (9) · [Integration](#integration) (30) · [Inventory](#inventory) (6) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (13) · [Observability](#observability) (3) · [Payment](#payment) (15) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Trading](#trading) (20) · [Ui](#ui) (23) · [Workflow](#workflow) (46)
 
 ---
 
@@ -41,11 +41,24 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | Feature | Description | Version | Spec |
 |---------|-------------|---------|------|
 | [**asset-maintenance-repairs**](./asset/asset-maintenance-repairs.md) | Asset maintenance scheduling and repair management with preventive and corrective tasks, repair cost capitalization, and stock consumption tracking for parts used during repairs. | 1.0.0 | [yaml](./asset/asset-maintenance-repairs.blueprint.yaml) |
+| [**battery-health-tracking**](./asset/battery-health-tracking.md) | Monitors EV battery health over time by comparing reported range capacity against a manufacturer baseline, detecting degradation trends and alerting when capacity loss exceeds a threshold. | 1.0.0 | [yaml](./asset/battery-health-tracking.blueprint.yaml) |
+| [**driver-behaviour-scoring**](./asset/driver-behaviour-scoring.md) | Analyses vehicle telemetry (speed and power time series) to detect hard braking and rapid acceleration events, producing a per-trip smoothness score for driver feedback. | 1.0.0 | [yaml](./asset/driver-behaviour-scoring.blueprint.yaml) |
+| [**ev-charging-cost-tariff**](./asset/ev-charging-cost-tariff.md) | Calculates EV charging session cost using location-linked tariffs (per-kWh or per-minute) with optional flat session fees and free-charging programme exemptions. | 1.0.0 | [yaml](./asset/ev-charging-cost-tariff.blueprint.yaml) |
+| [**ev-charging-session**](./asset/ev-charging-session.md) | Records the full lifecycle of an EV charging session — opening on plug-in, appending per-reading telemetry throughout, and aggregating energy, duration, cost, and battery change on close. | 1.0.0 | [yaml](./asset/ev-charging-session.blueprint.yaml) |
 | [**fixed-asset-lifecycle**](./asset/fixed-asset-lifecycle.md) | Fixed asset lifecycle management covering registration, multi-book depreciation, asset movements, value adjustments, disposal, and capitalization with automatic GL entries. | 1.0.0 | [yaml](./asset/fixed-asset-lifecycle.blueprint.yaml) |
+| [**geofence-places**](./asset/geofence-places.md) | User-defined named circular geofences that tag trip start/end and charging events with place labels and optionally apply billing tariffs to sessions at that location. | 1.0.0 | [yaml](./asset/geofence-places.blueprint.yaml) |
+| [**location-visit-history**](./asset/location-visit-history.md) | Tracks where a vehicle parks by linking trip and charge events to reverse-geocoded addresses and named geofences, enabling reporting on dwell time and visit frequency per location. | 1.0.0 | [yaml](./asset/location-visit-history.blueprint.yaml) |
+| [**odometer-validation**](./asset/odometer-validation.md) | Validates vehicle odometer readings ingested from telemetry, enforcing minimum trip distance thresholds, detecting negative distance anomalies, and flagging unexpected odometer jumps. | 1.0.0 | [yaml](./asset/odometer-validation.blueprint.yaml) |
+| [**trip-energy-consumption**](./asset/trip-energy-consumption.md) | Calculates energy consumed per trip from battery range delta and a per-vehicle efficiency factor derived statistically from charging history and updated after each qualifying session. | 1.0.0 | [yaml](./asset/trip-energy-consumption.blueprint.yaml) |
+| [**trip-replay**](./asset/trip-replay.md) | Records a dense telemetry time-series (position, speed, power, elevation, battery) throughout every trip, enabling post-hoc replay with full speed and elevation profiles. | 1.0.0 | [yaml](./asset/trip-replay.blueprint.yaml) |
 | [**vehicle-depreciation**](./asset/vehicle-depreciation.md) | Calculate and record periodic depreciation for fleet vehicles using configurable methods, track book value over time, and generate depreciation schedules per finance book. | 1.0.0 | [yaml](./asset/vehicle-depreciation.blueprint.yaml) |
+| [**vehicle-efficiency-metrics**](./asset/vehicle-efficiency-metrics.md) | Tracks a vehicle's energy efficiency (Wh/km) over time by statistically deriving an efficiency factor from charging sessions and applying it to trips for trend analysis. | 1.0.0 | [yaml](./asset/vehicle-efficiency-metrics.blueprint.yaml) |
 | [**vehicle-insurance**](./asset/vehicle-insurance.md) | Track insurance policies for fleet vehicles including coverage type, premium, excess, validity dates, and renewal lifecycle. | 1.0.0 | [yaml](./asset/vehicle-insurance.blueprint.yaml) |
 | [**vehicle-master-data**](./asset/vehicle-master-data.md) | Maintain the canonical specification record for a fleet vehicle including make, model, year, VIN, fuel type, physical dimensions, and current assignment. | 1.0.0 | [yaml](./asset/vehicle-master-data.blueprint.yaml) |
 | [**vehicle-registration**](./asset/vehicle-registration.md) | Register a vehicle into the fleet with legal identification, assign ownership, and track registration status and renewal dates. | 1.0.0 | [yaml](./asset/vehicle-registration.blueprint.yaml) |
+| [**vehicle-sleep-wake-detection**](./asset/vehicle-sleep-wake-detection.md) | Detects when a connected vehicle enters and exits sleep mode by observing API availability, persists sleep period records, and adapts the polling schedule to minimise battery drain. | 1.0.0 | [yaml](./asset/vehicle-sleep-wake-detection.blueprint.yaml) |
+| [**vehicle-state-machine**](./asset/vehicle-state-machine.md) | Tracks the real-time operational state of a connected vehicle (online, driving, charging, asleep, offline, updating) by polling a vehicle API and persisting state transitions. | 1.0.0 | [yaml](./asset/vehicle-state-machine.blueprint.yaml) |
+| [**vehicle-trip-segmentation**](./asset/vehicle-trip-segmentation.md) | Automatically detects trip start and end from gear state signals, records position telemetry, and aggregates each completed trip into a drive record with distance, duration, and energy metadata. | 1.0.0 | [yaml](./asset/vehicle-trip-segmentation.blueprint.yaml) |
 
 ## Auth
 
