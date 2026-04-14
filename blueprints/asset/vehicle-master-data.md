@@ -65,6 +65,17 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `VEHICLE_INVALID_YEAR` — Year of manufacture cannot be in the future.
 - `VEHICLE_DUPLICATE_PLATE` — A vehicle with this license plate already exists.
 
+## Events
+
+**`vehicle.master_record_created`** — A new vehicle specification record has been added to the fleet
+  Payload: `license_plate`, `make`, `model`, `year`, `vin`, `fuel_type`
+
+**`vehicle.master_record_updated`** — One or more specification fields on a vehicle record were changed
+  Payload: `license_plate`, `changed_fields`
+
+**`vehicle.odometer_updated`** — The last known odometer reading on the vehicle record was updated
+  Payload: `license_plate`, `previous_odometer`, `new_odometer`
+
 ## Connects to
 
 - **vehicle-registration** *(required)* — Legal registration details complement the physical specification record

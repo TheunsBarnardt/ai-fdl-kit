@@ -55,6 +55,14 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `INSUFFICIENT_POWER_EVENT` — You do not have permission to send this type of event
 - `INSUFFICIENT_POWER_STATE` — You do not have permission to change this room setting
 
+## Events
+
+**`room.action.permitted`** — A power-level-gated action was approved and may proceed
+  Payload: `user_id`, `action_type`, `room_id`
+
+**`room.power_levels.updated`** — The room's power level configuration was changed
+  Payload: `room_id`, `changed_by`, `new_state_group`
+
 ## Connects to
 
 - **room-state-history** *(required)* — Power levels are persisted as a state event and consulted during every event authorization

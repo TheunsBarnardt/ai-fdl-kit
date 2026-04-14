@@ -58,6 +58,17 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `MFA_NOT_SUPPORTED_FOR_SSO` — Multi-factor authentication is managed by your identity provider.
 - `SAML_CERTIFICATE_ERROR` — Identity provider certificate is missing or invalid.
 
+## Events
+
+**`auth.saml_login_success`** — User successfully authenticated via SAML SSO
+  Payload: `user_id`, `email`, `session_id`, `timestamp`
+
+**`auth.saml_login_failed`** — SAML authentication attempt failed
+  Payload: `reason`, `ip_address`, `timestamp`
+
+**`auth.saml_user_provisioned`** — New user account created from SAML assertion on first login
+  Payload: `user_id`, `email`, `actor`, `timestamp`
+
 ## Connects to
 
 - **session-management** *(required)* — SSO login produces a session with SSO-specific lifecycle settings

@@ -109,6 +109,26 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `EOD_UNKNOWN_RECORD_TYPE` — An unrecognised record type was encountered. Please verify you are using the current specification version.
 - `EOD_SUBSCRIPTION_INACTIVE` — Your data subscription is not active. Please contact your account manager.
 
+## Events
+
+**`eod_data.subscriber_activated`** — New subscriber provisioned and go-live confirmed
+  Payload: `user_id`, `dataset_name`, `go_live_date`
+
+**`eod_data.file_available`** — EOD dissemination file posted to FTP
+  Payload: `file_name`, `run_date`, `delivery_channel`
+
+**`eod_data.file_parsed`** — Subscriber successfully parsed an EOD file
+  Payload: `run_date`, `record_count`, `record_types_found`
+
+**`eod_data.instrument_stats_stored`** — Daily instrument statistics record processed and stored
+  Payload: `run_date`, `instrument_numeric_code`, `closing_price`
+
+**`eod_data.corporate_action_received`** — Corporate action record processed for an instrument
+  Payload: `instrument_numeric_code`, `action_type`, `effective_date`
+
+**`eod_data.parse_error`** — A record failed to parse — logged for investigation
+  Payload: `run_date`, `record_type`, `sub_type`, `error_detail`
+
 ## Connects to
 
 - **market-data-feeds** *(recommended)* — Complements real-time feeds — EOD delivery provides closing prices, statistics, and corporate actions for batch processing and historical analysis

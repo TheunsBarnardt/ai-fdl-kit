@@ -55,6 +55,26 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `INVALID_PLUGIN_API_USAGE` — Plugin API call is invalid. Verify utility/variant definition matches expected format.
 - `PLUGIN_THEME_CONFLICT` — Plugin theme values conflict with framework reserved keys. Use a custom namespace.
 
+## Events
+
+**`plugin.utility_created`**
+  Payload: `utility_name`, `utility_values`
+
+**`plugin.variant_created`**
+  Payload: `variant_name`, `variant_selector`
+
+**`plugin.theme_extended`**
+  Payload: `theme_namespace`, `new_values`
+
+**`plugin.instantiated_with_options`**
+  Payload: `plugin_name`, `options`
+
+**`plugin.base_styles_added`**
+  Payload: `base_rules`
+
+**`plugin.load_error`**
+  Payload: `plugin_name`, `error_message`
+
 ## Connects to
 
 - **theme-configuration** *(recommended)* — Plugins can extend theme with custom values

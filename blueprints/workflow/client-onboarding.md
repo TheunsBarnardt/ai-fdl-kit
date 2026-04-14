@@ -69,6 +69,29 @@ Specifies 13 acceptance outcomes that any implementation must satisfy, regardles
 - `UNAUTHORIZED_ACCESS` — Unauthorized access
 - `FORM_VALIDATION_FAILED` — Form validation failed
 
+## Events
+
+**`onboarding.started`** — Onboarding workflow initiated
+  Payload: `onboarding_id`
+
+**`details.retrieved`** — Details retrieved
+  Payload: `onboarding_id`
+
+**`details.updated`** — Details updated
+  Payload: `onboarding_id`
+
+**`step.updated`** — Step updated
+  Payload: `onboarding_id`
+
+**`client_details.completed`** — Client details completed
+  Payload: `onboarding_id`
+
+**`notification.sent`** — Notification sent
+  Payload: `onboarding_id`
+
+**`metadata.retrieved`** — Metadata retrieved
+  Payload: `onboarding_id`
+
 ## Connects to
 
 - **advisor-onboarding** *(recommended)*

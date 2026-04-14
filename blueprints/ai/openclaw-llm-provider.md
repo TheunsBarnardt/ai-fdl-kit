@@ -78,6 +78,29 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `THINKING_BUDGET_EXCEEDED` — Thinking tokens exceeded budget
 - `STREAMING_INTERRUPTED` — Streaming response interrupted
 
+## Events
+
+**`provider.selected`**
+  Payload: `provider_id`, `model_id`, `thinking_level`
+
+**`api.request_sent`**
+  Payload: `provider_id`, `model_id`, `input_tokens`
+
+**`api.response_received`**
+  Payload: `provider_id`, `model_id`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`
+
+**`stream.started`**
+  Payload: `provider_id`, `model_id`
+
+**`stream.completed`**
+  Payload: `provider_id`, `total_tokens`
+
+**`fallback.triggered`**
+  Payload: `primary_model`, `fallback_model`, `reason`
+
+**`cost.estimated`**
+  Payload: `model_id`, `estimated_usd`, `thinking_budget_tokens`
+
 ## Connects to
 
 - **openclaw-session-management** *(required)* — Tracks token usage and cost per session

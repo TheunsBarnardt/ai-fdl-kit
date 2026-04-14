@@ -81,6 +81,20 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `STYLE_SYNC_FAILED` — Failed to synchronize styles to preview
 - `ZOOM_OUT_OF_RANGE` — Zoom level must be between 25% and 200%
 
+## Events
+
+**`viewport.changed`** — Viewport preset was switched
+  Payload: `width`, `height`, `label`
+
+**`viewport.zoom.changed`** — Zoom level was changed
+  Payload: `zoom_level`, `auto_zoom`
+
+**`viewport.iframe.ready`** — Iframe preview is fully loaded with synced styles
+  Payload: `iframe_document`
+
+**`viewport.auto_zoom.recalculated`** — Auto-zoom was recalculated due to a trigger event
+  Payload: `auto_zoom`, `trigger`
+
 ## Connects to
 
 - **editor-state** *(required)* — Viewport state and zoom config stored in centralized state

@@ -75,6 +75,23 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `PUSH_TOPIC_NOT_FOUND` — Topic does not exist
 - `PUSH_VALIDATION_ERROR` — Please check the notification parameters and try again
 
+## Events
+
+**`push.sent`** — Push notification sent to provider
+  Payload: `tracking_id`, `user_id`, `device_token`, `platform`, `title`, `silent`, `timestamp`
+
+**`push.delivered`** — Push notification confirmed delivered to device
+  Payload: `tracking_id`, `user_id`, `device_token`, `delivered_at`, `timestamp`
+
+**`push.dismissed`** — User dismissed the notification
+  Payload: `tracking_id`, `user_id`, `notification_id`, `timestamp`
+
+**`push.broadcast`** — Notification broadcast to a topic
+  Payload: `topic`, `title`, `subscriber_count`, `timestamp`
+
+**`push.token_invalid`** — Device token was found to be invalid and removed
+  Payload: `device_token`, `platform`, `user_id`, `timestamp`
+
 ## Connects to
 
 - **notification-preferences** *(required)* — Must check user push notification preferences before sending

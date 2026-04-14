@@ -54,6 +54,17 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `GEOFENCE_DB_UNAVAILABLE` — Geofencing is temporarily unavailable
 - `GEOFENCE_INVALID_RADIUS` — Region radius must be greater than zero
 
+## Events
+
+**`region.entered`** — Device crossed into a region boundary from outside
+  Payload: `owner_user`, `owner_device`, `label`, `center_lat`, `center_lon`, `device_lat`, `device_lon`, `distance_meters`
+
+**`region.left`** — Device crossed out of a region boundary from inside
+  Payload: `owner_user`, `owner_device`, `label`, `center_lat`, `center_lon`, `device_lat`, `device_lon`, `distance_meters`
+
+**`region.definitions_updated`** — A new waypoints payload updated the set of active region definitions for an owner
+  Payload: `owner_user`, `owner_device`, `region_count`
+
 ## Connects to
 
 - **mqtt-location-ingestion** *(required)* — Provides device positions that are evaluated on each message receipt

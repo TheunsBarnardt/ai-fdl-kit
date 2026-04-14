@@ -67,6 +67,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `AUTH_PROFILE_NOT_FOUND` — Auth profile not found
 - `PLUGIN_CONFLICT` — Plugin conflict
 
+## Events
+
+**`plugin.loaded`**
+  Payload: `plugin_id`, `plugin_version`
+
+**`plugin.enabled`**
+  Payload: `plugin_id`, `declared_capabilities`
+
+**`plugin.disabled`**
+  Payload: `plugin_id`
+
+**`plugin.config_changed`**
+  Payload: `plugin_id`, `config_hash`
+
+**`plugin.error`**
+  Payload: `plugin_id`, `error_code`, `error_message`
+
 ## Connects to
 
 - **openclaw-gateway-authentication** *(optional)* — Some plugins manage authentication

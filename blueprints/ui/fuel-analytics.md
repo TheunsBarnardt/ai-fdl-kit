@@ -53,6 +53,17 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 
 - `ANALYTICS_INVALID_DATE_RANGE` — The end date must be after the start date.
 
+## Events
+
+**`fuel_analytics.report_generated`** — A fuel analytics report has been computed for the specified filters and period
+  Payload: `vehicle_filter`, `date_from`, `date_to`, `total_fuel_cost`, `average_efficiency`, `efficiency_trend`
+
+**`fuel_analytics.anomaly_detected`** — A vehicle's fuel efficiency deviates significantly from the fleet baseline
+  Payload: `vehicle`, `deviation_pct`, `expected_efficiency`, `actual_efficiency`
+
+**`fuel_analytics.no_data`** — No fuel log entries exist for the requested vehicle and date range
+  Payload: `vehicle_filter`, `date_from`, `date_to`
+
 ## Connects to
 
 - **fuel-log** *(required)* — Fuel log entries are the source data for all analytics computations

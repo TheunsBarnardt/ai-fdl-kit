@@ -55,6 +55,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `SLA_CALCULATION_FAILED` — ETA could not be calculated at this time.
 - `SLA_NO_TARGET_DEFINED` — No SLA target is configured for this order type.
 
+## Events
+
+**`sla.eta_updated`** — Fired each time ETA is recalculated
+  Payload: `order_uuid`, `estimated_arrival`, `distance_remaining`, `remaining_time`
+
+**`sla.at_risk`** — Fired when ETA exceeds SLA target warning threshold
+  Payload: `order_uuid`, `estimated_arrival`, `sla_target`
+
+**`sla.breached`** — Fired when SLA deadline is exceeded without completion
+  Payload: `order_uuid`, `sla_target`, `breach_reason`
+
+**`sla.met`** — Fired when order is completed within SLA
+  Payload: `order_uuid`, `actual_arrival`, `sla_target`
+
+**`sla.eta_milestone_reached`** — Fired when ETA crosses a configured notification milestone
+  Payload: `order_uuid`, `customer_uuid`, `estimated_arrival`, `remaining_time`
+
 ## Connects to
 
 - **order-lifecycle** *(required)* — SLA tracking is linked to order lifecycle events

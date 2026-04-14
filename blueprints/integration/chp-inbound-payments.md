@@ -89,6 +89,26 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `INBOUND_SERVICE_UNAVAILABLE` — Service temporarily unavailable
 - `INBOUND_TIMEOUT` — Acknowledgement not received within 1 second
 
+## Events
+
+**`inbound.credit_transfer.authorisation_received`** — PayShap/RTC credit transfer authorisation request received from Electrum
+  Payload: `uetr`, `end_to_end_identification`, `message_identification`, `payment_scheme`, `bank_settlement_amount_value`, `bank_settlement_amount_currency`
+
+**`inbound.credit_transfer.authorisation_responded`** — Partner sent credit transfer authorisation response back to Electrum
+  Payload: `uetr`, `transaction_status`, `status_reason`
+
+**`inbound.credit_transfer.completed`** — Credit transfer completion notification received from Electrum — payment is final
+  Payload: `uetr`, `end_to_end_identification`, `settlement_date`
+
+**`inbound.credit_transfer.received`** — EFT credit transfer received from Electrum — immediate financial impact
+  Payload: `uetr`, `end_to_end_identification`, `bank_settlement_amount_value`, `bank_settlement_amount_currency`
+
+**`inbound.direct_debit.received`** — EFT direct debit request received from Electrum
+  Payload: `uetr`, `end_to_end_identification`, `bank_settlement_amount_value`, `debtor_account_number`
+
+**`inbound.identifier.determination_received`** — PayShap proxy resolution request received — resolve proxy to account number
+  Payload: `creditor_account_proxy`, `payment_scheme`
+
 ## Connects to
 
 - **chp-outbound-payments** *(recommended)* — Outbound payment responses are delivered via partner API callbacks

@@ -1,23 +1,23 @@
 ---
-title: "Odometer Tracking Blueprint"
+title: "Odometer Tracking Workflow Blueprint"
 layout: default
 parent: "Workflow"
 grand_parent: Blueprint Catalog
 description: "Maintain a complete, validated history of odometer readings for each vehicle, detecting rollbacks and anomalous jumps, with an approval workflow for corrections"
 ---
 
-# Odometer Tracking Blueprint
+# Odometer Tracking Workflow Blueprint
 
 > Maintain a complete, validated history of odometer readings for each vehicle, detecting rollbacks and anomalous jumps, with an approval workflow for corrections.
 
 | | |
 |---|---|
-| **Feature** | `odometer-tracking` |
+| **Feature** | `odometer-tracking-workflow` |
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | fleet, vehicle, odometer, history, validation, mileage |
 | **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/odometer-tracking.blueprint.yaml) |
-| **JSON API** | [odometer-tracking.json]({{ site.baseurl }}/api/blueprints/workflow/odometer-tracking.json) |
+| **JSON API** | [odometer-tracking-workflow.json]({{ site.baseurl }}/api/blueprints/workflow/odometer-tracking-workflow.json) |
 
 ## Actors
 
@@ -259,7 +259,7 @@ source:
 {
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
-  "name": "Odometer Tracking Blueprint",
+  "name": "Odometer Tracking Workflow Blueprint",
   "description": "Maintain a complete, validated history of odometer readings for each vehicle, detecting rollbacks and anomalous jumps, with an approval workflow for corrections",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",

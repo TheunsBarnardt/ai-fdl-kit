@@ -70,6 +70,26 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `COMMENT_PARENT_NOT_FOUND` — Parent comment does not exist
 - `COMMENT_THREAD_DEPTH_EXCEEDED` — Maximum reply nesting depth reached
 
+## Events
+
+**`comment.created`** — A new top-level comment was created
+  Payload: `comment_id`, `entity_type`, `entity_id`, `author_id`
+
+**`comment.replied`** — A reply was created on an existing comment
+  Payload: `comment_id`, `parent_comment_id`, `entity_type`, `entity_id`, `author_id`
+
+**`comment.edited`** — A comment was edited within the edit window
+  Payload: `comment_id`, `author_id`
+
+**`comment.deleted`** — A comment was soft-deleted
+  Payload: `comment_id`, `entity_type`, `entity_id`, `deleted_by`
+
+**`comment.mentioned`** — Users were mentioned in a comment via @username
+  Payload: `comment_id`, `entity_type`, `entity_id`, `mentioned_user_ids`
+
+**`comment.reacted`** — A reaction was added to a comment
+  Payload: `comment_id`, `emoji`, `user_id`
+
 ## Connects to
 
 - **soft-delete** *(required)* — Comments use soft-delete to preserve thread structure

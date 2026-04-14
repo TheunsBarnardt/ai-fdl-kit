@@ -61,6 +61,20 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `SESSION_NOT_FOUND` — Session not found.
 - `SESSION_USER_DEACTIVATED` — Your account has been deactivated.
 
+## Events
+
+**`session.created`** — New authenticated session established
+  Payload: `session_id`, `user_id`, `session_type`, `device_id`, `expires_at`, `timestamp`
+
+**`session.revoked`** — Session explicitly terminated
+  Payload: `session_id`, `user_id`, `reason`, `actor_id`, `timestamp`
+
+**`session.all_revoked`** — All sessions for a user revoked in a single operation
+  Payload: `user_id`, `actor_id`, `reason`, `timestamp`
+
+**`session.extended`** — Session expiry pushed forward due to user activity
+  Payload: `session_id`, `user_id`, `new_expires_at`, `timestamp`
+
 ## Connects to
 
 - **multi-factor-authentication** *(required)* — Sessions are created only after MFA verification (when MFA is active)

@@ -91,6 +91,11 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `PREFERENCES_INVALID_CATEGORY` — Invalid notification category
 - `PREFERENCES_VALIDATION_ERROR` — Please check your preference settings and try again
 
+## Events
+
+**`preferences.updated`** — User notification preferences changed
+  Payload: `user_id`, `channel`, `category`, `enabled`, `timestamp`
+
 ## Connects to
 
 - **email-notifications** *(required)* — Email channel preferences control email delivery

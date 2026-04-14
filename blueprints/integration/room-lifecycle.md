@@ -48,6 +48,17 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `ROOM_CREATION_RATE_LIMITED` — You have created too many rooms recently. Please wait before creating another.
 - `ROOM_VERSION_UNSUPPORTED` — The requested room version is not supported by this server
 
+## Events
+
+**`room.created`** — A new room has been initialised and is ready for use
+  Payload: `room_id`, `creator_id`, `preset`, `room_version`
+
+**`room.upgraded`** — Room has been successfully migrated to a new version
+  Payload: `old_room_id`, `new_room_id`, `new_version`
+
+**`room.upgrade.failed`** — Room upgrade could not complete after all retries
+  Payload: `room_id`, `reason`
+
 ## Connects to
 
 - **room-power-levels** *(required)* — Power levels are established in the initial room state at creation

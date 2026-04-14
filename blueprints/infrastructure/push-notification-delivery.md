@@ -62,6 +62,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `PUSH_DEVICE_NOT_REGISTERED` — No push token registered for this device. Please update your push registration.
 - `PUSH_DELIVERY_FAILED` — Push notification delivery failed. The message will be available for retrieval.
 
+## Events
+
+**`push_notification.sent`** — A push notification was submitted to the platform push service for immediate delivery
+  Payload: `account_identifier`, `device_identifier`, `token_type`, `notification_type`, `urgent`
+
+**`push_notification.scheduled`** — A background push notification was queued for deferred delivery
+  Payload: `account_identifier`, `device_identifier`, `token_type`
+
+**`push_notification.token_expired`** — A push token was cleared because the platform push service reported it as unregistered or expired
+  Payload: `account_identifier`, `device_identifier`, `token_type`
+
+**`push_notification.delivery_failed`** — A push notification could not be delivered due to a platform push service error
+  Payload: `account_identifier`, `token_type`, `notification_type`
+
+**`push_notification.cancelled`** — Pending background push notifications were cancelled because the device retrieved its messages
+  Payload: `account_identifier`, `device_identifier`
+
 ## Connects to
 
 - **rate-limiting-abuse-prevention** *(required)* — Push challenges are issued and verified through the rate limiting subsystem; this feature is the delivery transport

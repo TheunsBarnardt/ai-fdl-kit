@@ -62,6 +62,20 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `MULTIPART_UPLOAD_FAILED` — Multipart upload failed. Incomplete parts have been cleaned up.
 - `CHECKSUM_MISMATCH` — Object checksum does not match the provided value. Upload may be corrupted.
 
+## Events
+
+**`object.uploaded`**
+  Payload: `bucket`, `key`, `size`, `content_type`, `etag`
+
+**`object.deleted`**
+  Payload: `bucket`, `key`, `version_id`
+
+**`object.accessed`**
+  Payload: `bucket`, `key`, `requester`
+
+**`object.access_denied`**
+  Payload: `bucket`, `key`, `requester`, `error_reason`
+
 ## Connects to
 
 - **api-gateway** *(optional)* — Presigned URL generation may be exposed through API gateway

@@ -49,6 +49,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `TW_NO_FEASIBLE_WINDOW` — No vehicle can serve this task within its time windows and working-hours constraints.
 - `TW_INVALID_WINDOW` — Time window is invalid: end time must be greater than or equal to start time.
 
+## Events
+
+**`stop.window.satisfied`** — Service scheduled within the task's time window
+  Payload: `job_id`, `arrival_time`, `service_start`, `waiting_time`
+
+**`stop.window.waiting`** — Vehicle waiting at stop for window to open
+  Payload: `job_id`, `arrival_time`, `window_start`, `waiting_time`
+
+**`stop.window.selected`** — One window chosen from multiple candidates for this task
+  Payload: `job_id`, `selected_window_index`, `arrival_time`
+
+**`stop.window.violated`** — Plan mode — service time outside all windows
+  Payload: `job_id`, `violation_type`, `violation_duration_seconds`
+
+**`stop.unassigned`** — Task could not be assigned due to infeasible windows
+  Payload: `job_id`, `reason`
+
 ## Connects to
 
 - **vrp-solving** *(required)*

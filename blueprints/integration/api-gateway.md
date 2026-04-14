@@ -63,6 +63,20 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `GATEWAY_ROUTE_NOT_FOUND` — No route matches the requested path and method.
 - `GATEWAY_FORBIDDEN` — Authenticated but not authorized to access this resource.
 
+## Events
+
+**`gateway.request`**
+  Payload: `route_path`, `method`, `upstream_url`, `client_id`, `response_time_ms`, `status_code`
+
+**`gateway.error`**
+  Payload: `route_path`, `method`, `client_id`, `error_code`, `error_message`
+
+**`gateway.circuit_opened`**
+  Payload: `upstream_url`, `failure_count`, `reset_timeout_ms`
+
+**`gateway.circuit_closed`**
+  Payload: `upstream_url`
+
 ## Connects to
 
 - **oauth-provider** *(recommended)* — Gateway validates OAuth tokens issued by the provider

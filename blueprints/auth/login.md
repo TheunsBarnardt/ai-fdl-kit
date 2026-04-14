@@ -64,6 +64,20 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `LOGIN_RATE_LIMITED` — Too many login attempts. Please wait a moment.
 - `LOGIN_VALIDATION_ERROR` — Please check your input and try again
 
+## Events
+
+**`login.success`** — User successfully authenticated
+  Payload: `user_id`, `email`, `timestamp`, `ip_address`, `user_agent`, `session_id`
+
+**`login.failed`** — Authentication attempt failed
+  Payload: `email`, `timestamp`, `ip_address`, `user_agent`, `attempt_count`, `reason`
+
+**`login.locked`** — Account locked due to too many failures
+  Payload: `email`, `user_id`, `timestamp`, `lockout_until`, `attempt_count`
+
+**`login.unverified`** — Login blocked — email not verified
+  Payload: `user_id`, `email`, `timestamp`
+
 ## Connects to
 
 - **signup** *(required)* — User must exist before they can log in

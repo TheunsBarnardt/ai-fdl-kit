@@ -66,6 +66,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `VEHICLE_UNAVAILABLE` — This vehicle is not available for dispatch.
 - `VEHICLE_NOT_FOUND` — Vehicle not found.
 
+## Events
+
+**`vehicle.registered`** — Fired when a new vehicle is added to the fleet
+  Payload: `vehicle_id`, `make`, `model`, `year`, `plate_number`, `type`
+
+**`vehicle.status_changed`** — Fired when vehicle operational status changes
+  Payload: `vehicle_id`, `previous_status`, `new_status`
+
+**`vehicle.maintenance_started`** — Fired when a vehicle enters maintenance
+  Payload: `vehicle_id`, `make`, `model`
+
+**`vehicle.maintenance_cleared`** — Fired when a vehicle is cleared from maintenance
+  Payload: `vehicle_id`
+
+**`vehicle.location_updated`** — Fired on GPS location updates from telematics
+  Payload: `vehicle_id`, `location`, `speed`, `heading`, `timestamp`
+
 ## Connects to
 
 - **dispatch-driver-assignment** *(required)* — Vehicles must be registered to be dispatched

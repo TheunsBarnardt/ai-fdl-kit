@@ -55,6 +55,20 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `CONFIGURATOR_VARIANT_MODE_LOCKED` — Variant creation mode cannot be changed after attributes are in use.
 - `CONFIGURATOR_MULTI_REQUIRES_NO_VARIANT` — Multi-checkbox display requires no-variant creation mode.
 
+## Events
+
+**`product.configurator.opened`** — Configurator UI opened for a product
+  Payload: `product_template_id`, `available_attributes`
+
+**`product.variant.selected`** — Buyer selected an existing variant combination
+  Payload: `product_id`, `attribute_values`, `price`
+
+**`product.variant.created`** — New variant dynamically created from buyer's selection
+  Payload: `product_id`, `attribute_values`
+
+**`product.matrix.opened`** — Matrix ordering grid opened for bulk variant selection
+  Payload: `product_template_id`, `row_attribute`, `column_attribute`
+
 ## Connects to
 
 - **quotation-order-management** *(required)* — Configured products are added as lines on sales orders

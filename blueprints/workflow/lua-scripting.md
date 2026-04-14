@@ -61,6 +61,48 @@ Specifies 21 acceptance outcomes that any implementation must satisfy, regardles
 - `SCRIPT_ERROR` — Error running script
 - `SCRIPT_KILLED` — Script killed by user with SCRIPT KILL
 
+## Events
+
+**`script.executed`**
+
+**`script.executed_cached`**
+
+**`script.not_found`**
+
+**`script.result_string`**
+
+**`script.result_number`**
+
+**`script.result_array`**
+
+**`script.result_error`**
+
+**`script.runtime_error`**
+
+**`script.redis_call_error`**
+
+**`script.redis_pcall_error`**
+
+**`script.redis_command_executed`**
+
+**`script.loaded`**
+
+**`script.exists_checked`**
+
+**`script.cache_flushed`**
+
+**`script.killed`**
+
+**`script.call_denied`**
+
+**`script.sandbox_violation`**
+
+**`script.stdlib_used`**
+
+**`script.atomic_abort`**
+
+**`script.isolation_maintained`**
+
 ## Connects to
 
 - **multi-exec-transactions** *(optional)* — Both provide atomicity; scripting is more powerful for complex logic

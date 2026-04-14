@@ -45,6 +45,14 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 - `INVALID_RELATION` — Relation references non-existent model
 - `SYNTAX_ERROR` — Schema syntax error at line {line}: {error}
 
+## Events
+
+**`model.defined`** — Model definition created
+  Payload: `name`, `field_count`, `relation_count`
+
+**`schema.validated`** — Schema passed validation
+  Payload: `model_count`, `field_count`, `validation_time_ms`
+
 ## Connects to
 
 - **prisma-migrations** *(recommended)* — Schema must be migrated to create database

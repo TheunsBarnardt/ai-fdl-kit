@@ -63,6 +63,26 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `VOID_NOT_ALLOWED` — Payment cannot be voided. Only authorized (uncaptured) payments can be voided.
 - `WEBHOOK_SIGNATURE_INVALID` — Webhook signature verification failed. Payload may have been tampered with.
 
+## Events
+
+**`payment.authorized`**
+  Payload: `provider_transaction_id`, `amount`, `currency`, `payment_method_type`
+
+**`payment.captured`**
+  Payload: `provider_transaction_id`, `amount`, `currency`
+
+**`payment.voided`**
+  Payload: `provider_transaction_id`, `amount`, `currency`
+
+**`payment.refunded`**
+  Payload: `provider_transaction_id`, `refund_amount`, `currency`, `remaining_amount`
+
+**`payment.failed`**
+  Payload: `provider_transaction_id`, `failure_code`, `failure_message`
+
+**`payment.refund_failed`**
+  Payload: `provider_transaction_id`, `refund_amount`, `error_reason`
+
 ## Connects to
 
 - **webhook-ingestion** *(required)* — Receive async payment status updates from provider webhooks

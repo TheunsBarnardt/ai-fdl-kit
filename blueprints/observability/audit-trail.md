@@ -67,6 +67,14 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `AUDIT_ACCESS_DENIED` — You do not have permission to view audit records
 - `AUDIT_ENTITY_NOT_TRACKED` — Audit trail is not enabled for this entity type
 
+## Events
+
+**`audit_trail.recorded`** — A change was recorded in the audit trail
+  Payload: `audit_id`, `entity_type`, `entity_id`, `change_type`, `changed_by`
+
+**`audit_trail.queried`** — Audit history was queried by a user
+  Payload: `entity_type`, `entity_id`, `queried_by`, `result_count`
+
 ## Connects to
 
 - **soft-delete** *(recommended)* — Deletion events should be captured in the audit trail

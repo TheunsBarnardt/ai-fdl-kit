@@ -67,6 +67,35 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `TABLE_DATA_SOURCE_ERROR` — Failed to load table data from the data source
 - `TABLE_COLUMN_NOT_SORTABLE` — This column does not support sorting
 
+## Events
+
+**`table.rendered`** — Data table rendered with initial data
+  Payload: `total_rows`, `page_size`, `column_count`
+
+**`table.sorted`** — Table data sorted by a column
+  Payload: `sort_by`, `sort_order`
+
+**`table.filtered`** — Table data filtered
+  Payload: `filters`, `result_count`
+
+**`table.row_selected`** — A row was selected or deselected
+  Payload: `row_id`, `selected_rows`, `selection_count`
+
+**`table.bulk_action`** — A bulk action was executed on selected rows
+  Payload: `action_type`, `affected_row_ids`, `result`
+
+**`table.cell_edited`** — A cell value was edited inline
+  Payload: `row_id`, `column_key`, `old_value`, `new_value`
+
+**`table.cell_edit_failed`** — An inline cell edit failed validation
+  Payload: `row_id`, `column_key`, `value`, `error`
+
+**`table.exported`** — Table data was exported
+  Payload: `format`, `row_count`, `column_count`
+
+**`table.export_failed`** — Table export failed due to row limit
+  Payload: `total_rows`, `max_allowed`
+
 ## Connects to
 
 - **pagination** *(required)* — Data tables require pagination for large data sets

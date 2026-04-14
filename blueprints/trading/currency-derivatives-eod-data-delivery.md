@@ -82,6 +82,11 @@ Specifies 2 acceptance outcomes that any implementation must satisfy, regardless
 - `DELIVERY_FAILED` — End-of-day data file delivery failed
 - `INVALID_CREDENTIALS` — IDP authentication failed — contact Customer Services
 
+## Events
+
+**`data.delivery.completed`** — All subscribed currency derivatives record types delivered
+  Payload: `run_date`, `record_types`, `file_name`
+
 ## Connects to
 
 - **equity-derivatives-eod-data-delivery** *(optional)* — Equity derivatives uses identical record structure with different prefixes

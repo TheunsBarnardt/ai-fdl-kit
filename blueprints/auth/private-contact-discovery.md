@@ -47,6 +47,14 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 - `CONTACT_DISCOVERY_UNAUTHENTICATED` — Authentication required to access contact discovery.
 - `CONTACT_DISCOVERY_RATE_LIMITED` — Too many contact discovery requests. Please wait before trying again.
 
+## Events
+
+**`contact_discovery.credentials_issued`** — Short-lived contact discovery credentials were successfully generated for an account
+  Payload: `account_identifier`, `token_expiry_seconds`
+
+**`contact_discovery.rate_limited`** — A contact discovery credential request was rejected due to rate limiting
+  Payload: `account_identifier`
+
 ## Connects to
 
 - **login** *(required)* — User must hold a valid authenticated session before requesting discovery credentials

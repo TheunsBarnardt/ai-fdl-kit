@@ -72,6 +72,23 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `INFERENCE_TIMEOUT` — Inference exceeded the configured timeout. Reduce input size or increase timeout.
 - `MAX_BATCH_EXCEEDED` — Request batch size exceeds the configured maximum.
 
+## Events
+
+**`model.loaded`**
+  Payload: `model_path`, `model_version`
+
+**`model.ready`**
+  Payload: `model_version`, `warmup_requests`
+
+**`model.inference_completed`**
+  Payload: `model_version`, `batch_size`, `inference_latency_ms`
+
+**`model.unloaded`**
+  Payload: `model_path`, `model_version`
+
+**`model.deprecated`**
+  Payload: `model_version`, `replacement_version`
+
 ## Connects to
 
 - **model-training** *(required)* — Consumes SavedModel checkpoint exported by the training workflow

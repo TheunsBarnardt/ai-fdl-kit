@@ -61,6 +61,17 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `GROUP_SEND_TOKEN_INVALID` — Group send token is invalid or has expired.
 - `GROUP_CRED_DUPLICATE_AUTH` — Provide either a group send token or an unidentified-access key, not both.
 
+## Events
+
+**`group_credentials.issued`** — A batch of daily group authentication and call-link authentication credentials was issued for an account
+  Payload: `account_id`, `redemption_start`, `redemption_end`, `credential_count`
+
+**`group_send.authorized`** — A group send token was successfully verified, authorizing message delivery or profile access
+  Payload: `target_identifiers`, `token_expiry`
+
+**`group_send.rejected`** — A group send token failed cryptographic verification or has expired
+  Payload: `reason`
+
 ## Connects to
 
 - **encrypted-profile-storage** *(recommended)* — Group send tokens may authorize unversioned profile lookups for group members

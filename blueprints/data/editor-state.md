@@ -72,6 +72,22 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `UNKNOWN_ACTION_TYPE` — Unrecognized action type
 - `INVALID_SELECTOR` — Item selector does not point to a valid component
 
+## Events
+
+**`state.action.dispatched`** — An action was processed by the reducer
+  Payload: `action_type`
+
+**`state.selection.changed`** — A different component was selected
+  Payload: `component_id`, `zone`, `index`
+
+**`state.selection.cleared`** — Component selection was cleared
+
+**`state.preview_mode.changed`** — Editor switched between edit and interactive preview
+  Payload: `mode`
+
+**`state.data.batch_resolved`** — Batch data resolution completed on page load
+  Payload: `resolved_count`, `changed_count`
+
 ## Connects to
 
 - **content-tree** *(required)* — Page data (root, content, zones) is core state

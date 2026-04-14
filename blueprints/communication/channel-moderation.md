@@ -57,6 +57,17 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `CHANNEL_PERMISSION_DENIED` — You do not have permission to moderate this channel.
 - `CHANNEL_INVALID_MODERATION_PERMISSION` — Invalid permission specified for channel moderation.
 
+## Events
+
+**`channel.member_removed`** — A member was removed from the channel by a moderator
+  Payload: `channel_id`, `user_id`, `actor_id`, `timestamp`
+
+**`channel.member_updated`** — A member's role or notification preferences were changed
+  Payload: `channel_id`, `user_id`, `changed_field`, `new_value`, `actor_id`, `timestamp`
+
+**`channel.scheme_updated`** — Channel-level permission overrides were modified
+  Payload: `channel_id`, `changed_roles`, `actor_id`, `timestamp`
+
 ## Connects to
 
 - **role-based-access-control** *(required)* — Channel moderation operates through the role and permission system

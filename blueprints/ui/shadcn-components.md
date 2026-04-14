@@ -79,6 +79,29 @@ Specifies 13 acceptance outcomes that any implementation must satisfy, regardles
 - `MISSING_FORM_CONTEXT` — useFormField must be used within a FormField component.
 - `MISSING_SIDEBAR_CONTEXT` — useSidebar must be used within a SidebarProvider.
 
+## Events
+
+**`form.submit.success`** — Form submitted with valid data
+  Payload: `form_values`, `form_name`
+
+**`form.validation.error`** — Form validation failed
+  Payload: `field_name`, `error_message`
+
+**`sidebar.toggle`** — Sidebar expanded or collapsed
+  Payload: `new_state`, `is_mobile`
+
+**`dialog.open`** — Dialog or sheet opened
+  Payload: `dialog_id`
+
+**`dialog.close`** — Dialog or sheet closed
+  Payload: `dialog_id`, `close_reason`
+
+**`toast.show`** — Toast notification displayed
+  Payload: `message`, `type`, `duration`
+
+**`theme.change`** — Theme switched between light and dark
+  Payload: `new_theme`
+
 ## Connects to
 
 - **shadcn-cli** *(required)* — The CLI tool that installs and manages these components in developer projects

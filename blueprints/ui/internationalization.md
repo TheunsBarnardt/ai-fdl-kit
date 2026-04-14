@@ -70,6 +70,23 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `I18N_BUNDLE_LOAD_FAILED` — Failed to load locale bundle. Please try again.
 - `I18N_INVALID_FORMAT` — Invalid ICU message format in translation value
 
+## Events
+
+**`i18n.locale_changed`** — User switched to a different locale
+  Payload: `previous_locale`, `new_locale`, `direction`, `timestamp`
+
+**`i18n.missing_key`** — Translation key not found in any locale in the fallback chain
+  Payload: `key`, `locale`, `fallback_locale`, `timestamp`
+
+**`i18n.bundle_loaded`** — Locale translation bundle loaded into memory
+  Payload: `locale`, `namespace`, `bundle_size_kb`, `timestamp`
+
+**`i18n.locale_fallback`** — Requested locale not supported, fell back to default
+  Payload: `requested_locale`, `fallback_locale`, `timestamp`
+
+**`i18n.fallback_used`** — Translation resolved from fallback locale instead of exact match
+  Payload: `key`, `requested_locale`, `resolved_locale`, `timestamp`
+
 ## Connects to
 
 - **toast-notifications** *(recommended)* — Toast messages need translation support

@@ -59,6 +59,14 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 
 - `FRIENDS_STORE_UNAVAILABLE` — Friend list is temporarily unavailable
 
+## Events
+
+**`friends.polled`** — A device requested friend locations; response was assembled and returned
+  Payload: `requesting_user`, `requesting_device`, `friend_count`
+
+**`friend.location.returned`** — A single friend's last position and optionally card were included in a poll response
+  Payload: `friend_user`, `friend_device`, `tracker_id`, `has_card`
+
 ## Connects to
 
 - **location-history-storage** *(required)* — Provides the last-position snapshots read to populate each friend's location in the response

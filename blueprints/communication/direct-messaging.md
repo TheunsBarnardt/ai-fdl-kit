@@ -50,6 +50,20 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `DM_PARTICIPANT_LIMIT_EXCEEDED` — You cannot add more than the allowed number of users to a direct message.
 - `DM_ACCESS_DENIED` — You do not have access to this conversation.
 
+## Events
+
+**`direct_messaging.conversation_created`** — Fires when a new direct conversation room is first created
+  Payload: `room_id`, `participant_ids`
+
+**`direct_messaging.conversation_opened`** — Fires when an existing conversation is reopened in a participant's sidebar
+  Payload: `room_id`, `participant_ids`
+
+**`direct_messaging.message_sent`** — Fires when a message is successfully delivered to a direct conversation
+  Payload: `message_id`, `room_id`, `participant_ids`, `sent_at`
+
+**`direct_messaging.messages_read`** — Fires when a participant reads messages, clearing their unread count
+  Payload: `room_id`, `participant_ids`
+
 ## Connects to
 
 - **channel-messaging** *(recommended)* — Shares the underlying message delivery and notification infrastructure

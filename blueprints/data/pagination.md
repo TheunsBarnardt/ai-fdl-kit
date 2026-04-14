@@ -57,6 +57,11 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `PAGINATION_PAGE_SIZE_EXCEEDED` — Page size must not exceed 100
 - `PAGINATION_OFFSET_TOO_DEEP` — Offset too large; use cursor-based pagination for deep result sets
 
+## Events
+
+**`pagination.page_served`** — A page of results was served to a client
+  Payload: `page_or_cursor`, `page_size`, `result_count`, `has_next`
+
 ## Connects to
 
 - **search-and-filtering** *(recommended)* — Search results are typically paginated

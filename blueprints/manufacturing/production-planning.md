@@ -63,6 +63,20 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `PP_INVALID_SALES_ORDER` — One or more selected sales orders are not in a valid state for production planning.
 - `PP_NO_PENDING_ITEMS` — No pending items found matching the selected filters. Adjust filters and try again.
 
+## Events
+
+**`production_plan.submitted`** — Fired when a production plan is submitted and ready for execution
+  Payload: `production_plan_id`, `company`, `total_planned_qty`
+
+**`work_orders.created`** — Fired when work orders are bulk-created from a production plan
+  Payload: `production_plan_id`, `work_order_ids`, `total_planned_qty`
+
+**`material_requests.created`** — Fired when material requests are created for procurement items
+  Payload: `production_plan_id`, `material_request_ids`, `items`
+
+**`production_plan.completed`** — Fired when all work orders and material requests from the plan are fulfilled
+  Payload: `production_plan_id`, `total_planned_qty`, `total_produced_qty`
+
 ## Connects to
 
 - **bill-of-materials** *(required)* — Production planning requires BOMs to explode material requirements

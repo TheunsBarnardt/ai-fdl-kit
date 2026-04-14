@@ -75,6 +75,38 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `OUTBOUND_SERVER_ERROR` — Internal server error on Electrum platform
 - `OUTBOUND_SERVICE_UNAVAILABLE` — Electrum service temporarily unavailable
 
+## Events
+
+**`outbound.credit_transfer.initiated`**
+  Payload: `uetr`, `end_to_end_identification`, `transaction_reference`, `payment_scheme`, `amount_value`, `amount_currency`
+
+**`outbound.credit_transfer.response_received`**
+  Payload: `uetr`, `end_to_end_identification`, `transaction_status`
+
+**`outbound.bulk_credit_transfer.initiated`**
+  Payload: `uetr`, `transaction_reference`, `payment_scheme`, `amount_value`
+
+**`outbound.bulk_credit_transfer.response_received`**
+  Payload: `uetr`, `transaction_status`
+
+**`outbound.direct_debit.initiated`**
+  Payload: `uetr`, `end_to_end_identification`, `mandate_reference`, `amount_value`
+
+**`outbound.direct_debit.response_received`**
+  Payload: `uetr`, `transaction_status`
+
+**`outbound.payment_return.initiated`**
+  Payload: `uetr`, `end_to_end_identification`, `return_reason`, `amount_value`
+
+**`outbound.payment_cancellation.initiated`**
+  Payload: `uetr`, `end_to_end_identification`, `cancellation_type`
+
+**`outbound.status_request.sent`**
+  Payload: `uetr`, `end_to_end_identification`
+
+**`outbound.identifier.report_received`**
+  Payload: `uetr`, `end_to_end_identification`
+
 ## Connects to
 
 - **chp-inbound-payments** *(recommended)* — Inbound payment processing — receiving payments from the national payment system

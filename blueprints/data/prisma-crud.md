@@ -51,6 +51,20 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `NOT_FOUND` — No {model} found
 - `VALIDATION_ERROR` — Invalid value for field {field}: {reason}
 
+## Events
+
+**`record.created`** — A new record has been created
+  Payload: `model`, `id`, `created_at`
+
+**`record.updated`** — A record has been updated
+  Payload: `model`, `id`, `updated_at`
+
+**`record.deleted`** — A record has been deleted
+  Payload: `model`, `id`, `deleted_at`
+
+**`record.upserted`** — A record has been created or updated
+  Payload: `model`, `id`, `created`
+
 ## Connects to
 
 - **prisma-schema** *(required)* — Models must be defined before querying

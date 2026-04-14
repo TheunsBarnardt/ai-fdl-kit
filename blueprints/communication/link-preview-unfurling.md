@@ -53,6 +53,11 @@ Specifies 11 acceptance outcomes that any implementation must satisfy, regardles
 - `PREVIEW_UNSAFE_PORT` — This URL cannot be previewed due to an unsupported port
 - `PREVIEW_FETCH_FAILED` — The link preview could not be loaded
 
+## Events
+
+**`url.preview_generated`** — Fired when a URL preview is successfully generated or served from cache for a message
+  Payload: `message_id`, `url`, `cached`
+
 ## Connects to
 
 - **direct-messaging** *(recommended)* — Link previews appear in direct message and channel conversations

@@ -50,6 +50,32 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `DATABASE_UNREACHABLE` — Could not connect to database: {error}
 - `GENERATION_FAILED` — Code generation failed: {error}
 
+## Events
+
+**`schema.formatted`** — Schema file has been formatted
+  Payload: `lines_modified`, `formatting_time_ms`
+
+**`schema.validated`** — Schema has been validated
+  Payload: `model_count`, `validation_time_ms`
+
+**`client.generated`** — Prisma Client has been generated
+  Payload: `generation_time_ms`, `output_path`, `type_count`
+
+**`project.initialized`** — Prisma project has been initialized
+  Payload: `database_provider`, `initialization_time_ms`
+
+**`schema.introspected`** — Database has been introspected
+  Payload: `model_count`, `table_count`, `relation_count`
+
+**`studio.launched`** — Prisma Studio has been launched
+  Payload: `port`, `startup_time_ms`
+
+**`validation.failed`** — Schema validation failed
+  Payload: `error_count`, `errors`
+
+**`connection.failed`** — Database connection failed
+  Payload: `error_code`, `error_message`
+
 ## Connects to
 
 - **prisma-schema** *(required)* — Schema must exist before CLI operations

@@ -78,6 +78,29 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `OWNER_TRANSFER_REQUIRED` — Cannot remove the last owner. Transfer ownership first.
 - `INSUFFICIENT_ORG_PERMISSION` — You do not have permission to perform this action in this organization
 
+## Events
+
+**`org.created`** — New organization created
+  Payload: `org_id`, `org_name`, `org_slug`, `owner_id`, `plan`, `timestamp`
+
+**`member.invited`** — Member invitation sent
+  Payload: `org_id`, `invite_email`, `invited_by`, `member_role`, `timestamp`
+
+**`member.joined`** — Member accepted invitation and joined the organization
+  Payload: `org_id`, `user_id`, `member_role`, `invited_by`, `timestamp`
+
+**`member.removed`** — Member removed from the organization
+  Payload: `org_id`, `user_id`, `removed_by`, `timestamp`
+
+**`member.role_changed`** — Member role updated within the organization
+  Payload: `org_id`, `user_id`, `old_role`, `new_role`, `changed_by`, `timestamp`
+
+**`member.invite_declined`** — Member declined the invitation
+  Payload: `org_id`, `invite_email`, `timestamp`
+
+**`org.plan_changed`** — Organization plan upgraded or downgraded
+  Payload: `org_id`, `old_plan`, `new_plan`, `changed_by`, `timestamp`
+
 ## Connects to
 
 - **role-based-access** *(recommended)* — Roles within an organization map to RBAC permission checks

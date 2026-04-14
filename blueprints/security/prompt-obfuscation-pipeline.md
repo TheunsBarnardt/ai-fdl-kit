@@ -50,6 +50,14 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 - `CONVERTER_TRANSFORM_FAILED` — A converter failed to transform the prompt. Check converter configuration and dependencies.
 - `CONVERTER_CHAIN_EMPTY` — The converter chain is empty. At least one converter must be configured.
 
+## Events
+
+**`security.converter.pipeline_complete`** — Emitted when all converters have been applied successfully.
+  Payload: `converter_chain`, `data_type`, `converted_prompt`
+
+**`security.converter.pipeline_failed`** — Emitted when a converter in the chain fails and the pipeline halts.
+  Payload: `converter_chain`, `failing_converter`, `reason`
+
 ## Connects to
 
 - **prompt-attack-augmentation** *(optional)* — Alternative augmentation approach used in the garak probe pipeline.

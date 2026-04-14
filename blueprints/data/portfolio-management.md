@@ -84,6 +84,23 @@ Specifies 11 acceptance outcomes that any implementation must satisfy, regardles
 - `PORTFOLIO_VALUATION_FAILURE` — Unable to retrieve current portfolio valuation. Please try again later.
 - `PORTFOLIO_EXPORT_FAILURE` — Unable to export portfolio to Excel. Please try again later.
 
+## Events
+
+**`portfolio.dashboard_viewed`** — User viewed dashboard summary
+  Payload: `account_number`, `user_id`, `view_date`, `device_type`
+
+**`portfolio.positions_retrieved`** — Full position list retrieved
+  Payload: `account_number`, `position_count`, `total_value`, `retrieval_date`
+
+**`portfolio.exported`** — Portfolio exported to Excel
+  Payload: `account_number`, `export_date`, `export_user_id`, `file_size`
+
+**`portfolio.valuation_updated`** — Portfolio valuation refreshed with new market prices
+  Payload: `account_number`, `market_value`, `valuation_date`, `portfolio_movement`, `position_count`
+
+**`portfolio.transaction_retrieved`** — Transaction history retrieved
+  Payload: `account_number`, `start_date`, `end_date`, `transaction_count`
+
 ## Connects to
 
 - **market-data-feeds** *(required)* — Requires real-time and EOD pricing data

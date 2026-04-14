@@ -51,6 +51,14 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `ATTACHMENT_TOO_LARGE` — Attachment exceeds the maximum allowed size.
 - `ATTACHMENT_RATE_LIMITED` — Too many attachment uploads. Please wait before trying again.
 
+## Events
+
+**`attachment.descriptor_issued`** — A signed upload descriptor was successfully issued to an authenticated client
+  Payload: `account_identifier`, `cdn_number`, `attachment_key`, `upload_length`
+
+**`attachment.rate_limited`** — An attachment upload descriptor request was rejected due to rate limiting
+  Payload: `account_identifier`
+
 ## Connects to
 
 - **login** *(required)* — User must hold a valid authenticated session before requesting an upload descriptor

@@ -65,6 +65,20 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `RATE_LIMIT_CONFIG_INVALID` — Invalid rate limit configuration
 - `RATE_LIMIT_STORAGE_ERROR` — Rate limit service temporarily unavailable
 
+## Events
+
+**`rate_limit.exceeded`** — Request rejected because rate limit was exceeded
+  Payload: `scope`, `identifier`, `endpoint`, `limit`, `window_seconds`, `ip_address`, `timestamp`
+
+**`rate_limit.warning`** — Request count approaching the configured limit (80% threshold)
+  Payload: `scope`, `identifier`, `endpoint`, `current_count`, `limit`, `window_seconds`
+
+**`rate_limit.burst_used`** — Request allowed using burst allowance (token bucket)
+  Payload: `scope`, `identifier`, `endpoint`, `burst_remaining`, `timestamp`
+
+**`rate_limit.ban_triggered`** — Source temporarily banned after excessive consecutive 429s
+  Payload: `scope`, `identifier`, `ban_duration_minutes`, `consecutive_429_count`, `timestamp`
+
 ## Connects to
 
 - **login** *(recommended)* — Login endpoints should have strict rate limits to prevent brute force

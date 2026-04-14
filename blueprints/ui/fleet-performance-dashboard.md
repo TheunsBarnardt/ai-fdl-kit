@@ -52,6 +52,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `DASHBOARD_WIDGET_INVALID` — The selected widget type is not supported.
 - `DASHBOARD_METRIC_UNAVAILABLE` — This metric is not available for the selected date range.
 
+## Events
+
+**`dashboard.created`** — Fired when a new dashboard is created
+  Payload: `dashboard_id`, `owner_uuid`, `name`
+
+**`dashboard.widget_added`** — Fired when a widget is added to a dashboard
+  Payload: `dashboard_id`, `widget_type`, `widget_config`
+
+**`dashboard.live_map_loaded`** — Fired when live driver map is rendered
+  Payload: `dashboard_id`, `online_driver_count`
+
+**`dashboard.metrics_refreshed`** — Fired when dashboard metrics are refreshed
+  Payload: `dashboard_id`, `timestamp`
+
+**`dashboard.report_exported`** — Fired when a dashboard report is exported
+  Payload: `dashboard_id`, `date_range`, `format`
+
 ## Connects to
 
 - **realtime-driver-tracking** *(required)* — Live map widget requires driver position data

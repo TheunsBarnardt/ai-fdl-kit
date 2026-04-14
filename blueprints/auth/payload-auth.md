@@ -95,6 +95,29 @@ Specifies 14 acceptance outcomes that any implementation must satisfy, regardles
 - `AUTH_TOKEN_EXPIRED` — The token has expired. Please request a new one
 - `AUTH_UNAUTHORIZED` — You must be logged in to perform this action
 
+## Events
+
+**`auth.login`** — Emitted after successful login — triggers afterLogin hooks
+  Payload: `user_id`, `email`, `timestamp`, `strategy`, `ip_address`
+
+**`auth.logout`** — Emitted after logout — triggers afterLogout hooks
+  Payload: `user_id`, `timestamp`
+
+**`auth.verify`** — Emitted when email verification succeeds
+  Payload: `user_id`, `email`, `timestamp`
+
+**`auth.forgot_password`** — Emitted after forgot password token generated — triggers afterForgotPassword hooks
+  Payload: `user_id`, `email`, `token`, `timestamp`
+
+**`auth.reset_password`** — Emitted after password is successfully reset
+  Payload: `user_id`, `email`, `timestamp`
+
+**`auth.refresh`** — Emitted after token refresh — triggers afterRefresh hooks
+  Payload: `user_id`, `token`, `timestamp`
+
+**`auth.unlock`** — Emitted when an account is unlocked
+  Payload: `user_id`, `email`, `timestamp`
+
 ## Connects to
 
 - **payload-access-control** *(required)* — Auth provides the user identity that access control evaluates

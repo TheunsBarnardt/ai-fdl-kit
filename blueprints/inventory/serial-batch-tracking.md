@@ -74,6 +74,26 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `BATCH_NEGATIVE_STOCK` — Transaction would result in negative batch quantity.
 - `BUNDLE_DUPLICATE_ENTRY` — Bundle contains duplicate serial numbers or batch entries.
 
+## Events
+
+**`serial.created`** — New serial number registered in the system
+  Payload: `serial_no`, `item_code`, `warehouse`
+
+**`serial.consumed`** — Serial number consumed in a manufacturing process
+  Payload: `serial_no`, `item_code`, `consumed_in`
+
+**`serial.delivered`** — Serial number delivered to a customer
+  Payload: `serial_no`, `item_code`, `customer`
+
+**`batch.created`** — New batch created for an item
+  Payload: `batch_id`, `item_code`, `expiry_date`
+
+**`batch.expired`** — Batch has passed its expiry date
+  Payload: `batch_id`, `item_code`, `expiry_date`
+
+**`bundle.created`** — Serial and batch bundle created for a grouped transaction
+  Payload: `bundle_id`, `item_code`, `type_of_transaction`, `total_qty`
+
 ## Connects to
 
 - **stock-entry-movements** *(required)* — Stock entries are the primary mechanism for serial/batch movement

@@ -48,6 +48,26 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `KEY_EXCHANGE_NO_KEYS` — No one-time keys available for this device
 - `KEY_EXCHANGE_QUERY_FAILED` — Key query could not be completed for one or more servers
 
+## Events
+
+**`keys.device_keys_uploaded`** — A device's long-lived identity keys were published
+  Payload: `user_id`, `device_id`
+
+**`keys.one_time_keys_uploaded`** — A batch of one-time pre-keys was added to a device's pool
+  Payload: `user_id`, `device_id`, `key_count`
+
+**`keys.one_time_key_claimed`** — A one-time key was consumed to bootstrap an Olm session
+  Payload: `claimer_id`, `target_device_id`
+
+**`keys.fallback_key_used`** — A fallback key was used because no one-time keys remained
+  Payload: `target_device_id`
+
+**`keys.query_completed`** — A device key query was resolved (fully or partially)
+  Payload: `querying_device_id`, `user_count`, `failures`
+
+**`keys.query_partial_failure`** — Key query completed but one or more servers were unreachable
+  Payload: `failed_servers`
+
 ## Connects to
 
 - **cross-signing-verification** *(recommended)* — Cross-signing keys are bundled in key query responses alongside device keys

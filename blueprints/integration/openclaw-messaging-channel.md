@@ -70,6 +70,23 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 - `ACCOUNT_NOT_AUTHORIZED` — Account token invalid or expired
 - `MEMBER_NOT_FOUND` — Member not found on platform
 
+## Events
+
+**`message.received`**
+  Payload: `channel_id`, `message_id`, `platform_user_id`, `message_type`, `peer_kind`
+
+**`message.sent`**
+  Payload: `channel_id`, `message_id`, `platform_message_id`, `delivery_time_ms`
+
+**`message.failed`**
+  Payload: `channel_id`, `message_id`, `error_code`, `final_attempt`
+
+**`platform.connected`**
+  Payload: `channel_id`, `account_id`
+
+**`platform.disconnected`**
+  Payload: `channel_id`, `account_id`, `reason`
+
 ## Connects to
 
 - **openclaw-message-routing** *(required)* — Routes messages to agents

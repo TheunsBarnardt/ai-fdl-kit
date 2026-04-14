@@ -48,6 +48,26 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `BREAKPOINT_ORDER_INVALID` — Breakpoints must be ordered from smallest to largest. Fix theme.screens to ensure correct cascade.
 - `UNKNOWN_BREAKPOINT` — Breakpoint variant not recognized. Check breakpoint name in theme.screens config.
 
+## Events
+
+**`layout.breakpoint_applied`**
+  Payload: `breakpoint_name`, `layout_stage`, `css_properties`
+
+**`layout.responsive_visibility`**
+  Payload: `element_selector`, `mobile_style`, `tablet_plus_style`
+
+**`layout.custom_breakpoint_defined`**
+  Payload: `breakpoint_name`, `pixel_value`
+
+**`layout.responsive_property`**
+  Payload: `property_name`, `value_cascade`
+
+**`layout.container_query_applied`**
+  Payload: `element_selector`, `container_size`
+
+**`layout.breakpoint_order_error`**
+  Payload: `breakpoints_list`, `error_message`
+
 ## Connects to
 
 - **utility-composition** *(required)* — Responsive variants (md:, lg:) apply utilities at breakpoints

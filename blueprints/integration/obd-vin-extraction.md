@@ -45,6 +45,11 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `OBD_NO_RESPONSE` — The vehicle did not respond to the VIN request. Check the connection and retry.
 - `OBD_VIN_INVALID` — The vehicle returned an invalid or incomplete VIN.
 
+## Events
+
+**`obd.vin.read`** — VIN was successfully read and decoded from the vehicle ECU
+  Payload: `vin`, `wmi`, `vds`, `vis`
+
 ## Connects to
 
 - **obd-port-connection** *(required)* — Active vehicle_connected state required to issue mode 9 queries

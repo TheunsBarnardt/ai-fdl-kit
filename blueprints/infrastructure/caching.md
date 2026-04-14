@@ -68,6 +68,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `CACHE_WRITE_FAILED` — Failed to write to cache; operation completed against data source
 - `CACHE_INVALIDATION_FAILED` — Cache invalidation failed; stale data may be served temporarily
 
+## Events
+
+**`cache.hit`** — A cache lookup found a valid entry
+  Payload: `cache_key`, `cache_tier`, `ttl_remaining`
+
+**`cache.miss`** — A cache lookup did not find a valid entry
+  Payload: `cache_key`, `cache_tier`
+
+**`cache.invalidated`** — A cache entry was removed or expired
+  Payload: `cache_key`, `invalidation_reason`, `cache_tier`
+
+**`cache.warmed`** — Cache warming job completed
+  Payload: `keys_warmed`, `cache_tier`, `duration_ms`
+
 ## Connects to
 
 - **search-and-filtering** *(optional)* — Search results benefit from caching for repeated queries

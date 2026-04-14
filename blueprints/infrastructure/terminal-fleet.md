@@ -69,6 +69,29 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `FLEET_UPDATE_FAILED` — App update failed — terminal will rollback to previous version
 - `FLEET_UNAUTHORIZED` — Device authentication failed — invalid certificate
 
+## Events
+
+**`fleet.terminal.registered`** — New terminal registered in fleet
+  Payload: `terminal_id`, `device_serial`, `merchant_id`, `location_name`
+
+**`fleet.heartbeat.received`** — Heartbeat received from terminal
+  Payload: `terminal_id`, `battery_level`, `scanner_status`, `card_reader_status`
+
+**`fleet.terminal.offline`** — Terminal marked offline after missed heartbeats
+  Payload: `terminal_id`, `location_name`, `last_heartbeat`
+
+**`fleet.config.pushed`** — Configuration update pushed to terminal
+  Payload: `terminal_id`, `config_version`
+
+**`fleet.update.triggered`** — OTA app update triggered for terminal
+  Payload: `terminal_id`, `app_version`
+
+**`fleet.terminal.decommissioned`** — Terminal permanently removed from fleet
+  Payload: `terminal_id`, `device_serial`
+
+**`fleet.hardware.degraded`** — Hardware component degraded on active terminal
+  Payload: `terminal_id`, `scanner_status`, `card_reader_status`, `location_name`
+
 ## Connects to
 
 - **terminal-payment-flow** *(recommended)* — Terminal payment flow runs on devices managed by this fleet system

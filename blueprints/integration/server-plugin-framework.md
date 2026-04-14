@@ -56,6 +56,26 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `PLUGIN_ID_CONFLICT` — A plugin with this ID is already installed.
 - `PLUGIN_INVALID_MANIFEST` — The plugin manifest is missing required fields or contains invalid values.
 
+## Events
+
+**`plugin.installed`** — Plugin archive uploaded and extracted
+  Payload: `plugin_id`, `version`, `actor_id`, `timestamp`
+
+**`plugin.activated`** — Plugin process started and running
+  Payload: `plugin_id`, `version`, `cluster_id`, `timestamp`
+
+**`plugin.deactivated`** — Plugin process gracefully stopped
+  Payload: `plugin_id`, `actor_id`, `timestamp`
+
+**`plugin.crashed`** — Plugin process terminated unexpectedly
+  Payload: `plugin_id`, `timestamp`
+
+**`plugin.activation_failed`** — Plugin failed to start or OnActivate returned an error
+  Payload: `plugin_id`, `error_reason`, `timestamp`
+
+**`plugin.configuration_changed`** — Plugin settings were updated; OnConfigurationChange delivered to plugin
+  Payload: `plugin_id`, `timestamp`
+
 ## Connects to
 
 - **custom-slash-commands** *(optional)* — Plugins can register slash commands in addition to custom commands created via the API

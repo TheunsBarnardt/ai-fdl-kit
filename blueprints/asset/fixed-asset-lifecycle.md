@@ -65,6 +65,26 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `ASSET_DEPRECIATION_EXISTS` — Depreciation entries already exist for this period. Cannot recalculate.
 - `ASSET_INVALID_CATEGORY` — The specified asset category does not exist or is not active.
 
+## Events
+
+**`asset.registered`** — Fired when a new asset is created
+  Payload: `asset_name`, `item_code`, `company`, `gross_purchase_amount`
+
+**`asset.depreciated`** — Fired when a depreciation entry is posted
+  Payload: `asset_name`, `depreciation_amount`, `accumulated_depreciation`
+
+**`asset.moved`** — Fired when asset location or custodian changes
+  Payload: `asset_name`, `from_location`, `to_location`, `custodian`
+
+**`asset.sold`** — Fired when an asset is sold
+  Payload: `asset_name`, `sale_amount`, `book_value`, `profit_loss`
+
+**`asset.scrapped`** — Fired when an asset is scrapped
+  Payload: `asset_name`, `book_value`
+
+**`asset.value_adjusted`** — Fired when asset value is manually adjusted
+  Payload: `asset_name`, `adjustment_amount`, `new_value`
+
 ## Connects to
 
 - **general-ledger** *(required)* — Depreciation and disposal entries post to general ledger

@@ -51,6 +51,14 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 - `SCORE_INSUFFICIENT_DATA` — Trip too short to calculate a driving score. More position data required.
 
+## Events
+
+**`driver.score.calculated`** — A per-trip driving behaviour score was calculated
+  Payload: `vehicle_id`, `trip_id`, `score`, `hard_braking_events`, `rapid_acceleration_events`, `high_power_events`
+
+**`driver.event.aggressive`** — An individual aggressive driving event was detected during a trip
+  Payload: `vehicle_id`, `trip_id`, `event_type`, `magnitude_ms2`, `recorded_at`, `latitude`, `longitude`
+
 ## Connects to
 
 - **vehicle-trip-segmentation** *(required)*

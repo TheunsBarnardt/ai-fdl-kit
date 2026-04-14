@@ -593,6 +593,16 @@ If pages contain visual diagrams:
 - [ ] All required top-level fields present
 - [ ] Comments explain WHY, referencing the source URL
 
+### AI-Proofing (MANDATORY — prevents re-introducing the fake-endpoint gap)
+
+Every extracted blueprint MUST include the three AI-proofing fields. API documentation is an especially rich source — use it.
+
+- [ ] **`aliases:`** — 5–10 alternate names. API docs often list synonyms (e.g. "OAuth" / "OpenID Connect", "webhook" / "callback", "SKU" / "product-code"). Include them.
+- [ ] **`api:`** — REQUIRED for all web-extracted blueprints. API docs pin method, path, request/response schemas, and status codes directly — transcribe them verbatim into `api.http.method`, `api.http.path`, `api.request.schema`, `api.response.success.schema`, `api.response.errors[]`. Do NOT rename or shorten paths. Each `error_code` must also appear in top-level `errors[]`.
+- [ ] **`anti_patterns:`** — API docs call out common integration mistakes under headings like "Common Pitfalls", "Security Considerations", "Do Not", or "Warnings". Extract those as `{ rule, why }` entries. Include rate-limit violations, auth header mistakes, idempotency-key misuse, webhook verification omissions — whichever apply.
+
+**Cross-validation:** every `error_code` in `api.response.errors[]` must exist in top-level `errors[]`. The validator will fail the blueprint otherwise.
+
 ## Automatic Post-Extraction Workflow
 
 **After blueprints are written, this must happen automatically:**

@@ -48,6 +48,23 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 
 - `MENTION_THRESHOLD_EXCEEDED` — Your message mentions all room members, but the room is too large for broadcast notifications. Mention specific users instead.
 
+## Events
+
+**`mention.user_notified`** — Fires when one or more individual users are notified via a direct @username mention
+  Payload: `message_id`, `room_id`, `sender_id`, `mentioned_user_ids`
+
+**`mention.all_notified`** — Fires when @all successfully triggers notifications for all room members
+  Payload: `message_id`, `room_id`, `sender_id`
+
+**`mention.here_notified`** — Fires when @here successfully triggers notifications for active room members
+  Payload: `message_id`, `room_id`, `sender_id`
+
+**`mention.group_notified`** — Fires when a group or team @mention triggers notifications for its members
+  Payload: `message_id`, `room_id`, `sender_id`, `mentioned_user_ids`
+
+**`mention.suppressed`** — Fires when a broadcast mention (@all or @here) is suppressed due to room size exceeding the configured threshold
+  Payload: `message_id`, `room_id`, `sender_id`, `mention_text`
+
 ## Connects to
 
 - **messaging** *(required)* — Mentions are parsed from messages; the messaging feature provides the message context

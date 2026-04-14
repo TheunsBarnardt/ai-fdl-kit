@@ -82,6 +82,26 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `LEAD_OWNER_IS_LEAD` — Lead owner cannot be the same person as the lead.
 - `OPPORTUNITY_ACTIVE_QUOTATION_EXISTS` — Cannot declare opportunity as lost while an active quotation exists. Cancel the quotation first.
 
+## Events
+
+**`lead.created`** — New lead record captured in the system
+  Payload: `lead_id`, `email_id`, `company_name`, `source`
+
+**`lead.qualified`** — Lead qualification status updated
+  Payload: `lead_id`, `qualification_status`
+
+**`lead.converted`** — Lead converted to an opportunity
+  Payload: `lead_id`, `opportunity_id`
+
+**`opportunity.created`** — New opportunity created from lead or directly
+  Payload: `opportunity_id`, `party_name`, `opportunity_amount`
+
+**`opportunity.won`** — Opportunity converted to a customer
+  Payload: `opportunity_id`, `customer_id`
+
+**`opportunity.lost`** — Opportunity declared lost with reasons
+  Payload: `opportunity_id`, `lost_reasons`
+
 ## Connects to
 
 - **customer-supplier-management** *(recommended)* — Lead-to-customer conversion creates customer records managed by this feature

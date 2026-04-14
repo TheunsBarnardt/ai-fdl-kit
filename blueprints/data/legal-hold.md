@@ -52,6 +52,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `LEGAL_HOLD_ALREADY_RELEASED` — This hold has already been released.
 - `LEGAL_HOLD_NOT_LICENSED` — Legal hold requires an enterprise compliance license.
 
+## Events
+
+**`legal_hold.created`** — A new legal hold was placed
+  Payload: `hold_id`, `name`, `custodian_count`, `channel_count`, `actor_id`, `timestamp`
+
+**`legal_hold.released`** — A legal hold was lifted
+  Payload: `hold_id`, `actor_id`, `timestamp`
+
+**`legal_hold.deletion_blocked`** — Retention deletion was skipped because content is under a legal hold
+  Payload: `hold_id`, `content_id`, `content_type`, `timestamp`
+
+**`legal_hold.exported`** — Held content packaged into an export archive for legal review
+  Payload: `hold_id`, `export_path`, `record_count`, `actor_id`, `timestamp`
+
 ## Connects to
 
 - **data-retention-policies** *(required)* — Legal holds override retention deletion; the two systems must coordinate

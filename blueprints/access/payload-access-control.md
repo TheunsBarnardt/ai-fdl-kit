@@ -54,6 +54,14 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `ACCESS_FORBIDDEN` — You are not allowed to perform this action
 - `ACCESS_UNAUTHORIZED` — You must be logged in to perform this action
 
+## Events
+
+**`access.denied`** — Emitted when access is denied — useful for audit logging
+  Payload: `user_id`, `collection_slug`, `operation`, `timestamp`
+
+**`access.evaluated`** — Emitted after access evaluation completes
+  Payload: `user_id`, `collection_slug`, `operation`, `result_type`
+
 ## Connects to
 
 - **payload-auth** *(required)* — Access control depends on authenticated user identity from auth system

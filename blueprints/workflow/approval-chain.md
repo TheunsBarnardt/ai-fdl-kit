@@ -63,6 +63,23 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `APPROVAL_ALREADY_WITHDRAWN` — This request has already been withdrawn.
 - `APPROVAL_INVALID_LEVEL` — The specified approval level configuration is invalid.
 
+## Events
+
+**`approval.requested`** — A new approval request was submitted
+  Payload: `request_id`, `request_type`, `requester_id`, `approval_levels`
+
+**`approval.approved`** — An approval level or the full request was approved
+  Payload: `request_id`, `level`, `approver_id`, `timestamp`
+
+**`approval.rejected`** — An approval request was rejected
+  Payload: `request_id`, `level`, `approver_id`, `reason`, `timestamp`
+
+**`approval.escalated`** — An approval timed out and was escalated
+  Payload: `request_id`, `level`, `timeout_hours`, `escalation_target_id`
+
+**`approval.delegated`** — Approval authority was delegated to another user
+  Payload: `request_id`, `from_approver_id`, `to_delegate_id`
+
 ## Connects to
 
 - **task-management** *(optional)* — Tasks requiring sign-off can trigger an approval chain

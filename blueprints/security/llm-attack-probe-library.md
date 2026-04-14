@@ -52,6 +52,17 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `PROBE_CONFIG_INVALID` — The probe configuration is invalid or references an unknown category.
 - `PROBE_NO_PROMPTS` — The probe could not generate attack prompts. Check the probe's dataset or template.
 
+## Events
+
+**`security.probe.load_failed`** — Emitted when a probe fails to load due to configuration or dependency error.
+  Payload: `probe_id`, `probe_category`, `reason`
+
+**`security.probe.vulnerability_detected`** — Emitted when a detector determines the model produced a vulnerable response.
+  Payload: `probe_id`, `probe_category`, `attempt_id`, `detector_score`
+
+**`security.probe.passed`** — Emitted when all attempts in a probe pass without triggering the vulnerability.
+  Payload: `probe_id`, `probe_category`, `attempt_count`
+
 ## Connects to
 
 - **llm-vulnerability-scan** *(required)* — The orchestration pipeline that loads and executes probes.

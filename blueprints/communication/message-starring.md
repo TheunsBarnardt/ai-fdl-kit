@@ -44,6 +44,14 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `STAR_NOT_AUTHENTICATED` — You must be logged in to star messages
 - `STAR_NO_CHANNEL_ACCESS` — You do not have access to this channel
 
+## Events
+
+**`message.starred`** — Fired when a user adds a personal star to a message
+  Payload: `message_id`, `channel_id`, `user_id`
+
+**`message.unstarred`** — Fired when a user removes their personal star from a message
+  Payload: `message_id`, `channel_id`, `user_id`
+
 ## Connects to
 
 - **message-pinning** *(optional)* — Pinning is the channel-level equivalent; starring is per-user and private

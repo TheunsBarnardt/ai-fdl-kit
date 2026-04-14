@@ -63,6 +63,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `DEPRECIATION_INVALID_SALVAGE` — Salvage value must be less than the acquisition cost.
 - `DEPRECIATION_INVALID_START_DATE` — Depreciation start date cannot be before the vehicle's acquisition date.
 
+## Events
+
+**`depreciation.schedule_generated`** — A full depreciation schedule has been computed for a vehicle
+  Payload: `vehicle`, `depreciation_method`, `total_periods`, `period_amount`, `depreciation_start_date`
+
+**`depreciation.period_posted`** — A periodic depreciation amount has been posted for a vehicle
+  Payload: `vehicle`, `posting_date`, `period_amount`, `accumulated_depreciation`, `current_book_value`
+
+**`depreciation.fully_depreciated`** — A vehicle's book value has reached its salvage value
+  Payload: `vehicle`, `depreciation_date`, `salvage_value`, `total_depreciation_posted`
+
+**`depreciation.disposal_posted`** — Final accounting entries for vehicle disposal have been posted
+  Payload: `vehicle`, `disposal_date`, `current_book_value`, `disposal_proceeds`, `gain_or_loss`
+
+**`depreciation.schedule_recalculated`** — The depreciation schedule was revised following a capitalised repair or useful-life extension
+  Payload: `vehicle`, `new_book_value`, `new_total_periods`, `capitalised_repair_amount`
+
 ## Connects to
 
 - **vehicle-master-data** *(required)* — Acquisition cost and date from the vehicle master seed the depreciation calculation

@@ -64,6 +64,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `GL_PERIOD_CLOSED` — Cannot post GL entries in a closed accounting period.
 - `GL_COST_CENTER_REQUIRED` — Cost center is required for profit and loss accounts.
 
+## Events
+
+**`gl.entry_posted`** — GL entries are created for a voucher
+  Payload: `voucher_type`, `voucher_no`, `account`, `debit`, `credit`, `posting_date`
+
+**`gl.entry_reversed`** — GL entries for a voucher are reversed
+  Payload: `voucher_type`, `voucher_no`, `reversal_voucher_no`
+
+**`account.created`** — New account is added to the chart of accounts
+  Payload: `account_name`, `account_number`, `root_type`, `parent_account`
+
+**`account.frozen`** — Account is frozen to prevent further postings
+  Payload: `account_name`, `account_number`, `frozen_by`
+
 ## Connects to
 
 - **sales-purchase-invoicing** *(required)* — Invoice submission posts GL entries

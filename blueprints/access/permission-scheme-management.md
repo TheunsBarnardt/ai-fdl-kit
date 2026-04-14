@@ -61,6 +61,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `SCHEME_INVALID_ROLE` — One or more referenced role IDs do not exist.
 - `SCHEME_DESCRIPTION_TOO_LONG` — Scheme description must be 1024 characters or fewer.
 
+## Events
+
+**`scheme.created`** — A new permission scheme was created
+  Payload: `scheme_id`, `name`, `scope`, `actor_id`, `timestamp`
+
+**`scheme.updated`** — Scheme settings or role permissions were modified
+  Payload: `scheme_id`, `changed_fields`, `actor_id`, `timestamp`
+
+**`scheme.deleted`** — Permission scheme was deleted and all assignments cleared
+  Payload: `scheme_id`, `actor_id`, `timestamp`
+
+**`scheme.assigned_to_workspace`** — Scheme applied to a workspace to customize member role defaults
+  Payload: `scheme_id`, `workspace_id`, `actor_id`, `timestamp`
+
+**`scheme.assigned_to_channel`** — Scheme applied to a channel to customize member role defaults
+  Payload: `scheme_id`, `channel_id`, `actor_id`, `timestamp`
+
 ## Connects to
 
 - **role-based-access-control** *(required)* — Schemes reference and configure roles; RBAC is the underlying mechanism

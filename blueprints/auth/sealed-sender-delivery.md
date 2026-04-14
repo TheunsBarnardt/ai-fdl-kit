@@ -53,6 +53,20 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `SEALED_SENDER_RECIPIENT_NOT_FOUND` — Recipient not found
 - `SEALED_SENDER_RATE_LIMITED` — Too many messages sent to this recipient; please retry later
 
+## Events
+
+**`sealed_sender.delivered`** — A sealed-sender message was successfully enqueued for a single recipient
+  Payload: `destination_identifier`, `timestamp`, `device_count`
+
+**`sealed_sender.multi_delivered`** — A sealed-sender multi-recipient message was fanned out to group members
+  Payload: `recipient_count`, `unresolved_recipients`, `timestamp`
+
+**`sealed_sender.rejected`** — A sealed-sender delivery attempt was rejected due to failed authentication or a missing recipient
+  Payload: `destination_identifier`, `reason`
+
+**`sealed_sender.rate_limited`** — A sealed-sender delivery attempt was rate-limited
+  Payload: `destination_identifier`
+
 ## Connects to
 
 - **e2e-key-exchange** *(required)* — Pre-key bundles and identity keys established by the key exchange feature are used to encrypt messages that travel over the sealed-sender path

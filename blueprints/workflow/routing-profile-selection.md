@@ -48,6 +48,17 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `ROUTING_PROFILE_COST_CONFLICT` — Custom cost matrix cannot be combined with per_hour or per_km vehicle costs.
 - `ROUTING_INVALID_SPEED_FACTOR` — speed_factor must be greater than 0 and at most 5.
 
+## Events
+
+**`routing.matrix.ready`** — Travel matrix successfully obtained for a routing profile
+  Payload: `profile`, `matrix_size`, `retrieval_duration_ms`
+
+**`routing.matrix.failed`** — Could not retrieve matrix for the routing profile
+  Payload: `profile`, `error_message`, `problem_location`
+
+**`routing.matrix.scaled`** — Duration matrix scaled by speed_factor for a vehicle
+  Payload: `vehicle_id`, `profile`, `speed_factor`
+
 ## Connects to
 
 - **vrp-solving** *(required)*

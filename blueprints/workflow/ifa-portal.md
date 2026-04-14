@@ -75,6 +75,53 @@ Specifies 16 acceptance outcomes that any implementation must satisfy, regardles
 - `MESSAGE_SEND_FAILED` — Failed to send message. Please try again
 - `IMPERSONATION_EXPIRED` — Client view session has expired
 
+## Events
+
+**`ifa.logged_in`** — IFA logged into portal
+  Payload: `ifa_id`, `timestamp`
+
+**`ifa.access_denied`** — IFA access denied
+  Payload: `ifa_id`, `ifa_status`, `timestamp`
+
+**`ifa.clients_listed`** — IFA viewed client list
+  Payload: `ifa_id`, `client_count`, `timestamp`
+
+**`ifa.client_viewed`** — IFA viewed client detail
+  Payload: `ifa_id`, `client_id`, `timestamp`
+
+**`ifa.client_view_started`** — IFA started client view impersonation
+  Payload: `ifa_id`, `client_id`, `timestamp`
+
+**`ifa.client_view_ended`** — IFA ended client view session
+  Payload: `ifa_id`, `client_id`, `duration_minutes`, `timestamp`
+
+**`ifa.onboarding_assisted`** — IFA assisted with client onboarding
+  Payload: `ifa_id`, `client_id`, `onboarding_id`, `timestamp`
+
+**`ifa.onboarding_initiated`** — IFA initiated onboarding for client
+  Payload: `ifa_id`, `client_id`, `onboarding_id`, `timestamp`
+
+**`ifa.message_sent`** — IFA sent message to client
+  Payload: `ifa_id`, `client_id`, `message_type`, `timestamp`
+
+**`ifa.product_suggested`** — IFA suggested products to client
+  Payload: `ifa_id`, `client_id`, `suggested_product_ids`, `timestamp`
+
+**`ifa.lead_submitted`** — IFA submitted a new lead
+  Payload: `ifa_id`, `lead_id`, `lead_source`, `referring_client_id`, `timestamp`
+
+**`ifa.lead_updated`** — IFA updated lead status
+  Payload: `ifa_id`, `lead_id`, `old_status`, `new_status`, `timestamp`
+
+**`ifa.lead_converted`** — Lead converted to client
+  Payload: `ifa_id`, `lead_id`, `new_client_id`, `timestamp`
+
+**`ifa.messages_viewed`** — IFA viewed message history with client
+  Payload: `ifa_id`, `client_id`, `timestamp`
+
+**`ifa.dashboard_viewed`** — IFA viewed portal dashboard
+  Payload: `ifa_id`, `timestamp`
+
 ## Connects to
 
 - **client-onboarding** *(required)* — IFA assists clients through the onboarding process

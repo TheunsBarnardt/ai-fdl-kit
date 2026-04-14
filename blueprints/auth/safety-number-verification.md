@@ -45,6 +45,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `IDENTITY_CHECK_INVALID_REQUEST` — Identity check request is malformed; check fingerprint sizes and identifier formats
 - `IDENTITY_PREKEY_INVALID_SIGNATURE` — Pre-key signature does not match the account identity key
 
+## Events
+
+**`identity.verified`** — A batch identity check confirmed all submitted fingerprints match the server-stored keys
+  Payload: `service_identifier`, `identity_type`
+
+**`identity.key_mismatch`** — At least one submitted fingerprint did not match the stored identity key, indicating a possible key change
+  Payload: `service_identifier`, `identity_key`, `identity_type`
+
+**`identity.lookup_failed`** — The requested service identifier was not found in the account store during a batch identity check
+  Payload: `service_identifier`
+
+**`identity.certificate_issued`** — A short-lived sender certificate was issued to an authenticated device
+  Payload: `service_identifier`, `device_id`, `expires_at`
+
+**`identity.prekey_validation_failed`** — A signed pre-key upload was rejected because its signature was invalid
+  Payload: `service_identifier`, `device_id`
+
 ## Connects to
 
 - **e2e-key-exchange** *(required)* — Identity keys established during key exchange are the source of truth that safety number verification checks

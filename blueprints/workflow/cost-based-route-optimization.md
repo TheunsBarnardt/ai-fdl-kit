@@ -45,6 +45,20 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `COST_MATRIX_CONFLICT` — Custom cost matrix cannot be combined with per_hour or per_km vehicle cost parameters.
 - `COST_VALUE_OVERFLOW` — Cost values are too large and would cause an internal overflow.
 
+## Events
+
+**`solution.cost.minimised`** — Least-cost feasible solution selected from all search paths
+  Payload: `total_cost`, `routes_used`, `total_duration`, `total_distance`
+
+**`solution.fleet.reduced`** — Fewer vehicles used to avoid fixed costs while maintaining assignment
+  Payload: `vehicles_used`, `vehicles_available`, `fixed_cost_saved`
+
+**`route.cost.distance_weighted`** — Route cost includes per-kilometre distance component
+  Payload: `vehicle_id`, `distance_km`, `distance_cost`
+
+**`solution.cost.reported`** — Final costs reported in solution output
+  Payload: `total_cost`, `per_route_costs`, `summary`
+
 ## Connects to
 
 - **vrp-solving** *(required)*

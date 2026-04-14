@@ -98,6 +98,32 @@ Combines technical outcomes (acceptance criteria) with documented business flows
 - `TERMINAL_REFUND_UNAUTHORIZED` — Manager authorization required for refunds
 - `TERMINAL_INVALID_AMOUNT` — Invalid payment amount
 
+## Events
+
+**`terminal.amount.confirmed`** — Payment amount confirmed by merchant
+  Payload: `transaction_id`, `terminal_id`, `amount`
+
+**`terminal.payment.approved`** — Payment approved (palm or card)
+  Payload: `transaction_id`, `terminal_id`, `amount`, `payment_method`, `authorization_code`
+
+**`terminal.palm.declined`** — Palm payment declined — card fallback offered
+  Payload: `transaction_id`, `terminal_id`
+
+**`terminal.card.declined`** — Card payment declined by issuer
+  Payload: `transaction_id`, `terminal_id`, `card_brand`, `card_last_four`
+
+**`terminal.receipt.sent`** — Digital receipt delivered
+  Payload: `transaction_id`, `receipt_type`, `receipt_destination`
+
+**`terminal.receipt.declined`** — Customer declined receipt
+  Payload: `transaction_id`
+
+**`terminal.refund.processed`** — Refund processed with manager authorization
+  Payload: `transaction_id`, `original_transaction_id`, `amount`, `refund_authorized_by`
+
+**`terminal.session.timeout`** — Transaction timed out at method selection
+  Payload: `transaction_id`, `terminal_id`
+
 ## Connects to
 
 - **palm-pay** *(required)* — Palm vein payment resolution for hands-free payment method

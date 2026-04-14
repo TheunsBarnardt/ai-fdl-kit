@@ -54,6 +54,11 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `ORDER_NOT_FOUND` — Order not found.
 - `WAYPOINTS_INCOMPLETE` — Not all waypoints have been completed.
 
+## Events
+
+**`order.updated`** — Fired on every successful activity transition.
+  Payload: `order_id`, `status`, `activity_code`, `driver_id`, `location`, `timestamp`
+
 ## Connects to
 
 - **ride-request-lifecycle** *(required)* — The lifecycle is driven by this state machine.

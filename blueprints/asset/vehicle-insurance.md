@@ -56,6 +56,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `INSURANCE_DUPLICATE_POLICY` — A policy with this number already exists for this provider.
 - `INSURANCE_VEHICLE_UNINSURED` — Vehicle cannot be dispatched — no active insurance policy on record.
 
+## Events
+
+**`vehicle.insurance_activated`** — A new insurance policy has been recorded for the vehicle
+  Payload: `vehicle`, `policy_number`, `insurance_provider`, `start_date`, `end_date`
+
+**`vehicle.insurance_expiring`** — An insurance policy is within the renewal reminder window
+  Payload: `vehicle`, `policy_number`, `end_date`, `days_remaining`
+
+**`vehicle.insurance_renewed`** — An insurance policy has been renewed with a new effective period
+  Payload: `vehicle`, `old_policy_number`, `new_policy_number`, `new_end_date`
+
+**`vehicle.insurance_cancelled`** — An insurance policy has been cancelled before its expiry date
+  Payload: `vehicle`, `policy_number`, `cancellation_reason`
+
+**`vehicle.insurance_expired`** — An insurance policy lapsed without renewal
+  Payload: `vehicle`, `policy_number`, `end_date`
+
 ## Connects to
 
 - **vehicle-registration** *(required)* — Insurance is tied to a registered vehicle

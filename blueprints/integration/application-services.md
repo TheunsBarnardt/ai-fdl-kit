@@ -46,6 +46,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `APPSERVICE_NAMESPACE_CONFLICT` — This alias or user ID is reserved by a registered application service
 - `APPSERVICE_SERVICE_UNAVAILABLE` — Application service is currently unavailable
 
+## Events
+
+**`appservice.events_delivered`** — A batch of room events was successfully delivered to a service
+  Payload: `service_id`, `transaction_id`, `event_count`
+
+**`appservice.user_provisioned`** — A service provisioned a virtual user in response to a query
+  Payload: `service_id`, `user_id`
+
+**`appservice.alias_provisioned`** — A service provisioned a room in response to an alias query
+  Payload: `service_id`, `alias`
+
+**`appservice.delivery_failed`** — Event delivery to a service failed; retry scheduled
+  Payload: `service_id`, `transaction_id`, `retry_count`
+
 ## Connects to
 
 - **room-aliases** *(required)* — Application services enforce exclusive namespace rules on alias creation

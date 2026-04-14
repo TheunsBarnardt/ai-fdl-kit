@@ -80,6 +80,32 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `OFFLINE_PROCESSING_FAILED` — Failed to process queued transaction after retries
 - `OFFLINE_TRANSACTION_EXPIRED` — Queued transaction has expired
 
+## Events
+
+**`offline.transaction.queued`** — Transaction added to offline queue
+  Payload: `queue_id`, `transaction_id`, `amount`, `payment_method`
+
+**`offline.queue.flushed`** — Offline queue flush started on reconnect
+  Payload: `terminal_id`, `current_queue_depth`, `current_queue_total`
+
+**`offline.transaction.settled`** — Queued transaction processed and settled
+  Payload: `queue_id`, `transaction_id`, `amount`
+
+**`offline.transaction.failed`** — Queued transaction failed after retries
+  Payload: `queue_id`, `transaction_id`, `amount`, `failure_reason`
+
+**`offline.transaction.expired`** — Queued transaction expired
+  Payload: `queue_id`, `transaction_id`, `amount`, `queued_at`
+
+**`offline.limit.amount_exceeded`** — Transaction blocked — amount exceeds offline limit
+  Payload: `transaction_id`, `amount`, `offline_max_amount`
+
+**`offline.limit.queue_full`** — Transaction blocked — queue is full
+  Payload: `terminal_id`, `current_queue_depth`
+
+**`offline.limit.total_exceeded`** — Transaction blocked — total value limit reached
+  Payload: `terminal_id`, `current_queue_total`, `offline_max_total_value`
+
 ## Connects to
 
 - **terminal-payment-flow** *(required)* — Payment flow routes to offline queue when terminal is offline

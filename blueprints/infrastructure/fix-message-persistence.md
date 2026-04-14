@@ -59,6 +59,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `SEQUENCE_RESTORE_FAILED` — Failed to restore sequence numbers from store
 - `STORE_READ_FAILED` — Failed to retrieve messages from store
 
+## Events
+
+**`fix.store.message_persisted`** — A message was successfully persisted to the store
+  Payload: `session_id`, `msg_seq_num`
+
+**`fix.store.resend_range_retrieved`** — A range of messages was retrieved from the store for resend
+  Payload: `session_id`, `begin_seq_no`, `end_seq_no`, `message_count`
+
+**`fix.store.reset`** — Store was reset; sequence numbers set to 1 and messages cleared
+  Payload: `session_id`, `reset_time`
+
+**`fix.store.error`** — A store operation failed
+  Payload: `session_id`, `operation`, `error_detail`
+
 ## Connects to
 
 - **fix-session-management** *(required)* — Session layer calls the store on every sent/received message to maintain sequence integrity

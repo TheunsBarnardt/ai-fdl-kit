@@ -52,6 +52,20 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `USER_ALREADY_DEACTIVATED` — This account is already deactivated.
 - `USER_CANNOT_DELETE_SELF` — Administrators cannot permanently delete their own account through this operation.
 
+## Events
+
+**`user.deactivated`** — User account suspended; all sessions revoked
+  Payload: `user_id`, `actor_id`, `reason`, `timestamp`
+
+**`user.reactivated`** — Suspended user account restored to active status
+  Payload: `user_id`, `actor_id`, `timestamp`
+
+**`user.permanently_deleted`** — User account and all associated data permanently removed
+  Payload: `user_id`, `actor_id`, `timestamp`
+
+**`user.bot_deactivated_on_owner_suspend`** — Bot deactivated because its owner was deactivated
+  Payload: `bot_user_id`, `owner_user_id`, `timestamp`
+
 ## Connects to
 
 - **session-management-revocation** *(required)* — Deactivation immediately revokes all active sessions

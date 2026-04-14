@@ -53,6 +53,17 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `NOTIFICATION_INVALID_PREFERENCE` — The selected notification level is not valid.
 - `NOTIFICATION_CHANNEL_NOT_FOUND` — The specified channel was not found.
 
+## Events
+
+**`notification_prefs.updated`** — User updated their global notification preferences
+  Payload: `user_id`, `changed_fields`, `timestamp`
+
+**`user.status_changed`** — User availability status changed (online/away/dnd/offline)
+  Payload: `user_id`, `old_status`, `new_status`, `dnd_end_time`, `timestamp`
+
+**`notification.suppressed`** — A notification was suppressed due to user preference or DND status
+  Payload: `user_id`, `notification_type`, `reason`, `channel_id`, `timestamp`
+
 ## Connects to
 
 - **email-notifications** *(required)* — Email notification preferences are part of the same preference set

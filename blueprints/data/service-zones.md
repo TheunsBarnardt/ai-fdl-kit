@@ -51,6 +51,14 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `ZONE_NOT_FOUND` — The specified zone could not be found.
 - `INVALID_GEOMETRY` — The provided border geometry is not a valid polygon.
 
+## Events
+
+**`zone.driver_entered`** — Driver's location update places them inside a zone boundary.
+  Payload: `zone_id`, `driver_id`, `latitude`, `longitude`
+
+**`zone.driver_exited`** — Driver's location update places them outside a zone they were previously in.
+  Payload: `zone_id`, `driver_id`, `latitude`, `longitude`
+
 ## Connects to
 
 - **fleet-vehicle-registry** *(recommended)* — Fleets can be scoped to specific service areas and zones.

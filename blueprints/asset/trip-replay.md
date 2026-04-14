@@ -58,6 +58,14 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 - `ELEVATION_SERVICE_UNAVAILABLE` — Elevation data could not be retrieved. Profiles will be incomplete until resolved.
 
+## Events
+
+**`trip.replay.ready`** — A completed trip has all position data and aggregates needed for replay
+  Payload: `vehicle_id`, `trip_id`, `position_count`, `trip_ascent_m`, `trip_descent_m`, `trip_speed_max_kmh`
+
+**`trip.elevation.backfilled`** — Elevation data was resolved for positions that previously had none
+  Payload: `vehicle_id`, `trip_id`, `position_count_updated`
+
 ## Connects to
 
 - **vehicle-trip-segmentation** *(required)*

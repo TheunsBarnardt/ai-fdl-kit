@@ -42,6 +42,11 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 - `MAINTENANCE_DEVICE_NOT_FOUND` — The device referenced does not exist
 - `MAINTENANCE_NOT_FOUND` — The specified maintenance definition does not exist
 
+## Events
+
+**`maintenance.due`** — A maintenance threshold has been reached for a tracked vehicle
+  Payload: `device_id`, `maintenance_id`, `maintenance_name`, `tracking_type`, `current_value`, `threshold_value`
+
 ## Connects to
 
 - **odometer-tracking** *(required)* — Odometer values are the primary trigger metric for distance-based maintenance

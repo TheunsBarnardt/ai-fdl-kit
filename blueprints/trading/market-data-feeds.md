@@ -92,6 +92,32 @@ Specifies 17 acceptance outcomes that any implementation must satisfy, regardles
 - `MARKET_TRADE_INVALID_FORMAT` — The trade message format is invalid. Please verify the message structure.
 - `MARKET_DATA_UNAVAILABLE` — Market data is temporarily unavailable. Please try again later.
 
+## Events
+
+**`market.commodities_fetched`** — Commodity prices retrieved
+  Payload: `quote_date`, `commodity_count`, `data_source`
+
+**`market.forex_fetched`** — Forex rates retrieved
+  Payload: `quote_date`, `pair_count`
+
+**`market.indices_fetched`** — Index data retrieved
+  Payload: `quote_date`, `index_count`
+
+**`market.watchlist_created`** — User created new watchlist
+  Payload: `watchlist_id`, `watchlist_owner_id`, `created_date`
+
+**`market.watchlist_instrument_added`** — Instrument added to watchlist
+  Payload: `watchlist_id`, `instrument_code`
+
+**`market.watchlist_deleted`** — Watchlist deleted
+  Payload: `watchlist_id`, `watchlist_owner_id`
+
+**`market.trade_executed`** — Trade received and processed from feed
+  Payload: `trade_id`, `instrument_code_traded`, `trade_quantity`, `trade_price`, `settlement_date`
+
+**`market.trade_failed`** — Trade failed to process
+  Payload: `raw_message`, `error_details`, `timestamp`
+
 ## Connects to
 
 - **portfolio-management** *(required)* — Provides pricing data for portfolio valuations

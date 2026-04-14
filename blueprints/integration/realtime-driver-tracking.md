@@ -60,6 +60,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `TRACKING_ACCESS_DENIED` — You do not have permission to view this location.
 - `TRACKING_SUBJECT_NOT_FOUND` — Tracked subject not found.
 
+## Events
+
+**`tracking.position_updated`** — Fired on every GPS position update
+  Payload: `subject_uuid`, `subject_type`, `coordinates`, `speed`, `heading`, `order_uuid`, `timestamp`
+
+**`tracking.arrived_at_waypoint`** — Fired when driver enters the geofence radius of a waypoint
+  Payload: `subject_uuid`, `order_uuid`, `destination_uuid`, `coordinates`, `timestamp`
+
+**`tracking.departed_from_waypoint`** — Fired when driver leaves a waypoint geofence
+  Payload: `subject_uuid`, `order_uuid`, `destination_uuid`, `coordinates`, `timestamp`
+
+**`tracking.device_online`** — Fired when a tracking device comes online
+  Payload: `subject_uuid`, `device_id`, `device_type`
+
+**`tracking.device_offline`** — Fired when a tracking device goes offline
+  Payload: `subject_uuid`, `device_id`, `last_known_position`
+
 ## Connects to
 
 - **driver-profile** *(required)* — Driver profile holds the current location field

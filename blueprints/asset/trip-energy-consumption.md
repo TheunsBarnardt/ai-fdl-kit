@@ -45,6 +45,17 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 - `EFFICIENCY_NO_DATA` — Not enough qualifying charging sessions to derive an efficiency factor.
 
+## Events
+
+**`trip.energy.calculated`** — Energy consumption estimate attached to a completed trip
+  Payload: `vehicle_id`, `trip_id`, `estimated_energy_kwh`, `range_delta_km`, `efficiency_wh_per_km`
+
+**`vehicle.efficiency.updated`** — Vehicle efficiency factor recalculated from charging history
+  Payload: `vehicle_id`, `new_efficiency_wh_per_km`, `sample_count`, `precision_used`
+
+**`vehicle.efficiency.unchanged`** — Efficiency derivation ran but found no consensus; value kept
+  Payload: `vehicle_id`, `reason`
+
 ## Connects to
 
 - **vehicle-trip-segmentation** *(required)*

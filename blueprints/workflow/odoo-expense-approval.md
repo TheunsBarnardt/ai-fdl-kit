@@ -1,6 +1,6 @@
 <!-- AUTO-GENERATED FROM odoo-expense-approval.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
 
-# Expense Approval
+# Expense Approval Workflow
 
 > Employee expense submission and approval workflow with multi-level authorization, reimbursement tracking, accounting journal entry generation, and payment processing.
 
@@ -65,6 +65,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `EXPENSE_ALREADY_POSTED` — This expense has been posted to accounting and cannot be edited.
 - `EXPENSE_DUPLICATE_DETECTED` — A similar expense already exists. Please verify this is not a duplicate.
 
+## Events
+
+**`expense.submitted`** — Employee submitted an expense for approval
+  Payload: `expense_id`, `employee_id`, `total_amount`
+
+**`expense.approved`** — Expense approved by manager
+  Payload: `expense_id`, `approver_id`, `total_amount`
+
+**`expense.refused`** — Expense refused by manager
+  Payload: `expense_id`, `approver_id`, `reason`
+
+**`expense.posted`** — Expense posted to accounting
+  Payload: `expense_id`, `journal_entry_id`
+
+**`expense.paid`** — Employee reimbursement completed
+  Payload: `expense_id`, `payment_id`, `amount`
+
 ## Connects to
 
 - **invoicing-payments** *(required)* — Expense posting creates journal entries in the accounting system
@@ -93,6 +110,6 @@ Automated quality score measuring outcome coverage, rule structure, error bindin
 
 ---
 
-**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/workflow/expense-approval/) · **Spec source:** [`expense-approval.blueprint.yaml`](./expense-approval.blueprint.yaml)
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/workflow/expense-approval-workflow/) · **Spec source:** [`expense-approval-workflow.blueprint.yaml`](./expense-approval-workflow.blueprint.yaml)
 
 *Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

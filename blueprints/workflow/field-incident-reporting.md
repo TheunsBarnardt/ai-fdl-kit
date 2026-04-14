@@ -58,6 +58,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `INCIDENT_NOT_FOUND` — Incident not found.
 - `INCIDENT_ALREADY_CLOSED` — This incident is already closed.
 
+## Events
+
+**`incident.reported`** — Fired when a new incident is submitted
+  Payload: `issue_id`, `reported_by_uuid`, `type`, `priority`, `location`
+
+**`incident.critical_escalated`** — Fired immediately when a critical priority incident is reported
+  Payload: `issue_id`, `type`, `driver_uuid`, `vehicle_uuid`, `location`
+
+**`incident.assigned`** — Fired when an incident is assigned to an agent
+  Payload: `issue_id`, `assigned_to_uuid`
+
+**`incident.resolved`** — Fired when an incident is resolved
+  Payload: `issue_id`, `assigned_to_uuid`, `resolved_at`
+
+**`incident.closed`** — Fired when an incident is closed
+  Payload: `issue_id`, `reason`
+
 ## Connects to
 
 - **driver-profile** *(required)* — Incidents are linked to the reporting driver

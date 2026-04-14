@@ -53,6 +53,17 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `ATTACK_TARGET_UNAVAILABLE` — The target model could not be reached. Attack cannot proceed.
 - `ATTACK_INVALID_STRATEGY` — The specified attack strategy is not recognised.
 
+## Events
+
+**`security.attack.objective_achieved`** — Emitted when the multi-turn attack successfully elicits the harmful objective.
+  Payload: `attack_id`, `strategy`, `turn_count`, `objective`
+
+**`security.attack.refusal_detected`** — Emitted when the target model refuses a prompt and backtracking begins.
+  Payload: `attack_id`, `strategy`, `current_turn`
+
+**`security.attack.failed`** — Emitted when the attack exhausts its allowed turns or backtracks.
+  Payload: `attack_id`, `strategy`, `reason`
+
 ## Connects to
 
 - **ai-response-harm-scorer** *(required)* — Scores each target response to determine attack progress.

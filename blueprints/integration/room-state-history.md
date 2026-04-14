@@ -51,6 +51,17 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `EVENT_TOO_LARGE` — Event exceeds the maximum permitted size
 - `EVENT_MALFORMED` — Event is missing required fields or contains invalid structure
 
+## Events
+
+**`room.event.persisted`** — An event has been validated and appended to the room graph
+  Payload: `event_id`, `room_id`, `event_type`, `state_key`
+
+**`room.state.resolved`** — State conflict resolved; new authoritative state snapshot stored
+  Payload: `room_id`, `state_group`
+
+**`room.event.rejected`** — An event was rejected due to auth, signature, or size failure
+  Payload: `event_id`, `rejection_reason`
+
 ## Connects to
 
 - **room-power-levels** *(required)* — Power level state event is consulted during every state event authorization

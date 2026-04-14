@@ -114,6 +114,71 @@ Specifies 21 acceptance outcomes that any implementation must satisfy, regardles
 - `MSAL_TIMEOUT` — Azure AD token acquisition timed out after 30 seconds.
 - `CERTIFICATE_NOT_FOUND` — Certificate with specified thumbprint not found in Windows certificate store.
 
+## Events
+
+**`connection.initiated`** — Service client initialization started
+  Payload: `service_uri`, `authentication_type`
+
+**`connection.established`** — Successfully connected and authenticated to Dataverse
+  Payload: `service_uri`, `organization_id`, `organization_name`
+
+**`connection.failed`** — Connection attempt failed
+  Payload: `error_code`, `error_message`
+
+**`connection.disposed`** — Service client connection closed and resources released
+  Payload: `timestamp`
+
+**`discovery.started`** — Organization discovery operation initiated
+  Payload: `discovery_uri`
+
+**`discovery.completed`** — Organization discovery completed
+  Payload: `organization_count`
+
+**`record.created`** — Entity record successfully created
+  Payload: `entity_name`, `record_id`, `created_timestamp`
+
+**`record.retrieved`** — Entity record successfully retrieved
+  Payload: `entity_name`, `record_id`, `column_count`
+
+**`records.queried`** — Multiple records retrieved via query
+  Payload: `entity_name`, `filter_criteria`, `result_count`, `page_size`
+
+**`record.updated`** — Entity record successfully updated
+  Payload: `entity_name`, `record_id`, `updated_fields`
+
+**`record.deleted`** — Entity record successfully deleted
+  Payload: `entity_name`, `record_id`
+
+**`entities.associated`** — Two entities associated via relationship
+  Payload: `relationship_name`, `entity_id`, `related_entity_count`
+
+**`entities.disassociated`** — Association between entities removed
+  Payload: `relationship_name`, `entity_id`
+
+**`batch.created`** — Batch operation created and ready for requests
+  Payload: `batch_id`, `batch_name`
+
+**`batch.execution.started`** — Batch execution initiated
+  Payload: `batch_id`, `request_count`
+
+**`batch.execution.completed`** — Batch execution finished
+  Payload: `batch_id`, `successful_count`, `failed_count`
+
+**`organization.request.executed`** — Organization-level request executed
+  Payload: `request_type`, `request_status`
+
+**`web.request.executed`** — Raw HTTP request to Web API executed
+  Payload: `http_method`, `endpoint`, `http_status`
+
+**`throttling.detected`** — Dataverse throttling limit detected
+  Payload: `retry_after_seconds`, `current_request_rate`
+
+**`authentication.token.refreshed`** — OAuth access token refreshed
+  Payload: `token_expiry`
+
+**`logging.enabled`** — Trace logging started
+  Payload: `log_file_path`
+
 ## Connects to
 
 - **api-query-builder** *(recommended)* — Build OData and FetchXml queries for complex filtering

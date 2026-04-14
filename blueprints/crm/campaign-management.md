@@ -61,6 +61,20 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `CAMPAIGN_DUPLICATE_ACTIVE` — This recipient already has an active campaign for the same campaign definition.
 - `CAMPAIGN_SEND_FAILED` — Failed to deliver the scheduled campaign email. Check email configuration and recipient address.
 
+## Events
+
+**`campaign.created`** — New campaign definition created
+  Payload: `campaign_id`, `campaign_name`
+
+**`campaign.email_sent`** — Scheduled campaign email delivered to recipient
+  Payload: `campaign_id`, `recipient`, `email_template`
+
+**`campaign.completed`** — All scheduled emails in the campaign have been sent
+  Payload: `campaign_id`, `recipient`
+
+**`campaign.recipient_unsubscribed`** — Recipient opted out of the campaign
+  Payload: `campaign_id`, `recipient`
+
 ## Connects to
 
 - **lead-opportunity-pipeline** *(recommended)* — Campaigns target leads and track attribution via UTM fields

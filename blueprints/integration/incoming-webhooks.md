@@ -57,6 +57,20 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `INCOMING_WEBHOOK_SCRIPT_ERROR` — An error occurred while processing the webhook script
 - `INCOMING_WEBHOOK_NOT_AUTHORIZED` — You do not have permission to manage incoming webhook integrations
 
+## Events
+
+**`incoming_webhooks.integration_created`** — Fired when a new incoming webhook integration is created
+  Payload: `name`, `channel`
+
+**`incoming_webhooks.message_posted`** — Fired when a webhook payload results in a channel message being posted
+  Payload: `name`, `channel`, `payload_text`
+
+**`incoming_webhooks.integration_updated`** — Fired when an existing incoming webhook integration is modified
+  Payload: `name`, `channel`
+
+**`incoming_webhooks.integration_deleted`** — Fired when an incoming webhook integration is removed
+  Payload: `name`
+
 ## Connects to
 
 - **outgoing-webhooks** *(recommended)* — Outgoing webhooks provide the complementary ability to notify external systems of internal events

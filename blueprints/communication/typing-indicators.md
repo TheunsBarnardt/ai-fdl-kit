@@ -43,6 +43,14 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 
 - `TYPING_NOT_AUTHENTICATED` — You must be signed in to send activity indicators
 
+## Events
+
+**`typing.activity_started`** — Fired when a user begins or renews an in-progress activity in a room
+  Payload: `room_id`, `username`, `activity_type`, `thread_id`
+
+**`typing.activity_stopped`** — Fired when a user's activity indicator expires or is explicitly cleared
+  Payload: `room_id`, `username`, `activity_type`, `thread_id`
+
 ## Connects to
 
 - **user-presence** *(recommended)* — Presence status provides broader availability context alongside typing indicators

@@ -63,6 +63,23 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `SO_BLANKET_ORDER_VIOLATION` — Order violates blanket order terms. Check qty and rate against the blanket order.
 - `SO_OVERALLOCATION` — Delivery qty exceeds the sales order qty beyond the allowed tolerance.
 
+## Events
+
+**`sales_order.submitted`** — Sales order has been submitted for fulfillment
+  Payload: `order_id`, `customer`, `grand_total`, `delivery_date`
+
+**`sales_order.delivered`** — Delivery note created against the sales order
+  Payload: `order_id`, `delivery_note_id`, `per_delivered`
+
+**`sales_order.billed`** — Sales invoice created against the sales order
+  Payload: `order_id`, `invoice_id`, `per_billed`
+
+**`sales_order.completed`** — Sales order fully delivered and billed, or manually closed
+  Payload: `order_id`, `per_delivered`, `per_billed`
+
+**`sales_order.cancelled`** — Sales order has been cancelled
+  Payload: `order_id`
+
 ## Connects to
 
 - **sales-purchase-invoicing** *(required)* — Invoicing engine for creating sales invoices from orders

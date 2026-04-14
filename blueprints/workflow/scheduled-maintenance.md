@@ -56,6 +56,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `SCHEDULE_NO_INTERVAL` — A maintenance schedule must have either a calendar interval or an odometer interval.
 - `SCHEDULE_INVALID_DATE` — Schedule start date is invalid.
 
+## Events
+
+**`scheduled_maintenance.created`** — A recurring maintenance schedule has been set up for a vehicle
+  Payload: `vehicle`, `task_name`, `maintenance_type`, `next_due_date`, `next_due_odometer`
+
+**`scheduled_maintenance.due_soon`** — A scheduled maintenance task is approaching its due date or odometer threshold
+  Payload: `vehicle`, `task_name`, `next_due_date`, `next_due_odometer`
+
+**`scheduled_maintenance.overdue`** — A scheduled maintenance task has passed its due date without completion
+  Payload: `vehicle`, `task_name`, `next_due_date`
+
+**`scheduled_maintenance.completed`** — A scheduled task was completed and the schedule has advanced to the next cycle
+  Payload: `vehicle`, `task_name`, `last_completed_date`, `next_due_date`, `next_due_odometer`
+
+**`scheduled_maintenance.odometer_threshold_reached`** — A vehicle's current odometer has reached the next service threshold
+  Payload: `vehicle`, `task_name`, `next_due_odometer`, `current_odometer`
+
 ## Connects to
 
 - **vehicle-master-data** *(required)* — Vehicle master provides last odometer reading for odometer-based interval calculations

@@ -58,6 +58,20 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `WEBHOOK_NO_HANDLER` — No handler registered for this event type. Webhook stored but not processed.
 - `WEBHOOK_PAYLOAD_MALFORMED` — Webhook payload could not be parsed. Expected valid JSON body.
 
+## Events
+
+**`webhook.received`**
+  Payload: `source`, `event_type`, `event_id`, `timestamp`
+
+**`webhook.verified`**
+  Payload: `source`, `event_type`, `event_id`
+
+**`webhook.processed`**
+  Payload: `source`, `event_type`, `event_id`, `handler_id`
+
+**`webhook.failed`**
+  Payload: `source`, `event_type`, `event_id`, `error_code`, `error_message`
+
 ## Connects to
 
 - **payment-gateway** *(recommended)* — Receive payment status updates via provider webhooks

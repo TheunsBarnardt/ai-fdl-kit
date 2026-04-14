@@ -42,6 +42,14 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 - `EFFICIENCY_DERIVATION_FAILED` — Could not derive an efficiency factor. More charging data required.
 
+## Events
+
+**`vehicle.efficiency.updated`** — Efficiency factor successfully recalculated from charging history
+  Payload: `vehicle_id`, `efficiency_wh_per_km`, `sample_count`, `precision_used`
+
+**`vehicle.efficiency.unchanged`** — Efficiency derivation ran but found no consensus; value unchanged
+  Payload: `vehicle_id`, `sessions_evaluated`, `reason`
+
 ## Connects to
 
 - **ev-charging-session** *(required)*

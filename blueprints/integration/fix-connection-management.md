@@ -60,6 +60,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `CONNECTION_LOST` — Connection lost unexpectedly
 - `CONFIG_ERROR` — Connection configuration is invalid
 
+## Events
+
+**`fix.connection.established`** — TCP connection (and optional TLS) successfully established
+  Payload: `remote_host`, `remote_port`, `session_id`, `is_ssl`
+
+**`fix.connection.lost`** — Active connection dropped unexpectedly
+  Payload: `session_id`, `remote_host`, `error_detail`
+
+**`fix.connection.failed`** — Outbound connection attempt failed
+  Payload: `remote_host`, `remote_port`, `error_detail`
+
+**`fix.connection.stopped`** — Connection layer stopped cleanly
+  Payload: `connection_type`
+
+**`fix.connection.error`** — Non-fatal connection-level error
+  Payload: `remote_host`, `error_detail`
+
 ## Connects to
 
 - **fix-session-management** *(required)* — FIX sessions are established on top of connections managed here

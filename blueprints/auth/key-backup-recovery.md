@@ -47,6 +47,20 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `KEY_BACKUP_VERSION_MISMATCH` — The specified backup version does not match the current version
 - `KEY_BACKUP_NOT_FOUND` — Backup version not found
 
+## Events
+
+**`key_backup.version_created`** — A new key backup version has been created
+  Payload: `user_id`, `backup_version`
+
+**`key_backup.keys_uploaded`** — Session keys were successfully uploaded to a backup version
+  Payload: `user_id`, `backup_version`, `room_count`, `session_count`, `etag`
+
+**`key_backup.keys_retrieved`** — Encrypted session keys were retrieved for recovery
+  Payload: `user_id`, `backup_version`
+
+**`key_backup.version_deleted`** — A backup version and all its key data were permanently removed
+  Payload: `user_id`, `backup_version`
+
 ## Connects to
 
 - **e2e-key-exchange** *(required)* — Session keys generated during key exchange are the data being backed up

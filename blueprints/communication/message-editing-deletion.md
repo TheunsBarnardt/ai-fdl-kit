@@ -55,6 +55,14 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `EDIT_DELETE_MESSAGE_NOT_FOUND` — The message could not be found. It may have already been deleted.
 - `EDIT_DELETE_BLOCKED_BY_INTEGRATION` — This action was prevented by an active integration. Please contact your administrator.
 
+## Events
+
+**`message_editing_deletion.message_edited`** — Fires after a message is successfully edited
+  Payload: `message_id`, `room_id`, `edited_at`, `edited_by_user_id`
+
+**`message_editing_deletion.message_deleted`** — Fires after a message is deleted (soft or hard)
+  Payload: `message_id`, `room_id`, `deleted_at`, `deleted_by_user_id`
+
 ## Connects to
 
 - **channel-messaging** *(required)* — Messages being edited or deleted originate from channel or direct message rooms

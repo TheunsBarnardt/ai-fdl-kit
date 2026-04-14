@@ -60,6 +60,29 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `FORM_NOT_PUBLISHED` — This form is not currently accepting submissions
 - `FORM_FIELD_TYPE_INVALID` — The specified field type is not supported
 
+## Events
+
+**`form.created`** — A new form was created in draft status
+  Payload: `form_id`, `name`, `created_by`, `timestamp`
+
+**`form.published`** — A form was published and is now accepting submissions
+  Payload: `form_id`, `version`, `published_by`, `timestamp`
+
+**`form.submitted`** — A form submission was received and stored
+  Payload: `form_id`, `submission_id`, `version`, `timestamp`
+
+**`form.field_added`** — A field was added to a form
+  Payload: `form_id`, `field_name`, `field_type`
+
+**`form.field_removed`** — A field was removed from a form
+  Payload: `form_id`, `field_name`
+
+**`form.submission_failed`** — A form submission failed validation
+  Payload: `form_id`, `errors`
+
+**`form.limit_reached`** — A form reached its maximum field count
+  Payload: `form_id`, `field_count`
+
 ## Connects to
 
 - **drag-drop-editor** *(recommended)* — Drag-and-drop provides intuitive field placement in the form builder

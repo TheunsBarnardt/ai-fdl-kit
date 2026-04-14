@@ -57,6 +57,40 @@ Specifies 11 acceptance outcomes that any implementation must satisfy, regardles
 - `BUILD_FAILED` — CSS generation failed. Check config file and ensure templates are valid.
 - `CIRCULAR_DEPENDENCY` — Circular dependency detected in config or plugins. Check imports and module references.
 
+## Events
+
+**`build.postcss_configured`**
+  Payload: `config_file_path`, `plugin_config`
+
+**`build.cli_build_started`**
+  Payload: `input_file`, `output_file`
+
+**`build.watch_triggered`**
+  Payload: `changed_file`, `timestamp`
+
+**`build.vite_configured`**
+  Payload: `vite_config`
+
+**`build.webpack_configured`**
+  Payload: `webpack_config`
+
+**`build.nextjs_configured`**
+  Payload: `nextjs_config`
+
+**`build.content_paths_configured`**
+  Payload: `content_paths`
+
+**`build.minification_enabled`**
+
+**`build.config_error`**
+  Payload: `config_file_path`, `error_message`
+
+**`build.content_error`**
+  Payload: `content_paths`, `error_message`
+
+**`build.dependency_error`**
+  Payload: `error_message`
+
 ## Connects to
 
 - **theme-configuration** *(required)* — Build tool reads theme config for CSS generation

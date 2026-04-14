@@ -60,6 +60,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `ROUTE_CALCULATION_FAILED` — Route could not be calculated. Please check all locations and try again.
 - `ROUTE_INVALID_WAYPOINT_ORDER` — Waypoint sequence is invalid.
 
+## Events
+
+**`route.created`** — Fired when a route is calculated for an order
+  Payload: `route_uuid`, `order_uuid`, `total_distance`, `total_time`, `waypoint_count`
+
+**`route.optimized`** — Fired when waypoint order is optimized
+  Payload: `route_uuid`, `total_distance`, `total_time`
+
+**`route.waypoint_completed`** — Fired when a driver completes a waypoint stop
+  Payload: `route_uuid`, `completed_waypoint_uuid`, `next_waypoint_uuid`
+
+**`route.completed`** — Fired when all route waypoints are completed
+  Payload: `route_uuid`, `order_uuid`
+
 ## Connects to
 
 - **order-lifecycle** *(required)* — Routes are created for and attached to orders

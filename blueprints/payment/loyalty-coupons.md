@@ -73,6 +73,23 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `LOYALTY_CODE_ALREADY_USED` — This coupon has already been used.
 - `LOYALTY_DUPLICATE_CODE` — A program with this code already exists.
 
+## Events
+
+**`loyalty.points.earned`** — Customer earned loyalty points from a purchase
+  Payload: `card_code`, `program_type`, `points_earned`, `order_id`
+
+**`loyalty.reward.redeemed`** — Customer redeemed a reward (discount or free product)
+  Payload: `card_code`, `reward_type`, `value`, `order_id`
+
+**`loyalty.coupon.applied`** — Coupon or promo code successfully applied to an order
+  Payload: `card_code`, `program_type`, `discount_value`, `order_id`
+
+**`loyalty.gift_card.redeemed`** — Gift card balance used for payment
+  Payload: `card_code`, `amount_used`, `remaining_balance`
+
+**`loyalty.card.created`** — New loyalty card or coupon generated
+  Payload: `card_code`, `program_type`, `partner_id`
+
 ## Connects to
 
 - **pos-core** *(optional)* — Loyalty rewards applied at point-of-sale checkout

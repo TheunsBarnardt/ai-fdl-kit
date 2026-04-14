@@ -70,6 +70,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `AUDIT_TAMPER_DETECTED` — Audit log integrity check failed — possible tampering detected
 - `AUDIT_WRITE_FAILED` — Failed to write audit entry. The operation has been rolled back.
 
+## Events
+
+**`audit.entry_created`** — New audit log entry appended
+  Payload: `audit_id`, `actor_id`, `action`, `resource_type`, `resource_id`, `timestamp`
+
+**`audit.tamper_detected`** — Hash chain integrity check failed — possible tampering
+  Payload: `first_invalid_entry_id`, `expected_hash`, `actual_hash`, `timestamp`
+
+**`audit.retention_purge`** — Entries beyond retention period crypto-shredded
+  Payload: `purged_count`, `oldest_entry_date`, `timestamp`
+
+**`audit.export_completed`** — Audit log export completed
+  Payload: `export_id`, `format`, `record_count`, `date_range`, `requested_by`, `timestamp`
+
 ## Connects to
 
 - **login** *(recommended)* — Authentication events should be captured in the audit trail

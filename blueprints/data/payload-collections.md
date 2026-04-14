@@ -76,6 +76,20 @@ Specifies 14 acceptance outcomes that any implementation must satisfy, regardles
 - `COLLECTION_LOCKED` — This document is currently being edited by another user
 - `COLLECTION_QUERY_ERROR` — The query contains invalid field paths or operators
 
+## Events
+
+**`collection.create`** — Emitted after successful document creation — triggers afterChange hooks
+  Payload: `collection_slug`, `document_id`, `user_id`, `timestamp`
+
+**`collection.update`** — Emitted after successful document update
+  Payload: `collection_slug`, `document_id`, `user_id`, `timestamp`, `changed_fields`
+
+**`collection.delete`** — Emitted after successful document deletion
+  Payload: `collection_slug`, `document_id`, `user_id`, `timestamp`
+
+**`collection.read`** — Emitted on document read — triggers afterRead hooks
+  Payload: `collection_slug`, `document_id`, `user_id`
+
 ## Connects to
 
 - **payload-auth** *(optional)* — Collections can be auth-enabled to add login/registration capabilities

@@ -66,6 +66,44 @@ Specifies 14 acceptance outcomes that any implementation must satisfy, regardles
 - `INVALID_NOTIFICATION_TARGET` — Invalid notification target configuration
 - `PRODUCT_NOT_FOUND` — The specified product was not found
 
+## Events
+
+**`admin.access_denied`** — Unauthorized access attempt to admin panel
+  Payload: `user_id`, `attempted_action`, `ip_address`, `timestamp`
+
+**`admin.users_listed`** — Admin viewed user list
+  Payload: `admin_user_id`, `filters`, `timestamp`
+
+**`admin.users_searched`** — Admin searched for users
+  Payload: `admin_user_id`, `search_query`, `result_count`, `timestamp`
+
+**`admin.user_viewed`** — Admin viewed user detail
+  Payload: `admin_user_id`, `target_user_id`, `timestamp`
+
+**`admin.user_status_changed`** — Admin changed a user status
+  Payload: `admin_user_id`, `target_user_id`, `old_status`, `new_status`, `timestamp`
+
+**`admin.account_linked`** — Investment account linked to user
+  Payload: `admin_user_id`, `target_user_id`, `account_id`, `timestamp`
+
+**`admin.account_unlinked`** — Investment account unlinked from user
+  Payload: `admin_user_id`, `target_user_id`, `account_id`, `timestamp`
+
+**`admin.notification_broadcast`** — Notification broadcast to all users
+  Payload: `admin_user_id`, `notification_target`, `channel`, `user_count`, `timestamp`
+
+**`admin.notification_sent`** — Notification sent to single user
+  Payload: `admin_user_id`, `target_user_id`, `channel`, `timestamp`
+
+**`admin.notification_product_broadcast`** — Notification sent to product holders
+  Payload: `admin_user_id`, `target_product_id`, `channel`, `user_count`, `timestamp`
+
+**`admin.role_assigned`** — Role assigned to user by admin
+  Payload: `admin_user_id`, `target_user_id`, `role_id`, `timestamp`
+
+**`admin.stats_viewed`** — Admin viewed system statistics
+  Payload: `admin_user_id`, `timestamp`
+
 ## Connects to
 
 - **role-based-access** *(required)* — Admin panel requires RBAC to determine admin vs super_admin capabilities

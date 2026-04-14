@@ -60,6 +60,17 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `PARTS_INVALID_SERIAL` — The specified serial number is not available in this warehouse.
 - `PARTS_ITEM_NOT_FOUND` — The item code does not exist in the inventory catalogue.
 
+## Events
+
+**`parts.issued`** — Parts have been issued from stock for a vehicle service event
+  Payload: `vehicle`, `service_record`, `item_code`, `quantity`, `total_cost`, `warehouse`, `stock_entry_reference`
+
+**`parts.cost_attributed`** — Parts cost from an issued consumption has been added to the linked service record
+  Payload: `vehicle`, `service_record`, `total_cost`
+
+**`parts.consumption_cancelled`** — A parts consumption line has been cancelled and any reservation released
+  Payload: `vehicle`, `service_record`, `item_code`, `quantity`
+
 ## Connects to
 
 - **vehicle-maintenance-log** *(required)* — Parts consumption is linked to a maintenance log record and contributes to service parts cost

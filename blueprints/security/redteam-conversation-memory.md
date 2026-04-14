@@ -60,6 +60,17 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `MEMORY_BACKEND_UNAVAILABLE` — The memory backend is unavailable. Entry could not be persisted.
 - `MEMORY_CONTAINS_SECRETS` — The entry appears to contain credentials or PII and was rejected.
 
+## Events
+
+**`security.memory.entry_added`** — Emitted when a new memory entry is successfully persisted.
+  Payload: `entry_id`, `conversation_id`, `role`, `data_type`, `timestamp`
+
+**`security.memory.conversation_retrieved`** — Emitted when conversation history is retrieved from the store.
+  Payload: `conversation_id`, `entry_count`
+
+**`security.memory.exported`** — Emitted when a memory export is generated.
+  Payload: `filter_criteria`, `entry_count`, `export_format`
+
 ## Connects to
 
 - **multi-turn-attack-orchestration** *(required)* — Attack orchestrators read conversation history from memory to build context.

@@ -63,6 +63,23 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `CALENDAR_ACCESS_DENIED` — You do not have permission to modify this event.
 - `CALENDAR_SLOT_MISALIGNED` — Event times must align to 15-minute boundaries.
 
+## Events
+
+**`event.created`** — A new calendar event was created
+  Payload: `event_id`, `title`, `organizer_id`, `start_time`, `end_time`
+
+**`event.updated`** — A calendar event was modified
+  Payload: `event_id`, `changed_fields`, `organizer_id`
+
+**`event.canceled`** — A calendar event was canceled
+  Payload: `event_id`, `organizer_id`, `attendee_ids`
+
+**`booking.requested`** — An attendee requested a booking slot
+  Payload: `event_id`, `attendee_id`, `start_time`, `end_time`
+
+**`booking.confirmed`** — An organizer confirmed a booking request
+  Payload: `event_id`, `attendee_id`, `organizer_id`
+
 ## Connects to
 
 - **task-management** *(optional)* — Task due dates and milestones can sync to calendar events

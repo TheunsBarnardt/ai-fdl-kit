@@ -52,6 +52,17 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 - `PAYMENT_REFERENCE_INVALID` — Referenced document does not exist or is not in a submitted state.
 - `PAYMENT_BALANCE_MISMATCH` — Total debit does not equal total credit in the payment GL entries.
 
+## Events
+
+**`payment.submitted`** — Payment entry transitions from Draft to Submitted
+  Payload: `payment_id`, `payment_type`, `party`, `paid_amount`, `received_amount`
+
+**`payment.cancelled`** — Payment entry is cancelled and GL entries reversed
+  Payload: `payment_id`, `payment_type`, `party`, `paid_amount`
+
+**`payment.reconciled`** — Payment is reconciled against one or more references
+  Payload: `payment_id`, `references`, `unallocated_amount`
+
 ## Connects to
 
 - **sales-purchase-invoicing** *(required)* — Payments are allocated against sales and purchase invoices

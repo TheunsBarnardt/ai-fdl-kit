@@ -71,6 +71,35 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `PALM_PAY_DUPLICATE_PALM` — This palm is already linked to a payment proxy
 - `PALM_PAY_SPOOF_DETECTED` — Liveness check failed — biometric verification rejected
 
+## Events
+
+**`palm_pay.link.created`** — Palm-to-proxy link created, pending verification
+  Payload: `palm_pay_id`, `user_id`, `proxy_type`
+
+**`palm_pay.link.verified`** — Palm-to-proxy link verified and active
+  Payload: `palm_pay_id`, `user_id`, `payshap_proxy`
+
+**`palm_pay.payment.resolved`** — Palm scanned and payment proxy resolved
+  Payload: `palm_pay_id`, `user_id`, `payshap_proxy`, `proxy_type`
+
+**`palm_pay.payment.completed`** — Payment completed via palm scan
+  Payload: `palm_pay_id`, `user_id`, `amount`, `payshap_proxy`
+
+**`palm_pay.palm.not_registered`** — Palm scan did not match any registered template
+  Payload: `terminal_id`
+
+**`palm_pay.link.inactive`** — Matched palm has inactive payment link
+  Payload: `palm_pay_id`, `user_id`, `link_status`
+
+**`palm_pay.limit.exceeded`** — Daily spending limit exceeded
+  Payload: `palm_pay_id`, `user_id`, `daily_spent`, `daily_limit`
+
+**`palm_pay.transaction_limit.exceeded`** — Per-transaction limit exceeded
+  Payload: `palm_pay_id`, `user_id`, `amount`, `transaction_limit`
+
+**`palm_pay.link.revoked`** — Palm-to-proxy link permanently revoked
+  Payload: `palm_pay_id`, `user_id`
+
 ## Connects to
 
 - **biometric-auth** *(required)* — Palm enrollment and authentication powers the biometric side of palm pay

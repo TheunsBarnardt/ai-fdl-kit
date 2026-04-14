@@ -43,6 +43,14 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 - `FUEL_DEVICE_NOT_FOUND` — The device referenced does not exist
 
+## Events
+
+**`fuel.dropped`** — Fuel level fell by more than the configured threshold — possible theft, leak, or high consumption
+  Payload: `device_id`, `previous_fuel`, `current_fuel`, `delta`, `position_id`, `fix_time`
+
+**`fuel.increased`** — Fuel level rose by more than the configured threshold — refuelling detected
+  Payload: `device_id`, `previous_fuel`, `current_fuel`, `delta`, `position_id`, `fix_time`
+
 ## Connects to
 
 - **gps-position-ingestion** *(required)* — Fuel values arrive as position attributes from device transmissions

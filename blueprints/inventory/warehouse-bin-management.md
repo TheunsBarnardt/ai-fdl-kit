@@ -72,6 +72,20 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `PUTAWAY_DUPLICATE_RULE` — A putaway rule already exists for this item-warehouse combination.
 - `PUTAWAY_INSUFFICIENT_CAPACITY` — Putaway capacity must be greater than the current stock in the warehouse.
 
+## Events
+
+**`warehouse.created`** — New warehouse created in the hierarchy
+  Payload: `warehouse_id`, `warehouse_name`, `company`, `parent_warehouse`
+
+**`warehouse.disabled`** — Warehouse disabled and excluded from transactions
+  Payload: `warehouse_id`, `warehouse_name`
+
+**`bin.qty_changed`** — Bin quantities updated after a stock transaction
+  Payload: `item_code`, `warehouse`, `actual_qty`, `projected_qty`, `stock_value`
+
+**`putaway.applied`** — Putaway rules applied to distribute incoming stock
+  Payload: `item_code`, `allocations`
+
 ## Connects to
 
 - **stock-entry-movements** *(required)* — Stock entries are the primary source of bin quantity changes

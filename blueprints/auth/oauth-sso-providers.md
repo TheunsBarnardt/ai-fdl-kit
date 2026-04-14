@@ -57,6 +57,23 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `OAUTH_IDENTITY_FETCH_FAILED` — Authentication failed. Your profile information could not be retrieved from the identity provider.
 - `OAUTH_PROVIDER_MISCONFIGURED` — The identity provider configuration is invalid. Please check the settings and try again.
 
+## Events
+
+**`oauth.login_success`** — Fires when a user successfully authenticates via an OAuth provider
+  Payload: `service_name`, `user_id`
+
+**`oauth.login_failed`** — Fires when an OAuth login attempt fails at any stage of the flow
+  Payload: `service_name`
+
+**`oauth.user_provisioned`** — Fires when a new user account is created from an OAuth identity
+  Payload: `service_name`, `user_id`
+
+**`oauth.user_merged`** — Fires when an OAuth identity is linked to an existing user account
+  Payload: `service_name`, `user_id`
+
+**`oauth.provider_configured`** — Fires when an administrator saves a new or updated OAuth provider configuration
+  Payload: `service_name`, `server_url`
+
 ## Connects to
 
 - **login** *(required)* — OAuth SSO is an authentication method that integrates into the platform login flow

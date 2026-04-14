@@ -56,6 +56,14 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `POSITION_INVALID_COORDINATES` — Position coordinates are outside valid WGS-84 ranges
 - `POSITION_DEVICE_NOT_REGISTERED` — No registered device matches the identifier in the incoming message
 
+## Events
+
+**`position.received`** — A new position record has been stored after passing pipeline processing
+  Payload: `device_id`, `position_id`, `fix_time`, `latitude`, `longitude`, `speed`, `valid`, `protocol`
+
+**`position.pipeline_error`** — A pipeline handler encountered an error while processing a position (position was still stored)
+  Payload: `device_id`, `position_id`, `handler_name`, `error_message`
+
 ## Connects to
 
 - **gps-device-registration** *(required)* — Positions can only be attributed to registered devices

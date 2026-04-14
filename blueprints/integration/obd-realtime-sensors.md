@@ -51,6 +51,26 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `OBD_SENSOR_NOT_SUPPORTED` — This vehicle does not support the requested sensor.
 - `OBD_NOT_CONNECTED` — No active vehicle connection. Connect before reading sensors.
 
+## Events
+
+**`obd.sensor.reading`** — A single on-demand sensor query returned a decoded value
+  Payload: `sensor_name`, `sensor_value`, `sensor_unit`, `timestamp`
+
+**`obd.sensor.changed`** — A streaming sensor value changed from the previous poll cycle
+  Payload: `sensor_name`, `sensor_value`, `previous_value`, `sensor_unit`, `timestamp`
+
+**`obd.sensor.unsupported`** — A query or registration was attempted for a sensor the vehicle does not support
+  Payload: `sensor_name`
+
+**`obd.streaming.started`** — Continuous sensor polling loop has started
+  Payload: `watched_sensors`, `poll_interval_ms`
+
+**`obd.streaming.paused`** — Sensor polling loop has been temporarily suspended
+  Payload: `watched_sensors`
+
+**`obd.streaming.stopped`** — Sensor polling loop has terminated
+  Payload: `watched_sensors`
+
 ## Connects to
 
 - **obd-port-connection** *(required)* — Active vehicle_connected state required for all sensor queries

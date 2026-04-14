@@ -66,6 +66,20 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `CATEGORY_HAS_CHILDREN` — Cannot delete a category that has subcategories
 - `CATEGORY_NAME_DUPLICATE` — A category with this name already exists under the same parent
 
+## Events
+
+**`tag.applied`** — A tag was applied to an entity
+  Payload: `tag_name`, `tag_group`, `entity_type`, `entity_id`
+
+**`tag.removed`** — A tag was removed from an entity
+  Payload: `tag_name`, `tag_group`, `entity_type`, `entity_id`
+
+**`category.created`** — A new category was created in the hierarchy
+  Payload: `category_name`, `category_path`, `parent_category_id`
+
+**`category.assigned`** — An entity was assigned to a category
+  Payload: `category_path`, `entity_type`, `entity_id`
+
 ## Connects to
 
 - **search-and-filtering** *(required)* — Tags and categories are primary facets for filtering and searching entities

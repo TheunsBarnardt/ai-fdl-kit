@@ -51,6 +51,17 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `ORDER_CANCELED` — This ride has been canceled.
 - `INVALID_LOCATION` — Pickup or drop-off location is invalid or missing.
 
+## Events
+
+**`order.created`** — Ride request is created by the customer.
+  Payload: `order_id`, `customer_id`, `pickup_location`, `dropoff_location`, `tracking_number`
+
+**`order.canceled`** — Ride is canceled.
+  Payload: `order_id`, `canceled_by`, `reason`
+
+**`order.completed`** — Ride is completed.
+  Payload: `order_id`, `customer_id`, `distance`, `duration`
+
 ## Connects to
 
 - **ride-request-lifecycle** *(required)* — Customer app creates the initial order that enters the lifecycle.

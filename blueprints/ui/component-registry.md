@@ -72,6 +72,26 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `PERMISSION_DENIED` — This action is not permitted on this component
 - `RESOLVE_DATA_FAILED` — Failed to resolve component data
 
+## Events
+
+**`component.instance.created`** — A new component instance was placed on the page
+  Payload: `instance_id`, `component_type`, `zone`, `index`
+
+**`component.instance.duplicated`** — A component was cloned with new IDs
+  Payload: `original_id`, `clone_id`, `zone`, `index`
+
+**`component.instance.removed`** — A component and its descendants were deleted
+  Payload: `instance_id`, `component_type`, `zone`
+
+**`component.props.changed`** — A component's properties were edited
+  Payload: `instance_id`, `changed_fields`
+
+**`component.data.resolved`** — A component's data was dynamically resolved via lifecycle hook
+  Payload: `instance_id`, `trigger`, `did_change`
+
+**`component.slot.rejected`** — A component was rejected from a slot due to type constraints
+  Payload: `parent_id`, `slot_name`, `rejected_type`
+
 ## Connects to
 
 - **drag-drop-editor** *(required)* — Components are placed via drag-and-drop from the registry palette

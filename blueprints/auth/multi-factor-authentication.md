@@ -52,6 +52,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `MFA_NOT_SUPPORTED_FOR_SSO` — Multi-factor authentication is managed by your identity provider.
 - `MFA_ALREADY_ACTIVE` — Multi-factor authentication is already enabled for this account.
 
+## Events
+
+**`mfa.verified`** — MFA verification successful
+  Payload: `user_id`, `session_id`
+
+**`auth.mfa_enrollment_started`** — User initiated MFA enrollment; secret generated
+  Payload: `user_id`, `timestamp`
+
+**`auth.mfa_activated`** — MFA successfully enrolled after first code verification
+  Payload: `user_id`, `timestamp`
+
+**`auth.mfa_failed`** — Invalid or replayed TOTP code submitted
+  Payload: `user_id`, `reason`, `attempt_count`, `timestamp`
+
+**`auth.mfa_deactivated`** — MFA removed from user account
+  Payload: `user_id`, `actor_id`, `timestamp`
+
 ## Connects to
 
 - **session-management** *(required)* — Sessions are only created after both primary credential and MFA are verified

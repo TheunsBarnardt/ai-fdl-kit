@@ -60,6 +60,23 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `VISIBILITY_TIMEOUT_EXPIRED` — Message processing exceeded visibility timeout. Message returned to queue.
 - `DEAD_LETTER_QUEUE_FULL` — Dead-letter queue has reached its retention limit. Investigate and drain failed messages.
 
+## Events
+
+**`queue.message_published`**
+  Payload: `queue_name`, `message_id`, `priority`
+
+**`queue.message_consumed`**
+  Payload: `queue_name`, `message_id`, `consumer_id`
+
+**`queue.message_acknowledged`**
+  Payload: `queue_name`, `message_id`
+
+**`queue.message_dead_lettered`**
+  Payload: `queue_name`, `message_id`, `retry_count`, `dead_letter_queue`
+
+**`queue.publish_failed`**
+  Payload: `queue_name`, `error_code`, `error_reason`
+
 ## Connects to
 
 - **webhook-ingestion** *(optional)* — Incoming webhooks can be queued for async processing

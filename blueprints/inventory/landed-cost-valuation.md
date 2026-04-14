@@ -69,6 +69,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `REPOST_PERIOD_CLOSED` — Cannot repost valuation for dates before the last period closing voucher.
 - `REPOST_ACCOUNTING_FROZEN` — Cannot modify GL entries for a frozen accounting period.
 
+## Events
+
+**`landed_cost.submitted`** — Fired when a landed cost voucher is submitted
+  Payload: `purchase_receipts`, `total_taxes_and_charges`
+
+**`valuation.updated`** — Fired when item valuation rates are updated
+  Payload: `items`, `new_valuation_rates`
+
+**`stock.reconciled`** — Fired when stock reconciliation is completed
+  Payload: `reconciliation_items`, `difference_amount`
+
+**`repost.completed`** — Fired when valuation repost completes successfully
+  Payload: `based_on`, `repost_item_code`, `repost_warehouse`
+
+**`repost.failed`** — Fired when valuation repost fails
+  Payload: `based_on`, `repost_item_code`, `error_message`
+
 ## Connects to
 
 - **stock-entry-movements** *(required)* — Stock ledger entries affected by valuation changes

@@ -61,6 +61,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `TYRE_POSITION_CONFLICT` — Another tyre is already fitted at this position. Please remove the existing tyre first.
 - `TYRE_INVALID_ODOMETER` — Removal odometer cannot be less than the odometer at fitment.
 
+## Events
+
+**`tyre.fitted`** — A tyre has been mounted on a vehicle at a specific position
+  Payload: `vehicle`, `tyre_position`, `brand`, `model`, `size`, `serial_number`, `fitted_date`, `fitted_odometer`
+
+**`tyre.inspected`** — A tread depth measurement has been recorded for a fitted tyre
+  Payload: `vehicle`, `tyre_position`, `last_tread_depth_mm`, `condition_rating`, `last_inspection_date`
+
+**`tyre.low_tread_warning`** — A tyre's tread depth is at or below the configured warning threshold
+  Payload: `vehicle`, `tyre_position`, `last_tread_depth_mm`, `warning_threshold_mm`
+
+**`tyre.removed`** — A tyre has been dismounted from a vehicle position
+  Payload: `vehicle`, `tyre_position`, `reason_for_removal`, `km_on_tyre`, `removed_date`
+
+**`tyre.disposed`** — A removed tyre has been permanently scrapped or recycled
+  Payload: `vehicle`, `tyre_position`, `serial_number`, `km_on_tyre`
+
 ## Connects to
 
 - **vehicle-master-data** *(required)* — Vehicle master provides current odometer for km-on-tyre calculations

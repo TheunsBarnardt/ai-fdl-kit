@@ -43,6 +43,14 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `REDACTION_PERMISSION_DENIED` — You do not have permission to redact this event
 - `REDACTION_TARGET_NOT_FOUND` — The event to be redacted was not found
 
+## Events
+
+**`event.redacted`** — An event's content was removed by its author or a moderator
+  Payload: `event_id`, `redaction_event_id`, `redactor_id`
+
+**`event.redaction_noop`** — A redaction was requested for an event that had already been redacted
+  Payload: `event_id`
+
 ## Connects to
 
 - **room-power-levels** *(required)* — The redact power level threshold is defined in the room's power levels event

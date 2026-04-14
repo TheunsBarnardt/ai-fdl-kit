@@ -48,6 +48,26 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `PUSHER_EMAIL_NOT_VERIFIED` — The email address is not a verified identifier on your account
 - `PUSHER_INVALID_KIND` — Unrecognised pusher kind
 
+## Events
+
+**`pusher.registered`** — A new notification endpoint was registered
+  Payload: `user_id`, `app_id`, `kind`
+
+**`pusher.updated`** — An existing pusher's configuration was changed
+  Payload: `user_id`, `app_id`
+
+**`pusher.disabled`** — A pusher was temporarily disabled by the user
+  Payload: `user_id`, `app_id`
+
+**`pusher.deleted`** — A pusher was permanently removed
+  Payload: `user_id`, `app_id`
+
+**`notification.delivered`** — A push notification was successfully sent to the external gateway
+  Payload: `user_id`, `app_id`, `event_id`
+
+**`notification.delivery_failed`** — Push notification delivery failed and is scheduled for retry
+  Payload: `user_id`, `app_id`, `retry_count`
+
 ## Connects to
 
 - **device-management** *(required)* — Pusher deletion is cascaded when the associated device is removed

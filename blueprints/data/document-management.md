@@ -91,6 +91,32 @@ Specifies 17 acceptance outcomes that any implementation must satisfy, regardles
 - `DOCUMENT_PDF_GENERATION_FAILED` — Unable to generate PDF document. Please try again later.
 - `DOCUMENT_METADATA_UPDATE_FAILED` — Unable to update document metadata. Please try again later.
 
+## Events
+
+**`document.uploaded`** — Document uploaded to system
+  Payload: `document_id`, `document_name`, `created_by`, `document_size_bytes`
+
+**`document.downloaded`** — User downloaded a document
+  Payload: `document_id`, `user_id`, `download_date`, `document_size_bytes`
+
+**`document.deleted`** — Document deleted by user
+  Payload: `document_id`, `user_id`, `deletion_date`
+
+**`document.metadata_updated`** — Document metadata changed
+  Payload: `document_id`, `fields_updated`, `user_id`, `update_date`
+
+**`document.generated`** — Dynamic document generated from template
+  Payload: `document_id`, `template_id`, `created_by`, `generation_time_ms`
+
+**`document.exported`** — Document exported to format
+  Payload: `document_id`, `export_format`, `user_id`, `export_date`
+
+**`document.infoslips_url_regenerated`** — One-time statement document URL regenerated
+  Payload: `document_id`, `send_option`, `regeneration_date`
+
+**`document.generation_failed`** — Document generation encountered error
+  Payload: `request_id`, `template_id`, `error_details`, `timestamp`
+
 ## Connects to
 
 - **portfolio-management** *(recommended)* — Documents linked to portfolio accounts

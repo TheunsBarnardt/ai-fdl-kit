@@ -67,6 +67,23 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `CONTRACT_END_BEFORE_START` — Contract end date cannot be before the start date.
 - `CONTRACT_ALREADY_CANCELLED` — This contract has already been cancelled and cannot be modified.
 
+## Events
+
+**`contract.signed`** — Contract signed by both parties
+  Payload: `contract_id`, `party_name`, `signed_on`
+
+**`contract.activated`** — Contract entered active status
+  Payload: `contract_id`, `start_date`, `end_date`
+
+**`contract.lapsed`** — Contract fulfilment deadline passed with incomplete items
+  Payload: `contract_id`, `fulfilment_deadline`
+
+**`contract.fulfilled`** — All contract fulfilment requirements completed
+  Payload: `contract_id`, `fulfilment_status`
+
+**`contract.cancelled`** — Contract cancelled by contract owner
+  Payload: `contract_id`, `party_name`
+
 ## Connects to
 
 - **customer-supplier-management** *(required)* — Contracts are linked to customer, supplier, or employee party records

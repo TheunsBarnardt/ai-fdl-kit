@@ -55,6 +55,17 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `ASSIGNMENT_INACTIVE_DRIVER` — The selected driver is not active. Only active drivers can be assigned to vehicles.
 - `ASSIGNMENT_INVALID_DATE` — The assignment end date must be after the start date.
 
+## Events
+
+**`assignment.created`** — A driver has been assigned to a fleet vehicle
+  Payload: `vehicle`, `driver`, `assignment_type`, `start_date`, `end_date`
+
+**`assignment.ended`** — A driver-vehicle assignment has been terminated
+  Payload: `vehicle`, `driver`, `actual_end_date`, `end_reason`
+
+**`assignment.history_queried`** — The assignment history for a vehicle or driver has been retrieved
+  Payload: `filter_vehicle`, `filter_driver`, `date_range`
+
 ## Connects to
 
 - **vehicle-master-data** *(required)* — Vehicle master stores the currently assigned driver and must be updated on each assignment change

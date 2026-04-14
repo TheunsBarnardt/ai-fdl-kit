@@ -60,6 +60,26 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `SYSTEM_ROLE_PROTECTED` — System roles cannot be deleted or modified
 - `ROLE_HIERARCHY_CYCLE` — Setting this parent role would create a circular reference
 
+## Events
+
+**`access.granted`** — Permission check passed — access allowed
+  Payload: `user_id`, `resource`, `action`, `timestamp`, `matched_permission`
+
+**`access.denied`** — Permission check failed — access denied
+  Payload: `user_id`, `resource`, `action`, `required_permission`, `timestamp`, `ip_address`
+
+**`role.assigned`** — Role assigned to a user
+  Payload: `user_id`, `role_id`, `assigned_by`, `timestamp`
+
+**`role.revoked`** — Role removed from a user
+  Payload: `user_id`, `role_id`, `revoked_by`, `timestamp`
+
+**`role.created`** — New role created in the system
+  Payload: `role_id`, `role_name`, `created_by`, `timestamp`
+
+**`role.updated`** — Role permissions or metadata modified
+  Payload: `role_id`, `changes`, `updated_by`, `timestamp`
+
 ## Connects to
 
 - **login** *(required)* — User must be authenticated before role-based access checks apply

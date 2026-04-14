@@ -44,6 +44,14 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 - `STOP_DEVICE_NOT_FOUND` — The device referenced does not exist
 
+## Events
+
+**`stop.detected`** — Vehicle has come to a stop for longer than the minimum stop threshold
+  Payload: `device_id`, `stop_latitude`, `stop_longitude`, `stop_start_time`, `geofence_ids`
+
+**`stop.ended`** — Vehicle has resumed movement after a recorded stop
+  Payload: `device_id`, `stop_start_time`, `stop_end_time`, `stop_duration_seconds`
+
 ## Connects to
 
 - **trip-detection** *(required)* — Stops are the inverse of trips; both use the same motion state machine

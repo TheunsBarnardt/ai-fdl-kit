@@ -73,6 +73,26 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `SESSION_CANNOT_REVOKE_CURRENT` — You cannot revoke your current session. Use logout instead.
 - `SESSION_EXPIRED` — Your session has expired. Please sign in again.
 
+## Events
+
+**`session.created`** — New session created for a user
+  Payload: `user_id`, `session_id`, `device_browser`, `device_os`, `device_ip`, `timestamp`
+
+**`session.revoked`** — A specific session was revoked by the user
+  Payload: `user_id`, `session_id`, `device_browser`, `device_os`, `timestamp`
+
+**`session.expired`** — Session expired due to idle or absolute timeout
+  Payload: `user_id`, `session_id`, `reason`, `timestamp`
+
+**`session.revoke_all`** — User revoked all sessions except current
+  Payload: `user_id`, `revoked_count`, `timestamp`
+
+**`session.evicted`** — Oldest session evicted due to concurrent session limit
+  Payload: `user_id`, `evicted_session_id`, `timestamp`
+
+**`session.listed`** — User viewed their active sessions
+  Payload: `user_id`, `timestamp`, `active_count`
+
 ## Connects to
 
 - **login** *(required)* — Sessions are created during login

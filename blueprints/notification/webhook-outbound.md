@@ -87,6 +87,23 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `WEBHOOK_PAYLOAD_TOO_LARGE` — Webhook payload exceeds maximum size
 - `WEBHOOK_VALIDATION_ERROR` — Please check the webhook configuration and try again
 
+## Events
+
+**`webhook.delivered`** — Webhook payload successfully delivered to endpoint
+  Payload: `webhook_id`, `delivery_id`, `url`, `event_type`, `response_status`, `latency_ms`, `timestamp`
+
+**`webhook.failed`** — Webhook delivery failed (will retry if eligible)
+  Payload: `webhook_id`, `delivery_id`, `url`, `event_type`, `response_status`, `error`, `retry_count`, `timestamp`
+
+**`webhook.disabled`** — Webhook endpoint auto-disabled after repeated failures
+  Payload: `webhook_id`, `url`, `failure_count`, `last_error`, `timestamp`
+
+**`webhook.skipped`** — Webhook delivery skipped because endpoint is disabled
+  Payload: `webhook_id`, `url`, `event_type`, `reason`, `timestamp`
+
+**`webhook.secret_rotated`** — Webhook signing secret was rotated
+  Payload: `webhook_id`, `url`, `rotated_at`, `dual_window_expires_at`, `timestamp`
+
 ## Connects to
 
 - **email-notifications** *(optional)* — Email provider bounce/delivery webhooks use similar patterns

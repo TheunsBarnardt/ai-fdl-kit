@@ -63,6 +63,26 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `INGESTION_INVALID_COORDINATES` — Location coordinates are missing or invalid
 - `INGESTION_TOPIC_TOO_SHORT` — Message topic is too short to identify a device
 
+## Events
+
+**`location.received`** — A valid location payload was parsed, stored, and is ready for real-time forwarding
+  Payload: `topic`, `lat`, `lon`, `tst`, `tracker_id`, `trigger`
+
+**`waypoint.received`** — A waypoint definition was received and stored; geofence state should be reloaded
+  Payload: `topic`, `tst`
+
+**`region.transition.received`** — Device reported a geofence entry or exit event
+  Payload: `topic`, `lat`, `lon`, `tst`
+
+**`card.updated`** — User display name or avatar was updated
+  Payload: `topic`
+
+**`connection.established`** — Broker connection is up and subscriptions are active
+  Payload: `broker_host`, `broker_port`
+
+**`connection.lost`** — Broker connection dropped; automatic reconnect will be attempted
+  Payload: `broker_host`, `reason`
+
 ## Connects to
 
 - **location-history-storage** *(required)* — Stores parsed location records and maintains last-position files

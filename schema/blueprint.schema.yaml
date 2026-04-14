@@ -271,6 +271,114 @@ optional:
     items:
       type: string
 
+  aliases:
+    type: array
+    description: |
+      Alternate names AI generators should treat as referring to this blueprint.
+      Feeds the intent registry so phrases like "sign in", "log in", "authenticate"
+      all resolve to one canonical blueprint and prevent invented duplicates.
+      Example: ["sign-in", "signin", "log-in", "authenticate"]
+    items:
+      type: string
+    uniqueItems: true
+
+  api:
+    type: object
+    description: |
+      Wire contract — exact endpoint, request schema, and response shapes.
+      Pinned so AI generators emit the same path/method/fields every time
+      and post-generation verification can detect hallucinated endpoints.
+
+      Required: http (method + path).
+      Optional: request (content_type, schema), response (success, errors[]).
+
+      Cross-validation: every api.response.errors[].error_code must exist
+      in the blueprint's top-level errors[] block.
+    required: [http]
+    properties:
+      http:
+        type: object
+        required: [method, path]
+        properties:
+          method:
+            type: string
+            oneOf: [GET, POST, PUT, PATCH, DELETE]
+          path:
+            type: string
+            description: "Canonical URL path, must start with /. No alternates allowed."
+      request:
+        type: object
+        properties:
+          content_type:
+            type: string
+          schema:
+            type: object
+            description: "JSON-Schema-shaped object describing the request body"
+      response:
+        type: object
+        properties:
+          success:
+            type: object
+            required: [status]
+            properties:
+              status: { type: number }
+              content_type: { type: string }
+              schema: { type: object }
+          errors:
+            type: array
+            description: |
+              Each entry binds an HTTP status to an error code defined in errors[].
+              The validator cross-checks that error_code exists.
+            items:
+              type: object
+              required: [status, error_code]
+              properties:
+                status: { type: number }
+                error_code:
+                  type: string
+                  pattern: "^[A-Z][A-Z0-9_]*$"
+
+  anti_patterns:
+    type: array
+    description: |
+      Mistakes AI generators (or humans) commonly make. Each entry pairs the
+      rule with the reason it exists — read these BEFORE generating to avoid
+      hallucinated alternates or omitted protections.
+
+      Each entry requires:
+        rule: short imperative ("do not …")
+        why:  the reason / failure mode it prevents
+    items:
+      type: object
+      required: [rule, why]
+      properties:
+        rule:
+          type: string
+        why:
+          type: string
+
+  uses:
+    type: array
+    description: |
+      Capability primitives this feature depends on — analogous to C# `using`,
+      Java `import`, or Rust `use` at the blueprint level. Each entry is the
+      kebab-case identifier of a capability blueprint living under
+      blueprints/capabilities/**/*.capability.yaml.
+
+      Code generators resolve each `uses:` entry to its per-language
+      implementation and treat the capability's contract + anti_patterns as
+      MUST constraints during code generation.
+
+      Example:
+        uses:
+          - ui-design-system         # modern component library, typography, motion
+          - password-hashing         # bcrypt/argon2 with safe cost factor
+          - rate-limiting            # 10 rpm per IP, token bucket
+    items:
+      type: string
+      pattern: "^[a-z][a-z0-9-]*$"
+    uniqueItems: true
+
   related:
     type: array
     description: "Features this blueprint connects to"

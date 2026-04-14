@@ -50,6 +50,17 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `CHANNEL_DIRECTORY_PERMISSION_DENIED` — You do not have permission to browse the channel directory.
 - `CHANNEL_DIRECTORY_NOT_FOUND` — The requested channel was not found or is not publicly accessible.
 
+## Events
+
+**`channel_directory.listed`** — Fires when a user retrieves the paginated channel directory
+  Payload: `filter`, `room_type`, `offset`, `count`
+
+**`channel_directory.searched`** — Fires when a user applies a text filter to the channel directory
+  Payload: `filter`, `offset`, `count`
+
+**`channel_directory.detail_viewed`** — Fires when a user views the detail of a specific channel from the directory
+  Payload: `channel_id`, `channel_name`
+
 ## Connects to
 
 - **channel-management** *(required)* — Channels listed in the directory are created and managed by channel management

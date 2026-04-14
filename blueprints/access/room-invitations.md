@@ -53,6 +53,20 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `KNOCK_NOT_PERMITTED` — This room does not accept knock requests
 - `KNOCK_ALREADY_MEMBER` — You cannot knock on a room you are already in
 
+## Events
+
+**`membership.invited`** — A user has been invited to a room
+  Payload: `inviter_id`, `invitee_id`, `room_id`
+
+**`membership.joined`** — A user has become a full member of a room
+  Payload: `user_id`, `room_id`
+
+**`membership.knocked`** — A user has requested access to a knock-enabled room
+  Payload: `user_id`, `room_id`
+
+**`membership.left`** — A user has left or been removed from a room
+  Payload: `user_id`, `room_id`, `reason`
+
 ## Connects to
 
 - **room-power-levels** *(required)* — Invite, kick, and ban thresholds are defined in the room power levels

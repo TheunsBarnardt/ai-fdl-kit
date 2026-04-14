@@ -92,6 +92,23 @@ Specifies 12 acceptance outcomes that any implementation must satisfy, regardles
 - `PARTY_INTERNAL_DUPLICATE` — Only one internal customer/supplier is allowed per company.
 - `PARTY_ACCOUNT_CURRENCY_MISMATCH` — Account currency must match the party's default currency.
 
+## Events
+
+**`customer.created`** — New customer record created
+  Payload: `customer_id`, `customer_name`, `customer_type`
+
+**`customer.credit_exceeded`** — Customer credit limit exceeded during a transaction
+  Payload: `customer_id`, `company`, `outstanding`, `credit_limit`, `transaction_amount`
+
+**`supplier.created`** — New supplier record created
+  Payload: `supplier_id`, `supplier_name`, `supplier_type`
+
+**`supplier.on_hold`** — Supplier placed on hold with transaction restrictions
+  Payload: `supplier_id`, `hold_type`, `release_date`
+
+**`lead.converted`** — Lead converted to a customer record
+  Payload: `lead_id`, `customer_id`
+
 ## Connects to
 
 - **sales-order-lifecycle** *(recommended)* — Sales order lifecycle uses customer credit limits and defaults

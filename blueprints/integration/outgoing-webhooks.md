@@ -64,6 +64,23 @@ Specifies 11 acceptance outcomes that any implementation must satisfy, regardles
 - `OUTGOING_WEBHOOK_DISABLED` — This outgoing webhook integration has been disabled
 - `OUTGOING_WEBHOOK_NOT_AUTHORIZED` — You do not have permission to manage outgoing webhook integrations
 
+## Events
+
+**`outgoing_webhooks.integration_created`** — Fired when a new outgoing webhook integration is registered
+  Payload: `name`, `event_type`
+
+**`outgoing_webhooks.callback_dispatched`** — Fired when an HTTP callback is sent to the external URL(s)
+  Payload: `name`, `event_type`, `urls`
+
+**`outgoing_webhooks.response_posted`** — Fired when the external system returns a message that is posted back to the channel
+  Payload: `name`, `channel`, `response_text`
+
+**`outgoing_webhooks.integration_updated`** — Fired when an existing outgoing webhook integration is modified
+  Payload: `name`, `event_type`
+
+**`outgoing_webhooks.integration_deleted`** — Fired when an outgoing webhook integration is removed
+  Payload: `name`
+
 ## Connects to
 
 - **incoming-webhooks** *(recommended)* — Incoming webhooks provide the complementary ability to receive data from external systems

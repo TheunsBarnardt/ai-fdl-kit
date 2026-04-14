@@ -61,6 +61,26 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `VISIT_DETECTION_FAILED` — Visit detection could not be completed. Please try again later.
 - `PLACE_NOT_FOUND` — The specified place could not be found.
 
+## Events
+
+**`visits.detection.completed`** — Smart detection finished for a time range.
+  Payload: `user_id`, `visit_count`, `started_at`, `ended_at`
+
+**`visits.detection.skipped`** — Detection found no qualifying points and created nothing.
+  Payload: `user_id`, `started_at`, `ended_at`
+
+**`visits.detection.failed`** — Detection aborted due to an error.
+  Payload: `user_id`, `error_message`
+
+**`visits.place_scan.completed`** — Place-specific visit history scanned and recorded.
+  Payload: `place_id`, `visit_count`
+
+**`visit.confirmed`** — User confirmed a suggested visit.
+  Payload: `visit_id`, `place_id`, `started_at`, `ended_at`
+
+**`visit.declined`** — User declined a suggested visit.
+  Payload: `visit_id`
+
 ## Connects to
 
 - **location-history-storage** *(required)* — Provides the raw GPS points that are clustered into visits.

@@ -65,6 +65,40 @@ Specifies 22 acceptance outcomes that any implementation must satisfy, regardles
 - `FLOAT_INVALID` — Float increment resulted in NaN or Infinity
 - `KEY_EXISTS` — One or more keys already exist
 
+## Events
+
+**`string.read`**
+
+**`string.miss`**
+
+**`string.set`**
+
+**`string.set_conditional`**
+
+**`string.set_expiring`**
+
+**`string.appended`**
+
+**`string.range_read`**
+
+**`string.range_written`**
+
+**`string.incr`**
+
+**`string.incrbyfloat`**
+
+**`string.getset`**
+
+**`string.getdel`**
+
+**`string.mget`**
+
+**`string.mset`**
+
+**`string.msetnx_success`**
+
+**`string.msetnx_rejected`**
+
 ## Connects to
 
 - **key-expiration** *(required)* — TTL support integrated into string operations

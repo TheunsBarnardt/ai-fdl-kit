@@ -73,6 +73,26 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `DISPUTE_INVALID_AMOUNT` — Disputed amount exceeds original transaction amount
 - `DISPUTE_EVIDENCE_TOO_LARGE` — Evidence file exceeds maximum upload size
 
+## Events
+
+**`dispute.opened`** — New dispute raised against a transaction
+  Payload: `dispute_id`, `original_transaction_id`, `dispute_type`, `dispute_amount`
+
+**`dispute.evidence_requested`** — Evidence requested from merchant
+  Payload: `dispute_id`, `evidence_deadline`
+
+**`dispute.resolved`** — Dispute resolved
+  Payload: `dispute_id`, `resolved_in_favour_of`, `dispute_amount`
+
+**`dispute.escalated`** — Dispute escalated to payment scheme
+  Payload: `dispute_id`, `payment_method`
+
+**`dispute.auto_resolved`** — Dispute auto-resolved due to evidence deadline expiry
+  Payload: `dispute_id`, `resolved_in_favour_of`
+
+**`dispute.filing_expired`** — Dispute filing rejected — deadline passed
+  Payload: `original_transaction_id`
+
 ## Connects to
 
 - **payshap-rail** *(required)* — PayShap refunds via POST /transactions/outbound/refund-initiation

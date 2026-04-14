@@ -58,6 +58,14 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 - `CHARGING_SESSION_NO_DATA` — Charging session ended without sufficient telemetry data.
 
+## Events
+
+**`charging.session.started`** — A charging session began at a location
+  Payload: `vehicle_id`, `session_id`, `start_date`, `location_id`, `start_battery_level`
+
+**`charging.session.completed`** — A charging session completed
+  Payload: `vehicle_id`, `session_id`, `charge_energy_added_kwh`, `duration_min`, `cost`, `end_battery_level`
+
 ## Connects to
 
 - **vehicle-state-machine** *(required)*

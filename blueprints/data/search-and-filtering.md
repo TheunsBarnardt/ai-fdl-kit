@@ -67,6 +67,14 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `SEARCH_RATE_LIMITED` — Too many search requests; please try again shortly
 - `SAVED_SEARCH_LIMIT_REACHED` — Maximum number of saved searches reached
 
+## Events
+
+**`search.executed`** — A search query was executed (regardless of result count)
+  Payload: `query`, `filters`, `sort_by`, `result_count`, `response_time_ms`
+
+**`search.saved`** — A search configuration was saved by a user
+  Payload: `saved_search_id`, `user_id`, `search_name`
+
 ## Connects to
 
 - **pagination** *(required)* — Search results must be paginated for performance and usability

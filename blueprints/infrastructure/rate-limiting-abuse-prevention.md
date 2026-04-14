@@ -70,6 +70,23 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `CAPTCHA_CHALLENGE_FAILED` — CAPTCHA verification failed. Please try again.
 - `RATE_LIMIT_RESET_EXCEEDED` — Too many rate limit resets. Please wait before attempting another challenge.
 
+## Events
+
+**`rate_limit.exceeded`** — A request was rejected because the leaky-bucket rate limiter had insufficient permits
+  Payload: `rate_limiter_name`, `subject_key`, `retry_after_seconds`
+
+**`rate_limit.push_challenge_sent`** — A push challenge notification was dispatched to the account's primary device
+  Payload: `account_identifier`, `challenge_ttl_minutes`
+
+**`rate_limit.challenge_answered`** — A challenge (push or CAPTCHA) was successfully verified and rate limiters were reset
+  Payload: `account_identifier`, `challenge_type`
+
+**`rate_limit.challenge_failed`** — A submitted challenge response was invalid
+  Payload: `account_identifier`, `challenge_type`
+
+**`rate_limit.reset_limit_exceeded`** — An account attempted to reset rate limits via challenge too frequently
+  Payload: `account_identifier`
+
 ## Connects to
 
 - **push-notification-delivery** *(required)* — Push challenges are delivered to devices via the push notification subsystem

@@ -61,6 +61,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `COMMAND_NOT_FOUND` — Slash command not found.
 - `COMMAND_PERMISSION_DENIED` — You do not have permission to manage slash commands.
 
+## Events
+
+**`command.created`** — New slash command registered
+  Payload: `command_id`, `trigger`, `team_id`, `actor_id`, `timestamp`
+
+**`command.updated`** — Slash command configuration modified
+  Payload: `command_id`, `trigger`, `changed_fields`, `actor_id`, `timestamp`
+
+**`command.deleted`** — Slash command removed
+  Payload: `command_id`, `trigger`, `actor_id`, `timestamp`
+
+**`command.executed`** — Slash command triggered by a user
+  Payload: `command_id`, `trigger`, `channel_id`, `user_id`, `timestamp`
+
+**`command.token_regenerated`** — Command security token was regenerated; old token no longer valid
+  Payload: `command_id`, `actor_id`, `timestamp`
+
 ## Connects to
 
 - **server-plugin-framework** *(optional)* — Plugins can register slash commands in addition to API-created commands

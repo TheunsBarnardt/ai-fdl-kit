@@ -63,6 +63,17 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `SHIPPING_CARRIER_UNAVAILABLE` — The selected carrier is currently unavailable. Please try a different shipping option.
 - `SHIPPING_NO_RATES_AVAILABLE` — No shipping rates are available for this origin/destination combination.
 
+## Events
+
+**`shipping.rate_calculated`** — Shipping rate calculated for a shipment
+  Payload: `shipment_id`, `carrier`, `service_level`, `rate`, `estimated_delivery`
+
+**`shipping.label_created`** — Shipping label generated with carrier
+  Payload: `shipment_id`, `carrier`, `tracking_number`, `label_url`
+
+**`shipping.tracking_updated`** — Shipment tracking status updated
+  Payload: `shipment_id`, `tracking_number`, `status`, `location`, `timestamp`
+
 ## Connects to
 
 - **cart-checkout** *(required)* — Shipping rates displayed during checkout flow

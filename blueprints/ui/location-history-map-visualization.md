@@ -59,6 +59,17 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `POINT_UPDATE_FAILED` — Could not save the updated position. Please try again.
 - `MAP_DATA_LOAD_FAILED` — Could not load location data for this period. Please refresh and try again.
 
+## Events
+
+**`map.layers.rendered`** — All active layers successfully drawn on the map.
+  Payload: `point_count`, `active_layers`, `date_range_start`, `date_range_end`
+
+**`map.layer.toggled`** — User showed or hid an overlay layer.
+  Payload: `layer_name`, `visible`
+
+**`point.position.updated`** — A GPS point's coordinates were successfully corrected.
+  Payload: `point_id`, `latitude`, `longitude`
+
 ## Connects to
 
 - **location-history-storage** *(required)* — Provides the persisted GPS points that this feature visualises.

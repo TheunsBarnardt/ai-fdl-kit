@@ -49,6 +49,29 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `VEHICLE_API_UNREACHABLE` — Vehicle is not responding. Polling will continue with backoff.
 - `VEHICLE_SUSPENDED` — Vehicle logging is suspended. Resume logging to track activity.
 
+## Events
+
+**`vehicle.state.online`** — Vehicle became reachable via API
+  Payload: `vehicle_id`, `timestamp`
+
+**`vehicle.state.driving_started`** — Vehicle shifted into a drive gear
+  Payload: `vehicle_id`, `timestamp`, `shift_state`
+
+**`vehicle.state.driving_ended`** — Vehicle shifted into park or stopped responding
+  Payload: `vehicle_id`, `timestamp`, `duration_min`
+
+**`vehicle.state.charging_started`** — Vehicle began a charging session
+  Payload: `vehicle_id`, `timestamp`, `charging_state`
+
+**`vehicle.state.charging_ended`** — Vehicle completed or stopped a charging session
+  Payload: `vehicle_id`, `timestamp`, `duration_min`
+
+**`vehicle.state.asleep`** — Vehicle entered sleep mode
+  Payload: `vehicle_id`, `timestamp`
+
+**`vehicle.state.offline`** — Vehicle stopped responding to API requests
+  Payload: `vehicle_id`, `timestamp`
+
 ## Connects to
 
 - **vehicle-trip-segmentation** *(required)*

@@ -63,6 +63,29 @@ Specifies 11 acceptance outcomes that any implementation must satisfy, regardles
 - `SUBSCRIPTION_PLAN_INVALID` — The selected plan is not available for this account.
 - `SUBSCRIPTION_CANCELED` — This subscription has been canceled and cannot be modified.
 
+## Events
+
+**`subscription.created`** — New subscription created
+  Payload: `subscription_id`, `customer_id`, `plan_id`, `billing_cycle`, `status`
+
+**`subscription.upgraded`** — Subscription plan upgraded to a higher tier
+  Payload: `subscription_id`, `old_plan`, `new_plan`, `proration_amount`
+
+**`subscription.downgraded`** — Subscription plan downgraded to a lower tier
+  Payload: `subscription_id`, `old_plan`, `new_plan`, `effective_date`
+
+**`subscription.canceled`** — Subscription cancellation initiated
+  Payload: `subscription_id`, `customer_id`, `effective_date`, `cancel_mode`
+
+**`subscription.renewed`** — Subscription successfully renewed for a new period
+  Payload: `subscription_id`, `plan_id`, `amount_charged`
+
+**`subscription.payment_failed`** — Recurring payment failed, dunning process initiated or continued
+  Payload: `subscription_id`, `customer_id`, `attempt_number`, `next_retry_date`
+
+**`subscription.trial_ending`** — Trial period ending within 3 days
+  Payload: `subscription_id`, `customer_id`, `trial_ends_at`
+
 ## Connects to
 
 - **payment-methods** *(required)* — Subscription billing requires a saved payment method for recurring charges

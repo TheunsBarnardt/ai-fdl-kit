@@ -41,6 +41,11 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 - `POWER_DEVICE_NOT_FOUND` — The device referenced does not exist
 
+## Events
+
+**`device.power_alarm`** — Device has reported a power-related condition (low battery, power cut, power restored)
+  Payload: `device_id`, `alarm_type`, `battery_level`, `battery_voltage`, `external_power_voltage`, `fix_time`, `position_id`
+
 ## Connects to
 
 - **device-alarm-notifications** *(required)* — Power alarms are processed through the same alarm event pipeline

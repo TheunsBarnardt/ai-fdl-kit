@@ -82,6 +82,26 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `WARRANTY_SERIAL_INVALID` — The specified serial number is invalid or not found.
 - `WARRANTY_EXPIRED` — The warranty period for this serial number has expired.
 
+## Events
+
+**`issue.created`** — Fired when a new support issue is created
+  Payload: `subject`, `priority`, `customer`, `raised_by`
+
+**`issue.sla_assigned`** — Fired when an SLA is assigned to an issue
+  Payload: `subject`, `service_level_agreement`, `response_by`, `resolution_by`
+
+**`issue.first_response`** — Fired when the first response is recorded
+  Payload: `subject`, `first_response_time`, `response_by`
+
+**`issue.resolved`** — Fired when an issue is resolved
+  Payload: `subject`, `resolution_date`, `agreement_status`
+
+**`issue.sla_failed`** — Fired when SLA deadlines are exceeded
+  Payload: `subject`, `priority`, `response_by`, `resolution_by`
+
+**`warranty.claimed`** — Fired when a warranty claim is created
+  Payload: `warranty_customer`, `item_code`, `serial_no`, `complaint`
+
 ## Connects to
 
 - **customer-supplier-management** *(recommended)* — Customer data used for SLA entity matching

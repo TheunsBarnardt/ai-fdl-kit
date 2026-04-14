@@ -90,6 +90,68 @@ Specifies 21 acceptance outcomes that any implementation must satisfy, regardles
 - `CALLER_SUSPENDED` — Caller account suspended due to policy violation.
 - `PROVIDER_ERROR` — Upstream AI provider error. Failover in progress.
 
+## Events
+
+**`service.listed`** — Service published to discovery registries
+  Payload: `service_id`, `service_name`, `service_type`, `price_per_call_cents`, `registries_published`
+
+**`service.call_completed`** — Service call completed — core revenue event
+  Payload: `service_id`, `caller_id`, `call_id`, `latency_ms`, `cost_cents`, `revenue_cents`, `tokens_used`
+
+**`service.auto_created`** — New service auto-created by improvement engine based on demand
+  Payload: `service_id`, `service_name`, `service_type`, `capability_gap`, `requesting_callers`
+
+**`service.invalid_request`** — Invalid request received — useful for improving error messages and schema docs
+  Payload: `caller_id`, `service_id`, `validation_errors`
+
+**`caller.registered`** — New calling AI registered
+  Payload: `caller_id`, `caller_type`, `api_key`
+
+**`caller.funded`** — Caller added funds to balance
+  Payload: `caller_id`, `amount_cents`, `new_balance_cents`
+
+**`billing.insufficient_balance`** — Caller tried to make call without sufficient balance
+  Payload: `caller_id`, `balance_cents`, `required_cents`
+
+**`finance.allocated`** — Revenue allocated across funds
+  Payload: `revenue_cents`, `owner_cents`, `improvement_cents`, `compute_cents`, `reserve_cents`
+
+**`finance.owner_payout`** — Owner payout triggered
+  Payload: `amount_cents`, `payout_method`
+
+**`improvement.eval_completed`** — Daily eval cycle completed
+  Payload: `services_evaluated`, `avg_quality_score`, `degraded_services`, `improved_services`
+
+**`improvement.weekly_cycle`** — Weekly self-improvement cycle completed
+  Payload: `cycle_number`, `cost_reduction_cents`, `quality_delta`, `new_services_proposed`, `pricing_changes`
+
+**`improvement.fine_tune_started`** — Fine-tuning job started
+  Payload: `service_type`, `training_examples`, `estimated_cost_cents`
+
+**`improvement.fine_tune_deployed`** — Fine-tuned model deployed — costs reduced
+  Payload: `service_type`, `quality_improvement_percent`, `cost_reduction_percent`
+
+**`improvement.fine_tune_failed`** — Fine-tuned model rolled back
+  Payload: `service_type`, `base_score`, `fine_tuned_score`
+
+**`marketing.listings_updated`** — Registry listings optimized
+  Payload: `services_updated`, `description_tests_running`, `competitive_changes`
+
+**`system.failover`** — LLM provider failover triggered
+  Payload: `primary_provider`, `secondary_provider`, `error_count`
+
+**`system.scaling`** — Auto-scaling triggered
+  Payload: `service_id`, `current_latency_ms`, `target_latency_ms`, `instances_added`
+
+**`system.circuit_breaker`** — Circuit breaker tripped — service paused
+  Payload: `service_id`, `error_count`, `last_error`, `paused_at`
+
+**`security.rate_limited`** — Rate limit exceeded
+  Payload: `caller_id`, `request_count`, `limit`
+
+**`security.unauthorized`** — Unauthorized access attempt
+  Payload: `ip_address`, `endpoint`
+
 ## Connects to
 
 - **api-key-management** *(required)* — Per-caller API key provisioning and rotation

@@ -40,6 +40,14 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 - `LOGOUT_CSRF_INVALID` — Invalid request. Please try again.
 - `LOGOUT_RATE_LIMITED` — Too many requests. Please wait a moment.
 
+## Events
+
+**`logout.success`** — User logged out from current device
+  Payload: `user_id`, `session_id`, `timestamp`, `ip_address`
+
+**`logout.all_devices`** — User logged out from all devices
+  Payload: `user_id`, `timestamp`, `ip_address`, `revoked_session_count`
+
 ## Connects to
 
 - **login** *(required)* — Logout ends what login started

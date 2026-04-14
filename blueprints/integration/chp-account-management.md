@@ -87,6 +87,35 @@ Specifies 11 acceptance outcomes that any implementation must satisfy, regardles
 - `PROXY_ALREADY_REGISTERED` — Proxy is already registered to another account
 - `AVS_VERIFICATION_FAILED` — Account verification failed
 
+## Events
+
+**`account.mirror.updated`** — Account data synchronized to platform mirror
+  Payload: `account_number`, `account_status`, `record_identifier`
+
+**`account.mirror.deleted`** — Account removed from platform mirror
+  Payload: `account_number`, `record_identifier`
+
+**`proxy.registered`** — New proxy registered for an account
+  Payload: `proxy_type`, `proxy_value`, `account_number`
+
+**`proxy.deregistered`** — Proxy mapping removed from an account
+  Payload: `proxy_type`, `proxy_value`, `account_number`
+
+**`proxy.resolved`** — Proxy successfully resolved to a bank account
+  Payload: `proxy_type`, `proxy_value`, `account_number`, `bank_code`
+
+**`avsr.verification.requested`** — AVS-R verification request initiated
+  Payload: `account_number`, `bank_code`
+
+**`avsr.verification.completed`** — AVS-R verification completed with result
+  Payload: `account_number`, `bank_code`, `account_status`
+
+**`cdv.validation.requested`** — CDV validation request initiated for an account number
+  Payload: `account_number`, `bank_code`, `branch_code`
+
+**`cdv.validation.completed`** — CDV validation completed with result
+  Payload: `account_number`, `bank_code`
+
 ## Connects to
 
 - **chp-inbound-payments** *(required)* — Account validation and proxy resolution required for inbound routing

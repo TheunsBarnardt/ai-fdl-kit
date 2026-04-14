@@ -60,6 +60,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `INVOICE_RETURN_QTY_EXCEEDED` — Return quantity exceeds the quantity available on the original invoice.
 - `INVOICE_ALREADY_CANCELLED` — This invoice has already been cancelled.
 
+## Events
+
+**`invoice.submitted`** — Invoice transitions from Draft to Submitted with GL entries posted
+  Payload: `invoice_id`, `invoice_type`, `customer_or_supplier`, `grand_total`, `posting_date`
+
+**`invoice.paid`** — Outstanding amount reaches zero after payment allocation
+  Payload: `invoice_id`, `paid_amount`, `outstanding_amount`
+
+**`invoice.overdue`** — Due date passes with outstanding balance remaining
+  Payload: `invoice_id`, `customer_or_supplier`, `outstanding_amount`, `due_date`
+
+**`invoice.cancelled`** — Invoice is cancelled and GL entries reversed
+  Payload: `invoice_id`, `invoice_type`, `grand_total`
+
+**`invoice.return_created`** — Return invoice is created against an original
+  Payload: `invoice_id`, `return_invoice_id`, `return_amount`
+
 ## Connects to
 
 - **payment-processing** *(required)* — Payments must be allocated against invoices to clear outstanding balances

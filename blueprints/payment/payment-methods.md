@@ -64,6 +64,20 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `PAYMENT_METHOD_TOKENIZATION_FAILED` — Unable to securely process this payment method. Please try again.
 - `PAYMENT_METHOD_REMOVAL_BLOCKED` — This payment method cannot be removed because it is linked to an active subscription.
 
+## Events
+
+**`payment_method.added`** — New payment method saved to customer account
+  Payload: `method_id`, `customer_id`, `type`, `brand`, `last_four`
+
+**`payment_method.removed`** — Payment method removed and token revoked
+  Payload: `method_id`, `customer_id`, `type`
+
+**`payment_method.default_changed`** — Customer changed their default payment method
+  Payload: `method_id`, `customer_id`, `previous_default_id`
+
+**`payment_method.expiring`** — Payment method expiring within 30 days
+  Payload: `method_id`, `customer_id`, `exp_month`, `exp_year`
+
 ## Connects to
 
 - **subscription-billing** *(required)* — Subscriptions charge against saved payment methods

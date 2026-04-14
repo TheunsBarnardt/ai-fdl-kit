@@ -62,6 +62,23 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `TASK_ALREADY_ASSIGNED` — This task is already assigned to another user.
 - `TASK_ACCESS_DENIED` — You do not have permission to modify this task.
 
+## Events
+
+**`task.created`** — A new task was created
+  Payload: `task_id`, `title`, `reporter_id`, `project_id`
+
+**`task.assigned`** — A task was assigned to a user
+  Payload: `task_id`, `assignee_id`, `reporter_id`
+
+**`task.status_changed`** — A task transitioned to a new status
+  Payload: `task_id`, `old_status`, `new_status`, `actor_id`
+
+**`task.completed`** — A task was marked as done
+  Payload: `task_id`, `assignee_id`, `actual_hours`, `completed_at`
+
+**`task.overdue`** — A task passed its due date without completion
+  Payload: `task_id`, `assignee_id`, `due_date`, `days_overdue`
+
 ## Connects to
 
 - **approval-chain** *(optional)* — Tasks requiring sign-off can use the approval chain workflow

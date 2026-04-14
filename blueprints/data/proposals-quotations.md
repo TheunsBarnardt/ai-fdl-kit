@@ -78,6 +78,56 @@ Specifies 18 acceptance outcomes that any implementation must satisfy, regardles
 - `PDF_GENERATION_FAILED` — PDF generation failed
 - `DOCU_SIGN_INTEGRATION_ERROR` — eSignature service error
 
+## Events
+
+**`proposal.created`** — Proposal created
+  Payload: `proposal_id`
+
+**`proposal.retrieved`** — Proposal retrieved
+  Payload: `proposal_id`
+
+**`proposals.list_retrieved`** — Proposals list retrieved
+  Payload: `client_id`
+
+**`proposal_document.retrieved`** — Proposal document retrieved
+  Payload: `proposal_id`
+
+**`pending_proposals.retrieved`** — Pending proposals retrieved
+  Payload: `client_id`
+
+**`proposal.accepted`** — Proposal accepted
+  Payload: `proposal_id`
+
+**`proposal.declined`** — Proposal declined
+  Payload: `proposal_id`
+
+**`document.downloaded`** — Document downloaded
+  Payload: `proposal_id`
+
+**`mandate.generated`** — Mandate generated
+  Payload: `onboarding_id`
+
+**`mandate_signing.initiated`** — Signing initiated
+  Payload: `onboarding_id`
+
+**`mandate.signed`** — Mandate signed
+  Payload: `onboarding_id`
+
+**`proposal.updated`** — Proposal updated
+  Payload: `proposal_id`
+
+**`onboarding.created`** — Onboarding created
+  Payload: `onboarding_id`
+
+**`pm_proposals.list_retrieved`** — PM proposals retrieved
+  Payload: `portfolio_manager_id`
+
+**`pm_onboardings.list_retrieved`** — PM onboardings retrieved
+  Payload: `portfolio_manager_id`
+
+**`validation.duplicate_check`** — Duplicate check performed
+  Payload: `identification_number`
+
 ## Connects to
 
 - **client-onboarding** *(required)*

@@ -42,6 +42,20 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 
 - `SKILL_NO_COMPATIBLE_VEHICLE` — No vehicle holds the required skills for this task.
 
+## Events
+
+**`task.skill.matched`** — Vehicle confirmed compatible with task skill requirements
+  Payload: `vehicle_id`, `job_id`, `matched_skills`
+
+**`task.skill.rejected`** — Vehicle lacks required skills for a task; skipped during optimization
+  Payload: `vehicle_id`, `job_id`, `missing_skills`
+
+**`task.skill.violated`** — Plan mode — task assigned to incompatible vehicle
+  Payload: `vehicle_id`, `job_id`, `missing_skills`
+
+**`task.unassigned`** — No compatible vehicle found; task left unassigned
+  Payload: `job_id`, `reason`
+
 ## Connects to
 
 - **vrp-solving** *(required)*

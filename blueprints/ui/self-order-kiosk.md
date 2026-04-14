@@ -68,6 +68,26 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `SELF_ORDER_ORDER_NOT_FOUND` — Your order does not exist or has been removed.
 - `SELF_ORDER_PRODUCT_UNAVAILABLE` — One or more selected products are no longer available.
 
+## Events
+
+**`self_order.order.submitted`** — Customer submitted an order from mobile or kiosk
+  Payload: `order_id`, `table_id`, `order_source`, `cart_items`
+
+**`self_order.payment.completed`** — Payment successfully processed for a self-order
+  Payload: `order_id`, `payment_method`, `amount`
+
+**`self_order.order.cancelled`** — Customer cancelled their self-order
+  Payload: `order_id`, `order_source`
+
+**`self_order.order.ready`** — Kitchen marks the order as ready for pickup/delivery
+  Payload: `order_id`, `table_id`
+
+**`self_order.product.unavailable`** — A product became unavailable while customers are browsing
+  Payload: `product_id`, `reason`
+
+**`self_order.session.status_changed`** — POS session status changed (opened/closed) affecting self-ordering availability
+  Payload: `session_id`, `new_status`
+
 ## Connects to
 
 - **pos-core** *(required)* — Self-orders create POS orders within an active session

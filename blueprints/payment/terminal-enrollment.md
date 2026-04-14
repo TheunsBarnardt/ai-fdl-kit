@@ -87,6 +87,38 @@ Combines technical outcomes (acceptance criteria) with documented business flows
 - `ENROLLMENT_PHONE_IN_USE` — This phone number is already linked to another palm
 - `ENROLLMENT_SCANNER_ERROR` — Palm scanner error — please try another terminal
 
+## Events
+
+**`enrollment.initiated`** — Enrollment session started
+  Payload: `enrollment_id`, `terminal_id`
+
+**`enrollment.palm.registered`** — Palm template registered during enrollment
+  Payload: `enrollment_id`, `palms_enrolled`
+
+**`enrollment.otp.sent`** — OTP sent to customer's phone
+  Payload: `enrollment_id`, `phone_number`
+
+**`enrollment.otp.verified`** — OTP verified successfully
+  Payload: `enrollment_id`
+
+**`enrollment.otp.failed`** — OTP verification failed — max attempts exceeded
+  Payload: `enrollment_id`, `otp_attempts`
+
+**`enrollment.completed`** — Enrollment complete — palm-pay link active
+  Payload: `enrollment_id`, `palms_enrolled`, `phone_number`
+
+**`enrollment.scan.failed`** — Palm scan failed during enrollment
+  Payload: `enrollment_id`, `terminal_id`
+
+**`enrollment.duplicate.detected`** — Scanned palm already registered
+  Payload: `enrollment_id`
+
+**`enrollment.timeout`** — Enrollment session timed out
+  Payload: `enrollment_id`
+
+**`enrollment.cancelled`** — Enrollment cancelled by customer or merchant
+  Payload: `enrollment_id`, `enrollment_state`
+
 ## Connects to
 
 - **biometric-auth** *(required)* — Palm enrollment uses the biometric authentication system

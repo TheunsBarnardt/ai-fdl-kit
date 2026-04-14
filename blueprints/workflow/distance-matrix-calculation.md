@@ -51,6 +51,17 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `MATRIX_SIZE_MISMATCH` — Provided matrix dimensions do not match the number of locations.
 - `MATRIX_COST_CONFLICT` — Custom cost matrix cannot be combined with per_hour or per_km vehicle costs.
 
+## Events
+
+**`matrix.built`** — Travel-time and distance matrix successfully computed for a profile
+  Payload: `profile`, `location_count`, `build_duration_ms`
+
+**`matrix.sparse.updated`** — Sparse matrix cells updated for vehicles with predefined routes
+  Payload: `vehicle_id`, `route_length`, `cells_updated`
+
+**`matrix.error`** — Matrix computation failed for a profile
+  Payload: `profile`, `problem_location`, `error_message`
+
 ## Connects to
 
 - **vrp-solving** *(required)*

@@ -84,6 +84,29 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `EXPORT_TOO_LARGE` — Data export exceeds maximum size. Please contact support.
 - `EXPORT_PROCESSING` — Your data export is being prepared. You will receive a download link.
 
+## Events
+
+**`privacy.consent_granted`** — User granted consent for a specific processing purpose
+  Payload: `user_id`, `consent_type`, `purpose`, `legal_basis`, `consent_version`, `timestamp`
+
+**`privacy.consent_revoked`** — User revoked consent for a specific processing purpose
+  Payload: `user_id`, `consent_type`, `purpose`, `timestamp`
+
+**`privacy.data_exported`** — User personal data exported for portability
+  Payload: `user_id`, `export_format`, `record_count`, `timestamp`
+
+**`privacy.erasure_requested`** — User requested deletion of their personal data
+  Payload: `user_id`, `erasure_request_id`, `deadline`, `timestamp`
+
+**`privacy.erasure_completed`** — All personal data successfully deleted across all systems
+  Payload: `user_id`, `erasure_request_id`, `subsystems_cleared`, `timestamp`
+
+**`privacy.erasure_deadline_warning`** — Erasure request approaching 30-day compliance deadline
+  Payload: `user_id`, `erasure_request_id`, `days_remaining`, `timestamp`
+
+**`privacy.cookie_preference_updated`** — User updated their cookie consent preferences
+  Payload: `user_id`, `cookie_categories_accepted`, `cookie_categories_rejected`, `timestamp`
+
 ## Connects to
 
 - **signup** *(required)* — Consent must be collected at registration

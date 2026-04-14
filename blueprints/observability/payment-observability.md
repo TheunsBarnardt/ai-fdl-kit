@@ -84,6 +84,26 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `OBSERVABILITY_METRIC_INVALID` — Invalid metric data — check name, type, and dimensions
 - `OBSERVABILITY_STORAGE_FULL` — Metrics storage capacity reached — check retention policies
 
+## Events
+
+**`observability.metric.recorded`** — Transaction metric recorded
+  Payload: `metric_name`, `value`, `dimensions`, `timestamp`
+
+**`observability.alert.fired`** — Alert threshold breached
+  Payload: `alert_id`, `alert_name`, `alert_severity`, `metric_name`, `value`
+
+**`observability.alert.acknowledged`** — Alert acknowledged by operator
+  Payload: `alert_id`, `alert_name`
+
+**`observability.alert.resolved`** — Alert condition resolved
+  Payload: `alert_id`, `alert_name`
+
+**`observability.health.failed`** — Health check endpoint failed
+  Payload: `endpoint`, `status_code`
+
+**`observability.metrics.aggregated`** — Metrics rolled up to higher aggregation level
+  Payload: `aggregation_level`, `period`, `metric_count`
+
 ## Connects to
 
 - **terminal-fleet** *(required)* — Fleet monitoring provides device-level health; this provides application-level metrics

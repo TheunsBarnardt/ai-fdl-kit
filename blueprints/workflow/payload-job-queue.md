@@ -75,6 +75,23 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `JOB_INVALID_INPUT` — The job input does not match the expected schema
 - `JOB_EXECUTION_ERROR` — An error occurred while executing the job
 
+## Events
+
+**`job.queued`** — Emitted when a new job is added to the queue
+  Payload: `job_id`, `task_slug`, `workflow_slug`, `queue`, `user_id`
+
+**`job.started`** — Emitted when a job begins execution
+  Payload: `job_id`, `task_slug`, `timestamp`
+
+**`job.completed`** — Emitted when a job completes successfully
+  Payload: `job_id`, `task_slug`, `timestamp`, `output`
+
+**`job.failed`** — Emitted when a job fails (may retry or permanently fail)
+  Payload: `job_id`, `task_slug`, `timestamp`, `error`, `total_tried`
+
+**`job.cancelled`** — Emitted when a job is cancelled
+  Payload: `job_id`, `task_slug`, `user_id`, `timestamp`
+
 ## Connects to
 
 - **payload-versions** *(optional)* — Scheduled publishing uses the job queue to publish/unpublish at future times

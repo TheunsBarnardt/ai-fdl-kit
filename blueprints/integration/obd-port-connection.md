@@ -54,6 +54,17 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `OBD_LOW_VOLTAGE` — OBD-II socket voltage is too low. Turn on the vehicle ignition and retry.
 - `OBD_PROTOCOL_NOT_DETECTED` — Could not detect a supported OBD-II protocol. The vehicle may not be compatible.
 
+## Events
+
+**`obd.connection.established`** — Vehicle connection fully established; protocol confirmed and ECU is responding
+  Payload: `port`, `baud_rate`, `protocol`, `connection_status`
+
+**`obd.connection.closed`** — Connection cleanly closed; serial port released
+  Payload: `port`
+
+**`obd.connection.error`** — A connection-level error occurred during setup or operation
+  Payload: `error_code`, `port`
+
 ## Connects to
 
 - **obd-pid-reading** *(required)* — PID queries require an active vehicle_connected state

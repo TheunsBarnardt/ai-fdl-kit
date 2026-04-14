@@ -56,6 +56,17 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `CALL_RELAY_UNAUTHORIZED` — Authentication required to obtain call relay credentials.
 - `CALL_RELAY_PROVIDER_ERROR` — Unable to obtain relay credentials at this time. Please try again.
 
+## Events
+
+**`call_relay.credentials_issued`** — TURN relay credentials were successfully issued for a 1:1 call
+  Payload: `account_id`, `turn_ttl_seconds`
+
+**`call_relay.rate_limited`** — A relay credential request was rejected due to per-account rate limiting
+  Payload: `account_id`
+
+**`call_relay.provider_error`** — The external relay credential provider returned an error or was unreachable
+  Payload: `account_id`, `http_status`
+
 ## Connects to
 
 - **login** *(required)* — TURN credential issuance requires a valid authenticated device session

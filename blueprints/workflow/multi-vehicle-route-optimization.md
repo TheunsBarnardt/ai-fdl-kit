@@ -48,6 +48,11 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 - `FLEET_NO_VEHICLES` — No vehicles defined in the problem.
 - `FLEET_NO_TASKS` — No jobs or shipments defined in the problem.
 
+## Events
+
+**`fleet.routes.optimized`** — Multi-vehicle route optimization completed
+  Payload: `vehicle_routes`, `unassigned_tasks`, `summary`
+
 ## Connects to
 
 - **vrp-solving** *(required)*

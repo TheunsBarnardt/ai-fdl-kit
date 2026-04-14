@@ -51,6 +51,23 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `UNDO_UNAVAILABLE` — Nothing to undo
 - `REDO_UNAVAILABLE` — Nothing to redo
 
+## Events
+
+**`history.recorded`** — A new state snapshot was added to the history stack
+  Payload: `history_id`, `index`, `stack_size`
+
+**`history.undo`** — User navigated backward in history
+  Payload: `from_index`, `to_index`
+
+**`history.redo`** — User navigated forward in history
+  Payload: `from_index`, `to_index`
+
+**`history.branch_destroyed`** — Future history was discarded after a new action during undo state
+  Payload: `discarded_count`, `new_stack_size`
+
+**`history.loaded`** — History stack was loaded from an external source
+  Payload: `stack_size`, `index`
+
 ## Connects to
 
 - **editor-state** *(required)* — History records and restores the centralized editor state

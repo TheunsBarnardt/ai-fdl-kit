@@ -78,6 +78,44 @@ Combines technical outcomes (acceptance criteria) with documented business flows
 - `OAUTH_SIGN_IN_ERROR` — Try signing in with a different account.
 - `INVALID_CHECK` — Try signing in with a different account.
 
+## Events
+
+**`auth.sign_in`** — Fired after every successful sign-in, whether new user or returning. Includes whether the user is newly created.
+
+  Payload: `user_id`, `provider`, `provider_account_id`, `is_new_user`
+
+**`auth.sign_out`** — Fired when a user signs out (JWT cookie deleted or database session revoked).
+  Payload: `user_id`, `session_strategy`
+
+**`auth.create_user`** — Fired when a new user record is created in the database.
+  Payload: `user_id`, `email`, `provider`
+
+**`auth.update_user`** — Fired when an existing user record is updated.
+  Payload: `user_id`
+
+**`auth.link_account`** — Fired when a new OAuth account is linked to a user (both new registrations and explicit account linking while signed in).
+
+  Payload: `user_id`, `provider`, `provider_account_id`, `access_token`
+
+**`auth.configuration_error`** — Auth system misconfiguration detected (e.g. unknown provider).
+  Payload: `provider`, `error_type`
+
+**`auth.invalid_check`** — CSRF/replay protection check failed during OAuth callback.
+  Payload: `provider`, `check_type`
+
+**`auth.account_not_linked`** — Account linking blocked — email conflict or account already owned by another user.
+
+  Payload: `provider`, `reason`
+
+**`auth.oauth_callback_error`** — OAuth provider returned an error in the callback redirect.
+  Payload: `provider`, `error`, `error_description`
+
+**`auth.profile_parse_error`** — Provider profile normalisation failed.
+  Payload: `provider`
+
+**`auth.access_denied`** — signIn callback blocked the user from signing in.
+  Payload: `user_id`, `provider`
+
 ## Connects to
 
 - **oauth-provider** *(recommended)* — Manages registered OAuth provider configurations

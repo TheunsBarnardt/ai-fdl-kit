@@ -84,6 +84,29 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `POS_CASH_VARIANCE_NO_ACCOUNT` — Cash variance detected but no profit/loss account is configured on the cash journal.
 - `POS_SESSION_BEFORE_LOCK` — Cannot open a session before the accounting lock date.
 
+## Events
+
+**`pos.session.opened`** — Fired when a POS session is opened and ready for orders
+  Payload: `session_id`, `cashier_id`, `opening_balance`
+
+**`pos.session.closed`** — Fired when a session is finalized and posted to accounting
+  Payload: `session_id`, `cash_difference`, `total_sales`, `total_returns`
+
+**`pos.order.paid`** — Fired when an order is fully paid
+  Payload: `order_reference`, `amount_total`, `payment_method`, `customer_id`
+
+**`pos.order.invoiced`** — Fired when an invoice is generated from a POS order
+  Payload: `order_reference`, `invoice_id`, `customer_id`
+
+**`pos.order.refunded`** — Fired when a refund is processed against a previous order
+  Payload: `refund_order_reference`, `original_order_reference`, `refund_amount`
+
+**`pos.order.cancelled`** — Fired when a draft order is cancelled
+  Payload: `order_reference`
+
+**`pos.order.synced`** — Fired when order data is synchronized between terminals
+  Payload: `order_reference`, `session_id`, `device_id`
+
 ## Connects to
 
 - **self-order-kiosk** *(optional)* — Customer-facing self-ordering extends POS order creation

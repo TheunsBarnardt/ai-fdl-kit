@@ -3,19 +3,19 @@ title: "Palm Vein Blueprint"
 layout: default
 parent: "Integration"
 grand_parent: Blueprint Catalog
-description: "Biometric scanning hardware integration for palm vein pattern registration, feature extraction, and 1:N template matching. 16 fields. 13 outcomes. 13 error code"
+description: "USB palm vein scanner integration using SDPVUnifiedAPI — capture, ROI detection, enrollment, 1:N identification, and cache pool management. 17 fields. 14 outcom"
 ---
 
 # Palm Vein Blueprint
 
-> Biometric scanning hardware integration for palm vein pattern registration, feature extraction, and 1:N template matching
+> USB palm vein scanner integration using SDPVUnifiedAPI — capture, ROI detection, enrollment, 1:N identification, and cache pool management
 
 | | |
 |---|---|
 | **Feature** | `palm-vein` |
 | **Category** | Integration |
-| **Version** | 1.0.0 |
-| **Tags** | biometric, vein-pattern, hardware, sdk, authentication |
+| **Version** | 2.0.0 |
+| **Tags** | biometric, vein-pattern, hardware, sdk, usb, android |
 | **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/integration/palm-vein.blueprint.yaml) |
 | **JSON API** | [palm-vein.json]({{ site.baseurl }}/api/blueprints/integration/palm-vein.json) |
 
@@ -23,29 +23,31 @@ description: "Biometric scanning hardware integration for palm vein pattern regi
 
 | ID | Name | Type | Description |
 |----|------|------|-------------|
-| `host_application` | Host Application | system | The application that calls the SDK API to perform palm vein operations |
-| `palm_scanner` | Biometric Scanning Hardware | external | Biometric scanner hardware that captures palm vein images |
+| `host_application` | Host Application | system | Android terminal app that calls the SDK API to perform palm vein operations |
+| `palm_scanner` | PVM310 Biometric Scanner | external | USB-connected palm vein scanning hardware (vendor-id 31109, product-id 4097) |
+| `usb_manager` | USB Permission Manager | system | Android USB host permission handler (PalmUSBManager) in the Application class |
 
 ## Fields
 
 | Name | Type | Required | Label | Description |
 |------|------|----------|-------|-------------|
 | `license_path` | text | Yes | License File Path | Validations: required |
-| `auto_update_template` | boolean | Yes | Auto-Update Template |  |
-| `logging_enabled` | boolean | Yes | SDK Logging |  |
-| `firmware_version` | text | No | Firmware Version | Validations: maxLength |
-| `serial_number` | text | No | Device Serial Number | Validations: maxLength |
-| `palm_feature` | json | No | Palm Vein Feature Data |  |
+| `chip_type` | text | Yes | Target Chip Platform |  |
+| `proximity_intensity_max` | number | Yes | Proximity Intensity Threshold | Validations: min, max |
+| `firmware_version` | text | No | Firmware Version |  |
+| `serial_number` | text | No | Device Serial Number |  |
+| `usb_vendor_id` | number | Yes | USB Vendor ID |  |
+| `usb_product_id` | number | Yes | USB Product ID |  |
 | `palm_template` | json | No | Palm Vein Template |  |
-| `palm_image` | json | No | Palm Vein Image |  |
+| `palm_token` | text | No | Palm Cache Token |  |
+| `palm_roi_image` | json | No | Palm ROI Image |  |
+| `palm_raw_image` | json | No | Palm Raw Image |  |
+| `palm_hand` | select | No | Enrolled Hand |  |
 | `timeout_seconds` | number | Yes | Operation Timeout | Validations: min, max |
-| `image_masked` | boolean | Yes | Apply Blur to Callback Image |  |
+| `image_masked` | boolean | Yes | Apply Mask to Display Image |  |
 | `led_color` | select | No | LED Color |  |
-| `led_duration_ms` | number | No | LED Duration (ms) | Validations: oneOf |
-| `match_index` | number | No | Matched Template Index |  |
-| `template_count` | number | Yes | Number of Templates to Compare | Validations: min |
-| `updated_template` | json | No | Updated Template |  |
-| `palm_hand` | select | No | Palm Hand |  |
+| `led_duration_ms` | number | No | LED Duration (ms) |  |
+| `cache_pool_count` | number | No | Palms in Cache Pool |  |
 
 ## States
 
@@ -56,76 +58,131 @@ description: "Biometric scanning hardware integration for palm vein pattern regi
 | State | Initial | Terminal |
 |-------|---------|----------|
 | `uninitialized` | Yes |  |
-| `initialized` |  |  |
+| `cache_pool_ready` |  |  |
+| `service_ready` |  |  |
+| `usb_waiting` |  |  |
 | `device_open` |  |  |
 | `idle` |  |  |
-| `extracting` |  |  |
-| `registering` |  |  |
+| `capturing` |  |  |
+| `enrolling` |  |  |
+| `identifying` |  |  |
 | `device_closed` |  | Yes |
 
 **Transitions:**
 
 | Name | From | To | Actor | Condition |
 |------|------|----|-------|-----------|
-|  | `uninitialized` | `initialized` | host_application |  |
-|  | `initialized` | `device_open` | host_application |  |
-|  | `device_open` | `idle` | palm_scanner |  |
-|  | `idle` | `extracting` | host_application |  |
-|  | `idle` | `registering` | host_application |  |
-|  | `extracting` | `idle` | palm_scanner |  |
-|  | `registering` | `idle` | palm_scanner |  |
-|  | `extracting` | `idle` | host_application | Operation cancelled via SD_API_Cancel |
-|  | `registering` | `idle` | host_application | Operation cancelled via SD_API_Cancel |
+|  | `uninitialized` | `cache_pool_ready` | host_application |  |
+|  | `cache_pool_ready` | `service_ready` | host_application |  |
+|  | `service_ready` | `usb_waiting` | usb_manager |  |
+|  | `usb_waiting` | `device_open` | usb_manager |  |
+|  | `device_open` | `idle` | host_application |  |
+|  | `idle` | `capturing` | host_application |  |
+|  | `capturing` | `enrolling` | host_application |  |
+|  | `capturing` | `identifying` | host_application |  |
+|  | `enrolling` | `idle` | palm_scanner |  |
+|  | `identifying` | `idle` | palm_scanner |  |
+|  | `capturing` | `idle` | host_application |  |
 |  | `idle` | `device_closed` | host_application |  |
-|  | `device_closed` | `uninitialized` | host_application |  |
+|  | `device_open` | `device_closed` | usb_manager |  |
 
 ## Rules
 
-- **initialization:**
-  - **single_init:** SD_API_GetBufferSize and SD_API_Init must each be called exactly once at program start
-  - **single_uninit:** SD_API_Uninit must be called exactly once at program end
-  - **init_before_all:** All other API calls require successful initialization first
-- **buffer_sizes:**
-  - **precondition:** SD_API_GetBufferSize must be called before any feature/template/image operations to obtain correct buffer sizes
-  - **outputs:** {"feature_size":"Size of palm vein feature data buffer"}, {"template_size":"Size of palm vein template buffer"}, {"image_size":"Size of palm vein image buffer"}, {"registration_count":"Number of palm captures required for registration (4)"}
-- **device_management:**
-  - **cancel_before_reopen:** If currently in registration or feature extraction, call SD_API_Cancel before opening or closing the device
-  - **busy_check:** Device returns DEVBUSY error if a registration or extraction is already in progress
-- **registration:**
-  - **capture_count:** 4
-  - **timeout_range:** -1 to 1000 seconds (-1 = no limit)
-  - **template_storage:** Templates must be persisted in a database linked to user accounts
-- **matching:**
-  - **one_to_n:** SD_API_Match1VN compares one feature against N templates
-  - **template_update:** On successful match, the updated template (pucUpdTmpl) should replace the old template to improve future accuracy
-  - **auto_update:** When auto-update is enabled during init, SD_API_Match1VNEx automatically updates templates
+- **sdk_singleton:**
+  - **api_access:** SDPVUnifiedAPI.getInstance() returns the singleton — all operations go through this instance
+  - **thread_safety:** captureImage(), detectRoi(), enroll(), identifyFeature() must run on background threads — never on the main thread
+- **initialization_sequence:**
+  - **order:** initCachePool → initService → initModel → (USB permission) → initDevice
+  - **cache_pool_first:** initCachePool is time-consuming and must complete before any other SDK call
+  - **chip_type:** ChipType.RK3568 is required for the PVM310 terminal hardware
+  - **license_copy:** License file must exist at /sdcard/SD_TEMPLATE/LICENSE/license.dat — app copies from res/raw/license.dat on first launch
+  - **model_after_service:** initModel() must be called after initService() to load the deep learning algorithm
+- **usb_permission:**
+  - **handler:** PalmUSBManager created in Application.onCreate() handles USB attach/detach/permission
+  - **auto_request:** USB permission is requested automatically when PalmUSBManager detects the device
+  - **callback:** onCheckPermission(0) means granted — then call initDevice(context)
+  - **removal:** onUSBRemoved() fires when device is unplugged — call terminateDevice()
+  - **device_filter:** USB device filter: vendor-id=31109, product-id=4097
+- **image_capture:**
+  - **loop_pattern:** DeviceTookImage thread calls captureImage() in a continuous loop
+  - **success:** RETURN_DEVICE_SUCCESS means palm detected — check proximity_intensity before using
+  - **no_trigger:** RETURN_DEVICE_ERROR_DEVICE_NOT_TRIGGERED means no palm detected — keep looping
+  - **proximity_check:** If proximity_intensity > 500, palm is too close — warn user
+  - **camera_dimensions:** Raw image is 400×640 pixels
+  - **frame_queue:** Captured frames go into a bounded queue for the detect thread
+- **roi_detection:**
+  - **method:** detectRoi(rawImage) extracts the palm vein region of interest
+  - **success:** RETURN_SERVICE_SUCCESS means valid ROI — imageRoi can be used for enroll/identify
+  - **failure:** Non-success means palm not properly positioned — discard frame and retry
+  - **mask_display:** maskImage(rawImage) blurs the image for privacy display to the user
+- **enrollment:**
+  - **listener:** setEnrollListener(PalmEnroll) must be called before starting enrollment
+  - **flow:** captureImage loop → detectRoi → enroll(EnrollPicture(roiImage, rawImage)) — repeat until enrollComplete
+  - **feature_count:** SDPVServiceConstant.FEATURE_NUM captures required (typically 5-6 valid frames)
+  - **callbacks:**
+    - **complete:** enrollComplete(EnrollResult) — template in result.getTmpl()
+    - **fail:** enrollFail(UnifiedMsg) — enrollment failed, user should retry
+    - **progress:** enrollTimes(count) — number of successful captures so far
+  - **insert_after:** After enrollComplete, call insertPalm(template) to add to cache pool
+  - **token_returned:** insertPalm returns a token string for cache management
+  - **custom_token:** insertPalm(template, userId) allows custom token for user-linked identification
+- **identification:**
+  - **method:** identifyFeature(roiImage, callback) compares against the internal cache pool
+  - **callback:** Callback receives (code, message, palmToken) — code == RETURN_SERVICE_SUCCESS means match found
+  - **token_resolution:** palmToken from callback maps to the token used in insertPalm — resolves to user_id
+  - **led_feedback:** Green LED on success (lightLed(LED_GREEN, 1000)), red on failure (lightLed(LED_RED, 1000))
+- **cache_management:**
+  - **insert:** insertPalm(template) or insertPalm(template, token) adds to cache pool
+  - **remove:** removePalm(token) removes a specific template
+  - **clear:** clearCachePool() removes all templates
+  - **count:** palmsCount returns the number of templates in the cache
+  - **persistence:** Cache pool data stored under /sdcard/SD_TEMPLATE/HANDS_TEMPLATE/
 - **led_control:**
-  - **supported_durations:** 0, 1000
-  - **off_command:** Pass LED_NULL to turn off LED
+  - **method:** lightLed(LEDColor, durationMs) — LEDColor.LED_RED, LED_GREEN, LED_BLUE
+  - **duration:** Duration in milliseconds (e.g., 1000 for 1 second flash)
 - **palm_positioning:**
-  - **distance:** Hand must be approximately 15-30cm from device center
-  - **centered:** Hand must be centered on the device
-  - **fingers_spread:** Fingers must be spread naturally
+  - **distance:** Hand must be approximately 15-30cm from the scanner
+  - **proximity_warning:** proximity_intensity > 500 means too close — display warning to user
+  - **centered:** Hand must be centered on the scanner
+  - **fingers_spread:** Fingers should be spread naturally
 - **security:**
-  - **biometric_data_sensitive:** Feature data, templates, and images are biometric PII and must be treated as sensitive
-  - **license_required:** A valid license file is required for SDK operation
+  - **biometric_data_sensitive:** Templates, ROI images, and raw images are biometric PII — encrypt at rest
+  - **template_never_transmitted:** Templates stay on-device — only tokens transmitted to backend
+  - **license_required:** Valid license.dat required for initService()
+- **storage_paths:**
+  - **root:** /sdcard/SD_TEMPLATE/
+  - **license:** /sdcard/SD_TEMPLATE/LICENSE/license.dat
+  - **templates:** /sdcard/SD_TEMPLATE/HANDS_TEMPLATE/
+  - **images:** /sdcard/SD_TEMPLATE/PALM_IMG/
 
 ## Outcomes
 
-### Sdk_initialized (Priority: 1)
+### Cache_pool_initialized (Priority: 1)
 
 **Given:**
-- SDK has not been initialized yet
-- Valid license file exists at specified path
+- App has started
+- Cache pool has not been initialized yet
 
 **Then:**
-- **call_service** target: `SDPVD310API.SD_API_GetBufferSize` — Obtain feature, template, image sizes and registration count
-- **call_service** target: `SDPVD310API.SD_API_Init` — Initialize SDK with license, auto-update, and logging settings
-- **emit_event** event: `palm.sdk.initialized`
+- **call_service** target: `SDPVUnifiedAPI.initCachePool` — Initialize cache pool with context and ChipType.RK3568
+- **emit_event** event: `palm.cache_pool.initialized`
 
-**Result:** SDK is initialized and ready for device operations
+**Result:** Cache pool initialized — template storage ready
 
-### Sdk_init_failed (Priority: 2) — Error: `PALM_INVALID_LICENSE`
+### Service_initialized (Priority: 2)
+
+**Given:**
+- Cache pool is initialized
+- License file exists at configured path
+
+**Then:**
+- **call_service** target: `SDPVUnifiedAPI.initService` — Initialize service with license file path
+- **call_service** target: `SDPVUnifiedAPI.initModel` — Load the deep learning model for palm vein recognition
+- **emit_event** event: `palm.service.initialized`
+
+**Result:** Algorithm service and model loaded — ready for USB device
+
+### Service_init_failed (Priority: 3) — Error: `PALM_INVALID_LICENSE`
 
 **Given:**
 - License file is missing or invalid
@@ -133,135 +190,138 @@ description: "Biometric scanning hardware integration for palm vein pattern regi
 **Then:**
 - **emit_event** event: `palm.sdk.init_failed`
 
-**Result:** SDK initialization fails with license error
+**Result:** Service initialization fails — check license.dat
 
-### Device_opened (Priority: 3)
+### Usb_permission_granted (Priority: 4)
 
 **Given:**
-- SDK is initialized
-- No active registration or extraction in progress
+- Service is initialized
+- PalmUSBManager detects USB device (vendor 31109, product 4097)
 
 **Then:**
-- **call_service** target: `SDPVD310API.SD_API_OpenDev` — Open device and retrieve firmware version and serial number
-- **set_field** target: `firmware_version` value: `returned by device`
-- **set_field** target: `serial_number` value: `returned by device`
-- **emit_event** event: `palm.device.opened`
+- **call_service** target: `PalmUSBManager.initUSBPermission` — Request USB permission from Android system
+- **emit_event** event: `palm.usb.permission_granted`
 
-**Result:** Device is connected and firmware/serial info is available
+**Result:** USB permission granted — ready to open device
 
-### Device_not_connected (Priority: 4) — Error: `PALM_DEVICE_NOT_CONNECTED`
+### Device_opened (Priority: 5)
 
 **Given:**
-- SDK is initialized
-- `device_state` (system) neq `device_open`
+- USB permission has been granted
+
+**Then:**
+- **call_service** target: `SDPVUnifiedAPI.initDevice` — Open USB connection to palm scanner
+- **set_field** target: `firmware_version` value: `returned by api.firmwareVersion`
+- **set_field** target: `serial_number` value: `returned by api.serialNumber`
+- **emit_event** event: `palm.device.opened`
+
+**Result:** Device connected — firmware and serial obtained
+
+### Device_not_connected (Priority: 6) — Error: `PALM_DEVICE_NOT_CONNECTED`
+
+**Given:**
+- Service is initialized
+- initDevice returns non-success code
 
 **Then:**
 - **emit_event** event: `palm.device.disconnected`
 
-**Result:** Device is not connected — check USB connection and retry
+**Result:** Device not connected — check USB cable and retry
 
-### Feature_extracted (Priority: 5)
-
-**Given:**
-- Device is open and idle
-- Buffer sizes have been obtained
-
-**Then:**
-- **call_service** target: `SDPVD310API.SD_API_ExtractFeature` — Capture palm vein image and extract biometric features with 30s timeout
-- **set_field** target: `palm_feature` value: `extracted feature data`
-- **set_field** target: `palm_image` value: `captured raw image data`
-- **emit_event** event: `palm.feature.extracted`
-
-**Result:** Palm vein feature and image data are captured and available for matching or storage
-
-### Feature_extraction_failed (Priority: 6) — Error: `PALM_EXTRACTION_FAILED`
-
-**Given:**
-- Device is open and performing extraction
-- ANY: Palm positioning is incorrect OR Image quality is poor OR Operation times out
-
-**Then:**
-- **emit_event** event: `palm.feature.extraction_failed`
-
-**Result:** Feature extraction failed — user should reposition hand and try again
-
-### Template_registered (Priority: 7) | Transaction: atomic
+### Image_captured (Priority: 7)
 
 **Given:**
 - Device is open and idle
-- Buffer sizes have been obtained
+- captureImage returns RETURN_DEVICE_SUCCESS
+- `proximity_intensity_max` (system) gte `0`
 
 **Then:**
-- **call_service** target: `SDPVD310API.SD_API_Register` — Capture 4 palm images and fuse into a template with 30s timeout
-- **set_field** target: `palm_template` value: `fused template data`
-- **create_record** target: `palm_templates` — Store template in database linked to user account
+- **call_service** target: `SDPVUnifiedAPI.detectRoi` — Detect palm ROI in the captured image
+- **set_field** target: `palm_roi_image` value: `ROI from detectRoi result`
+- **emit_event** event: `palm.image.captured`
+
+**Result:** Image captured and ROI detected — ready for enrollment or identification
+
+### Palm_too_close (Priority: 8) — Error: `PALM_HAND_POSITION_ERROR`
+
+**Given:**
+- captureImage returns success
+- proximity_intensity exceeds threshold (500)
+
+**Then:**
+- **emit_event** event: `palm.position.too_close`
+
+**Result:** Palm is too close to scanner — user should move hand back
+
+### Template_enrolled (Priority: 9) | Transaction: atomic
+
+**Given:**
+- Device is open and idle
+- PalmEnroll listener is set via setEnrollListener()
+- captureImage → detectRoi → enroll loop is running
+
+**Then:**
+- **call_service** target: `SDPVUnifiedAPI.enroll` — Feed ROI image + raw image as EnrollPicture into enrollment pipeline
+- **call_service** target: `SDPVUnifiedAPI.insertPalm` — Insert completed template into cache pool with user token
+- **set_field** target: `palm_template` value: `template from EnrollResult.getTmpl()`
+- **set_field** target: `palm_token` value: `token returned by insertPalm()`
+- **create_record** target: `palm_templates` — Store template in local database linked to user account
 - **emit_event** event: `palm.template.registered`
 
-**Result:** Palm vein template is registered and stored for future matching
+**Result:** Palm enrolled, template in cache pool and database — user can now identify by palm
 
-### Registration_failed (Priority: 8) — Error: `PALM_REGISTRATION_FAILED`
+### Enrollment_failed (Priority: 10) — Error: `PALM_REGISTRATION_FAILED`
 
 **Given:**
-- Device is open and performing registration
-- ANY: User moves hand during capture OR Image quality is poor OR Operation times out OR Feature fusion fails
+- Enrollment is in progress
+- ANY: enrollFail callback fires OR Capture loop times out before enough valid frames OR User moves hand during capture
 
 **Then:**
 - **emit_event** event: `palm.template.registration_failed`
 
-**Result:** Registration failed — user should keep hand steady and try again
+**Result:** Enrollment failed — user should keep hand steady and try again
 
-### Match_succeeded (Priority: 9) | Transaction: atomic
+### Palm_identified (Priority: 11)
 
 **Given:**
-- Valid feature data is available (from extraction)
-- One or more templates exist in the database
+- Device is open and idle
+- ROI image available from detectRoi()
+- Cache pool has at least one template
 
 **Then:**
-- **call_service** target: `SDPVD310API.SD_API_Match1VN` — Compare feature against N stored templates
-- **set_field** target: `match_index` value: `index of matched template`
-- **set_field** target: `updated_template` value: `updated template data from match` — Replace old template with updated version for improved accuracy
+- **call_service** target: `SDPVUnifiedAPI.identifyFeature` — Compare ROI image against cache pool — callback returns (code, msg, palmToken)
+- **call_service** target: `SDPVUnifiedAPI.lightLed` — Flash green LED on successful identification
 - **emit_event** event: `palm.match.succeeded`
 
-**Result:** Palm vein matched against stored template — identity verified
+**Result:** Palm identified — token resolves to registered user
 
-### Match_failed (Priority: 10) — Error: `PALM_VERIFICATION_FAILED`
+### Identification_failed (Priority: 12) — Error: `PALM_VERIFICATION_FAILED`
 
 **Given:**
-- Valid feature data is available
-- Feature does not match any stored template
+- identifyFeature callback returns non-success code
 
 **Then:**
+- **call_service** target: `SDPVUnifiedAPI.lightLed` — Flash red LED on failed identification
 - **emit_event** event: `palm.match.failed`
 
-**Result:** Palm vein does not match any registered template — verification failed
+**Result:** Palm does not match any registered template
 
-### Operation_cancelled (Priority: 11)
+### Usb_device_removed (Priority: 13)
 
 **Given:**
-- ANY: Feature extraction is in progress OR Registration is in progress
-- Cancel is requested
+- Device is open
+- PalmUSBManager fires onUSBRemoved()
 
 **Then:**
-- **call_service** target: `SDPVD310API.SD_API_Cancel` — Cancel the current extraction or registration operation
-- **emit_event** event: `palm.operation.cancelled`
+- **call_service** target: `SDPVUnifiedAPI.terminateDevice` — Clean up device connection
+- **emit_event** event: `palm.device.disconnected`
 
-**Result:** Current operation is cancelled and device returns to idle state
+**Result:** USB device removed — scanner unavailable until reconnected
 
-### Device_busy (Priority: 12) — Error: `PALM_DEVICE_BUSY`
-
-**Given:**
-- ANY: Feature extraction is in progress OR Registration is in progress
-- A new operation is attempted
-
-**Then:**
-- **emit_event** event: `palm.device.busy`
-
-**Result:** Device is busy — cancel the current operation before starting a new one
-
-### Operation_timed_out (Priority: 13) — Error: `PALM_TIMEOUT`
+### Operation_timed_out (Priority: 14) — Error: `PALM_TIMEOUT`
 
 **Given:**
-- ANY: Feature extraction is in progress OR Registration is in progress
+- ANY: Capture loop is running OR Enrollment is in progress OR Identification is in progress
 - `elapsed_time` (system) gt `timeout_seconds`
 
 **Then:**
@@ -274,16 +334,16 @@ description: "Biometric scanning hardware integration for palm vein pattern regi
 | Code | Status | Message | Retry |
 |------|--------|---------|-------|
 | `PALM_INVALID_LICENSE` | 403 | Palm vein scanner license is invalid or missing | No |
-| `PALM_DEVICE_NOT_CONNECTED` | 500 | Palm vein scanner is not connected | Yes |
-| `PALM_DEVICE_BUSY` | 409 | Scanner is busy with another operation — please cancel or wait | Yes |
-| `PALM_EXTRACTION_FAILED` | 422 | Could not capture palm vein features — please reposition your hand | Yes |
-| `PALM_REGISTRATION_FAILED` | 422 | Palm vein registration failed — keep your hand steady and try again | Yes |
-| `PALM_VERIFICATION_FAILED` | 401 | Palm vein does not match any registered pattern | No |
+| `PALM_DEVICE_NOT_CONNECTED` | 500 | Palm vein scanner is not connected — check USB cable | Yes |
+| `PALM_USB_PERMISSION_DENIED` | 403 | USB permission denied for palm vein scanner | No |
+| `PALM_DEVICE_BUSY` | 409 | Scanner is busy with another operation | Yes |
+| `PALM_EXTRACTION_FAILED` | 422 | Could not detect palm vein ROI — reposition your hand | Yes |
+| `PALM_REGISTRATION_FAILED` | 422 | Palm enrollment failed — keep your hand steady and try again | Yes |
+| `PALM_VERIFICATION_FAILED` | 401 | Palm does not match any registered pattern | No |
 | `PALM_TIMEOUT` | 422 | Operation timed out — please try again | Yes |
-| `PALM_HAND_POSITION_ERROR` | 422 | Please position your hand 15-30cm from the scanner center with fingers spread naturally | Yes |
-| `PALM_IMAGE_QUALITY_POOR` | 422 | Image quality is too low — please try again in better conditions | Yes |
-| `PALM_COMMUNICATION_FAILED` | 500 | Communication with palm vein scanner failed | Yes |
-| `PALM_MISSING_LIBRARY` | 500 | Required SDK library is missing | No |
+| `PALM_HAND_POSITION_ERROR` | 422 | Palm is too close — hold your hand 15-30cm from the scanner | Yes |
+| `PALM_COMMUNICATION_FAILED` | 500 | USB communication with scanner failed | Yes |
+| `PALM_CACHE_INSERT_FAILED` | 500 | Failed to insert template into cache pool | No |
 | `PALM_PARAMETER_ERROR` | 400 | Invalid parameter passed to scanner operation | No |
 | `PALM_INSUFFICIENT_MEMORY` | 500 | Insufficient memory for scanner operation | No |
 
@@ -291,19 +351,20 @@ description: "Biometric scanning hardware integration for palm vein pattern regi
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `palm.sdk.initialized` | SDK initialized successfully — buffer sizes available | `feature_size`, `template_size`, `image_size`, `registration_count` |
+| `palm.cache_pool.initialized` | Cache pool initialized with template count | `cache_pool_count` |
+| `palm.service.initialized` | Algorithm service and model loaded |  |
 | `palm.sdk.init_failed` | SDK initialization failed | `error_code` |
-| `palm.device.opened` | Scanner device opened — firmware and serial number obtained | `firmware_version`, `serial_number` |
-| `palm.device.disconnected` | Scanner device is not connected or was disconnected | `error_code` |
-| `palm.feature.extracted` | Palm vein feature data extracted from a single scan | `feature_size` |
-| `palm.feature.extraction_failed` | Feature extraction failed due to positioning, quality, or timeout | `error_code` |
-| `palm.template.registered` | Palm vein template registered (4 images fused) and stored | `user_id`, `template_size` |
-| `palm.template.registration_failed` | Template registration failed — includes the stage at which failure occurred | `error_code`, `stage` |
-| `palm.match.succeeded` | Feature matched against a stored template — identity verified | `user_id`, `match_index` |
-| `palm.match.failed` | Feature did not match any stored template | `error_code` |
-| `palm.operation.cancelled` | Active extraction or registration operation was cancelled |  |
-| `palm.operation.timeout` | Operation exceeded the configured timeout duration | `operation_type`, `timeout_seconds` |
-| `palm.device.busy` | Attempted operation while device was busy with another task | `error_code` |
+| `palm.usb.permission_granted` | USB permission granted for palm scanner |  |
+| `palm.device.opened` | Scanner device opened via USB | `firmware_version`, `serial_number` |
+| `palm.device.disconnected` | Scanner device disconnected or USB removed | `error_code` |
+| `palm.image.captured` | Image captured and ROI detected | `proximity_intensity` |
+| `palm.position.too_close` | Palm is too close to scanner | `proximity_intensity` |
+| `palm.template.registered` | Palm enrolled — template in cache pool and database | `user_id`, `palm_token` |
+| `palm.template.registration_failed` | Enrollment failed | `error_code`, `stage` |
+| `palm.match.succeeded` | Palm identified against cache pool | `palm_token`, `user_id` |
+| `palm.match.failed` | Palm did not match any cached template | `error_code` |
+| `palm.operation.timeout` | Operation exceeded timeout | `operation_type`, `timeout_seconds` |
+| `palm.operation.cancelled` | Capture/enroll/identify operation cancelled |  |
 
 ## Related Blueprints
 
@@ -319,7 +380,7 @@ description: "Biometric scanning hardware integration for palm vein pattern regi
 
 #### Reliable Palm Vein
 
-Biometric scanning hardware integration for palm vein pattern registration, feature extraction, and 1:N template matching
+USB palm vein scanner integration using SDPVUnifiedAPI — capture, ROI detection, enrollment, 1:N identification, and cache pool management
 
 **Success Metrics:**
 
@@ -330,8 +391,8 @@ Biometric scanning hardware integration for palm vein pattern registration, feat
 
 **Constraints:**
 
-- **availability** (non-negotiable): Must degrade gracefully when dependencies are unavailable
-- **security** (non-negotiable): Sensitive fields must be encrypted at rest and never logged in plaintext
+- **availability** (non-negotiable): Must degrade gracefully when USB device is unavailable
+- **security** (non-negotiable): Biometric templates must be encrypted at rest and never logged in plaintext
 
 ### Autonomy
 
@@ -345,33 +406,35 @@ Biometric scanning hardware integration for palm vein pattern registration, feat
 
 **Invariants:**
 
-- sensitive fields are never logged in plaintext
+- biometric templates are never logged in plaintext
 - all data access is authenticated and authorized
 - error messages never expose internal system details
 - state transitions follow the defined state machine — no illegal transitions
+- USB permission is always checked before device operations
 
 ### Tradeoffs
 
 | Prefer | Over | Reason |
 |--------|------|--------|
-| reliability | throughput | integration failures can cascade across systems |
+| reliability | throughput | biometric failures erode user trust and block payment |
 
 ### Safety
 
 | Action | Permission | Cooldown | Max Auto |
 |--------|------------|----------|----------|
-| sdk_initialized | `autonomous` | - | - |
-| sdk_init_failed | `autonomous` | - | - |
+| cache_pool_initialized | `autonomous` | - | - |
+| service_initialized | `autonomous` | - | - |
+| service_init_failed | `autonomous` | - | - |
+| usb_permission_granted | `autonomous` | - | - |
 | device_opened | `autonomous` | - | - |
 | device_not_connected | `autonomous` | - | - |
-| feature_extracted | `autonomous` | - | - |
-| feature_extraction_failed | `autonomous` | - | - |
-| template_registered | `autonomous` | - | - |
-| registration_failed | `autonomous` | - | - |
-| match_succeeded | `autonomous` | - | - |
-| match_failed | `autonomous` | - | - |
-| operation_cancelled | `supervised` | - | - |
-| device_busy | `autonomous` | - | - |
+| image_captured | `autonomous` | - | - |
+| palm_too_close | `autonomous` | - | - |
+| template_enrolled | `autonomous` | - | - |
+| enrollment_failed | `autonomous` | - | - |
+| palm_identified | `autonomous` | - | - |
+| identification_failed | `autonomous` | - | - |
+| usb_device_removed | `autonomous` | - | - |
 | operation_timed_out | `autonomous` | - | - |
 
 <details>
@@ -379,35 +442,31 @@ Biometric scanning hardware integration for palm vein pattern registration, feat
 
 ```yaml
 sdk:
-  library: SDPVD310API
-  platforms:
-    windows: SDPVD310API.dll
-    linux: SDPVD310API.so
-  languages:
-    - c
-    - cpp
-    - java
-    - jni
-    - csharp
-  supported_os:
-    windows:
-      - xp
-      - "7"
-      - "8"
-      - "10"
-      - server
-    linux:
-      - debian
-      - redhat
-  supported_arch:
-    windows:
-      - x86
-      - x86_64
-    linux:
-      - x86
-      - x86_64
-      - mips64el
-      - aarch64
+  library: SDPalmVeinUsb
+  version: 2.3.2.311
+  release_date: 2024-12-23
+  artifact: SDPalmVeinUsb-2.3.2.311-2024-12-23.aar
+  vendor: SaintDeem
+  platform: android
+  api_class: com.saintdeem.palmvein.SDPVUnifiedAPI
+  usb_manager: com.saintdeem.palmvein.usb.utils.PalmUSBManager
+  key_classes:
+    - SDPVUnifiedAPI — singleton SDK entry point
+    - PalmUSBManager — USB permission and connection lifecycle
+    - PalmUSBManagerListener — callbacks for USB permission/attach/detach
+    - PalmEnroll — enrollment callback interface (enrollComplete, enrollFail,
+      enrollTimes)
+    - EnrollResult — enrollment output containing template bytes
+    - EnrollPicture — input to enroll() containing ROI image and raw image
+    - CaptureResult — output of captureImage() with image bytes and
+      proximity_intensity
+    - DetectRoiResult — output of detectRoi() with imageRoi bytes
+    - LEDColor — enum for LED control (LED_RED, LED_GREEN, LED_BLUE)
+    - SDPVDeviceConstant — device result codes
+    - SDPVServiceConstant — service result codes and FEATURE_NUM
+  camera:
+    width: 400
+    height: 640
 ```
 
 </details>
@@ -418,10 +477,10 @@ sdk:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Palm Vein Blueprint",
-  "description": "Biometric scanning hardware integration for palm vein pattern registration, feature extraction, and 1:N template matching. 16 fields. 13 outcomes. 13 error code",
+  "description": "USB palm vein scanner integration using SDPVUnifiedAPI — capture, ROI detection, enrollment, 1:N identification, and cache pool management. 17 fields. 14 outcom",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
-  "keywords": "biometric, vein-pattern, hardware, sdk, authentication"
+  "keywords": "biometric, vein-pattern, hardware, sdk, usb, android"
 }
 </script>

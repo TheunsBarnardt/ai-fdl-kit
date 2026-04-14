@@ -101,6 +101,65 @@ Specifies 19 acceptance outcomes that any implementation must satisfy, regardles
 - `PORT_FORWARDING_FAILED` — Required ports are not accessible from the public internet.
 - `DATABASE_CONNECTION_FAILED` — Database connection failed. Automatic restart attempted.
 
+## Events
+
+**`setup.system_updated`** — Phase 1 complete — system updated and base packages installed
+  Payload: `hostname`, `os_version`, `kernel_version`, `ram_mb`, `disk_gb`
+
+**`setup.security_hardened`** — Phase 2 complete — security hardening applied
+  Payload: `ssh_port`, `firewall_rules`, `fail2ban_jails`
+
+**`setup.services_installed`** — Phase 3 complete — all services installed and running
+  Payload: `web_server`, `database_engine`, `email_server_type`, `services_running`
+
+**`setup.ssl_configured`** — Phase 4 complete — SSL certificates active
+  Payload: `domain_name`, `ssl_provider`, `cert_expiry`, `ssl_grade`
+
+**`setup.dns_configured`** — Phase 5 complete — DNS resolving to server
+  Payload: `domain_name`, `public_ip`, `ddns_enabled`, `dns_records_configured`
+
+**`setup.monitoring_active`** — Phase 6 complete — monitoring and alerting operational
+  Payload: `monitoring_stack`, `alert_rules`, `dashboard_url`
+
+**`setup.backups_configured`** — Phase 7 complete — automated backups active
+  Payload: `backup_schedule`, `retention_policy`, `offsite_target`, `encryption_method`
+
+**`setup.complete`** — All phases complete — server fully operational
+  Payload: `domain_name`, `public_ip`, `services_running`, `ssl_grade`, `lynis_score`
+
+**`server.degraded`** — Service failure detected — auto-recovery in progress
+  Payload: `failed_service`, `error_details`, `timestamp`
+
+**`server.recovered`** — Failed service auto-recovered
+  Payload: `recovered_service`, `downtime_seconds`, `recovery_method`
+
+**`server.disk_critical`** — Disk usage exceeded threshold
+  Payload: `disk_usage_percent`, `largest_directories`, `auto_cleaned_mb`
+
+**`ssl.renewed`** — SSL certificate auto-renewed
+  Payload: `domain_name`, `new_expiry`, `old_expiry`
+
+**`ssl.renewal_failed`** — SSL renewal failed — urgent action needed
+  Payload: `domain_name`, `expiry_date`, `error_details`
+
+**`dns.ip_changed`** — Public IP changed — DDNS updated
+  Payload: `old_ip`, `new_ip`, `updated_at`
+
+**`backup.completed`** — Scheduled backup completed successfully
+  Payload: `backup_size_mb`, `files_backed_up`, `offsite_replicated`, `retention_pruned`
+
+**`backup.failed`** — Backup failed — manual intervention needed
+  Payload: `error_details`, `last_successful_backup`
+
+**`security.updates_applied`** — Security patches auto-applied
+  Payload: `packages_updated`, `reboot_required`
+
+**`security.intrusion_detected`** — Suspicious activity detected and mitigated
+  Payload: `detection_source`, `threat_type`, `source_ip`, `action_taken`
+
+**`security.port_scan`** — Port scan detected and blocked
+  Payload: `source_ip`, `ports_scanned`, `banned_duration`
+
 ## Connects to
 
 - **caching** *(recommended)* — Redis or Memcached for application-level caching

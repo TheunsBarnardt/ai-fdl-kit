@@ -57,6 +57,14 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `FLEET_NOT_FOUND` — The specified fleet could not be found.
 - `VEHICLE_ALREADY_ASSIGNED` — This vehicle is already assigned to another driver.
 
+## Events
+
+**`fleet.vehicle_assigned`** — Vehicle is assigned to a driver within the fleet.
+  Payload: `fleet_id`, `vehicle_id`, `driver_id`
+
+**`fleet.driver_added`** — Driver is added to a fleet.
+  Payload: `fleet_id`, `driver_id`
+
 ## Connects to
 
 - **driver-assignment-dispatch** *(recommended)* — Vehicle assignment is validated as part of driver dispatch readiness.

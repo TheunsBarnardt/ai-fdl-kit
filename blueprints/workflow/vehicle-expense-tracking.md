@@ -54,6 +54,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `EXPENSE_FUTURE_DATE` — Expense date cannot be in the future.
 - `EXPENSE_APPROVAL_REQUIRED` — This expense exceeds the approval limit and requires finance manager authorisation.
 
+## Events
+
+**`expense.recorded`** — A cost has been attributed to a fleet vehicle
+  Payload: `vehicle`, `expense_date`, `expense_category`, `amount`, `vendor`
+
+**`expense.approval_requested`** — A high-value expense is awaiting finance manager approval
+  Payload: `vehicle`, `expense_category`, `amount`, `recorded_by`
+
+**`expense.approved`** — A high-value expense has been approved by a finance manager
+  Payload: `vehicle`, `expense_category`, `amount`, `approved_by`
+
+**`expense.report_generated`** — A per-vehicle expense report has been generated for a specified period
+  Payload: `vehicle`, `date_from`, `date_to`, `total_by_category`, `grand_total`, `budget_variance`
+
+**`expense.budget_exceeded`** — A vehicle's expenses have exceeded the configured budget threshold
+  Payload: `vehicle`, `period`, `budget_amount`, `actual_amount`, `variance_pct`
+
 ## Connects to
 
 - **fuel-log** *(recommended)* — Fuel log totals are auto-posted as fuel expense records

@@ -13,6 +13,121 @@ description: Authenticate a user with email and password
 category: auth
 tags: [authentication, session, security, identity, saas]
 
+# ─── ALIASES ──────────────────────────────────────────────
+# Alternate names AI generators should treat as referring to this blueprint.
+# Feeds the intent registry — prevents inventing /signin, /authenticate, etc.
+
+aliases:
+  - sign-in
+  - signin
+  - sign in
+  - log-in
+  - log in
+  - authenticate
+  - user-authentication
+  - email-password-login
+  - credential-login
+  - password-login
+
+# ─── USES (CAPABILITY IMPORTS) ────────────────────────────
+# Capability primitives this feature consumes — analogous to C# `using`
+# or Java `import`. Generators resolve each entry to its per-language
+# implementation and enforce the capability's contract + anti_patterns.
+# When generating a login form, these ensure modern component library
+# usage, typography scale, spacing rhythm, motion, and a11y defaults
+# instead of raw HTML primitives.
+
+uses:
+  - ui-design-system
+
+# ─── API ──────────────────────────────────────────────────
+# Wire contract is PINNED. AI generators must emit this exact endpoint,
+# request shape, and response shape — no improvisation.
+
+api:
+  http:
+    method: POST
+    path: /auth/login
+  request:
+    content_type: application/json
+    schema:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        password:
+          type: string
+          minLength: 8
+          maxLength: 64
+        remember_me:
+          type: boolean
+          default: false
+  response:
+    success:
+      status: 200
+      content_type: application/json
+      schema:
+        type: object
+        required: [access_token, refresh_token, token_type, expires_in, user]
+        properties:
+          access_token: { type: string, description: "JWT, 15-minute TTL" }
+          refresh_token: { type: string, description: "Opaque token, 7-day TTL (30-day if remember_me)" }
+          token_type: { type: string, enum: ["Bearer"] }
+          expires_in: { type: number, description: "Access token TTL in seconds" }
+          user:
+            type: object
+            required: [id, email]
+            properties:
+              id: { type: string }
+              email: { type: string, format: email }
+    errors:
+      - status: 401
+        error_code: LOGIN_INVALID_CREDENTIALS
+      - status: 403
+        error_code: LOGIN_EMAIL_NOT_VERIFIED
+      - status: 403
+        error_code: LOGIN_ACCOUNT_DISABLED
+      - status: 422
+        error_code: LOGIN_VALIDATION_ERROR
+      - status: 423
+        error_code: LOGIN_ACCOUNT_LOCKED
+      - status: 429
+        error_code: LOGIN_RATE_LIMITED
+
+# ─── ANTI-PATTERNS ────────────────────────────────────────
+# Things AI generators (and humans) commonly get wrong. Read BEFORE generating.
+
+anti_patterns:
+  - rule: "do not create /signin, /sign-in, /authenticate, or any alternate path — /auth/login is canonical"
+    why: "Duplicate endpoints fragment the auth surface, break session/token assumptions, and split monitoring. Aliases route to one path."
+
+  - rule: "do not return distinct messages, status codes, or response times for 'user not found' vs 'wrong password'"
+    why: "Any difference enables user enumeration (OWASP ASVS 2.2.1). Both must produce identical 401 + LOGIN_INVALID_CREDENTIALS + similar latency."
+
+  - rule: "do not use ==, ===, or string equality for password comparison"
+    why: "Plain comparison leaks information through timing. Use bcrypt.compare() / argon2.verify() or the language's constant-time primitive."
+
+  - rule: "do not return password_hash, salt, refresh_token rotation history, or any credential material in the response body or logs"
+    why: "Credentials must never leave the auth boundary. Hash exposure enables offline brute force; rotation history enables replay."
+
+  - rule: "do not skip the rate_limited or account_locked outcomes, and do not reorder them — rate_limited (priority 1) and account_locked (priority 2) MUST be checked before password comparison"
+    why: "Ordering is a security guarantee, not an optimization. Checking password first leaks DB lookup timing and burns CPU on attackers."
+
+  - rule: "do not log the password field, even on validation error or in stack traces"
+    why: "POPIA / GDPR / OWASP — credentials in logs are a breach trigger. Sanitize request bodies before any logger sees them."
+
+  - rule: "do not emit a single login.success event without first resetting failed_login_attempts to 0"
+    why: "Stale counters cause false lockouts on the next failed attempt — a surprising support burden traceable to this exact omission."
+
+  - rule: "do not invent additional fields in the response (display_name, avatar_url, roles, etc.) — fetch those from a separate /me endpoint"
+    why: "Coupling profile data to login forces the auth path to query unrelated tables, increases attack surface, and breaks token rotation independence."
+
+  - rule: "do not implement 'remember me' as a longer access_token TTL — extend the refresh_token TTL instead"
+    why: "Long-lived access tokens cannot be revoked between rotations. Refresh tokens can be invalidated server-side on logout/compromise."
+
 # ─── FIELDS ───────────────────────────────────────────────
 
 fields:

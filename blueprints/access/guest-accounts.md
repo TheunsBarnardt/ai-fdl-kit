@@ -56,6 +56,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `GUEST_ACCOUNT_LIMIT_EXCEEDED` — The guest account limit for this server has been reached.
 - `GUEST_NOT_FOUND` — Guest account not found.
 
+## Events
+
+**`guest.invited`** — Invitation sent to a guest user
+  Payload: `invitee_email`, `channel_ids`, `team_id`, `actor_id`, `timestamp`
+
+**`guest.joined`** — Guest accepted invitation and created their account
+  Payload: `user_id`, `channel_ids`, `team_id`, `timestamp`
+
+**`guest.auto_removed_from_team`** — Guest automatically removed from team after leaving last channel
+  Payload: `user_id`, `team_id`, `timestamp`
+
+**`guest.deactivated`** — Individual guest account deactivated
+  Payload: `user_id`, `actor_id`, `timestamp`
+
+**`guest.bulk_deactivated`** — All guest accounts deactivated in a single administrative operation
+  Payload: `deactivated_count`, `actor_id`, `timestamp`
+
 ## Connects to
 
 - **team-workspaces** *(required)* — Guests are scoped to specific teams and auto-removed when channel-less

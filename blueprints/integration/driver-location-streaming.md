@@ -50,6 +50,11 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `DRIVER_NOT_FOUND` — Driver resource not found.
 - `LOCATION_UPDATE_INVALID` — Invalid coordinates provided for location update.
 
+## Events
+
+**`driver.location_changed`** — Fired on every driver location update; broadcast to the driver's real-time channel.
+  Payload: `driver_id`, `latitude`, `longitude`, `altitude`, `heading`, `speed`, `order_id`, `destination_id`
+
 ## Connects to
 
 - **ride-request-lifecycle** *(recommended)* — Location updates are linked to the active order for trip tracking.

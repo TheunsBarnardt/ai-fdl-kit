@@ -74,6 +74,20 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `BOM_COST_ALLOCATION_MISMATCH` — Cost allocation between finished good and secondary items must sum to 100%.
 - `BOM_INACTIVE_LINKED` — Cannot deactivate BOM while active BOMs or work orders reference it.
 
+## Events
+
+**`bom.submitted`** — Fired when a BOM is submitted and becomes active for production use
+  Payload: `bom_id`, `item`, `quantity`, `total_cost`
+
+**`bom.cost_updated`** — Fired when BOM cost changes due to material rate updates or cost propagation
+  Payload: `bom_id`, `item`, `old_cost`, `new_cost`
+
+**`bom.deactivated`** — Fired when a BOM is deactivated and removed from active use
+  Payload: `bom_id`, `item`
+
+**`bom.replaced`** — Fired when a BOM is replaced by a newer version for the same item
+  Payload: `old_bom_id`, `new_bom_id`, `item`
+
 ## Connects to
 
 - **work-orders-job-cards** *(required)* — Work orders consume BOMs to plan and execute manufacturing

@@ -45,6 +45,20 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `CROSS_SIGNING_MASTER_KEY_MISSING` — A master key must be provided before uploading other cross-signing keys
 - `CROSS_SIGNING_KEY_NOT_FOUND` — No cross-signing keys found for this user
 
+## Events
+
+**`cross_signing.keys_uploaded`** — One or more cross-signing keys were successfully stored
+  Payload: `user_id`, `key_types_updated`
+
+**`cross_signing.master_key_updated`** — The account's master key was replaced; device verifications may need renewal
+  Payload: `user_id`
+
+**`cross_signing.user_signing_key_updated`** — The user-signing key was updated; only the key owner is notified
+  Payload: `user_id`
+
+**`cross_signing.keys_retrieved`** — A user's cross-signing key bundle was returned to a requester
+  Payload: `querying_user_id`, `target_user_id`
+
 ## Connects to
 
 - **e2e-key-exchange** *(required)* — Cross-signing keys are bundled with device keys in key query responses

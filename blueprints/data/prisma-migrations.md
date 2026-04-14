@@ -45,6 +45,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `MIGRATION_FAILED` — Migration failed: {error}
 - `DATABASE_UNREACHABLE` — Could not connect to database
 
+## Events
+
+**`migration.created`** — Migration file created
+  Payload: `name`, `timestamp`, `changes`
+
+**`migration.applied`** — Migration applied to database
+  Payload: `name`, `applied_at`, `duration_ms`
+
+**`migration.conflict`** — Migration conflict detected
+  Payload: `migration_a`, `migration_b`
+
+**`client.generated`** — Prisma Client regenerated
+  Payload: `timestamp`, `type_count`
+
 ## Connects to
 
 - **prisma-schema** *(required)* — Schema changes drive migrations

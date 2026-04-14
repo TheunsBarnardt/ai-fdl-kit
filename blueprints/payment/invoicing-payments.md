@@ -66,6 +66,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `INVOICE_ALREADY_POSTED` — This invoice has already been posted and cannot be edited.
 - `PAYMENT_EXCEEDS_BALANCE` — Payment amount exceeds the remaining balance on this invoice.
 
+## Events
+
+**`account.invoice.posted`** — Invoice validated and posted to the ledger
+  Payload: `invoice_id`, `move_type`, `partner_id`, `amount_total`
+
+**`account.invoice.paid`** — Invoice fully paid
+  Payload: `invoice_id`, `partner_id`, `amount_total`
+
+**`account.payment.registered`** — Payment recorded against an invoice
+  Payload: `payment_id`, `invoice_id`, `amount`, `payment_method`
+
+**`account.credit_note.created`** — Credit note created to reverse an invoice
+  Payload: `credit_note_id`, `original_invoice_id`, `amount`
+
+**`account.payment_link.sent`** — Payment link generated and sent to customer
+  Payload: `invoice_id`, `payment_link_url`, `partner_id`
+
 ## Connects to
 
 - **tax-engine** *(required)* — Tax computation on every invoice line

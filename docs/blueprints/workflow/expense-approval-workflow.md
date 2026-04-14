@@ -1,24 +1,24 @@
 ---
-title: "Expense Approval Blueprint"
+title: "Expense Approval Workflow Blueprint"
 layout: default
 parent: "Workflow"
 grand_parent: Blueprint Catalog
 description: "Employee expense submission and approval workflow with multi-level authorization, reimbursement tracking, accounting journal entry generation, and payment proce"
 ---
 
-# Expense Approval Blueprint
+# Expense Approval Workflow Blueprint
 
 > Employee expense submission and approval workflow with multi-level authorization, reimbursement tracking, accounting journal entry generation, and payment processing.
 
 
 | | |
 |---|---|
-| **Feature** | `expense-approval` |
+| **Feature** | `expense-approval-workflow` |
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | expenses, approval-workflow, reimbursement, employee-expenses, accounting-integration |
 | **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/odoo-expense-approval.blueprint.yaml) |
-| **JSON API** | [expense-approval.json]({{ site.baseurl }}/api/blueprints/workflow/expense-approval.json) |
+| **JSON API** | [expense-approval-workflow.json]({{ site.baseurl }}/api/blueprints/workflow/expense-approval-workflow.json) |
 
 ## Actors
 
@@ -289,7 +289,7 @@ source:
 {
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
-  "name": "Expense Approval Blueprint",
+  "name": "Expense Approval Workflow Blueprint",
   "description": "Employee expense submission and approval workflow with multi-level authorization, reimbursement tracking, accounting journal entry generation, and payment proce",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",

@@ -47,6 +47,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `SLASH_COMMAND_PERMISSION_DENIED` — You do not have permission to use this command.
 - `SLASH_COMMAND_DISABLED` — This command is currently disabled.
 
+## Events
+
+**`slash_command.executed`** — Fires when a registered slash command is successfully dispatched to its handler
+  Payload: `command`, `params`, `room_id`, `user_id`
+
+**`slash_command.preview_requested`** — Fires when the platform requests inline preview results while a user is typing a command
+  Payload: `command`, `params`, `room_id`, `user_id`
+
+**`slash_command.preview_item_selected`** — Fires when a user selects one of the inline preview items
+  Payload: `command`, `params`, `room_id`, `user_id`
+
+**`slash_command.registered`** — Fires when a new slash command is registered by a handler or extension
+  Payload: `command`, `description`, `permission`
+
+**`slash_command.unregistered`** — Fires when a slash command is removed or disabled
+  Payload: `command`
+
 ## Connects to
 
 - **bot-plugin-framework** *(recommended)* — Extensions and bots use the plugin framework to register slash commands dynamically

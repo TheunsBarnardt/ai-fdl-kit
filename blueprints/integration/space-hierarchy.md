@@ -49,6 +49,20 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `SPACE_PAGINATION_TOKEN_EXPIRED` — Pagination session has expired. Please restart the request.
 - `SPACE_NOT_FOUND` — The requested space room was not found
 
+## Events
+
+**`space.hierarchy.page_returned`** — A page of rooms from the space hierarchy was returned to the requester
+  Payload: `space_room_id`, `rooms_returned`, `next_token`
+
+**`space.hierarchy.complete`** — All reachable rooms within the traversal depth have been visited
+  Payload: `space_room_id`, `total_rooms`
+
+**`space.child.resolved`** — A remote child room was successfully resolved via federation
+  Payload: `child_room_id`, `resolved_via_server`
+
+**`space.child.unresolvable`** — A child room could not be reached from any listed server
+  Payload: `child_room_id`, `attempted_servers`
+
 ## Connects to
 
 - **room-lifecycle** *(required)* — Spaces are rooms; they are created through the same room creation flow

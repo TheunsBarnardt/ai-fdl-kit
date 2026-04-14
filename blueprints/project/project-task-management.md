@@ -82,6 +82,26 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `TIMESHEET_OVERLAP` — Time log entries overlap with an existing timesheet for this employee.
 - `PROJECT_TEMPLATE_NOT_FOUND` — The specified project template does not exist.
 
+## Events
+
+**`project.created`** — Fired when a new project is created
+  Payload: `project_name`, `company`, `expected_start_date`, `expected_end_date`
+
+**`project.completed`** — Fired when a project is marked as completed
+  Payload: `project_name`, `total_costing_amount`, `total_billing_amount`
+
+**`task.created`** — Fired when a new task is created
+  Payload: `subject`, `project`, `assigned_to`, `priority`
+
+**`task.completed`** — Fired when a task is completed
+  Payload: `subject`, `project`
+
+**`task.overdue`** — Fired when a task becomes overdue
+  Payload: `subject`, `project`, `expected_end_date`
+
+**`timesheet.submitted`** — Fired when a timesheet is submitted
+  Payload: `employee`, `total_hours`, `total_billable_hours`, `project`
+
 ## Connects to
 
 - **sales-order-lifecycle** *(optional)* — Projects can be linked to sales orders for billing

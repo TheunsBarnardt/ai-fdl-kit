@@ -38,6 +38,14 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 - `IGNITION_DEVICE_NOT_FOUND` — The device referenced in the position record does not exist
 
+## Events
+
+**`device.ignition_on`** — Vehicle ignition has been switched on
+  Payload: `device_id`, `position_id`, `fix_time`
+
+**`device.ignition_off`** — Vehicle ignition has been switched off
+  Payload: `device_id`, `position_id`, `fix_time`
+
 ## Connects to
 
 - **gps-position-ingestion** *(required)* — Ignition state is read from the position attributes produced during ingestion

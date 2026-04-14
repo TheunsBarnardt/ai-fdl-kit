@@ -71,6 +71,23 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `DROP_ON_DESCENDANT` — Cannot drop a component into its own child
 - `DROP_TYPE_NOT_ALLOWED` — This zone does not accept that component type
 
+## Events
+
+**`editor.component.inserted`** — A new component was dragged from palette and placed on canvas
+  Payload: `component_id`, `component_type`, `destination_zone`, `destination_index`
+
+**`editor.component.moved`** — An existing component was moved to a different position
+  Payload: `component_id`, `source_zone`, `source_index`, `destination_zone`, `destination_index`
+
+**`editor.component.reordered`** — A component was reordered within the same zone
+  Payload: `component_id`, `zone`, `old_index`, `new_index`
+
+**`editor.drag.cancelled`** — A drag operation was cancelled without placing the component
+  Payload: `component_id`, `drag_mode`
+
+**`editor.drag.rejected`** — A drop was rejected due to validation rules
+  Payload: `component_id`, `reason`
+
 ## Connects to
 
 - **component-registry** *(required)* — Drag-and-drop needs the component registry to know what's draggable and what zones accept

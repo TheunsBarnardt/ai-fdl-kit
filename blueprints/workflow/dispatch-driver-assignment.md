@@ -58,6 +58,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `DISPATCH_NO_AVAILABLE_DRIVERS` — No available drivers found in the area.
 - `DISPATCH_DRIVER_REJECTED` — The driver declined this order.
 
+## Events
+
+**`dispatch.assigned`** — Fired when a driver is manually assigned to an order
+  Payload: `order_uuid`, `driver_uuid`, `vehicle_uuid`, `dispatched_at`
+
+**`dispatch.auto_assigned`** — Fired when the system auto-assigns a driver
+  Payload: `order_uuid`, `driver_uuid`, `vehicle_uuid`
+
+**`dispatch.accepted`** — Fired when driver accepts the dispatch
+  Payload: `order_uuid`, `driver_uuid`, `driver_response_at`
+
+**`dispatch.rejected`** — Fired when driver rejects the dispatch
+  Payload: `order_uuid`, `driver_uuid`, `driver_response_at`
+
+**`dispatch.reassigned`** — Fired when order is reassigned to a different driver
+  Payload: `order_uuid`, `new_driver_uuid`, `previous_driver_uuid`
+
 ## Connects to
 
 - **order-lifecycle** *(required)* — Dispatch is a key step in order lifecycle

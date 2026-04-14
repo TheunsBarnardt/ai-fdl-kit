@@ -61,6 +61,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `WEBHOOK_MAX_RETRIES_EXCEEDED` — Webhook endpoint is unreachable after maximum retries.
 - `WEBHOOK_ENDPOINT_LIMIT` — Maximum number of webhook endpoints reached.
 
+## Events
+
+**`webhook.registered`** — Fired when a new webhook endpoint is configured
+  Payload: `webhook_id`, `url`, `events`, `mode`
+
+**`webhook.delivered`** — Fired when an event is successfully delivered
+  Payload: `webhook_id`, `event_type`, `response_code`, `delivered_at`
+
+**`webhook.delivery_failed`** — Fired when delivery fails and a retry is scheduled
+  Payload: `webhook_id`, `event_type`, `response_code`, `next_retry_at`
+
+**`webhook.permanently_failed`** — Fired when all retry attempts are exhausted
+  Payload: `webhook_id`, `event_type`
+
 ## Connects to
 
 - **order-lifecycle** *(required)* — Order lifecycle events are the primary webhook source

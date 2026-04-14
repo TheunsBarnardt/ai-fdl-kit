@@ -57,6 +57,11 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `SIGNATURE_DATA_MISSING` — Signature data is required for signature proof capture.
 - `ORDER_NOT_FOUND` — Order not found.
 
+## Events
+
+**`order.proof_captured`** — Fired when a proof record is successfully created for an order or waypoint.
+  Payload: `order_id`, `proof_id`, `pod_method`, `subject_id`
+
 ## Connects to
 
 - **order-trip-state-machine** *(required)* — Proof gates are enforced at activity transition points in the state machine.

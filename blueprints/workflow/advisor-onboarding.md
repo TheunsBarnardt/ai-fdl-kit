@@ -63,6 +63,38 @@ Specifies 11 acceptance outcomes that any implementation must satisfy, regardles
 - `DOCU_SIGN_ERROR` — eSignature service error
 - `MANDATE_GENERATION_FAILED` — Mandate generation failed
 
+## Events
+
+**`onboarding.created`** — Advisor onboarding created
+  Payload: `onboarding_id`
+
+**`onboarding.retrieved`** — Onboarding retrieved
+  Payload: `onboarding_id`
+
+**`onboarding.updated`** — Onboarding updated
+  Payload: `onboarding_id`
+
+**`onboarding.cancelled`** — Onboarding cancelled
+  Payload: `onboarding_id`
+
+**`validation.duplicate_found`** — Duplicate found
+  Payload: `identification_number`
+
+**`approval.submitted`** — Submitted for approval
+  Payload: `onboarding_id`
+
+**`approval.granted`** — Approval granted
+  Payload: `onboarding_id`
+
+**`mandate.generated`** — Mandate generated
+  Payload: `onboarding_id`
+
+**`mandate.signed`** — Mandate signed
+  Payload: `onboarding_id`
+
+**`list.retrieved`** — List retrieved
+  Payload: `filter`
+
 ## Connects to
 
 - **client-onboarding** *(recommended)*

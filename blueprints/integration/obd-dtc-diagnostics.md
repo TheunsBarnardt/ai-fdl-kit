@@ -48,6 +48,17 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `OBD_DTC_READ_FAILED` — Could not retrieve fault codes from the vehicle. Check the connection.
 - `OBD_DTC_CLEAR_FAILED` — Could not clear fault codes. Ensure the vehicle ignition is on and retry.
 
+## Events
+
+**`obd.dtc.read`** — Diagnostic trouble codes were retrieved and decoded from the vehicle
+  Payload: `dtc_codes`, `dtc_count`, `mil_active`
+
+**`obd.dtc.cleared`** — All stored DTCs and freeze frame data were erased from the vehicle ECUs
+  Payload: `mil_active`, `timestamp`
+
+**`obd.status.read`** — Vehicle OBD status was read including MIL state, DTC count, and ignition type
+  Payload: `mil_active`, `dtc_count`, `ignition_type`
+
 ## Connects to
 
 - **obd-port-connection** *(required)* — Active vehicle_connected state required for all DTC operations

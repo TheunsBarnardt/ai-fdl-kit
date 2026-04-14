@@ -62,6 +62,48 @@ Specifies 23 acceptance outcomes that any implementation must satisfy, regardles
 - `OUT_OF_RANGE` — Index is out of range
 - `WRONG_TYPE` — Operation against a key holding the wrong kind of value
 
+## Events
+
+**`list.lpush`**
+
+**`list.rpush`**
+
+**`list.push_conditional`**
+
+**`list.lpop`**
+
+**`list.rpop`**
+
+**`list.pop_empty`**
+
+**`list.blocking_wait`**
+
+**`list.blocking_timeout`**
+
+**`list.range_read`**
+
+**`list.index_read`**
+
+**`list.len`**
+
+**`list.set`**
+
+**`list.insert`**
+
+**`list.trimmed`**
+
+**`list.removed`**
+
+**`list.pos_search`**
+
+**`list.moved`**
+
+**`list.blocking_move`**
+
+**`list.mpop`**
+
+**`list.blocking_mpop`**
+
 ## Connects to
 
 - **string-key-value** *(optional)* — Elements are strings or numeric values

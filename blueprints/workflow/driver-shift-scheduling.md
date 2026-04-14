@@ -61,6 +61,26 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `SHIFT_INSUFFICIENT_REST` — Insufficient rest period between consecutive shifts.
 - `SHIFT_NOT_FOUND` — Shift not found.
 
+## Events
+
+**`shift.scheduled`** — Fired when a new shift is created for a driver
+  Payload: `shift_id`, `driver_uuid`, `start_time`, `end_time`, `shift_type`
+
+**`shift.confirmed`** — Fired when driver confirms shift acceptance
+  Payload: `shift_id`, `driver_uuid`, `start_time`
+
+**`shift.started`** — Fired when driver clocks in
+  Payload: `shift_id`, `driver_uuid`, `actual_start`
+
+**`shift.completed`** — Fired when driver clocks out
+  Payload: `shift_id`, `driver_uuid`, `actual_start`, `actual_end`, `duration_hours`
+
+**`shift.missed`** — Fired when driver fails to clock in within grace period
+  Payload: `shift_id`, `driver_uuid`, `start_time`
+
+**`shift.cancelled`** — Fired when a shift is cancelled
+  Payload: `shift_id`, `driver_uuid`, `cancelled_by`
+
 ## Connects to
 
 - **driver-profile** *(required)* — Shifts are assigned to driver profiles

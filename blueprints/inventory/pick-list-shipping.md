@@ -78,6 +78,23 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `SHIPMENT_NO_PARCELS` — Shipment must have at least one parcel with a weight greater than zero.
 - `TRIP_NO_DRIVER` — A driver must be assigned before the delivery trip can be scheduled.
 
+## Events
+
+**`pick_list.completed`** — Pick list created or fully picked
+  Payload: `pick_list_id`, `purpose`, `item_count`
+
+**`delivery.submitted`** — Delivery note submitted with stock and GL entries
+  Payload: `delivery_note_id`, `customer`, `total_qty`, `total_amount`
+
+**`delivery.returned`** — Delivery note return processed
+  Payload: `delivery_note_id`, `return_against`, `return_qty`
+
+**`shipment.booked`** — Shipment booked with carrier and tracking assigned
+  Payload: `shipment_id`, `carrier`, `awb_number`, `total_weight`
+
+**`trip.completed`** — Delivery trip completed with all stops visited
+  Payload: `trip_id`, `driver`, `stop_count`, `total_distance`
+
 ## Connects to
 
 - **stock-entry-movements** *(required)* — Pick lists generate stock entries for material transfers

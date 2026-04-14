@@ -59,6 +59,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `COMPLIANCE_JOB_FAILED` — The export job encountered an error. Please check server logs and try again.
 - `COMPLIANCE_INVALID_REQUEST` — Invalid compliance export parameters.
 
+## Events
+
+**`compliance.export_created`** — A compliance export job was created
+  Payload: `job_id`, `description`, `export_format`, `actor_id`, `timestamp`
+
+**`compliance.export_completed`** — Export archive successfully generated
+  Payload: `job_id`, `record_count`, `file_path`, `duration_ms`, `timestamp`
+
+**`compliance.export_failed`** — Export job failed during processing
+  Payload: `job_id`, `error_reason`, `timestamp`
+
+**`compliance.export_downloaded`** — Export archive downloaded by a compliance officer
+  Payload: `job_id`, `actor_id`, `file_size_bytes`, `timestamp`
+
 ## Connects to
 
 - **audit-logging** *(required)* — All compliance export operations are recorded in the audit log

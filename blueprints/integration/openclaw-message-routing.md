@@ -53,6 +53,17 @@ Specifies 2 acceptance outcomes that any implementation must satisfy, regardless
 - `BINDING_RESOLUTION_FAILED` — Unable to resolve agent binding
 - `CACHE_MISS` — Route cache miss
 
+## Events
+
+**`route.resolved`**
+  Payload: `agent_id`, `channel`, `matched_by`, `session_key`, `last_route_policy`
+
+**`route.fallback`**
+  Payload: `channel`, `account_id`, `peer_kind`, `default_agent_id`
+
+**`route.cache_cleared`**
+  Payload: `reason`, `cache_size_before`
+
 ## Connects to
 
 - **openclaw-session-management** *(required)* — Session key used in persistent conversation store

@@ -88,6 +88,23 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `SSO_PROVISIONING_DISABLED` — Automatic account provisioning is not enabled. Contact your administrator.
 - `SSO_ACCOUNT_DISABLED` — This account has been disabled. Please contact your administrator.
 
+## Events
+
+**`sso.authenticated`** — User authenticated via SSO
+  Payload: `user_id`, `organization_id`, `protocol`, `timestamp`
+
+**`sso.provisioned`** — New user provisioned via JIT from IdP
+  Payload: `user_id`, `organization_id`, `idp_entity_id`, `timestamp`
+
+**`sso.failed`** — SSO authentication attempt failed
+  Payload: `organization_id`, `idp_entity_id`, `timestamp`, `reason`
+
+**`sso.replay_detected`** — SAML assertion replay attack detected
+  Payload: `organization_id`, `assertion_id`, `timestamp`, `ip_address`
+
+**`sso.certificate_expiring`** — IdP signing certificate nearing expiry
+  Payload: `organization_id`, `certificate_expiry`, `days_remaining`
+
 ## Connects to
 
 - **login** *(recommended)* — SSO is an alternative to password-based login for enterprise users

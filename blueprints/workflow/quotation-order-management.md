@@ -71,6 +71,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `SALE_CONFIRMATION_DATE_REQUIRED` — A confirmed order requires a confirmation date.
 - `SALE_LINE_DELETE_CONFIRMED` — Cannot delete lines from a confirmed order.
 
+## Events
+
+**`sale.quotation.sent`** — Quotation emailed to customer
+  Payload: `order_id`, `partner_id`, `amount_total`
+
+**`sale.order.confirmed`** — Quotation confirmed as a sales order
+  Payload: `order_id`, `partner_id`, `amount_total`
+
+**`sale.order.cancelled`** — Order cancelled by salesperson
+  Payload: `order_id`
+
+**`sale.order.locked`** — Order locked to prevent modifications
+  Payload: `order_id`
+
+**`sale.order.unlocked`** — Order unlocked by manager for editing
+  Payload: `order_id`
+
 ## Connects to
 
 - **loyalty-coupons** *(optional)* — Loyalty rewards and coupon codes applied to sales orders

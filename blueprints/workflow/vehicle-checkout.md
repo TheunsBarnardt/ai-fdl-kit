@@ -62,6 +62,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `CHECKOUT_INVALID_ODOMETER` — Return odometer reading must be greater than or equal to checkout reading.
 - `CHECKOUT_NOT_FOUND` — Checkout record not found.
 
+## Events
+
+**`vehicle_checkout.requested`** — Fired when a driver requests to check out a vehicle
+  Payload: `checkout_id`, `vehicle_uuid`, `driver_uuid`
+
+**`vehicle_checkout.approved`** — Fired when checkout is approved by fleet manager
+  Payload: `checkout_id`, `vehicle_uuid`, `driver_uuid`, `checkout_at`
+
+**`vehicle_checkout.returned`** — Fired when vehicle is returned after use
+  Payload: `checkout_id`, `vehicle_uuid`, `driver_uuid`, `distance_traveled`, `checkin_at`
+
+**`vehicle_checkout.overdue`** — Fired when vehicle has not been returned by expected return time
+  Payload: `checkout_id`, `vehicle_uuid`, `driver_uuid`
+
 ## Connects to
 
 - **vehicle-fleet-registry** *(required)* — Vehicle availability is managed in the fleet registry

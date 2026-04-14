@@ -50,6 +50,11 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 
 - `PREFERENCE_VALIDATION_ERROR` — The preference value did not pass validation
 
+## Events
+
+**`preference.updated`** — Emitted when a user preference is created or updated
+  Payload: `user_id`, `key`, `timestamp`
+
 ## Connects to
 
 - **payload-auth** *(required)* — Preferences are per-user — requires authentication to identify the user

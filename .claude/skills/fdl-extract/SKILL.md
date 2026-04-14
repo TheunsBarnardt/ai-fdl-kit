@@ -282,6 +282,16 @@ Validation: PASS (2 warnings — missing related blueprints)
 - [ ] All required top-level fields present (feature, version, description, category, fields, rules, flows)
 - [ ] Comments explain WHY, referencing the source document
 
+### AI-Proofing (MANDATORY — prevents re-introducing the fake-endpoint gap)
+
+Every extracted blueprint MUST include the three AI-proofing fields. Derive them from the source document where possible; flag gaps in the extraction summary — do not silently omit.
+
+- [ ] **`aliases:`** — extract 5–10 alternate names by scanning the document for synonyms, sub-headings, glossary terms, and legacy/vendor-specific names users might type instead of the canonical feature name.
+- [ ] **`api:`** — if the document specifies an HTTP endpoint (API spec, integration guide, sequence diagram with REST calls), pin the wire contract: `http.method`, `http.path`, `request.schema`, `response.success.schema`, `response.errors[]`. Each `error_code` must also appear in top-level `errors[]`. If the document describes a business process with no HTTP surface, omit `api:`.
+- [ ] **`anti_patterns:`** — derive from the document's explicit prohibitions, compliance notes, and "must not" clauses. Include OWASP / NIST / POPIA defaults where applicable. Each entry is `{ rule, why }` with the why citing the section or regulation.
+
+**Cross-validation:** every `error_code` in `api.response.errors[]` must exist in top-level `errors[]`. The validator will fail the blueprint otherwise.
+
 ## Handling Edge Cases
 
 ### Document has multiple features

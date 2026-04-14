@@ -55,6 +55,20 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `PUSH_NOT_ENABLED` — Mobile push notifications are not configured on this server.
 - `PUSH_NOT_LICENSED` — Mobile push notifications require an active license for the hosted proxy service.
 
+## Events
+
+**`push.notification_sent`** — Push notification payload dispatched to the proxy service
+  Payload: `user_id`, `device_id`, `ack_id`, `platform`, `channel_id`, `post_id`, `timestamp`
+
+**`push.notification_suppressed`** — Push notification eligible but suppressed for a documented reason
+  Payload: `user_id`, `reason`, `channel_id`, `post_id`, `timestamp`
+
+**`push.delivery_failed`** — Push proxy reported a delivery error
+  Payload: `user_id`, `device_id`, `error_reason`, `timestamp`
+
+**`push.device_removed`** — Device registration removed because push proxy reported stale token
+  Payload: `user_id`, `device_id`, `timestamp`
+
 ## Connects to
 
 - **notification-preferences-dnd** *(required)* — User preferences and DND status are checked before every push delivery

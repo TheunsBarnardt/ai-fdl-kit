@@ -53,6 +53,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `VEHICLE_DUPLICATE_CHASSIS` — A vehicle with this chassis number already exists in the system.
 - `VEHICLE_INVALID_DATE` — The registration date cannot be in the future.
 
+## Events
+
+**`vehicle.registered`** — A new vehicle has been added to the fleet registry
+  Payload: `license_plate`, `chassis_number`, `registered_owner`, `registration_date`
+
+**`vehicle.registration_renewed`** — Vehicle registration certificate has been renewed
+  Payload: `license_plate`, `registration_expiry`
+
+**`vehicle.ownership_transferred`** — Vehicle ownership has changed
+  Payload: `license_plate`, `previous_owner`, `new_owner`
+
+**`vehicle.registration_expired`** — Vehicle registration certificate has lapsed without renewal
+  Payload: `license_plate`, `registration_expiry`
+
 ## Connects to
 
 - **vehicle-master-data** *(required)* — Vehicle master record contains the physical specifications tied to this registration

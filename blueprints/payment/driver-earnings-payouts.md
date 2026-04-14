@@ -61,6 +61,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `EARNINGS_INSUFFICIENT_BALANCE` — Payout amount is below the minimum threshold.
 - `EARNINGS_INVALID_BANK_DETAILS` — Payout failed — invalid bank account details.
 
+## Events
+
+**`earnings.created`** — Fired when a trip earning is created for a driver
+  Payload: `earning_id`, `driver_uuid`, `order_uuid`, `amount`, `currency`
+
+**`earnings.approved`** — Fired when an earning is approved for payout
+  Payload: `earning_id`, `driver_uuid`, `net_amount`, `currency`
+
+**`earnings.payout_completed`** — Fired when a payout is successfully processed
+  Payload: `driver_uuid`, `payout_uuid`, `net_amount`, `currency`, `payout_method`
+
+**`earnings.payout_failed`** — Fired when a payout fails
+  Payload: `driver_uuid`, `payout_uuid`, `error`
+
+**`earnings.reversed`** — Fired when an earning is reversed due to cancellation
+  Payload: `original_earning_id`, `driver_uuid`, `amount`, `currency`
+
 ## Connects to
 
 - **order-lifecycle** *(required)* — Earnings are triggered by order completion

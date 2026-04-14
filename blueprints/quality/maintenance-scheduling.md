@@ -61,6 +61,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `VISIT_LATER_EXISTS` — Cannot cancel this visit because later visits in the schedule are already completed.
 - `VISIT_DATE_OUT_OF_RANGE` — The visit date falls outside the maintenance schedule date range.
 
+## Events
+
+**`schedule.generated`** — Fired when maintenance schedule visit dates are generated
+  Payload: `customer`, `items`, `total_visits`
+
+**`schedule.submitted`** — Fired when a maintenance schedule is submitted
+  Payload: `customer`, `company`, `items`
+
+**`visit.completed`** — Fired when a maintenance visit is completed
+  Payload: `visit_customer`, `visit_date`, `purposes`
+
+**`visit.cancelled`** — Fired when a maintenance visit is cancelled
+  Payload: `visit_customer`, `visit_date`
+
+**`warranty.status_updated`** — Fired when warranty status is updated from a visit
+  Payload: `serial_no`, `warranty_status`
+
 ## Connects to
 
 - **serial-batch-tracking** *(recommended)* — Serial numbers validated for warranty and AMC status

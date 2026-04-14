@@ -70,6 +70,20 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `MAGIC_LINK_ACCOUNT_DISABLED` — This account has been disabled. Please contact support.
 - `MAGIC_LINK_VALIDATION_ERROR` — Please enter a valid email address
 
+## Events
+
+**`magic_link.sent`** — Magic link email sent to user
+  Payload: `user_id`, `email`, `timestamp`, `ip_address`, `expires_at`
+
+**`magic_link.verified`** — Magic link token successfully verified and session created
+  Payload: `user_id`, `email`, `timestamp`, `ip_address`, `session_id`
+
+**`magic_link.expired`** — User attempted to use an expired magic link
+  Payload: `email`, `timestamp`
+
+**`magic_link.reuse_attempt`** — User attempted to reuse an already-consumed magic link
+  Payload: `email`, `timestamp`, `ip_address`
+
 ## Connects to
 
 - **login** *(recommended)* — Magic link is an alternative to password-based login

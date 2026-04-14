@@ -41,6 +41,11 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `DRIVER_DUPLICATE_UNIQUE_ID` — A driver with this credential ID is already registered
 - `DRIVER_NOT_FOUND` — The specified driver does not exist
 
+## Events
+
+**`driver.changed`** — The driver associated with a vehicle has changed
+  Payload: `device_id`, `previous_driver_id`, `new_driver_id`, `position_id`, `fix_time`
+
 ## Connects to
 
 - **gps-position-ingestion** *(required)* — Driver credential IDs are embedded in position attribute data

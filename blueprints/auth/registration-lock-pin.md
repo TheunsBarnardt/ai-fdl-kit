@@ -55,6 +55,26 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `LOCK_PIN_INCORRECT` — Incorrect registration lock PIN. Your previous device has been notified.
 - `LOCK_PIN_RATE_LIMITED` — Too many PIN attempts. Please wait before trying again.
 
+## Events
+
+**`registration_lock.pin_verified`** — Correct PIN supplied; registration lock check passed
+  Payload: `phone_number`
+
+**`registration_lock.pin_incorrect`** — Incorrect PIN supplied; account credentials frozen and device notified
+  Payload: `phone_number`, `time_remaining_ms`
+
+**`registration_lock.pin_required`** — Lock is active but no PIN was provided
+  Payload: `phone_number`, `time_remaining_ms`
+
+**`registration_lock.expired`** — Lock exists but has expired due to account inactivity
+  Payload: `phone_number`
+
+**`registration_lock.check_skipped`** — No lock configured; check skipped
+  Payload: `phone_number`
+
+**`registration_lock.pin_rate_limited`** — PIN attempts rate-limited
+  Payload: `phone_number`
+
 ## Connects to
 
 - **phone-number-registration** *(required)* — Registration lock is enforced as a gate within the phone number registration flow

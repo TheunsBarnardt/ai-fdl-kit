@@ -64,6 +64,26 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `TEMPLATE_NOT_FOUND` — Template ID does not exist or is not published.
 - `TEMPLATE_VARIABLE_MISSING` — Required template variable is missing from template_vars.
 
+## Events
+
+**`email.queued`**
+  Payload: `message_id`, `from`, `to`, `subject`
+
+**`email.sent`**
+  Payload: `message_id`, `provider_message_id`
+
+**`email.delivered`**
+  Payload: `message_id`, `to`, `delivered_at`
+
+**`email.bounced`**
+  Payload: `message_id`, `to`, `bounce_type`, `bounce_reason`
+
+**`email.complained`**
+  Payload: `message_id`, `to`, `complained_at`
+
+**`email.send_failed`**
+  Payload: `message_id`, `error_code`, `error_reason`
+
 ## Connects to
 
 - **webhook-ingestion** *(recommended)* — Receive delivery status webhooks from email provider

@@ -59,6 +59,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `CONVERSION_INVALID_AMOUNT` — Please enter a valid amount
 - `CONVERSION_VALIDATION_ERROR` — Please check your input and try again
 
+## Events
+
+**`rate.updated`** — Exchange rate cache refreshed from external source
+  Payload: `from_currency`, `to_currency`, `old_rate`, `new_rate`, `rate_source`, `timestamp`
+
+**`conversion.executed`** — Currency conversion completed successfully
+  Payload: `from_currency`, `to_currency`, `amount`, `converted_amount`, `exchange_rate`, `rate_source`, `rate_timestamp`, `timestamp`
+
+**`rate.fetch_failed`** — Failed to fetch live exchange rate from provider
+  Payload: `from_currency`, `to_currency`, `timestamp`, `error_reason`
+
+**`rate.fallback_used`** — Conversion used cached fallback rate instead of live rate
+  Payload: `from_currency`, `to_currency`, `rate_timestamp`, `exchange_rate`
+
 ## Connects to
 
 - **cart-checkout** *(recommended)* — Cart totals may need multi-currency display

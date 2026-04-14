@@ -57,6 +57,26 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `DISPOSAL_APPROVAL_REQUIRED` — Disposal requires approval from a finance or operations manager before it can be executed.
 - `DISPOSAL_MISSING_BUYER` — Buyer details are required for sale or auction disposal.
 
+## Events
+
+**`disposal.initiated`** — A fleet vehicle has been submitted for decommissioning review
+  Payload: `vehicle`, `disposal_reason`, `initiated_by`
+
+**`disposal.inspection_recorded`** — Pre-disposal vehicle condition inspection has been completed
+  Payload: `vehicle`, `inspection_date`, `inspection_findings`, `current_book_value`
+
+**`disposal.approved`** — A vehicle disposal has been authorised by management
+  Payload: `vehicle`, `approved_by`, `disposal_method`, `disposal_value`
+
+**`disposal.completed`** — A fleet vehicle has been formally disposed of and removed from the active fleet
+  Payload: `vehicle`, `disposal_date`, `disposal_method`, `proceeds_received`, `gain_or_loss`
+
+**`disposal.scrapped`** — A fleet vehicle has been scrapped with no proceeds
+  Payload: `vehicle`, `disposal_date`, `current_book_value`, `gain_or_loss`
+
+**`disposal.cancelled`** — A vehicle disposal process was abandoned and the vehicle retained
+  Payload: `vehicle`, `cancelled_by`, `cancellation_reason`
+
 ## Connects to
 
 - **vehicle-depreciation** *(required)* — Current book value at disposal is sourced from the depreciation record; final disposal entries are posted

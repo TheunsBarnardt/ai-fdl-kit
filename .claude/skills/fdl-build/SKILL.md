@@ -160,9 +160,18 @@ Before searching blueprints, check for a project config file. This eliminates th
 
 **Why remote fallback:** Blueprints are published to GitHub Pages on every push. Any project can use `/fdl-build` without cloning the FDL repo — just point Claude at the app directory and run the command.
 
-### Step 2: Three-tier matching algorithm
+### Step 2: Matching algorithm (deterministic tier first, then fuzzy fallback)
 
-For each feature keyword extracted in Phase 1, run these three matching tiers in order:
+For each feature keyword extracted in Phase 1, always run **Tier 0** FIRST. Only fall through to Tiers 1–3 when Tier 0 misses.
+
+**Tier 0 — Deterministic alias/name lookup (MANDATORY FIRST PASS)**
+
+Run `node scripts/blueprint-lookup.js "<keyword>"` for each keyword. This consults `blueprints/INDEX.md` directly and matches both canonical `feature` names AND registered `aliases[]`. Exit codes:
+- `0` = hit. Use the returned blueprint verbatim — do not run Tiers 1–3 for this keyword. This prevents fuzzy matching from inventing alternates when an exact alias already resolves ("sign in" → `auth/login` via alias).
+- `1` = miss. Keyword is not a known feature or alias. Fall through to Tiers 1–3 below.
+- `2` = INDEX missing. Stop and ask the user to run `npm run generate:readmes`.
+
+The deterministic tier closes the failure mode where fuzzy matching picked the wrong blueprint (or failed to recognize that one existed) and let code generation invent an endpoint. If a user keyword matches any blueprint's `aliases[]` exactly (case-insensitive), that blueprint is authoritative — no further matching needed.
 
 **Tier 1 — Exact feature name match**
 Check if any blueprint's `feature` field matches the keyword exactly or with common suffix/prefix patterns:
@@ -887,6 +896,10 @@ Every generated file includes trace comments back to the blueprint:
 10. **Generate working code.** The output should run after `npm install && npm run dev` (or equivalent). Include all imports, config files, and integration glue.
 11. **Add FDL trace comments.** Every generated file has `// FDL: {feature}/{outcome}` comments for traceability.
 12. **Outcomes over flows.** When a blueprint has both outcomes and flows, generate code from outcomes. Flows are for human documentation.
+13. **`api:` block is the wire contract — emit it verbatim.** When a blueprint declares an `api:` section, the generated HTTP endpoint MUST use `api.http.method` and `api.http.path` exactly as written. No alternate paths, no renamed methods, no additional endpoints beyond those the blueprint declares. The request body must match `api.request.schema`. The success response must match `api.response.success.schema`. Error responses must use the `status` + `error_code` pairs in `api.response.errors[]`. This is how yesterday's fake endpoint (`/signin` invented when `/auth/login` existed) is prevented.
+14. **If a blueprint lacks `api:` but needs an HTTP surface, STOP and ask the user to add one before generating code.** Do not improvise the method/path/schema. Offer to populate `api:` by invoking `/fdl-create` in edit mode, or accept a user-provided value. Never emit an endpoint whose shape was guessed rather than pinned.
+15. **`anti_patterns:` are binding, not advisory.** When a blueprint has an `anti_patterns:` block, read every entry before generating code. Each entry's `rule` is a hard constraint — violating it is a generation defect. Cite the relevant rule in code comments when a given line exists specifically to honor an anti-pattern (e.g., `// FDL anti-pattern: do not use == for password comparison — using bcrypt.compare`).
+16. **Deterministic lookup before fuzzy matching.** Always run `scripts/blueprint-lookup.js` for every user keyword before any tag/description inference. If the deterministic lookup hits on a feature name or alias, that result is authoritative — do not run fuzzy matching for that keyword.
 
 ---
 

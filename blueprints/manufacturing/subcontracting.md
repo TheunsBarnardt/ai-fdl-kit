@@ -69,6 +69,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `SC_INSPECTION_FAILED` — Quality inspection must be completed and approved before accepting received items.
 - `SC_BOM_QTY_MISMATCH` — Consumed raw material quantities do not match the expected BOM quantities within tolerance.
 
+## Events
+
+**`subcontract.order_created`** — Fired when a new subcontracting order is created and submitted
+  Payload: `order_id`, `supplier`, `items`, `supplied_items`
+
+**`subcontract.materials_sent`** — Fired when raw materials are dispatched to the supplier
+  Payload: `order_id`, `supplier`, `materials`, `warehouse`
+
+**`subcontract.goods_received`** — Fired when finished goods are received from the supplier
+  Payload: `order_id`, `receipt_id`, `received_items`, `consumed_materials`
+
+**`subcontract.items_rejected`** — Fired when received items fail quality inspection and are rejected
+  Payload: `order_id`, `receipt_id`, `rejected_items`, `rejection_reason`
+
+**`subcontract.order_completed`** — Fired when a subcontracting order is fully received or closed
+  Payload: `order_id`, `supplier`, `total_received`, `total_ordered`
+
 ## Connects to
 
 - **purchase-order-lifecycle** *(required)* — Subcontracting orders are linked to purchase orders with subcontracted flag

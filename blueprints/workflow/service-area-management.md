@@ -56,6 +56,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `SERVICE_AREA_INVALID_BOUNDARY` — The provided boundary is invalid. Please draw a valid polygon.
 - `SERVICE_AREA_NOT_FOUND` — Service area not found.
 
+## Events
+
+**`service_area.created`** — Fired when a new service area is created
+  Payload: `area_id`, `name`, `type`, `country`
+
+**`service_area.updated`** — Fired when a service area boundary or settings change
+  Payload: `area_id`, `name`
+
+**`service_area.deactivated`** — Fired when a service area is disabled
+  Payload: `area_id`, `name`
+
+**`service_area.zone_added`** — Fired when a zone is added to a service area
+  Payload: `area_id`, `zone_id`, `name`
+
 ## Connects to
 
 - **order-lifecycle** *(recommended)* — Orders are validated against service area boundaries

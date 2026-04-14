@@ -66,6 +66,17 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `PRICING_MAX_DISCOUNT_EXCEEDED` — Discount exceeds the maximum allowed discount for this item.
 - `PRICING_INVALID_CONDITION` — Pricing rule condition expression is invalid or references unknown fields.
 
+## Events
+
+**`pricing_rule.applied`** — A pricing rule is successfully applied to a transaction
+  Payload: `rule_id`, `title`, `apply_on`, `discount_type`, `discount_value`, `transaction_id`
+
+**`pricing_rule.conflict`** — Multiple rules match and conflict resolution is triggered
+  Payload: `conflicting_rule_ids`, `winning_rule_id`, `transaction_id`
+
+**`promotion.activated`** — A promotional pricing rule becomes active based on its validity dates
+  Payload: `rule_id`, `title`, `valid_from`, `valid_upto`
+
 ## Connects to
 
 - **sales-purchase-invoicing** *(recommended)* — Pricing rules are applied to invoice line items

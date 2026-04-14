@@ -64,6 +64,23 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `DUPLICATE_FIELD` — Duplicate field number
 - `INVALID_MESSAGE_TYPE` — Invalid message type
 
+## Events
+
+**`fix.message.sent`** — Application message successfully serialized and queued for transmission
+  Payload: `session_id`, `msg_type`, `msg_seq_num`, `sending_time`
+
+**`fix.message.admin_received`** — Administrative message received and routed to session layer
+  Payload: `session_id`, `msg_type`, `msg_seq_num`
+
+**`fix.message.app_received`** — Application message parsed and delivered to application layer
+  Payload: `session_id`, `msg_type`, `msg_seq_num`
+
+**`fix.message.rejected`** — Message rejected due to structural or validation failure
+  Payload: `session_id`, `msg_seq_num`, `reject_reason`, `ref_tag_id`
+
+**`fix.message.parse_error`** — Raw message could not be parsed at all
+  Payload: `raw_message`, `error_detail`
+
 ## Connects to
 
 - **fix-session-management** *(required)* — Session layer controls when messages are sent/received and maintains sequence numbers

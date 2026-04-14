@@ -60,6 +60,23 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `STATE_MACHINE_NOT_FOUND` — The specified state machine definition does not exist.
 - `STATE_MACHINE_DUPLICATE_ID` — A state machine with this ID already exists.
 
+## Events
+
+**`state_machine.created`** — A new state machine definition was created
+  Payload: `machine_id`, `name`, `entity_type`, `state_count`, `transition_count`
+
+**`state_machine.transitioned`** — An entity transitioned from one state to another
+  Payload: `machine_id`, `entity_id`, `from_state`, `to_state`, `event`, `actor`
+
+**`state_machine.transition_blocked`** — A transition was blocked by a guard condition
+  Payload: `machine_id`, `entity_id`, `current_state`, `event`, `guard_expression`
+
+**`state_machine.entity_initialized`** — A new entity was assigned to its initial state
+  Payload: `machine_id`, `entity_id`, `initial_state`
+
+**`state_machine.action_failed`** — An action during transition failed causing rollback
+  Payload: `machine_id`, `entity_id`, `action`, `error_details`
+
 ## Connects to
 
 - **automation-rules** *(recommended)* — Automation rules can trigger events that drive state machine transitions

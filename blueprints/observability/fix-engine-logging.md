@@ -56,6 +56,20 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 
 - `LOG_WRITE_FAILED` — Failed to write to log backend
 
+## Events
+
+**`fix.log.incoming`** — Incoming FIX message logged
+  Payload: `session_id`, `timestamp`, `raw_message`
+
+**`fix.log.outgoing`** — Outgoing FIX message logged
+  Payload: `session_id`, `timestamp`, `raw_message`
+
+**`fix.log.event`** — Session lifecycle event logged
+  Payload: `session_id`, `timestamp`, `event_description`
+
+**`fix.log.error`** — Log backend encountered an error
+  Payload: `session_id`, `log_stream`, `error_detail`
+
 ## Connects to
 
 - **fix-session-management** *(required)* — Session layer calls the log on every sent/received message and state change

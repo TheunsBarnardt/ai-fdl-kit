@@ -80,6 +80,29 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `FRAUD_DEVICE_UNTRUSTED` — Transaction from unrecognised terminal
 - `FRAUD_SCORING_ERROR` — Risk scoring service unavailable — transaction held for review
 
+## Events
+
+**`fraud.transaction.approved`** — Transaction passed risk assessment
+  Payload: `risk_assessment_id`, `transaction_id`, `risk_score`
+
+**`fraud.transaction.flagged`** — Transaction allowed but flagged for review
+  Payload: `risk_assessment_id`, `transaction_id`, `risk_score`, `risk_factors`
+
+**`fraud.transaction.blocked`** — Transaction auto-blocked by risk engine
+  Payload: `risk_assessment_id`, `transaction_id`, `risk_score`, `risk_factors`
+
+**`fraud.velocity.exceeded`** — Velocity limit exceeded — transaction blocked
+  Payload: `risk_assessment_id`, `transaction_id`, `velocity_window_minutes`
+
+**`fraud.review.cleared`** — Flagged transaction cleared by analyst
+  Payload: `risk_assessment_id`, `transaction_id`, `reviewer_id`
+
+**`fraud.review.confirmed`** — Fraud confirmed by analyst
+  Payload: `risk_assessment_id`, `transaction_id`, `reviewer_id`, `review_notes`
+
+**`fraud.blacklist.hit`** — Transaction from blacklisted source
+  Payload: `risk_assessment_id`, `transaction_id`
+
 ## Connects to
 
 - **palm-pay** *(recommended)* — Palm pay transactions are scored for fraud before processing

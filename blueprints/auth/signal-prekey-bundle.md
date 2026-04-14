@@ -72,6 +72,41 @@ Specifies 11 acceptance outcomes that any implementation must satisfy, regardles
 - `PREKEY_NOT_FOUND` — The requested account or device has no available pre-keys.
 - `PREKEY_CONSISTENCY_MISMATCH` — Your device keys are out of sync. Please re-upload your pre-keys.
 
+## Events
+
+**`prekey.uploaded`** — Pre-keys successfully stored for a device
+  Payload: `account_id`, `device_id`, `identity_type`, `ec_count`, `pq_count`
+
+**`prekey.fetched`** — Pre-key bundle retrieved for a target account
+  Payload: `target_identifier`, `device_count`, `ec_one_time_available`, `kem_one_time_available`
+
+**`prekey.upload_signature_invalid`** — Pre-key upload rejected due to invalid signature
+  Payload: `account_id`, `identity_type`
+
+**`prekey.identity_change_unauthorized`** — Non-primary device attempted to change identity key
+  Payload: `account_id`, `device_id`
+
+**`prekey.consistency_verified`** — Client and server have consistent repeated-use key views
+  Payload: `account_id`, `device_id`, `identity_type`
+
+**`prekey.consistency_mismatch`** — Client and server pre-key views are inconsistent
+  Payload: `account_id`, `device_id`, `identity_type`
+
+**`prekey.fetch_rate_limited`** — Pre-key fetch rate limit exceeded
+  Payload: `account_id`, `target_identifier`
+
+**`prekey.fetch_unauthorized`** — Pre-key fetch attempted without authorization
+  Payload: `target_identifier`
+
+**`prekey.fetch_ambiguous_auth`** — Pre-key fetch provided multiple conflicting authorization mechanisms
+  Payload: `target_identifier`
+
+**`prekey.fetch_group_token_invalid`** — Group send token failed verification
+  Payload: `target_identifier`
+
+**`prekey.fetch_not_found`** — Target account or device has no available pre-keys
+  Payload: `target_identifier`, `target_device_id`
+
 ## Connects to
 
 - **phone-number-registration** *(required)* — Signed pre-keys for both identities are required at account registration time

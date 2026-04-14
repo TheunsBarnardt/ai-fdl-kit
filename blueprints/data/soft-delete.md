@@ -58,6 +58,17 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `RECORD_NOT_SOFT_DELETED` — Record must be soft-deleted before it can be permanently purged
 - `PERMANENT_DELETE_UNAUTHORIZED` — Only administrators can permanently delete records
 
+## Events
+
+**`record.soft_deleted`** — A record was soft-deleted and moved to the trash
+  Payload: `entity_type`, `entity_id`, `deleted_by`, `restore_before`
+
+**`record.restored`** — A soft-deleted record was restored to active state
+  Payload: `entity_type`, `entity_id`, `restored_by`
+
+**`record.purged`** — A record was permanently purged from the database
+  Payload: `entity_type`, `entity_id`, `purge_reason`
+
 ## Connects to
 
 - **audit-trail** *(required)* — All delete, restore, and purge operations must be tracked in the audit trail

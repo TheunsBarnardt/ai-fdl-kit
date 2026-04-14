@@ -48,6 +48,14 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `RESOURCE_NOT_FOUND` — The requested resource was not found.
 - `API_VERSION_NOT_SUPPORTED` — The requested API version is not supported.
 
+## Events
+
+**`order.created`** — Order is created via the API.
+  Payload: `order_id`, `tracking_number`, `customer_id`
+
+**`driver.location_changed`** — Driver location is updated via the track endpoint.
+  Payload: `driver_id`, `latitude`, `longitude`, `heading`, `speed`
+
 ## Connects to
 
 - **multi-tenant-organization** *(required)* — API keys are scoped to organizations; the API enforces tenant isolation.

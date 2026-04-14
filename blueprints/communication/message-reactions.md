@@ -50,6 +50,17 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `REACTION_MESSAGE_NOT_FOUND` — The message could not be found. It may have been deleted.
 - `REACTION_ACCESS_DENIED` — You do not have permission to react in this room.
 
+## Events
+
+**`message_reactions.reaction_added`** — Fires when a user successfully adds an emoji reaction to a message
+  Payload: `message_id`, `room_id`, `emoji`, `reactor_username`, `reacted_at`
+
+**`message_reactions.reaction_removed`** — Fires when a user removes their emoji reaction from a message
+  Payload: `message_id`, `room_id`, `emoji`, `reactor_username`, `reacted_at`
+
+**`message_reactions.reaction_toggled`** — Fires after a toggle operation resolves to either an add or remove
+  Payload: `message_id`, `room_id`, `emoji`, `reactor_username`, `reacted_at`
+
 ## Connects to
 
 - **channel-messaging** *(required)* — Reactions are attached to messages in channels or direct conversations

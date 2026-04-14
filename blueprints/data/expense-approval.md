@@ -120,6 +120,29 @@ Combines technical outcomes (acceptance criteria) with documented business flows
 - `EXPENSE_PAYMENT_FAILED` — Payment processing failed. Finance has been notified.
 - `EXPENSE_RATE_LIMITED` — Too many submissions. Please try again later.
 
+## Events
+
+**`expense.submitted`** — New expense submitted for approval
+  Payload: `expense_id`, `submitted_by`, `amount`, `category`, `timestamp`
+
+**`expense.manager_reviewed`** — Manager completed review (approve or reject)
+  Payload: `expense_id`, `reviewer_id`, `decision`, `amount`, `timestamp`
+
+**`expense.approved`** — Expense fully approved (all levels)
+  Payload: `expense_id`, `approved_by`, `amount`, `timestamp`
+
+**`expense.rejected`** — Expense rejected at any level
+  Payload: `expense_id`, `rejected_by`, `reason`, `amount`, `timestamp`
+
+**`expense.paid`** — Reimbursement processed successfully
+  Payload: `expense_id`, `user_id`, `amount`, `payment_method`, `timestamp`
+
+**`expense.payment_failed`** — Reimbursement processing failed
+  Payload: `expense_id`, `user_id`, `amount`, `error_detail`, `timestamp`
+
+**`expense.sla_breached`** — An SLA deadline was exceeded
+  Payload: `expense_id`, `sla_name`, `expected_duration`, `actual_duration`, `timestamp`
+
 ## Connects to
 
 - **login** *(required)* — Users must be authenticated to submit expenses

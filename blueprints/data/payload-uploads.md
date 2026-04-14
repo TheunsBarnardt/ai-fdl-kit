@@ -71,6 +71,14 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `UPLOAD_RETRIEVAL_ERROR` — An error occurred while retrieving the file
 - `UPLOAD_DELETION_ERROR` — An error occurred while deleting the file
 
+## Events
+
+**`upload.create`** — Emitted after successful file upload — handled via collection afterChange hooks
+  Payload: `collection_slug`, `document_id`, `filename`, `mime_type`, `filesize`
+
+**`upload.delete`** — Emitted when upload document and files are deleted
+  Payload: `collection_slug`, `document_id`, `filename`
+
 ## Connects to
 
 - **payload-collections** *(required)* — Upload collections are standard Payload collections with upload fields added

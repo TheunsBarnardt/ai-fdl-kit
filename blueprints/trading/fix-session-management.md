@@ -80,6 +80,26 @@ Combines technical outcomes (acceptance criteria) with documented business flows
 - `HEARTBEAT_TIMEOUT` — Timed out waiting for heartbeat
 - `SEQUENCE_GAP` — Message sequence gap detected
 
+## Events
+
+**`fix.session.logged_on`** — FIX session successfully established after Logon exchange
+  Payload: `session_id`, `sender_comp_id`, `target_comp_id`, `begin_string`
+
+**`fix.session.logged_out`** — Session cleanly terminated via Logout exchange
+  Payload: `session_id`, `reason`
+
+**`fix.session.disconnected`** — Session terminated due to error, timeout, or network failure
+  Payload: `session_id`, `reason`
+
+**`fix.session.logon_rejected`** — Incoming Logon was refused
+  Payload: `session_id`, `reason`
+
+**`fix.session.resend_requested`** — Sequence gap detected; ResendRequest sent for missing messages
+  Payload: `session_id`, `begin_seq_no`, `end_seq_no`
+
+**`fix.session.message_rejected`** — A message was rejected due to validation failure
+  Payload: `session_id`, `msg_seq_num`, `reject_reason`
+
 ## Connects to
 
 - **fix-message-building** *(required)* — Session sends and receives FIX messages structured by the message-building feature

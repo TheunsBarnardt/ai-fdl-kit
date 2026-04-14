@@ -102,6 +102,32 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `PAYSHAP_GATEWAY_ERROR` — Payment gateway returned an error
 - `PAYSHAP_UNAUTHORIZED` — Authentication failed — invalid or expired credentials
 
+## Events
+
+**`payshap.proxy.resolved`** — Destination proxy resolved to account number
+  Payload: `transaction_id`, `destination_proxy`, `destination_proxy_type`
+
+**`payshap.proxy.not_found`** — Proxy resolution failed — no matching account
+  Payload: `transaction_id`, `destination_proxy`
+
+**`payshap.payment.submitted`** — Credit push submitted to clearing system
+  Payload: `transaction_id`, `uetr`, `amount`, `currency`, `source_proxy`, `destination_proxy`
+
+**`payshap.payment.settled`** — Payment confirmed and settled
+  Payload: `transaction_id`, `uetr`, `amount`, `settled_at`
+
+**`payshap.payment.failed`** — Payment failed with reason
+  Payload: `transaction_id`, `uetr`, `failure_reason`
+
+**`payshap.payment.timeout`** — Payment timed out awaiting response
+  Payload: `transaction_id`, `uetr`
+
+**`payshap.payment.reversed`** — Settled payment was reversed
+  Payload: `transaction_id`, `uetr`, `amount`
+
+**`payshap.limit.exceeded`** — Transaction blocked due to limit exceeded
+  Payload: `transaction_id`, `amount`, `failure_reason`
+
 ## Connects to
 
 - **clearing-house-outbound-payments** *(required)* — Credit push operations routed through clearing house outbound payment API

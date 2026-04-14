@@ -70,6 +70,20 @@ Specifies 11 acceptance outcomes that any implementation must satisfy, regardles
 - `APPOINTMENT_SLOT_DURATION_INVALID` — Availability slot duration must be evenly divisible by the appointment duration setting.
 - `APPOINTMENT_SLOT_TIME_INVALID` — Availability slot start time must be earlier than end time.
 
+## Events
+
+**`appointment.created`** — New appointment booking submitted
+  Payload: `appointment_id`, `customer_email`, `scheduled_time`
+
+**`appointment.verified`** — Visitor confirmed email and appointment is active
+  Payload: `appointment_id`, `customer_email`
+
+**`appointment.agent_assigned`** — Agent assigned to handle the appointment
+  Payload: `appointment_id`, `agent_id`
+
+**`appointment.reminder_sent`** — Reminder email sent before the appointment
+  Payload: `appointment_id`, `customer_email`
+
 ## Connects to
 
 - **lead-opportunity-pipeline** *(recommended)* — Verified appointments auto-create leads for unknown visitors

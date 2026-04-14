@@ -67,6 +67,29 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `BULK_OPERATION_NOT_FOUND` — The specified bulk operation ID does not exist.
 - `BULK_ENTITY_TYPE_INVALID` — The specified entity type does not exist or does not support bulk operations.
 
+## Events
+
+**`bulk.operation.completed`** — Bulk operation completed successfully
+  Payload: `operation_id`, `operation_type`, `total_count`, `success_count`, `error_count`
+
+**`bulk.operation.completed_with_errors`** — Bulk operation completed in best-effort mode with some failures
+  Payload: `operation_id`, `total_count`, `success_count`, `error_count`, `error_log`
+
+**`bulk.operation.rolled_back`** — Atomic bulk operation rolled back due to failure
+  Payload: `operation_id`, `operation_type`, `failed_record_id`, `error_details`
+
+**`bulk.operation.cancelled`** — Bulk operation was cancelled by the operator
+  Payload: `operation_id`, `processed_count`, `total_count`
+
+**`bulk.confirmation.required`** — Destructive bulk operation is awaiting confirmation
+  Payload: `operation_id`, `operation_type`, `total_count`, `entity_type`
+
+**`bulk.export.completed`** — Bulk export operation completed with downloadable file
+  Payload: `operation_id`, `total_count`, `file_url`
+
+**`bulk.progress.updated`** — Progress update during bulk operation processing
+  Payload: `operation_id`, `processed_count`, `total_count`, `error_count`
+
 ## Connects to
 
 - **task-management** *(recommended)* — Bulk operations run as background tasks with progress tracking

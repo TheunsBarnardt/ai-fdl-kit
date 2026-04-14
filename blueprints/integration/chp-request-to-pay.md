@@ -106,6 +106,32 @@ Combines technical outcomes (acceptance criteria) with documented business flows
 - `RTP_SERVER_ERROR` — An unexpected error occurred on the server
 - `RTP_SERVICE_UNAVAILABLE` — The service is temporarily unavailable
 
+## Events
+
+**`rtp.outbound.initiated`** — Partner initiated an outbound request-to-pay
+  Payload: `uetr`, `end_to_end_identification`, `creditor_account_number`, `amount_value`, `amount_currency`
+
+**`rtp.outbound.response_received`** — Response received for an outbound RTP (paid, rejected, expired)
+  Payload: `uetr`, `rtp_status`, `amount_value`, `amount_currency`
+
+**`rtp.inbound.received`** — Inbound RTP received from another institution via Electrum
+  Payload: `uetr`, `end_to_end_identification`, `debtor_party_name`, `amount_value`, `amount_currency`
+
+**`rtp.inbound.responded`** — Partner responded to an inbound RTP
+  Payload: `uetr`, `rtp_status`
+
+**`rtp.cancellation.requested`** — Cancellation requested for an RTP
+  Payload: `uetr`, `cancellation_reason`
+
+**`rtp.cancellation.response_received`** — Cancellation response received
+  Payload: `uetr`, `rtp_status`
+
+**`rtp.refund.initiated`** — Refund initiated for a prior successful transaction
+  Payload: `uetr`, `refund_amount`, `amount_currency`
+
+**`rtp.refund.response_received`** — Refund response received
+  Payload: `uetr`, `refund_amount`, `amount_currency`
+
 ## Connects to
 
 - **chp-inbound-payments** *(required)* — RTP payments result in inbound credit transfers

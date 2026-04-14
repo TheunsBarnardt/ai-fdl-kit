@@ -46,6 +46,14 @@ Specifies 2 acceptance outcomes that any implementation must satisfy, regardless
 - `AUGMENTATION_UNSUPPORTED_MODALITY` — This augmentation does not support the probe's input modality.
 - `AUGMENTATION_TRANSFORM_FAILED` — The augmentation transform could not be applied. The original attempt will be used.
 
+## Events
+
+**`security.augmentation.applied`** — Emitted when an augmentation successfully transforms a probe attempt.
+  Payload: `augmentation_id`, `transform_type`, `origin_attempt_id`
+
+**`security.augmentation.skipped`** — Emitted when an augmentation is skipped due to modality mismatch or error.
+  Payload: `augmentation_id`, `transform_type`, `origin_attempt_id`, `reason`
+
 ## Connects to
 
 - **llm-attack-probe-library** *(required)* — Source probes that augmentations are applied to.

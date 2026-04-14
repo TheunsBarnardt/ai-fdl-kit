@@ -46,6 +46,29 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `WEBHOOK_URL_INVALID` — The provided webhook URL is not a valid HTTPS URL.
 - `WEBHOOK_ENDPOINT_NOT_FOUND` — The specified webhook endpoint could not be found.
 
+## Events
+
+**`order.created`** — An order has been created.
+  Payload: `order_id`, `customer_id`, `status`, `pickup_location`, `dropoff_location`
+
+**`order.dispatched`** — An order has been dispatched to a driver.
+  Payload: `order_id`, `driver_id`, `dispatched_at`
+
+**`order.driver_assigned`** — A driver has been assigned to an order.
+  Payload: `order_id`, `driver_id`
+
+**`order.updated`** — An order's status or data has changed.
+  Payload: `order_id`, `status`, `updated_at`
+
+**`order.completed`** — An order has been completed.
+  Payload: `order_id`, `driver_id`, `customer_id`
+
+**`order.dispatch_failed`** — Order dispatch failed to find a driver.
+  Payload: `order_id`
+
+**`driver.assigned`** — A driver has been assigned to an entity or order.
+  Payload: `driver_id`, `order_id`
+
 ## Connects to
 
 - **ride-request-lifecycle** *(required)* — Lifecycle events are the source of webhook delivery.

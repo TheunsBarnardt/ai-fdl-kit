@@ -64,6 +64,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `INCIDENT_MISSING_THIRD_PARTY` — Third-party details are required when a third party is involved.
 - `INCIDENT_NO_ACTIVE_INSURANCE` — No active insurance policy found for this vehicle. Please add insurance before submitting a claim.
 
+## Events
+
+**`incident.reported`** — A vehicle incident has been recorded and reported
+  Payload: `vehicle`, `incident_type`, `incident_date`, `location`, `injuries_reported`, `driver_at_incident`
+
+**`incident.injury_reported`** — An incident involving injuries has been escalated
+  Payload: `vehicle`, `incident_date`, `location`, `injury_details`, `driver_at_incident`
+
+**`incident.insurance_claim_submitted`** — An insurance claim has been submitted for a vehicle incident
+  Payload: `vehicle`, `incident_date`, `insurance_claim_number`, `estimated_repair_cost`
+
+**`incident.closed`** — A vehicle incident has been fully resolved and closed
+  Payload: `vehicle`, `incident_date`, `actual_repair_cost`, `claim_settlement_amount`, `root_cause`
+
 ## Connects to
 
 - **vehicle-insurance** *(required)* — Active insurance policy is required for claim submission from an incident

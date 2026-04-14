@@ -119,6 +119,23 @@ Combines technical outcomes (acceptance criteria) with documented business flows
 - `RESET_PASSWORD_REUSED` — Please choose a password you haven't used recently
 - `RESET_RATE_LIMITED` — Please wait before requesting another reset
 
+## Events
+
+**`password_reset.requested`** — User requested a password reset email
+  Payload: `user_id`, `email`, `timestamp`, `ip_address`, `token_expires_at`
+
+**`password_reset.success`** — Password was successfully changed
+  Payload: `user_id`, `email`, `timestamp`, `ip_address`
+
+**`password_reset.token_invalid`** — Invalid or tampered token was submitted
+  Payload: `token_hash`, `timestamp`, `ip_address`
+
+**`password_reset.token_expired`** — Expired token was submitted
+  Payload: `user_id`, `timestamp`, `ip_address`
+
+**`password_reset.email_not_found`** — Reset requested for non-existent email
+  Payload: `email`, `timestamp`, `ip_address`
+
 ## Connects to
 
 - **login** *(required)* — After reset, user logs in with new password

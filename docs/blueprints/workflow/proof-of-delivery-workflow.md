@@ -1,23 +1,23 @@
 ---
-title: "Proof Of Delivery Blueprint"
+title: "Proof Of Delivery Workflow Blueprint"
 layout: default
 parent: "Workflow"
 grand_parent: Blueprint Catalog
 description: "Capture digital proof of delivery including signature, photo, and notes at delivery completion. 10 fields. 5 outcomes. 4 error codes. rules: pod_required_to_com"
 ---
 
-# Proof Of Delivery Blueprint
+# Proof Of Delivery Workflow Blueprint
 
 > Capture digital proof of delivery including signature, photo, and notes at delivery completion
 
 | | |
 |---|---|
-| **Feature** | `proof-of-delivery` |
+| **Feature** | `proof-of-delivery-workflow` |
 | **Category** | Workflow |
 | **Version** | 1.0.0 |
 | **Tags** | fleet, pod, delivery, signature, photo, confirmation |
 | **YAML Source** | [View on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/blob/master/blueprints/workflow/proof-of-delivery.blueprint.yaml) |
-| **JSON API** | [proof-of-delivery.json]({{ site.baseurl }}/api/blueprints/workflow/proof-of-delivery.json) |
+| **JSON API** | [proof-of-delivery-workflow.json]({{ site.baseurl }}/api/blueprints/workflow/proof-of-delivery-workflow.json) |
 
 ## Actors
 
@@ -209,7 +209,7 @@ source:
 {
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
-  "name": "Proof Of Delivery Blueprint",
+  "name": "Proof Of Delivery Workflow Blueprint",
   "description": "Capture digital proof of delivery including signature, photo, and notes at delivery completion. 10 fields. 5 outcomes. 4 error codes. rules: pod_required_to_com",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",

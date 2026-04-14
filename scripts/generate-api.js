@@ -64,6 +64,10 @@ async function main() {
       version: bp.version,
       description: bp.description,
       tags: bp.tags || [],
+      // Aliases surfaced at the registry level so remote consumers of the
+      // public API (/fdl-build's Source B fallback, third-party tools) can
+      // resolve alternate names without fetching each per-blueprint JSON.
+      aliases: bp.aliases || [],
       fitness: fitness.percent,
       completeness: { errors: completeness.errors.length, warnings: completeness.warnings.length },
       structure_ratio: structureRatio,

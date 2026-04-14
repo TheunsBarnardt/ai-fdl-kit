@@ -47,6 +47,14 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `VRP_INPUT_ERROR` — Problem definition is invalid. Check for missing fields, duplicate IDs, or bad constraint values.
 - `VRP_ROUTING_ERROR` — Could not compute travel times for one or more locations. Verify coordinates or supply custom matrices.
 
+## Events
+
+**`vrp.solved`** — Optimization completed; solution is ready for consumption
+  Payload: `routes`, `unassigned`, `summary`
+
+**`vrp.failed`** — Optimization could not complete due to input or routing error
+  Payload: `error_code`, `error_message`
+
 ## Connects to
 
 - **multi-vehicle-route-optimization** *(extends)*

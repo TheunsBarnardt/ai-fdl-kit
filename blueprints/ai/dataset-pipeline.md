@@ -71,6 +71,17 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `PIPELINE_DESERIALIZATION_ERROR` — Failed to parse record. Verify TFRecord schema or CSV column definitions.
 - `PIPELINE_OOM_ERROR` — Dataset cache exceeds available memory. Use .cache(filename) to cache to disk.
 
+## Events
+
+**`pipeline.created`**
+  Payload: `source_type`, `batch_size`, `shuffle_buffer_size`, `prefetch_buffer_size`
+
+**`pipeline.epoch_exhausted`**
+  Payload: `batches_yielded`
+
+**`pipeline.cache_written`**
+  Payload: `cache_file_path`, `records_cached`
+
 ## Connects to
 
 - **model-training** *(recommended)* — Supplies batched training data to model.fit()

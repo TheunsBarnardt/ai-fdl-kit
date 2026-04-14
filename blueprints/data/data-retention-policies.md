@@ -57,6 +57,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `RETENTION_POLICY_NOT_FOUND` — Retention policy not found.
 - `RETENTION_NOT_LICENSED` — Granular retention policies require an enterprise license.
 
+## Events
+
+**`retention.policy_created`** — A new retention policy was created
+  Payload: `policy_id`, `display_name`, `post_duration_days`, `scope`, `actor_id`, `timestamp`
+
+**`retention.policy_updated`** — Retention policy settings were modified
+  Payload: `policy_id`, `changed_fields`, `actor_id`, `timestamp`
+
+**`retention.policy_deleted`** — Retention policy was deleted
+  Payload: `policy_id`, `actor_id`, `timestamp`
+
+**`retention.deletion_completed`** — Scheduled retention deletion job completed
+  Payload: `messages_deleted`, `files_deleted`, `duration_ms`, `timestamp`
+
 ## Connects to
 
 - **compliance-exports** *(recommended)* — Compliance exports capture message records before retention deletes them

@@ -43,6 +43,11 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 
 - `ODOMETER_DEVICE_NOT_FOUND` — The device referenced does not exist
 
+## Events
+
+**`odometer.updated`** — A new distance increment was calculated and accumulated (emitted when crossing a reporting threshold)
+  Payload: `device_id`, `total_distance`, `increment`, `position_id`
+
 ## Connects to
 
 - **gps-position-ingestion** *(required)* — GPS coordinates and hardware odometer values arrive via position ingestion

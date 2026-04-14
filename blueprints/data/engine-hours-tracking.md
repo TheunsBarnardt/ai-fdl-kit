@@ -39,6 +39,11 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 - `HOURS_DEVICE_NOT_FOUND` — The device referenced does not exist
 
+## Events
+
+**`engine_hours.threshold_reached`** — Cumulative engine hours crossed a maintenance-relevant threshold
+  Payload: `device_id`, `hours_ms`, `position_id`
+
 ## Connects to
 
 - **ignition-detection** *(required)* — Ignition state gates engine hour accumulation

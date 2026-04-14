@@ -67,6 +67,26 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `DRIVER_ALREADY_ON_JOB` — Driver is already assigned to an active order.
 - `DRIVER_NOT_FOUND` — Driver profile not found.
 
+## Events
+
+**`driver.created`** — Fired when a new driver profile is created
+  Payload: `driver_id`, `user_uuid`
+
+**`driver.online`** — Fired when driver comes online
+  Payload: `driver_id`, `location`
+
+**`driver.offline`** — Fired when driver goes offline
+  Payload: `driver_id`
+
+**`driver.location_updated`** — Fired on each GPS location update
+  Payload: `driver_id`, `location`, `speed`, `heading`, `timestamp`
+
+**`driver.license_expired`** — Fired when a driver's license expires
+  Payload: `driver_id`, `drivers_license_number`, `license_expiry`
+
+**`driver.status_changed`** — Fired when driver availability status changes
+  Payload: `driver_id`, `previous_status`, `new_status`
+
 ## Connects to
 
 - **dispatch-driver-assignment** *(required)* — Driver profile is the source of availability for dispatch

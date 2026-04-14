@@ -61,6 +61,20 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `NOTIFICATION_MISSING_CONTACT` — No valid contact information found for this recipient.
 - `NOTIFICATION_TEMPLATE_NOT_FOUND` — Notification template not configured for this event.
 
+## Events
+
+**`notification.queued`** — Fired when a notification is queued for sending
+  Payload: `notification_id`, `order_uuid`, `recipient_type`, `channel`, `trigger_event`
+
+**`notification.sent`** — Fired when notification is dispatched to the provider
+  Payload: `notification_id`, `sent_at`
+
+**`notification.delivered`** — Fired when delivery is confirmed
+  Payload: `notification_id`, `delivered_at`
+
+**`notification.failed`** — Fired when notification fails after all retries
+  Payload: `notification_id`, `order_uuid`, `channel`, `error`
+
 ## Connects to
 
 - **order-lifecycle** *(required)* — Order status changes trigger notification events

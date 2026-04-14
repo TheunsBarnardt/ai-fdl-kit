@@ -64,6 +64,28 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `TRIP_DATE_INVALID` — Trip end date must be after the start date.
 - `TIMELINE_LOAD_FAILED` — Could not load timeline data. Please refresh the page.
 
+## Events
+
+**`timeline.day.expanded`** — A day section was opened by the user.
+  Payload: `timeline_date`, `bounding_box`
+
+**`timeline.day.collapsed`** — All day sections are now collapsed.
+  Payload: `timeline_date`
+
+**`timeline.journey.selected`** — User opened a journey's detail panel.
+  Payload: `track_id`, `started_at`, `ended_at`
+
+**`timeline.journey.deselected`** — User closed a journey's detail panel.
+  Payload: `track_id`
+
+**`timeline.entry.hovered`** — User hovered over a timeline entry.
+  Payload: `entry_type`, `started_at`, `ended_at`, `track_id`, `visit_id`, `visit_latitude`, `visit_longitude`
+
+**`timeline.entry.unhovered`** — Cursor left a timeline entry.
+
+**`trip.calculated`** — A named trip's path, distance, and countries were computed.
+  Payload: `trip_id`, `distance_km`, `visited_countries`
+
 ## Connects to
 
 - **visited-places-detection** *(required)* — Provides the stay/visit entries that appear in the timeline feed.

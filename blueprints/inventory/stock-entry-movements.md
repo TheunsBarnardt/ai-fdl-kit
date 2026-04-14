@@ -61,6 +61,20 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `STOCK_BACKDATED_BLOCKED` — Backdated stock entries are not permitted by the current inventory policy.
 - `STOCK_INSPECTION_REQUIRED` — Quality inspection must be completed before this stock entry can be submitted.
 
+## Events
+
+**`stock.entry_submitted`** — Stock entry submitted, ledger entries created
+  Payload: `entry_id`, `purpose`, `posting_date`, `item_count`
+
+**`stock.entry_cancelled`** — Stock entry cancelled, ledger entries reversed
+  Payload: `entry_id`, `purpose`, `posting_date`
+
+**`stock.valuation_changed`** — Item valuation rate changed due to stock transaction
+  Payload: `item_code`, `warehouse`, `old_rate`, `new_rate`
+
+**`stock.negative_detected`** — Attempted transaction would cause negative stock balance
+  Payload: `item_code`, `warehouse`, `available_qty`, `requested_qty`
+
 ## Connects to
 
 - **warehouse-bin-management** *(required)* — Stock entries update bin quantities and require valid warehouse references

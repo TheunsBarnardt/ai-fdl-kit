@@ -569,6 +569,16 @@ If the git clone fails due to authentication:
 - [ ] All required top-level fields present
 - [ ] Comments explain WHY, referencing the source file
 
+### AI-Proofing (MANDATORY — prevents re-introducing the fake-endpoint gap)
+
+Every extracted blueprint MUST include the three AI-proofing fields. If you can derive them from the source code, do so. If any cannot be derived, flag the gap in the extraction summary — do not silently omit.
+
+- [ ] **`aliases:`** — extract 5–10 alternate names for the feature. Sources: comment headers, README references, test file names, variable prefixes, directory naming. E.g. an `auth/login/` folder with files `signin.ts`, `authenticate.ts` implies aliases `[sign-in, signin, authenticate]`.
+- [ ] **`api:`** — if the extracted code exposes an HTTP endpoint (Express route, FastAPI path op, ASP.NET controller, etc.), pin the full wire contract: `http.method`, `http.path` (exactly as written in the source), `request.schema` (derived from DTO/validator), `response.success.schema` (from return type or response model), `response.errors[]` (from thrown exceptions or error returns). Each `error_code` must also appear in top-level `errors[]`.
+- [ ] **`anti_patterns:`** — derive from what the source code explicitly GUARDS AGAINST. Look for: constant-time comparisons (→ "do not use == for password compare"), generic error messages (→ "do not leak user enumeration"), rate-limit checks (→ "do not skip rate limiting"), input sanitization (→ "do not trust raw input"). Each `anti_pattern` is `{ rule, why }` with the why traced to the code's defensive intent.
+
+**Cross-validation:** every `error_code` in `api.response.errors[]` must exist in top-level `errors[]`. The validator will fail the blueprint otherwise.
+
 ## Automatic Post-Extraction Workflow
 
 **After Step 7 (blueprints written and validated), this must happen automatically:**

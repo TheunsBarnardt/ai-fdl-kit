@@ -70,6 +70,14 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `OVERRIDE_RENDER_FAILED` — Plugin override failed to render
 - `CHILDREN_NOT_PASSED` — Plugin override must pass children to maintain the composition chain
 
+## Events
+
+**`plugin.loaded`** — Plugins were loaded and overrides composed
+  Payload: `plugin_count`, `override_count`
+
+**`plugin.panel.activated`** — User switched to a plugin's sidebar panel
+  Payload: `plugin_name`
+
 ## Connects to
 
 - **component-registry** *(required)* — Plugins can customize component rendering and field editing

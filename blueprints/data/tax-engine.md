@@ -63,6 +63,14 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `TAX_CASH_BASIS_NO_ACCOUNT` — Cash-basis taxes require a reconcilable transition account.
 - `TAX_REPARTITION_UNBALANCED` — Repartition line factors do not sum to 100%.
 
+## Events
+
+**`tax.computed`** — Tax calculation completed for a transaction line
+  Payload: `tax_id`, `base_amount`, `tax_amount`, `total_included`, `total_excluded`
+
+**`tax.cash_basis.transferred`** — Cash-basis tax moved from transition account to final account on payment
+  Payload: `tax_id`, `invoice_id`, `payment_id`, `amount`
+
 ## Connects to
 
 - **invoicing-payments** *(required)* — Tax engine computes taxes on every invoice line

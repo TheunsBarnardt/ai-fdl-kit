@@ -59,6 +59,46 @@ Specifies 19 acceptance outcomes that any implementation must satisfy, regardles
 - `CLUSTER_SLOT_UNOWNED` — The cluster is down
 - `SENTINEL_NOSCRIPT` — Sentinel command syntax error
 
+## Events
+
+**`sentinel.monitoring_started`**
+
+**`sentinel.sdown_detected`**
+
+**`sentinel.odown_detected`**
+
+**`sentinel.failover_started`**
+
+**`sentinel.replica_selected`**
+
+**`sentinel.promotion_sent`**
+
+**`sentinel.replication_updated`**
+
+**`sentinel.failover_complete`**
+
+**`cluster.node_joined`**
+
+**`cluster.slots_assigned`**
+
+**`cluster.request_routed`**
+
+**`cluster.moved`**
+
+**`cluster.ask`**
+
+**`cluster.migration_started`**
+
+**`cluster.crossslot_rejected`**
+
+**`cluster.healthy`**
+
+**`cluster.unhealthy`**
+
+**`cluster.gossip_sent`**
+
+**`cluster.info_queried`**
+
 ## Connects to
 
 - **master-replica-replication** *(required)* — Sentinel monitors master-replica setup; Cluster uses replication for fault tolerance

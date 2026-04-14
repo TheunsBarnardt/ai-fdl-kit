@@ -47,6 +47,17 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `PRESENCE_RATE_LIMITED` — Too many status changes. Please wait before trying again
 - `PRESENCE_STATUS_TEXT_NOT_ALLOWED` — Status message changes are not allowed on this server
 
+## Events
+
+**`presence.status_changed`** — Fired when a user's presence status or status text changes
+  Payload: `user_id`, `status`, `status_text`
+
+**`presence.connection_added`** — Fired when a new user connection is registered
+  Payload: `user_id`, `connection_id`, `node_id`
+
+**`presence.connection_removed`** — Fired when a user connection is closed or removed
+  Payload: `user_id`, `connection_id`
+
 ## Connects to
 
 - **user-profile** *(required)* — User identity is required to associate presence with an account

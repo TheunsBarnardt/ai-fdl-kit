@@ -40,6 +40,17 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 - `DEVICE_STATUS_NOT_FOUND` — The specified device does not exist
 
+## Events
+
+**`device.online`** — Device has resumed transmitting positions after being offline or unknown
+  Payload: `device_id`, `last_update`
+
+**`device.offline`** — Device has exceeded the inactivity threshold without transmitting
+  Payload: `device_id`, `last_update`, `silence_duration_ms`
+
+**`device.inactive`** — Device remains silent beyond a repeated inactivity period boundary
+  Payload: `device_id`, `silence_duration_ms`
+
 ## Connects to
 
 - **gps-device-registration** *(required)* — Devices must be registered before their status can be tracked

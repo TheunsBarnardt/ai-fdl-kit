@@ -94,6 +94,38 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `EFT_SERVER_ERROR` — Internal server error during EFT processing
 - `EFT_SERVICE_UNAVAILABLE` — EFT service temporarily unavailable
 
+## Events
+
+**`eft.credit.inbound_received`** — Inbound EFT credit received from counterparty bank
+  Payload: `uetr`, `end_to_end_identification`, `amount_value`, `creditor_account_number`
+
+**`eft.credit.outbound_initiated`** — Outbound EFT credit initiated by partner
+  Payload: `uetr`, `end_to_end_identification`, `amount_value`, `creditor_account_number`
+
+**`eft.debit.inbound_received`** — Inbound EFT debit received from counterparty bank
+  Payload: `uetr`, `end_to_end_identification`, `amount_value`, `debtor_account_number`
+
+**`eft.debit.outbound_initiated`** — Outbound EFT debit initiated by partner
+  Payload: `uetr`, `end_to_end_identification`, `amount_value`, `debtor_account_number`, `payment_scheme`
+
+**`eft.return.inbound_received`** — Inbound return received for a prior outbound transaction
+  Payload: `uetr`, `return_reason`, `amount_value`
+
+**`eft.return.outbound_initiated`** — Outbound return initiated for a prior inbound transaction
+  Payload: `uetr`, `return_reason`, `amount_value`
+
+**`eft.cancellation.initiated`** — Payment cancellation request submitted
+  Payload: `uetr`, `payment_scheme`
+
+**`eft.cancellation.resolved`** — Payment cancellation resolution received
+  Payload: `uetr`
+
+**`eft.sec.request_sent`** — System Error Correction request submitted
+  Payload: `uetr`
+
+**`eft.sec.response_received`** — System Error Correction response received
+  Payload: `uetr`
+
 ## Connects to
 
 - **chp-inbound-payments** *(required)*

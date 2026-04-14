@@ -93,6 +93,35 @@ Specifies 11 acceptance outcomes that any implementation must satisfy, regardles
 - `CARD_EXPIRED` — Card has expired
 - `CARD_TIMEOUT` — Card read timed out — please present card again
 
+## Events
+
+**`card.reader.initialized`** — Card reader SDK initialised
+  Payload: `terminal_id`
+
+**`card.detected`** — Card detected — chip, NFC, or magnetic stripe
+  Payload: `card_entry_mode`
+
+**`card.read.success`** — Card data read and tokenised
+  Payload: `card_entry_mode`, `card_brand`, `card_last_four`
+
+**`card.read.failed`** — Card read failed
+  Payload: `card_entry_mode`
+
+**`card.pin.entered`** — PIN captured and encrypted
+  Payload: `card_entry_mode`
+
+**`card.auth.approved`** — Card payment authorised
+  Payload: `card_brand`, `card_last_four`, `authorization_code`, `amount`
+
+**`card.auth.declined`** — Card payment declined by issuer
+  Payload: `card_brand`, `card_last_four`
+
+**`card.pin.blocked`** — Card blocked after too many PIN attempts
+  Payload: `card_brand`, `card_last_four`
+
+**`card.chip_fallback`** — Chip card swiped — insert chip instead
+  Payload: `card_brand`
+
 ## Connects to
 
 - **terminal-payment-flow** *(required)* — Terminal payment flow uses card reader for card payment method

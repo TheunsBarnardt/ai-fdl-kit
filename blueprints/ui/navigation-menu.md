@@ -64,6 +64,17 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `NAV_NESTING_EXCEEDED` — Menu nesting exceeds maximum depth
 - `NAV_INVALID_TYPE` — Invalid menu type. Must be sidebar, topbar, breadcrumb, or mega.
 
+## Events
+
+**`nav.item_clicked`** — User clicked a navigation menu item
+  Payload: `item_id`, `item_href`, `menu_type`, `timestamp`
+
+**`nav.collapsed`** — Sidebar navigation collapsed or expanded
+  Payload: `collapsed`, `menu_type`, `timestamp`
+
+**`nav.mobile_toggled`** — Mobile hamburger menu opened or closed
+  Payload: `open`, `timestamp`
+
 ## Connects to
 
 - **responsive-layout** *(recommended)* — Navigation adapts to responsive layout breakpoints

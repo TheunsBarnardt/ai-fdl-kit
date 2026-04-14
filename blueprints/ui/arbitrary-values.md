@@ -51,6 +51,29 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `INVALID_THEME_REFERENCE` — Theme reference theme(key) is invalid. Check that the theme key exists.
 - `UNBALANCED_BRACKETS` — Arbitrary value contains unbalanced brackets. Ensure all brackets are properly closed.
 
+## Events
+
+**`arbitrary_value.used`**
+  Payload: `utility_name`, `css_value`
+
+**`arbitrary_value.theme_referenced`**
+  Payload: `utility_name`, `theme_key`
+
+**`arbitrary_value.css_variable_referenced`**
+  Payload: `utility_name`, `variable_name`
+
+**`arbitrary_value.modifier_applied`**
+  Payload: `modifier_value`
+
+**`arbitrary_value.responsive`**
+  Payload: `breakpoints`, `arbitrary_values`
+
+**`arbitrary_value.syntax_error`**
+  Payload: `utility_name`, `syntax_error`
+
+**`arbitrary_value.theme_error`**
+  Payload: `missing_key`
+
 ## Connects to
 
 - **utility-composition** *(recommended)* — Arbitrary values extend utilities beyond theme-defined values

@@ -70,6 +70,32 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `INVALID_ZONE_FORMAT` — Zone ID must follow parentId:slotName format
 - `MIGRATION_FAILED` — Failed to migrate data to current schema version
 
+## Events
+
+**`tree.node.inserted`** — A component was inserted into the tree
+  Payload: `node_id`, `zone`, `index`
+
+**`tree.node.moved`** — A component was moved between zones
+  Payload: `node_id`, `source_zone`, `destination_zone`
+
+**`tree.node.duplicated`** — A component was cloned with new IDs
+  Payload: `original_id`, `clone_id`, `zone`
+
+**`tree.node.removed`** — A component and its descendants were removed
+  Payload: `node_id`, `descendant_count`
+
+**`tree.node.reordered`** — A component was reordered within its zone
+  Payload: `node_id`, `zone`, `old_index`, `new_index`
+
+**`tree.zone.registered`** — A drop zone was registered (component mounted)
+  Payload: `zone_compound`, `zone_type`
+
+**`tree.zone.unregistered`** — A drop zone was unregistered (component unmounted)
+  Payload: `zone_compound`
+
+**`tree.data.migrated`** — Data was migrated from an older schema version
+  Payload: `from_version`, `to_version`
+
 ## Connects to
 
 - **component-registry** *(required)* — Component configs define what can be stored in the tree

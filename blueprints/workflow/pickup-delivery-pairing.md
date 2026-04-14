@@ -53,6 +53,17 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `SHIPMENT_DUPLICATE_ID` — Two pickup or two delivery steps share the same ID.
 - `SHIPMENT_MISSING_COUNTERPART` — A pickup or delivery step has no matching counterpart in the problem.
 
+## Events
+
+**`shipment.completed`** — Both pickup and delivery stops served in correct order by same vehicle
+  Payload: `pickup_id`, `delivery_id`, `vehicle_id`, `pickup_eta`, `delivery_eta`
+
+**`shipment.unassigned`** — No feasible vehicle assignment found for this shipment
+  Payload: `pickup_id`, `delivery_id`, `reason`
+
+**`shipment.precedence.violated`** — Plan mode — precedence or pairing constraint broken
+  Payload: `pickup_id`, `delivery_id`, `vehicle_id`
+
 ## Connects to
 
 - **vrp-solving** *(required)*

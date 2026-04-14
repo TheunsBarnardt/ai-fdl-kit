@@ -50,6 +50,14 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `SEARCH_EMPTY_QUERY` — Please enter a search term
 - `SEARCH_PROVIDER_ERROR` — Search encountered an error; please try again
 
+## Events
+
+**`search.completed`** — Fired when a search query returns results (including empty results)
+  Payload: `user_id`, `query_text`, `channel_id`, `result_messages`
+
+**`search.suggestions_returned`** — Fired when autocomplete suggestions are returned for a partial query
+  Payload: `user_id`, `query_text`, `suggestions`
+
 ## Connects to
 
 - **direct-messaging** *(recommended)* — Search spans direct messages and channel messages accessible to the user

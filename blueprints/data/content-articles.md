@@ -57,6 +57,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `ARTICLE_UNAUTHORIZED` — You do not have permission to modify this article
 - `ARTICLE_ALREADY_PUBLISHED` — Article is already published
 
+## Events
+
+**`article.created`** — Article created
+  Payload: `article_id`, `author_id`, `timestamp`
+
+**`article.published`** — Article published
+  Payload: `article_id`, `author_id`, `target_audience`, `timestamp`
+
+**`article.updated`** — Article updated
+  Payload: `article_id`, `author_id`, `timestamp`
+
+**`article.archived`** — Article archived
+  Payload: `article_id`, `timestamp`
+
+**`article.listed`** — Articles listed
+  Payload: `user_id`, `timestamp`
+
 ## Connects to
 
 - **product-configurator** *(recommended)* — Articles can be linked to specific investment products

@@ -54,6 +54,42 @@ Specifies 17 acceptance outcomes that any implementation must satisfy, regardles
 - `SUBSCRIPTION_MODE` — Only (P)SUBSCRIBE / (P)UNSUBSCRIBE / PING / QUIT allowed in this context
 - `WRONG_TYPE` — Operation against a key holding the wrong kind of value
 
+## Events
+
+**`pubsub.message_published`**
+
+**`pubsub.published_to_empty`**
+
+**`pubsub.sharded_published`**
+
+**`pubsub.subscribed`**
+
+**`pubsub.pattern_subscribed`**
+
+**`pubsub.message_received`**
+
+**`pubsub.pattern_message_received`**
+
+**`pubsub.sharded_subscribed`**
+
+**`pubsub.unsubscribed`**
+
+**`pubsub.pattern_unsubscribed`**
+
+**`pubsub.mode_exited`**
+
+**`pubsub.sharded_unsubscribed`**
+
+**`pubsub.invalid_command`**
+
+**`pubsub.pong`**
+
+**`pubsub.channels_listed`**
+
+**`pubsub.numsub_queried`**
+
+**`pubsub.numpat_queried`**
+
 ## Connects to
 
 - **stream-event-log** *(optional)* — Both deliver messages; Pub/Sub is ephemeral, Streams are persistent

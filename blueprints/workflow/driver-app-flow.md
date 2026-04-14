@@ -63,6 +63,14 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `ORGANIZATION_NOT_FOUND` — The specified organization could not be found.
 - `NOT_ORGANIZATION_MEMBER` — You do not belong to this organization.
 
+## Events
+
+**`order.updated`** — Fired when driver advances the order activity.
+  Payload: `order_id`, `status`, `activity_code`, `driver_id`, `location`
+
+**`driver.location_changed`** — Fired as driver sends continuous location updates.
+  Payload: `driver_id`, `latitude`, `longitude`, `heading`, `speed`
+
 ## Connects to
 
 - **ride-request-lifecycle** *(required)* — Driver app drives the activity transitions that move an order through its lifecycle.

@@ -63,6 +63,23 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `STORAGE_PATH_UNAVAILABLE` — Storage is currently unavailable
 - `STORAGE_WRITE_FAILED` — Failed to record location data
 
+## Events
+
+**`location.stored`** — A location record was appended to the monthly history log
+  Payload: `user`, `device`, `tst`, `lat`, `lon`
+
+**`location.last_updated`** — The last-position snapshot for a device was overwritten with a newer record
+  Payload: `user`, `device`, `tst`, `lat`, `lon`
+
+**`location.history_queried`** — A time-range or last-N query was executed and results returned
+  Payload: `user`, `device`, `from_time`, `to_time`, `record_count`, `output_format`
+
+**`location.last_queried`** — The last-known position for a device was read and returned
+  Payload: `user`, `device`, `tst`
+
+**`location.users_listed`** — The directory of tracked users and devices was returned
+  Payload: `user_count`
+
 ## Connects to
 
 - **mqtt-location-ingestion** *(required)* — Provides the stream of validated location records to persist

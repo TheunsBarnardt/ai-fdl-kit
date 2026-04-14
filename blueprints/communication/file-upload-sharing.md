@@ -54,6 +54,11 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `UPLOAD_INVALID_FILE` — The file is invalid or missing required information
 - `UPLOAD_FILE_NOT_FOUND_IN_STORAGE` — The file could not be confirmed; please try uploading again
 
+## Events
+
+**`file.uploaded`** — Fired after a file message is successfully posted in a channel
+  Payload: `file_id`, `channel_id`, `uploader_user_id`, `file_name`, `file_type`, `file_size`
+
 ## Connects to
 
 - **direct-messaging** *(recommended)* — File sharing applies to direct messages and group conversations as well as channels

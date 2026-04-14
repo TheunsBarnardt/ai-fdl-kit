@@ -49,6 +49,14 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 - `REPORT_NO_DATA` — No probe attempts were recorded for this scan. The report cannot be generated.
 - `REPORT_EXPORT_FAILED` — The scan report could not be written to the output destination.
 
+## Events
+
+**`security.report.generated`** — Emitted when a scan report has been successfully written.
+  Payload: `report_id`, `scan_id`, `target_model_id`, `report_format`, `generated_at`
+
+**`security.report.export_failed`** — Emitted when report export fails after successful aggregation.
+  Payload: `report_id`, `scan_id`, `reason`
+
 ## Connects to
 
 - **llm-vulnerability-scan** *(required)* — The scan pipeline that produces the attempt data this report aggregates.

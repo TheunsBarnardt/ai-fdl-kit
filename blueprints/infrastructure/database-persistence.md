@@ -60,6 +60,48 @@ Specifies 20 acceptance outcomes that any implementation must satisfy, regardles
 - `BGREWRITEAOF_FAILED` — Background AOF rewrite failed
 - `CORRUPTED_AOF` — The AOF file is corrupted
 
+## Events
+
+**`rdb.save_started`**
+
+**`rdb.bgsave_started`**
+
+**`rdb.save_complete`**
+
+**`rdb.save_failed`**
+
+**`rdb.lastsave_queried`**
+
+**`aof.command_logged`**
+
+**`aof.fsync`**
+
+**`aof.periodic_fsync`**
+
+**`aof.os_fsync`**
+
+**`aof.rewrite_started`**
+
+**`aof.rewrite_complete`**
+
+**`aof.rewrite_failed`**
+
+**`persistence.recovery_rdb`**
+
+**`persistence.recovery_aof`**
+
+**`persistence.recovery_hybrid`**
+
+**`persistence.aof_truncated`**
+
+**`persistence.aof_corrupt`**
+
+**`persistence.backup_rdb`**
+
+**`persistence.backup_replica`**
+
+**`persistence.backup_hybrid`**
+
 ## Connects to
 
 - **master-replica-replication** *(optional)* — Replicas can hold backup snapshots

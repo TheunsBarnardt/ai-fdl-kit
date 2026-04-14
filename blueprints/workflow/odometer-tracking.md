@@ -1,6 +1,6 @@
 <!-- AUTO-GENERATED FROM odometer-tracking.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
 
-# Odometer Tracking
+# Odometer Tracking Workflow
 
 > Maintain a complete, validated history of odometer readings for each vehicle, detecting rollbacks and anomalous jumps, with an approval workflow for corrections.
 
@@ -52,6 +52,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `ODOMETER_ROLLBACK` — This odometer reading is lower than the previous validated reading. Please verify and resubmit, or contact the fleet manager.
 - `ODOMETER_FUTURE_DATE` — Odometer reading date cannot be in the future.
 
+## Events
+
+**`odometer.reading_validated`** — An odometer reading passed validation and has been added to the vehicle history
+  Payload: `vehicle`, `reading_date`, `odometer_value`, `distance_delta`, `reading_source`
+
+**`odometer.rollback_detected`** — A submitted reading is lower than the last validated odometer value
+  Payload: `vehicle`, `reading_date`, `odometer_value`, `previous_reading`
+
+**`odometer.anomaly_flagged`** — An odometer jump exceeds the maximum daily threshold
+  Payload: `vehicle`, `reading_date`, `odometer_value`, `distance_delta`, `threshold`
+
+**`odometer.correction_approved`** — A fleet manager approved a flagged odometer reading
+  Payload: `vehicle`, `odometer_value`, `correction_approved_by`
+
+**`odometer.reading_rejected`** — A fleet manager rejected an erroneous odometer reading
+  Payload: `vehicle`, `reading_date`, `odometer_value`, `rejected_by`
+
 ## Connects to
 
 - **vehicle-master-data** *(required)* — Vehicle master stores the last validated odometer which anchors each new reading
@@ -78,6 +95,6 @@ Automated quality score measuring outcome coverage, rule structure, error bindin
 
 ---
 
-**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/workflow/odometer-tracking/) · **Spec source:** [`odometer-tracking.blueprint.yaml`](./odometer-tracking.blueprint.yaml)
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/workflow/odometer-tracking-workflow/) · **Spec source:** [`odometer-tracking-workflow.blueprint.yaml`](./odometer-tracking-workflow.blueprint.yaml)
 
 *Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

@@ -63,6 +63,17 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `AUTOMATION_CODE_EXECUTION_ERROR` — An error occurred while executing the automation code action.
 - `AUTOMATION_WEBHOOK_NOT_FOUND` — No active automation rule found for this webhook endpoint.
 
+## Events
+
+**`automation.rule.fired`** — An automation rule was triggered and its actions executed
+  Payload: `rule_id`, `trigger_type`, `record_id`, `actions_executed`
+
+**`automation.rule.scheduled_batch`** — Time-based rule executed on a batch of records
+  Payload: `rule_id`, `record_count`
+
+**`automation.webhook.received`** — External webhook triggered an automation rule
+  Payload: `rule_id`, `webhook_uuid`, `source_ip`
+
 ## Connects to
 
 - **quotation-order-management** *(optional)* — Automate actions on sales orders (e.g., auto-assign team on creation)

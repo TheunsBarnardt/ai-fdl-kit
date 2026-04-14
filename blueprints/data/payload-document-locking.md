@@ -51,6 +51,14 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 
 - `DOCUMENT_LOCKED` — This document is currently being edited by another user
 
+## Events
+
+**`document.locked`** — Emitted when a document is locked for editing
+  Payload: `collection_slug`, `document_id`, `user_id`, `timestamp`
+
+**`document.unlocked`** — Emitted when a document lock is released
+  Payload: `collection_slug`, `document_id`, `user_id`, `timestamp`
+
 ## Connects to
 
 - **payload-collections** *(required)* — Locking applies to collection documents

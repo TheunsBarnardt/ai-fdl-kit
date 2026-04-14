@@ -53,6 +53,44 @@ Specifies 18 acceptance outcomes that any implementation must satisfy, regardles
 - `REPLICATION_ERROR` — Error during replication setup
 - `READONLY` — You cannot write against a read only replica
 
+## Events
+
+**`replication.config_set`**
+
+**`replication.stopped`**
+
+**`replication.full_sync_started`**
+
+**`replication.full_sync_complete`**
+
+**`replication.partial_resync_request`**
+
+**`replication.partial_resync_accepted`**
+
+**`replication.full_resync_forced`**
+
+**`replication.command_propagated`**
+
+**`replication.command_applied`**
+
+**`replication.buffer_overflow`**
+
+**`replication.disconnected`**
+
+**`replication.reconnecting`**
+
+**`replication.backlog_write`**
+
+**`replication.backlog_overwrite`**
+
+**`replication.backlog_resized`**
+
+**`replication.info_queried`**
+
+**`replication.role_queried`**
+
+**`replication.wait_issued`**
+
 ## Connects to
 
 - **database-persistence** *(optional)* — Replicas often serve as backup storage

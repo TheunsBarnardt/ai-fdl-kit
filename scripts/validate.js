@@ -78,6 +78,115 @@ const blueprintJsonSchema = {
       type: "array",
       items: { type: "string" },
     },
+    aliases: {
+      type: "array",
+      description:
+        "Alternate names AI generators should treat as referring to this blueprint. " +
+        "Feeds the intent registry so phrases like 'sign in', 'log in', 'authenticate' " +
+        "all resolve to one canonical blueprint and prevent invented duplicates.",
+      items: { type: "string" },
+      uniqueItems: true,
+    },
+    api: {
+      type: "object",
+      description:
+        "Wire contract — exact endpoint, request schema, and response shapes. " +
+        "Pinned so AI generators emit the same path/method/fields every time " +
+        "and post-generation verification can detect hallucinated endpoints.",
+      required: ["http"],
+      properties: {
+        http: {
+          type: "object",
+          required: ["method", "path"],
+          properties: {
+            method: {
+              type: "string",
+              enum: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+            },
+            path: {
+              type: "string",
+              pattern: "^/",
+              description: "Canonical URL path (must start with /). No alternates allowed.",
+            },
+          },
+          additionalProperties: false,
+        },
+        request: {
+          type: "object",
+          properties: {
+            content_type: { type: "string" },
+            schema: {
+              type: "object",
+              description: "JSON-Schema-shaped object describing the request body",
+            },
+          },
+          additionalProperties: false,
+        },
+        response: {
+          type: "object",
+          properties: {
+            success: {
+              type: "object",
+              required: ["status"],
+              properties: {
+                status: { type: "number" },
+                content_type: { type: "string" },
+                schema: { type: "object" },
+              },
+              additionalProperties: false,
+            },
+            errors: {
+              type: "array",
+              description:
+                "Each entry binds an HTTP status to an error code defined in errors[]. " +
+                "The validator cross-checks that the error_code exists.",
+              items: {
+                type: "object",
+                required: ["status", "error_code"],
+                properties: {
+                  status: { type: "number" },
+                  error_code: {
+                    type: "string",
+                    pattern: "^[A-Z][A-Z0-9_]*$",
+                  },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+      additionalProperties: false,
+    },
+    anti_patterns: {
+      type: "array",
+      description:
+        "Mistakes AI generators (or humans) commonly make. Each entry pairs the rule " +
+        "with the reason it exists — read these BEFORE generating to avoid hallucinated " +
+        "alternates or omitted protections.",
+      items: {
+        type: "object",
+        required: ["rule", "why"],
+        properties: {
+          rule: { type: "string" },
+          why: { type: "string" },
+        },
+        additionalProperties: false,
+      },
+    },
+    uses: {
+      type: "array",
+      description:
+        "Capability primitives this feature depends on. Each entry is the kebab-case " +
+        "identifier of a capability blueprint (e.g. `ui-design-system`, `password-hashing`, " +
+        "`rate-limiting`). Capabilities live under `blueprints/capabilities/**/*.capability.yaml`. " +
+        "Code generators resolve `uses` to per-language implementations and treat the " +
+        "capability's contract + anti_patterns as MUST constraints. Analogous to " +
+        "C# `using` / Java `import` / Rust `use` at the blueprint level.",
+      items: { type: "string", pattern: "^[a-z][a-z0-9-]*$" },
+      uniqueItems: true,
+    },
     fields: {
       type: "array",
       minItems: 1,
@@ -589,6 +698,163 @@ const ajv = new Ajv({ allErrors: true, verbose: true });
 addFormats(ajv);
 const validate = ajv.compile(blueprintJsonSchema);
 
+// ─── Capability schema ────────────────────────────────────
+// Capability blueprints describe reusable primitives (design systems,
+// password hashing, rate limiting) that feature blueprints consume via
+// `uses:`. Lighter than feature schema — no outcomes/flows/errors; the
+// contract + per-language implementations are the core.
+
+const capabilityJsonSchema = {
+  type: "object",
+  required: ["capability", "version", "description", "contract"],
+  properties: {
+    capability: {
+      type: "string",
+      pattern: "^[a-z][a-z0-9-]*$",
+      description: "Unique kebab-case identifier (matches its feature counterpart's `uses:` entries)",
+    },
+    version: {
+      type: "string",
+      pattern: "^\\d+\\.\\d+\\.\\d+$",
+    },
+    description: { type: "string", maxLength: 300 },
+    kind: {
+      type: "string",
+      description:
+        "Family grouping for organization and lookup (e.g. `ui`, `security`, `data`, " +
+        "`observability`). Not strictly enumerated — capabilities can introduce new kinds.",
+    },
+    stability: {
+      type: "string",
+      enum: ["experimental", "stable", "deprecated"],
+      description: "Generators should refuse `deprecated`, warn on `experimental`.",
+    },
+    replaced_by: {
+      type: "string",
+      description: "When `stability: deprecated`, the capability identifier that supersedes this one.",
+    },
+    aliases: {
+      type: "array",
+      items: { type: "string" },
+      uniqueItems: true,
+    },
+    contract: {
+      type: "object",
+      required: ["guarantees"],
+      description:
+        "Language-agnostic guarantees this capability provides. Generators must treat each " +
+        "guarantee as a MUST constraint when the capability is imported via `uses:`.",
+      properties: {
+        guarantees: {
+          type: "array",
+          minItems: 1,
+          items: { type: "string" },
+        },
+        invariants: {
+          type: "array",
+          description: "Properties that must always hold (e.g. 'passwords never leave the auth boundary')",
+          items: { type: "string" },
+        },
+      },
+      additionalProperties: true,
+    },
+    anti_patterns: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["rule", "why"],
+        properties: {
+          rule: { type: "string" },
+          why: { type: "string" },
+        },
+        additionalProperties: false,
+      },
+    },
+    implementations: {
+      type: "object",
+      description:
+        "Per-framework / per-language mapping. Keys are target identifiers " +
+        "(react-web, flutter, react-native, express, dotnet, python-fastapi, etc.). " +
+        "Each entry carries the concrete library choices, import statements, usage patterns, " +
+        "and pitfalls the generator needs. Additive — new targets can be added without " +
+        "breaking existing consumers.",
+      additionalProperties: {
+        type: "object",
+        properties: {
+          package_manager: { type: "string" },
+          dependencies: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["name"],
+              properties: {
+                name: { type: "string" },
+                version: { type: "string" },
+                dev: { type: "boolean" },
+              },
+              additionalProperties: false,
+            },
+          },
+          component_library: { type: "string" },
+          imports: {
+            type: "object",
+            description: "Symbol → import statement map",
+            additionalProperties: { type: "string" },
+          },
+          usage_patterns: {
+            type: "object",
+            description: "Named code templates (e.g. button: '<Button />')",
+            additionalProperties: { type: "string" },
+          },
+          pitfalls: {
+            type: "array",
+            items: { type: "string" },
+          },
+          config: {
+            type: "object",
+            description: "Additional per-target config (Tailwind tokens, theme overrides, etc.)",
+            additionalProperties: true,
+          },
+        },
+        additionalProperties: true,
+      },
+    },
+    provenance: {
+      type: "array",
+      description:
+        "Citations for the contract's rules (OWASP ASVS 2.1.1, NIST 800-63B §5.1.1.2, etc.). " +
+        "Stops future-AI from 'simplifying' rules that look arbitrary.",
+      items: {
+        type: "object",
+        required: ["source"],
+        properties: {
+          source: { type: "string" },
+          reference: { type: "string" },
+          url: { type: "string" },
+        },
+        additionalProperties: false,
+      },
+    },
+    tests: {
+      type: "array",
+      description: "Canonical self-verification tests the generator can use to check its output.",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          given: { type: "string" },
+          then: { type: "string" },
+          forbid: { type: "string" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  additionalProperties: false,
+};
+
+const validateCapability = ajv.compile(capabilityJsonSchema);
+
 function validateFile(filePath) {
   const absPath = resolve(filePath);
   const relPath = relative(process.cwd(), absPath);
@@ -605,6 +871,32 @@ function validateFile(filePath) {
     data = YAML.parse(content);
   } catch (err) {
     return { file: relPath, valid: false, errors: [`YAML parse error: ${err.message}`] };
+  }
+
+  // Dispatch: capability blueprints use a different schema. We detect them
+  // by file suffix (.capability.yaml) — the root field `capability:` is a
+  // secondary hint but the filename is authoritative so we never accidentally
+  // validate a feature against the capability schema.
+  const isCapability = /\.capability\.yaml$/.test(filePath);
+
+  if (isCapability) {
+    const ok = validateCapability(data);
+    if (!ok) {
+      const errors = validateCapability.errors.map((err) => {
+        const path = err.instancePath || "(root)";
+        return `  ${path}: ${err.message}${err.params ? ` (${JSON.stringify(err.params)})` : ""}`;
+      });
+      return { file: relPath, valid: false, errors, kind: "capability" };
+    }
+    return {
+      file: relPath,
+      valid: true,
+      errors: [],
+      warnings: [],
+      kind: "capability",
+      feature: data.capability,
+      version: data.version,
+    };
   }
 
   const valid = validate(data);
@@ -875,6 +1167,23 @@ function validateFile(filePath) {
     }
   }
 
+  // ─── Validate api block ────────────────────────────────
+  // Cross-check that every error_code referenced in api.response.errors[]
+  // is defined in the blueprint's errors[] block. Prevents drift between
+  // wire contract and error catalog.
+
+  if (data.api?.response?.errors) {
+    const definedCodes = new Set((data.errors || []).map((e) => e.code));
+    for (let i = 0; i < data.api.response.errors.length; i++) {
+      const entry = data.api.response.errors[i];
+      if (entry.error_code && !definedCodes.has(entry.error_code)) {
+        customErrors.push(
+          `  api.response.errors[${i}].error_code: "${entry.error_code}" is not defined in errors[]`
+        );
+      }
+    }
+  }
+
   // ─── Validate AGI section ──────────────────────────────
 
   if (data.agi) {
@@ -1082,13 +1391,20 @@ function validateFile(filePath) {
 // ─── Cross-blueprint relationship validation ──────────────
 
 function validateRelationships(results) {
-  const features = new Set(results.filter((r) => r.valid).map((r) => r.feature));
+  const features = new Set(
+    results.filter((r) => r.valid && r.kind !== "capability").map((r) => r.feature)
+  );
+  // Capability identifiers resolve separately — a feature's `uses:` entries
+  // must point at capability blueprints, not at other features.
+  const capabilities = new Set(
+    results.filter((r) => r.valid && r.kind === "capability").map((r) => r.feature)
+  );
   const warnings = [];
 
   // Build a map of what each blueprint exposes (for capability cross-validation)
   const exposesMap = new Map(); // feature → Set<capability name>
   for (const result of results) {
-    if (!result.valid) continue;
+    if (!result.valid || result.kind === "capability") continue;
     const absPath = resolve(result.file);
     const content = readFileSync(absPath, "utf-8");
     const data = YAML.parse(content);
@@ -1099,7 +1415,7 @@ function validateRelationships(results) {
   }
 
   for (const result of results) {
-    if (!result.valid) continue;
+    if (!result.valid || result.kind === "capability") continue;
 
     const absPath = resolve(result.file);
     const content = readFileSync(absPath, "utf-8");
@@ -1110,6 +1426,20 @@ function validateRelationships(results) {
         if (rel.type === "required" && !features.has(rel.feature)) {
           warnings.push(
             `${result.feature} requires "${rel.feature}" but no blueprint found for it`
+          );
+        }
+      }
+    }
+
+    // `uses:` cross-ref — every entry must resolve to a capability blueprint.
+    // Treated as an ERROR via a sentinel prefix: the main loop pulls these
+    // out and counts them as failures. If we reported them as warnings,
+    // generators could silently skip capability enforcement.
+    if (Array.isArray(data.uses)) {
+      for (const capId of data.uses) {
+        if (!capabilities.has(capId)) {
+          warnings.push(
+            `__USES_MISSING__${result.feature} uses "${capId}" but no capability blueprint was found (looked for blueprints/capabilities/**/${capId}.capability.yaml)`
           );
         }
       }
@@ -1138,6 +1468,88 @@ function validateRelationships(results) {
   return warnings;
 }
 
+// ─── Cross-blueprint uniqueness checks ─────────────────────
+// These are ERRORS, not warnings — they break core invariants:
+//   1. Two blueprints cannot claim the same (method + path) in api.http.
+//      Otherwise AI generators cannot pick one canonical endpoint for a
+//      given URL and the wire contract pinning collapses.
+//   2. Two blueprints cannot claim the same alias (after normalization).
+//      Otherwise alias-based lookup in scripts/blueprint-lookup.js becomes
+//      ambiguous and the "tell-and-execute" goal fails.
+//
+// A blueprint's own `feature` name counts as an alias it claims (so you
+// can't list another blueprint's feature name in your own aliases[]).
+
+function normalizeAliasForCheck(s) {
+  // MUST stay in sync with normalize() in scripts/blueprint-lookup.js
+  // and normalizeAlias() in scripts/generate-readmes.js.
+  return String(s).toLowerCase().trim().replace(/[\s\-_]+/g, '');
+}
+
+function validateUniqueness(results) {
+  const errors = [];
+  // Track by file path (not feature name) so two files claiming the same
+  // feature name correctly register as separate claimants.
+  const featureClaims = new Map(); // feature → file
+  const pathClaims = new Map(); // "METHOD path" → { feature, file }
+  const aliasClaims = new Map(); // normalized-alias → { feature, file }
+
+  for (const result of results) {
+    if (!result.valid) continue;
+
+    const absPath = resolve(result.file);
+    const content = readFileSync(absPath, 'utf-8');
+    const data = YAML.parse(content);
+    const feature = data.feature;
+    if (!feature) continue;
+
+    // 1. Feature-name uniqueness across files. Two blueprints cannot
+    //    share a canonical feature name — lookup becomes non-deterministic.
+    const priorFile = featureClaims.get(feature);
+    if (priorFile && priorFile !== result.file) {
+      errors.push(
+        `feature: "${feature}" is declared by both "${priorFile}" and "${result.file}" — canonical feature names must be unique across blueprints`
+      );
+    } else {
+      featureClaims.set(feature, result.file);
+    }
+
+    // 2. Path + method uniqueness
+    const method = data.api?.http?.method;
+    const path = data.api?.http?.path;
+    if (method && path) {
+      const key = `${method} ${path}`;
+      const prior = pathClaims.get(key);
+      if (prior && prior.file !== result.file) {
+        errors.push(
+          `api.http: "${key}" is claimed by "${prior.feature}" (${prior.file}) and "${feature}" (${result.file}) — endpoint paths must be unique across blueprints`
+        );
+      } else if (!prior) {
+        pathClaims.set(key, { feature, file: result.file });
+      }
+    }
+
+    // 3. Alias uniqueness (canonical feature name + declared aliases).
+    //    Two different FILES cannot claim the same normalized key.
+    const aliases = Array.isArray(data.aliases) ? data.aliases : [];
+    const claimable = [feature, ...aliases];
+    for (const alias of claimable) {
+      const normalized = normalizeAliasForCheck(alias);
+      if (!normalized) continue;
+      const prior = aliasClaims.get(normalized);
+      if (prior && prior.file !== result.file) {
+        errors.push(
+          `aliases: "${alias}" (normalized: "${normalized}") is claimed by "${prior.feature}" (${prior.file}) and "${feature}" (${result.file}) — aliases must be unique across blueprints`
+        );
+      } else if (!prior) {
+        aliasClaims.set(normalized, { feature, file: result.file });
+      }
+    }
+  }
+
+  return errors;
+}
+
 // ─── Main ─────────────────────────────────────────────────
 
 async function main() {
@@ -1147,7 +1559,11 @@ async function main() {
   if (args.length > 0) {
     files = args;
   } else {
-    files = await glob("blueprints/**/*.blueprint.yaml");
+    // Feature blueprints AND capability blueprints are validated in the same pass.
+    // The dispatch to the correct schema happens per-file inside validateFile().
+    const featureFiles = await glob("blueprints/**/*.blueprint.yaml");
+    const capabilityFiles = await glob("blueprints/capabilities/**/*.capability.yaml");
+    files = [...featureFiles, ...capabilityFiles];
   }
 
   if (files.length === 0) {
@@ -1184,7 +1600,39 @@ async function main() {
     }
   }
 
-  allWarnings.push(...validateRelationships(results));
+  const relWarnings = validateRelationships(results);
+
+  // `uses:` cross-ref is an error (capability must exist), everything else
+  // from validateRelationships remains a warning. Marker prefix `__USES_MISSING__`
+  // lets the function return a single array while the caller still distinguishes.
+  const usesErrors = [];
+  for (const w of relWarnings) {
+    if (w.startsWith('__USES_MISSING__')) {
+      usesErrors.push(w.replace(/^__USES_MISSING__/, ''));
+    } else {
+      allWarnings.push(w);
+    }
+  }
+
+  // Cross-blueprint uniqueness: path + alias. These are errors, not warnings.
+  // When the uniqueness check runs in single-file mode (args provided), the
+  // sample size is too small to detect cross-file collisions — silently skip.
+  const uniquenessErrors =
+    args.length > 0 && files.length < 2 ? [] : validateUniqueness(results);
+
+  if (uniquenessErrors.length > 0) {
+    console.log(`\n  CROSS-BLUEPRINT UNIQUENESS ERRORS:`);
+    for (const err of uniquenessErrors) {
+      console.log(`    FAIL  ${err}`);
+    }
+  }
+
+  if (usesErrors.length > 0) {
+    console.log(`\n  CAPABILITY REFERENCE ERRORS (uses:):`);
+    for (const err of usesErrors) {
+      console.log(`    FAIL  ${err}`);
+    }
+  }
 
   if (allWarnings.length > 0) {
     console.log(`\n  WARNINGS:`);
@@ -1194,15 +1642,18 @@ async function main() {
   }
 
   console.log(`\n${"=".repeat(50)}`);
-  console.log(`  ${passed} passed, ${failed} failed, ${allWarnings.length} warnings`);
+  const totalFailed = failed + uniquenessErrors.length + usesErrors.length;
+  console.log(
+    `  ${passed} passed, ${totalFailed} failed, ${allWarnings.length} warnings`
+  );
   console.log(`${"=".repeat(50)}\n`);
 
-  process.exit(failed > 0 ? 1 : 0);
+  process.exit(totalFailed > 0 ? 1 : 0);
 }
 
 // ─── Exports for testing ─────────────────────────────────
 
-export { validateFile, validateRelationships, blueprintJsonSchema };
+export { validateFile, validateRelationships, validateUniqueness, blueprintJsonSchema };
 
 // ─── Run CLI only when invoked directly ──────────────────
 

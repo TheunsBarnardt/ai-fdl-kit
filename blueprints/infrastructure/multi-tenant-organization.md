@@ -62,6 +62,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `ORG_DUPLICATE_SLUG` — An organization with this name already exists.
 - `ORG_INVITE_EXPIRED` — This invitation link has expired or has already been used.
 
+## Events
+
+**`org.created`** — Fired when a new organization is created
+  Payload: `org_id`, `name`, `owner_uuid`, `plan`
+
+**`org.member_invited`** — Fired when a member is invited to the organization
+  Payload: `org_id`, `invited_email`, `role`
+
+**`org.member_joined`** — Fired when a user accepts an invitation and joins
+  Payload: `org_id`, `user_uuid`, `role`
+
+**`org.member_removed`** — Fired when a member is removed from the organization
+  Payload: `org_id`, `user_uuid`
+
+**`org.suspended`** — Fired when an organization is suspended
+  Payload: `org_id`, `reason`
+
 ## Connects to
 
 - **fleet-public-api** *(required)* — API authentication is scoped to organization credentials

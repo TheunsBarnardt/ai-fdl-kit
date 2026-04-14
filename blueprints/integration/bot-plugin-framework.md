@@ -52,6 +52,29 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `EXTENSION_PERMISSION_DENIED` — Installation was cancelled because required permissions were not accepted.
 - `EXTENSION_RUNTIME_ERROR` — The extension encountered an error and has been disabled. Please check the extension logs.
 
+## Events
+
+**`extension.installed`** — Fires when an extension is successfully installed for the first time
+  Payload: `app_id`, `name`, `version`
+
+**`extension.enabled`** — Fires when an extension transitions from disabled/initialized to running
+  Payload: `app_id`, `name`
+
+**`extension.disabled`** — Fires when an extension is stopped by an administrator or due to an error
+  Payload: `app_id`, `name`
+
+**`extension.updated`** — Fires when a new version of an installed extension is applied
+  Payload: `app_id`, `name`, `version`
+
+**`extension.uninstalled`** — Fires when an extension is removed from the platform
+  Payload: `app_id`, `name`
+
+**`extension.error`** — Fires when an extension encounters an unhandled runtime error
+  Payload: `app_id`, `name`
+
+**`extension.setting_updated`** — Fires when an administrator changes a setting value for an extension
+  Payload: `app_id`, `name`, `settings`
+
 ## Connects to
 
 - **slash-commands** *(recommended)* — Extensions commonly register slash commands via the plugin framework

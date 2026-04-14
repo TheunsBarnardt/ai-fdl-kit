@@ -38,6 +38,11 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 - `ALARM_DEVICE_NOT_FOUND` — The device referenced in the position record does not exist
 
+## Events
+
+**`alarm.triggered`** — A device has transmitted an alarm code requiring operator attention
+  Payload: `device_id`, `alarm_type`, `position_id`, `fix_time`, `latitude`, `longitude`
+
 ## Connects to
 
 - **gps-position-ingestion** *(required)* — Alarm codes arrive as position attributes during ingestion

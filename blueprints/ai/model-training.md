@@ -75,6 +75,26 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `MODEL_COMPILE_ERROR` — Failed to compile model. Check optimizer, loss, and metrics configuration.
 - `DISTRIBUTE_STRATEGY_ERROR` — Distribution strategy error. Ensure model is created inside strategy.scope().
 
+## Events
+
+**`training.started`**
+  Payload: `optimizer`, `learning_rate`, `epochs`, `batch_size`, `distribute_strategy`
+
+**`training.epoch_completed`**
+  Payload: `current_epoch`, `loss`, `val_loss`
+
+**`training.completed`**
+  Payload: `total_epochs`, `final_loss`, `final_val_loss`
+
+**`training.stopped_early`**
+  Payload: `best_epoch`, `best_val_loss`
+
+**`training.failed`**
+  Payload: `error_code`, `current_epoch`
+
+**`checkpoint.saved`**
+  Payload: `current_epoch`, `checkpoint_path`, `best_val_loss`
+
 ## Connects to
 
 - **dataset-pipeline** *(required)* — Training requires a tf.data.Dataset pipeline to supply batches

@@ -50,6 +50,26 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `FEDERATION_REQUEST_FAILED` — Remote server did not respond to the federation request
 - `FEDERATION_ROOM_NOT_FEDERATED` — This room does not permit federation
 
+## Events
+
+**`federation.backfill.complete`** — Historical events successfully fetched from a remote server
+  Payload: `room_id`, `events_retrieved_count`, `source_server`
+
+**`federation.backfill.failed`** — Backfill exhausted all candidate servers
+  Payload: `room_id`, `attempted_servers`
+
+**`federation.room.joined`** — Local user successfully joined a remote room
+  Payload: `user_id`, `room_id`, `origin_server`
+
+**`federation.invite.sent`** — Invite forwarded to and signed by target server
+  Payload: `inviter_id`, `invitee_id`, `room_id`
+
+**`federation.event.rejected`** — Incoming event rejected due to signature or auth failure
+  Payload: `event_id`, `rejection_reason`
+
+**`federation.request.denied`** — Outgoing request blocked by blocklist or backoff policy
+  Payload: `destination_server`, `reason`
+
 ## Connects to
 
 - **room-lifecycle** *(required)* — Room creation initialises federation senders for each participating server

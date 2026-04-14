@@ -51,6 +51,17 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `ORDER_ALREADY_DISPATCHED` — This order has already been dispatched.
 - `DRIVER_NOT_FOUND` — The specified driver could not be found.
 
+## Events
+
+**`order.driver_assigned`** — Fired when a driver is linked to an order.
+  Payload: `order_id`, `driver_id`, `assigned_at`
+
+**`order.dispatched`** — Fired when an order is dispatched (to a specific driver or broadcast in adhoc mode).
+  Payload: `order_id`, `driver_id`, `adhoc`, `dispatched_at`
+
+**`order.dispatch_failed`** — Fired when dispatch cannot be completed.
+  Payload: `order_id`, `reason`
+
 ## Connects to
 
 - **ride-request-lifecycle** *(required)* — Dispatch is a key state transition in the ride lifecycle.

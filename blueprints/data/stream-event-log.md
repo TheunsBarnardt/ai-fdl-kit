@@ -60,6 +60,54 @@ Specifies 24 acceptance outcomes that any implementation must satisfy, regardles
 - `NOGROUP` — No such consumer group
 - `NOSCRIPT` — Index out of range
 
+## Events
+
+**`stream.entry_added`**
+
+**`stream.trimmed`**
+
+**`stream.duplicate_detected`**
+
+**`stream.read`**
+
+**`stream.range_read`**
+
+**`stream.blocking_read`**
+
+**`stream.length_read`**
+
+**`stream.group_created`**
+
+**`stream.group_deleted`**
+
+**`stream.group_position_updated`**
+
+**`stream.consumer_created`**
+
+**`stream.consumer_deleted`**
+
+**`stream.group_read`**
+
+**`stream.group_blocking_read`**
+
+**`stream.acked`**
+
+**`stream.pending_summary`**
+
+**`stream.pending_details`**
+
+**`stream.claimed`**
+
+**`stream.autoclaimed`**
+
+**`stream.deleted`**
+
+**`stream.info_read`**
+
+**`stream.groups_listed`**
+
+**`stream.consumers_listed`**
+
 ## Connects to
 
 - **pub-sub-messaging** *(optional)* — Both provide message delivery; streams add persistence and groups

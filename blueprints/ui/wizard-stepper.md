@@ -60,6 +60,20 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `WIZARD_SAVE_FAILED` — Failed to save wizard progress. Please try again.
 - `WIZARD_RESUME_EXPIRED` — Your saved progress has expired. Please start again.
 
+## Events
+
+**`wizard.step_changed`** — User navigated to a different step (forward, back, skip, or resume)
+  Payload: `step_id`, `step_index`, `direction`, `progress_percent`
+
+**`wizard.completed`** — All required steps completed and wizard submitted
+  Payload: `data`, `total_steps`, `completed_steps`, `duration`
+
+**`wizard.abandoned`** — User left the wizard before completion
+  Payload: `step_id`, `step_index`, `progress_percent`, `data`
+
+**`wizard.validation_failed`** — Step validation failed when user attempted to advance
+  Payload: `step_id`, `step_index`, `errors`
+
 ## Connects to
 
 - **form-builder** *(recommended)* — Each wizard step typically contains a form built with the form builder

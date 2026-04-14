@@ -47,6 +47,23 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `READ_RECEIPT_FEATURE_DISABLED` — Message read receipts are not enabled on this server
 - `READ_RECEIPT_NOT_FOUND` — No read receipts found for this message
 
+## Events
+
+**`read_receipts.messages_read`** — Fired when a batch of messages are marked as read by a user opening a room
+  Payload: `room_id`, `user_id`, `last_seen`
+
+**`read_receipts.thread_read`** — Fired when thread messages are marked as read by a user
+  Payload: `thread_id`, `user_id`
+
+**`read_receipts.message_read`** — Fired when a single message is marked as read
+  Payload: `message_id`, `room_id`, `user_id`
+
+**`read_receipts.room_fully_read`** — Fired when all subscribers have read the room's last message
+  Payload: `room_id`
+
+**`read_receipts.receipts_fetched`** — Fired when the read receipt list for a message is queried
+  Payload: `message_id`, `room_id`
+
 ## Connects to
 
 - **user-presence** *(recommended)* — Last-seen timestamps from presence can be reused for batch read marking

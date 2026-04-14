@@ -58,6 +58,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `SIGNUP_PASSWORD_WEAK` — Password does not meet security requirements
 - `SIGNUP_PASSWORD_MISMATCH` — Passwords do not match
 
+## Events
+
+**`signup.success`** — New account created successfully
+  Payload: `user_id`, `email`, `timestamp`, `ip_address`, `user_agent`
+
+**`signup.duplicate_email`** — Signup attempted with an existing email
+  Payload: `email`, `timestamp`, `ip_address`
+
+**`signup.bot_detected`** — Bot protection triggered during signup
+  Payload: `ip_address`, `timestamp`, `detection_method`
+
+**`signup.verification_sent`** — Verification email dispatched
+  Payload: `user_id`, `email`, `timestamp`, `expires_at`
+
 ## Connects to
 
 - **login** *(required)* — After signup, user needs to log in

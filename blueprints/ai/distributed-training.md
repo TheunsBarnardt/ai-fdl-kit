@@ -60,6 +60,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `DISTRIBUTED_RANK_OOM` — GPU out of memory on one or more ranks. Reduce batch size or enable model sharding.
 - `DISTRIBUTED_BARRIER_DEADLOCK` — Barrier deadlock — not all ranks reached the barrier. Check for conditional barrier calls.
 
+## Events
+
+**`distributed.initialized`**
+  Payload: `backend`, `world_size`, `rank`, `local_rank`
+
+**`distributed.checkpoint_saved`**
+  Payload: `rank`, `checkpoint_path`
+
+**`training.completed`**
+  Payload: `total_epochs`, `final_loss`
+
+**`distributed.rank_failed`**
+  Payload: `rank`, `error_code`
+
 ## Connects to
 
 - **model-training** *(required)* — Distributed training wraps the single-device training loop

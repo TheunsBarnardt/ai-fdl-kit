@@ -56,6 +56,17 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 - `EXCHANGE_RATE_NOT_FOUND` — No exchange rate found for the specified currency pair and date.
 - `REVALUATION_NO_ACCOUNTS` — No foreign currency accounts with open balances found for revaluation.
 
+## Events
+
+**`exchange_rate.updated`** — Exchange rate is fetched or manually updated for a currency pair
+  Payload: `from_currency`, `to_currency`, `exchange_rate`, `date`
+
+**`revaluation.completed`** — Account revaluation run completes for a company
+  Payload: `company`, `posting_date`, `total_gain_loss`, `account_count`
+
+**`gain_loss.booked`** — Journal entry for unrealized exchange gain/loss is posted
+  Payload: `journal_entry_id`, `company`, `posting_date`, `gain_loss_booked`
+
 ## Connects to
 
 - **general-ledger** *(required)* — Revaluation posts journal entries to the general ledger

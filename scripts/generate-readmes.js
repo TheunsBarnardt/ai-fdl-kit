@@ -239,6 +239,14 @@ function bullet(text) {
   return `- ${oneLine(text)}`;
 }
 
+// Normalize an alias for deterministic lookup: lowercase, trim, and strip
+// all separator characters (space, hyphen, underscore). Keeps "Sign In",
+// "sign-in", "sign_in", and "signin" collapsing to the same key.
+// MUST stay in sync with the normalize() in scripts/blueprint-lookup.js.
+function normalizeAlias(s) {
+  return String(s).toLowerCase().trim().replace(/[\s\-_]+/g, '');
+}
+
 // ─── Renderers ──────────────────────────────────────────────
 
 function renderHeader(bp, relPath) {
@@ -613,7 +621,16 @@ function renderIndex(entries) {
       const feature = bp.feature;
       const mdLink = `./${cat}/${feature}.md`;
       const yamlLink = `./${cat}/${feature}.blueprint.yaml`;
-      md += `| [**${feature}**](${mdLink}) | ${desc} | ${bp.version || '—'} | [yaml](${yamlLink}) |\n`;
+      // Appended aliases make the INDEX grep-able by human-typed phrases
+      // (e.g. `grep -i "sign in"` finds the login row). The alias hint is
+      // rendered as a subdued trailing clause inside the description cell
+      // so the existing 4-column table format is preserved and the lookup
+      // regex in scripts/blueprint-lookup.js keeps working unchanged.
+      const aliases = Array.isArray(bp.aliases) ? bp.aliases : [];
+      const aliasSuffix = aliases.length
+        ? ` <sub>_aka_ ${aliases.map((a) => String(a).replace(/\|/g, '\\|')).join(', ')}</sub>`
+        : '';
+      md += `| [**${feature}**](${mdLink}) | ${desc}${aliasSuffix} | ${bp.version || '—'} | [yaml](${yamlLink}) |\n`;
     }
     md += `\n`;
   }
@@ -654,9 +671,163 @@ async function rebuildIndex() {
     const { bp } = parseBlueprint(relFile);
     return { bp, relFile };
   });
+  // Capability blueprints live alongside features but use a different file
+  // suffix and a different schema — collect them separately so the JSON
+  // index exposes { features, capabilities } as distinct namespaces.
+  const capabilityFiles = await glob('blueprints/capabilities/**/*.capability.yaml', {
+    cwd: PROJECT_ROOT,
+  });
+  const capabilityEntries = capabilityFiles.map((relFile) => {
+    const abs = join(PROJECT_ROOT, relFile);
+    const raw = readFileSync(abs, 'utf8');
+    let cap;
+    try {
+      cap = YAML.parse(raw);
+    } catch (err) {
+      throw new Error(`Failed to parse ${relFile}: ${err.message}`);
+    }
+    if (!cap || !cap.capability) {
+      throw new Error(`${relFile} is missing \`capability\` — cannot index`);
+    }
+    return { cap, relFile };
+  });
+
   const indexPath = join(PROJECT_ROOT, 'blueprints', 'INDEX.md');
   writeFileSync(indexPath, renderIndex(entries));
-  return indexPath;
+  // Emit the programmatic index alongside the human-readable INDEX.md.
+  // blueprint-index.json is what scripts/blueprint-lookup.js consumes —
+  // INDEX.md is for humans only. YAML remains the source of truth; this
+  // JSON is just a fast-loading projection of it.
+  const blueprintIndexPath = rebuildBlueprintIndex(entries, capabilityEntries);
+  return { indexPath, blueprintIndexPath };
+}
+
+/**
+ * Build the programmatic blueprint index from YAML. Single-file view of
+ * every blueprint's lookup-relevant metadata, plus a normalized-alias →
+ * canonical-feature-name map for O(1) alias resolution.
+ *
+ * Consumed exclusively by scripts/blueprint-lookup.js. Humans should read
+ * blueprints/INDEX.md instead; no script should parse INDEX.md.
+ *
+ * Collisions (same alias claimed by two blueprints) are surfaced as a
+ * warning here — the hard check lives in scripts/validate.js. We pick the
+ * first occurrence so we never emit a half-built index.
+ */
+function rebuildBlueprintIndex(entries, capabilityEntries = []) {
+  const features = {};
+  const capabilities = {};
+  const aliasMap = {};
+  const collisions = [];
+
+  for (const { bp, relFile } of entries) {
+    const feature = bp.feature;
+    if (!feature) continue;
+
+    const category = bp.category || basename(dirname(relFile));
+    const relNorm = relFile.replace(/\\/g, '/');
+    const mdPath = relNorm.replace(/\.blueprint\.yaml$/, '.md');
+    const aliases = Array.isArray(bp.aliases) ? bp.aliases : [];
+    const uses = Array.isArray(bp.uses) ? bp.uses : [];
+
+    features[feature] = {
+      feature,
+      category,
+      yaml_path: relNorm,
+      md_path: mdPath,
+      version: bp.version || '',
+      description: bp.description || '',
+      aliases,
+      uses,
+    };
+
+    // Index both the canonical name and the aliases under their normalized
+    // forms so "Login", "LOGIN", "sign in", "sign-in" all resolve in O(1).
+    const claimable = [feature, ...aliases];
+    for (const raw of claimable) {
+      const key = normalizeAlias(raw);
+      if (!key) continue;
+      if (aliasMap[key] && aliasMap[key] !== feature) {
+        collisions.push({ alias: raw, normalized: key, first: aliasMap[key], second: feature });
+        continue;
+      }
+      aliasMap[key] = feature;
+    }
+  }
+
+  // Index capabilities into a separate namespace. Keep their alias map
+  // distinct from the feature alias_map so a feature and a capability can
+  // share a name (or alias) without colliding in the lookup surface.
+  // blueprint-lookup.js checks features first, then capabilities.
+  const capabilityAliasMap = {};
+  for (const { cap, relFile } of capabilityEntries) {
+    const id = cap.capability;
+    if (!id) continue;
+
+    const relNorm = relFile.replace(/\\/g, '/');
+    const aliases = Array.isArray(cap.aliases) ? cap.aliases : [];
+    const targets = cap.implementations ? Object.keys(cap.implementations) : [];
+
+    capabilities[id] = {
+      capability: id,
+      kind: cap.kind || '',
+      stability: cap.stability || 'stable',
+      yaml_path: relNorm,
+      version: cap.version || '',
+      description: cap.description || '',
+      aliases,
+      targets,
+    };
+
+    const claimable = [id, ...aliases];
+    for (const raw of claimable) {
+      const key = normalizeAlias(raw);
+      if (!key) continue;
+      if (capabilityAliasMap[key] && capabilityAliasMap[key] !== id) {
+        collisions.push({
+          alias: raw,
+          normalized: key,
+          first: `capability ${capabilityAliasMap[key]}`,
+          second: `capability ${id}`,
+        });
+        continue;
+      }
+      capabilityAliasMap[key] = id;
+    }
+  }
+
+  if (collisions.length > 0) {
+    console.warn(
+      `blueprint-index: ${collisions.length} alias collision(s) detected — keeping first claim. Validator will fail these:`
+    );
+    for (const c of collisions) {
+      console.warn(`  "${c.alias}" (norm: "${c.normalized}") claimed by "${c.first}" and "${c.second}"`);
+    }
+  }
+
+  const blueprintIndexPath = join(PROJECT_ROOT, 'blueprints', 'blueprint-index.json');
+  writeFileSync(
+    blueprintIndexPath,
+    JSON.stringify(
+      {
+        _generated_by: 'scripts/generate-readmes.js',
+        _note:
+          'Programmatic blueprint index — consumed by scripts/blueprint-lookup.js. ' +
+          'YAML blueprints remain the source of truth; this JSON is a fast-loading ' +
+          'projection. Never hand-edit. INDEX.md is the human-readable view.',
+        generated_at: new Date().toISOString(),
+        feature_count: Object.keys(features).length,
+        capability_count: Object.keys(capabilities).length,
+        features,
+        capabilities,
+        alias_map: aliasMap,
+        capability_alias_map: capabilityAliasMap,
+      },
+      null,
+      2
+    ) + '\n'
+  );
+  return blueprintIndexPath;
 }
 
 async function main() {
@@ -671,9 +842,11 @@ async function main() {
     }
     const { outPath } = await processFile(rel);
     console.log(`Wrote ${outPath}`);
-    // Always rebuild the index so single-file edits keep it in sync
-    const idx = await rebuildIndex();
-    console.log(`Refreshed ${idx}`);
+    // Always rebuild both the human INDEX.md and the programmatic
+    // blueprint-index.json so single-file edits keep both in sync.
+    const { indexPath, blueprintIndexPath } = await rebuildIndex();
+    console.log(`Refreshed ${indexPath}`);
+    console.log(`Refreshed ${blueprintIndexPath}`);
     return;
   }
 
@@ -684,9 +857,10 @@ async function main() {
     await processFile(file);
     count++;
   }
-  const idx = await rebuildIndex();
+  const { indexPath, blueprintIndexPath } = await rebuildIndex();
   console.log(`Generated ${count} co-located readmes`);
-  console.log(`Wrote index at ${idx}`);
+  console.log(`Wrote human index at ${indexPath}`);
+  console.log(`Wrote programmatic index at ${blueprintIndexPath}`);
 }
 
 main().catch((err) => {

@@ -89,6 +89,23 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `OAUTH_EMAIL_NOT_PROVIDED` — Email permission is required. Please grant email access and try again.
 - `OAUTH_UNLINK_LAST_METHOD` — Cannot remove your only login method. Add a password or another provider first.
 
+## Events
+
+**`oauth.authorized`** — User authenticated via social provider
+  Payload: `user_id`, `provider`, `provider_user_id`, `timestamp`, `is_new_user`
+
+**`oauth.linked`** — Social provider linked to existing account
+  Payload: `user_id`, `provider`, `provider_user_id`, `timestamp`
+
+**`oauth.unlinked`** — Social provider unlinked from account
+  Payload: `user_id`, `provider`, `timestamp`
+
+**`oauth.csrf_detected`** — CSRF attack detected via invalid state parameter
+  Payload: `ip_address`, `provider`, `timestamp`
+
+**`oauth.token_failed`** — Token exchange with provider failed
+  Payload: `provider`, `timestamp`, `error_code`
+
 ## Connects to
 
 - **login** *(recommended)* — Social login is an alternative to password-based login

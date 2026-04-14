@@ -76,6 +76,26 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `API_KEY_NOT_FOUND` — API key not found
 - `API_KEY_PER_KEY_RATE_LIMITED` — Rate limit exceeded for this API key
 
+## Events
+
+**`api_key.created`** — New API key generated
+  Payload: `user_id`, `key_id`, `key_prefix`, `name`, `scopes`, `environment`, `timestamp`
+
+**`api_key.rotated`** — API key rotated — new key issued, old key in grace period
+  Payload: `user_id`, `old_key_id`, `new_key_id`, `key_prefix`, `timestamp`
+
+**`api_key.revoked`** — API key permanently revoked
+  Payload: `user_id`, `key_id`, `key_prefix`, `name`, `timestamp`
+
+**`api_key.used`** — API key used to authenticate a request
+  Payload: `key_id`, `key_prefix`, `timestamp`, `ip_address`, `endpoint`
+
+**`api_key.expired`** — API key auto-revoked due to expiration
+  Payload: `key_id`, `key_prefix`, `timestamp`
+
+**`api_key.invalid_attempt`** — Request made with an invalid API key
+  Payload: `key_prefix`, `timestamp`, `ip_address`
+
 ## Connects to
 
 - **login** *(required)* — User must be authenticated to manage API keys

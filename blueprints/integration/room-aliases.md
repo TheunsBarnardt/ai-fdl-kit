@@ -51,6 +51,17 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `ALIAS_DELETE_PERMISSION_DENIED` — You do not have permission to delete this alias
 - `ALIAS_FEDERATION_FAILED` — Could not retrieve alias from remote server
 
+## Events
+
+**`alias.created`** — A new alias has been mapped to a room
+  Payload: `alias`, `room_id`, `creator_id`
+
+**`alias.deleted`** — An alias mapping has been removed
+  Payload: `alias`, `room_id`
+
+**`alias.resolved`** — An alias lookup returned a room ID and server list
+  Payload: `alias`, `room_id`, `servers`
+
 ## Connects to
 
 - **room-lifecycle** *(required)* — Aliases are created for existing rooms

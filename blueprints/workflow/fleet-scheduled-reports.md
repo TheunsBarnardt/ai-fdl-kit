@@ -53,6 +53,14 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `REPORT_ACCESS_DENIED` — You do not have permission to generate reports for the selected devices
 - `REPORT_INVALID_TIME_RANGE` — The report start time must be before the end time
 
+## Events
+
+**`report.generated`** — An on-demand report was generated and is ready for download
+  Payload: `report_type`, `device_count`, `record_count`, `export_format`, `requested_by`
+
+**`report.scheduled_dispatched`** — A scheduled report was automatically generated and dispatched to configured recipients
+  Payload: `report_type`, `period_from`, `period_to`, `recipient_count`
+
 ## Connects to
 
 - **gps-position-history** *(required)* — Route reports draw directly from position history

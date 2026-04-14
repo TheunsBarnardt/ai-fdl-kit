@@ -53,6 +53,17 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `TARIFF_INVALID_SESSION_FEE` — Session fee must be zero or a positive value.
 - `TARIFF_MISSING_COST_PER_UNIT` — A billing type is set but no cost per unit is configured.
 
+## Events
+
+**`charging.cost.calculated`** — Session cost calculated using a location tariff
+  Payload: `session_id`, `calculated_cost`, `billing_type`, `cost_per_unit`, `session_fee`
+
+**`charging.cost.free`** — Session cost set to zero due to free-charging programme eligibility
+  Payload: `session_id`, `reason`, `charger_network`
+
+**`charging.cost.tariff_changed`** — A location tariff was changed; historical session costs may be updated
+  Payload: `location_id`, `billing_type`, `cost_per_unit`, `session_fee`
+
 ## Connects to
 
 - **ev-charging-session** *(required)*

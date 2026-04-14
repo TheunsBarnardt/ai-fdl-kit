@@ -61,6 +61,29 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `DEVICE_MISSING_CAPABILITIES` — Device capability declaration is missing or incomplete
 - `DEVICE_TOKEN_ALREADY_USED` — Linking token has already been used; the primary device must generate a new token
 
+## Events
+
+**`device.linking_token_issued`** — Primary device generated a signed linking token to begin the device provisioning flow
+  Payload: `account_id`, `expires_at`
+
+**`device.provisioning_sent`** — Encrypted provisioning message was delivered to the new device's temporary WebSocket address
+  Payload: `provisioning_address`
+
+**`device.provisioning_failed`** — Provisioning message delivery failed because no subscriber was connected at the target address
+  Payload: `provisioning_address`
+
+**`device.linked`** — A new device was successfully linked to the account
+  Payload: `account_id`, `device_id`
+
+**`device.removed`** — A linked device was removed from the account
+  Payload: `account_id`, `device_id`, `removed_by`
+
+**`device.link_failed`** — A device linking attempt failed due to invalid keys, capabilities, or a used token
+  Payload: `account_id`, `reason`
+
+**`device.limit_exceeded`** — A linking token request was rejected because the account is at its device limit
+  Payload: `account_id`, `current_count`, `max_count`
+
 ## Connects to
 
 - **phone-number-registration** *(required)* — An account must exist with a primary device before additional devices can be linked

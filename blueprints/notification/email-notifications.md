@@ -75,6 +75,23 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `EMAIL_DELIVERY_FAILED` — Email delivery failed. The message will be retried automatically.
 - `EMAIL_VALIDATION_ERROR` — Please check the email parameters and try again
 
+## Events
+
+**`email.sent`** — Email successfully queued for delivery
+  Payload: `tracking_id`, `recipient_email`, `template_id`, `category`, `timestamp`
+
+**`email.bounced`** — Email delivery bounced (soft or hard)
+  Payload: `tracking_id`, `recipient_email`, `bounce_type`, `reason`, `timestamp`
+
+**`email.opened`** — Recipient opened the email (tracking pixel loaded)
+  Payload: `tracking_id`, `recipient_email`, `opened_at`, `user_agent`
+
+**`email.suppressed`** — Delivery skipped because recipient is on suppression list
+  Payload: `recipient_email`, `template_id`, `reason`, `timestamp`
+
+**`email.delivered`** — Provider confirmed delivery to recipient mailbox
+  Payload: `tracking_id`, `recipient_email`, `delivered_at`, `timestamp`
+
 ## Connects to
 
 - **notification-preferences** *(required)* — Must check user email opt-in preferences before sending

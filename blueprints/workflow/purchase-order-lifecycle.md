@@ -62,6 +62,23 @@ Specifies 11 acceptance outcomes that any implementation must satisfy, regardles
 - `PO_POSTING_DATE_INVALID` — Posting date cannot be before the purchase order transaction date.
 - `PO_MATERIAL_REQUEST_INVALID` — Referenced material request does not exist or has been cancelled.
 
+## Events
+
+**`purchase_order.submitted`** — Purchase order submitted to supplier
+  Payload: `order_id`, `supplier`, `grand_total`, `schedule_date`
+
+**`purchase_order.received`** — Purchase receipt created against the purchase order
+  Payload: `order_id`, `receipt_id`, `per_received`
+
+**`purchase_order.billed`** — Purchase invoice created against the purchase order
+  Payload: `order_id`, `invoice_id`, `per_billed`
+
+**`purchase_order.completed`** — Purchase order fully received and billed, or manually closed
+  Payload: `order_id`, `per_received`, `per_billed`
+
+**`purchase_order.cancelled`** — Purchase order has been cancelled
+  Payload: `order_id`
+
 ## Connects to
 
 - **sales-purchase-invoicing** *(required)* — Invoicing engine for creating purchase invoices from orders

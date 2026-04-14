@@ -52,6 +52,23 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `EXPORT_PERMISSION_DENIED` — Only system administrators can run data exports.
 - `EXPORT_OUTPUT_PATH_UNAVAILABLE` — The export output path is not writable.
 
+## Events
+
+**`export.started`** — Data export job initiated
+  Payload: `job_id`, `actor_id`, `include_attachments`, `include_archived`, `timestamp`
+
+**`export.completed`** — Export archive successfully produced
+  Payload: `job_id`, `output_path`, `file_size_bytes`, `warning_count`, `timestamp`
+
+**`export.completed_with_warnings`** — Export completed but some files could not be included
+  Payload: `job_id`, `warning_count`, `output_path`, `timestamp`
+
+**`export.failed`** — Export job failed before completion
+  Payload: `job_id`, `error_reason`, `timestamp`
+
+**`export.progress`** — Export job progress update (entity type completed)
+  Payload: `job_id`, `entity_type`, `records_written`, `timestamp`
+
 ## Connects to
 
 - **user-deactivation-archiving** *(recommended)* — GDPR export should be run before permanent user deletion to satisfy portability requests

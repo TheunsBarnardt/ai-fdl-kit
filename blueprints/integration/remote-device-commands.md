@@ -49,6 +49,17 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `COMMAND_PERMISSION_DENIED` — You do not have permission to send commands to this device
 - `COMMAND_DEVICE_NOT_FOUND` — The specified device does not exist
 
+## Events
+
+**`command.sent`** — A command was dispatched to a device
+  Payload: `device_id`, `command_type`, `channel`, `sent_at`, `operator_id`
+
+**`command.queued`** — A command was queued for offline delivery
+  Payload: `device_id`, `command_type`, `queued_at`
+
+**`command.delivered`** — A queued command was delivered upon device reconnection
+  Payload: `device_id`, `command_type`, `delivered_at`
+
 ## Connects to
 
 - **gps-device-registration** *(required)* — Devices must be registered to receive commands

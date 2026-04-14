@@ -89,6 +89,14 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 - `DELIVERY_FAILED` — Money market data file delivery failed
 - `INVALID_CREDENTIALS` — Authentication failed — contact Customer Services
 
+## Events
+
+**`data.delivery.completed`** — Money market data files delivered for the day
+  Payload: `run_date`, `file_name`, `instrument_count`
+
+**`data.intraday.published`** — Intraday priority coupon rate update published
+  Payload: `run_date`, `instrument_count`, `timestamp`
+
 ## Connects to
 
 - **bonds-eod-data-delivery** *(optional)* — Bonds market data covers related fixed-income instruments

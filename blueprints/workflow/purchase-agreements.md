@@ -61,6 +61,20 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `AGREEMENT_END_BEFORE_START` — Agreement end date must be on or after the start date.
 - `AGREEMENT_DELETE_NOT_DRAFT` — Only draft or cancelled agreements can be deleted.
 
+## Events
+
+**`purchase.agreement.confirmed`** — Agreement activated and vendor pricing synchronized
+  Payload: `agreement_id`, `vendor_id`, `line_count`
+
+**`purchase.agreement.po_generated`** — Purchase order generated from an agreement
+  Payload: `agreement_id`, `purchase_order_id`, `vendor_id`
+
+**`purchase.agreement.closed`** — Agreement closed after fulfillment
+  Payload: `agreement_id`, `total_ordered`
+
+**`purchase.agreement.cancelled`** — Agreement cancelled
+  Payload: `agreement_id`
+
 ## Connects to
 
 - **invoicing-payments** *(required)* — Generated POs lead to vendor bills in accounting

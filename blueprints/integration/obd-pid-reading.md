@@ -52,6 +52,14 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `OBD_NO_MATCHING_ECU` — No response from the targeted ECU. It may not be present in this vehicle.
 - `OBD_DECODE_ERROR` — The vehicle returned data that could not be decoded for this parameter.
 
+## Events
+
+**`obd.pid.response`** — A PID was queried and a decoded value was received from the ECU
+  Payload: `service_mode`, `pid_code`, `response_value`, `ecu_target`
+
+**`obd.pid.unsupported`** — A query was skipped because the vehicle does not advertise support for the PID
+  Payload: `service_mode`, `pid_code`
+
 ## Connects to
 
 - **obd-port-connection** *(required)* — Active vehicle_connected state must exist before PID queries are possible

@@ -45,6 +45,20 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `CAPACITY_DIMENSION_MISMATCH` — Capacity arrays have different lengths across vehicles, jobs, or shipments.
 - `CAPACITY_NEGATIVE_VALUE` — A capacity or amount value is negative.
 
+## Events
+
+**`route.capacity.valid`** — All stops served within vehicle capacity limits
+  Payload: `vehicle_id`, `max_load_reached`, `dimensions`
+
+**`route.capacity.violated`** — Vehicle load exceeds capacity at a step (plan mode)
+  Payload: `vehicle_id`, `step_id`, `exceeded_dimension`, `load`, `capacity`
+
+**`job.unassigned`** — Job could not be placed on any vehicle without violating capacity
+  Payload: `job_id`, `reason`
+
+**`break.rescheduled`** — Break deferred due to max_load constraint
+  Payload: `vehicle_id`, `break_id`, `reason`
+
 ## Connects to
 
 - **vrp-solving** *(required)*

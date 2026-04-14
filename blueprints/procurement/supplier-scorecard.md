@@ -66,6 +66,20 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `SCORECARD_FORMULA_ERROR` — Formula contains unknown variables. Check that all referenced variables exist.
 - `SCORECARD_COVERAGE_GAP` — Standing ranges do not cover the full 0-100 score range. All scores must have a standing.
 
+## Events
+
+**`scorecard.calculated`** — Period scorecard scores have been calculated
+  Payload: `supplier`, `period`, `total_score`, `supplier_score`
+
+**`scorecard.standing_changed`** — Supplier standing has changed based on recalculated score
+  Payload: `supplier`, `old_standing`, `new_standing`, `supplier_score`
+
+**`scorecard.supplier_blocked`** — Transaction blocked due to supplier performance standing
+  Payload: `supplier`, `transaction_type`, `standing`
+
+**`scorecard.supplier_warned`** — Warning issued for transaction with low-scoring supplier
+  Payload: `supplier`, `transaction_type`, `standing`, `supplier_score`
+
 ## Connects to
 
 - **customer-supplier-management** *(required)* — Supplier master data and hold/block status management

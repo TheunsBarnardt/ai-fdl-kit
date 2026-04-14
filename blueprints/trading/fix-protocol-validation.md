@@ -62,6 +62,17 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `GROUP_COUNT_MISMATCH` — Repeating group instance count does not match count field
 - `INVALID_TAG_NUMBER` — Tag number does not exist in specification
 
+## Events
+
+**`fix.validation.passed`** — Message passed all validation checks
+  Payload: `session_id`, `msg_type`, `msg_seq_num`
+
+**`fix.validation.rejected`** — Message failed validation; Reject will be sent to counterparty
+  Payload: `session_id`, `msg_seq_num`, `reject_reason`, `ref_tag_id`, `ref_msg_type`
+
+**`fix.validation.error`** — Validation configuration error (missing dictionary, etc.)
+  Payload: `begin_string`, `appl_ver_id`, `error_detail`
+
 ## Connects to
 
 - **fix-message-building** *(required)* — Message structures that are built and parsed are validated by this feature

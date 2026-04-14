@@ -58,6 +58,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `WORKSHOP_NOT_ACTIVE` — The selected workshop is not currently active. Please choose an approved service provider.
 - `WORKSHOP_INVALID_RATING` — Performance rating must be between 1 and 5.
 
+## Events
+
+**`workshop.registered`** — A new service provider has been added to the approved workshop directory
+  Payload: `workshop_name`, `service_types`, `contract_end_date`
+
+**`workshop.service_rated`** — A performance rating has been recorded for a workshop service
+  Payload: `workshop_name`, `service_rating`, `new_average_rating`, `total_services_logged`
+
+**`workshop.suspended`** — A workshop has been temporarily suspended from receiving new work
+  Payload: `workshop_name`, `suspension_reason`, `suspended_by`
+
+**`workshop.contract_expiring`** — A workshop's service agreement is approaching its expiry date
+  Payload: `workshop_name`, `contract_end_date`, `days_remaining`
+
+**`workshop.blacklisted`** — A workshop has been permanently removed from the approved provider list
+  Payload: `workshop_name`, `blacklist_reason`, `blacklisted_by`
+
 ## Connects to
 
 - **vehicle-maintenance-log** *(recommended)* — Workshop records are referenced on each service log entry

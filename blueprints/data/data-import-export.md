@@ -66,6 +66,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `IMPORT_MAPPING_INVALID` — Column mapping references fields that do not exist
 - `EXPORT_NO_RECORDS` — No records match the export filters
 
+## Events
+
+**`import.started`** — An import job has been created and is queued for processing
+  Payload: `job_id`, `format`, `file_size_bytes`, `row_count`
+
+**`import.completed`** — An import job finished processing (fully or partially)
+  Payload: `job_id`, `format`, `row_count`, `success_count`, `failure_count`
+
+**`import.failed`** — An import job failed and was rolled back
+  Payload: `job_id`, `format`, `error_summary`
+
+**`export.completed`** — An export job finished and the file is ready for download
+  Payload: `job_id`, `format`, `record_count`, `file_size_bytes`
+
 ## Connects to
 
 - **file-storage** *(required)* — Import files and export outputs are stored in cloud storage

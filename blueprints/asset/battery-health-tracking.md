@@ -43,6 +43,14 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 - `BATTERY_BASELINE_NOT_CONFIGURED` — No baseline range is configured for this vehicle model. Health tracking requires a reference value.
 
+## Events
+
+**`battery.health.snapshot_taken`** — A battery health data point was recorded
+  Payload: `vehicle_id`, `snapshot_date`, `measured_range_km`, `baseline_range_km`, `degradation_pct`
+
+**`battery.health.degradation_alert`** — Battery degradation exceeded the configured alert threshold
+  Payload: `vehicle_id`, `degradation_pct`, `threshold_pct`, `measured_range_km`
+
 ## Connects to
 
 - **ev-charging-session** *(required)*

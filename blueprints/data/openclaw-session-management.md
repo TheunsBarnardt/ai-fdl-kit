@@ -71,6 +71,26 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `INVALID_SESSION_KEY` — Invalid session key format
 - `DISK_CLEANUP_FAILED` — Disk cleanup failed during budget enforcement
 
+## Events
+
+**`session.created`**
+  Payload: `session_id`, `session_key`, `agent_id`, `channel`, `created_at`
+
+**`session.updated`**
+  Payload: `session_id`, `message_count`, `transcript_bytes`, `updated_at`
+
+**`session.reset`**
+  Payload: `session_id`, `reason`, `previous_message_count`
+
+**`session.archived`**
+  Payload: `session_id`, `archived_reset_count`
+
+**`session.deleted`**
+  Payload: `session_id`, `reclaimed_bytes`, `reason`
+
+**`disk_budget.exceeded`**
+  Payload: `total_bytes_used`, `max_bytes`, `sessions_pruned`, `bytes_freed`
+
 ## Connects to
 
 - **openclaw-message-routing** *(required)* — Route resolution provides session_key

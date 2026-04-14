@@ -58,6 +58,17 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `VERSION_NOT_FOUND` — The requested version was not found
 - `VERSION_ACCESS_DENIED` — You do not have permission to view version history
 
+## Events
+
+**`version.created`** — Emitted when a new version is saved
+  Payload: `collection_slug`, `document_id`, `version_id`, `status`, `user_id`
+
+**`version.published`** — Emitted when a document is published
+  Payload: `collection_slug`, `document_id`, `version_id`, `locale`, `user_id`
+
+**`version.restored`** — Emitted when a previous version is restored
+  Payload: `collection_slug`, `document_id`, `restored_version_id`, `user_id`
+
 ## Connects to
 
 - **payload-collections** *(required)* — Versions are per-collection — each collection can enable versioning independently

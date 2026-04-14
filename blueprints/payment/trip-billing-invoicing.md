@@ -66,6 +66,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `BILLING_REFUND_EXCEEDS_ORIGINAL` — Refund amount cannot exceed the original charge.
 - `BILLING_INVALID_CURRENCY` — The specified currency is not supported.
 
+## Events
+
+**`billing.calculated`** — Fired when a trip bill is calculated at order completion
+  Payload: `transaction_id`, `order_uuid`, `amount`, `currency`, `service_name`
+
+**`billing.payment_received`** — Fired when payment is confirmed
+  Payload: `transaction_id`, `order_uuid`, `amount`, `currency`, `gateway`
+
+**`billing.payment_failed`** — Fired when a payment attempt fails
+  Payload: `transaction_id`, `order_uuid`, `error`
+
+**`billing.refund_issued`** — Fired when a refund is processed
+  Payload: `transaction_id`, `order_uuid`, `refund_amount`, `currency`
+
+**`billing.invoice_voided`** — Fired when an invoice is voided
+  Payload: `transaction_id`, `order_uuid`
+
 ## Connects to
 
 - **order-lifecycle** *(required)* — Billing is triggered on order completion

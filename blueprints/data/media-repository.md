@@ -55,6 +55,26 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `MEDIA_QUARANTINED` — This media has been removed
 - `MEDIA_SERVER_BLOCKED` — Media from this server is not permitted
 
+## Events
+
+**`media.uploaded`** — A file was successfully uploaded and stored
+  Payload: `media_id`, `server_name`, `uploader_id`, `media_type`, `media_length`
+
+**`media.deduplicated`** — An upload matched an existing file; no new storage was used
+  Payload: `media_id`, `existing_media_id`
+
+**`media.retrieved`** — A stored media file was served to a requester
+  Payload: `media_id`, `downloader_id`
+
+**`media.remote_cached`** — Remote media was downloaded and cached locally
+  Payload: `media_id`, `origin_server`
+
+**`media.thumbnail_generated`** — A thumbnail was generated and cached for a media file
+  Payload: `media_id`, `width`, `height`, `mode`
+
+**`media.purged`** — Media was removed by the retention policy or an administrator
+  Payload: `media_id`, `reason`
+
 ## Connects to
 
 - **server-federation** *(recommended)* — Remote media is fetched from origin servers via federation

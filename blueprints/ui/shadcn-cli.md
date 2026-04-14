@@ -89,6 +89,23 @@ Specifies 20 acceptance outcomes that any implementation must satisfy, regardles
 - `REGISTRY_MISSING_ENV_VARS` — Required environment variables are not set for registry authentication.
 - `REGISTRY_FETCH_ERROR` — Failed to fetch from registry. Check your network connection and registry URL.
 
+## Events
+
+**`cli.init.completed`** — Project initialized with shadcn configuration
+  Payload: `cwd`, `style`, `base_color`, `framework`, `template`
+
+**`cli.add.completed`** — Component(s) successfully installed
+  Payload: `component_names`, `files_written`, `dependencies_added`, `css_vars_added`
+
+**`cli.migrate.completed`** — Migration applied to project
+  Payload: `migration_name`, `files_modified`
+
+**`registry.fetch.success`** — Successfully fetched item from registry
+  Payload: `registry_name`, `item_name`, `url`
+
+**`registry.fetch.error`** — Failed to fetch from registry
+  Payload: `registry_name`, `item_name`, `error_code`, `status_code`
+
 ## Connects to
 
 - **shadcn-components** *(required)* — The UI component library that this CLI distributes and installs

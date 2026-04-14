@@ -1,6 +1,6 @@
 <!-- AUTO-GENERATED FROM proof-of-delivery.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
 
-# Proof Of Delivery
+# Proof Of Delivery Workflow
 
 > Capture digital proof of delivery including signature, photo, and notes at delivery completion
 
@@ -58,6 +58,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `POD_FILE_TOO_LARGE` — Photo file size exceeds the maximum allowed limit.
 - `POD_NOT_FOUND` — Proof of delivery record not found.
 
+## Events
+
+**`pod.signature_captured`** — Fired when a digital signature is captured
+  Payload: `proof_id`, `order_uuid`, `captured_at`
+
+**`pod.photo_captured`** — Fired when a delivery photo is captured
+  Payload: `proof_id`, `order_uuid`, `file_uuid`, `captured_at`
+
+**`pod.notes_captured`** — Fired when delivery notes are recorded
+  Payload: `proof_id`, `order_uuid`, `captured_at`
+
+**`pod.completed`** — Fired when all required PODs for an order have been captured
+  Payload: `order_uuid`, `proof_count`
+
 ## Connects to
 
 - **order-lifecycle** *(required)* — POD unlocks order completion when pod_required is true
@@ -83,6 +97,6 @@ Automated quality score measuring outcome coverage, rule structure, error bindin
 
 ---
 
-**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/workflow/proof-of-delivery/) · **Spec source:** [`proof-of-delivery.blueprint.yaml`](./proof-of-delivery.blueprint.yaml)
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/workflow/proof-of-delivery-workflow/) · **Spec source:** [`proof-of-delivery-workflow.blueprint.yaml`](./proof-of-delivery-workflow.blueprint.yaml)
 
 *Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

@@ -42,6 +42,14 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 
 - `GEOFENCE_EVENT_DEVICE_NOT_FOUND` — The device referenced in the position record does not exist
 
+## Events
+
+**`geofence.entered`** — Device has crossed into a geofence zone
+  Payload: `device_id`, `geofence_id`, `geofence_name`, `position_id`, `fix_time`
+
+**`geofence.exited`** — Device has crossed out of a geofence zone
+  Payload: `device_id`, `geofence_id`, `geofence_name`, `position_id`, `fix_time`
+
 ## Connects to
 
 - **geofence-management** *(required)* — Zones must be defined before crossing events can be detected

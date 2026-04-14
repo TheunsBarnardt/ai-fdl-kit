@@ -65,6 +65,35 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `PREKEY_REPLENISHMENT_UNAUTHORIZED` — Authentication required to manage pre-keys.
 - `PREKEY_REPLENISHMENT_INVALID_SIGNATURE` — One or more pre-key signatures are invalid.
 
+## Events
+
+**`prekey_replenishment.count_queried`** — Pre-key pool count successfully retrieved for a device and identity type
+  Payload: `account_id`, `device_id`, `identity_type`, `ec_prekey_count`, `pq_prekey_count`
+
+**`prekey_replenishment.combined_count_queried`** — Combined ACI and PNI pre-key counts retrieved in a single call
+  Payload: `account_id`, `device_id`, `aci_ec_count`, `pni_ec_count`, `aci_pq_count`, `pni_pq_count`
+
+**`prekey_replenishment.threshold_crossed`** — Pre-key pool dropped below replenishment threshold; upload required
+  Payload: `account_id`, `device_id`, `identity_type`, `ec_prekey_count`, `pq_prekey_count`
+
+**`prekey_replenishment.pool_adequate`** — Pre-key pool is at or above threshold; no upload needed
+  Payload: `account_id`, `device_id`, `ec_prekey_count`, `pq_prekey_count`
+
+**`prekey_replenishment.upload_success`** — New pre-keys successfully stored; pool replenished
+  Payload: `account_id`, `device_id`, `identity_type`, `ec_keys_uploaded`, `pq_keys_uploaded`
+
+**`prekey_replenishment.upload_signature_invalid`** — Pre-key upload rejected due to invalid KEM key signature
+  Payload: `account_id`, `device_id`, `identity_type`
+
+**`prekey_replenishment.orphan_page_removed`** — An orphaned KEM pre-key storage page was removed during maintenance
+  Payload: `page_id`
+
+**`prekey_replenishment.unauthorized`** — Unauthenticated count query or upload attempt
+  Payload: `device_id`
+
+**`prekey_replenishment.upload_unauthorized`** — Unauthenticated pre-key upload attempt
+  Payload: `device_id`
+
 ## Connects to
 
 - **signal-prekey-bundle** *(required)* — One-time keys are consumed during pre-key bundle retrieval and must be replenished to avoid fallback to last-resort keys

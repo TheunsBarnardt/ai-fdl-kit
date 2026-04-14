@@ -61,6 +61,20 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `RESOLVE_TIMEOUT` — Component data resolution timed out
 - `RESOLVE_ABORTED` — Resolution aborted because component was deleted during async operation
 
+## Events
+
+**`field.data.resolved`** — Component data was resolved via lifecycle hook
+  Payload: `component_id`, `trigger`, `did_change`
+
+**`field.schema.resolved`** — Field schema was updated via resolveFields hook
+  Payload: `component_id`, `changed_fields_count`
+
+**`field.permissions.resolved`** — Component permissions were resolved via lifecycle hook
+  Payload: `component_id`, `permissions`
+
+**`field.resolution.skipped`** — Resolution was skipped due to cache hit
+  Payload: `component_id`, `trigger`, `reason`
+
 ## Connects to
 
 - **component-registry** *(required)* — Lifecycle hooks (resolveData, resolveFields, resolvePermissions) are defined on component configs

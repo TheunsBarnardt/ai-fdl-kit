@@ -52,6 +52,17 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `THEME_INVALID_VALUE` — Theme value must be one of: light, dark, or system.
 - `THEME_OVERRIDE_SCOPE_LEAK` — Component theme override is leaking CSS custom properties to child elements.
 
+## Events
+
+**`theme.changed`** — Theme was changed by user action or system preference
+  Payload: `theme`, `resolved_theme`, `source`
+
+**`theme.system_preference_changed`** — Operating system color scheme changed while user preference is set to system
+  Payload: `system_preference`, `resolved_theme`
+
+**`theme.preference_persisted`** — User theme preference was saved to persistent storage
+  Payload: `user_preference`
+
 ## Connects to
 
 - **theme-configuration** *(required)* — Dark mode relies on the theme configuration system for CSS custom property definitions

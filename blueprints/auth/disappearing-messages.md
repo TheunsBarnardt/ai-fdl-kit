@@ -43,6 +43,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 
 - `DISAPPEARING_INVALID_TIMER` — Timer value must be zero or a positive number of seconds
 
+## Events
+
+**`disappearing.timer_changed`** — A participant updated the disappearing-message timer for a conversation
+  Payload: `conversation_id`, `expire_timer_seconds`, `set_by`
+
+**`disappearing.timer_disabled`** — A participant disabled the disappearing-message timer for a conversation
+  Payload: `conversation_id`, `set_by`
+
+**`disappearing.message_deleted`** — A client deleted a message after its expiry timer elapsed (client-side event only)
+  Payload: `message_id`, `conversation_id`
+
+**`disappearing.timer_queued`** — A timer-change control message was queued for offline delivery
+  Payload: `conversation_id`, `expire_timer_seconds`
+
 ## Connects to
 
 - **sealed-sender-delivery** *(recommended)* — Timer-change control messages travel as encrypted sealed-sender messages so the server cannot inspect the timer value

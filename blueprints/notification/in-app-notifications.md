@@ -73,6 +73,23 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `NOTIFICATION_UNAUTHORIZED` — You can only access your own notifications
 - `NOTIFICATION_VALIDATION_ERROR` — Please check the notification parameters and try again
 
+## Events
+
+**`notification.created`** — New in-app notification created and delivered
+  Payload: `notification_id`, `recipient_user_id`, `type`, `title`, `group_key`, `timestamp`
+
+**`notification.read`** — Notification marked as read
+  Payload: `notification_id`, `recipient_user_id`, `timestamp`
+
+**`notification.dismissed`** — Notification dismissed by user
+  Payload: `notification_id`, `recipient_user_id`, `timestamp`
+
+**`notification.all_read`** — All notifications marked as read (bulk operation)
+  Payload: `recipient_user_id`, `count_marked`, `timestamp`
+
+**`notification.clicked`** — Notification clicked, navigating to action URL
+  Payload: `notification_id`, `recipient_user_id`, `action_url`, `timestamp`
+
 ## Connects to
 
 - **notification-preferences** *(required)* — Must check in-app notification preferences before displaying

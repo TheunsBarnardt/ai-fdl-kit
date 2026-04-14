@@ -43,6 +43,14 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `GLOBAL_VALIDATION_ERROR` — The data provided did not pass validation
 - `GLOBAL_DUPLICATE` — A global with this slug already exists
 
+## Events
+
+**`global.update`** — Emitted after a global document is updated
+  Payload: `global_slug`, `user_id`, `timestamp`
+
+**`global.read`** — Emitted on global read — triggers afterRead hooks
+  Payload: `global_slug`, `user_id`
+
 ## Connects to
 
 - **payload-collections** *(optional)* — Globals complement collections — collections for multiple docs, globals for singletons

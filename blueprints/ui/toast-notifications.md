@@ -63,6 +63,17 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `TOAST_INVALID_TYPE` — Invalid notification type. Must be success, error, warning, or info.
 - `TOAST_INVALID_POSITION` — Invalid position. Must be top-right, top-left, top-center, bottom-right, bottom-left, or bottom-center.
 
+## Events
+
+**`toast.shown`** — Toast notification displayed to the user
+  Payload: `message`, `type`, `position`, `duration_ms`, `timestamp`
+
+**`toast.dismissed`** — Toast notification dismissed by user or auto-dismiss
+  Payload: `toast_id`, `type`, `dismissed_by`, `timestamp`
+
+**`toast.action_clicked`** — User clicked the action button on a toast
+  Payload: `toast_id`, `action_label`, `timestamp`
+
 ## Connects to
 
 - **form-builder** *(recommended)* — Forms show success/error toasts after submission

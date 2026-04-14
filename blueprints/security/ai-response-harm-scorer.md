@@ -58,6 +58,17 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `SCORER_JUDGE_UNAVAILABLE` — The judge model could not be reached. Scoring cannot proceed.
 - `SCORER_INVALID_JSON` — The judge model returned a response that could not be parsed as a valid score.
 
+## Events
+
+**`security.scorer.harmful_detected`** — Emitted when a scorer determines the response meets the harm criterion.
+  Payload: `scorer_id`, `scorer_type`, `score_value`, `score_rationale`
+
+**`security.scorer.safe`** — Emitted when a scorer determines the response is safe.
+  Payload: `scorer_id`, `scorer_type`, `score_value`
+
+**`security.scorer.ambiguous`** — Emitted when a scorer cannot determine a definitive result.
+  Payload: `scorer_id`, `scorer_type`, `response_text`
+
 ## Connects to
 
 - **multi-turn-attack-orchestration** *(required)* — Attack strategies that use harm scores to adapt conversation turns.

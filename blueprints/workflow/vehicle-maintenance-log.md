@@ -59,6 +59,17 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `MAINTENANCE_FUTURE_DATE` — Service date cannot be in the future.
 - `MAINTENANCE_MISSING_CERTIFICATE` — A completion certificate is required for statutory service records.
 
+## Events
+
+**`maintenance.service_completed`** — A maintenance service event has been completed and logged for a vehicle
+  Payload: `vehicle`, `service_date`, `service_type`, `total_cost`, `next_service_date`, `next_service_odometer`
+
+**`maintenance.next_service_scheduled`** — A next service date or odometer milestone has been recorded
+  Payload: `vehicle`, `next_service_date`, `next_service_odometer`
+
+**`maintenance.cost_incurred`** — A service event with a recorded cost has been finalised
+  Payload: `vehicle`, `service_date`, `total_cost`, `service_type`
+
 ## Connects to
 
 - **vehicle-master-data** *(required)* — Vehicle master provides last odometer and fuel type context

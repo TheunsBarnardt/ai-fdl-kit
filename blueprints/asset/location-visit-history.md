@@ -54,6 +54,17 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 
 - `GEOCODING_UNAVAILABLE` — Location could not be resolved to an address. Coordinates were saved.
 
+## Events
+
+**`location.address.resolved`** — A vehicle event was tagged with a reverse-geocoded address
+  Payload: `event_type`, `vehicle_id`, `address_id`, `display_name`, `latitude`, `longitude`
+
+**`location.geofence.matched`** — A vehicle event was matched to a named geofence
+  Payload: `event_type`, `vehicle_id`, `geofence_id`, `geofence_name`
+
+**`location.visit.completed`** — A parking period at a location has ended
+  Payload: `vehicle_id`, `address_id`, `geofence_id`, `arrival_date`, `departure_date`, `parking_duration_min`
+
 ## Connects to
 
 - **vehicle-trip-segmentation** *(required)*

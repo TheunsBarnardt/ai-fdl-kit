@@ -1,0 +1,347 @@
+# ============================================================
+# UI DESIGN SYSTEM — Capability Blueprint
+# FDL v0.1.0 | Capability v1.0.0
+# ============================================================
+# Baseline visual + interaction contract for any feature that
+# exposes a user interface. Consumed by feature blueprints via
+# `uses: [ui-design-system]`. Generators replace raw HTML primitives
+# with library components and enforce the typography + spacing +
+# motion + state contracts.
+#
+# WHY THIS EXISTS: generated UIs were looking dated because nothing
+# in the feature blueprints specified a design system. Features say
+# "show a form" — they don't say "every button is a library component,
+# every input has a focus ring, every state transition uses a 150–200ms
+# ease-out curve." This capability pins those defaults once, so every
+# feature that `uses:` it inherits modern visual + interaction quality.
+# ============================================================
+
+capability: ui-design-system
+version: "1.0.0"
+kind: ui
+stability: stable
+description: >-
+  Baseline design system for any UI-producing feature — pins component
+  library, typography scale, spacing rhythm, motion, and interaction states
+  so generated UI is coherent, accessible, and modern-looking by default.
+
+aliases:
+  - design-system
+  - ui-system
+  - component-library-baseline
+  - modern-ui
+
+# ─── CONTRACT ─────────────────────────────────────────────
+# Language-agnostic guarantees. Generators must treat each item as a
+# MUST constraint when this capability is imported.
+
+contract:
+  guarantees:
+    - "every interactive element (button, input, select, textarea, checkbox, radio, switch, dialog) comes from the target framework's chosen component library — never raw HTML primitives"
+    - "typography scale: 12 / 14 / 16 / 20 / 24 / 32 px. Body text is 16px. UI labels 14px. Meta/caption 12px. Section headings 20–24px. Page headings 32px"
+    - "spacing scale: 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 px. No arbitrary pixel values (no padding: 13px). Gap between form fields ≥ 16px. Section gap ≥ 32px"
+    - "every interactive element exposes six states: idle, hover, focus-visible, active, disabled, loading. Focus ring is 2px offset, high-contrast color"
+    - "motion: 150–200ms ease-out for hover / focus / state changes. Opacity and transform transitions only — never layout properties. Respect prefers-reduced-motion"
+    - "color tokens are semantic (primary, secondary, surface, muted, destructive, success, warning, info) — never raw hex values in feature code"
+    - "form fields render validation inline (below the field) on blur, not only on submit. Error text uses semantic destructive color + an icon"
+    - "loading states: any async action shows feedback within 100ms (spinner or optimistic update). Operations > 300ms show a skeleton, not a blank container"
+    - "forms have a max-width around 420px for single-column and 640px for two-column. Prose content caps at 65ch"
+    - "accessibility: WCAG AA minimum. All interactive elements are keyboard navigable. Labels are associated with inputs. Dialogs trap focus and restore on close"
+
+  invariants:
+    - "no raw <input>, <button>, <select>, <textarea>, <dialog>, or <form> emitted in feature code — always the library primitive"
+    - "no literal color hex codes in feature code — always a token name"
+    - "no arbitrary pixel values for padding/margin/gap — always a spacing scale step"
+    - "no animation longer than 400ms without a specific UX reason documented in a code comment"
+
+# ─── ANTI-PATTERNS ────────────────────────────────────────
+# Concrete mistakes generators (and humans) repeatedly make. Each is a
+# hard constraint — violating one is a generation defect.
+
+anti_patterns:
+  - rule: "do not emit raw <input>, <button>, <select>, <textarea>, <dialog>, or <form> — always use the library primitive from implementations.{target}.imports"
+    why: "raw HTML ships without focus states, accessibility wiring, or visual consistency. Shadcn/Radix/Tamagui/Material wrap these correctly; emitting raw defeats the point of the design system"
+  - rule: "do not use arbitrary pixel values (e.g. padding: 13px, gap: 7px, margin-top: 22px)"
+    why: "off-grid values produce visually jagged layouts that look amateurish. The 4/8/12/16/24/32/48 scale is the alignment contract — stay on it"
+  - rule: "do not inline color hex codes in feature code (e.g. color: #3b82f6 or className=\"bg-[#ff0000]\")"
+    why: "hardcoded colors break theme switching (light/dark mode) and make global palette updates impossible. Always use a semantic token (primary, destructive, muted, etc.)"
+  - rule: "do not omit loading / empty / error states from data-driven UI — even if the blueprint doesn't explicitly call for them"
+    why: "static UI that flashes or snaps between data states feels broken. Every list, table, or detail view needs at minimum a skeleton-loading and an empty placeholder"
+  - rule: "do not emit animations longer than 400ms without a specific UX reason"
+    why: "long animations feel sluggish and block user input. 150–200ms is the sweet spot for micro-interactions"
+  - rule: "do not emit focus:outline-none or remove focus rings without replacing them with a visible alternative"
+    why: "keyboard users lose all navigation feedback — fails WCAG 2.4.7"
+  - rule: "do not use Tailwind utility classes for colors when a semantic token exists (bg-blue-500 instead of bg-primary, text-red-600 instead of text-destructive)"
+    why: "raw Tailwind color scales don't participate in theme switching. shadcn's config maps semantic names to tokens — use them"
+  - rule: "do not emit form fields without explicit labels (placeholder-only forms)"
+    why: "placeholders disappear when users start typing, leaving no context. Fails accessibility and hurts completion rates. Labels are not optional"
+  - rule: "do not ship tables without responsive overflow handling (horizontal scroll or stacked on mobile)"
+    why: "fixed tables break mobile layouts and force horizontal page scroll — a 1998 UX pattern"
+  - rule: "do not ship modal dialogs without focus trap, escape-to-close, and backdrop-click-to-close (unless intentional)"
+    why: "incomplete dialog behavior is the #1 accessibility regression in AI-generated UIs. Use the library's <Dialog> primitive which handles these"
+
+# ─── IMPLEMENTATIONS ──────────────────────────────────────
+# Per-framework concrete mapping. Generators select by target stack.
+# New targets can be added without breaking existing consumers.
+
+implementations:
+
+  # ─── React (web) — shadcn/ui + Radix + Tailwind + framer-motion ───
+  react-web:
+    package_manager: npm
+    component_library: shadcn/ui + Radix primitives
+    styling: Tailwind CSS
+    forms: react-hook-form + zod
+    motion: framer-motion
+    dependencies:
+      - name: "tailwindcss"
+        version: "^3.4.0"
+        dev: true
+      - name: "@radix-ui/react-slot"
+        version: "^1.0.0"
+      - name: "class-variance-authority"
+        version: "^0.7.0"
+      - name: "clsx"
+        version: "^2.0.0"
+      - name: "tailwind-merge"
+        version: "^2.0.0"
+      - name: "lucide-react"
+        version: "^0.300.0"
+      - name: "react-hook-form"
+        version: "^7.48.0"
+      - name: "zod"
+        version: "^3.22.0"
+      - name: "@hookform/resolvers"
+        version: "^3.3.0"
+      - name: "framer-motion"
+        version: "^11.0.0"
+    imports:
+      Button: "import { Button } from '@/components/ui/button'"
+      Input: "import { Input } from '@/components/ui/input'"
+      Label: "import { Label } from '@/components/ui/label'"
+      Form: "import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'"
+      Dialog: "import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'"
+      Select: "import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'"
+      Checkbox: "import { Checkbox } from '@/components/ui/checkbox'"
+      Switch: "import { Switch } from '@/components/ui/switch'"
+      Skeleton: "import { Skeleton } from '@/components/ui/skeleton'"
+      toast: "import { toast } from 'sonner'"
+      useForm: "import { useForm } from 'react-hook-form'"
+      zodResolver: "import { zodResolver } from '@hookform/resolvers/zod'"
+      motion: "import { motion } from 'framer-motion'"
+    usage_patterns:
+      button: "<Button variant=\"default\" size=\"default\">{label}</Button>"
+      primary_button: "<Button>{label}</Button>"
+      destructive_button: "<Button variant=\"destructive\">{label}</Button>"
+      ghost_button: "<Button variant=\"ghost\">{label}</Button>"
+      loading_button: "<Button disabled={isSubmitting}>{isSubmitting ? <Spinner /> : label}</Button>"
+      text_input: |
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input type="email" autoComplete="email" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      form_shell: |
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full max-w-md">
+            {/* fields */}
+            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? 'Signing in…' : 'Sign in'}
+            </Button>
+          </form>
+        </Form>
+      fade_in: "<motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18, ease: 'easeOut' }}>…</motion.div>"
+      skeleton_row: "<Skeleton className=\"h-10 w-full\" />"
+    config:
+      tailwind_theme: |
+        // tailwind.config.ts — semantic token mapping
+        theme: {
+          extend: {
+            colors: {
+              primary: 'hsl(var(--primary))',
+              destructive: 'hsl(var(--destructive))',
+              muted: 'hsl(var(--muted))',
+              // ...
+            },
+            fontSize: {
+              meta: ['12px', { lineHeight: '16px' }],
+              ui:   ['14px', { lineHeight: '20px' }],
+              body: ['16px', { lineHeight: '24px' }],
+              h3:   ['20px', { lineHeight: '28px' }],
+              h2:   ['24px', { lineHeight: '32px' }],
+              h1:   ['32px', { lineHeight: '40px' }],
+            },
+            spacing: {
+              1: '4px', 2: '8px', 3: '12px', 4: '16px', 6: '24px', 8: '32px', 12: '48px', 16: '64px',
+            },
+          },
+        }
+      globals_css: |
+        /* app/globals.css — semantic color tokens for light + dark */
+        :root {
+          --primary: 222 47% 11%;
+          --destructive: 0 72% 51%;
+          --muted: 210 40% 96%;
+          /* ... */
+        }
+        .dark {
+          --primary: 210 40% 98%;
+          --destructive: 0 63% 31%;
+          --muted: 217 33% 18%;
+        }
+    pitfalls:
+      - "running `npx shadcn@latest init` once per project — shadcn is a code-generator, not a runtime dep; components live in the repo"
+      - "importing from 'shadcn/ui' or 'shadcn-ui' — there is no such package. Components are local files under @/components/ui/"
+      - "using Tailwind arbitrary values (bg-[#abc]) instead of theme tokens — breaks dark mode"
+      - "forgetting `autoComplete` attributes on inputs — browsers won't autofill and password managers break"
+      - "setting `disabled` without also setting `aria-disabled` on custom button wrappers — screen readers miss the state"
+
+  # ─── Flutter — Material 3 + flutter_form_builder ───
+  flutter:
+    package_manager: pub
+    component_library: Material 3 (with custom ColorScheme + TextTheme)
+    forms: flutter_form_builder + form_builder_validators
+    motion: Curves.easeOut + Hero + AnimatedContainer
+    dependencies:
+      - name: "flutter_form_builder"
+        version: "^9.1.0"
+      - name: "form_builder_validators"
+        version: "^10.0.0"
+      - name: "google_fonts"
+        version: "^6.0.0"
+    imports:
+      FilledButton: "import 'package:flutter/material.dart';  // FilledButton, OutlinedButton, TextButton"
+      TextField: "import 'package:flutter/material.dart';"
+      FormBuilder: "import 'package:flutter_form_builder/flutter_form_builder.dart';"
+      FormBuilderValidators: "import 'package:form_builder_validators/form_builder_validators.dart';"
+    usage_patterns:
+      primary_button: "FilledButton(onPressed: _submit, child: const Text('Sign in'))"
+      text_input: |
+        FormBuilderTextField(
+          name: 'email',
+          decoration: const InputDecoration(
+            labelText: 'Email',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.emailAddress,
+          autofillHints: const [AutofillHints.email],
+          validator: FormBuilderValidators.compose([
+            FormBuilderValidators.required(),
+            FormBuilderValidators.email(),
+          ]),
+        )
+      form_shell: |
+        FormBuilder(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [ /* fields */, const SizedBox(height: 16), FilledButton(onPressed: _submit, child: const Text('Sign in')) ],
+          ),
+        )
+    config:
+      theme: |
+        // lib/theme.dart — Material 3 color scheme + text theme
+        ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+          textTheme: GoogleFonts.interTextTheme(),
+          filledButtonTheme: FilledButtonThemeData(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              animationDuration: const Duration(milliseconds: 180),
+            ),
+          ),
+        )
+    pitfalls:
+      - "using Material 2 widgets (RaisedButton, FlatButton) — deprecated in Material 3. Use FilledButton / OutlinedButton / TextButton"
+      - "hardcoding Color(0xFF3B82F6) instead of Theme.of(context).colorScheme.primary — breaks dark mode"
+      - "forgetting autofillHints on inputs — iOS/Android autofill breaks and UX degrades"
+
+  # ─── React Native — Tamagui + NativeWind + Reanimated ───
+  react-native:
+    package_manager: npm
+    component_library: Tamagui (cross-platform primitives)
+    styling: NativeWind (Tailwind for RN) OR Tamagui's styled props — pick one per project
+    forms: react-hook-form
+    motion: Moti (built on Reanimated)
+    dependencies:
+      - name: "tamagui"
+        version: "^1.90.0"
+      - name: "@tamagui/core"
+        version: "^1.90.0"
+      - name: "@tamagui/config"
+        version: "^1.90.0"
+      - name: "react-hook-form"
+        version: "^7.48.0"
+      - name: "zod"
+        version: "^3.22.0"
+      - name: "moti"
+        version: "^0.28.0"
+      - name: "react-native-reanimated"
+        version: "^3.6.0"
+    imports:
+      Button: "import { Button } from 'tamagui'"
+      Input: "import { Input } from 'tamagui'"
+      Label: "import { Label } from 'tamagui'"
+      YStack: "import { YStack, XStack } from 'tamagui'"
+      MotiView: "import { MotiView } from 'moti'"
+    usage_patterns:
+      primary_button: "<Button themeInverse onPress={handleSubmit}>Sign in</Button>"
+      text_input: |
+        <YStack gap="$2">
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" autoComplete="email" keyboardType="email-address" value={email} onChangeText={setEmail} />
+        </YStack>
+    pitfalls:
+      - "mixing NativeWind and Tamagui styled props inconsistently — pick one per screen"
+      - "forgetting keyboardType on email/phone/number inputs — mobile keyboard defaults to text"
+
+# ─── PROVENANCE ───────────────────────────────────────────
+# Citations so future-AI doesn't "simplify" rules that look arbitrary.
+
+provenance:
+  - source: "WCAG 2.2 (W3C)"
+    reference: "2.4.7 Focus Visible (AA), 1.4.3 Contrast Minimum (AA), 1.3.1 Info and Relationships (A)"
+    url: "https://www.w3.org/TR/WCAG22/"
+  - source: "Refactoring UI (Adam Wathan, Steve Schoger)"
+    reference: "Chapter 3 'Hierarchy is Everything'; Chapter 5 'Working with Color'; spacing + typography scale guidance"
+    url: "https://www.refactoringui.com"
+  - source: "Material 3 Design Guidelines"
+    reference: "Motion (duration tokens 150–250ms ease-out), Color roles (semantic tokens), Typography (type scale)"
+    url: "https://m3.material.io"
+  - source: "shadcn/ui documentation"
+    reference: "Component architecture — components are local source, not an npm dependency. CVA for variants."
+    url: "https://ui.shadcn.com"
+  - source: "Inclusive Components (Heydon Pickering)"
+    reference: "Dialogs, menus, and form-field accessibility patterns"
+    url: "https://inclusive-components.design"
+
+# ─── TESTS ────────────────────────────────────────────────
+# Canonical self-verification fixtures the generator can use to check its output.
+
+tests:
+  - name: no_raw_html_primitives
+    forbid: "generated React/TSX source contains literal <input, <button, <select, <textarea, or <dialog tags at the JSX boundary"
+  - name: uses_semantic_tokens
+    forbid: "generated source contains literal hex colors (#[0-9a-fA-F]{3,8}) or Tailwind arbitrary values (bg-\\[#...\\], text-\\[#...\\])"
+  - name: spacing_on_scale
+    forbid: "generated source uses non-scale pixel values for padding/margin/gap (e.g. p-[13px], margin: '7px')"
+  - name: focus_ring_preserved
+    forbid: "generated source contains `focus:outline-none` without an immediately following `focus-visible:ring-*` replacement"
+  - name: forms_have_labels
+    given: "a form is generated"
+    then: "every input, select, textarea, checkbox has a <Label> or FormLabel associated via htmlFor / FormField"
+  - name: loading_state_present
+    given: "a form submits asynchronously"
+    then: "the submit button is disabled during submission AND shows a loading indicator or label change"
+  - name: respects_reduced_motion
+    given: "animations are emitted"
+    then: "animations either use CSS `@media (prefers-reduced-motion)` or framer-motion's reduced-motion hook"

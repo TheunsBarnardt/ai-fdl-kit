@@ -53,6 +53,14 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `INVALID_VARIANT_COMBINATION` — This variant combination is not supported or not applicable to this utility.
 - `INVALID_MODIFIER` — Modifier value is invalid for this utility (e.g., opacity must be 0-100).
 
+## Events
+
+**`utility.compiled`**
+  Payload: `utility_name`, `css_property`, `css_value`, `variants`
+
+**`utility.invalid`**
+  Payload: `utility_name`
+
 ## Connects to
 
 - **theme-configuration** *(required)* — Utilities read values from theme configuration

@@ -54,6 +54,20 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `GEOFENCE_NEGATIVE_SESSION_FEE` — Session fee must be zero or a positive value.
 - `GEOFENCE_NAME_REQUIRED` — A name is required to identify this place.
 
+## Events
+
+**`geofence.created`** — A new named place geofence was created
+  Payload: `geofence_id`, `name`, `latitude`, `longitude`, `radius_m`
+
+**`geofence.matched`** — A vehicle event was matched to a geofence
+  Payload: `geofence_id`, `name`, `event_type`, `vehicle_id`, `distance_from_centre_m`
+
+**`geofence.tariff_updated`** — A geofence charging tariff was modified
+  Payload: `geofence_id`, `billing_type`, `cost_per_unit`, `session_fee`
+
+**`geofence.deleted`** — A geofence was removed
+  Payload: `geofence_id`, `name`
+
 ## Connects to
 
 - **ev-charging-session** *(required)*

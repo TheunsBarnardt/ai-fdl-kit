@@ -71,6 +71,38 @@ Specifies 11 acceptance outcomes that any implementation must satisfy, regardles
 - `BIOMETRIC_ENROLLMENT_FAILED` — Palm enrollment failed — please reposition your hand and try again
 - `BIOMETRIC_MAX_PALMS` — Maximum of 2 palms already enrolled — remove one to add another
 
+## Events
+
+**`biometric.enrolled`** — Palm vein template registered and stored for a user
+  Payload: `user_id`, `palm_label`, `timestamp`
+
+**`biometric.re_enrolled`** — Existing palm template replaced with a new registration
+  Payload: `user_id`, `palm_label`, `timestamp`
+
+**`biometric.removed`** — Palm vein template removed from user's account
+  Payload: `user_id`, `palm_label`, `timestamp`
+
+**`biometric.login.success`** — User successfully authenticated via palm vein scan
+  Payload: `user_id`, `email`, `palm_label`, `ip_address`, `timestamp`
+
+**`biometric.login.failed`** — Palm vein authentication failed — no match or user not found
+  Payload: `user_id`, `email`, `ip_address`, `timestamp`
+
+**`biometric.login.rate_limited`** — Biometric auth blocked due to too many failed attempts
+  Payload: `email`, `ip_address`
+
+**`biometric.login.no_enrollment`** — User attempted biometric login but has no enrolled palms
+  Payload: `user_id`
+
+**`biometric.enrollment_failed`** — Palm enrollment failed due to SDK error
+  Payload: `user_id`, `palm_label`, `error_code`
+
+**`biometric.enrollment.max_reached`** — User attempted to enroll a third palm but max is 2
+  Payload: `user_id`
+
+**`biometric.scanner.unavailable`** — Palm scanner is disconnected or busy when auth was attempted
+  Payload: `error_code`
+
 ## Connects to
 
 - **login** *(extends)* — Adds palm vein as an alternative authentication method to password

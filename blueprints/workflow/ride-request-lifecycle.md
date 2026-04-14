@@ -68,6 +68,26 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `ORDER_ALREADY_STARTED` — This order has already started.
 - `ORDER_NOT_DISPATCHED` — Order must be dispatched before it can be started.
 
+## Events
+
+**`order.created`** — Fired when a new ride request is successfully created.
+  Payload: `order_id`, `customer_id`, `pickup_location`, `dropoff_location`, `tracking_number`
+
+**`order.dispatched`** — Fired when an order is dispatched to a driver.
+  Payload: `order_id`, `driver_id`, `dispatched_at`
+
+**`order.updated`** — Fired on any status or data change to the order.
+  Payload: `order_id`, `status`, `updated_at`
+
+**`order.completed`** — Fired when the trip is successfully completed.
+  Payload: `order_id`, `driver_id`, `customer_id`, `distance`, `duration`
+
+**`order.canceled`** — Fired when the order is canceled.
+  Payload: `order_id`, `canceled_by`, `reason`
+
+**`order.dispatch_failed`** — Fired when dispatch cannot be completed.
+  Payload: `order_id`
+
 ## Connects to
 
 - **driver-assignment-dispatch** *(required)* — Dispatch requires a driver to be assigned or adhoc mode.

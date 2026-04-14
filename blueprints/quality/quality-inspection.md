@@ -59,6 +59,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `QI_INSPECTION_NOT_REQUIRED` — Quality inspection is not required for this item.
 - `QI_TEMPLATE_NOT_FOUND` — The specified quality inspection template does not exist.
 
+## Events
+
+**`inspection.created`** — Fired when a quality inspection is created
+  Payload: `item_code`, `inspection_type`, `reference_type`, `reference_name`
+
+**`inspection.accepted`** — Fired when an inspection passes all readings
+  Payload: `item_code`, `inspection_type`, `reference_name`
+
+**`inspection.rejected`** — Fired when an inspection has rejected readings
+  Payload: `item_code`, `inspection_type`, `reference_name`, `rejected_readings`
+
+**`inspection.cancelled`** — Fired when an inspection is cancelled
+  Payload: `item_code`, `inspection_type`, `reference_name`
+
 ## Connects to
 
 - **stock-entry-movements** *(recommended)* — Inspections linked to stock entries for in-process checks

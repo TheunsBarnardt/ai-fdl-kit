@@ -59,6 +59,17 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `FUEL_INVALID_QUANTITY` — Fuel quantity must be greater than zero.
 - `FUEL_FUTURE_DATE` — Fuel date cannot be in the future.
 
+## Events
+
+**`fuel.entry_recorded`** — A fuel fill-up event has been logged for a vehicle
+  Payload: `vehicle`, `fuel_date`, `odometer_reading`, `fuel_quantity`, `total_cost`, `efficiency`
+
+**`fuel.type_mismatch_detected`** — The fuel type entered does not match the vehicle's configured fuel type
+  Payload: `vehicle`, `expected_fuel_type`, `entered_fuel_type`
+
+**`fuel.quantity_anomaly`** — Fuel quantity entered exceeds the vehicle's configured tank capacity
+  Payload: `vehicle`, `fuel_quantity`, `tank_capacity`
+
 ## Connects to
 
 - **vehicle-master-data** *(required)* — Vehicle master provides last odometer, fuel type, and tank capacity

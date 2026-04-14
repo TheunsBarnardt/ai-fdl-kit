@@ -60,6 +60,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 
 - `TRIP_BELOW_THRESHOLD` — Trip did not meet minimum distance or data requirements and was discarded.
 
+## Events
+
+**`trip.started`** — A new trip began — vehicle shifted out of park
+  Payload: `vehicle_id`, `trip_id`, `start_date`, `start_odometer_km`, `start_battery_level`
+
+**`trip.completed`** — A trip was successfully completed and aggregated
+  Payload: `vehicle_id`, `trip_id`, `distance_km`, `duration_min`, `end_battery_level`
+
+**`trip.discarded`** — A trip was discarded for failing minimum thresholds
+  Payload: `vehicle_id`, `trip_id`, `reason`
+
+**`trip.auto_completed`** — A trip was closed automatically after extended offline period
+  Payload: `vehicle_id`, `trip_id`, `offline_duration_min`
+
 ## Connects to
 
 - **vehicle-state-machine** *(required)*

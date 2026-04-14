@@ -62,6 +62,26 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `QMS_PROCEDURE_PARENT_CONFLICT` — A procedure cannot be its own parent or create a circular hierarchy.
 - `QMS_REVIEW_GOAL_NOT_FOUND` — The referenced quality goal for this review does not exist.
 
+## Events
+
+**`goal.created`** — Fired when a quality goal is created
+  Payload: `goal`, `frequency`, `objectives`
+
+**`review.auto_created`** — Fired when a review is auto-created by schedule
+  Payload: `review_goal`, `review_date`, `objectives`
+
+**`review.passed`** — Fired when a quality review passes
+  Payload: `review_goal`, `review_date`
+
+**`review.failed`** — Fired when a quality review fails
+  Payload: `review_goal`, `review_date`
+
+**`action.completed`** — Fired when a corrective or preventive action is completed
+  Payload: `corrective_preventive`, `resolutions`
+
+**`feedback.submitted`** — Fired when quality feedback is submitted
+  Payload: `document_type`, `parameters`
+
 ## Connects to
 
 - **quality-inspection** *(recommended)* — Inspections feed into quality goals and trigger corrective actions

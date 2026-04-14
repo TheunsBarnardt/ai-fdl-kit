@@ -83,6 +83,29 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `PROFILE_INVALID_CREDENTIAL_TYPE` — Unsupported credential type requested.
 - `PROFILE_INVALID_CREDENTIAL_REQUEST` — The credential request is invalid or does not match the stored commitment.
 
+## Events
+
+**`profile.updated`** — A versioned profile was created or replaced by its owner
+  Payload: `account_id`, `profile_version`, `avatar_changed`
+
+**`profile.accessed`** — A profile version was retrieved by a requester
+  Payload: `target_account_id`, `profile_version`, `requester_type`
+
+**`profile.credential_issued`** — An expiring ZK profile key credential was issued for a profile version
+  Payload: `target_account_id`, `profile_version`, `expiry`
+
+**`profile.rate_limited`** — A profile read request was rejected due to rate limiting
+  Payload: `requester_uuid`
+
+**`profile.access_denied`** — A profile read was denied due to missing or invalid credentials
+  Payload: `target_account_id`
+
+**`profile.identity_mismatch`** — One or more accounts returned mismatched identity key fingerprints in a batch check
+  Payload: `mismatched_identifiers`
+
+**`profile.deleted`** — All versioned profiles for an account were deleted on account deletion or re-registration
+  Payload: `account_id`, `avatars_deleted`
+
 ## Connects to
 
 - **e2e-key-exchange** *(required)* — Profile key commitment is derived from the user's end-to-end encryption key material

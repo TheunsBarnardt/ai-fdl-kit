@@ -62,6 +62,26 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `REPAIR_ALREADY_COMPLETED` — This repair has already been completed and cannot be modified.
 - `REPAIR_CAPITALIZE_INVALID` — Cannot capitalize repair cost. Repair must be completed with a cost greater than zero.
 
+## Events
+
+**`maintenance.scheduled`** — Fired when a maintenance schedule is created or updated
+  Payload: `asset_name`, `tasks`, `next_due_dates`
+
+**`maintenance.completed`** — Fired when a maintenance task is completed
+  Payload: `asset_name`, `task`, `completion_date`
+
+**`maintenance.overdue`** — Fired when a maintenance task becomes overdue
+  Payload: `asset_name`, `task`, `due_date`
+
+**`repair.started`** — Fired when a repair is logged
+  Payload: `asset_name`, `failure_date`, `description`
+
+**`repair.completed`** — Fired when a repair is marked complete
+  Payload: `asset_name`, `repair_cost`, `increase_in_asset_life`
+
+**`repair.cost_capitalized`** — Fired when repair cost is capitalized to asset value
+  Payload: `asset_name`, `repair_cost`, `new_asset_value`
+
 ## Connects to
 
 - **fixed-asset-lifecycle** *(required)* — Maintenance and repairs operate on registered fixed assets

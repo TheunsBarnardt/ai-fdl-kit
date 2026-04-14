@@ -62,6 +62,60 @@ Specifies 27 acceptance outcomes that any implementation must satisfy, regardles
 - `WRONG_TYPE` — Operation against a key holding the wrong kind of value
 - `SYNTAX_ERROR` — Syntax error in score or condition
 
+## Events
+
+**`zset.added`**
+
+**`zset.conditional_add`**
+
+**`zset.removed`**
+
+**`zset.range_rank`**
+
+**`zset.range_score`**
+
+**`zset.range_lex`**
+
+**`zset.rank`**
+
+**`zset.score_read`**
+
+**`zset.inter`**
+
+**`zset.union`**
+
+**`hash.set`**
+
+**`hash.field_read`**
+
+**`hash.multi_read`**
+
+**`hash.all_read`**
+
+**`hash.keys_read`**
+
+**`hash.vals_read`**
+
+**`hash.deleted`**
+
+**`hash.incr`**
+
+**`hash.incrbyfloat`**
+
+**`hash.exists_check`**
+
+**`hash.count`**
+
+**`hash.expire_set`**
+
+**`hash.pexpire_set`**
+
+**`hash.persist`**
+
+**`hash.ttl_read`**
+
+**`hash.scan`**
+
 ## Connects to
 
 - **string-key-value** *(optional)* — Hash fields and sorted set members are strings

@@ -53,6 +53,14 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `PIN_NO_CHANNEL_ACCESS` — You do not have access to this channel
 - `UNPIN_NOT_SUBSCRIBED` — You must be a member of the channel to unpin messages
 
+## Events
+
+**`message.pinned`** — Fired after a message is successfully pinned to a channel
+  Payload: `message_id`, `channel_id`, `pinned_by_user_id`, `pinned_at`
+
+**`message.unpinned`** — Fired after a message is successfully unpinned from a channel
+  Payload: `message_id`, `channel_id`, `pinned_by_user_id`
+
 ## Connects to
 
 - **direct-messaging** *(recommended)* — Pinning applies to channels and direct message threads

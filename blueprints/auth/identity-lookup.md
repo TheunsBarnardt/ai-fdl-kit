@@ -50,6 +50,20 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `IDENTITY_SERVER_INVALID` — Identity server address is invalid or uses an unsupported scheme
 - `IDENTITY_SESSION_INVALID` — The validation session could not be found or the client secret is incorrect
 
+## Events
+
+**`identity.validation_requested`** — A validation token was requested for a third-party address
+  Payload: `medium`, `address`, `session_id`
+
+**`identity.validated`** — The user confirmed ownership of the third-party address
+  Payload: `medium`, `address`, `validated_at`
+
+**`identity.bound`** — A third-party address was bound to an account identifier
+  Payload: `user_id`, `medium`, `address`
+
+**`identity.looked_up`** — A third-party address was resolved to an account identifier
+  Payload: `medium`, `address`, `resolved_user_id`
+
 ## Connects to
 
 - **room-invitations** *(recommended)* — Third-party invites use identity lookup to invite users by email or phone

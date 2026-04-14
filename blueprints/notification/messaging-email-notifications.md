@@ -53,6 +53,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `EMAIL_SEND_FAILED` — Email notification could not be delivered. Please check your email configuration.
 - `EMAIL_NOT_ENABLED` — Email notifications are not configured on this server.
 
+## Events
+
+**`email_notification.queued`** — Email notification added to the batch queue
+  Payload: `recipient_id`, `channel_id`, `post_id`, `notification_type`, `timestamp`
+
+**`email_notification.sent`** — Email notification successfully dispatched to the mail server
+  Payload: `recipient_id`, `notification_count`, `timestamp`
+
+**`email_notification.discarded`** — Queued email batch discarded because user viewed the channel
+  Payload: `recipient_id`, `reason`, `timestamp`
+
+**`email_notification.suppressed`** — Email suppressed due to preference, verification, or bot status
+  Payload: `recipient_id`, `reason`, `timestamp`
+
+**`email_notification.failed`** — Email send attempt returned an error
+  Payload: `recipient_id`, `error_reason`, `timestamp`
+
 ## Connects to
 
 - **notification-preferences-dnd** *(required)* — Email notification preferences and DND status are evaluated before every email

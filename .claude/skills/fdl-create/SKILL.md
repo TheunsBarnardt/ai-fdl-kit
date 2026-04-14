@@ -250,6 +250,16 @@ For pure technical features (login, checkout, CRUD), `outcomes` alone is suffici
 - [ ] Related features are identified
 - [ ] Events cover success AND failure
 
+### AI-Proofing (MANDATORY — these fields prevent yesterday's fake-endpoint failure)
+
+Every new blueprint MUST include the three AI-proofing fields. Ask the user plain-English questions to populate them — do NOT skip, do NOT leave empty.
+
+- [ ] **`aliases:`** — list 5–10 alternate names users might type for this feature (e.g. login → `sign-in`, `signin`, `authenticate`, `log-in`). Feeds the intent registry so `/fdl-build` resolves natural-language queries to this blueprint deterministically. Ask: *"What other words or phrases might someone use for this?"*
+- [ ] **`api:`** — if the feature exposes an HTTP endpoint (any feature with request/response), pin the wire contract: `http.method`, `http.path`, `request.schema`, `response.success.schema`, and `response.errors[]` mapping each status code to a declared error_code. Ask: *"What's the endpoint path? What does the request body look like? What does success return?"* If the feature has no HTTP surface (background worker, scheduled job), omit `api:` entirely.
+- [ ] **`anti_patterns:`** — list 5–10 mistakes AI generators (or humans) commonly make for this feature, each as `{ rule, why }`. Include security pitfalls, common hallucinated alternates, and standard bad defaults. Ask: *"What are the usual ways people get this wrong?"* Derive from rules + OWASP/NIST guidance when the user doesn't know.
+
+**Cross-validation:** every `error_code` listed under `api.response.errors[]` must also appear in the top-level `errors[]` block. The validator will fail the blueprint if they drift.
+
 ### Conventions
 - [ ] Feature name: kebab-case
 - [ ] Field names: snake_case

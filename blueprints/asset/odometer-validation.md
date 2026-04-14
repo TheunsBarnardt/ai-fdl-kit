@@ -53,6 +53,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `TRIP_NEGATIVE_DISTANCE` — Trip distance was negative, indicating a data error. Trip was discarded.
 - `ODOMETER_JUMP_DETECTED` — Unusually large odometer increase detected. Please review telemetry data.
 
+## Events
+
+**`odometer.trip.distance_valid`** — Trip distance passed validation and was retained
+  Payload: `vehicle_id`, `trip_id`, `trip_distance_km`
+
+**`odometer.trip.discarded`** — Trip discarded for failing distance or position count threshold
+  Payload: `vehicle_id`, `trip_id`, `reason`, `trip_distance_km`, `position_count`
+
+**`odometer.anomaly.negative_distance`** — Trip ended with a lower odometer than it started — data anomaly
+  Payload: `vehicle_id`, `trip_id`, `start_odometer_km`, `end_odometer_km`
+
+**`odometer.anomaly.jump_detected`** — Odometer reading jumped unexpectedly between consecutive readings
+  Payload: `vehicle_id`, `previous_odometer_km`, `current_odometer_km`, `jump_km`
+
 ## Connects to
 
 - **vehicle-trip-segmentation** *(required)*

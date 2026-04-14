@@ -60,6 +60,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `REPORT_INVALID_SCHEDULE` — Cron schedule expression is invalid or interval is below the 15-minute minimum.
 - `REPORT_INVALID_PARAMETERS` — One or more query parameters are invalid or missing required values.
 
+## Events
+
+**`report.generated`** — A report was successfully generated
+  Payload: `report_id`, `name`, `format`, `file_url`, `file_size_bytes`
+
+**`report.cache_hit`** — A cached report was returned instead of regenerating
+  Payload: `report_id`, `generated_at`, `expires_at`
+
+**`report.scheduled.completed`** — A scheduled report was generated and delivered
+  Payload: `report_id`, `name`, `format`, `recipient_count`
+
+**`report.delivered`** — A report was delivered to recipients via email
+  Payload: `report_id`, `recipients`, `delivery_method`
+
+**`report.failed`** — Report generation failed due to an error
+  Payload: `report_id`, `reason`, `error_details`
+
 ## Connects to
 
 - **automation-rules** *(optional)* — Automation rules can trigger on-demand reports based on record events

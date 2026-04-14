@@ -57,6 +57,26 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `INVALID_PERMISSION` — One or more permission IDs are not valid for this scope.
 - `GUEST_USER_ROLE_CONFLICT` — A member cannot simultaneously hold both guest and user roles.
 
+## Events
+
+**`rbac.role_created`** — A new custom role was created
+  Payload: `role_id`, `role_name`, `permissions`, `actor_id`, `timestamp`
+
+**`rbac.role_updated`** — A role's permission set was modified
+  Payload: `role_id`, `permissions`, `actor_id`, `timestamp`
+
+**`rbac.role_deleted`** — A custom role was deleted
+  Payload: `role_id`, `actor_id`, `timestamp`
+
+**`rbac.permission_checked`** — An authorization check was performed (for audit/observability)
+  Payload: `actor_id`, `permission_id`, `resource_id`, `scope`, `result`, `timestamp`
+
+**`rbac.team_member_role_changed`** — A team member's roles were updated
+  Payload: `team_id`, `user_id`, `old_roles`, `new_roles`, `actor_id`, `timestamp`
+
+**`rbac.channel_member_role_changed`** — A channel member's roles were updated
+  Payload: `channel_id`, `user_id`, `old_roles`, `new_roles`, `actor_id`, `timestamp`
+
 ## Connects to
 
 - **team-workspaces** *(required)* — Teams are the primary boundary where team-scoped roles are applied

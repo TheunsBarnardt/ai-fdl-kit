@@ -56,6 +56,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `DOCUMENT_INVALID_DATES` — Document expiry date must be after the issue date.
 - `DOCUMENT_EXPIRED_COMPLIANCE` — This vehicle has an expired compliance document. Renew it before dispatching the vehicle.
 
+## Events
+
+**`vehicle_document.uploaded`** — A document has been uploaded and stored against a vehicle record
+  Payload: `vehicle`, `document_type`, `document_number`, `expiry_date`, `upload_date`
+
+**`vehicle_document.expiring_soon`** — A vehicle document is within the renewal reminder window
+  Payload: `vehicle`, `document_type`, `expiry_date`, `days_remaining`
+
+**`vehicle_document.expired`** — A vehicle document has passed its expiry date without renewal
+  Payload: `vehicle`, `document_type`, `expiry_date`
+
+**`vehicle_document.archived`** — A vehicle document has been manually archived
+  Payload: `vehicle`, `document_type`, `document_number`, `archived_by`
+
 ## Connects to
 
 - **vehicle-registration** *(required)* — Registration certificates are the primary document type managed for each vehicle

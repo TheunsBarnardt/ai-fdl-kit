@@ -51,6 +51,20 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `REMINDER_INVALID_DUE_DATE` — Due date must be a valid future date.
 - `REMINDER_MISSING_ASSIGNEE` — A renewal reminder must have an assigned responsible person.
 
+## Events
+
+**`reminder.vehicle_renewal_triggered`** — A renewal reminder has entered the advance notice window and the first notification was sent
+  Payload: `vehicle`, `reminder_type`, `due_date`, `days_remaining`
+
+**`reminder.vehicle_renewal_completed`** — A renewal action was completed and a new reminder cycle was started
+  Payload: `vehicle`, `reminder_type`, `completion_date`, `next_due_date`
+
+**`reminder.vehicle_renewal_overdue`** — A required renewal has not been completed by the due date
+  Payload: `vehicle`, `reminder_type`, `due_date`
+
+**`reminder.vehicle_renewal_escalated`** — Repeated unanswered reminders have triggered escalation to a supervisor
+  Payload: `vehicle`, `reminder_type`, `due_date`, `reminders_sent`
+
 ## Connects to
 
 - **vehicle-insurance** *(required)* — Insurance policy expiry dates are a primary source of renewal reminders

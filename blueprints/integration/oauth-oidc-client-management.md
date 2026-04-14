@@ -119,6 +119,17 @@ Specifies 15 acceptance outcomes that any implementation must satisfy, regardles
 - `DYNAMIC_REGISTRATION_UNAUTHORIZED` — The requested OAuth 2.0 client does not exist or you provided incorrect credentials.
 - `DYNAMIC_REGISTRATION_DISABLED` — Dynamic client registration is not enabled.
 
+## Events
+
+**`client.created`** — Fired when a new OAuth 2.0 client is registered via the admin API.
+  Payload: `client_id`, `client_name`, `grant_types`, `created_at`
+
+**`client.registered`** — Fired when a client self-registers via OIDC Dynamic Client Registration.
+  Payload: `client_id`, `client_name`, `grant_types`, `created_at`, `registration_client_uri`
+
+**`client.deleted`** — Fired when an OAuth 2.0 client is deleted.
+  Payload: `client_id`
+
 ## Connects to
 
 - **oauth-provider** *(required)* — Authorization server that issues tokens using these client registrations.

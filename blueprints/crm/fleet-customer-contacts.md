@@ -59,6 +59,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `CONTACT_NOT_FOUND` — Contact not found.
 - `CONTACT_INVALID_EMAIL` — The email address provided is not valid.
 
+## Events
+
+**`contact.created`** — Fired when a new contact is created
+  Payload: `contact_id`, `name`, `email`, `phone`, `type`
+
+**`contact.updated`** — Fired when contact information is updated
+  Payload: `contact_id`, `name`
+
+**`contact.deleted`** — Fired when a contact is soft-deleted
+  Payload: `contact_id`, `name`
+
+**`contact.order_linked`** — Fired when an order is linked to this contact
+  Payload: `contact_id`, `order_uuid`
+
 ## Connects to
 
 - **order-lifecycle** *(required)* — Contacts are assigned as customers on orders

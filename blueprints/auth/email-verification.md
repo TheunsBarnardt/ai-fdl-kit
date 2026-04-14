@@ -57,6 +57,20 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `VERIFY_RATE_LIMITED` — Too many requests. Please wait before trying again.
 - `VERIFY_VALIDATION_ERROR` — Please check your input and try again
 
+## Events
+
+**`email_verification.success`** — User successfully verified their email
+  Payload: `user_id`, `email`, `timestamp`, `ip_address`
+
+**`email_verification.token_invalid`** — Invalid or tampered verification token submitted
+  Payload: `token_hash`, `timestamp`, `ip_address`
+
+**`email_verification.token_expired`** — Expired verification token submitted
+  Payload: `user_id`, `timestamp`, `ip_address`
+
+**`email_verification.resent`** — New verification email sent
+  Payload: `user_id`, `email`, `timestamp`, `expires_at`
+
 ## Connects to
 
 - **signup** *(required)* — Verification is triggered by signup

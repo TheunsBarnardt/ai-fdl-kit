@@ -69,6 +69,32 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `ORDER_INVALID_TRANSITION` — This status change is not allowed at this stage.
 - `ORDER_NOT_FOUND` — The requested order could not be found.
 
+## Events
+
+**`order.created`** — Fired when a new order is created
+  Payload: `order_id`, `customer_uuid`, `scheduled_at`, `type`
+
+**`order.dispatched`** — Fired when an order is dispatched to a driver
+  Payload: `order_id`, `driver_assigned_uuid`, `vehicle_assigned_uuid`, `dispatched_at`
+
+**`order.driver_enroute`** — Fired when driver starts traveling to pickup
+  Payload: `order_id`, `driver_assigned_uuid`, `started_at`
+
+**`order.arrived`** — Fired when driver arrives at pickup location
+  Payload: `order_id`, `driver_assigned_uuid`
+
+**`order.in_progress`** — Fired when delivery is in progress
+  Payload: `order_id`, `driver_assigned_uuid`
+
+**`order.completed`** — Fired when delivery is successfully completed
+  Payload: `order_id`, `driver_assigned_uuid`, `customer_uuid`
+
+**`order.cancelled`** — Fired when an order is cancelled
+  Payload: `order_id`, `customer_uuid`, `cancelled_by`
+
+**`order.failed`** — Fired when a delivery fails
+  Payload: `order_id`, `driver_assigned_uuid`, `reason`
+
 ## Connects to
 
 - **dispatch-driver-assignment** *(required)* — Driver and vehicle assignment is required before dispatch

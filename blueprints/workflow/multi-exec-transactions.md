@@ -59,6 +59,40 @@ Specifies 18 acceptance outcomes that any implementation must satisfy, regardles
 - `NO_TRANSACTION` — DISCARD without MULTI
 - `WATCH_VIOLATION` — WATCH violation detected
 
+## Events
+
+**`transaction.started`**
+
+**`transaction.command_queued`**
+
+**`transaction.syntax_error`**
+
+**`transaction.executed`**
+
+**`transaction.aborted_syntax`**
+
+**`transaction.aborted_watch`**
+
+**`transaction.discarded`**
+
+**`transaction.keys_watched`**
+
+**`transaction.watch_cleared`**
+
+**`transaction.watch_violated`**
+
+**`transaction.optimistic_read`**
+
+**`transaction.value_computed`**
+
+**`transaction.lock_acquired`**
+
+**`transaction.lock_failed`**
+
+**`transaction.command_error`**
+
+**`transaction.partial_success`**
+
 ## Connects to
 
 - **string-key-value** *(optional)* — Often used to atomically update multiple keys

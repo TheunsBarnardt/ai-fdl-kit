@@ -74,6 +74,26 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `MFA_NO_BACKUP_CODES` — No backup codes remaining. Please reconfigure MFA.
 - `MFA_SMS_EXPIRED` — SMS code has expired. Please request a new one.
 
+## Events
+
+**`mfa.enabled`** — MFA successfully activated for a user
+  Payload: `user_id`, `method`, `timestamp`
+
+**`mfa.verified`** — MFA code successfully verified
+  Payload: `user_id`, `method`, `timestamp`
+
+**`mfa.failed`** — MFA verification attempt failed
+  Payload: `user_id`, `method`, `timestamp`, `attempt_count`
+
+**`mfa.backup_used`** — Backup code used for MFA verification
+  Payload: `user_id`, `timestamp`, `remaining_codes`
+
+**`mfa.disabled`** — MFA disabled for a user
+  Payload: `user_id`, `timestamp`
+
+**`mfa.setup_initiated`** — User began MFA setup process
+  Payload: `user_id`, `method`, `timestamp`
+
 ## Connects to
 
 - **login** *(required)* — MFA is a second factor after primary authentication

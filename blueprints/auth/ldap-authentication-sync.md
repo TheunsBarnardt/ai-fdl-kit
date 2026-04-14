@@ -63,6 +63,20 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `LDAP_INVALID_FILTER` — The directory search filter is invalid. Please contact your administrator.
 - `LDAP_USER_NOT_FOUND` — No matching account was found in the directory.
 
+## Events
+
+**`auth.ldap_login_success`** — User authenticated successfully via directory credentials
+  Payload: `user_id`, `timestamp`
+
+**`auth.ldap_login_failed`** — Directory authentication attempt failed
+  Payload: `reason`, `attempt_count`, `timestamp`
+
+**`auth.ldap_sync_completed`** — Background directory synchronization completed
+  Payload: `users_synced`, `users_deactivated`, `groups_synced`, `duration_ms`, `timestamp`
+
+**`auth.ldap_user_deactivated`** — User account deactivated because directory entry was removed
+  Payload: `user_id`, `timestamp`
+
 ## Connects to
 
 - **multi-factor-authentication** *(recommended)* — LDAP users can activate TOTP MFA; MFA check occurs after directory password validation

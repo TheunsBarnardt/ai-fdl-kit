@@ -54,6 +54,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `DEVICE_NOT_FOUND` — The specified device does not exist
 - `DEVICE_LIMIT_EXCEEDED` — The maximum number of devices allowed for this account has been reached
 
+## Events
+
+**`device.registered`** — A new device has been added to the fleet
+  Payload: `device_id`, `unique_id`, `name`, `group_id`
+
+**`device.updated`** — Device metadata has been modified
+  Payload: `device_id`, `changed_fields`
+
+**`device.disabled`** — Device has been disabled
+  Payload: `device_id`
+
+**`device.expired`** — Device subscription or licence has expired
+  Payload: `device_id`, `expiration_time`
+
+**`device.status_changed`** — Device transitioned between online, offline, and unknown states
+  Payload: `device_id`, `old_status`, `new_status`, `last_update`
+
 ## Connects to
 
 - **gps-position-ingestion** *(required)* — Devices must be registered before positions can be attributed to them

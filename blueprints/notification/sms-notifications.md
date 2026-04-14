@@ -75,6 +75,20 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `SMS_DELIVERY_FAILED` — SMS delivery failed. The message will be retried automatically.
 - `SMS_VALIDATION_ERROR` — Please check the SMS parameters and try again
 
+## Events
+
+**`sms.sent`** — SMS successfully queued for delivery
+  Payload: `tracking_id`, `recipient_phone`, `message_type`, `segment_count`, `timestamp`
+
+**`sms.delivered`** — Provider confirmed SMS delivery to recipient
+  Payload: `tracking_id`, `recipient_phone`, `delivered_at`, `timestamp`
+
+**`sms.failed`** — SMS delivery failed after all retries
+  Payload: `tracking_id`, `recipient_phone`, `failure_reason`, `error_code`, `timestamp`
+
+**`sms.blocked`** — SMS blocked due to opt-out or compliance rule
+  Payload: `recipient_phone`, `message_type`, `reason`, `timestamp`
+
 ## Connects to
 
 - **notification-preferences** *(required)* — Must check user SMS opt-in preferences before sending

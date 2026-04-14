@@ -62,6 +62,26 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `DASHBOARD_NOT_FOUND` — The requested dashboard does not exist
 - `DASHBOARD_DATE_RANGE_INVALID` — Date range must not exceed 365 days
 
+## Events
+
+**`dashboard.created`** — A new dashboard was created
+  Payload: `dashboard_id`, `name`, `owner`, `timestamp`
+
+**`dashboard.widget_added`** — A widget was added to a dashboard
+  Payload: `dashboard_id`, `widget_id`, `widget_type`, `position`
+
+**`dashboard.refreshed`** — Dashboard data was auto-refreshed
+  Payload: `dashboard_id`, `timestamp`, `widget_count`
+
+**`dashboard.date_range_changed`** — Dashboard date range was changed
+  Payload: `dashboard_id`, `date_range`
+
+**`dashboard.drill_down`** — User drilled down into a widget data point
+  Payload: `dashboard_id`, `widget_id`, `dimension`, `value`
+
+**`dashboard.widget_error`** — A widget failed to load data
+  Payload: `dashboard_id`, `widget_id`, `error`
+
 ## Connects to
 
 - **charts-visualization** *(required)* — Dashboard chart widgets use the charts-visualization feature for rendering

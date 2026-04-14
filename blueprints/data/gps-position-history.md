@@ -48,6 +48,14 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `HISTORY_INVALID_TIME_RANGE` — The start time must be before the end time
 - `HISTORY_ACCESS_DENIED` — You do not have permission to view history for this device
 
+## Events
+
+**`position_history.queried`** — A historical position query was executed
+  Payload: `device_id`, `from`, `to`, `position_count`, `requested_by`
+
+**`position_history.exported`** — Position history was exported to a file
+  Payload: `device_id`, `from`, `to`, `export_format`, `position_count`, `requested_by`
+
 ## Connects to
 
 - **gps-position-ingestion** *(required)* — Positions must be ingested before they can be queried as history

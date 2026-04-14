@@ -59,6 +59,17 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - `SHARING_PERMISSION_DENIED` — You cannot share resources you do not have access to
 - `SHARING_USER_NOT_FOUND` — The specified user does not exist
 
+## Events
+
+**`device.shared`** — A device has been shared with a user
+  Payload: `device_id`, `user_id`, `shared_by`
+
+**`group.shared`** — A device group has been shared with a user
+  Payload: `group_id`, `user_id`, `shared_by`
+
+**`permission.revoked`** — A user's access to a resource has been removed
+  Payload: `resource_type`, `resource_id`, `user_id`
+
 ## Connects to
 
 - **gps-device-registration** *(required)* — Devices must be registered before they can be shared

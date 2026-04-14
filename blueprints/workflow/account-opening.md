@@ -75,6 +75,44 @@ Specifies 12 acceptance outcomes that any implementation must satisfy, regardles
 - `COMPLIANCE_REVIEW_REQUIRED` — Application requires compliance review before account creation
 - `CRM_ACCOUNT_CREATION_FAILED` — Account creation in CRM failed. Please try again or contact support
 
+## Events
+
+**`account.application_started`** — New account application created
+  Payload: `application_id`, `client_id`, `timestamp`
+
+**`account.products_selected`** — Investment products selected
+  Payload: `application_id`, `selected_products`, `timestamp`
+
+**`account.risk_assessed`** — Risk assessment completed
+  Payload: `application_id`, `risk_profile`, `risk_score`, `timestamp`
+
+**`account.suitability_warning`** — Product-risk suitability mismatch detected
+  Payload: `application_id`, `risk_profile`, `mismatched_products`, `timestamp`
+
+**`account.terms_accepted`** — Terms and conditions accepted
+  Payload: `application_id`, `terms_accepted_at`, `timestamp`
+
+**`account.submitted`** — Application submitted for review
+  Payload: `application_id`, `funding_method`, `amount`, `timestamp`
+
+**`account.approved`** — Application approved by compliance
+  Payload: `application_id`, `approved_by`, `timestamp`
+
+**`account.rejected`** — Application rejected by compliance
+  Payload: `application_id`, `rejection_reason`, `rejected_by`, `timestamp`
+
+**`account.created`** — Investment account created in CRM
+  Payload: `application_id`, `account_number`, `client_id`, `timestamp`
+
+**`account.cancelled`** — Application cancelled
+  Payload: `application_id`, `cancelled_by`, `timestamp`
+
+**`account.status_viewed`** — Application status viewed
+  Payload: `application_id`, `viewed_by`, `timestamp`
+
+**`products.listed`** — Available products listed for client
+  Payload: `client_id`, `timestamp`
+
 ## Connects to
 
 - **client-onboarding** *(required)* — KYC onboarding must be completed before account can be opened

@@ -63,6 +63,20 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `A11Y_FOCUS_TRAP_FAILED` — Modal dialog failed to trap focus within its boundaries.
 - `A11Y_SKIP_LINK_MISSING` — Page is missing a skip navigation link as the first focusable element.
 
+## Events
+
+**`accessibility.focus.trapped`** — Focus was successfully trapped within a modal dialog
+  Payload: `component_id`, `role`
+
+**`accessibility.live_region.updated`** — A live region announced dynamic content to assistive technology
+  Payload: `component_id`, `aria_live`, `content`
+
+**`accessibility.error.announced`** — A validation error was linked to its input and announced
+  Payload: `component_id`, `error_message`
+
+**`accessibility.audit.completed`** — Automated accessibility audit completed on a page or component
+  Payload: `page_url`, `violations_count`, `warnings_count`
+
 ## Connects to
 
 - **form-builder** *(recommended)* — Form builder should enforce accessible labels, error linking, and keyboard operation

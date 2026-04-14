@@ -83,6 +83,14 @@ Specifies 2 acceptance outcomes that any implementation must satisfy, regardless
 - `INVALID_CREDENTIALS` — IDP authentication failed — contact Customer Services
 - `DATASET_NOT_PROVISIONED` — Requested dataset has not been provisioned for this subscriber
 
+## Events
+
+**`data.delivery.completed`** — All subscribed interest rate derivatives record types delivered for the day
+  Payload: `run_date`, `record_types`, `file_name`
+
+**`subscriber.provisioned`** — New subscriber provisioned with IDP credentials and dataset access
+  Payload: `subscriber_id`, `dataset_name`
+
 ## Connects to
 
 - **equities-eod-data-delivery** *(optional)* — Equities EOD data uses same FTP delivery infrastructure

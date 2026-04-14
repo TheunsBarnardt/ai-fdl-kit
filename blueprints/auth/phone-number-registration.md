@@ -79,6 +79,38 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `REGISTRATION_LOCK_REQUIRED` — This account has a registration lock. Enter your PIN to continue.
 - `REGISTRATION_LOCK_MISMATCH` — Incorrect registration lock PIN.
 
+## Events
+
+**`registration.success`** — New account successfully created
+  Payload: `phone_number`, `account_uuid`, `pni_uuid`, `verification_type`
+
+**`registration.reregistration_success`** — Existing account successfully re-registered
+  Payload: `phone_number`, `account_uuid`, `verification_type`
+
+**`registration.rate_limited`** — Registration attempt was rate-limited
+  Payload: `phone_number`
+
+**`registration.lock_mismatch`** — Registration lock PIN was incorrect; existing credentials frozen
+  Payload: `phone_number`
+
+**`registration.lock_required`** — Registration lock PIN required but not supplied
+  Payload: `phone_number`
+
+**`registration.invalid_key_signatures`** — Pre-key upload rejected due to invalid signatures
+  Payload: `phone_number`
+
+**`registration.missing_capabilities`** — Device does not have required capabilities
+  Payload: `phone_number`
+
+**`registration.unverified_session`** — Attempted registration with an unverified session
+  Payload: `session_id`
+
+**`registration.recovery_password_invalid`** — Recovery password did not match stored credential
+  Payload: `phone_number`
+
+**`registration.device_transfer_available`** — Device transfer is possible and user has not opted out
+  Payload: `phone_number`
+
 ## Connects to
 
 - **registration-lock-pin** *(required)* — Registration lock verification is an integral gate in the registration flow

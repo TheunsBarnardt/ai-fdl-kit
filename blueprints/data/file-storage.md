@@ -76,6 +76,23 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `FILE_QUARANTINED` — File is quarantined due to a detected threat and cannot be downloaded
 - `FILE_UPLOAD_URL_EXPIRED` — Presigned upload URL has expired; request a new one
 
+## Events
+
+**`file.uploaded`** — A file was uploaded and metadata recorded
+  Payload: `file_id`, `filename`, `content_type`, `size_bytes`, `uploaded_by`
+
+**`file.downloaded`** — A file was downloaded by a user
+  Payload: `file_id`, `downloaded_by`
+
+**`file.deleted`** — A file was deleted
+  Payload: `file_id`, `filename`, `deleted_by`
+
+**`file.scanned`** — A file completed virus scanning
+  Payload: `file_id`, `scan_status`, `scan_engine`
+
+**`file.quarantined`** — A file was quarantined due to a detected threat
+  Payload: `file_id`, `threat_name`, `uploaded_by`
+
 ## Connects to
 
 - **data-import-export** *(recommended)* — Import/export operations use file storage for uploaded and generated files

@@ -43,6 +43,20 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 
 - `VEHICLE_API_TIMEOUT` — Vehicle is not responding. Will retry with backoff.
 
+## Events
+
+**`vehicle.sleep.entered`** — Vehicle transitioned into deep sleep mode
+  Payload: `vehicle_id`, `timestamp`
+
+**`vehicle.sleep.exited`** — Vehicle woke from sleep and is responding normally
+  Payload: `vehicle_id`, `timestamp`, `sleep_duration_min`
+
+**`vehicle.offline`** — Vehicle stopped responding to API requests
+  Payload: `vehicle_id`, `timestamp`
+
+**`vehicle.online`** — Vehicle is reachable and responding normally
+  Payload: `vehicle_id`, `timestamp`
+
 ## Connects to
 
 - **vehicle-state-machine** *(extends)*

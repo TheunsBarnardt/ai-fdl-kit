@@ -65,6 +65,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `CHART_INVALID_DATA` — Data format is incompatible with the selected chart type
 - `CHART_RENDER_FAILED` — Chart failed to render. Please check the data and configuration.
 
+## Events
+
+**`chart.rendered`** — A chart was successfully rendered
+  Payload: `chart_type`, `series_count`, `data_point_count`
+
+**`chart.data_updated`** — Chart data was updated (manually or via real-time stream)
+  Payload: `chart_type`, `series_count`, `is_real_time`
+
+**`chart.clicked`** — A data point, bar, or slice was clicked
+  Payload: `chart_type`, `series_name`, `data_point`, `value`
+
+**`chart.empty`** — Chart rendered with no data
+  Payload: `chart_type`
+
+**`chart.series_toggled`** — A data series was shown or hidden via legend
+  Payload: `series_name`, `visible`
+
 ## Connects to
 
 - **dashboard-analytics** *(recommended)* — Charts are commonly used as dashboard widgets

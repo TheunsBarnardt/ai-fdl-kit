@@ -41,6 +41,20 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 
 - `PRIORITY_OUT_OF_RANGE` — Task priority must be an integer between 0 and 100.
 
+## Events
+
+**`task.priority.assigned`** — High-priority task successfully placed in a vehicle route
+  Payload: `job_id`, `priority`, `vehicle_id`
+
+**`task.priority.replaced`** — Lower-priority task evicted to accommodate higher-priority task
+  Payload: `evicted_job_id`, `evicted_priority`, `inserted_job_id`, `inserted_priority`, `vehicle_id`
+
+**`task.priority.unassigned`** — Task with non-zero priority could not be assigned
+  Payload: `job_id`, `priority`, `reason`
+
+**`solution.priority.summary`** — Total priority sum of assigned tasks reported in solution
+  Payload: `total_priority_sum`, `unassigned_priority_loss`
+
 ## Connects to
 
 - **vrp-solving** *(required)*

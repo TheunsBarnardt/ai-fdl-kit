@@ -53,6 +53,17 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `CALL_LINK_UNAUTHORIZED` — Authentication required to create call links.
 - `CALL_LINK_INVALID_REQUEST` — Invalid call-link credential request.
 
+## Events
+
+**`call_link.credential_issued`** — A ZK call-link creation credential was issued for the requesting account
+  Payload: `account_id`, `redemption_time`
+
+**`call_link.auth_batch_issued`** — A batch of daily call-link authentication credentials was issued alongside group auth credentials
+  Payload: `account_id`, `redemption_start`, `redemption_end`
+
+**`call_link.rate_limited`** — A call-link credential request was rejected due to per-account rate limiting
+  Payload: `account_id`
+
 ## Connects to
 
 - **encrypted-group-metadata** *(required)* — Call-link authentication credentials are co-issued with group authentication credentials and share the same ZK server secret parameters

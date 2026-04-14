@@ -60,6 +60,23 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `CHANNEL_POST_RESTRICTED` — This channel is read-only. Only moderators and owners may post messages.
 - `CHANNEL_ARCHIVED` — This channel has been archived and no longer accepts new messages.
 
+## Events
+
+**`channel_messaging.channel_created`** — Fires when a new channel is created
+  Payload: `channel_id`, `channel_name`, `channel_type`
+
+**`channel_messaging.member_joined`** — Fires when a user joins a channel
+  Payload: `channel_id`, `message_id`
+
+**`channel_messaging.member_removed`** — Fires when a user is removed from or leaves a channel
+  Payload: `channel_id`, `message_id`
+
+**`channel_messaging.message_sent`** — Fires when a message is posted in a channel
+  Payload: `message_id`, `channel_id`, `sent_at`
+
+**`channel_messaging.channel_archived`** — Fires when a channel is archived
+  Payload: `channel_id`
+
 ## Connects to
 
 - **direct-messaging** *(recommended)* — Shares the underlying message delivery and notification infrastructure

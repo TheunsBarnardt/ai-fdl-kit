@@ -37,6 +37,14 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 - `GUEST_ACCESS_FORBIDDEN` — Guest access is not permitted for this room
 
+## Events
+
+**`guest.joined`** — A guest user has joined a room with guest access enabled
+  Payload: `guest_user_id`, `room_id`
+
+**`guest.access_revoked`** — Guest access was disabled and existing guests were removed
+  Payload: `room_id`, `kicked_guest_count`
+
 ## Connects to
 
 - **room-invitations** *(required)* — Guest join follows the same membership state machine as regular joins

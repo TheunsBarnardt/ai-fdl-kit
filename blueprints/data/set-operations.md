@@ -49,6 +49,42 @@ Specifies 17 acceptance outcomes that any implementation must satisfy, regardles
 
 - `WRONG_TYPE` — Operation against a key holding the wrong kind of value
 
+## Events
+
+**`set.added`**
+
+**`set.removed`**
+
+**`set.members_read`**
+
+**`set.ismember_check`**
+
+**`set.mismember_check`**
+
+**`set.cardinality`**
+
+**`set.random_draw`**
+
+**`set.popped`**
+
+**`set.moved`**
+
+**`set.intersection`**
+
+**`set.intersection_stored`**
+
+**`set.intercard`**
+
+**`set.union`**
+
+**`set.union_stored`**
+
+**`set.difference`**
+
+**`set.difference_stored`**
+
+**`set.scan`**
+
 ## Connects to
 
 - **string-key-value** *(optional)* — Elements are strings or numeric values

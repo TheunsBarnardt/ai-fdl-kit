@@ -67,6 +67,23 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `CHECKOUT_PAYMENT_FAILED` — Payment could not be authorized. Please try a different payment method.
 - `CHECKOUT_ADDRESS_INVALID` — The shipping address is incomplete or invalid.
 
+## Events
+
+**`cart.item_added`** — Item added to shopping cart
+  Payload: `cart_id`, `product_id`, `quantity`, `unit_price`
+
+**`cart.item_removed`** — Item removed from shopping cart
+  Payload: `cart_id`, `product_id`, `quantity_released`
+
+**`checkout.started`** — Customer initiated checkout flow
+  Payload: `cart_id`, `customer_id`, `item_count`, `subtotal`
+
+**`checkout.completed`** — Checkout completed and order placed
+  Payload: `cart_id`, `order_id`, `total`
+
+**`order.placed`** — New order created from cart
+  Payload: `order_id`, `customer_id`, `items`, `total`, `shipping_method`
+
 ## Connects to
 
 - **payment-methods** *(required)* — Checkout requires a payment method for order placement

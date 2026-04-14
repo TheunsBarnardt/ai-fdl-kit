@@ -63,6 +63,26 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 - `RETURN_ALREADY_PROCESSED` — A return has already been processed for these items.
 - `REFUND_PAYMENT_FAILED` — Unable to process refund to the original payment method. Store credit will be issued instead.
 
+## Events
+
+**`refund.requested`** — Customer submitted a return and refund request
+  Payload: `return_id`, `order_id`, `customer_id`, `items`, `reason`
+
+**`refund.approved`** — Return request approved by support or auto-approved
+  Payload: `return_id`, `order_id`, `refund_amount`, `refund_method`
+
+**`refund.processed`** — Refund issued to customer
+  Payload: `return_id`, `order_id`, `refund_amount`, `refund_method`
+
+**`refund.rejected`** — Return request denied
+  Payload: `return_id`, `order_id`, `reason`
+
+**`return.shipped`** — Customer shipped the return package
+  Payload: `return_id`, `return_tracking`, `carrier`
+
+**`return.received`** — Return package received at warehouse
+  Payload: `return_id`, `tracking_number`, `received_date`
+
 ## Connects to
 
 - **cart-checkout** *(required)* — Returns reference original orders placed through checkout

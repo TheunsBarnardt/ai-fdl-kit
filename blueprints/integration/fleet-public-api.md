@@ -59,6 +59,17 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `API_CREDENTIAL_EXPIRED` — Your API credential has expired. Please generate a new key.
 - `API_PERMISSION_DENIED` — You do not have permission to perform this action.
 
+## Events
+
+**`api.credential_created`** — Fired when a new API credential is created
+  Payload: `credential_id`, `name`, `test_mode`
+
+**`api.credential_revoked`** — Fired when an API credential is revoked
+  Payload: `credential_id`, `name`
+
+**`api.request_logged`** — Fired for each authenticated API request
+  Payload: `credential_id`, `endpoint`, `method`, `status_code`, `timestamp`
+
 ## Connects to
 
 - **multi-tenant-organization** *(required)* — API credentials are scoped to an organization

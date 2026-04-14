@@ -50,6 +50,23 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - `BREAK_DUPLICATE_ID` — Two breaks for the same vehicle share the same id.
 - `BREAK_NO_FEASIBLE_POSITION` — No route position satisfies break time window and load constraints simultaneously.
 
+## Events
+
+**`route.break.scheduled`** — Break placed at a feasible position in the route
+  Payload: `vehicle_id`, `break_id`, `position_in_route`, `scheduled_start`
+
+**`route.break.waiting`** — Vehicle waiting at break position for window to open
+  Payload: `vehicle_id`, `break_id`, `waiting_time`
+
+**`route.break.violated`** — Plan mode — required break omitted from submitted route
+  Payload: `vehicle_id`, `break_id`, `violation_cause`
+
+**`route.shift.violated`** — Plan mode — route extends beyond vehicle shift window
+  Payload: `vehicle_id`, `violation_type`, `delay_seconds`
+
+**`route.break.infeasible`** — No feasible break position found in route
+  Payload: `vehicle_id`, `break_id`
+
 ## Connects to
 
 - **vrp-solving** *(required)*

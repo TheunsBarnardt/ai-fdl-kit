@@ -51,6 +51,23 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `THREAD_PARENT_NOT_FOUND` — The original message could not be found. It may have been deleted.
 - `THREAD_ACCESS_DENIED` — You do not have access to this thread.
 
+## Events
+
+**`message_threading.reply_posted`** — Fires when a new reply is added to a thread
+  Payload: `reply_id`, `thread_id`, `room_id`, `sent_at`
+
+**`message_threading.follower_added`** — Fires when a user is added to the thread follower list (manually or via reply)
+  Payload: `thread_id`, `follower_ids`
+
+**`message_threading.thread_followed`** — Fires when a user explicitly follows a thread
+  Payload: `thread_id`, `follower_ids`
+
+**`message_threading.thread_unfollowed`** — Fires when a user explicitly unfollows a thread
+  Payload: `thread_id`, `follower_ids`
+
+**`message_threading.thread_read`** — Fires when a user marks a thread as read
+  Payload: `thread_id`, `room_id`
+
 ## Connects to
 
 - **channel-messaging** *(required)* — Threads are anchored to messages in channels or direct conversations

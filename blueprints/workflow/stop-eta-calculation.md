@@ -45,6 +45,17 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 
 - `ETA_ROUTING_UNAVAILABLE` — Travel time data unavailable for a step pair; cannot compute ETA.
 
+## Events
+
+**`route.eta.computed`** — ETAs calculated for all steps in a vehicle route
+  Payload: `vehicle_id`, `steps`, `total_duration`, `total_distance`, `total_waiting_time`
+
+**`step.waiting_time.recorded`** — Vehicle waited at a stop for a time window
+  Payload: `vehicle_id`, `step_id`, `waiting_time`
+
+**`route.distance.reported`** — Per-step and total distances appended to route
+  Payload: `vehicle_id`, `total_distance`, `per_step_cumulative_distance`
+
 ## Connects to
 
 - **vrp-solving** *(required)*

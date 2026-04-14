@@ -69,6 +69,20 @@ Specifies 8 acceptance outcomes that any implementation must satisfy, regardless
 - `BANK_LINE_ALREADY_RECONCILED` — This statement line is already fully reconciled.
 - `BANK_CURRENCY_MISMATCH` — Foreign currency amount required when transaction currency differs from journal currency.
 
+## Events
+
+**`bank.statement.imported`** — Bank statement imported from file
+  Payload: `statement_id`, `journal_id`, `line_count`, `balance_start`, `balance_end`
+
+**`bank.line.auto_reconciled`** — Statement line automatically matched by reconciliation model
+  Payload: `line_id`, `model_id`, `matched_entries`
+
+**`bank.line.manually_reconciled`** — Statement line manually matched by accountant
+  Payload: `line_id`, `matched_entry_ids`, `remaining_residual`
+
+**`bank.reconciliation.complete`** — Full reconciliation achieved for a set of entries
+  Payload: `full_reconcile_id`, `line_ids`
+
 ## Connects to
 
 - **invoicing-payments** *(required)* — Statement lines reconciled against invoice payment entries

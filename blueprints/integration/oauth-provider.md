@@ -79,6 +79,26 @@ Specifies 10 acceptance outcomes that any implementation must satisfy, regardles
 - `OAUTH_INVALID_SCOPE` — One or more requested scopes are not allowed
 - `OAUTH_CONSENT_DENIED` — User denied the authorization request
 
+## Events
+
+**`oauth.client_registered`** — New OAuth client application registered
+  Payload: `client_id`, `app_name`, `allowed_scopes`, `grant_types`, `timestamp`
+
+**`oauth.authorized`** — User granted authorization to a client application
+  Payload: `client_id`, `user_id`, `scopes`, `timestamp`
+
+**`oauth.token_issued`** — Access and refresh tokens issued to a client
+  Payload: `client_id`, `user_id`, `scopes`, `token_type`, `timestamp`
+
+**`oauth.token_revoked`** — Token revoked by client or user
+  Payload: `client_id`, `user_id`, `token_type`, `timestamp`
+
+**`oauth.token_reuse_detected`** — Refresh token reuse detected — possible token theft
+  Payload: `client_id`, `user_id`, `token_family_id`, `timestamp`, `ip_address`
+
+**`oauth.consent_revoked`** — User revoked consent for a client application
+  Payload: `client_id`, `user_id`, `timestamp`
+
 ## Connects to
 
 - **login** *(required)* — Users must authenticate before authorizing third-party apps

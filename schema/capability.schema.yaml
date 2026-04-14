@@ -1,0 +1,170 @@
+# ============================================================
+# Feature Definition Language (FDL) — Capability Meta-Schema v0.1.0
+# ============================================================
+# Capability blueprints describe reusable primitives (design systems,
+# password hashing, rate limiting, etc.) that feature blueprints consume
+# via `uses:`. Lighter than the feature schema — no outcomes/flows/errors;
+# the contract + per-language implementations are the core.
+#
+# Files: blueprints/capabilities/**/*.capability.yaml
+# Validated by: scripts/validate.js (capabilityJsonSchema — the runtime equivalent)
+#
+# Analogous to C# `using`, Java `import`, or Rust `use`: a feature declares
+# `uses: [ui-design-system, password-hashing]` and code generators resolve
+# each to its per-language implementation, applying the capability's
+# contract + anti_patterns as MUST constraints.
+# ============================================================
+
+schema:
+  name: "FDL Capability Blueprint"
+  version: "0.1.0"
+  description: "Reusable primitives consumed by feature blueprints via `uses:`"
+
+# ─── REQUIRED TOP-LEVEL FIELDS ─────────────────────────────
+
+required:
+  capability:
+    type: string
+    description: "Unique kebab-case identifier — matches feature blueprints' `uses:` entries"
+    pattern: "^[a-z][a-z0-9-]*$"
+
+  version:
+    type: string
+    description: "Semantic version of this capability"
+    pattern: "^\\d+\\.\\d+\\.\\d+$"
+
+  description:
+    type: string
+    maxLength: 300
+
+  contract:
+    type: object
+    description: |
+      Language-agnostic guarantees this capability provides. Generators
+      treat each `guarantees` entry as a MUST constraint when the capability
+      is imported via `uses:`.
+    required: [guarantees]
+    properties:
+      guarantees:
+        type: array
+        minItems: 1
+        items:
+          type: string
+      invariants:
+        type: array
+        description: "Properties that must always hold (e.g. 'plaintext passwords never persisted')"
+        items:
+          type: string
+
+# ─── OPTIONAL TOP-LEVEL FIELDS ─────────────────────────────
+
+optional:
+  kind:
+    type: string
+    description: |
+      Family grouping for organization and lookup. Common values: ui,
+      security, data, observability, integration. Not strictly enumerated —
+      capabilities can introduce new kinds.
+
+  stability:
+    type: string
+    oneOf: [experimental, stable, deprecated]
+    description: |
+      Generators MUST refuse `deprecated` and surface `replaced_by`.
+      Generators SHOULD warn on `experimental`. `stable` is the default.
+
+  replaced_by:
+    type: string
+    description: "When `stability: deprecated`, the capability that supersedes this one"
+
+  aliases:
+    type: array
+    description: "Alternate names consumers may use to reference this capability"
+    items:
+      type: string
+
+  anti_patterns:
+    type: array
+    description: |
+      Hard constraints for generators. Each entry is a `{ rule, why }` pair.
+      Violating any rule is a generation defect — not advisory.
+    items:
+      type: object
+      required: [rule, why]
+      properties:
+        rule:
+          type: string
+        why:
+          type: string
+
+  implementations:
+    type: object
+    description: |
+      Per-framework / per-language mapping. Keys are target identifiers
+      (react-web, flutter, react-native, express, dotnet, python-fastapi, etc.).
+      Each entry carries the concrete library choices, import statements,
+      usage patterns, config, and pitfalls the generator needs.
+      Additive — new targets can be added without breaking existing consumers.
+    # Keys are free-form target identifiers. Values are objects with the
+    # following optional properties:
+    target_shape:
+      package_manager:
+        type: string
+      dependencies:
+        type: array
+        items:
+          type: object
+          required: [name]
+          properties:
+            name:
+              type: string
+            version:
+              type: string
+            dev:
+              type: boolean
+      component_library:
+        type: string
+      imports:
+        type: object
+        description: "Symbol → import-statement map"
+      usage_patterns:
+        type: object
+        description: "Named code templates (e.g. button: '<Button />')"
+      pitfalls:
+        type: array
+        items:
+          type: string
+      config:
+        type: object
+        description: "Additional per-target config (theme tokens, overrides, etc.)"
+
+  provenance:
+    type: array
+    description: |
+      Citations for the contract's rules (OWASP ASVS, NIST 800-63B, WCAG, etc.).
+      Stops future-AI from "simplifying" rules that look arbitrary.
+    items:
+      type: object
+      required: [source]
+      properties:
+        source:
+          type: string
+        reference:
+          type: string
+        url:
+          type: string
+
+  tests:
+    type: array
+    description: "Canonical self-verification fixtures generators use to check their output"
+    items:
+      type: object
+      properties:
+        name:
+          type: string
+        given:
+          type: string
+        then:
+          type: string
+        forbid:
+          type: string

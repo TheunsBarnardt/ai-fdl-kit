@@ -70,6 +70,23 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `ECOMMERCE_PRODUCT_UNAVAILABLE` — One or more products in your cart are no longer available.
 - `ECOMMERCE_ADDRESS_INVALID` — Please provide a valid billing address to proceed.
 
+## Events
+
+**`ecommerce.cart.item_added`** — Product added to shopping cart
+  Payload: `cart_id`, `product_id`, `quantity`, `price`
+
+**`ecommerce.cart.updated`** — Cart quantities or items changed
+  Payload: `cart_id`, `cart_total`, `cart_quantity`
+
+**`ecommerce.order.placed`** — Order successfully placed after payment
+  Payload: `order_id`, `customer_id`, `amount_total`, `payment_method`
+
+**`ecommerce.wishlist.item_added`** — Product saved to wishlist
+  Payload: `product_id`, `shopper_id`
+
+**`ecommerce.visitor.product_viewed`** — Product detail page viewed by visitor
+  Payload: `visitor_id`, `product_id`
+
 ## Connects to
 
 - **quotation-order-management** *(required)* — The shopping cart is a draft sales order, confirmed at checkout

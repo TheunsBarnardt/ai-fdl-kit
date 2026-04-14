@@ -45,6 +45,14 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 - `TRIP_DEVICE_NOT_FOUND` — The device referenced does not exist
 
+## Events
+
+**`trip.started`** — A new vehicle trip has begun
+  Payload: `device_id`, `start_time`, `start_latitude`, `start_longitude`, `driver_unique_id`
+
+**`trip.ended`** — A vehicle trip has concluded
+  Payload: `device_id`, `start_time`, `end_time`, `distance_meters`, `max_speed`, `fuel_used`, `driver_unique_id`
+
 ## Connects to
 
 - **gps-position-ingestion** *(required)* — Position data drives motion state transitions

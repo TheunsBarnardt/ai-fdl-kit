@@ -79,6 +79,26 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `JC_SEQUENCE_VIOLATION` — Previous operation must be completed before starting this sequential operation.
 - `JC_INSPECTION_REQUIRED` — Quality inspection must be completed and approved before finishing this job card.
 
+## Events
+
+**`work_order.submitted`** — Fired when a work order is submitted and job cards are created
+  Payload: `work_order_id`, `production_item`, `qty`, `bom_no`
+
+**`work_order.completed`** — Fired when all quantities are produced and work order is completed
+  Payload: `work_order_id`, `production_item`, `produced_qty`, `actual_operating_cost`
+
+**`work_order.stopped`** — Fired when production is halted before completion
+  Payload: `work_order_id`, `production_item`, `produced_qty`, `qty`
+
+**`job_card.started`** — Fired when a job card begins time logging
+  Payload: `job_card_id`, `work_order_id`, `operation`, `workstation`
+
+**`job_card.completed`** — Fired when a job card operation is fully completed
+  Payload: `job_card_id`, `work_order_id`, `operation`, `manufactured_qty`, `total_time_in_mins`
+
+**`material.transferred`** — Fired when raw materials are transferred to WIP warehouse for manufacturing
+  Payload: `work_order_id`, `items`, `source_warehouse`, `wip_warehouse`
+
 ## Connects to
 
 - **bill-of-materials** *(required)* — Work orders consume BOMs to determine materials and operations

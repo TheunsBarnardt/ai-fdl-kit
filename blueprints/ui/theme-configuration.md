@@ -50,6 +50,20 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `INVALID_THEME_FORMAT` — Theme value does not match expected CSS format (hex, rgb, hsl, length).
 - `BREAKPOINT_ORDER_INVALID` — Breakpoints must be ordered from smallest to largest for responsive cascading.
 
+## Events
+
+**`theme.color_defined`**
+  Payload: `color_name`, `color_value`, `timestamp`
+
+**`theme.spacing_extended`**
+  Payload: `spacing_name`, `spacing_value`
+
+**`theme.dark_mode_enabled`**
+  Payload: `dark_mode_strategy`
+
+**`theme.error_invalid_reference`**
+  Payload: `missing_key`, `utility_name`
+
 ## Connects to
 
 - **utility-composition** *(recommended)* — Uses theme values to generate utilities

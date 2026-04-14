@@ -44,6 +44,23 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - `DEVICE_DISPLAY_NAME_TOO_LONG` — Device display name is too long (maximum 100 characters)
 - `DEVICE_NOT_FOUND` — Device not found on this account
 
+## Events
+
+**`device.registered`** — A new device has been added to a user's account
+  Payload: `user_id`, `device_id`
+
+**`device.updated`** — A device's display name was changed
+  Payload: `user_id`, `device_id`
+
+**`device.deleted`** — A device was removed and its sessions invalidated
+  Payload: `user_id`, `device_id`
+
+**`device.purged`** — A device was automatically removed by the stale-device cleanup task
+  Payload: `user_id`, `device_id`
+
+**`device.list_retrieved`** — A user's device list was retrieved
+  Payload: `user_id`, `device_count`
+
 ## Connects to
 
 - **cross-signing-verification** *(recommended)* — Cross-signing keys are associated with devices and updated on device changes

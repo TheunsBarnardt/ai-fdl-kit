@@ -44,6 +44,11 @@ Specifies 3 acceptance outcomes that any implementation must satisfy, regardless
 
 - `OVERSPEED_DEVICE_NOT_FOUND` — The device referenced does not exist
 
+## Events
+
+**`device.overspeed`** — Device exceeded the applicable speed limit for the minimum required duration
+  Payload: `device_id`, `speed`, `speed_limit`, `geofence_id`, `fix_time`, `position_id`
+
 ## Connects to
 
 - **gps-position-ingestion** *(required)* — Position speed values drive overspeed detection

@@ -62,6 +62,29 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - `TEAM_NOT_FOUND` — Team not found.
 - `TEAM_PERMISSION_DENIED` — You do not have permission to perform this action on this team.
 
+## Events
+
+**`team.created`** — A new team workspace was created
+  Payload: `team_id`, `name`, `type`, `actor_id`, `timestamp`
+
+**`team.updated`** — Team settings were modified
+  Payload: `team_id`, `changed_fields`, `actor_id`, `timestamp`
+
+**`team.archived`** — Team was soft-deleted
+  Payload: `team_id`, `actor_id`, `timestamp`
+
+**`team.restored`** — Archived team was reactivated
+  Payload: `team_id`, `actor_id`, `timestamp`
+
+**`team.member_added`** — A user joined or was added to the team
+  Payload: `team_id`, `user_id`, `roles`, `actor_id`, `timestamp`
+
+**`team.member_removed`** — A user left or was removed from the team
+  Payload: `team_id`, `user_id`, `actor_id`, `timestamp`
+
+**`team.scheme_updated`** — Permission scheme assignment for the team changed
+  Payload: `team_id`, `scheme_id`, `actor_id`, `timestamp`
+
 ## Connects to
 
 - **role-based-access-control** *(required)* — Roles and permissions govern what team members can do
