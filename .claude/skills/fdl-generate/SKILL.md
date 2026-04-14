@@ -850,6 +850,69 @@ Iteration 3: patch relationships
 Final: 87/100 — PASS
 ```
 
+## Step 8: Post-Gen Gates (MANDATORY)
+
+After Step 7 reports a passing score, run the post-gen pipeline. **Generated code does not ship until every gate declared by the resolved capabilities passes.** A failing gate is a generation defect — re-plan, do not ship.
+
+The gates are:
+
+| # | Gate | Script | Capability that pins it | Blocks emit on |
+|---|---|---|---|---|
+| 1 | Static fake/placeholder scan | `scripts/post-gen-scan.js` | `code-quality-baseline` + `security-baseline` | any `severity: critical` finding |
+| 2 | Compile / type-check | `scripts/compile-gate.js` | implicit (target ecosystem) | non-zero exit / any `severity: critical` finding |
+| 3 | Cold-context AI PR review | `/fdl-pr-review` skill | `ai-pr-review` | any `severity: critical` finding |
+
+Gate 3 is wired in once the `/fdl-pr-review` skill is available (see the `ai-pr-review` capability blueprint for its contract). Until then, treat Gates 1 + 2 as the authoritative blocking layer.
+
+### 8.1 — Run Gate 1 (post-gen scan)
+
+For each generated feature, invoke:
+
+```
+node scripts/post-gen-scan.js \
+  --code <output-dir-for-this-feature> \
+  --blueprint docs/api/blueprints/<category>/<feature>.json \
+  --json
+```
+
+If multiple blueprints contributed to the same output dir (multi-feature run), pass `--blueprint` once per feature so the endpoint cross-check sees the full declared set.
+
+Read the JSON report. **If `summary.critical > 0`, do NOT ship.** Print the findings to the user, identify which generated file produced each one, and fix the source — usually by:
+
+- Removing the placeholder marker / identifier and finishing the implementation.
+- Replacing the hardcoded sample value with a config lookup, env var, or blueprint-pinned constant.
+- Replacing the invented endpoint literal with the value from `blueprint.api.http.path`.
+- Removing any leaked secret immediately and instructing the user to rotate the credential.
+
+After patching, re-run Gate 1 until clean. Hard cap: **3 patch iterations.** If still failing, stop and surface the findings to the user — do not ship a partial fix.
+
+### 8.2 — Run Gate 2 (compile / type-check)
+
+```
+node scripts/compile-gate.js --code <output-dir> --json
+```
+
+The script auto-detects the target from `tsconfig.json` / `pubspec.yaml` / `go.mod` / `pyproject.toml`. If the relevant tool isn't installed (e.g., `tsc`, `pyright`, `dart`, `go`), the gate emits a `tool-unavailable` warn — **don't treat that as a pass.** Surface it to the user and either install the tool or instruct them to run the gate themselves before merging.
+
+If the gate reports `summary.critical > 0`, parse the findings, locate each `{file, line}` pair in the generated code, and patch. Same 3-iteration cap as Gate 1.
+
+### 8.3 — Run Gate 3 (cold-context AI PR review)
+
+Once the `/fdl-pr-review` skill exists, invoke it after Gates 1 + 2 pass:
+
+```
+/fdl-pr-review <output-dir>
+```
+
+The reviewer reads only the resolved blueprint JSON, every `uses:` capability JSON, and the diff — never this skill's planning notes or chain-of-thought. Any finding with `severity: critical` blocks emit. See `blueprints/capabilities/quality/ai-pr-review.capability.yaml` for the contract.
+
+### Non-negotiable rules
+
+1. **A failing gate is a generation defect.** Do not lower severity, mute the rule, or skip the gate to "unblock" emit. Fix the code.
+2. **Every gate's findings must be cited in the final summary** (`POST-GEN GATES` block, see Output to User). Silent passes hide defects from the user.
+3. **No emit without all three gates green** (or, while Gate 3 is still being built, both Gates 1 + 2 green plus a clear note that Gate 3 is pending).
+4. **Generated code must pass every gate declared by the feature's resolved capabilities.** If a feature `uses: [ai-pr-review]` and the reviewer skill is unavailable, the only correct response is to surface that to the user — never silently skip.
+
 ## Output to User
 
 Show a clean summary (no YAML, no implementation details). Every block below is **conditionally included** — only show a block when its step actually produced something. Empty headings are forbidden.
@@ -901,6 +964,11 @@ POST-PROCESSING:
   ✓ Tests emitted   — 6 test cases across 6 outcomes (Vitest)
   ✓ Verify loop     — 2/2 iterations, all green (12/12 passing)
 
+POST-GEN GATES:
+  ✓ Gate 1 (post-gen-scan)  — clean, 0 findings
+  ✓ Gate 2 (compile-gate)   — tsc --noEmit, 0 errors
+  ⚠ Gate 3 (ai-pr-review)   — pending (skill not yet wired)
+
 COVERAGE:
   ✓ login           87/100  (fields 20/20 · outcomes 18/20 · errors 13/15 · rules 14/15 · events 9/10 · validation 8/8 · relationships 5/5)
   ✓ dashboard-analytics  82/100
@@ -924,6 +992,7 @@ DEMO CREDENTIALS (mock data):
 - **`DATA SOURCES` block** — list every hit from Step 0c. One line for the skill URL, one indented line for install, one for OAuth/setup if applicable, one for required env vars. **Only include this block when Step 0c produced at least one hit.**
 - **`USER-PROVIDED SKILLS` block** — list every entry the user pasted in Step 0e. One line for the name + URL, one indented line for the install command, one indented line noting that FDL doesn't auto-wire imports for these. **Only include this block when Step 0e produced at least one parsed entry.**
 - **`POST-PROCESSING` block** — list Step 5 (tests) and Step 6 (verify loop) only if they ran. When the verify loop stopped at the 3-iteration cap, show it as `⚠ Verify loop   — stopped at 3 iterations, {N} tests still failing` and include the failing test names under `NEEDS YOUR WORK`.
+- **`POST-GEN GATES` block** — **always include** (Step 8 is mandatory). One line per gate: ✓ for clean, ⚠ for warn-only or skipped (tool-unavailable, skill-not-wired), ✗ for critical. When any gate reports ✗, the run is a generation defect — the FILES block must be replaced with a `BLOCKED` notice that lists each failing finding (`{file}:{line} [{rule}] {message}`) and the run does not declare success.
 - **`COVERAGE` block** — **always include** (Step 7 is mandatory). One line per blueprint showing `feature  score/100  (dimension breakdown)`. Mark ✓ for ≥ 70, ⚠ for 50–69, ✗ for < 50. If the improvement loop ran, append `(improved +N from baseline M)`. When the 3-iteration cap was hit and the score is still below 70, the blueprint must ALSO be listed under `NEEDS YOUR WORK` with its remaining gaps.
 - **`FILES` block** — tag cross-cutting glue files (middleware, layouts, .env.example) with a short suffix so the user can see which files are feature-owned vs multi-feature glue.
 - **Never show empty blocks.** The absence of a block tells the user the step didn't run — don't emit `STACK COMPANIONS: (none)`.
