@@ -75,6 +75,67 @@ async function fetchText(url) {
   return await res.text();
 }
 
+// ─── Update check ─────────────────────────────────────────
+// Checks npm registry once per 24h and warns if a newer version is available.
+// Silent on any failure — never blocks the CLI.
+
+const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+function updateCheckCachePath() {
+  const home = process.env.HOME || process.env.USERPROFILE;
+  if (!home) return null;
+  const base = process.env.XDG_CACHE_HOME || path.join(home, ".cache");
+  return path.join(base, "ai-fdl-kit", "update-check.json");
+}
+
+function compareSemver(a, b) {
+  const pa = a.split(".").map((n) => parseInt(n, 10) || 0);
+  const pb = b.split(".").map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) > (pb[i] || 0)) return 1;
+    if ((pa[i] || 0) < (pb[i] || 0)) return -1;
+  }
+  return 0;
+}
+
+async function maybeCheckForUpdate(currentVersion) {
+  if (process.env.CI || process.env.NO_UPDATE_CHECK) return;
+  const cachePath = updateCheckCachePath();
+  if (!cachePath) return;
+  try {
+    let cache = {};
+    try {
+      cache = JSON.parse(fs.readFileSync(cachePath, "utf-8"));
+    } catch {}
+    const now = Date.now();
+    let latest = cache.latestVersion;
+    if (!latest || !cache.lastCheck || now - cache.lastCheck > UPDATE_CHECK_INTERVAL_MS) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 1500);
+      try {
+        const res = await fetch("https://registry.npmjs.org/ai-fdl-kit/latest", {
+          signal: ctrl.signal,
+          headers: { accept: "application/json" },
+        });
+        if (!res.ok) return;
+        const body = await res.json();
+        latest = body.version;
+      } finally {
+        clearTimeout(timer);
+      }
+      fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+      fs.writeFileSync(cachePath, JSON.stringify({ lastCheck: now, latestVersion: latest }));
+    }
+    if (latest && compareSemver(latest, currentVersion) > 0) {
+      printErr("");
+      printErr(yellow(`  ↑ ai-fdl-kit ${latest} is available (you have ${currentVersion})`));
+      printErr(dim(`    run ${cyan("npx ai-fdl-kit@latest")} to use the latest version`));
+    }
+  } catch {
+    // swallow — update check is best-effort
+  }
+}
+
 // ─── AI tool install targets ──────────────────────────────
 
 const AI_TOOLS = {
@@ -617,6 +678,8 @@ async function main() {
   } catch (err) {
     die(err.message || String(err));
   }
+
+  await maybeCheckForUpdate(readPackageJson().version);
 }
 
 main();
