@@ -862,7 +862,7 @@ The gates are:
 | 2 | Compile / type-check | `scripts/compile-gate.js` | implicit (target ecosystem) | non-zero exit / any `severity: critical` finding |
 | 3 | Cold-context AI PR review | `/fdl-pr-review` skill | `ai-pr-review` | any `severity: critical` finding |
 
-Gate 3 is wired in once the `/fdl-pr-review` skill is available (see the `ai-pr-review` capability blueprint for its contract). Until then, treat Gates 1 + 2 as the authoritative blocking layer.
+All three gates are mandatory. Gate 3 is implemented by [`.claude/skills/fdl-pr-review/SKILL.md`](../fdl-pr-review/SKILL.md) per the contract pinned in `blueprints/capabilities/quality/ai-pr-review.capability.yaml`.
 
 ### 8.1 — Run Gate 1 (post-gen scan)
 
@@ -898,13 +898,28 @@ If the gate reports `summary.critical > 0`, parse the findings, locate each `{fi
 
 ### 8.3 — Run Gate 3 (cold-context AI PR review)
 
-Once the `/fdl-pr-review` skill exists, invoke it after Gates 1 + 2 pass:
+After Gates 1 + 2 pass, invoke `/fdl-pr-review` for each generated feature:
 
 ```
-/fdl-pr-review <output-dir>
+/fdl-pr-review <output-dir> \
+  --blueprint docs/api/blueprints/<category>/<feature>.json \
+  [--blueprint ...] \
+  --json
 ```
 
-The reviewer reads only the resolved blueprint JSON, every `uses:` capability JSON, and the diff — never this skill's planning notes or chain-of-thought. Any finding with `severity: critical` blocks emit. See `blueprints/capabilities/quality/ai-pr-review.capability.yaml` for the contract.
+For multi-feature runs, pass `--blueprint` once per feature so the reviewer sees the full declared API surface and the union of capability contracts.
+
+**Cold-context contract:** the reviewer pass MUST start from a fresh prompt containing only the blueprint JSON, every `uses:` capability JSON, the implicit baseline capabilities (`code-quality-baseline`, `security-baseline`), this skill's `SKILL.md`, and the diff. Do NOT pass through this skill's planning notes, scratch reasoning, or the user's original `/fdl-generate` prompt — that shared context produces shared blind spots, which is the exact failure mode this gate exists to break.
+
+Read the JSON report. **If `summary.critical > 0`, do NOT ship.** For each critical finding:
+
+- The finding's `citation` field tells you which contract rule it violates — start there.
+- The finding's `remediation` field is a hint, not a prescription. Re-plan from the blueprint, not from the suggested patch.
+- Apply patches and re-run Gate 1 → Gate 2 → Gate 3 in order. A patch that fixes Gate 3 must not regress Gates 1 or 2.
+
+Same 3-iteration cap as Gates 1 and 2. If the cap is hit and findings remain, replace the `FILES` block with `BLOCKED` and surface the structured report to the user — do not ship a partial fix.
+
+See [`.claude/skills/fdl-pr-review/SKILL.md`](../fdl-pr-review/SKILL.md) for the reviewer's full rubric, severity ladder, and devil's-advocate re-read protocol.
 
 ### Non-negotiable rules
 
@@ -967,7 +982,7 @@ POST-PROCESSING:
 POST-GEN GATES:
   ✓ Gate 1 (post-gen-scan)  — clean, 0 findings
   ✓ Gate 2 (compile-gate)   — tsc --noEmit, 0 errors
-  ⚠ Gate 3 (ai-pr-review)   — pending (skill not yet wired)
+  ✓ Gate 3 (ai-pr-review)   — clean, 0 findings, devils_advocate_run=true
 
 COVERAGE:
   ✓ login           87/100  (fields 20/20 · outcomes 18/20 · errors 13/15 · rules 14/15 · events 9/10 · validation 8/8 · relationships 5/5)
