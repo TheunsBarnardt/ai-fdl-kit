@@ -1,0 +1,86 @@
+# ============================================================
+# CODE QUALITY BASELINE — Capability Blueprint
+# FDL v0.1.0 | Capability v0.1.0
+# ============================================================
+# Universal hygiene contract for every line of generated code.
+# Consumed via `uses: [code-quality-baseline]`. The post-gen
+# scanner (scripts/post-gen-scan.js) treats every guarantee +
+# anti_pattern here as a hard rule. A failing scan is a
+# generation defect, not a stylistic preference.
+#
+# WHY THIS EXISTS: the 2026-04-12 fake-endpoint incident proved
+# that AI generators happily emit TODO/FIXME, mock identifiers,
+# and hardcoded sample data when no contract forbids them. This
+# capability pins the floor; the scanner enforces it.
+# ============================================================
+
+capability: code-quality-baseline
+version: "0.1.0"
+kind: quality
+stability: experimental
+description: >-
+  Baseline hygiene contract for generated code — bans placeholder
+  artefacts (TODO, mocks, hardcoded examples), enforces typed exports,
+  and forbids dead code. Enforced by scripts/post-gen-scan.js.
+
+aliases:
+  - quality-baseline
+  - hygiene-baseline
+  - no-placeholders
+
+contract:
+  guarantees:
+    - "no TODO, FIXME, XXX, HACK, or TEMP markers in shipped code (anywhere outside /tests, /__tests__, *.test.*, *.spec.*)"
+    - "no `mock`, `stub`, `fake`, `dummy`, or `sample` identifiers in shipped code (same test-path exception applies)"
+    - "every exported symbol in a typed language has an explicit type annotation — no implicit `any`, no inferred `unknown`, no `object` as a shortcut"
+    - "no dead imports, no unused locals, no unused parameters (use `_` prefix only when an interface forces the parameter)"
+    - "no commented-out code blocks — if it is not running, it is deleted"
+    - "no `console.log`, `print`, `Debug.WriteLine`, or equivalent debug-print outside paths explicitly marked as logging or scripts"
+    - "no inline `sleep`, `setTimeout(..., n)`, or `Thread.sleep` used as a synchronisation primitive"
+
+  invariants:
+    - "the same scanner that runs in CI runs in the post-gen pipeline — drift between them is a defect"
+    - "test fixtures may contain mocks/stubs/fakes; non-test files may not"
+
+anti_patterns:
+  - rule: "do not emit `TODO`, `FIXME`, `XXX`, `HACK`, or `TEMP` comments"
+    why: "these markers signal unfinished work. Generated code must be complete or it must not be emitted — there is no third state"
+  - rule: "do not emit identifiers containing `mock`, `stub`, `fake`, `dummy`, or `sample` outside test paths"
+    why: "placeholder identifiers leak into production, become load-bearing, and are never replaced. The scanner blocks them at the source"
+  - rule: "do not emit hardcoded sample data (`localhost`, `127.0.0.1`, `example.com`, `test@test.com`, `foo@bar.com`, `Lorem ipsum`) in non-test code"
+    why: "sample data masquerades as configuration and ships to prod. Use environment variables, capability config, or fail loudly"
+  - rule: "do not emit endpoint string literals that are not declared in the consumed blueprint's `api.http.path`"
+    why: "this is the exact failure mode of the 2026-04-12 fake-endpoint incident — generators inventing routes that no contract pins. Every endpoint must trace back to a blueprint api.http entry"
+  - rule: "do not use `any` (TypeScript), `interface{}` (Go), `dynamic` (C#), or `Object` (Java) as a type shortcut"
+    why: "type erasure at the boundary destroys the contract the rest of the code depends on. Define the shape, even if it is verbose"
+  - rule: "do not emit empty `catch` blocks or `except: pass` handlers"
+    why: "swallowing errors silently is the highest-cost bug class — incidents take days to root-cause when there are no signals. Re-throw, log, or handle explicitly"
+  - rule: "do not emit `console.log` / `print` in non-debug paths"
+    why: "ad-hoc prints leak PII to logs and bypass the structured logger. Use the project's logger or do not log"
+  - rule: "do not emit commented-out code blocks `// const old = ...` next to the new version"
+    why: "dead code rots, confuses readers, and gets revived by accident. Git history is the archive — delete the old version"
+
+provenance:
+  - source: "Google Engineering Practices Documentation"
+    reference: "Code review standards — readability, completeness, no dead code"
+    url: "https://google.github.io/eng-practices/"
+  - source: "Clean Code (Robert C. Martin)"
+    reference: "Chapter 17 — Smells and Heuristics; Chapter 4 — Comments (most are failures)"
+  - source: "FDL CLAUDE.md"
+    reference: "No speculative abstractions; no half-finished implementations"
+    url: "../../.claude/CLAUDE.md"
+  - source: "Internal incident 2026-04-12"
+    reference: "Fake-endpoint generation — generator emitted /api/v1/sessions with no blueprint api.http entry"
+
+tests:
+  - name: no_todo_markers
+    forbid: "any non-test source file contains the regex /\\b(TODO|FIXME|XXX|HACK|TEMP)\\b/"
+  - name: no_placeholder_identifiers
+    forbid: "any non-test source file contains identifiers matching /\\b(mock|stub|fake|dummy|sample)[A-Z_]/"
+  - name: no_sample_hosts
+    forbid: "any non-test source file contains literal 'localhost', '127.0.0.1', 'example.com', or 'test@test.com'"
+  - name: no_undeclared_endpoints
+    given: "the consuming blueprint declares api.http.path entries P1..Pn"
+    forbid: "any string literal matching /\\/[a-z][a-z0-9/_-]+/ that is not in {P1..Pn}"
+  - name: no_empty_catch
+    forbid: "any source file contains /catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}/ or /except[^:]*:\\s*pass\\b/"

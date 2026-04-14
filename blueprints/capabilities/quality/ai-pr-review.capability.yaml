@@ -1,0 +1,107 @@
+# ============================================================
+# AI PR REVIEW — Capability Blueprint
+# FDL v0.1.0 | Capability v0.1.0
+# ============================================================
+# Cold-context AI second-pass review gate. Consumed via
+# `uses: [ai-pr-review]` (or implicitly added by /fdl-generate
+# for every feature). The /fdl-pr-review skill is the runtime;
+# this capability is the contract that skill must honour.
+#
+# WHY THIS EXISTS: the model that wrote the code is not the
+# model that should sign it off — they share the same context
+# and the same blind spots. A cold-context reviewer reading only
+# the blueprint + capabilities + diff is the only reliable way
+# to catch confirmation-bias defects (silent severity downgrades,
+# invented endpoints, anti_pattern violations rationalised away).
+# ============================================================
+
+capability: ai-pr-review
+version: "0.1.0"
+kind: quality
+stability: experimental
+description: >-
+  Cold-context AI review of every generated diff. Reviewer reads
+  blueprint + capabilities + diff only — never the generator's
+  chain-of-thought. Critical findings block emit. Implemented by
+  the /fdl-pr-review skill.
+
+aliases:
+  - pr-review
+  - cold-review
+  - second-pass-review
+  - ai-code-review
+
+contract:
+  guarantees:
+    - "every generated diff is reviewed by a fresh model context whose only inputs are: the resolved blueprint JSON, every consumed capability JSON, and the diff itself"
+    - "the rubric is built deterministically from blueprint.api.http (path/method/request/response), blueprint.anti_patterns[], every used capability's contract.guarantees + anti_patterns, and the implicit baselines (code-quality-baseline + security-baseline)"
+    - "every finding is structured as `{ file, line_range, rule, severity, citation, remediation }` — `citation` MUST point to the blueprint or capability rule violated, never a free-floating opinion"
+    - "severity ladder: `critical` (blocks emit), `warn` (surfaces in commit body, does not block), `info` (suggestion only)"
+    - "any of {api contract violation, declared anti_pattern hit, security guarantee miss, secret leak, undeclared endpoint} is automatically `critical`"
+    - "if the review returns zero findings, the reviewer re-reads once more under a devil's-advocate prompt before signing off — silence is suspicious until proven otherwise"
+
+  invariants:
+    - "the reviewer model never sees the generator's chain-of-thought, conversation history, or planning notes"
+    - "severity is derived from the rule violated, not negotiated — downgrades require a blueprint-sourced justification recorded in the report"
+    - "a passing review is necessary but not sufficient for shipping — the post-gen scanner and compile-gate must also pass"
+
+anti_patterns:
+  - rule: "do not review with the same conversation context that generated the code"
+    why: "shared context produces shared blind spots — the reviewer rationalises every choice the generator made. Cold context breaks the cache and surfaces the defects that were invisible from inside the generation"
+  - rule: "do not record a finding without a citation back to a blueprint rule, capability guarantee, or anti_pattern entry"
+    why: "uncited findings are opinions and get argued away. Cited findings are contract enforcement and stand"
+  - rule: "do not silently downgrade severity to unblock a release"
+    why: "this is the most common failure mode of automated review. If a finding looks wrong, the rule is wrong — fix the contract, not the report"
+  - rule: "do not accept a diff without confirming each generated endpoint matches an entry in the consuming blueprint's api.http.path"
+    why: "the 2026-04-12 fake-endpoint incident shipped because no reviewer cross-checked endpoints against the contract. This is the load-bearing check"
+  - rule: "do not produce a clean review on a non-trivial diff without re-reading under a devil's-advocate prompt"
+    why: "zero findings on a real change is almost always reviewer laziness. Force one more pass with the prompt 'what would a senior engineer reject here?' before signing off"
+  - rule: "do not report findings as freeform prose — the report must be structured JSON for downstream gating"
+    why: "freeform prose cannot be machine-gated. The structured report is what /fdl-generate inspects to decide whether to ship"
+
+implementations:
+
+  # ─── Cold-context review via Claude (or any sufficiently strong model) ───
+  claude:
+    runner: ".claude/skills/fdl-pr-review/SKILL.md"
+    inputs:
+      - "resolved blueprint JSON (from docs/api/blueprints/{category}/{feature}.json)"
+      - "every used capability JSON (from docs/api/capabilities/...)"
+      - "diff or directory of generated code"
+    outputs:
+      - "structured JSON report (one finding per entry)"
+      - "human-readable markdown summary (for commit body)"
+    blocking_rule: "exit non-zero if any finding has severity: critical"
+    devils_advocate_prompt: |
+      You are reviewing the same diff a second time. Assume the first pass missed
+      something. A senior engineer is about to reject this PR — what is the most
+      defensible reason they would cite? If you cannot name one, sign off.
+
+provenance:
+  - source: "Google L7/L8 code review rubric (generic principles, not internal)"
+    reference: "Correctness vs spec, security, performance, maintainability, testing, error handling"
+    url: "https://google.github.io/eng-practices/review/reviewer/"
+  - source: "Meta E7 review heuristics (generic principles, not internal)"
+    reference: "Cold-context review, citation-required findings, severity laddering"
+  - source: "Anthropic — Claude Constitutional AI"
+    reference: "Multi-pass evaluation reduces single-pass confirmation bias"
+    url: "https://www.anthropic.com/research/constitutional-ai"
+  - source: "Internal incident 2026-04-12"
+    reference: "Fake-endpoint generation shipped because no reviewer cross-checked endpoints against blueprint api.http"
+
+tests:
+  - name: cold_context_only
+    given: "the reviewer is invoked"
+    forbid: "the reviewer prompt contains any text from the generator's planning, scratch, or chain-of-thought"
+  - name: every_finding_cited
+    given: "the reviewer emits a finding"
+    then: "the finding contains a non-empty `citation` field referencing a blueprint or capability rule"
+  - name: critical_blocks_emit
+    given: "the report contains any finding with severity=critical"
+    then: "the runner exit code is non-zero AND /fdl-generate must not declare success"
+  - name: devils_advocate_on_clean_pass
+    given: "the first review pass returns zero findings on a non-trivial diff"
+    then: "a second devil's-advocate pass runs before sign-off"
+  - name: undeclared_endpoint_is_critical
+    given: "the diff contains an endpoint string literal not in blueprint.api.http.path"
+    then: "the reviewer emits a finding with severity=critical citing the blueprint api contract"

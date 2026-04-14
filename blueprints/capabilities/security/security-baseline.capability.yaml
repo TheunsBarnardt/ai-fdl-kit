@@ -1,0 +1,101 @@
+# ============================================================
+# SECURITY BASELINE — Capability Blueprint
+# FDL v0.1.0 | Capability v0.1.0
+# ============================================================
+# Universal security floor for every generated implementation.
+# Consumed via `uses: [security-baseline]`. The post-gen scanner
+# (scripts/post-gen-scan.js) and AI PR review enforce each
+# guarantee + anti_pattern as a hard rule.
+#
+# WHY THIS EXISTS: AI generators reliably produce code that
+# concatenates SQL, returns stack traces to clients, and signs
+# JWTs with hardcoded secrets — unless a contract forbids it
+# explicitly. This capability pins the floor so every feature
+# inherits a sane default; specialised capabilities (password-
+# hashing, rate-limiting, csrf-protection) layer on top.
+# ============================================================
+
+capability: security-baseline
+version: "0.1.0"
+kind: security
+stability: experimental
+description: >-
+  Baseline security contract for any generated implementation —
+  bans secret leakage, string-concatenated SQL, eval, unvalidated
+  redirects, and reliance on client-side validation. Enforced by
+  scripts/post-gen-scan.js + the AI PR review gate.
+
+aliases:
+  - security-floor
+  - secure-defaults
+  - owasp-baseline
+
+contract:
+  guarantees:
+    - "no secrets, API keys, tokens, connection strings, or private keys appear in source code (matches the SECRET_PATTERNS set in scripts/validate.js)"
+    - "no string-concatenated or template-interpolated SQL — every database call uses parameterised queries or an ORM"
+    - "no `eval`, `Function(...)`, `exec`, or shell-string concatenation with untrusted input"
+    - "no unvalidated redirect — every redirect target is checked against an allow-list or is a same-origin relative path"
+    - "every HTTP request handler validates its input against an explicit schema before any business logic runs"
+    - "rate limiting is applied to every authentication-adjacent endpoint (login, signup, password-reset, MFA, OTP)"
+    - "errors returned to clients never include stack traces, internal paths, SQL fragments, or library version strings"
+    - "JWTs are signed with `HS256`+random-secret OR an asymmetric algorithm — never `none`, never a hardcoded constant"
+    - "TLS verification is on by default — no `verify=False`, `rejectUnauthorized: false`, `InsecureSkipVerify: true` in non-test code"
+    - "client-side validation is a UX nicety, never the only line of defence — every rule is also enforced server-side"
+
+  invariants:
+    - "PII never leaves the system boundary toward an external AI API (POPIA + project rule)"
+    - "every blueprint that processes SA personal information must list `popia-compliance` as a `required` related entry"
+
+anti_patterns:
+  - rule: "do not embed secrets in source — use environment variables, a secret manager, or a config service"
+    why: "secrets in source ship to git history forever. Even after rotation, the old credential remains discoverable. The validator already blocks them in blueprints; the scanner blocks them in generated code"
+  - rule: "do not build SQL with string concatenation or template literals containing user input"
+    why: "OWASP A03:2021 Injection — the highest-impact and easiest-to-introduce vulnerability class. Always use prepared statements / parameterised queries / ORM safety wrappers"
+  - rule: "do not call `eval`, `new Function(...)`, `exec`, `os.system`, or `subprocess.run(shell=True)` with user-supplied input"
+    why: "remote code execution at any of these sites collapses the entire trust boundary. There is almost never a justified use in an HTTP handler"
+  - rule: "do not return stack traces, internal paths, library versions, or DB error messages to clients"
+    why: "leaks system topology to attackers and accelerates exploitation. Map every internal error to a stable, opaque user-safe error code"
+  - rule: "do not sign JWTs with `alg: none` or with a hardcoded secret committed to source"
+    why: "`alg: none` lets attackers forge any token. Hardcoded secrets are equivalent to publishing the signing key. Use a per-environment secret loaded from config"
+  - rule: "do not assign user-controlled HTML to `innerHTML`, `dangerouslySetInnerHTML`, `v-html`, or equivalent"
+    why: "OWASP A03 / XSS — the user can ship arbitrary script that runs in another user's session. Use text-binding APIs or sanitise with a maintained library"
+  - rule: "do not emit `redirect(req.query.next)` or any redirect to a URL the client can shape"
+    why: "open redirects power phishing chains. Validate against an allow-list of safe paths before redirecting"
+  - rule: "do not disable TLS verification (`rejectUnauthorized: false`, `verify=False`, `InsecureSkipVerify: true`)"
+    why: "MITM protection collapses. There is no production scenario where this is acceptable; if a cert is broken, fix the cert"
+  - rule: "do not ship form/handler code that relies on client-side validation alone"
+    why: "every browser-side check can be bypassed by an attacker calling the API directly. Validate on the server every time"
+  - rule: "do not log secrets, full request bodies, full response bodies, full JWTs, or PII"
+    why: "logs are the most-copied data store in any system. Anything in logs is effectively published. Mask, hash, or omit"
+
+provenance:
+  - source: "OWASP ASVS v4.0.3"
+    reference: "Verification standard — input validation, authentication, session management, error handling"
+    url: "https://owasp.org/www-project-application-security-verification-standard/"
+  - source: "OWASP Top 10 (2021)"
+    reference: "A01 Broken Access Control, A02 Cryptographic Failures, A03 Injection, A05 Security Misconfiguration, A07 Identification and Authentication Failures"
+    url: "https://owasp.org/Top10/"
+  - source: "NIST SP 800-63B"
+    reference: "Digital Identity Guidelines — authentication and lifecycle management"
+    url: "https://pages.nist.gov/800-63-3/sp800-63b.html"
+  - source: "POPIA Act 4 of 2013, §19"
+    reference: "Security safeguards — appropriate, reasonable technical and organisational measures"
+    url: "https://popia.co.za/section-19-security-measures-on-integrity-and-confidentiality-of-personal-information/"
+  - source: "FDL POPIA reference blueprint"
+    reference: "blueprints/data/popia-compliance.blueprint.yaml — canonical SA POPIA contract"
+
+tests:
+  - name: no_secret_patterns
+    forbid: "any source file matches the SECRET_PATTERNS set defined in scripts/validate.js"
+  - name: no_concat_sql
+    forbid: "any source file contains a SQL keyword (SELECT|INSERT|UPDATE|DELETE) joined by + or template interpolation against a non-constant"
+  - name: no_eval_with_input
+    forbid: "any source file calls eval, Function constructor, exec, os.system, or subprocess(shell=True) with a non-constant argument"
+  - name: no_jwt_none
+    forbid: "any source file contains literal 'alg: none', 'algorithm: \"none\"', or HS256 with a hardcoded string longer than zero characters"
+  - name: no_disabled_tls
+    forbid: "any non-test source file contains 'rejectUnauthorized: false', 'verify=False', or 'InsecureSkipVerify: true'"
+  - name: rate_limit_on_auth
+    given: "blueprint defines an outcome with category=auth"
+    then: "the corresponding handler is wrapped in a rate-limit middleware or decorator"
