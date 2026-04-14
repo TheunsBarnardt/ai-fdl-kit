@@ -2,10 +2,10 @@
 
 # Blueprint Index
 
-Fast lookup for all **405** blueprints across **21** categories.
+Fast lookup for all **406** blueprints across **21** categories.
 Each entry links to the human-friendly summary (`.md`) and the underlying spec (`.blueprint.yaml`).
 
-**Jump to a category:** [Access](#access) (18) · [Ai](#ai) (6) · [Asset](#asset) (20) · [Auth](#auth) (37) · [Communication](#communication) (16) · [Crm](#crm) (5) · [Data](#data) (58) · [Infrastructure](#infrastructure) (13) · [Integration](#integration) (56) · [Inventory](#inventory) (6) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (18) · [Observability](#observability) (5) · [Payment](#payment) (21) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Trading](#trading) (20) · [Ui](#ui) (25) · [Workflow](#workflow) (64)
+**Jump to a category:** [Access](#access) (18) · [Ai](#ai) (6) · [Asset](#asset) (20) · [Auth](#auth) (37) · [Communication](#communication) (16) · [Crm](#crm) (5) · [Data](#data) (59) · [Infrastructure](#infrastructure) (13) · [Integration](#integration) (56) · [Inventory](#inventory) (6) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (18) · [Observability](#observability) (5) · [Payment](#payment) (21) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Trading](#trading) (20) · [Ui](#ui) (25) · [Workflow](#workflow) (64)
 
 ---
 
@@ -183,6 +183,7 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**payload-preferences**](./data/payload-preferences.md) | Per-user preferences storage for admin UI state including collapsed fields, tab positions, column visibility, sort order, and list view settings | 1.0.0 | [yaml](./data/payload-preferences.blueprint.yaml) |
 | [**payload-uploads**](./data/payload-uploads.md) | File upload system with image resizing, focal-point cropping, MIME validation, cloud storage adapters, and range request support | 1.0.0 | [yaml](./data/payload-uploads.blueprint.yaml) |
 | [**payload-versions**](./data/payload-versions.md) | Document versioning with draft/publish workflow, autosave, version history, restore, scheduled publishing, and locale-specific status | 1.0.0 | [yaml](./data/payload-versions.blueprint.yaml) |
+| [**popia-compliance**](./data/popia-compliance.md) | South African POPIA (Act 4 of 2013) reference — eight conditions for lawful processing, data subject rights, breach notification, direct marketing, automated decisions, transborder transfers. <sub>_aka_ protection-of-personal-information-act, sa-data-protection, south-africa-privacy-law, act-4-of-2013, popi-act</sub> | 1.0.0 | [yaml](./data/popia-compliance.blueprint.yaml) |
 | [**portfolio-management**](./data/portfolio-management.md) | Retrieve, manage, and report on investment portfolio holdings, positions, valuations, and transaction history | 1.0.0 | [yaml](./data/portfolio-management.blueprint.yaml) |
 | [**prisma-crud**](./data/prisma-crud.md) | Execute type-safe database CRUD operations with Prisma Client query builder | 1.0.0 | [yaml](./data/prisma-crud.blueprint.yaml) |
 | [**prisma-migrations**](./data/prisma-migrations.md) | Manage database schema versioning and evolution with safe migrations | 1.0.0 | [yaml](./data/prisma-migrations.blueprint.yaml) |

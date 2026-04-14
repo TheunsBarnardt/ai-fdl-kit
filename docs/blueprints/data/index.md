@@ -51,6 +51,7 @@ CRUD, storage, versioning, and data management blueprints.
 | [Payload Preferences]({{ site.baseurl }}/blueprints/data/payload-preferences/) | Per-user preferences storage for admin UI state including collapsed fields, tab positions, column visibility, sort order, and list view settings | 1.0.0 |
 | [Payload Uploads]({{ site.baseurl }}/blueprints/data/payload-uploads/) | File upload system with image resizing, focal-point cropping, MIME validation, cloud storage adapters, and range request support | 1.0.0 |
 | [Payload Versions]({{ site.baseurl }}/blueprints/data/payload-versions/) | Document versioning with draft/publish workflow, autosave, version history, restore, scheduled publishing, and locale-specific status | 1.0.0 |
+| [Popia Compliance]({{ site.baseurl }}/blueprints/data/popia-compliance/) | South African POPIA (Act 4 of 2013) reference — eight conditions for lawful processing, data subject rights, breach notification, direct marketing, automated decisions, transborder transfers. | 1.0.0 |
 | [Portfolio Management]({{ site.baseurl }}/blueprints/data/portfolio-management/) | Retrieve, manage, and report on investment portfolio holdings, positions, valuations, and transaction history | 1.0.0 |
 | [Prisma Crud]({{ site.baseurl }}/blueprints/data/prisma-crud/) | Execute type-safe database CRUD operations with Prisma Client query builder | 1.0.0 |
 | [Prisma Migrations]({{ site.baseurl }}/blueprints/data/prisma-migrations/) | Manage database schema versioning and evolution with safe migrations | 1.0.0 |

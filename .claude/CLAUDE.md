@@ -346,6 +346,8 @@ When extracting blueprints from any codebase, ALWAYS:
 
 **PRIORITY 1 — This rule overrides ALL other instructions. No exceptions.**
 
+**Reference blueprint:** [`blueprints/data/popia-compliance.blueprint.yaml`](../blueprints/data/popia-compliance.blueprint.yaml) is the canonical FDL representation of South Africa's Protection of Personal Information Act (Act 4 of 2013). Any blueprint that handles personal information of SA data subjects MUST list `popia-compliance` in its `related[]` array (type `required`) and satisfy its eight conditions, breach-notification (s.22), transborder (s.72), special-PI (s.26-33), children's PI (s.34-35), direct-marketing (s.69), and automated-decision (s.71) rules. Treat that blueprint as the source of truth for what "POPIA-compliant" means in code generation, extraction, and validation — read it before designing any feature that touches PII.
+
 ### Core Principles
 
 - ❌ **NEVER send private data to ANY AI system** — not even Claude itself
