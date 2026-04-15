@@ -126,6 +126,18 @@ If any step fails (network error on `npm install`, permission error on `mkdir`),
 
 Only after 0.1–0.6 succeed, continue to Phase 1. Do not tell the user any of this happened unless something required a halt or a bootstrap step actually did work (in which case a single terse line like "Bootstrapped VenaPalm — installed ai-fdl-kit, copied 19 skills, wrote CLAUDE.md" is fine; no multi-step narration).
 
+### Step 0.7: DESIGN.md detection (UI targets only)
+
+After Phase 1 resolves the stack (so you know whether the build has any UI target — nextjs, react, angular, vue, svelte, flutter, react-native, expo, etc.):
+
+1. For each target directory that will contain UI code, check whether `DESIGN.md` already exists at the target root (or at `--path` root for single-target builds).
+2. If it exists → do nothing. `/fdl-generate` will read it automatically.
+3. If it's missing AND the target has UI → offer once, via a single `AskUserQuestion`:
+   > "No DESIGN.md found for the {target} UI. Want me to generate one so the UI matches a specific brand? (skip · generate from preset · generate from URL · generate from brief)"
+   - **skip** → proceed with framework defaults. Never re-ask for this build.
+   - **preset / URL / brief** → invoke `/fdl-extract-design` with the appropriate arguments, let it complete, then proceed. The generated `DESIGN.md` is picked up automatically when `/fdl-generate` runs in Phase 4.
+4. Never block the build on this. If the user declines, move on.
+
 ---
 
 ## Phase 1: Parse & Confirm Intent (1 question max)
