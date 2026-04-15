@@ -1,0 +1,147 @@
+feature: device-attestation
+version: 1.0.0
+description: TPM-backed device identity and per-call signed attestation — terminals prove their identity to the Payments Gateway on every request; rejected devices cannot transact
+category: auth
+tags:
+  - attestation
+  - tpm
+  - mtls
+  - device-identity
+  - fleet
+uses:
+  - code-quality-baseline
+  - security-baseline
+  - ai-pr-review
+aliases:
+  - attestation
+  - device-identity
+  - device-certs
+actors:
+  - id: terminal
+    name: Payment terminal
+    type: system
+  - id: pgw
+    name: Payments Gateway
+    type: system
+  - id: ca
+    name: Device certificate authority
+    type: external
+fields:
+  - name: device_id
+    type: token
+    required: true
+    label: Opaque device identifier
+  - name: tpm_quote
+    type: text
+    required: true
+    label: TPM-signed quote proving key resides in hardware
+  - name: public_key
+    type: text
+    required: true
+    label: Device public key (attested)
+api:
+  http:
+    method: POST
+    path: /v1/devices/attest
+  request:
+    content_type: application/json
+    schema:
+      type: object
+      required:
+        - device_id
+        - tpm_quote
+        - public_key
+      properties:
+        device_id:
+          type: string
+        tpm_quote:
+          type: string
+        public_key:
+          type: string
+  response:
+    success:
+      status: 201
+      schema:
+        type: object
+        properties:
+          device_certificate:
+            type: string
+          expires_at:
+            type: string
+            format: date-time
+    errors:
+      - status: 400
+        error_code: ATTEST_INVALID_QUOTE
+      - status: 403
+        error_code: ATTEST_DEVICE_REVOKED
+      - status: 409
+        error_code: ATTEST_ALREADY_ENROLLED
+rules:
+  security:
+    - "MUST: TPM quote verified against the device vendor's signing root"
+    - "MUST: issued certificate has ≤ 90-day expiry, rotated automatically"
+    - "MUST: revoked devices cannot complete attestation — CRL checked"
+  privacy:
+    - "MUST: attestation includes no personal information; only device identity"
+anti_patterns:
+  - rule: Do not accept self-signed device certs — must chain to vendor root
+    why: Required by device-attestation contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}
+  - rule: Do not skip CRL check even under latency pressure
+    why: Required by device-attestation contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}
+outcomes:
+  attested:
+    priority: 100
+    given:
+      - TPM quote verifies against vendor root
+      - device not on revocation list
+    then:
+      - action: create_record
+        type: device_certificates
+      - action: emit_event
+        event: device.attested
+    result: Short-lived device certificate issued
+  invalid_quote:
+    priority: 5
+    error: ATTEST_INVALID_QUOTE
+    given:
+      - TPM quote signature invalid
+    then: []
+    result: "400"
+  device_revoked:
+    priority: 3
+    error: ATTEST_DEVICE_REVOKED
+    given:
+      - device on CRL
+    then:
+      - action: emit_event
+        event: device.revoked_rejected
+    result: "403"
+  already_enrolled:
+    priority: 10
+    error: ATTEST_ALREADY_ENROLLED
+    given:
+      - device_id already has an active cert
+    then: []
+    result: 409 — rotate instead
+errors:
+  - code: ATTEST_INVALID_QUOTE
+    status: 400
+    message: Device attestation failed
+  - code: ATTEST_DEVICE_REVOKED
+    status: 403
+    message: Device is not authorised
+  - code: ATTEST_ALREADY_ENROLLED
+    status: 409
+    message: Device already enrolled
+events:
+  - name: device.attested
+    payload: []
+  - name: device.revoked_rejected
+    payload: []
+related:
+  - feature: payments-gateway-api
+    type: required
+    reason: Every PGW call must carry a valid attestation
+  - feature: terminal-fleet
+    type: required
+    reason: Fleet management drives revocation and rotation

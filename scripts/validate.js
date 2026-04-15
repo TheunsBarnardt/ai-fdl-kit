@@ -72,6 +72,8 @@ const blueprintJsonSchema = {
         "observability",
         "security",
         "communication",
+        "admin",
+        "testing",
       ],
     },
     tags: {

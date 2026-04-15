@@ -1,0 +1,319 @@
+feature: payments-gateway-api
+version: 1.0.0
+description: Central HTTP surface for all payment operations — thin-client terminals and admin consoles call this; PGW owns rail selection, EMV, fraud, refunds, disputes
+category: integration
+tags:
+  - gateway
+  - api
+  - payments
+  - rails
+  - emv
+  - fraud
+  - refund
+  - dispute
+uses:
+  - code-quality-baseline
+  - security-baseline
+  - ai-pr-review
+aliases:
+  - pgw
+  - payments-gateway
+  - payment-gateway-api
+  - v1-payments
+actors:
+  - id: terminal_client
+    name: Thin-client Terminal
+    type: system
+    description: Device initiating payments, refunds, and palm-session resolution
+  - id: admin_console
+    name: Admin Console
+    type: system
+    description: Operator UI that issues refund / dispute / config calls
+  - id: rail_adapter
+    name: Rail Adapter
+    type: external
+    description: Pluggable rail implementation invoked by PGW per routing policy
+fields:
+  - name: payment_id
+    type: token
+    required: true
+    label: Payment ID
+  - name: merchant_id
+    type: text
+    required: true
+    label: Merchant ID
+  - name: amount
+    type: number
+    required: true
+    label: Amount (cents)
+    validation:
+      - type: min
+        value: 1
+        message: Amount must be positive
+  - name: currency
+    type: text
+    required: true
+    label: ISO-4217 currency code
+    validation:
+      - type: pattern
+        value: ^[A-Z]{3}$
+        message: Currency must be 3-letter ISO code
+  - name: method
+    type: select
+    required: true
+    label: Payment method
+    options:
+      - value: palm
+        label: palm
+      - value: card_chip
+        label: card_chip
+      - value: card_tap
+        label: card_tap
+      - value: card_stripe
+        label: card_stripe
+  - name: palm_session_token
+    type: token
+    required: false
+    label: Palm session token (when method=palm)
+  - name: card_data_encrypted
+    type: text
+    required: false
+    label: SPoC-encrypted card data (when method=card_*)
+  - name: device_attestation
+    type: text
+    required: true
+    label: Signed device attestation — validated per call
+  - name: idempotency_key
+    type: token
+    required: true
+    label: Client-generated idempotency key
+api:
+  http:
+    method: POST
+    path: /v1/payments
+  request:
+    content_type: application/json
+    schema:
+      type: object
+      required:
+        - merchant_id
+        - amount
+        - currency
+        - method
+        - device_attestation
+        - idempotency_key
+      properties:
+        merchant_id:
+          type: string
+        amount:
+          type: integer
+          minimum: 1
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+        method:
+          type: string
+          enum:
+            - palm
+            - card_chip
+            - card_tap
+            - card_stripe
+        palm_session_token:
+          type: string
+        card_data_encrypted:
+          type: string
+        device_attestation:
+          type: string
+        idempotency_key:
+          type: string
+  response:
+    success:
+      status: 201
+      schema:
+        type: object
+        required:
+          - payment_id
+          - status
+          - rail
+        properties:
+          payment_id:
+            type: string
+          status:
+            type: string
+            enum:
+              - authorised
+              - settled
+              - pending
+          rail:
+            type: string
+          receipt_ref:
+            type: string
+    errors:
+      - status: 400
+        error_code: PGW_INVALID_REQUEST
+      - status: 401
+        error_code: PGW_ATTESTATION_FAILED
+      - status: 409
+        error_code: PGW_IDEMPOTENCY_CONFLICT
+      - status: 422
+        error_code: PGW_PALM_SESSION_EXPIRED
+      - status: 429
+        error_code: PGW_RATE_LIMITED
+      - status: 503
+        error_code: PGW_RAIL_ERROR
+rules:
+  security:
+    - "MUST: mTLS + device attestation verified on every request"
+    - "MUST: idempotency_key deduplicates retries within 24h"
+    - "MUST: card data is SPoC-encrypted end-to-end; PGW decrypts inside HSM boundary only"
+    - "MUST: response never includes full PAN or CVV"
+  routing:
+    - "MUST: rail selection runs through the Rail Registry policy engine, not hardcoded"
+    - "MUST: on rail failure, return 502 with PGW_RAIL_ERROR — do not fall back silently"
+  observability:
+    - "MUST: emit payment.initiated / payment.settled / payment.failed events for audit and metrics"
+anti_patterns:
+  - rule: Do not accept unencrypted card data — SPoC is non-negotiable
+    why: Required by payments-gateway-api contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}
+  - rule: Do not invent alternate endpoints like /payments or /api/payments — only /v1/payments
+    why: Required by payments-gateway-api contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}
+  - rule: Do not log request/response bodies verbatim (PAN/CVV leak risk)
+    why: Required by payments-gateway-api contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}
+outcomes:
+  successful_palm_payment:
+    priority: 100
+    given:
+      - method == palm
+      - palm_session_token valid and unexpired
+      - device attestation verified
+      - rail routing succeeds
+    then:
+      - action: call_service
+        target: rail_registry.route_and_execute
+      - action: emit_event
+        event: payment.settled
+        payload:
+          - payment_id
+          - merchant_id
+          - amount
+          - currency
+          - rail
+      - action: call_service
+        target: receipt_service.send
+    result: Payment settled via selected rail; receipt queued
+  successful_card_payment:
+    priority: 110
+    given:
+      - method in [card_chip, card_tap, card_stripe]
+      - cloud EMV kernel authorises
+      - rail routing succeeds
+    then:
+      - action: call_service
+        target: cloud_emv_kernel.process
+      - action: call_service
+        target: rail_registry.route_and_execute
+      - action: emit_event
+        event: payment.settled
+    result: Card payment authorised and captured
+  attestation_failed:
+    priority: 1
+    error: PGW_ATTESTATION_FAILED
+    given:
+      - device attestation signature invalid or expired
+    then:
+      - action: emit_event
+        event: payment.attestation_failed
+    result: 401 — device attestation rejected; no rail call made
+  rate_limited:
+    priority: 2
+    error: PGW_RATE_LIMITED
+    given:
+      - field: requests_in_window
+        source: computed
+        operator: gt
+        value: 100
+    then:
+      - action: emit_event
+        event: payment.rate_limited
+    result: 429 — request throttled
+  idempotency_conflict:
+    priority: 5
+    error: PGW_IDEMPOTENCY_CONFLICT
+    given:
+      - idempotency_key seen within 24h with different payload
+    then: []
+    result: 409 — conflicting retry
+  palm_session_expired:
+    priority: 10
+    error: PGW_PALM_SESSION_EXPIRED
+    given:
+      - method == palm
+      - palm_session_token expired or not found
+    then: []
+    result: 422 — resolve palm session again
+  rail_error:
+    priority: 50
+    error: PGW_RAIL_ERROR
+    given:
+      - rail adapter returns non-success after retry
+    then:
+      - action: emit_event
+        event: payment.rail_error
+    result: 502 — rail error surfaced to caller; transaction not settled
+errors:
+  - code: PGW_INVALID_REQUEST
+    status: 400
+    message: Invalid payment request
+  - code: PGW_ATTESTATION_FAILED
+    status: 401
+    message: Device authentication failed
+  - code: PGW_IDEMPOTENCY_CONFLICT
+    status: 409
+    message: Duplicate request with different payload
+  - code: PGW_PALM_SESSION_EXPIRED
+    status: 422
+    message: Palm session expired — please rescan
+  - code: PGW_RATE_LIMITED
+    status: 429
+    message: Too many requests — retry later
+  - code: PGW_RAIL_ERROR
+    status: 503
+    message: Payment network error
+events:
+  - name: payment.initiated
+    payload: []
+    description: Payment request accepted and queued for rail routing
+  - name: payment.settled
+    payload: []
+    description: Payment confirmed by rail
+  - name: payment.failed
+    payload: []
+    description: Payment rejected or errored at any stage
+  - name: payment.rate_limited
+    payload: []
+  - name: payment.attestation_failed
+    payload: []
+  - name: payment.rail_error
+    payload: []
+related:
+  - feature: popia-compliance
+    type: required
+    reason: Handles personal information of SA data subjects — must satisfy POPIA Act 4 of 2013
+  - feature: rail-registry
+    type: required
+    reason: Rail selection is delegated to the registry — PGW never hard-codes rails
+  - feature: cloud-emv-kernel
+    type: required
+    reason: Card payments require cloud EMV — terminal is SPoC passthrough only
+  - feature: device-attestation
+    type: required
+    reason: Every call requires a verified device attestation
+  - feature: fraud-detection
+    type: required
+    reason: Every payment is scored before rail execution
+  - feature: palm-pay
+    type: required
+    reason: Palm sessions resolve to payment proxies via PGW
+  - feature: payment-observability
+    type: recommended
+    reason: Transaction metrics, latency p50/p95/p99, and alerting

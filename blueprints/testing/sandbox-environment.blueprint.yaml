@@ -1,0 +1,139 @@
+feature: sandbox-environment
+version: 1.0.0
+description: Parallel PGW environment with full data isolation — merchants/terminals can be flipped to sandbox for demos and integration testing without moving real money; provisioned per merchant at enrolment
+category: testing
+tags:
+  - sandbox
+  - testing
+  - isolation
+  - provisioning
+  - demo
+  - mock
+uses:
+  - code-quality-baseline
+  - security-baseline
+  - ai-pr-review
+aliases:
+  - sandbox
+  - pgw-sandbox
+  - test-environment
+actors:
+  - id: merchant
+    name: Merchant
+    type: human
+  - id: pgw
+    name: Payments Gateway (sandbox instance)
+    type: system
+fields:
+  - name: merchant_id
+    type: text
+    required: true
+  - name: scenario_profile
+    type: select
+    required: true
+    options:
+      - value: happy_path
+        label: happy_path
+      - value: high_decline
+        label: high_decline
+      - value: slow_rail
+        label: slow_rail
+      - value: flaky_rail
+        label: flaky_rail
+      - value: full_chaos
+        label: full_chaos
+    label: Deterministic scenario scripting for the mock rail
+  - name: sandbox_flag
+    type: boolean
+    required: true
+    label: Terminal-level sandbox toggle
+api:
+  http:
+    method: POST
+    path: /v1/sandbox/provision
+  request:
+    content_type: application/json
+    schema:
+      type: object
+      required:
+        - merchant_id
+        - scenario_profile
+      properties:
+        merchant_id:
+          type: string
+        scenario_profile:
+          type: string
+  response:
+    success:
+      status: 201
+      schema:
+        type: object
+        properties:
+          sandbox_id:
+            type: string
+          provisioned_at:
+            type: string
+            format: date-time
+    errors:
+      - status: 401
+        error_code: SANDBOX_UNAUTHORIZED
+      - status: 409
+        error_code: SANDBOX_ALREADY_PROVISIONED
+rules:
+  isolation:
+    - "MUST: sandbox data (transactions, enrolments, receipts) is fully isolated from prod — separate DB schema / namespace"
+    - "MUST: sandbox cannot reach real rails; only the sandbox-rail-adapter is loaded"
+  parity:
+    - "MUST: sandbox runs the SAME code as prod, differing only in config (rail set + scenario profile)"
+  safety:
+    - "MUST: sandbox payments are tagged with `sandbox: true` in every event and webhook"
+anti_patterns:
+  - rule: Do not allow a single process to serve both sandbox and prod traffic
+    why: Required by sandbox-environment contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}
+  - rule: Do not accept real rail callbacks in sandbox
+    why: Required by sandbox-environment contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}
+outcomes:
+  provisioned:
+    priority: 100
+    given:
+      - operator authenticated
+      - merchant not yet provisioned
+    then:
+      - action: create_record
+        type: sandbox_instances
+      - action: emit_event
+        event: sandbox.provisioned
+    result: Merchant can flip any of their terminals to sandbox mode
+  unauthorized:
+    priority: 1
+    error: SANDBOX_UNAUTHORIZED
+    given:
+      - no admin session
+    then: []
+    result: "401"
+  already_provisioned:
+    priority: 10
+    error: SANDBOX_ALREADY_PROVISIONED
+    given:
+      - merchant already has sandbox
+    then: []
+    result: 409 — update scenario instead
+errors:
+  - code: SANDBOX_UNAUTHORIZED
+    status: 401
+    message: Admin authentication required
+  - code: SANDBOX_ALREADY_PROVISIONED
+    status: 409
+    message: Sandbox already provisioned for this merchant
+events:
+  - name: sandbox.provisioned
+    payload: []
+  - name: sandbox.flag_toggled
+    payload: []
+related:
+  - feature: payments-gateway-api
+    type: required
+    reason: Sandbox is a config variant of the PGW
+  - feature: sandbox-rail-adapter
+    type: required
+    reason: Sandbox uses the mock rail exclusively

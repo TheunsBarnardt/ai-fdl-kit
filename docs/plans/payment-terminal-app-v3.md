@@ -928,69 +928,56 @@ If either check fails, fix the flagged blueprints before generating code.
 
 ---
 
-### Build Command (v3 — single `/fdl-build` invocation)
+### Build Command (v3 — single `/fdl-build` invocation, fully automated)
 
-> **v3 change.** v2 ran 17 separate `/fdl-generate` calls across five phases. v3 collapses the entire build into **one** `/fdl-build` invocation that reads this plan, resolves every referenced blueprint, generates the gateway + rail registry + thin-client terminal together, and runs the 3-gate pipeline once against the full stack.
+> **v3 change.** v2 ran 17 separate `/fdl-generate` calls across five phases. v3 collapses the entire build into **one** `/fdl-build` invocation that reads this plan, resolves every referenced blueprint, generates the full stack, and runs the 3-gate pipeline — end-to-end.
 
-#### 1. Prepare the blueprints
+#### Run it (assumes a brand-new target project — no prior FDL setup required)
 
-Before running the build, each blueprint listed in Appendix B must declare:
+The target directory `/home/theuns/Projects/VenaPalm` is assumed to be a **fresh project** (may not even exist yet). The build handles its own bootstrap every invocation — idempotent, safe to re-run.
 
-```yaml
-uses:
-  - code-quality-baseline   # quality/
-  - security-baseline       # security/
-  - ai-pr-review            # quality/
-```
+There are two entry points; pick whichever matches where Claude Code is currently open.
 
-And for the 8 blueprints handling SA personal information (see §12.4):
-
-```yaml
-related:
-  - feature: popia-compliance
-    type: required
-```
-
-Then validate:
-
-```bash
-node scripts/validate.js
-node scripts/completeness-check.js
-```
-
-#### 2. Run the build
+**Entry A — Claude Code open in the FDL kit repo (most common for plan-driven builds):**
 
 ```bash
 /fdl-build --plan docs/plans/payment-terminal-app-v3.md \
+           --path /home/theuns/Projects/VenaPalm \
            --targets "gateway:typescript-node,terminal:kotlin-android,admin:typescript-react,sandbox-gateway:typescript-node"
 ```
 
-`/fdl-build` will:
+`--path` is the destination the generated apps are written into (created if missing). Each `--targets` entry becomes a sub-directory under that path: `gateway/`, `terminal/`, `admin/`, `sandbox-gateway/`.
 
-1. Parse this plan and resolve every blueprint referenced in Appendix B.
-2. Assemble a combined build graph grouping device-side features (thin-client terminal), gateway-side features (PGW, rail registry, cloud EMV, fraud, audit, receipts, fleet, admin APIs), admin-UI features (transactions console + vendor management + rail registry UI), and sandbox features (sandbox PGW config + `sandbox` rail adapter).
-3. Generate code for each target per the `--targets` mapping above.
-4. Run the 3-gate pipeline **once** against the full generated stack (Gate 1 static scan, Gate 2 compile for each target, Gate 3 cold-context AI PR review).
-5. Emit a single consolidated `FILES` manifest on success, or `BLOCKED` with findings if any gate trips.
-
-**Why one command, not many:** per-blueprint `/fdl-generate` calls made sense when the plan had isolated features. v3 has strong architectural coupling (every device feature is a client of a gateway endpoint; the admin dashboard drives gateway admin APIs; the sandbox gateway is the same codebase as prod with a different rail registry). That coupling is best resolved by a single generator pass with the full graph in scope — one Gate 3 review with full context beats many narrow ones.
-
-**Sandbox parity guarantee:** because `sandbox-gateway` and `gateway` share the same blueprints and generated code (differing only in config — which rails are loaded), Gate 2 (compile) and Gate 3 (AI PR review) run against both. If the sandbox diverges from prod, the build blocks.
-
-#### 3. Gate response
-
-If the build returns `BLOCKED`:
-
-1. Read the findings block — each finding cites the blueprint rule or capability guarantee it violates.
-2. If the defect is in a blueprint (missing path, missing error, fuzzy rule), fix the YAML and re-run `node scripts/validate.js`, then re-run the single `/fdl-build` above.
-3. If the defect is in generator output (wrong endpoint literal, mocked dependency, hallucinated field), re-prompt `/fdl-build` with the finding attached — do not hand-patch the output, since patches won't be re-gated.
-4. Never suppress a gate. `tool-unavailable` on Gate 2 is the one legitimate warn; install the missing toolchain rather than forcing a pass.
-
-#### 4. Post-build
+**Entry B — Claude Code open in a brand-new target project that has never seen FDL:**
 
 ```bash
-# Regenerate docs + AGI + commit
-/fdl-auto-evolve
+# one-time in a terminal, from the empty target dir
+cd <your-target-project-dir>
+npx ai-fdl-kit init --tool claude     # installs FDL + CLAUDE.md + copies all FDL skills
+
+# then open Claude Code in that directory and run
+/fdl-build --plan <path-or-url-to-this-plan> \
+           --targets "gateway:typescript-node,terminal:kotlin-android,admin:typescript-react,sandbox-gateway:typescript-node"
 ```
 
-**Total: one `/fdl-build` call → three generated apps (gateway / terminal / admin console) → 3-gate pipeline → production-ready deployment.**
+No `--path` needed in Entry B — the current working directory is the target.
+
+---
+
+Either entry point kicks off the same single-invocation pipeline. The skill runs everything the plan used to list as separate manual steps:
+
+1. **Auto-prep (Phase 0).** Runs `node scripts/validate.js` and `node scripts/completeness-check.js`. For every blueprint referenced in Appendix B, auto-patches missing `uses: [code-quality-baseline, security-baseline, ai-pr-review]`. For every blueprint that handles SA personal information (see §12.4), auto-patches `related: [{ feature: popia-compliance, type: required }]`. Re-validates after patching. No manual prep, no "please run X then re-invoke" loop.
+2. **Target setup (Phase 0.6) — assumes a fresh project every time.** Ensures the target directory exists (creates it if missing), initializes `package.json` if missing, runs `npm install ai-fdl-kit` inside it (same surface as `npx ai-fdl-kit` — skips if already at current version), copies all `.claude/skills/*` into `<target>/.claude/skills/` so every FDL slash-command is available natively in the new project (skips skills that already exist), and writes `<target>/CLAUDE.md` with the FDL compact instructions (three-tier blueprint lookup, api-pinning contract, anti-patterns, remote blueprint API pointer). Every step is idempotent: check, then act, never clobber. The FDL kit repo itself is not copied — only the published npm package plus the skill files land in the target.
+3. **Build.** Parses the plan, resolves every referenced blueprint, assembles one combined build graph across terminal / gateway / admin / sandbox-gateway, and writes code to `<target>/<target-key>/` per `--targets`.
+4. **3-gate pipeline.** Runs Gate 1 (static fake/placeholder scan), Gate 2 (compile/type-check, per target), and Gate 3 (cold-context AI PR review) once against the full generated stack. `sandbox-gateway` and `gateway` share the same blueprints and code (differing only in which rails load), so both are gated — if the sandbox diverges from prod, the build blocks.
+5. **Auto-evolve (Phase 9).** Runs `/fdl-auto-evolve` automatically in whichever context the skill is executing: in Entry A, it evolves the FDL kit repo (regenerates docs + JSON API, updates README/llms.txt metadata, commits the FDL tree). In Entry B, no FDL kit commit happens — the target project is a consumer, not the kit. In both entries, the generated app under the target is committed separately if it is a git repo; otherwise it is left as a clean working tree for the user to `git init` as they see fit.
+
+**Re-runs.** Every invocation re-runs Phase 0.6 bootstrap. Because every step is idempotent (detect-then-act), a second `/fdl-build` call against the same `--path` is safe and cheap — it skips anything already in place and only re-does the prep + build + gate + evolve work.
+
+On success: single consolidated `FILES` manifest plus the auto-evolve commit hash.
+
+#### If the build returns `BLOCKED`
+
+The skill handles one auto-retry. If Gate 1/2/3 trips on a blueprint defect (missing `api:`, fuzzy rule, missing error code) the skill patches the YAML where safe, re-validates, and re-runs the build once. If it still blocks, the findings are surfaced for human review — each finding cites the blueprint rule or capability guarantee it violated. Generator-output defects (hallucinated endpoint, mocked dependency, invented field) are fixed by re-running generation with the finding attached as context, never by hand-patching the output. `tool-unavailable` on Gate 2 is the only legitimate warn — install the missing toolchain rather than suppressing.
+
+**Total: one `/fdl-build` call → three generated apps (gateway / terminal / admin console) + sandbox-gateway parity → 3-gate pipeline → atomic commit. No manual prep, no manual post-build.**

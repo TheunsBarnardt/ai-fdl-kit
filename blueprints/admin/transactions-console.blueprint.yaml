@@ -1,0 +1,163 @@
+feature: transactions-console
+version: 1.0.0
+description: Admin web UI — live transaction explorer with drill-down, refund/dispute initiation, reconciliation state, and CSV/JSON export; every admin action is audited
+category: admin
+tags:
+  - admin
+  - console
+  - transactions
+  - refund
+  - dispute
+  - audit
+  - reconciliation
+uses:
+  - code-quality-baseline
+  - security-baseline
+  - ai-pr-review
+aliases:
+  - admin-transactions
+  - transactions-explorer
+  - ops-console
+actors:
+  - id: ops_operator
+    name: Operations operator
+    type: human
+    description: Investigates payments, issues refunds, initiates disputes
+  - id: pgw
+    name: Payments Gateway
+    type: system
+fields:
+  - name: from_date
+    type: datetime
+    required: false
+    label: "Filter: from timestamp"
+  - name: to_date
+    type: datetime
+    required: false
+  - name: merchant_id
+    type: text
+    required: false
+  - name: rail_id
+    type: text
+    required: false
+  - name: status
+    type: select
+    required: false
+    options:
+      - value: initiated
+        label: initiated
+      - value: authorised
+        label: authorised
+      - value: settled
+        label: settled
+      - value: refunded
+        label: refunded
+      - value: disputed
+        label: disputed
+      - value: failed
+        label: failed
+  - name: cursor
+    type: token
+    required: false
+    label: Pagination cursor
+api:
+  http:
+    method: GET
+    path: /v1/admin/transactions
+  request:
+    content_type: application/json
+    schema:
+      type: object
+      properties:
+        from_date:
+          type: string
+          format: date-time
+        to_date:
+          type: string
+          format: date-time
+        merchant_id:
+          type: string
+        rail_id:
+          type: string
+        status:
+          type: string
+        cursor:
+          type: string
+  response:
+    success:
+      status: 200
+      schema:
+        type: object
+        properties:
+          items:
+            type: array
+          next_cursor:
+            type: string
+    errors:
+      - status: 401
+        error_code: ADMIN_UNAUTHORIZED
+      - status: 403
+        error_code: ADMIN_FORBIDDEN
+rules:
+  security:
+    - "MUST: operator must hold `ops` role; MFA required"
+    - "MUST: every view and action is written to the audit log with operator id + reason"
+  privacy:
+    - "MUST: PAN is displayed only as last-4; full PAN never exposed to operators"
+  ux:
+    - "SHOULD: drill-down shows rail leg, fraud score, EMV outcome, and POPIA consent snapshot"
+anti_patterns:
+  - rule: Do not expose full PAN, CVV, or clear biometric data to admin UI
+    why: Required by transactions-console contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}
+  - rule: Do not allow refund without a written reason — audited field
+    why: Required by transactions-console contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}
+outcomes:
+  listed:
+    priority: 100
+    given:
+      - operator authenticated with ops role
+    then:
+      - action: emit_event
+        event: admin.transactions.listed
+    result: Page of transactions returned
+  unauthorized:
+    priority: 1
+    error: ADMIN_UNAUTHORIZED
+    given:
+      - no admin session
+    then: []
+    result: "401"
+  forbidden:
+    priority: 2
+    error: ADMIN_FORBIDDEN
+    given:
+      - operator lacks ops role
+    then: []
+    result: "403"
+errors:
+  - code: ADMIN_UNAUTHORIZED
+    status: 401
+    message: Sign in required
+  - code: ADMIN_FORBIDDEN
+    status: 403
+    message: You do not have permission
+events:
+  - name: admin.transactions.listed
+    payload: []
+  - name: admin.refund.initiated
+    payload: []
+  - name: admin.dispute.initiated
+    payload: []
+related:
+  - feature: popia-compliance
+    type: required
+    reason: Displays personal information to operators — consent & minimisation rules apply
+  - feature: payments-gateway-api
+    type: required
+    reason: Backed by PGW transaction queries
+  - feature: refunds-returns
+    type: required
+    reason: Refund initiation flow
+  - feature: dispute-management
+    type: required
+    reason: Dispute initiation flow

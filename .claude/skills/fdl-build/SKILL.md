@@ -1,9 +1,8 @@
 ---
 name: fdl-build
 description: Build a full application from a natural language description — searches blueprints, suggests features, resolves gaps, and generates code
-user_invocable: true
-command: fdl-build
-arguments: "<app-description>"
+user-invocable: true
+argument-hint: "<app-description> [--plan <path>] [--path <abs-path>] [--targets <map>]"
 ---
 
 # FDL Build — App Orchestrator
@@ -25,6 +24,9 @@ This is the flagship skill of FDL. It ties together `/fdl-create`, `/fdl-generat
 ## Arguments
 
 - `<app-description>` — Plain-English description of the app. Include the tech stack, features, and any specific requirements. Be as vague or specific as you want — the skill will ask clarifying questions and fill in the rest.
+- `--plan <path>` — Path to an FDL plan markdown (e.g. `docs/plans/*.md`) whose Appendix B lists the blueprints to build. When provided, skips Phase 1/2/3/4 user questions — the plan IS the approved spec.
+- `--targets <map>` — Comma-separated `<target-key>:<stack>` pairs, e.g. `"gateway:typescript-node,terminal:kotlin-android,admin:typescript-react"`. Each target-key becomes a sub-directory under `--path`. When omitted, the skill infers a single target from the stack detected in Phase 1.
+- `--path <absolute-path>` — Destination directory where generated app code is written. Created if missing. Each target writes to `<path>/<target-key>/` (or straight into `<path>/` if there is only one target). The FDL kit repo itself is never copied into `--path` — only the published `ai-fdl-kit` npm package (same as `npx ai-fdl-kit`) plus a `CLAUDE.md` are installed there so the new project is Claude-Code-ready and FDL-aware on first open. If omitted, defaults to the current working directory.
 
 ## Core Principles
 
@@ -33,6 +35,96 @@ This is the flagship skill of FDL. It ties together `/fdl-create`, `/fdl-generat
 3. **Never skip security.** If the app needs authentication, insist on it even if the user didn't mention it. If a blueprint has rate limiting, implement it.
 4. **Leverage existing blueprints first.** Only create new ones when nothing fits. The 50+ existing blueprints cover a LOT — search thoroughly before declaring a gap.
 5. **Explain WHY, not just WHAT.** Every suggestion has a reason. "You need tax-engine because POS order lines need tax computation" — not just "Adding tax-engine."
+6. **One invocation does everything — never ask the user to run prep or post-build steps separately.** This skill owns validate → auto-patch capability pinning → auto-patch POPIA links → re-validate → build → 3-gate pipeline → auto-evolve. If any of those can be automated, automate them. Do not tell the user "now run `node scripts/validate.js`" or "now run `/fdl-auto-evolve`" — this skill runs them itself.
+
+---
+
+## Phase 0: Auto-prep (runs automatically on every invocation — never skip, never ask)
+
+Before any blueprint search or user-facing question, run the prep sequence. The user must never be asked to run these manually and must never see a "please run X then re-invoke" message. If prep fails in a way the skill cannot auto-fix, surface the specific blocker and halt — but do not delegate the prep itself back to the user.
+
+### Step 0.1: Validate
+
+```bash
+node scripts/validate.js
+```
+
+- If exit 0 → proceed.
+- If exit non-zero with schema failures → read the failures, attempt auto-fix for the ones in Step 0.3/0.4 scope, then re-run. If failures remain after one auto-fix pass, halt and report the specific blueprint + rule that can't be auto-fixed.
+
+### Step 0.2: Completeness / secret scan
+
+```bash
+node scripts/completeness-check.js
+```
+
+- Warnings are advisory — do not halt on them.
+- A secret-scan hit halts immediately (secrets in blueprints are a POPIA/IP violation, never auto-patch). Report the file and offending line; refuse to proceed.
+
+### Step 0.3: Auto-patch capability pinning (plan-driven builds)
+
+If invoked with `--plan <path>`, parse the plan's Appendix B (or equivalent blueprint-reference section) to get the list of blueprints the build will generate against. For each listed blueprint:
+
+- Read the blueprint YAML.
+- If `uses:` is missing or does not contain all of `code-quality-baseline`, `security-baseline`, `ai-pr-review` → patch the YAML to add the missing capability imports. Preserve existing entries; merge, do not overwrite.
+- Do this silently — no prompt, no confirmation. The pinning is non-negotiable per the plan's own contract.
+
+Example patch (conceptual, not shown to the user):
+
+```yaml
+uses:
+  - code-quality-baseline
+  - security-baseline
+  - ai-pr-review
+```
+
+### Step 0.4: Auto-patch POPIA relation (PII-handling blueprints)
+
+For every blueprint referenced by the plan, detect whether it handles SA personal information. Heuristics:
+
+- Any field with type `email`, `phone`, `date` + name suggesting DOB, or `text` fields named `id_number`, `passport_number`, `national_id`, `address`, `bank_account`, `biometric*`, `palm_*`, `vein_*`, `face_*`, `fingerprint*`
+- Any rule or description mentioning PII, personal information, POPIA, GDPR, data subject, biometric, KYC, AML, consent
+- Any blueprint in category `auth`, `payment`, `integration` (palm-vein, card-reader), or `crm` that names a person
+
+For each PII-handling blueprint:
+
+- Read `related[]`. If no entry with `feature: popia-compliance` exists → add `{ feature: popia-compliance, type: required, reason: "Handles personal information of SA data subjects — must satisfy POPIA Act 4 of 2013" }`.
+- If an entry exists but type is not `required` → upgrade to `required` (never downgrade).
+
+Do this silently. POPIA linkage is mandated by CLAUDE.md Priority 1; it is not a user choice.
+
+### Step 0.5: Re-validate after patching
+
+```bash
+node scripts/validate.js
+```
+
+If patches introduced a validation error, halt and report — the auto-patch logic has a bug that needs human attention. Do not proceed to the build with invalid YAML.
+
+### Step 0.6: Target-directory setup (runs every time — assume new project)
+
+Always assume the target is a **fresh project** that has never been bootstrapped. Every invocation re-runs the full bootstrap: init → install → skills → `CLAUDE.md`. This is idempotent — existing files are detected and left alone (or updated in place), never clobbered. The user must never be asked to `npm init`, install packages, drop a `CLAUDE.md`, or copy skills manually.
+
+**Target resolution:**
+- If `--path <absolute-path>` is given → that is the target.
+- If `--path` is omitted → target is the current working directory.
+
+**Bootstrap sequence (runs every time, in order):**
+
+1. **Ensure the directory exists.** `mkdir -p <target>`. If it already exists and is non-empty with unrelated content (not `.git/`, `package.json`, `CLAUDE.md`, `.claude/`, `node_modules/`, or prior FDL output), halt and ask before writing into it — overwriting a user's existing project is destructive.
+2. **Initialize `package.json` if missing.** `cd <target> && npm init -y`. Set `name` to the last path segment. If `package.json` already exists, skip (don't touch the user's manifest).
+3. **Install the FDL npm package.** `cd <target> && npm install ai-fdl-kit` (or `npm install ai-fdl-kit --save-dev` if `--dev` flag set). This is the same surface a user gets from `npx ai-fdl-kit` — the published package bundles the validator, schema, templates, and skills (see `package.json#files`). If already installed at the current version, skip. Do NOT copy `blueprints/`, `scripts/`, or `schema/` from the FDL kit repo into the target; the npm install is the distribution boundary. Remote blueprints fall back to `https://theunsbarnardt.github.io/ai-fdl-kit/api/` at runtime.
+4. **Copy `.claude/skills/*` into `<target>/.claude/skills/`.** This makes `/fdl-build`, `/fdl-auto-evolve`, `/fdl-create`, `/fdl-generate`, and every other FDL slash-command available natively when the user opens Claude Code in the target project — so follow-up runs don't need to trampoline through the FDL kit repo. Use the same directory-copy logic as `installClaudeSkills()` in `bin/fdl.js`: for each skill subdirectory in the package's `.claude/skills/`, create the matching dir in the target and copy every file. If a skill directory already exists in the target, skip it (don't overwrite user customizations). Report how many were copied vs. skipped.
+5. **Write `<target>/CLAUDE.md`.** Generate the Claude-Code flavor of the FDL compact instructions (same content `compactInstructions()` in `bin/fdl.js` produces for `--tool claude`). Include: the three-tier blueprint lookup rules, the api-pinning contract, the anti-patterns rule, the priority/execution-order rule, and a pointer to the remote blueprint API. If `CLAUDE.md` already exists and already contains `# FDL — AI Feature Definition Language`, skip (it's up to date). If it exists but lacks the FDL section, append it delimited by `<!-- FDL:BEGIN -->` / `<!-- FDL:END -->` — never overwrite a user's existing CLAUDE.md content.
+6. **Record the target in the build context.** All subsequent file writes during Phase 6 go under `<target>/<target-key>/` (or `<target>/` if only one target). Never write generated app code into the FDL kit repo or outside `<target>`.
+
+If any step fails (network error on `npm install`, permission error on `mkdir`), halt with the specific error — do not fall through to code generation against a half-initialized target.
+
+**Idempotency contract:** running `/fdl-build` twice against the same `--path` must not break anything or duplicate files. Every step above checks-then-acts. A re-run is safe and cheap.
+
+### Step 0.7: Proceed
+
+Only after 0.1–0.6 succeed, continue to Phase 1. Do not tell the user any of this happened unless something required a halt or a bootstrap step actually did work (in which case a single terse line like "Bootstrapped VenaPalm — installed ai-fdl-kit, copied 19 skills, wrote CLAUDE.md" is fine; no multi-step narration).
 
 ---
 
@@ -706,6 +798,25 @@ DOCUMENTATION GENERATED:
 
 Your app is fully documented and ready to go.
 ```
+
+---
+
+## Phase 9: Auto-evolve (runs automatically — never ask)
+
+After Phase 8 completes successfully, invoke `/fdl-auto-evolve` automatically. The user must never be told "now run /fdl-auto-evolve" or "don't forget to commit." This skill owns the full pipeline end-to-end.
+
+- If `/fdl-auto-evolve` succeeds → report its commit hash + summary as part of the final output.
+- If it fails (e.g., validation regression from the build's blueprint patches) → surface the specific finding. Do not leave the user with a half-committed tree.
+- If invoked with `--dry-run` or the caller explicitly opted out of committing, skip Phase 9 but still say why.
+
+### Gate response when the 3-gate pipeline returns BLOCKED
+
+If Gate 1, 2, or 3 trips during Phase 6 (generation), do NOT emit a normal success summary. Instead:
+
+1. Report the finding(s) with the blueprint rule or capability guarantee each one violates.
+2. If the defect is in a blueprint (missing api:, fuzzy rule, missing error code), auto-patch the YAML where safe, re-run validate, and re-invoke the build loop once. Only one auto-retry — if it still blocks, surface the finding for human review.
+3. If the defect is in generator output (hallucinated endpoint, mocked dependency, invented field), re-run generation with the finding attached as additional context. Never hand-patch generated output — patches won't be re-gated.
+4. Never suppress a gate. `tool-unavailable` on Gate 2 is the only legitimate warn; surface a clear "install X to unblock Gate 2" message rather than forcing a pass.
 
 ---
 
