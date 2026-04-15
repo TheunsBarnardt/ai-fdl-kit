@@ -26,10 +26,14 @@ This platform unifies all three into a single, always-on, low-friction applicati
 
 - **Resident mobile app** — one-tap panic, categorised incident requests, messaging within their sector, and live tracking of approaching responders.
 - **Patroller / responder mobile app** — incident inbox filtered by skills and opt-ins, accept-to-activate dispatch, patrol shift logging, and in-incident comms.
-- **Callcenter operator console** — live incident queue, live sector map, outbound confirmation calls, external-service coordination (ambulance, fire, SAPS), and broadcast tools.
+- **Volunteer operator console** — live incident queue, live sector map, outbound confirmation calls, external-service coordination (ambulance, fire, SAPS), and broadcast tools. Available as both a web console (for dedicated shifts) and a mobile operator-mode (for operators who are also patrolling or otherwise on the move).
 - **Administrator web portal** — sector management, patroller onboarding and vetting, skill taxonomy, audit trails, SARS export, and system configuration.
 
-The platform supports two coexisting operational models in the same codebase: **Community Policing Forum volunteers** (SAPS-cleared, unpaid, typically unarmed) and **registered private security responders** (PSIRA-graded, employed by armed-response companies). Residents see a unified service; dispatch logic routes each incident to the right responder type based on the incident category, the responder's declared skills, the responder's consent-based opt-ins, and geographic proximity within the sector.
+**Everyone operating the platform is a volunteer.** The platform operator employs no operators, no patrollers, and no administrators. Residents, patrollers, volunteer operators, and volunteer admins all participate under a volunteer agreement and POPIA consent. The **build team** — engineers, designers, security, legal — are the only paid professionals, engaged during delivery phases. Steady-state operations are entirely volunteer-run, following a well-established Community Policing Forum model.
+
+The platform supports two coexisting responder profiles: **Community Policing Forum volunteers** (SAPS-cleared, typically unarmed) and **registered private security responders** (PSIRA-graded — who may be employed by armed-response companies outside this platform, but participate here as volunteers of their time). Residents see a unified service; dispatch logic routes each incident to the right responder type based on the incident category, the responder's declared skills, the responder's consent-based opt-ins, and geographic proximity within the sector.
+
+**Roles are fluid.** A single volunteer can hold multiple privileges — patroller, operator, admin — and act in whichever mode they have declared active. An operator on a road patrol can triage an incoming incident from their mobile device while in the vehicle; a patroller on-scene at an incident can arrange an ambulance directly through the same external-service channels that a desk-bound operator would use. Privilege gates enforce *what* a volunteer can do; the surface is designed so that *where they are* and *what they are doing* does not block legitimate action.
 
 The service is **free at the point of use for the resident.** Funding is not in scope for this platform — revenue/subsidy arrangements with armed-response companies, municipalities, or NPOs are handled outside the software boundary.
 
@@ -37,14 +41,37 @@ The service is **free at the point of use for the resident.** Funding is not in 
 
 **Timeline at a glance:**
 
+```mermaid
+gantt
+    title Delivery phases — 50 weeks (~12 months)
+    dateFormat  YYYY-MM-DD
+    axisFormat  W%V
+
+    section Phase 0
+    Foundation (blueprints, architecture)        :p0, 2026-05-01, 42d
+    section Phase 1
+    Design (Figma system + prototypes)           :p1, after p0, 70d
+    section Phase 2
+    MVP build (panic, dispatch, tracking)        :p2, after p1, 84d
+    section Phase 3
+    Volunteer-ops suite (console, voice, bcast)  :p3, after p2, 56d
+    section Phase 4
+    Audit + compliance (SARS, POPIA panel)       :p4, after p3, 42d
+    section Phase 5
+    Scale-out (multi-sector, resilience)         :p5, after p4, 56d
+```
+
 | Phase | Duration | Milestone |
 |---|---|---|
 | Phase 0 — Foundation | 6 weeks | Blueprint set complete, architecture signed off |
-| Phase 1 — MVP | 12 weeks | Panic + dispatch + tracking live in pilot sector |
-| Phase 2 — Operator suite | 8 weeks | Callcenter console + voice conference + broadcast |
-| Phase 3 — Audit & compliance | 6 weeks | SARS export, location audit, POPIA operator panel |
-| Phase 4 — Scale-out | 8 weeks | Multi-sector rollout, resilience hardening |
-| **Total** | **~10 months** | Production multi-sector service |
+| Phase 1 — Design | 10 weeks | Full Figma design system, all flows, interactive prototype, pilot walk-through |
+| Phase 2 — MVP build | 12 weeks | Panic + dispatch + tracking live in pilot sector |
+| Phase 3 — Volunteer-ops suite | 8 weeks | Operator console (web + mobile) + voice conference + broadcast |
+| Phase 4 — Audit & compliance | 6 weeks | SARS export, location audit, POPIA operator panel |
+| Phase 5 — Scale-out | 8 weeks | Multi-sector rollout, resilience hardening |
+| **Total** | **~12 months** | Production multi-sector service |
+
+Phase 1 design is a separate deliverable with its own plan: see [community-safety-platform-design.md](./community-safety-platform-design.md).
 
 ---
 
@@ -93,14 +120,19 @@ Every step is a failure point. **The platform's north-star metric is the time fr
 
 ### 3.1 Actors and authority
 
-| Actor | Who | Authority | Lawful basis (POPIA) |
+All platform participants are volunteers. "Actor" here means the role a volunteer is currently acting in — a single volunteer may hold multiple role privileges and switch between them.
+
+| Actor (role) | Who | Authority | Lawful basis (POPIA) |
 |---|---|---|---|
 | **Resident** | Individual registered against a sector at a verified address | Request help, message within sector, view own history | Consent + legitimate interest (community safety) |
 | **CPF patroller** | SAPS-cleared community volunteer, affiliated to a CPF structure | Observe, report, coordinate, self-dispatch to any category with liability acknowledgement | Volunteer agreement + legitimate interest (community safety) |
-| **Private security responder** | PSIRA-graded officer, employed by a registered armed-response company | Armed response, physical intervention, commercial dispatch contract | Contract performance + employer contract |
-| **Callcenter operator** | Employed by platform operator | Triage, confirmation calls, external-service dispatch, broadcast, audit view | Employment contract + legitimate interest |
-| **Administrator** | Employed by platform operator | Sector configuration, user management, skill taxonomy, audit export | Employment contract |
-| **External service** | SAPS, ER24, fire brigade, other 3rd parties | Receive referrals from callcenter | Section 11(1)(a)(i) — protection of data subject's life / legitimate interest |
+| **Private security responder** | PSIRA-graded officer (employed by an armed-response company elsewhere); participates in this platform as a volunteer of their time | Armed response, physical intervention, on-scene external-service arrangement | Volunteer agreement + legitimate interest |
+| **Volunteer operator** | Volunteer who has completed operator training and active vetting | Triage, confirmation calls, external-service dispatch, broadcast, audit view — from web console or mobile operator-mode | Volunteer agreement + legitimate interest |
+| **Volunteer administrator** | Volunteer trusted with platform configuration and vetting authority | Sector configuration, user management, skill taxonomy, audit export | Volunteer agreement + legitimate interest |
+| **External service** | SAPS, ER24, fire brigade, other 3rd parties | Receive referrals from operators or on-scene responders | Section 11(1)(d) — protection of data subject's life / legitimate interest |
+| **Platform operator (legal entity)** | The responsible party per POPIA — typically an NPO or PBO | Accountable for processing; employs build-team professionals only | Statutory responsibility |
+
+**Role fluidity.** A volunteer can simultaneously hold `patroller`, `operator`, and `admin` privileges. At any moment they are **acting** in at most one or two modes (e.g. *patrolling + operating* — on the road, patrolling, and also triaging an incoming incident on a passenger's device). The platform enforces privilege gates, not role exclusivity.
 
 ### 3.2 Sector model
 
@@ -125,6 +157,35 @@ Patrollers have **two independent duty states**, never passive tracking:
 | `responding` | Patroller accepts an incident | Live stream to incident-linked parties (resident, operator, other acceptors) | Incident parties only |
 | `patrolling + responding` | Both | Both | Both |
 
+```mermaid
+stateDiagram-v2
+    [*] --> off_duty
+    off_duty --> patrolling: Start Patrol (odometer in)
+    patrolling --> off_duty: Stop Patrol (odometer out)
+    off_duty --> responding: Accept incident
+    patrolling --> patrolling_responding: Accept incident
+    responding --> off_duty: Incident closed
+    patrolling_responding --> patrolling: Incident closed
+    patrolling_responding --> responding: Stop Patrol
+    note right of off_duty
+        No GPS collection.
+        POPIA: passive
+        tracking is never
+        acceptable.
+    end note
+    note right of patrolling
+        GPS logged to patrol log.
+        Visible to admin + operator
+        for oversight only.
+    end note
+    note right of responding
+        GPS streamed live to
+        incident parties
+        (resident, operator,
+        other acceptors).
+    end note
+```
+
 When the patroller stops the patrol, the trail closes and becomes an immutable patrol log record. When the incident closes, the stream ends and retention policy applies (snapshot of trail retained as evidence, live stream discarded).
 
 ### 3.4 Dispatch filter — four gates
@@ -147,26 +208,48 @@ Dispatch is not winner-takes-all. Multiple eligible patrollers can accept the sa
 
 ### 3.6 Fan-out order on panic / categorised incident
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant R as Resident
+    participant D as Dispatch Engine
+    participant SP as Sector patrollers (eligible)
+    participant OP as On-duty operators
+    participant AR as Armed-response companies
+    participant AP as Adjacent-sector patrollers
+    participant ES as External escalation (SAPS / ER24 / fire)
+
+    R->>D: Incident fired (panic or categorised)
+    par t+0 — initial fan-out
+        D->>SP: Notify (four-gate filter applied)
+        D->>OP: Queue on operator console / mobile mode
+        D->>AR: Notify via company channel (webhook / SMS / app)
+    end
+    alt Acceptance within 30s
+        SP-->>D: Accept (one or more)
+    else No acceptance at t+30s
+        D->>AP: Widen fan-out to adjacent sectors
+    end
+    alt Acceptance within 60s
+        AP-->>D: Accept
+    else No acceptance at t+60s
+        D->>ES: Auto-escalation dials mutual-aid line
+        OP->>ES: Operator escalates (if on duty)
+    end
 ```
-t+0    sector-matched patrollers (CPF + private, all eligible) notified
-t+0    callcenter operator console gets the incident
-t+0    armed-response companies serving the sector notified (always)
-t+30s  if no accept: adjacent sectors' eligible patrollers notified
-t+60s  if no accept: all-hands within configured radius; operator escalates
-       to SAPS / ER24 / fire as category warrants
-```
 
-The callcenter is **always a recipient, never a gatekeeper** — dispatch does not block on operator acknowledgement.
+The on-duty operator is **always a recipient, never a gatekeeper** — dispatch does not block on operator acknowledgement. If no operator is on duty, dispatch still fan-outs and the auto-escalation fills the confirmation role after SLA.
 
-### 3.7 Callcenter role
+### 3.7 Volunteer operator function
 
-The callcenter is the **system of record, confirmation layer, and external-service coordinator** — not the dispatcher. Specifically:
+Volunteer operators are not a dispatch gate. They are the **system of record, confirmation layer, and external-service coordinator** — and their presence is best-effort, not guaranteed. Specifically:
 
-- **Confirmation call:** on every panic activation, the operator outbound-calls the resident within a target of 15 seconds to confirm the emergency and filter false alarms (pocket dials, accidental taps).
-- **External services:** when an incident requires ambulance, fire, SAPS, hazmat, or specialist response the callcenter arranges it via pre-established channels and coordinates on-scene handover.
-- **Broadcast:** operator can broadcast informational alerts to a sector, a set of sectors, a role group, or system-wide (with audited justification).
-- **Log:** every incident, call, broadcast, and external-service referral is logged with operator identity, timestamp, and justification.
-- **Failover:** if the callcenter is offline or overwhelmed, the dispatch pipeline continues to fan out to patrollers and armed-response companies; incidents queue on the operator side for replay when they come back online.
+- **Confirmation call:** when one or more operators are on duty, the first available one outbound-calls the resident within a target of 15 seconds to confirm the emergency and filter false alarms (pocket dials, accidental taps). If no operator is on duty, confirmation falls to the first on-scene responder when they arrive.
+- **External services:** when an incident requires ambulance, fire, SAPS, hazmat, or specialist response, **either an on-duty operator or an accepted on-scene responder** can arrange it via pre-established channels. The platform exposes the same external-service-coordination surface to both. An on-scene patroller does not need an operator's approval to dial an ambulance.
+- **Broadcast:** operators can broadcast informational alerts to a sector, a set of sectors, a role group, or (with admin approval) system-wide. Every broadcast carries an audited justification.
+- **Log:** every incident, call, broadcast, external-service referral, and on-scene action is logged with the acting volunteer's identity, timestamp, and (where required) justification.
+- **Graceful degradation under no-operator conditions:** if zero operators are on duty at the moment a panic fires, the dispatch pipeline still fans out to eligible patrollers and armed-response companies. The incident is queued for operator review as soon as one comes on duty. A configurable **auto-escalation** rule can additionally dial a pre-configured mutual-aid number (SAPS community-policing desk, partner armed-response central line) after a timeout with no acceptance, so coverage gaps do not leave a resident stranded.
+- **Volunteer rota, not employment roster:** coverage is achieved by a published volunteer schedule with committed shifts, supported by a mobile operator-mode so that a volunteer can cover a shift from anywhere with a reliable connection (including while a passenger in a patrolling vehicle). The platform makes it easy to sign up for shifts, hand over mid-shift, and log time contributed.
 
 ### 3.8 Resident messaging and calling
 
@@ -179,6 +262,17 @@ The callcenter is the **system of record, confirmation layer, and external-servi
 | Resident ↔ Patroller (text, direct) | **Never** | Conference-channel only | — |
 
 Direct resident-to-patroller voice calling is **structurally impossible** in the platform. The privacy barrier is enforced at the signalling layer, not just the UI, so a compromised client build cannot open the channel. This prevents harassment, cold-call tracking, and the formation of informal responder-resident relationships that undermine the operator's oversight role.
+
+### 3.9 External-service arrangement from the field
+
+Either a volunteer operator or an accepted on-scene responder can trigger an external-service referral (ambulance, fire, SAPS, hazmat, tow service, utility). The platform exposes:
+
+- A **one-tap "call ambulance"** action on the incident card / active-incident screen that auto-dials the configured medical provider and opens a referral record with the incident linked.
+- Equivalent one-tap actions for fire, SAPS, and sector-specific pre-configured numbers.
+- A structured handover log: responder enters the external service's reference number (ambulance case number, SAPS CAS number) so the incident record links outward for follow-up.
+- Full audit: who arranged what, at what time, which incident.
+
+Responders do not need operator approval to arrange external services — **time to ambulance on scene is dominated by human hesitation, not by technical gating**, and the design strips that hesitation. Abuse (wrongful arrangement of services) is an audit concern, not a prevention concern; it is handled by review, not by gating.
 
 ---
 
@@ -217,9 +311,14 @@ Direct resident-to-patroller voice calling is **structurally impossible** in the
 - **Profile** — skills, response opt-ins (with informed-consent confirmation on sensitive categories), PSIRA grade / CPF affiliation number, vehicle registration, insurance.
 - **SARS logbook** — view accumulated km, export current tax year's logbook as PDF in SARS travel-logbook format.
 
-### 4.3 Callcenter operator console
+### 4.3 Volunteer operator surface — web console + mobile operator-mode
 
-**Platform:** web, Next.js, WebSocket-driven real-time updates, designed for a dual-monitor operator workstation.
+Because operators are volunteers who may cover shifts from anywhere (home, on the road as a passenger in a patrol vehicle, at a community hall), the operator surface is **dual-form**:
+
+- **Web console** — Next.js, WebSocket-driven real-time updates, designed for a dual-monitor setup when a volunteer takes a dedicated shift at home or in a community office.
+- **Mobile operator-mode** — an elevated mode of the patroller app, unlocked for volunteers who hold operator privilege. Shows a compact incident queue, confirmation-call action, external-service dial-out, and broadcast composer. Intentionally designed for one-handed use in a vehicle (as a passenger) or standing.
+
+The same backend APIs serve both surfaces. Feature parity on the critical path (triage an incident, confirm with resident, arrange external service) is a Phase 3 exit criterion. Bulk work (analytics, configuration) is web-only.
 
 **Core panels:**
 
@@ -250,68 +349,116 @@ Direct resident-to-patroller voice calling is **structurally impossible** in the
 
 ### 5.1 Resident onboarding
 
-1. Resident downloads the app (public App Store / Play Store).
-2. Opens app → enters phone number → receives SMS OTP → enters OTP.
-3. Enters name, SA ID number or passport number, physical address.
-4. Address is geocoded; sector is auto-assigned based on polygon match. Resident confirms sector.
-5. Proof-of-address upload (utility bill, lease, title deed). Held for admin verification within 48h. Service is limited until verified (panic works, request-help works, full messaging does not).
-6. Emergency contacts (up to 3), medical notes (optional), consent to POPIA processing (Section 11 explicit consent), consent to location processing during incidents and notified context.
-7. Biometric enrolment + PIN backup.
-8. Device registers with the attestation service, receives long-lived refresh token.
-9. Resident is active and can activate panic / request help immediately (even before address verification).
+```mermaid
+flowchart TD
+    A[Install from App Store / Play Store] --> B[Enter phone number]
+    B --> C[Receive + enter SMS OTP]
+    C --> D[Name, SA ID / passport, address]
+    D --> E{Address geocodes to<br/>a known sector?}
+    E -- Yes --> F[Confirm sector assignment]
+    E -- No --> G[Manual sector selection<br/>+ admin follow-up flag]
+    F --> H[Upload proof of address]
+    G --> H
+    H --> I[Emergency contacts<br/>up to 3]
+    I --> J[Medical notes<br/>optional, per-field consent]
+    J --> K[POPIA consent walkthrough<br/>Section 11 explicit consent]
+    K --> L[Biometric enrolment + PIN backup]
+    L --> M[Device attestation<br/>long-lived refresh token issued]
+    M --> N[Active<br/>Panic + request help available]
+    H -.48h SLA.-> V[Admin verifies proof of address]
+    V --> W[Full messaging unlocked]
+```
+
+Notes:
+- Panic and request-help are available **immediately** after step M, even before the admin has verified proof of address (step V). This is deliberate — no safety feature is withheld behind an admin-verification queue.
+- Full sector messaging is gated on admin verification to prevent impersonation of neighbours.
+- The POPIA walkthrough (K) is a first-class screen set, not a tick-box — see the design plan for copy-level requirements.
 
 ### 5.2 Patroller onboarding and vetting
 
 CPF volunteer path and private-security path share a pipeline but gate on different documents.
 
-1. Applicant downloads the patroller app variant, enters phone → OTP.
-2. Declares role: CPF volunteer, or private-security responder (with company identifier).
-3. Uploads:
-   - CPF volunteer: SAPS clearance certificate (not older than 6 months), CPF affiliation letter signed by CPF chair, ID copy, proof of address, driver's licence if vehicle patrol, firearm licence and PSIRA card if claiming `firearm_licensed`.
-   - Private-security responder: PSIRA registration card, employer letter, ID copy, firearm licence if armed, driver's licence, vehicle registration.
-4. Declares skills and response opt-ins. Sensitive opt-ins (murder scene, GBV, child-in-danger, suicide) require a separate informed-consent screen with an explanation of why the opt-in matters and an option to pre-book trauma-support resources.
-5. Application enters the admin vetting queue.
-6. Admin verifies documents, cross-checks PSIRA registry or SAPS clearance issue, grants or rejects.
-7. On approval, patroller is active. They can start a patrol and accept incidents immediately.
-8. Revocation: admin can revoke at any time. Revocation disables the device token, closes any open patrol, removes the patroller from active-sector rosters, and audit-logs the revocation reason.
+```mermaid
+flowchart TD
+    A[Install patroller app] --> B[Phone + OTP]
+    B --> C{Declare role}
+    C -- CPF volunteer --> D1[Upload:<br/>SAPS clearance certificate<br/>CPF affiliation letter<br/>ID copy<br/>proof of address<br/>driver's licence if vehicle<br/>firearm licence + PSIRA card<br/>if firearm_licensed]
+    C -- Private-security responder --> D2[Upload:<br/>PSIRA registration card<br/>employer letter<br/>ID copy<br/>firearm licence if armed<br/>driver's licence<br/>vehicle registration]
+    D1 --> E[Declare skills]
+    D2 --> E
+    E --> F[Declare response opt-ins]
+    F --> G{Any sensitive<br/>opt-in?<br/>murder / GBV / child /<br/>suicide}
+    G -- Yes --> H[Informed-consent screen<br/>+ trauma-support pre-booking]
+    G -- No --> I[Enter admin vetting queue]
+    H --> I
+    I --> J{Admin verifies<br/>documents and<br/>registry checks}
+    J -- Reject --> K[Application closed<br/>audit-reasoned]
+    J -- Approve --> L[Active<br/>can start patrol<br/>and accept incidents]
+    L -. admin can revoke<br/>at any time .-> M[Revocation<br/>device token disabled<br/>open patrol closed<br/>sector rosters updated<br/>reason audit-logged]
+```
 
 ### 5.3 Panic button — the ten-second path
 
 The central flow. Every other flow in the platform is a variation of this one.
 
-```
-T+0.0s    Resident taps panic button (home screen, lock-screen widget, hardware-button combo)
-T+0.1s    App captures GPS (cached fix used if < 5s old, fresh fix otherwise)
-T+0.2s    App shows 5-second silent-cancel countdown with vibration feedback
-          (configurable; can be disabled in Settings for residents who accept no-cancel)
-T+5.0s    If not cancelled, incident record is created on device and transmitted to server
-          Category: panic_uncategorised, priority: highest, required_skills: [] (all eligible)
-T+5.3s    Server writes incident to database with audit trail, emits incident.created event
-T+5.5s    Dispatch engine runs the four-gate filter for the resident's sector
-T+5.7s    Eligible patrollers receive a push notification (high-priority channel, bypasses DND)
-T+5.7s    Callcenter operator console shows the incident with a loud audio alert
-T+5.7s    Armed-response companies serving the sector are notified via their configured channel
-          (webhook, SMS, or integrated app — determined by company's onboarding)
-T+6.0s    Resident's app opens the Active Incident screen, shows "dispatching" status
-T+8.0s    First patroller accepts. Resident's app shows ETA pin, status changes to "accepted"
-T+10.0s   Additional acceptors arrive; ranked list updates in real-time
-T+15.0s   Operator outbound-calls the resident to confirm the emergency and offer support
-          (if the resident answers and says "false alarm", operator can stand down;
-           if the resident doesn't answer or confirms emergency, dispatch continues)
-T+30.0s   If no acceptor yet, fan-out widens to adjacent sectors; operator escalates
-T+60.0s   If still no acceptor, all-hands broadcast in a wider radius; operator calls
-          external services (SAPS, armed-response company mutual-aid line)
-          Conference voice bridge opens with resident + first acceptor + operator
-T+n       First acceptor arrives on scene, taps on-scene. Resident's app confirms arrival.
-          Responder handles the situation. On-scene events (further dispatches, SAPS case
-          opened, ambulance called) are logged to the incident card.
-T+close   Responder or operator marks the incident resolved with a classification
-          (genuine emergency, false alarm, cancelled, external-service-handed-over).
-          Resident's location stream stops. Trail snapshot retained.
-          Audit record sealed.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor R as Resident
+    participant App as Resident App
+    participant S as Server / Dispatch
+    participant P as Eligible patrollers
+    participant O as On-duty operator(s)
+    participant AR as Armed-response companies
+    participant ES as External services<br/>(SAPS / ER24 / fire)
+
+    R->>App: T+0.0s Tap panic (lock screen OK)
+    App->>App: T+0.1s Capture GPS<br/>(cached < 5s, else fresh)
+    App->>R: T+0.2s 5s silent-cancel countdown<br/>(haptic + visual)
+    alt Cancelled within 5s
+        R->>App: Cancel
+        App->>S: Audit cancel event
+    else Not cancelled
+        App->>S: T+5.0s Transmit incident<br/>(panic_uncategorised, highest priority)
+        S->>S: T+5.3s Write incident + audit<br/>emit incident.created
+        S->>S: T+5.5s Four-gate filter for resident's sector
+        par T+5.7s initial fan-out
+            S->>P: Push notification (high-priority, bypass DND)
+            S->>O: Queue on console + mobile operator-mode<br/>(if any operator is on duty)
+            S->>AR: Notify configured channels<br/>(webhook / SMS / app)
+        end
+        App->>R: T+6.0s Active Incident screen<br/>status "dispatching"
+        P-->>S: T+8.0s First accept
+        S-->>App: Status "accepted"<br/>show ETA pin
+        App->>R: Ranked list updates live<br/>(multi-acceptor race)
+        alt Operator on duty
+            O->>R: T+15s Outbound confirmation call
+            alt Resident confirms false alarm
+                O->>S: Stand down (audit-reasoned)
+            else Genuine
+                O->>S: Mark confirmed
+            end
+        else No operator on duty
+            Note over O,P: Confirmation falls to first acceptor<br/>on arrival
+        end
+        opt No acceptance at T+30s
+            S->>P: Widen fan-out to adjacent sectors
+            S->>ES: Auto-escalation (if configured)
+        end
+        opt No acceptance at T+60s
+            S->>P: All-hands within radius
+            Note over O,P: Any on-duty operator or first<br/>acceptor arranges external services<br/>from the incident card
+            S->>S: Open conference bridge<br/>(resident + acceptor + operator)
+        end
+        P->>S: On-scene tap
+        S-->>App: Arrival confirmation
+        Note over R,P: Responder handles scene.<br/>On-scene events (further dispatches,<br/>SAPS case opened, ambulance called)<br/>logged to incident card.
+        P->>S: Mark resolved + classify<br/>(genuine / false alarm / cancelled /<br/>handed-over-to-external)
+        S->>App: Location stream stops<br/>Trail snapshot retained<br/>Audit record sealed
+    end
 ```
 
-Every line above is an auditable event with actor, timestamp, and data payload.
+Every arrow above is an auditable event with actor, timestamp, and data payload. The sequence is timed against p95 targets — see §13.1 SLOs.
 
 ### 5.4 Categorised incident request
 
@@ -324,43 +471,109 @@ The resident can add a short text note and attach a photo. Media attached to an 
 
 ### 5.5 Patrol shift
 
-1. Patroller taps Start Patrol.
-2. App prompts for odometer reading (numeric input, used for SARS logbook substantiation).
-3. App begins GPS logging every 15 seconds (configurable). Trail is stored on device and synced to server every 60 seconds.
-4. Patroller's duty state transitions to `patrolling`. Visible to admin and callcenter; not visible to residents.
-5. During the patrol, the patroller receives incident notifications passing the four gates.
-6. If they accept an incident, duty state becomes `patrolling + responding`. Location streaming is elevated to the incident-response channel.
-7. After the incident closes, the patroller returns to `patrolling`.
-8. Patroller taps Stop Patrol. App prompts for closing odometer reading. Trail closes and becomes an immutable patrol log record.
-9. Patrol log record fields: patroller, sector(s), start time, end time, start odometer, end odometer, distance from GPS trail, distance from odometer (both stored; SARS uses odometer), trail polyline, incidents-responded-to count.
+```mermaid
+flowchart TD
+    A[Tap Start Patrol] --> B[Enter opening odometer]
+    B --> C[GPS logging begins<br/>15s interval, device-stored]
+    C --> D[Trail synced to server<br/>every 60s]
+    D --> E[Duty state: patrolling]
+    E --> F{Eligible incident<br/>arrives via four-gate<br/>filter?}
+    F -- No --> G[Continue patrol<br/>km accumulates]
+    F -- Yes, accept --> H[Duty: patrolling + responding<br/>location stream elevated]
+    F -- Yes, decline --> G
+    H --> I[Respond to incident]
+    I --> J{Incident<br/>closed?}
+    J -- No --> I
+    J -- Yes --> K[Back to patrolling only]
+    G --> L{Tap Stop<br/>Patrol?}
+    K --> L
+    L -- No --> F
+    L -- Yes --> M[Enter closing odometer]
+    M --> N[Trail closes<br/>immutable patrol log record written]
+```
+
+**Patrol log record fields:** patroller, sector(s), start time, end time, opening odometer, closing odometer, distance from GPS trail, distance from odometer (both stored; SARS uses odometer), trail polyline, incidents-responded-to count.
 
 ### 5.6 Broadcast from operator or admin
 
-1. Operator opens the Broadcast composer.
-2. Selects target: a sector, a set of sectors, a role (all patrollers in sector X, all residents in sector Y), or system-wide (admin only, requires audit reason and co-approval).
-3. Selects severity: informational, advisory, urgent.
-4. Enters message body and optional attachment.
-5. Preview shows estimated recipient count.
-6. Operator clicks Send. System emits `broadcast.sent` event; each recipient device receives a push notification and in-app message.
-7. Recipients can reply only if the broadcast explicitly enables replies (default off). Replies go to the operator, not the broadcast channel.
-8. Audit record captures operator identity, target, severity, message, reason (if multi-sector or system-wide), recipient count, read receipts.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Op as Operator / Admin
+    participant UI as Broadcast composer
+    participant S as Server
+    participant PN as Push provider
+    participant R as Recipient devices
+    participant A as Audit log
+
+    Op->>UI: Open composer
+    Op->>UI: Select target<br/>(sector / sector-set / role / system-wide)
+    alt Multi-sector or system-wide
+        UI->>Op: Require audit reason<br/>+ admin co-approval
+        Op->>UI: Provide reason
+    end
+    Op->>UI: Choose severity<br/>(informational / advisory / urgent)
+    Op->>UI: Compose body + optional attachment
+    UI->>S: Preview → estimated recipient count
+    Op->>UI: Click Send
+    S->>A: Log broadcast.sent<br/>(operator, target, severity, reason, count)
+    S->>PN: Fan-out push notifications
+    PN->>R: Deliver push + in-app message
+    R-->>S: Read receipts
+    alt Replies enabled
+        R-->>Op: Replies routed to operator<br/>(not the broadcast channel)
+    else Replies disabled (default)
+        Note over R: No reply path exposed
+    end
+```
 
 ### 5.7 Incident voice conference
 
-1. Conference bridge is allocated when the first patroller accepts.
-2. Resident can join by tapping the call button on the Active Incident screen. Accepted patrollers can join from their Active Incident screen. Operator joins from the incident card.
-3. Bridge is WebRTC-based, encrypted in transit and at rest for the recording.
-4. Recording is automatic for every incident conference (disclosed in POPIA consent). Retained per the retention policy.
-5. When the incident closes, the bridge closes and the recording is sealed into the incident record.
-6. Residents cannot call patrollers directly — only the operator-mediated incident conference exists, and only while the incident is active.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor R as Resident
+    actor P as Accepted patroller(s)
+    actor O as Operator (if on duty)
+    participant B as Conference bridge (WebRTC SFU)
+    participant REC as Recording store
+
+    Note over B: Bridge allocated on first patroller accept
+    R->>B: Tap call → join (from Active Incident screen)
+    P->>B: Tap join (from Active Incident screen)
+    O->>B: Join (from incident card)
+    B->>REC: Record automatically<br/>(disclosed in POPIA consent)
+    R->>B: Speak<br/>DTLS+SRTP encrypted in transit
+    B->>P: Forward
+    B->>O: Forward
+    Note over R,P: Direct resident↔patroller<br/>voice impossible outside bridge
+    Note over B: Incident closes
+    B->>REC: Seal recording into incident record
+    B->>R: Disconnect
+    B->>P: Disconnect
+    B->>O: Disconnect
+```
+
+The conference bridge only exists **during an active incident**. Residents cannot call patrollers directly — this is enforced at the signalling layer, not just the UI.
 
 ### 5.8 SARS tax logbook export
 
-1. Patroller opens SARS logbook screen.
-2. Selects tax year (1 March – 28/29 February).
-3. System compiles a PDF in SARS travel-logbook format: date, opening odometer, closing odometer, kilometres, business purpose ("community patrol — sector X"), signature field.
-4. Each patrol entry shows the odometer values declared at Start/Stop and the GPS-derived distance for reconciliation. Where the two diverge, the odometer figure is authoritative for SARS per Section 8(1); the GPS figure is documentation that the patrol actually occurred.
-5. Document is tamper-evident (signed with platform's private key, verifiable via published public key), so SARS can trust the provenance without contacting the platform.
+```mermaid
+flowchart TD
+    A[Patroller opens SARS logbook screen] --> B[Select tax year<br/>1 Mar – 28/29 Feb]
+    B --> C[System queries patrol log records<br/>for the selected year]
+    C --> D[For each patrol entry, compile:<br/>date, opening + closing odometer,<br/>km, purpose 'community patrol — sector X']
+    D --> E{Odometer km vs<br/>GPS-derived km}
+    E -- Matches within tolerance --> F[Use odometer km<br/>GPS km as documentation only]
+    E -- Diverges --> G[Use odometer km per s.8<br/>flag divergence in log<br/>GPS trail attached as evidence]
+    F --> H[Render PDF in SARS<br/>travel-logbook format]
+    G --> H
+    H --> I[Sign PDF with platform<br/>private key]
+    I --> J[Patroller downloads<br/>tamper-evident PDF]
+    J --> K[Submit to SARS<br/>with tax return]
+```
+
+The odometer figure is authoritative for SARS per Section 8(1). The GPS trail is documentation that the patrol actually occurred. The signed PDF lets SARS verify provenance without contacting the platform.
 
 ---
 
@@ -467,10 +680,13 @@ The platform is built around the eight POPIA conditions (Section 4):
 | Data subject | Primary basis | Secondary basis |
 |---|---|---|
 | Resident | Section 11(1)(a) consent | Section 11(1)(d) legitimate interest — protecting life and safety |
-| CPF patroller | Section 11(1)(a) consent (volunteer agreement) | Section 11(1)(d) legitimate interest (community safety) |
-| Private-security responder | Section 11(1)(b) contract (employer + platform) | |
-| Operator / admin | Section 11(1)(b) contract (employment) | |
+| CPF patroller (volunteer) | Section 11(1)(a) consent (volunteer agreement) | Section 11(1)(d) legitimate interest (community safety) |
+| Private-security responder (participating as volunteer on this platform) | Section 11(1)(a) consent (volunteer agreement) | Section 11(1)(d) legitimate interest (community safety). Their employer contract sits outside this platform. |
+| Volunteer operator / volunteer admin | Section 11(1)(a) consent (volunteer agreement) | Section 11(1)(d) legitimate interest (community safety) |
+| Paid build-team professionals (engineers, designers, privacy officer, legal) | Section 11(1)(b) contract (employment or engagement with the platform operator entity) | — |
 | External service counterparties (SAPS / ER24) | Section 11(1)(d) legitimate interest — protecting life | Section 11(1)(c)(i) obligation imposed by law (certain reporting obligations) |
+
+Because operators and admins are volunteers rather than employees, their lawful basis is consent + legitimate interest, not contract performance. This has two implications the privacy officer must account for: (a) volunteers can withdraw consent at any time — the platform must make offboarding a clean, audit-safe operation; (b) the volunteer agreement, although not an employment contract, must still clearly set out duties, confidentiality, and data-handling obligations so that legitimate interest is balanced and defensible.
 
 Children's data (residents under 18) invokes Section 34–35. The platform treats any registered resident flagged as a minor with stricter controls: parental consent required, no direct messaging channels, profile visibility restricted to operator and responders during active incidents only.
 
@@ -631,51 +847,94 @@ Primary threats:
 
 ### 9.3 Architecture diagram (logical)
 
-```
-+-------------+   +-------------+   +-----------------+   +-----------------+
-|  Resident   |   |  Patroller  |   | Callcenter      |   |  Administrator  |
-|  Mobile App |   |  Mobile App |   | Operator Console|   |  Web Portal     |
-+------+------+   +------+------+   +--------+--------+   +--------+--------+
-       |                 |                   |                     |
-       |                 |                   |                     |
-       +---TLS 1.3-------+-------------------+---------------------+
-                                 |
-                        +--------+--------+
-                        |  API Gateway    |
-                        |  (Fastify)      |
-                        +--------+--------+
-                                 |
-     +---------------+-----------+-----------+----------------+
-     |               |                       |                |
-+----+-----+  +------+------+  +-------------+-----+  +-------+-------+
-| Incident |  | Dispatch    |  | Real-time Gateway |  | Media SFU     |
-| Service  |  | Engine      |  | (WebSockets)      |  | (WebRTC)      |
-+----+-----+  +------+------+  +---------+---------+  +-------+-------+
-     |               |                   |                    |
-     +-------+-------+-----+-------------+--------------------+
-             |             |
-     +-------+------+  +---+-------+
-     | PostgreSQL   |  | Redis     |
-     | + PostGIS    |  | (pub-sub, |
-     | (primary     |  |  cache,   |
-     |  store)      |  |  presence)|
-     +------+-------+  +-----------+
-            |
-     +------+-------+
-     | Object       |
-     | Storage (S3) |
-     +--------------+
+```mermaid
+flowchart TB
+    subgraph Clients [Client surfaces]
+        R[Resident mobile app]
+        P[Patroller mobile app<br/>+ operator-mode elevation]
+        OC[Operator web console]
+        AP[Administrator web portal]
+    end
 
-External integrations (via outbound-only adapters, each with own
-secrets and audit):
-    APNs / FCM (push)
-    SMS provider (OTP + fallback)
-    Armed-response companies (webhook)
-    SAPS liaison (future)
-    ER24 / fire (future)
+    GW[API Gateway<br/>Fastify · TLS 1.3]
+
+    subgraph Core [Core services]
+        IS[Incident service]
+        DE[Dispatch engine<br/>four-gate filter]
+        RT[Real-time gateway<br/>WebSockets]
+        SFU[Media SFU<br/>WebRTC · ZA region]
+        AUD[Audit service<br/>hash-chained]
+    end
+
+    subgraph Data [Data layer]
+        PG[(PostgreSQL 16<br/>+ PostGIS)]
+        RD[(Redis cluster<br/>pub-sub · cache · presence)]
+        S3[(Object storage<br/>S3-compatible<br/>media · recordings · exports)]
+        KMS[Cloud KMS<br/>+ secrets manager]
+    end
+
+    subgraph External [Outbound-only external integrations]
+        direction LR
+        PUSH[APNs / FCM]
+        SMS[SMS provider<br/>OTP + fallback]
+        AR[Armed-response<br/>company webhooks]
+        SAPS[SAPS liaison<br/>future]
+        ER[ER24 / fire<br/>future]
+    end
+
+    R & P & OC & AP -->|TLS 1.3| GW
+    GW --> IS
+    GW --> DE
+    GW --> RT
+    GW --> SFU
+    IS --> PG
+    IS --> AUD
+    DE --> PG
+    DE --> RD
+    DE --> PUSH
+    DE --> AR
+    RT --> RD
+    SFU --> S3
+    IS --> S3
+    AUD --> PG
+    IS -. OTP via .-> SMS
+    IS -. external referral .-> SAPS
+    IS -. external referral .-> ER
+    PG --- KMS
+    S3 --- KMS
 ```
 
-### 9.4 Scale envelope
+### 9.4 Design approach — how we decide what the product looks and feels like
+
+Before Phase 2 build starts, the platform goes through a dedicated **design phase (Phase 1)** that produces a complete, agreed, and tested Figma design system. This is separated from engineering deliberately — emergency UX has failure modes that only surface through design validation (cognitive load under stress, accessibility for residents in distress, one-thumb use on a locked phone), and engineering time is too expensive to spend rediscovering those failure modes in code.
+
+**Why a dedicated design phase:**
+
+- **The panic button has no second chance.** A confusing screen in an emergency causes harm. We validate the critical paths with real residents and real patrollers in prototype before we ship any line of code.
+- **Multi-surface consistency matters.** Four surfaces (resident, patroller, operator web, operator mobile) need a shared language. Building them in parallel without a shared design system produces drift that is expensive to correct.
+- **Accessibility is a design decision, not an engineering patch.** Colour contrast, font sizing, haptic/audio/visual redundancy, screen-reader flows — these are established in design or not at all.
+- **Multi-language is a layout decision.** Designing for English only and retrofitting isiZulu / Afrikaans causes visible breakage. The design phase accounts for text expansion and right-to-read cultural variance.
+
+**Scope of Phase 1 design deliverables:**
+
+- Design system: colour tokens (with explicit emergency-context palette), typography scale, iconography, spacing system, motion system, accessibility tokens.
+- Component library: atomic components, compound components, platform-variants (React Native + web).
+- Full high-fidelity screens for all four surfaces — not sketches, not wireframes, production-ready specifications.
+- Five interactive prototypes, one for each critical flow: panic, categorised incident, patrol shift, operator triage, onboarding.
+- Accessibility audit (WCAG 2.2 AA baseline), with panic activation paths explicitly validated for hearing- and visually-impaired residents.
+- Multi-language design specimens (English, isiZulu, Afrikaans at minimum) to prove layouts survive translation.
+- Pilot walk-through: validated with at least 6 resident participants and 4 patroller participants from the pilot sector.
+- Handoff package to engineering: component-level specifications, interaction specifications, motion specifications, accessibility notes.
+
+**Design governance:**
+
+- Design lead is accountable; product lead approves; privacy officer reviews every screen for POPIA disclosures (consent flows, privacy dashboard, deletion confirmations); engineering lead signs off on feasibility at handoff.
+- No Phase 2 build ticket proceeds without a matching Figma frame and the handoff specs attached.
+- Design changes during build go back through the same review — no ad-hoc UI decisions made in code review.
+
+The dedicated design plan document covers week-by-week scope, research activities, team, tools, and success criteria: [community-safety-platform-design.md](./community-safety-platform-design.md).
+
+### 9.5 Scale envelope
 
 The platform is architected for the following v1 scale envelope:
 
@@ -697,48 +956,65 @@ This envelope fits comfortably in a 3-node API cluster + 3-node Redis cluster + 
 **Outcomes:**
 
 - All 23 new FDL blueprints created, validated, cross-referenced, and committed.
-- Architecture review signed off by board + legal + CISO.
+- Architecture review signed off by board + legal + privacy officer.
 - Cloud accounts, networking, CI/CD, observability baseline provisioned.
 - Pilot sector identified, CPF and armed-response company partners onboarded for pilot.
+- Volunteer structure established: operator volunteer call-out, admin volunteer appointment, initial rota targets agreed.
 - POPIA Operator registration filed with the Information Regulator.
 
-**Exit criteria:** blueprint set passes schema validation, completeness check, and cold-context AI review; architecture walk-through complete; pilot partner agreement signed.
+**Exit criteria:** blueprint set passes schema validation, completeness check, and cold-context AI review; architecture walk-through complete; pilot partner agreement signed; volunteer agreements drafted.
 
-### Phase 1 — MVP (weeks 7–18)
+### Phase 1 — Design (weeks 7–16)
+
+**Outcomes:**
+
+- Figma design system for the platform: colour, typography, iconography, components, emergency-context motion, accessibility tokens.
+- High-fidelity designs for all four surfaces (resident, patroller, volunteer operator web + mobile operator-mode, admin portal).
+- Interactive Figma prototypes for the five critical flows: panic, categorised incident, patrol shift, operator triage, onboarding.
+- Accessibility review (WCAG 2.2 AA baseline), including emergency activation paths for hearing- and visually-impaired residents.
+- Multi-language considerations documented (English MVP, isiZulu + Afrikaans designed-in for v1, extensibility for more).
+- Pilot partner walk-through completed; design feedback incorporated.
+
+**Exit criteria:** signed-off Figma files handed to engineering with component-level specifications; prototype validated with at least 6 resident participants and 4 patroller participants; accessibility baseline certified.
+
+**See the dedicated design plan for week-by-week scope:** [community-safety-platform-design.md](./community-safety-platform-design.md).
+
+### Phase 2 — MVP build (weeks 17–28)
 
 **Scope:**
 
 - Resident mobile app (iOS + Android) with: onboarding, home screen, panic button, categorised incident request, active-incident screen with live responder pin, sector-scoped messaging (basic), history, profile, privacy dashboard (basic).
-- Patroller mobile app with: onboarding, patrol shift log (no SARS export yet), incident inbox with four-gate filter, active-incident screen, accept/decline, liability-ack, on-scene/resolved, peer chat.
-- Backend: incident service, dispatch engine, real-time gateway, sector management, patroller skill profile, RBAC, audit log (minimal).
-- Callcenter console (lightweight): live queue, incident card, manual confirmation call (phone-dial, not VoIP), manual external-service referral.
-- Admin portal: sector management, patroller vetting queue, user management, basic audit view.
+- Patroller mobile app with: onboarding, patrol shift log (no SARS export yet), incident inbox with four-gate filter, active-incident screen, accept/decline, liability-ack, on-scene/resolved, peer chat. **On-scene external-service arrangement (one-tap ambulance / fire / SAPS dial with referral record).**
+- Backend: incident service, dispatch engine, real-time gateway, sector management, patroller skill profile, RBAC with multi-role privilege, audit log (minimal).
+- Volunteer operator console v1 (web + mobile operator-mode): live queue, incident card, manual confirmation call (phone-dial, not VoIP), external-service referral. Designed so a volunteer can cover a shift from a laptop at home or a mobile device on the road.
+- Admin portal: sector management, patroller + operator vetting queue, user management with multi-role privilege assignment, basic audit view.
 
 **Excluded from MVP, delivered in later phases:**
 
-- Voice conference (Phase 2)
-- Broadcast composer (Phase 2)
-- Live map console with full overlays (Phase 2)
-- SARS logbook export (Phase 3)
-- Location audit log with justification prompts (Phase 3)
-- Multi-sector scale-out features (Phase 4)
+- Voice conference (Phase 3)
+- Broadcast composer (Phase 3)
+- Live map console with full overlays (Phase 3)
+- SARS logbook export (Phase 4)
+- Location audit log with justification prompts (Phase 4)
+- Multi-sector scale-out features (Phase 5)
 
-**Exit criteria:** pilot sector runs for 4 weeks with real residents and patrollers, no critical incidents lost, response-time KPI (see §14) met for 95% of incidents, zero POPIA non-conformances in internal audit.
+**Exit criteria:** pilot sector runs for 4 weeks with real residents and patrollers, no critical incidents lost, response-time KPI (see §14) met for 95% of incidents, zero POPIA non-conformances in internal audit, volunteer rota coverage ≥ 80% of hours.
 
-### Phase 2 — Operator suite (weeks 19–26)
+### Phase 3 — Volunteer-ops suite (weeks 29–36)
 
 **Scope:**
 
 - Incident voice conference (WebRTC SFU + recording + retention).
-- Callcenter live map console with sector overlays, filters, heat-map.
+- Volunteer operator live map console with sector overlays, filters, heat-map — web **and** mobile operator-mode.
 - Broadcast composer with targeting, severity, audit reason.
-- External-service coordination workflow (formalised referral records and status tracking).
+- Formalised external-service coordination records with status tracking, usable by operators **and** on-scene responders.
 - Patroller peer messaging and operator DMs.
+- Volunteer rota management: shift sign-up, handover, time contribution log.
 - Enhanced analytics dashboards for admin.
 
-**Exit criteria:** pilot extended to 3 sectors, operator team fully staffed and trained, false-alarm rate below target, external-service coordination tested end-to-end with at least one partner (ambulance or SAPS).
+**Exit criteria:** pilot extended to 3 sectors, operator volunteer roster stable, false-alarm rate below target, external-service coordination tested end-to-end with at least one partner (ambulance or SAPS), auto-escalation tested for no-operator windows.
 
-### Phase 3 — Audit and compliance (weeks 27–32)
+### Phase 4 — Audit and compliance (weeks 37–42)
 
 **Scope:**
 
@@ -752,17 +1028,18 @@ This envelope fits comfortably in a 3-node API cluster + 3-node Redis cluster + 
 
 **Exit criteria:** pen test clean of criticals and highs; POPIA conformance audit passes; SARS export produced and validated by a practising tax practitioner for format correctness.
 
-### Phase 4 — Scale-out (weeks 33–40)
+### Phase 5 — Scale-out (weeks 43–50)
 
 **Scope:**
 
 - Multi-sector rollout (target: 10 sectors by end of phase).
 - Performance and resilience hardening: load tests at 5× v1 envelope, chaos engineering on critical paths, DR drill.
 - Public-facing launch: press release, partnerships with CPF umbrella bodies, PSIRA formal endorsement approach.
-- Operations handbook, training materials, support channels.
+- Volunteer recruitment drive: operator and admin volunteer call-outs across all target sectors.
+- Operations handbook, volunteer training materials, support channels.
 - Post-launch monitoring, feedback loops, backlog grooming.
 
-**Exit criteria:** 10 sectors live, 5,000 residents registered, 500 patrollers active, 24/7 callcenter coverage, SLA met at p50 and p95.
+**Exit criteria:** 10 sectors live, 5,000 residents registered, 500 patrollers active, volunteer operator coverage meeting defined rota targets (see §13.2), SLA met at p50 and p95.
 
 ### Phase 5+ (post-board, not in this plan)
 
@@ -777,25 +1054,39 @@ This envelope fits comfortably in a 3-node API cluster + 3-node Redis cluster + 
 
 ## 11. Team and Governance
 
-### 11.1 Core delivery team (v1)
+The platform has two distinct teams: a **paid build team** (engineers, designers, privacy/legal) engaged during delivery phases, and a **volunteer operating team** (operators, admins, patrollers) who run the service in steady state. The platform operator legal entity employs only build-team roles.
 
-| Role | FTE | Responsibilities |
-|---|---|---|
-| Product lead | 1.0 | Backlog, priorities, pilot partner relationships |
-| Engineering lead | 1.0 | Architecture, code review, delivery pace |
-| Mobile engineers (iOS+Android via RN) | 3.0 | Resident + patroller apps |
-| Backend engineers | 3.0 | API, dispatch engine, real-time gateway |
-| Web engineers | 2.0 | Operator console + admin portal |
-| Platform / SRE | 1.5 | Infra, CI/CD, observability, DR |
-| QA / test | 1.5 | Test automation, exploratory, pilot support |
-| Security / privacy lead | 1.0 | POPIA, threat modelling, pen test liaison |
-| UX / design | 1.0 | Emergency-context UX, accessibility |
-| Legal / compliance (fractional) | 0.25 | POPIA, PSIRA, SAPS liaison, contracts |
-| Operations lead | 1.0 | Callcenter operating model, patroller onboarding, partner management |
+### 11.1 Paid build team (delivery phases)
 
-Total: **15.25 FTE** during peak build, reducing to ~10 FTE steady-state operations.
+| Role | FTE | Responsibilities | Primary phase |
+|---|---|---|---|
+| Product lead | 1.0 | Backlog, priorities, pilot partner relationships | All |
+| Engineering lead | 1.0 | Architecture, code review, delivery pace | All |
+| Design lead | 1.0 | Design system, flows, accessibility, prototype | Phase 1 lead, ongoing review |
+| Supporting designer | 1.0 | Component library, screen production, handoff | Phase 1 |
+| Mobile engineers (iOS+Android via RN) | 3.0 | Resident + patroller apps | Phase 2+ |
+| Backend engineers | 3.0 | API, dispatch engine, real-time gateway | Phase 2+ |
+| Web engineers | 2.0 | Operator console + admin portal | Phase 2+ |
+| Platform / SRE | 1.5 | Infra, CI/CD, observability, DR | Phase 0+ |
+| QA / test | 1.5 | Test automation, exploratory, pilot support | Phase 2+ |
+| Security / privacy officer | 1.0 | POPIA, threat modelling, pen test liaison, statutory §55 role | All, continuing in steady state |
+| Legal / compliance (fractional) | 0.25 | POPIA, PSIRA, volunteer agreements, SAPS liaison, contracts | All |
+| Operations lead (volunteer manager) | 1.0 | Volunteer recruitment, rota, training, partner management | Phase 0+ |
 
-### 11.2 Governance structure
+**Peak build team: ~17.25 FTE** (Phases 2–4). Design-heavy phase (Phase 1) uses the design pair + product + engineering lead + privacy officer ≈ 5 FTE. Steady-state: privacy officer, operations lead, fractional legal, a skeleton engineering team (~4 FTE) for maintenance and small improvements — about **6–7 paid FTE**.
+
+### 11.2 Volunteer operating team (steady state)
+
+| Role | Target headcount | Commitment | Oversight |
+|---|---|---|---|
+| Volunteer operator | 20–30 across all sectors | 1–2 shifts/week of 4 hours minimum | Privacy officer + operations lead; quarterly reaccreditation |
+| Volunteer admin | 4–6 | As needed, typically weekly check-in | Board-appointed; two-person approval on destructive actions |
+| CPF patrollers | Per sector, typically 20–50 | Per CPF norms | Sector CPF chair; platform operations lead for platform matters |
+| Private-security responders (volunteering their time) | Per sector, per partner company | Per partner arrangement | Partner company + platform operations lead |
+
+**Volunteer coverage targets** (see §13.2) are set by the rota — the platform does not guarantee 24/7 operator coverage as a product feature; it is a community outcome, supported by graceful degradation when gaps occur.
+
+### 11.3 Governance structure
 
 - **Board oversight:** quarterly review of delivery, POPIA posture, incident metrics.
 - **Steering committee:** monthly — product, engineering, operations, legal, security.
@@ -814,6 +1105,8 @@ Total: **15.25 FTE** during peak build, reducing to ~10 FTE steady-state operati
 | Patroller misuses access to stalk a resident | Medium | Severe (harm, reputational, legal) | Justification-prompted location views; audit log; anomaly detection; prompt revocation flow; quarterly audit review |
 | False-alarm flood from a rogue or compromised device | Medium | Medium (dispatch saturation) | Per-device rate limits; anomaly detection; silent-suspend for flagged accounts; operator override |
 | Callcenter overwhelmed during regional crisis | Medium | High (operator-centric flows degrade) | Dispatch continues without operator acknowledgement; queue for replay; tiered escalation; mutual-aid arrangements with partner callcenters |
+| Volunteer operator coverage gap (rota holes, especially overnight) | High | Medium (degrades operator-dependent steps like confirmation call) | Auto-escalation to pre-configured mutual-aid numbers after SLA; on-scene responders empowered to arrange external services without operator; public rota with sign-up friction minimised; recognition program to build committed operator community |
+| Volunteer attrition / onboarding drop-off | Medium | Medium (coverage and service quality degrade over time) | Ongoing recruitment; training that respects volunteer time (bite-sized, self-paced); community-building events; clear impact reporting so volunteers see their contribution; fast revocation for misconduct so community stays trusted |
 | CPF volunteer killed/injured responding to armed incident they accepted with liability-ack | Low (per-incident) / Medium (lifetime) | Catastrophic (life; legal; reputational) | Informed-consent opt-in; explicit liability-ack modal; high-alert to callcenter; operator guidance; insurance for registered volunteers (out of platform scope but board should address) |
 | Vendor lock-in on cloud / media SFU | Medium | Medium (cost, migration friction) | Terraform for portability; standard WebRTC SFU (not proprietary); multi-cloud-capable architecture from day 1 |
 | Latency spikes on incident fan-out during network congestion | Medium | Medium (dispatch delay) | Regional edge for push; SFU regional placement; WebSocket multiplex; fallback to SMS for dispatch-accept when data unavailable |
@@ -836,7 +1129,9 @@ Total: **15.25 FTE** during peak build, reducing to ~10 FTE steady-state operati
 |---|---|---|
 | Panic → first patroller notified | p95 < 3 seconds | Server-side timestamp diff |
 | Panic → first acceptor | p50 < 30 seconds, p95 < 120 seconds | Accept event timestamp |
-| Panic → operator confirmation call | p95 < 30 seconds | Call initiation timestamp |
+| Panic → operator confirmation call (when operator on duty) | p95 < 30 seconds | Call initiation timestamp |
+| Panic → confirmation (by operator or first on-scene responder, whichever first) | p95 < 5 minutes | Confirmation event timestamp |
+| Volunteer operator coverage (active hours, sectors live) | ≥ 80% of 6am–midnight rota slots filled | Rota metric |
 | Incident → on-scene | p50 < 10 minutes, p95 < 25 minutes (sector-dependent) | On-scene tap timestamp |
 | Callcenter answer (inbound call) | p95 < 15 seconds | Call platform metric |
 | Platform availability | 99.9% monthly (allowing 43 min/month downtime) | Uptime monitor |
@@ -846,14 +1141,18 @@ Total: **15.25 FTE** during peak build, reducing to ~10 FTE steady-state operati
 | Deletion request execution | 100% within 30 days after grace period | Ticketing metric |
 | Audit log durability | 100% (zero-loss) | Hash-chain verification |
 
-### 13.2 Callcenter operations
+### 13.2 Volunteer operator operations
 
-- 24/7 coverage. Shift model: three 8-hour shifts with overlap; minimum 2 operators on shift at all times.
-- Each operator assigned to a set of sectors; cross-sector incidents escalate to shift supervisor.
-- Supervisor on shift at all times.
-- Training: 2-week onboarding covering platform, POPIA, triage, de-escalation, external-service protocols, simulated drills.
-- Monthly drills including: mass-casualty simulation, system outage, breach notification, difficult-caller training.
-- Wellness: mandatory debrief after traumatic incidents, access to trauma counselling, shift rotation to prevent burnout on high-severity categories.
+- **Coverage target:** aspire to 24/7 rota coverage through volunteer sign-ups; realistic v1 is 6am–midnight committed with auto-escalation filling the overnight gap.
+- **Minimum concurrent:** target 2 volunteer operators on duty during active hours; 1 is acceptable for low-traffic windows.
+- **Shifts:** self-service shift sign-up in the admin portal. Typical shift is 4 hours. Handover is in-app (current incidents transferred to incoming operator with context notes).
+- **Operator-mode anywhere:** operators can cover a shift from home laptop, phone, or tablet; the operator console is not location-bound.
+- **Sector assignment:** each volunteer operator is trained on a subset of sectors and normally sees only those in their queue. Cross-sector incidents or no-one-available conditions escalate to an admin or to an operator with wider privilege.
+- **Training:** 2-week volunteer onboarding covering platform, POPIA, triage, de-escalation, external-service protocols, simulated drills. Re-accreditation quarterly.
+- **Drills:** monthly — mass-casualty simulation, system outage, breach notification, difficult-caller training.
+- **Wellness:** mandatory debrief after traumatic incidents, access to trauma counselling (arranged through partner NGO or PBO sponsor), deliberate rotation so individual volunteers are not over-exposed to high-severity categories.
+- **Auto-escalation for no-operator windows:** when no operator is on duty and a panic fires, the configurable auto-escalation dials a pre-configured mutual-aid number after the acceptance SLA expires. This turns a volunteer-coverage gap into a manageable graceful degradation, not a failure.
+- **Time-contribution log:** each shift is recorded for SARS volunteer-time substantiation where applicable, and for recognition (public thank-yous, not monetary rewards).
 
 ### 13.3 Patroller support
 
@@ -905,35 +1204,36 @@ Total: **15.25 FTE** during peak build, reducing to ~10 FTE steady-state operati
 
 Full numerical budget is in a separate board financial paper. This document records the **cost shape** only, to support the board's review.
 
-### 15.1 One-off (build, Phase 0–4)
+### 15.1 One-off (build, Phases 0–5, ~12 months)
 
-- Engineering build: 15.25 FTE × 10 months, blended SA engineering market rate.
-- Design and UX: included above.
-- Pen testing: two rounds (Phase 1 exit, Phase 3 exit).
-- Cloud infrastructure build-out (development, staging, production): moderate initial, scales with usage.
-- Legal and POPIA: external advisor days across all phases.
-- App store and platform fees: nominal.
-- Partner onboarding (CPF liaison, armed-response company contracting): negligible platform-side cost.
+- **Phase 1 design:** 2 FTE × 10 weeks (design lead + supporting designer) + product + privacy review time. This is the phase the board is being asked to approve next after sign-off of this plan.
+- **Engineering build:** peak ~15 FTE (Phases 2–5), blended SA engineering market rate.
+- **Pen testing:** two rounds (Phase 2 exit, Phase 4 exit).
+- **Cloud infrastructure build-out** (development, staging, production): moderate initial, scales with usage.
+- **Legal and POPIA:** external advisor days across all phases, plus drafting of volunteer agreements.
+- **App store and platform fees:** nominal.
+- **Partner onboarding** (CPF liaison, armed-response company engagement, SAPS community-policing introduction): mostly time, small travel and print budget.
 
-### 15.2 Recurring (steady-state operations)
+### 15.2 Recurring (steady-state operations, post-Phase 5)
 
-- Engineering and platform operations: ~10 FTE.
-- Callcenter: sized by concurrent-operator requirement; 24/7 with minimum 2 operators ≈ 10 FTE with supervision.
-- Cloud infrastructure: scales roughly linearly with registered residents and concurrent incidents. v1 envelope fits in a low five-figure monthly bill in ZAR.
-- Push notifications: APNs free; FCM free; SMS fallback is per-message cost.
-- Voice conference: self-hosted SFU avoids per-minute fees; bandwidth cost dominates.
-- Third-party services: SMS OTP, geocoding, error monitoring, observability SaaS.
-- Insurance (platform operator): professional indemnity, cyber, general liability.
-- Legal and compliance retainer.
-- Marketing and partner management.
+- **Platform engineering and SRE:** ~6–7 paid FTE to maintain the service, fix bugs, and deliver small improvements.
+- **Volunteer operator coordination:** operations lead + fractional admin support; no operator payroll because operators are volunteers. Allowance for volunteer reimbursements (airtime, data, transport to training) is a small but real line item.
+- **Cloud infrastructure:** scales roughly linearly with registered residents and concurrent incidents. v1 envelope fits in a low five-figure monthly bill in ZAR.
+- **Push notifications:** APNs free; FCM free; SMS fallback is per-message cost.
+- **Voice conference:** self-hosted SFU avoids per-minute fees; bandwidth cost dominates.
+- **Third-party services:** SMS OTP, geocoding, error monitoring, observability SaaS.
+- **Insurance (platform operator entity):** professional indemnity, cyber, general liability. Volunteer indemnity insurance for operators and patrollers is a separate workstream (see §17 Open Question 5).
+- **Legal and compliance retainer.**
+- **Volunteer programme:** training costs, accreditation, recognition events, wellness support (trauma counselling partnership), recruitment drives.
 
 ### 15.3 Not in this budget
 
-- Resident acquisition spend (marketing, community events).
-- Armed-response company commercial arrangements (handled outside the platform).
-- Patroller stipends or equipment (if any; typically CPF is unpaid).
-- SAPS or ER24 integration projects (future, separate budgets).
-- Insurance for patrollers or residents (future partnership model).
+- **Operator payroll** — operators are volunteers by design.
+- **Patroller payroll** — CPF is unpaid; private-security responders are employed by their own companies, not by the platform.
+- **Resident acquisition spend** (marketing, community events) beyond modest launch outreach.
+- **Armed-response company commercial arrangements** (handled outside the platform).
+- **SAPS or ER24 integration projects** (future, separate budgets).
+- **Insurance for patrollers or residents** (future partnership model — see §17 Open Question 5).
 
 ---
 
@@ -967,7 +1267,9 @@ Full numerical budget is in a separate board financial paper. This document reco
 5. **Insurance for patrollers.** Out of platform scope but out of whose scope? Recommend the board commissions a parallel workstream to arrange group-rate insurance before Phase 4 go-live.
 6. **Language coverage.** English is the MVP language. Which additional languages for v1 vs post-launch? Recommend isiZulu + Afrikaans for v1 given common sector profiles.
 7. **Data residency commitment.** The plan defaults to ZA-only hosting. Does the board want this written into the public privacy policy as a binding commitment, or keep flexibility for future DR arrangements?
-8. **Public launch vs quiet pilot.** Launch posture for Phase 4 — press release and marketing, or quiet operational go-live with invited residents only for the first months?
+8. **Public launch vs quiet pilot.** Launch posture for Phase 5 — press release and marketing, or quiet operational go-live with invited residents only for the first months?
+9. **Volunteer indemnity insurance.** Operators and patrollers act in good faith under platform instruction; a resident or third party could sue them directly for an adverse outcome. The board should decide whether the platform operator entity carries a group volunteer indemnity policy, and whether volunteers are required to sign a limited-liability volunteer agreement.
+10. **Design-phase commissioning.** Phase 1 design can be run by (a) an in-house design pair, (b) a commissioned external studio, or (c) a hybrid. Recommendation: hybrid — one in-house design lead who carries institutional knowledge, supported by an external production designer for capacity. Board sign-off required on the commissioning route.
 
 ---
 
