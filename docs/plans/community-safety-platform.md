@@ -1295,16 +1295,31 @@ Full numerical budget is in a separate board financial paper. This document reco
 
 ---
 
-## 19. Appendix B — Related Documents
+## 19. Appendix B — Related Documents and Tools
+
+**Source repository**
 
 - FDL blueprint catalogue: `blueprints/INDEX.md` in the platform source repository.
 - POPIA canonical blueprint: `blueprints/data/popia-compliance.blueprint.yaml`.
 - Existing driver-dispatch pattern: `blueprints/workflow/driver-assignment-dispatch.blueprint.yaml`.
 - Existing real-time tracking pattern: `blueprints/integration/realtime-driver-tracking.blueprint.yaml`.
 - Existing messaging primitives: `blueprints/communication/direct-messaging.blueprint.yaml`, `blueprints/communication/channel-messaging.blueprint.yaml`.
+
+**Statutes and standards**
+
 - POPIA Act text: Republic of South Africa, Act 4 of 2013, as amended.
 - PSIRA Act: Republic of South Africa, Act 56 of 2001.
 - SARS Travel Logbook requirements: SARS Guide for Employees' Tax (latest annual revision).
+
+**Diagrams**
+
+All architecture, sequence, state, flowchart, and Gantt diagrams in this plan are written in **[Mermaid](https://mermaid.js.org/)** (v11 syntax). They render natively on GitHub, GitLab, Bitbucket, most Markdown previewers (VS Code, Obsidian, Typora), and the static docs site under `docs/`.
+
+For board reviewers reading a plain Markdown file in a viewer that does not render Mermaid:
+
+- Open the diagram source (the fenced `​```mermaid … ```` block) and paste it into the **[Mermaid Live Editor](https://mermaid.live/)** to render and export as SVG or PNG.
+- Mermaid syntax reference: <https://mermaid.js.org/intro/>
+- Mermaid is open-source (MIT licence). The platform has no runtime dependency on Mermaid — it is a documentation tool only.
 
 ---
 

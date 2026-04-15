@@ -407,6 +407,7 @@ Participant honoraria and reimbursements are budgeted separately.
 - **Miro** — journey maps, research synthesis, flow whiteboarding, workshops.
 - **Lottie** — motion specs where platform-native animation is insufficient.
 - **Notion or equivalent** — research repository, participant notes (POPIA-consented and access-controlled).
+- **[Mermaid](https://mermaid.js.org/)** — flow diagrams, sequence diagrams, and the phase Gantt embedded directly in this Markdown document. Renders natively in GitHub, GitLab, VS Code, Obsidian, Typora and the Jekyll docs site. Use the **[Mermaid Live Editor](https://mermaid.live/)** to render or export any diagram block to SVG/PNG when working in a viewer that does not support Mermaid inline. Syntax reference: <https://mermaid.js.org/intro/>.
 - **Zoom / Google Meet** — remote interviews with recording consent.
 - **Maze or equivalent** — unmoderated prototype testing where useful (supplements moderated sessions).
 
