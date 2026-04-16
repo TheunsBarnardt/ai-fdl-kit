@@ -95,18 +95,18 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 
 **✅ Success paths**
 
-- **Generate Valuations Eod** — when end of trading day reached; all index calculations complete, then Fixed-width file with Leading Record + Sub Type 02 records; call service; emit indices.valuations.disseminated.
-- **Generate Constituents Eod** — when end of trading day reached, then Fixed-width file with Sub Type 01 records (sequences 01-04); emit indices.constituents.disseminated.
-- **Generate Tracker 1 Index Level** — when end of trading day reached, then Fixed-width file with Sub Type 03 records; emit indices.tracker_1.disseminated.
-- **Generate Tracker 2 Weighting Amendments** — when constituent_shares_changed eq true OR free_float_changed eq true OR capping_factor_changed eq true, then Fixed-width file with Sub Type 04 records; emit indices.tracker_2.disseminated.
-- **Generate Tracker 3 Ex Dividend** — when ex_dividend_events_present eq true, then Fixed-width file with Sub Type 05/07 and 06/08 records; emit indices.tracker_3.disseminated.
-- **Generate Opening Constituents** — when start of trading day reached, then Fixed-width file with Sub Type 11 records; emit indices.opening_constituents.disseminated.
-- **Generate Five Day Tracker** — when end of trading day reached; amendments scheduled within next 5 business days, then Fixed-width file with Sub Type 14 records; emit indices.five_day_tracker.disseminated.
+- **Generate Valuations Eod** — when end of trading day reached; all index calculations complete, then Fixed-width file with Leading Record + Sub Type 02 records; call service; emit indices.valuations.disseminated. _Why: Daily Valuations file generated for each index family at EOD._
+- **Generate Constituents Eod** — when end of trading day reached, then Fixed-width file with Sub Type 01 records (sequences 01-04); emit indices.constituents.disseminated. _Why: Daily Constituents file listing all stocks in each index._
+- **Generate Tracker 1 Index Level** — when end of trading day reached, then Fixed-width file with Sub Type 03 records; emit indices.tracker_1.disseminated. _Why: Tracker 1 file with index-level data per index family._
+- **Generate Tracker 2 Weighting Amendments** — when constituent_shares_changed eq true OR free_float_changed eq true OR capping_factor_changed eq true, then Fixed-width file with Sub Type 04 records; emit indices.tracker_2.disseminated. _Why: Tracker 2 file with stock-level weighting amendments._
+- **Generate Tracker 3 Ex Dividend** — when ex_dividend_events_present eq true, then Fixed-width file with Sub Type 05/07 and 06/08 records; emit indices.tracker_3.disseminated. _Why: Tracker 3 file with ex-dividend changes._
+- **Generate Opening Constituents** — when start of trading day reached, then Fixed-width file with Sub Type 11 records; emit indices.opening_constituents.disseminated. _Why: Opening Constituents file with starting positions._
+- **Generate Five Day Tracker** — when end of trading day reached; amendments scheduled within next 5 business days, then Fixed-width file with Sub Type 14 records; emit indices.five_day_tracker.disseminated. _Why: Five-day rolling tracker of upcoming weighting amendments._
 
 **❌ Failure paths**
 
-- **Dissemination Failure** — when ftp_transfer_status eq "failed", then notify via operations; emit indices.dissemination.failed. *(error: `INDICES_FILE_GENERATION_FAILED`)*
-- **Subscriber Not Provisioned** — when subscriber_entitled eq false, then emit indices.access_denied. *(error: `INDICES_SUBSCRIBER_NOT_PROVISIONED`)*
+- **Dissemination Failure** — when ftp_transfer_status eq "failed", then notify via operations; emit indices.dissemination.failed. _Why: Fixed-width file generation or FTP dissemination fails._ *(error: `INDICES_FILE_GENERATION_FAILED`)*
+- **Subscriber Not Provisioned** — when subscriber_entitled eq false, then emit indices.access_denied. _Why: Subscriber attempts retrieval without entitlement._ *(error: `INDICES_SUBSCRIBER_NOT_PROVISIONED`)*
 
 ## Errors it can return
 

@@ -30,28 +30,28 @@ Specifies 19 acceptance outcomes that any implementation must satisfy, regardles
 
 **✅ Success paths**
 
-- **Sentinel Monitor Master** — when sentinel_config exists, then Sentinel begins periodic health checks (PING, INFO).
-- **Sentinel Health Check** — when ping_no_response exists, then this Sentinel marks master subjectively down.
-- **Sentinel Quorum Agreement** — when other_sentinels_agree gte "quorum-1"; total_sentinels_agree gte "quorum", then master objectively down; failover authorized.
-- **Sentinel Leader Election** — when odown eq true; leader_elected eq "this_sentinel", then leader begins failover state machine.
-- **Sentinel Replica Selection** — when replica_candidates exists; selection_criteria exists, then best replica chosen for promotion.
-- **Sentinel Promotion** — when SLAVEOF NO ONE sent to replica, then replica stops replication, becomes master.
-- **Sentinel Reconfigure Replicas** — when new_master exists; other_replicas gt 0, then other replicas point to new master.
+- **Sentinel Monitor Master** — when sentinel_config exists, then Sentinel begins periodic health checks (PING, INFO). _Why: Start monitoring master._
+- **Sentinel Health Check** — when ping_no_response exists, then this Sentinel marks master subjectively down. _Why: Ping master; no response = SDOWN._
+- **Sentinel Quorum Agreement** — when other_sentinels_agree gte "quorum-1"; total_sentinels_agree gte "quorum", then master objectively down; failover authorized. _Why: Other Sentinels agree master is down._
+- **Sentinel Leader Election** — when odown eq true; leader_elected eq "this_sentinel", then leader begins failover state machine. _Why: Sentinel elected as failover leader._
+- **Sentinel Replica Selection** — when replica_candidates exists; selection_criteria exists, then best replica chosen for promotion. _Why: Choose best replica to promote._
+- **Sentinel Promotion** — when SLAVEOF NO ONE sent to replica, then replica stops replication, becomes master. _Why: Promote replica to master._
+- **Sentinel Reconfigure Replicas** — when new_master exists; other_replicas gt 0, then other replicas point to new master. _Why: Reconfigure other replicas._
 - **Sentinel Failover Complete** — when new_master_promoted eq true; all_replicas_reconfigured eq true, then failover complete; cluster operational with new master.
-- **Cluster Node Join** — when CLUSTER MEET ip port; cluster_mode_enabled eq true, then node added to cluster; gossip begins.
-- **Cluster Key Routing** — when key exists; slot exists; slot_owner exists, then command executed on slot owner or client redirected.
-- **Cluster Moved Redirect** — when slot_owner_changed eq true, then client receives MOVED node_ip:node_port; should update slot map.
-- **Cluster Ask Redirect** — when slot_importing eq true; slot_migrating_from_other eq true, then client receives ASK; forward request to new node; next request goes to moved node.
-- **Cluster State Ok** — when all_slots_assigned eq true; all_nodes_reachable eq true, then cluster operational.
-- **Cluster State Fail** — when unreachable_slots gt 0, then cluster enters fail state; some commands fail.
-- **Cluster Gossip Update** — when cluster tick (internal periodic task), then nodes exchange health/slot info; topology discovered.
-- **Cluster Info** — when CLUSTER INFO, then cluster state info: state, slots covered/ok/fail, nodes.
+- **Cluster Node Join** — when CLUSTER MEET ip port; cluster_mode_enabled eq true, then node added to cluster; gossip begins. _Why: Node joins cluster._
+- **Cluster Key Routing** — when key exists; slot exists; slot_owner exists, then command executed on slot owner or client redirected. _Why: Client request routed to correct slot owner._
+- **Cluster Moved Redirect** — when slot_owner_changed eq true, then client receives MOVED node_ip:node_port; should update slot map. _Why: Permanent redirection (slot reassigned)._
+- **Cluster Ask Redirect** — when slot_importing eq true; slot_migrating_from_other eq true, then client receives ASK; forward request to new node; next request goes to moved node. _Why: Temporary redirection (slot being migrated)._
+- **Cluster State Ok** — when all_slots_assigned eq true; all_nodes_reachable eq true, then cluster operational. _Why: All slots covered and reachable._
+- **Cluster State Fail** — when unreachable_slots gt 0, then cluster enters fail state; some commands fail. _Why: Some slots unreachable._
+- **Cluster Gossip Update** — when cluster tick (internal periodic task), then nodes exchange health/slot info; topology discovered. _Why: Periodic gossip between nodes._
+- **Cluster Info** — when CLUSTER INFO, then cluster state info: state, slots covered/ok/fail, nodes. _Why: Query cluster state._
 
 **❌ Failure paths**
 
-- **Cluster Slot Assignment** — when CLUSTER ADDSLOTS slot [slot ...]; slots_available eq true, then slots now served by this node. *(error: `CLUSTER_CROSSSLOT`)*
-- **Cluster Slot Migration** — when CLUSTER SETSLOT slot MIGRATING target_node_id; target node: CLUSTER SETSLOT slot IMPORTING source_node_id, then slot enters migration state; data gradually moved. *(error: `CLUSTER_SLOT_UNOWNED`)*
-- **Cluster Multi Key Restriction** — when command_touches_multiple_slots eq true, then error returned; operation not allowed (use MGET, MSET on keys with same slot). *(error: `CLUSTER_CROSSSLOT`)*
+- **Cluster Slot Assignment** — when CLUSTER ADDSLOTS slot [slot ...]; slots_available eq true, then slots now served by this node. _Why: Assign slots to nodes._ *(error: `CLUSTER_CROSSSLOT`)*
+- **Cluster Slot Migration** — when CLUSTER SETSLOT slot MIGRATING target_node_id; target node: CLUSTER SETSLOT slot IMPORTING source_node_id, then slot enters migration state; data gradually moved. _Why: Move slots between nodes._ *(error: `CLUSTER_SLOT_UNOWNED`)*
+- **Cluster Multi Key Restriction** — when command_touches_multiple_slots eq true, then error returned; operation not allowed (use MGET, MSET on keys with same slot). _Why: Multi-key operation on different slots._ *(error: `CLUSTER_CROSSSLOT`)*
 
 ## Errors it can return
 

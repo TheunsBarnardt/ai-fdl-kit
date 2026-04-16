@@ -29,26 +29,26 @@ Specifies 22 acceptance outcomes that any implementation must satisfy, regardles
 
 **✅ Success paths**
 
-- **Read Existing String** — when key exists and has string value; key is not expired, then client receives full string value.
-- **Read Missing Key** — when key does not exist, then client receives null/nil.
-- **Read With Ttl Modification** — when key exists with string value; GETEX command with optional expiry flags, then client receives string value; TTL optionally modified.
-- **Set Or Overwrite** — when SET command issued, then key now holds new value; client receives OK.
-- **Set With Conditions** — when condition_type in ["NX","XX","IFEQ","IFNE","IFDEQ","IFDNE"]; condition_met eq true, then value set and OK returned; or nil if condition not met.
-- **Set With Ttl** — when SET with EX|PX|EXAT|PXAT flag, then key set with expiration; expires at specified time.
-- **Get Substring** — when GETRANGE key start end; start gte "-2^31"; end lte "2^31-1", then substring from start to end inclusive (0-indexed, supports negative indices); empty string if range out of bounds.
-- **Set Substring** — when SETRANGE key offset value; offset gte 0, then string modified; client receives new total length.
-- **Increment Integer** — when INCR, INCRBY, or DECR command; value matches "^-?[0-9]{1,19}$"; increment_amount exists, then client receives new numeric value.
-- **Increment Float** — when INCRBYFLOAT command; value exists; result not_in ["NaN","Infinity"], then client receives new value as decimal string.
-- **Getset Atomically** — when GETSET or SET with GET flag, then old value returned to client; new value now stored.
-- **Getdel Atomically** — when GETDEL command, then value returned to client; key deleted.
-- **Mget Multiple Keys** — when MGET key1 [key2 ...], then array returned with value for each key (nil for missing or non-string keys).
-- **Mset Multiple Keys** — when MSET key1 value1 [key2 value2 ...], then all keys set; client receives OK.
-- **Msetnx Conditional Bulk** — when MSETNX key1 value1 [key2 value2 ...]; all_keys_absent eq true, then all keys set; client receives 1.
+- **Read Existing String** — when key exists and has string value; key is not expired, then client receives full string value. _Why: Retrieve existing string value._
+- **Read Missing Key** — when key does not exist, then client receives null/nil. _Why: Attempt to read non-existent key._
+- **Read With Ttl Modification** — when key exists with string value; GETEX command with optional expiry flags, then client receives string value; TTL optionally modified. _Why: Read value and optionally modify or check TTL._
+- **Set Or Overwrite** — when SET command issued, then key now holds new value; client receives OK. _Why: Set value unconditionally, overwriting if exists._
+- **Set With Conditions** — when condition_type in ["NX","XX","IFEQ","IFNE","IFDEQ","IFDNE"]; condition_met eq true, then value set and OK returned; or nil if condition not met. _Why: SET only if condition met (NX, XX, or equality check)._
+- **Set With Ttl** — when SET with EX|PX|EXAT|PXAT flag, then key set with expiration; expires at specified time. _Why: Set value with immediate expiration time._
+- **Get Substring** — when GETRANGE key start end; start gte "-2^31"; end lte "2^31-1", then substring from start to end inclusive (0-indexed, supports negative indices); empty string if range out of bounds. _Why: Extract substring by start/end indices._
+- **Set Substring** — when SETRANGE key offset value; offset gte 0, then string modified; client receives new total length. _Why: Overwrite portion of string starting at offset._
+- **Increment Integer** — when INCR, INCRBY, or DECR command; value matches "^-?[0-9]{1,19}$"; increment_amount exists, then client receives new numeric value. _Why: Increment numeric string value by integer amount._
+- **Increment Float** — when INCRBYFLOAT command; value exists; result not_in ["NaN","Infinity"], then client receives new value as decimal string. _Why: Increment numeric string by floating-point amount._
+- **Getset Atomically** — when GETSET or SET with GET flag, then old value returned to client; new value now stored. _Why: Atomically retrieve old value and set new value._
+- **Getdel Atomically** — when GETDEL command, then value returned to client; key deleted. _Why: Atomically retrieve value and delete key._
+- **Mget Multiple Keys** — when MGET key1 [key2 ...], then array returned with value for each key (nil for missing or non-string keys). _Why: Retrieve multiple values in single request._
+- **Mset Multiple Keys** — when MSET key1 value1 [key2 value2 ...], then all keys set; client receives OK. _Why: Set multiple key-value pairs atomically._
+- **Msetnx Conditional Bulk** — when MSETNX key1 value1 [key2 value2 ...]; all_keys_absent eq true, then all keys set; client receives 1. _Why: Set multiple pairs only if ALL keys absent._
 
 **❌ Failure paths**
 
 - **Conditional Set Fails** — when SET with NX|XX|IFEQ|IFNE condition; condition_met eq false, then value unchanged; client receives nil. *(error: `CONDITION_NOT_MET`)*
-- **Append To String** — when APPEND command; value exists, then string extended; client receives new total length. *(error: `STRING_TOO_LARGE`)*
+- **Append To String** — when APPEND command; value exists, then string extended; client receives new total length. _Why: Append suffix to existing or missing string._ *(error: `STRING_TOO_LARGE`)*
 - **Setrange With Invalid Offset** — when SETRANGE with negative offset, then error returned; string unchanged. *(error: `INVALID_OFFSET`)*
 - **Increment Non Numeric** — when value is not a valid 64-bit signed integer string, then error returned; value unchanged. *(error: `NOT_AN_INTEGER`)*
 - **Increment Overflow** — when increment would exceed 64-bit bounds, then error returned; value unchanged. *(error: `INCREMENT_OVERFLOW`)*

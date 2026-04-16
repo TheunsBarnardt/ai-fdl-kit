@@ -1,0 +1,171 @@
+{
+  "feature": "sandbox-rail-adapter",
+  "version": "1.0.0",
+  "description": "Contract-compatible mock RailAdapter — scripted success/decline/timeout/rate-limit scenarios, realistic latency profiles, webhook callbacks that mirror real rails (pacs.002, PaymentStatusReport); d...",
+  "category": "testing",
+  "tags": [
+    "sandbox",
+    "rail",
+    "adapter",
+    "mock",
+    "scenarios",
+    "webhooks",
+    "deterministic"
+  ],
+  "uses": [
+    "code-quality-baseline",
+    "security-baseline",
+    "ai-pr-review"
+  ],
+  "aliases": [
+    "mock-rail",
+    "sandbox-rail",
+    "test-rail-adapter"
+  ],
+  "actors": [
+    {
+      "id": "pgw",
+      "name": "Payments Gateway (sandbox instance)",
+      "type": "system"
+    },
+    {
+      "id": "rail_registry",
+      "name": "Rail Registry",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "scenario",
+      "type": "select",
+      "required": true,
+      "options": [
+        {
+          "value": "approve",
+          "label": "approve"
+        },
+        {
+          "value": "decline",
+          "label": "decline"
+        },
+        {
+          "value": "timeout",
+          "label": "timeout"
+        },
+        {
+          "value": "rate_limit",
+          "label": "rate_limit"
+        },
+        {
+          "value": "slow",
+          "label": "slow"
+        },
+        {
+          "value": "webhook_delay",
+          "label": "webhook_delay"
+        }
+      ],
+      "label": "Scenario for this specific call (can override profile)"
+    },
+    {
+      "name": "latency_ms",
+      "type": "number",
+      "required": false,
+      "label": "Override base latency in ms"
+    },
+    {
+      "name": "correlation_id",
+      "type": "token",
+      "required": true,
+      "label": "Deterministic replay key"
+    }
+  ],
+  "rules": {
+    "contract": [
+      "MUST: implement every method of the RailAdapter contract identically to real rails — authorize, capture, refund, status, supports_currency",
+      "MUST: response schemas match real rails exactly, including error codes and webhook payloads (pacs.002, PaymentStatusReport)"
+    ],
+    "determinism": [
+      "MUST: same correlation_id + scenario = same response every time"
+    ],
+    "safety": [
+      "MUST: never forward calls to real rails, even by accident"
+    ]
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not register this adapter in a production rail registry",
+      "why": "Required by sandbox-rail-adapter contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}"
+    },
+    {
+      "rule": "Do not diverge from real-rail response shape — defeats the purpose of the sandbox",
+      "why": "Required by sandbox-rail-adapter contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}"
+    }
+  ],
+  "outcomes": {
+    "approved": {
+      "priority": 100,
+      "given": [
+        "scenario == approve"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "sandbox.rail.approved"
+        }
+      ],
+      "result": "Returns success with sandbox: true tag"
+    },
+    "declined": {
+      "priority": 50,
+      "given": [
+        "scenario == decline"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "sandbox.rail.declined"
+        }
+      ],
+      "result": "Returns rail-specific decline code"
+    },
+    "timed_out": {
+      "priority": 30,
+      "given": [
+        "scenario == timeout"
+      ],
+      "then": [],
+      "result": "No response within rail SLA — PGW should emit PGW_RAIL_ERROR"
+    },
+    "rate_limited": {
+      "priority": 20,
+      "given": [
+        "scenario == rate_limit"
+      ],
+      "then": [],
+      "result": "Returns rail-specific 429"
+    }
+  },
+  "events": [
+    {
+      "name": "sandbox.rail.approved",
+      "payload": []
+    },
+    {
+      "name": "sandbox.rail.declined",
+      "payload": []
+    }
+  ],
+  "related": [
+    {
+      "feature": "rail-registry",
+      "type": "required",
+      "reason": "Registered as a first-class adapter in the sandbox registry"
+    },
+    {
+      "feature": "sandbox-environment",
+      "type": "required",
+      "reason": "The sandbox environment exclusively routes through this adapter"
+    }
+  ]
+}

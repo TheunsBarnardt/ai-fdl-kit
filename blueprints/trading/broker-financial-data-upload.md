@@ -51,10 +51,10 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 
 **✅ Success paths**
 
-- **Automated Ftp Upload** — when upload_method eq "ftp"; email_configured eq true, then create_record; emit fin_upload.received.
-- **Manual Online Upload** — when upload_method eq "online_manual", then create_record; emit fin_upload.manual_received.
-- **Validate Journal Balance** — when layout_number eq "065", then call service; emit fin_upload.journal.validated.
-- **Generate Response Dataset** — when upload processing complete, then create_record; notify via email; emit fin_upload.response.delivered.
+- **Automated Ftp Upload** — when upload_method eq "ftp"; email_configured eq true, then create_record; emit fin_upload.received. _Why: Broker submits financial data via FTP._
+- **Manual Online Upload** — when upload_method eq "online_manual", then create_record; emit fin_upload.manual_received. _Why: Broker uploads financial data via online manual interface._
+- **Validate Journal Balance** — when layout_number eq "065", then call service; emit fin_upload.journal.validated. _Why: Validate journal debits equal credits._
+- **Generate Response Dataset** — when upload processing complete, then create_record; notify via email; emit fin_upload.response.delivered. _Why: Generate response dataset for financial upload._
 
 **❌ Failure paths**
 

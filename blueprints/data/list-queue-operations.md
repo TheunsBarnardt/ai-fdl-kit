@@ -30,28 +30,28 @@ Specifies 23 acceptance outcomes that any implementation must satisfy, regardles
 
 **✅ Success paths**
 
-- **Push To Head** — when LPUSH command issued; elements: one or more values to push, then list created if absent; elements added; client receives new length.
-- **Push To Tail** — when RPUSH command issued; elements: one or more values to push, then list created if absent; elements added; client receives new length.
-- **Push Conditional** — when command in ["LPUSHX","RPUSHX"], then elements added if list present; returns 0 if key absent.
-- **Pop From Head** — when LPOP command issued; optional count parameter (default 1), then client receives single element or array of count elements (or nil if empty).
-- **Pop From Tail** — when RPOP command issued; count gt 0, then client receives single element or array of count elements (or nil if empty).
+- **Push To Head** — when LPUSH command issued; elements: one or more values to push, then list created if absent; elements added; client receives new length. _Why: Add element(s) to head of list._
+- **Push To Tail** — when RPUSH command issued; elements: one or more values to push, then list created if absent; elements added; client receives new length. _Why: Add element(s) to tail of list._
+- **Push Conditional** — when command in ["LPUSHX","RPUSHX"], then elements added if list present; returns 0 if key absent. _Why: Add elements only if list exists._
+- **Pop From Head** — when LPOP command issued; optional count parameter (default 1), then client receives single element or array of count elements (or nil if empty). _Why: Remove and return element(s) from head._
+- **Pop From Tail** — when RPOP command issued; count gt 0, then client receives single element or array of count elements (or nil if empty). _Why: Remove and return element(s) from tail._
 - **Pop Empty List** — when list_length eq 0, then client receives nil.
-- **Blocking Pop** — when command in ["BLPOP","BRPOP","BLMOVE","BLMPOP"]; blocking timeout (0 = indefinite); list_has_data eq false, then client blocks until data available or timeout; receives elements or nil.
+- **Blocking Pop** — when command in ["BLPOP","BRPOP","BLMOVE","BLMPOP"]; blocking timeout (0 = indefinite); list_has_data eq false, then client blocks until data available or timeout; receives elements or nil. _Why: Wait for element(s) to become available._
 - **Blocking Pop Timeout** — when timeout_elapsed eq true; no_data_arrived eq true, then client unblocked; receives nil.
-- **Get Range** — when LRANGE key start stop; start: zero-based index (negative counts from tail); stop: inclusive end index, then array of elements from start to stop inclusive (clamped to bounds); empty array if out-of-range.
-- **Get Index** — when LINDEX key index; index: zero-based position (negative counts from tail), then element at index (or nil if out-of-range).
-- **Get Length** — when LLEN key, then number of elements (0 if key absent).
-- **Set Index** — when LSET key index element; index: must be within [0, length-1] or [-length, -1], then element replaced; client receives OK.
-- **Insert Element** — when LINSERT key BEFORE|AFTER pivot element; pivot: element to find (first occurrence used); pivot_found eq true, then element inserted; client receives new length.
+- **Get Range** — when LRANGE key start stop; start: zero-based index (negative counts from tail); stop: inclusive end index, then array of elements from start to stop inclusive (clamped to bounds); empty array if out-of-range. _Why: Retrieve elements by index range._
+- **Get Index** — when LINDEX key index; index: zero-based position (negative counts from tail), then element at index (or nil if out-of-range). _Why: Retrieve single element by index._
+- **Get Length** — when LLEN key, then number of elements (0 if key absent). _Why: Get list length._
+- **Set Index** — when LSET key index element; index: must be within [0, length-1] or [-length, -1], then element replaced; client receives OK. _Why: Overwrite element at index._
+- **Insert Element** — when LINSERT key BEFORE|AFTER pivot element; pivot: element to find (first occurrence used); pivot_found eq true, then element inserted; client receives new length. _Why: Insert element before/after pivot._
 - **Insert Pivot Not Found** — when pivot_found eq false, then list unchanged; client receives -1.
-- **Trim Range** — when LTRIM key start stop; start: first index to keep; stop: last index to keep (inclusive), then list trimmed; client receives OK; key deleted if empty.
-- **Remove Elements** — when LREM key count element; count: positive=remove from head, negative=from tail, 0=all occurrences, then matching elements removed; client receives count removed.
-- **Find Position** — when LPOS key element [RANK rank] [COUNT count] [MAXLEN len], then single position or array of positions (or nil if not found).
-- **Move Between Lists** — when LMOVE source destination LEFT|RIGHT LEFT|RIGHT; source_has_data eq true, then element moved atomically; client receives moved element.
+- **Trim Range** — when LTRIM key start stop; start: first index to keep; stop: last index to keep (inclusive), then list trimmed; client receives OK; key deleted if empty. _Why: Keep only elements in range, remove rest._
+- **Remove Elements** — when LREM key count element; count: positive=remove from head, negative=from tail, 0=all occurrences, then matching elements removed; client receives count removed. _Why: Remove matching elements._
+- **Find Position** — when LPOS key element [RANK rank] [COUNT count] [MAXLEN len], then single position or array of positions (or nil if not found). _Why: Find position(s) of element with options._
+- **Move Between Lists** — when LMOVE source destination LEFT|RIGHT LEFT|RIGHT; source_has_data eq true, then element moved atomically; client receives moved element. _Why: Atomically pop from source and push to destination._
 - **Move Empty Source** — when source_has_data eq false, then lists unchanged; client receives nil.
-- **Blocking Move** — when command eq "BLMOVE"; source_empty eq true; timeout_ms gte 0, then client blocks until source has data or timeout; then moves and returns element.
-- **Mpop From Multiple Keys** — when LMPOP numkeys key [key ...] LEFT|RIGHT [COUNT count]; first_non_empty: first key in list with available data, then nested array [key, [elements...]] or nil if all empty.
-- **Blocking Mpop** — when command eq "BLMPOP"; any_nonempty eq false, then client blocks until any key has data or timeout; then pops and returns [key, elements].
+- **Blocking Move** — when command eq "BLMOVE"; source_empty eq true; timeout_ms gte 0, then client blocks until source has data or timeout; then moves and returns element. _Why: Block until source has data, then move._
+- **Mpop From Multiple Keys** — when LMPOP numkeys key [key ...] LEFT|RIGHT [COUNT count]; first_non_empty: first key in list with available data, then nested array [key, [elements...]] or nil if all empty. _Why: Pop from first non-empty list among multiple._
+- **Blocking Mpop** — when command eq "BLMPOP"; any_nonempty eq false, then client blocks until any key has data or timeout; then pops and returns [key, elements]. _Why: Block until any of multiple lists has data._
 
 **❌ Failure paths**
 

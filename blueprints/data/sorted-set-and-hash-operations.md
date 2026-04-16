@@ -28,33 +28,33 @@ Specifies 27 acceptance outcomes that any implementation must satisfy, regardles
 
 **✅ Success paths**
 
-- **Zadd Members** — when command eq "ZADD"; nx_xx_compat not_in ["NX+XX"], then new member count or changed count (with CH flag); client receives count.
-- **Zadd Incr** — when incr_flag eq "INCR", then new score returned (as string).
-- **Zadd Conditional** — when condition in ["NX","XX","GT","LT"]; condition_met eq true, then member added/updated if condition met; client receives count.
-- **Zrem Members** — when ZREM key member [member ...], then client receives count of removed members.
-- **Zrange By Rank** — when ZRANGE key start stop [WITHSCORES]; range_type eq "rank", then array of members (with scores if WITHSCORES); empty if out-of-range.
-- **Zrange By Score** — when ZRANGE key min max BYSCORE [WITHSCORES] [LIMIT offset count]; min_score exists; max_score exists, then array of members in score range [min, max] (exclusive with '(' prefix; handles -inf/+inf).
-- **Zrange By Lex** — when ZRANGE key min max BYLEX [LIMIT offset count]; all_equal_scores eq true, then array of members in lex range [min, max] (exclusive with '(' prefix; handles -/+).
-- **Zrank Member** — when ZRANK key member [WITHSCORE], then 0-based rank (or nil if member absent); score included if WITHSCORE.
-- **Zscore Member** — when ZSCORE key member, then score as string (or nil if member absent).
-- **Zinter Sets** — when ZINTER numkeys key [key ...] [WEIGHTS weight ...] [AGGREGATE SUM|MIN|MAX]; weights exists; aggregate exists, then array of members in all sets (scores combined per AGGREGATE).
-- **Zunion Sets** — when ZUNION numkeys key [key ...] [WEIGHTS weight ...] [AGGREGATE SUM|MIN|MAX], then array of members in any set (scores combined per AGGREGATE).
-- **Hset Fields** — when command in ["HSET","HMSET"]; field_value_pairs exists, then count of new fields added (HSET) or OK (HMSET).
-- **Hget Field** — when HGET key field, then field value (or nil if field absent or expired).
-- **Hmget Fields** — when HMGET key field [field ...], then array with value for each field (nil for missing/expired fields).
-- **Hgetall Fields** — when HGETALL key, then flattened array [field1, value1, field2, value2, ...] (excludes expired fields).
-- **Hkeys Fields** — when HKEYS key, then array of all field names (excludes expired).
-- **Hvals Values** — when HVALS key, then array of all values (excludes expired fields).
-- **Hdel Fields** — when HDEL key field [field ...], then count of deleted fields; hash deleted if empty.
-- **Hincrby Field** — when HINCRBY key field increment; value matches "^-?[0-9]+$", then new field value after increment.
-- **Hincrbyfloat Field** — when HINCRBYFLOAT key field increment, then new field value as decimal string.
-- **Hexists Field** — when HEXISTS key field, then 1 if field exists and not expired, 0 otherwise.
-- **Hlen Hash** — when HLEN key, then number of fields (after lazy-expiring expired fields).
-- **Hexpire Field** — when HEXPIRE key [NX|XX|GT|LT] seconds FIELDS count field [field ...]; condition exists, then array with count of affected fields per condition.
-- **Hpexpire Field** — when HPEXPIRE key [condition] milliseconds FIELDS count field [field ...], then array with affected field counts.
-- **Hpersist Field** — when HPERSIST key FIELDS count field [field ...], then array with count of fields that had TTL removed.
-- **Httl Field** — when HTTL key field [field ...], then array of TTLs in seconds (-1=no-ttl, -2=field-absent).
-- **Hscan Fields** — when HSCAN key cursor [MATCH pattern] [COUNT count], then array [new_cursor, [field1, value1, field2, value2, ...]].
+- **Zadd Members** — when command eq "ZADD"; nx_xx_compat not_in ["NX+XX"], then new member count or changed count (with CH flag); client receives count. _Why: Add or update members with scores._
+- **Zadd Incr** — when incr_flag eq "INCR", then new score returned (as string). _Why: Increment member score._
+- **Zadd Conditional** — when condition in ["NX","XX","GT","LT"]; condition_met eq true, then member added/updated if condition met; client receives count. _Why: Add only if condition met (NX, XX, GT, LT)._
+- **Zrem Members** — when ZREM key member [member ...], then client receives count of removed members. _Why: Remove members by name._
+- **Zrange By Rank** — when ZRANGE key start stop [WITHSCORES]; range_type eq "rank", then array of members (with scores if WITHSCORES); empty if out-of-range. _Why: Get members by index range._
+- **Zrange By Score** — when ZRANGE key min max BYSCORE [WITHSCORES] [LIMIT offset count]; min_score exists; max_score exists, then array of members in score range [min, max] (exclusive with '(' prefix; handles -inf/+inf). _Why: Get members by score range._
+- **Zrange By Lex** — when ZRANGE key min max BYLEX [LIMIT offset count]; all_equal_scores eq true, then array of members in lex range [min, max] (exclusive with '(' prefix; handles -/+). _Why: Get members by lexicographic range (requires equal scores)._
+- **Zrank Member** — when ZRANK key member [WITHSCORE], then 0-based rank (or nil if member absent); score included if WITHSCORE. _Why: Get member rank by position._
+- **Zscore Member** — when ZSCORE key member, then score as string (or nil if member absent). _Why: Get member score._
+- **Zinter Sets** — when ZINTER numkeys key [key ...] [WEIGHTS weight ...] [AGGREGATE SUM|MIN|MAX]; weights exists; aggregate exists, then array of members in all sets (scores combined per AGGREGATE). _Why: Get intersection of sorted sets._
+- **Zunion Sets** — when ZUNION numkeys key [key ...] [WEIGHTS weight ...] [AGGREGATE SUM|MIN|MAX], then array of members in any set (scores combined per AGGREGATE). _Why: Get union of sorted sets._
+- **Hset Fields** — when command in ["HSET","HMSET"]; field_value_pairs exists, then count of new fields added (HSET) or OK (HMSET). _Why: Set one or more field-value pairs._
+- **Hget Field** — when HGET key field, then field value (or nil if field absent or expired). _Why: Get single field value._
+- **Hmget Fields** — when HMGET key field [field ...], then array with value for each field (nil for missing/expired fields). _Why: Get multiple field values._
+- **Hgetall Fields** — when HGETALL key, then flattened array [field1, value1, field2, value2, ...] (excludes expired fields). _Why: Get all field-value pairs._
+- **Hkeys Fields** — when HKEYS key, then array of all field names (excludes expired). _Why: Get all field names._
+- **Hvals Values** — when HVALS key, then array of all values (excludes expired fields). _Why: Get all field values._
+- **Hdel Fields** — when HDEL key field [field ...], then count of deleted fields; hash deleted if empty. _Why: Delete fields._
+- **Hincrby Field** — when HINCRBY key field increment; value matches "^-?[0-9]+$", then new field value after increment. _Why: Increment field value by integer._
+- **Hincrbyfloat Field** — when HINCRBYFLOAT key field increment, then new field value as decimal string. _Why: Increment field value by float._
+- **Hexists Field** — when HEXISTS key field, then 1 if field exists and not expired, 0 otherwise. _Why: Check if field exists._
+- **Hlen Hash** — when HLEN key, then number of fields (after lazy-expiring expired fields). _Why: Get hash field count._
+- **Hexpire Field** — when HEXPIRE key [NX|XX|GT|LT] seconds FIELDS count field [field ...]; condition exists, then array with count of affected fields per condition. _Why: Set field expiration time (seconds)._
+- **Hpexpire Field** — when HPEXPIRE key [condition] milliseconds FIELDS count field [field ...], then array with affected field counts. _Why: Set field expiration time (milliseconds)._
+- **Hpersist Field** — when HPERSIST key FIELDS count field [field ...], then array with count of fields that had TTL removed. _Why: Remove field expiration (make permanent)._
+- **Httl Field** — when HTTL key field [field ...], then array of TTLs in seconds (-1=no-ttl, -2=field-absent). _Why: Get field TTL (seconds)._
+- **Hscan Fields** — when HSCAN key cursor [MATCH pattern] [COUNT count], then array [new_cursor, [field1, value1, field2, value2, ...]]. _Why: Iterate fields with cursor._
 
 ## Errors it can return
 

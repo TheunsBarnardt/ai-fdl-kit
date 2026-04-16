@@ -140,18 +140,18 @@ Specifies 9 acceptance outcomes that any implementation must satisfy, regardless
 
 **✅ Success paths**
 
-- **Generate New Bonds Listing Daily** — when scheduled dissemination time reached, then 13 CSV files + 1 consolidated XLS covering instruments in process of listing (status Draft Approved, Pre-Listed, Listed Pending Coupon, Cancelled); emit bonds_ref.new_listings.disseminated.
-- **Generate Corporate Actions Schedule** — when end of day corporate actions processing complete, then create_record; emit bonds_ref.corporate_actions.disseminated.
-- **Generate Coupon Rate Update** — when coupon reset date reached for floating rate instrument, then create_record; emit bonds_ref.coupon_rate_update.disseminated.
-- **Instrument Listed New** — when instrument_status eq "Listed"; issue_date eq "today", then set listed_flag = true; create_record; emit bonds_ref.instrument.listed.
-- **Instrument Delisted Or Matured** — when instrument_status in ["Delisted","Matured","Called","Redeemed","Repurchased"], then set maturity_date = "effective_date_of_status_change"; emit bonds_ref.instrument.retired.
-- **Callable Step Up Event Created** — when callable_step_up_date exists; days_until_effective gte 4, then create_record; emit bonds_ref.callable_step_up.created.
-- **Historical Retention 40 Days** — when file disseminated successfully, then set retention_days = 40; emit bonds_ref.file.archived.
+- **Generate New Bonds Listing Daily** — when scheduled dissemination time reached, then 13 CSV files + 1 consolidated XLS covering instruments in process of listing (status Draft Approved, Pre-Listed, Listed Pending Coupon, Cancelled); emit bonds_ref.new_listings.disseminated. _Why: New Bonds Listing file published 3 times per day (11:30, 13:30, 16:20)._
+- **Generate Corporate Actions Schedule** — when end of day corporate actions processing complete, then create_record; emit bonds_ref.corporate_actions.disseminated. _Why: Bonds Corporate Actions Events Schedule disseminated daily._
+- **Generate Coupon Rate Update** — when coupon reset date reached for floating rate instrument, then create_record; emit bonds_ref.coupon_rate_update.disseminated. _Why: Bonds Coupon Rate Update disseminated when floating rate notes reset._
+- **Instrument Listed New** — when instrument_status eq "Listed"; issue_date eq "today", then set listed_flag = true; create_record; emit bonds_ref.instrument.listed. _Why: New instrument included on Issue date with status 'Listed'._
+- **Instrument Delisted Or Matured** — when instrument_status in ["Delisted","Matured","Called","Redeemed","Repurchased"], then set maturity_date = "effective_date_of_status_change"; emit bonds_ref.instrument.retired. _Why: Instrument remains in file until month-end of status change month._
+- **Callable Step Up Event Created** — when callable_step_up_date exists; days_until_effective gte 4, then create_record; emit bonds_ref.callable_step_up.created. _Why: Callable / Step Up event created at least 4 days before effective date._
+- **Historical Retention 40 Days** — when file disseminated successfully, then set retention_days = 40; emit bonds_ref.file.archived. _Why: Daily files retained on IDP for rolling 40 business days with _yyyymmdd suffix._
 
 **❌ Failure paths**
 
-- **Generate Bonds Instrument Reference Daily** — when scheduled dissemination time reached, then Generate 12 CSV files + 1 consolidated XLS workbook with General, Redemption Schedule, Coupon General, Coupon Schedule, Callable Step Up, Market Listing, Split Maturity, Reference Index, Reference Instrument, Reference Entities, Guarantor, Mixed Rate sheets; call service; emit bonds_ref.instrument_reference.disseminated. *(error: `BONDS_REF_SUBSCRIBER_NOT_PROVISIONED`)*
-- **Isin Generation Fails** — when isin matches "^.{0,11}$" OR isin_third_character neq "G", then notify via operations; emit bonds_ref.isin.generation_failed. *(error: `BONDS_REF_INVALID_ISIN`)*
+- **Generate Bonds Instrument Reference Daily** — when scheduled dissemination time reached, then Generate 12 CSV files + 1 consolidated XLS workbook with General, Redemption Schedule, Coupon General, Coupon Schedule, Callable Step Up, Market Listing, Split Maturity, Reference Index, Reference Instrument, Reference Entities, Guarantor, Mixed Rate sheets; call service; emit bonds_ref.instrument_reference.disseminated. _Why: Daily Bonds Instrument Reference file published 3 times per day (SLA 11:30, 13:30, 16:20)._ *(error: `BONDS_REF_SUBSCRIBER_NOT_PROVISIONED`)*
+- **Isin Generation Fails** — when isin matches "^.{0,11}$" OR isin_third_character neq "G", then notify via operations; emit bonds_ref.isin.generation_failed. _Why: ISIN validation fails (must be 12 chars, G in 3rd position for debt)._ *(error: `BONDS_REF_INVALID_ISIN`)*
 
 ## Errors it can return
 

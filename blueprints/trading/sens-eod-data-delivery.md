@@ -96,21 +96,21 @@ Specifies 12 acceptance outcomes that any implementation must satisfy, regardles
 
 **✅ Success paths**
 
-- **Company Announcement With Share** — when announcement_class eq "company_with_share", then set company_org_id = "primary_company_id"; set instrument_num_code = "instrument_id"; create_record; emit sens.company_announcement.created.
-- **Company Announcement No Share** — when announcement_class eq "company_no_share", then set company_org_id = "primary_company_id"; set announcement_group_code = "JSEO_or_NSXO"; emit sens.company_no_share_announcement.created.
-- **Exchange Announcement** — when announcement_class eq "exchange", then set announcement_group_code = "EXCH"; set company_role = "General"; emit sens.exchange_announcement.created.
-- **Regulatory Institution Announcement** — when announcement_class eq "regulatory_institution", then set company_role = "General"; set announcement_regulatory_code = "R"; emit sens.regulatory_announcement.created.
-- **Price Sensitive Urgency 1** — when price_sensitivity_indicator eq "Y", then set urgency = 1; emit sens.price_sensitive.flagged.
-- **Non Price Sensitive Urgency 4** — when price_sensitivity_indicator eq "N", then set urgency = 4.
-- **Announcement Cancellation** — when correction_type eq "cancellation", then set signal = "CorTyp:Cncl"; set pub_status = "stat:canceled"; emit sens.announcement.cancelled.
-- **Announcement Replacement** — when correction_type eq "replacement", then set signal = "CorTyp:Repl"; emit sens.announcement.replaced.
-- **Generate Eod Package** — when end of trading day reached, then create_record; call service; call service; emit sens.eod_package.disseminated.
+- **Company Announcement With Share** — when announcement_class eq "company_with_share", then set company_org_id = "primary_company_id"; set instrument_num_code = "instrument_id"; create_record; emit sens.company_announcement.created. _Why: Company announcement when primary company has listed share._
+- **Company Announcement No Share** — when announcement_class eq "company_no_share", then set company_org_id = "primary_company_id"; set announcement_group_code = "JSEO_or_NSXO"; emit sens.company_no_share_announcement.created. _Why: Company announcement when primary company has no share (debt issuer)._
+- **Exchange Announcement** — when announcement_class eq "exchange", then set announcement_group_code = "EXCH"; set company_role = "General"; emit sens.exchange_announcement.created. _Why: Exchange announcement with EXCH group code and General role._
+- **Regulatory Institution Announcement** — when announcement_class eq "regulatory_institution", then set company_role = "General"; set announcement_regulatory_code = "R"; emit sens.regulatory_announcement.created. _Why: Regulatory institution announcement._
+- **Price Sensitive Urgency 1** — when price_sensitivity_indicator eq "Y", then set urgency = 1; emit sens.price_sensitive.flagged. _Why: Price-sensitive announcements get urgency=1._
+- **Non Price Sensitive Urgency 4** — when price_sensitivity_indicator eq "N", then set urgency = 4. _Why: Non-price-sensitive announcements get urgency=4._
+- **Announcement Cancellation** — when correction_type eq "cancellation", then set signal = "CorTyp:Cncl"; set pub_status = "stat:canceled"; emit sens.announcement.cancelled. _Why: Cancellation correction with signal=Cncl._
+- **Announcement Replacement** — when correction_type eq "replacement", then set signal = "CorTyp:Repl"; emit sens.announcement.replaced. _Why: Replacement correction with signal=Repl._
+- **Generate Eod Package** — when end of trading day reached, then create_record; call service; call service; emit sens.eod_package.disseminated. _Why: End-of-day PackageItem groups daily announcements into zip._
 
 **❌ Failure paths**
 
-- **Headline Too Long** — when headline_length gt 150, then emit sens.validation.headline_rejected. *(error: `SENS_HEADLINE_TOO_LONG`)*
-- **Eod Text Too Large** — when inline_data_size_bytes gt 4194304, then emit sens.validation.text_too_large. *(error: `SENS_ANNOUNCEMENT_TEXT_TOO_LARGE`)*
-- **Eod Pdf Too Large** — when remote_content_size gt 10485760, then notify via operations; emit sens.validation.pdf_too_large. *(error: `SENS_PDF_TOO_LARGE`)*
+- **Headline Too Long** — when headline_length gt 150, then emit sens.validation.headline_rejected. _Why: Headline exceeds 150 characters._ *(error: `SENS_HEADLINE_TOO_LONG`)*
+- **Eod Text Too Large** — when inline_data_size_bytes gt 4194304, then emit sens.validation.text_too_large. _Why: Plain text announcement exceeds 4MB._ *(error: `SENS_ANNOUNCEMENT_TEXT_TOO_LARGE`)*
+- **Eod Pdf Too Large** — when remote_content_size gt 10485760, then notify via operations; emit sens.validation.pdf_too_large. _Why: PDF exceeds configured limit (default 10MB)._ *(error: `SENS_PDF_TOO_LARGE`)*
 
 ## Errors it can return
 

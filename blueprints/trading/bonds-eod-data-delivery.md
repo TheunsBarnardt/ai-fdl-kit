@@ -85,22 +85,22 @@ Specifies 13 acceptance outcomes that any implementation must satisfy, regardles
 
 **✅ Success paths**
 
-- **Generate Zero Curve 1430** — when system time reaches 14:30 SAST; daily curve inputs are available, then Build ZeroCurve<CCYYMMDD>.xls with Zeroes, Compact, and Inputs worksheets; call service; emit bonds.zero_curve.1430.disseminated.
-- **Generate Zero Curve 1530** — when system time reaches 15:30 SAST, then create_record; emit bonds.zero_curve.1530.disseminated.
-- **Generate Zero Curve 1730** — when system time reaches 17:30 SAST, then create_record; emit bonds.zero_curve.1730.disseminated.
-- **Generate Zaronia Zero Curve** — when system time reaches 14:30, 15:30, or 17:30 SAST, then create_record; emit bonds.zaronia_curve.disseminated.
-- **Generate Mtm Detailed 1730** — when system time reaches 17:30 SAST; all trades for the day have been processed, then MTMDetailed<CCYYMMDD>.xls with MTM sheet (26 cols) and BEASSA Yield Curve sheet; create_record; emit bonds.mtm_detailed.disseminated.
-- **Generate Mtm T1 1730** — when system time reaches 17:30 SAST, then create_record; emit bonds.mtm_t1.disseminated.
-- **Generate Mtm Value Today 1730** — when system time reaches 17:30 SAST, then create_record; emit bonds.mtm_value_today.disseminated.
-- **Generate Utmtm Reports 1530** — when system time reaches 15:30 SAST, then Three Unit Trust MTM reports for T+3, T+1, T+0 settlement; emit bonds.utmtm.disseminated.
-- **Generate Trade Detail Eod** — when end of day batch triggered, then TradeDetail_Daily<CCYYMMDD>.xls/.csv with 16 columns (excludes same-day cancelled trades); emit bonds.trade_detail.disseminated.
-- **Generate Instrument Detail Eod** — when end of day batch triggered, then InstrumentDetail_Daily<CCYYMMDD>.xls/.csv with turnover stats per trade type; emit bonds.instrument_detail.disseminated.
-- **Generate Member Client Position Eod** — when end of day batch triggered, then create_record; emit bonds.member_client_position.disseminated.
+- **Generate Zero Curve 1430** — when system time reaches 14:30 SAST; daily curve inputs are available, then Build ZeroCurve<CCYYMMDD>.xls with Zeroes, Compact, and Inputs worksheets; call service; emit bonds.zero_curve.1430.disseminated. _Why: Zero Curve report generated and disseminated at 14:30 daily._
+- **Generate Zero Curve 1530** — when system time reaches 15:30 SAST, then create_record; emit bonds.zero_curve.1530.disseminated. _Why: Zero Curve report disseminated at 15:30 with updated inputs._
+- **Generate Zero Curve 1730** — when system time reaches 17:30 SAST, then create_record; emit bonds.zero_curve.1730.disseminated. _Why: Final Zero Curve report disseminated at 17:30._
+- **Generate Zaronia Zero Curve** — when system time reaches 14:30, 15:30, or 17:30 SAST, then create_record; emit bonds.zaronia_curve.disseminated. _Why: ZARONIA Zero Curve (Zaronia Swap Curve) disseminated 3 times daily._
+- **Generate Mtm Detailed 1730** — when system time reaches 17:30 SAST; all trades for the day have been processed, then MTMDetailed<CCYYMMDD>.xls with MTM sheet (26 cols) and BEASSA Yield Curve sheet; create_record; emit bonds.mtm_detailed.disseminated. _Why: MTM Detailed report (T+3 settlement) disseminated at 17:30._
+- **Generate Mtm T1 1730** — when system time reaches 17:30 SAST, then create_record; emit bonds.mtm_t1.disseminated. _Why: MTM T+1 report (T+1 settlement valuations) disseminated at 17:30._
+- **Generate Mtm Value Today 1730** — when system time reaches 17:30 SAST, then create_record; emit bonds.mtm_value_today.disseminated. _Why: MTM Value Today report (T+0 settlement) disseminated at 17:30._
+- **Generate Utmtm Reports 1530** — when system time reaches 15:30 SAST, then Three Unit Trust MTM reports for T+3, T+1, T+0 settlement; emit bonds.utmtm.disseminated. _Why: UTMTM, UTMTM+1, and UTMTM Value Today reports (Unit Trust MTM, 15:00 data) disseminated at 15:30._
+- **Generate Trade Detail Eod** — when end of day batch triggered, then TradeDetail_Daily<CCYYMMDD>.xls/.csv with 16 columns (excludes same-day cancelled trades); emit bonds.trade_detail.disseminated. _Why: Trade Detail report with all reported trades for the day._
+- **Generate Instrument Detail Eod** — when end of day batch triggered, then InstrumentDetail_Daily<CCYYMMDD>.xls/.csv with turnover stats per trade type; emit bonds.instrument_detail.disseminated. _Why: Instrument Detail statistical report per trade type._
+- **Generate Member Client Position Eod** — when end of day batch triggered, then create_record; emit bonds.member_client_position.disseminated. _Why: Member/Client Position report with Buy/Sell split per member/local/foreign._
 
 **❌ Failure paths**
 
-- **Ftp Dissemination Failure** — when any bonds EOD file generation succeeds; ftp_transfer_status eq "failed", then notify via operations; emit bonds.dissemination.failed. *(error: `BONDS_DISSEMINATION_FAILED`)*
-- **Subscriber Not Provisioned** — when subscriber_entitled eq false, then emit bonds.access_denied. *(error: `BONDS_SUBSCRIBER_NOT_PROVISIONED`)*
+- **Ftp Dissemination Failure** — when any bonds EOD file generation succeeds; ftp_transfer_status eq "failed", then notify via operations; emit bonds.dissemination.failed. _Why: FTP dissemination to IDP fails._ *(error: `BONDS_DISSEMINATION_FAILED`)*
+- **Subscriber Not Provisioned** — when subscriber_entitled eq false, then emit bonds.access_denied. _Why: Subscriber attempts to retrieve file without entitlement._ *(error: `BONDS_SUBSCRIBER_NOT_PROVISIONED`)*
 
 ## Errors it can return
 

@@ -43,13 +43,13 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 
 **✅ Success paths**
 
-- **Validate Csdp Reference** — when card_code eq "030", then call service; emit demat_upload.csdp.validated.
-- **Generate Response Dataset** — when upload processing complete, then create_record; notify via email; emit demat_upload.response.delivered.
-- **Archive Upload** — when processing_status eq "completed", then call service; emit demat_upload.archived.
+- **Validate Csdp Reference** — when card_code eq "030", then call service; emit demat_upload.csdp.validated. _Why: Validate CSDP account and code on Card Code 030._
+- **Generate Response Dataset** — when upload processing complete, then create_record; notify via email; emit demat_upload.response.delivered. _Why: Generate response dataset with per-record response codes._
+- **Archive Upload** — when processing_status eq "completed", then call service; emit demat_upload.archived. _Why: Archive processed DEMAT upload._
 
 **❌ Failure paths**
 
-- **Automated Demat Upload** — when broker_subscribed eq true; email_configured eq true, then create_record; emit demat_upload.received. *(error: `DEMAT_UPLOAD_INVALID_CSDP`)*
+- **Automated Demat Upload** — when broker_subscribed eq true; email_configured eq true, then create_record; emit demat_upload.received. _Why: Broker uploads DEMAT positions via automated FTP._ *(error: `DEMAT_UPLOAD_INVALID_CSDP`)*
 - **Not Subscribed** — when broker_subscribed eq false, then emit demat_upload.not_subscribed. *(error: `DEMAT_UPLOAD_NOT_SUBSCRIBED`)*
 
 ## Errors it can return

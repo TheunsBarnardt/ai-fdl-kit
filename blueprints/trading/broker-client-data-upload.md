@@ -88,15 +88,15 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 
 **✅ Success paths**
 
-- **Automated Upload Submission** — when email_configured eq true; file_format eq "fixed_width_card_code", then create_record; emit client_upload.submitted.
-- **Validate Mandatory Fields** — when card_code eq "031", then call service; emit client_upload.validated.
-- **Generate Response Dataset** — when upload file processing complete, then create_record; notify via email; emit client_upload.response.delivered.
-- **Archive Upload** — when processing_status eq "completed", then call service; emit client_upload.archived.
+- **Automated Upload Submission** — when email_configured eq true; file_format eq "fixed_width_card_code", then create_record; emit client_upload.submitted. _Why: Broker submits upload file via FTP automated process._
+- **Validate Mandatory Fields** — when card_code eq "031", then call service; emit client_upload.validated. _Why: Validate Card Code 031 mandatory fields._
+- **Generate Response Dataset** — when upload file processing complete, then create_record; notify via email; emit client_upload.response.delivered. _Why: Generate response dataset with per-record status._
+- **Archive Upload** — when processing_status eq "completed", then call service; emit client_upload.archived. _Why: Archive processed upload file._
 
 **❌ Failure paths**
 
 - **Mandatory Field Missing** — when account_number not_exists OR client_name not_exists OR id_number not_exists, then create_record; emit client_upload.validation_failed. *(error: `CLIENT_UPLOAD_MANDATORY_FIELD_MISSING`)*
-- **Fatca Validation Check** — when card_code eq "038"; us_person_indicator eq "Y", then call service; emit client_upload.fatca.validated. *(error: `CLIENT_UPLOAD_FATCA_VALIDATION_FAILED`)*
+- **Fatca Validation Check** — when card_code eq "038"; us_person_indicator eq "Y", then call service; emit client_upload.fatca.validated. _Why: Validate FATCA classification on Card Code 038._ *(error: `CLIENT_UPLOAD_FATCA_VALIDATION_FAILED`)*
 
 ## Errors it can return
 

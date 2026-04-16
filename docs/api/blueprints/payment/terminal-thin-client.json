@@ -1,0 +1,221 @@
+{
+  "feature": "terminal-thin-client",
+  "version": "1.0.0",
+  "description": "Android thin-client payment terminal — base UI + palm-vein capture with on-device 1:N match + card reader SPoC passthrough + PGW API client; no rail SDKs or EMV kernel on-device",
+  "category": "payment",
+  "tags": [
+    "terminal",
+    "thin-client",
+    "android",
+    "kotlin",
+    "palm",
+    "spoc",
+    "pgw-client"
+  ],
+  "uses": [
+    "code-quality-baseline",
+    "security-baseline",
+    "ai-pr-review"
+  ],
+  "aliases": [
+    "thin-terminal",
+    "palm-terminal",
+    "pgw-client-terminal"
+  ],
+  "actors": [
+    {
+      "id": "merchant",
+      "name": "Merchant / Cashier",
+      "type": "human"
+    },
+    {
+      "id": "customer",
+      "name": "Customer",
+      "type": "human"
+    },
+    {
+      "id": "palm_scanner",
+      "name": "Built-in Palm Scanner",
+      "type": "external"
+    },
+    {
+      "id": "card_reader",
+      "name": "Built-in SPoC card reader",
+      "type": "external"
+    },
+    {
+      "id": "pgw",
+      "name": "Payments Gateway",
+      "type": "external",
+      "description": "Central PGW that terminal calls via /v1/*"
+    }
+  ],
+  "fields": [
+    {
+      "name": "device_id",
+      "type": "token",
+      "required": true,
+      "label": "Attested device identifier"
+    },
+    {
+      "name": "merchant_id",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "amount",
+      "type": "number",
+      "required": true
+    },
+    {
+      "name": "method",
+      "type": "select",
+      "required": true,
+      "options": [
+        {
+          "value": "palm",
+          "label": "palm"
+        },
+        {
+          "value": "card_chip",
+          "label": "card_chip"
+        },
+        {
+          "value": "card_tap",
+          "label": "card_tap"
+        },
+        {
+          "value": "card_stripe",
+          "label": "card_stripe"
+        }
+      ]
+    },
+    {
+      "name": "palm_template_id",
+      "type": "token",
+      "required": false,
+      "label": "Opaque palm template id (local; resolved via PGW)"
+    }
+  ],
+  "rules": {
+    "privacy": [
+      "MUST: palm templates never leave the device (POPIA s.26)",
+      "MUST: 1:N palm match runs on-device; only matched template_id crosses the network"
+    ],
+    "security": [
+      "MUST: terminal ↔ PGW connection is mTLS with device attestation on every call",
+      "MUST: card data never stored on device; SPoC-encrypted and forwarded immediately"
+    ],
+    "offline": [
+      "SHOULD: UI displays 'cannot accept payments offline' when PGW unreachable — no on-device decisioning"
+    ]
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not call payment rails directly from the device — always through PGW",
+      "why": "Required by terminal-thin-client contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}"
+    },
+    {
+      "rule": "Do not run an on-device EMV kernel — card data is passthrough only",
+      "why": "Required by terminal-thin-client contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}"
+    },
+    {
+      "rule": "Do not transmit raw biometric templates to the backend",
+      "why": "Required by terminal-thin-client contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}"
+    }
+  ],
+  "outcomes": {
+    "palm_payment_initiated": {
+      "priority": 100,
+      "given": [
+        "merchant entered amount",
+        "customer chose palm method",
+        "on-device palm match returned template_id"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "pgw.palm_sessions_resolve"
+        },
+        {
+          "action": "call_service",
+          "target": "pgw.create_payment"
+        }
+      ],
+      "result": "PGW returns settlement status; terminal shows receipt prompt"
+    },
+    "card_payment_initiated": {
+      "priority": 110,
+      "given": [
+        "merchant entered amount",
+        "customer chose card method",
+        "SPoC reader returned encrypted card payload"
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "pgw.create_payment"
+        }
+      ],
+      "result": "PGW runs EMV kernel and returns auth status"
+    },
+    "pgw_unreachable": {
+      "priority": 10,
+      "given": [
+        "PGW request fails after retry"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "terminal.pgw_unreachable"
+        }
+      ],
+      "result": "UI shows offline banner; no payment attempted"
+    },
+    "palm_no_match": {
+      "priority": 20,
+      "given": [
+        "on-device 1:N match finds no template"
+      ],
+      "then": [],
+      "result": "UI asks to rescan or use card"
+    }
+  },
+  "events": [
+    {
+      "name": "terminal.payment_started",
+      "payload": []
+    },
+    {
+      "name": "terminal.pgw_unreachable",
+      "payload": []
+    }
+  ],
+  "related": [
+    {
+      "feature": "popia-compliance",
+      "type": "required",
+      "reason": "Handles biometric templates and cardholder data"
+    },
+    {
+      "feature": "payments-gateway-api",
+      "type": "required",
+      "reason": "Terminal is a thin client of the PGW"
+    },
+    {
+      "feature": "palm-vein",
+      "type": "required",
+      "reason": "Palm-vein SDK for capture and on-device matching"
+    },
+    {
+      "feature": "device-attestation",
+      "type": "required",
+      "reason": "TPM-backed attestation on every PGW call"
+    },
+    {
+      "feature": "biometric-auth",
+      "type": "required",
+      "reason": "Shared enrolment + auth semantics"
+    }
+  ]
+}

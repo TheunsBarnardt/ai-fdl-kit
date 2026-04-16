@@ -28,26 +28,26 @@ Specifies 17 acceptance outcomes that any implementation must satisfy, regardles
 
 **✅ Success paths**
 
-- **Publish Message** — when PUBLISH channel message; channel exists; message exists, then client receives count of subscribers that received the message.
+- **Publish Message** — when PUBLISH channel message; channel exists; message exists, then client receives count of subscribers that received the message. _Why: Send message to channel._
 - **Publish No Subscribers** — when subscriber_count eq 0; pattern_subscriber_count eq 0, then message discarded; client receives 0.
-- **Sharded Publish** — when SPUBLISH shard_channel message; shard_owned_by_this_node eq true, then count of subscribers on this shard that received message.
-- **Subscribe To Channels** — when SUBSCRIBE channel [channel ...]; channels exists, then client enters subscription mode; receives subscription confirmation; starts receiving messages.
-- **Subscribe Pattern** — when PSUBSCRIBE pattern [pattern ...]; patterns exists, then client enters subscription mode; receives pattern subscription confirmation.
-- **Receive Message** — when message_published exists; subscriber_state eq "subscribed", then message delivered to subscriber in format [type, channel/pattern, message].
-- **Receive Pattern Match** — when channel_matches_pattern eq true; pattern_subscribed eq true, then message delivered in format [ptype, pattern, channel, message].
-- **Sharded Subscribe** — when SSUBSCRIBE shard_channel [shard_channel ...], then client enters subscription mode; receives shard channel confirmations.
-- **Unsubscribe From Channels** — when UNSUBSCRIBE [channel ...]; channels exists, then receives unsubscription confirmations; client exits subscription mode if no subscriptions remain.
-- **Unsubscribe From Patterns** — when PUNSUBSCRIBE [pattern ...]; patterns exists, then receives unsubscription confirmations; exits subscription mode if no subscriptions remain.
+- **Sharded Publish** — when SPUBLISH shard_channel message; shard_owned_by_this_node eq true, then count of subscribers on this shard that received message. _Why: Publish to shard channel (cluster mode)._
+- **Subscribe To Channels** — when SUBSCRIBE channel [channel ...]; channels exists, then client enters subscription mode; receives subscription confirmation; starts receiving messages. _Why: Subscribe to one or more channels._
+- **Subscribe Pattern** — when PSUBSCRIBE pattern [pattern ...]; patterns exists, then client enters subscription mode; receives pattern subscription confirmation. _Why: Subscribe to channels matching pattern._
+- **Receive Message** — when message_published exists; subscriber_state eq "subscribed", then message delivered to subscriber in format [type, channel/pattern, message]. _Why: Receive message from subscribed channel._
+- **Receive Pattern Match** — when channel_matches_pattern eq true; pattern_subscribed eq true, then message delivered in format [ptype, pattern, channel, message]. _Why: Receive message via pattern subscription._
+- **Sharded Subscribe** — when SSUBSCRIBE shard_channel [shard_channel ...], then client enters subscription mode; receives shard channel confirmations. _Why: Subscribe to shard channel._
+- **Unsubscribe From Channels** — when UNSUBSCRIBE [channel ...]; channels exists, then receives unsubscription confirmations; client exits subscription mode if no subscriptions remain. _Why: Stop subscribing to channels._
+- **Unsubscribe From Patterns** — when PUNSUBSCRIBE [pattern ...]; patterns exists, then receives unsubscription confirmations; exits subscription mode if no subscriptions remain. _Why: Stop subscribing to patterns._
 - **Exit Subscription Mode** — when remaining_subscriptions eq 0, then subscriber back in normal mode; can execute non-pub/sub commands.
-- **Sharded Unsubscribe** — when SUNSUBSCRIBE [shard_channel ...], then unsubscription confirmations.
-- **Ping While Subscribed** — when subscriber_state eq "subscribed"; PING [message], then [pong, message-or-nil].
-- **Pubsub Channels** — when PUBSUB CHANNELS [pattern]; pattern exists, then array of active channel names (with subscribers).
-- **Pubsub Numsub** — when PUBSUB NUMSUB channel [channel ...], then flattened array [channel1, count1, channel2, count2, ...].
-- **Pubsub Numpat** — when PUBSUB NUMPAT, then total count of pattern subscriptions across all clients.
+- **Sharded Unsubscribe** — when SUNSUBSCRIBE [shard_channel ...], then unsubscription confirmations. _Why: Stop subscribing to shard channels._
+- **Ping While Subscribed** — when subscriber_state eq "subscribed"; PING [message], then [pong, message-or-nil]. _Why: PING allowed in subscription mode._
+- **Pubsub Channels** — when PUBSUB CHANNELS [pattern]; pattern exists, then array of active channel names (with subscribers). _Why: List active channels._
+- **Pubsub Numsub** — when PUBSUB NUMSUB channel [channel ...], then flattened array [channel1, count1, channel2, count2, ...]. _Why: Get subscriber count per channel._
+- **Pubsub Numpat** — when PUBSUB NUMPAT, then total count of pattern subscriptions across all clients. _Why: Get total pattern subscription count._
 
 **❌ Failure paths**
 
-- **Command In Subscription Mode** — when subscriber_state eq "subscribed"; command not_in ["SUBSCRIBE","PSUBSCRIBE","UNSUBSCRIBE","PUNSUBSCRIBE","PING","QUIT","HELLO","RESET"], then error returned; command not executed; subscription mode unchanged. *(error: `SUBSCRIPTION_MODE`)*
+- **Command In Subscription Mode** — when subscriber_state eq "subscribed"; command not_in ["SUBSCRIBE","PSUBSCRIBE","UNSUBSCRIBE","PUNSUBSCRIBE","PING","QUIT","HELLO","RESET"], then error returned; command not executed; subscription mode unchanged. _Why: Attempt non-pub/sub command while subscribed._ *(error: `SUBSCRIPTION_MODE`)*
 
 ## Errors it can return
 

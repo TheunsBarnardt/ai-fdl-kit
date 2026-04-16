@@ -57,14 +57,14 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 
 **✅ Success paths**
 
-- **Same Day Allocation Upload** — when allocation_type eq "same_day"; submission_time lt "cutoff_time", then create_record; emit deal_upload.same_day.received.
-- **External Account Mapping** — when external_account_code exists, then call service; emit deal_upload.external_account.mapped.
+- **Same Day Allocation Upload** — when allocation_type eq "same_day"; submission_time lt "cutoff_time", then create_record; emit deal_upload.same_day.received. _Why: Same-day allocation upload with intraday processing._
+- **External Account Mapping** — when external_account_code exists, then call service; emit deal_upload.external_account.mapped. _Why: Map external account code to internal client account._
 
 **❌ Failure paths**
 
-- **Manual Deal Allocation Upload** — when submission_mode eq "manual_ftp", then create_record; emit deal_upload.manual.received. *(error: `DEAL_UPLOAD_INVALID_EXTERNAL_ACCOUNT`)*
-- **Automated Deal Allocation Upload** — when submission_mode eq "automated_ftp", then create_record; emit deal_upload.automated.received. *(error: `DEAL_UPLOAD_INVALID_TRADE_DATE`)*
-- **Deals Upload** — when upload_type eq "deals", then create_record; emit deal_upload.deals.received. *(error: `DEAL_UPLOAD_INSTRUMENT_NOT_FOUND`)*
+- **Manual Deal Allocation Upload** — when submission_mode eq "manual_ftp", then create_record; emit deal_upload.manual.received. _Why: Broker manually submits deal allocations via FTP._ *(error: `DEAL_UPLOAD_INVALID_EXTERNAL_ACCOUNT`)*
+- **Automated Deal Allocation Upload** — when submission_mode eq "automated_ftp", then create_record; emit deal_upload.automated.received. _Why: Automated deal allocation upload via FTP._ *(error: `DEAL_UPLOAD_INVALID_TRADE_DATE`)*
+- **Deals Upload** — when upload_type eq "deals", then create_record; emit deal_upload.deals.received. _Why: Automated deals upload._ *(error: `DEAL_UPLOAD_INSTRUMENT_NOT_FOUND`)*
 - **Allocation Cutoff Exceeded** — when allocation_type eq "same_day"; submission_time gte "cutoff_time", then emit deal_upload.cutoff_exceeded. *(error: `DEAL_UPLOAD_ALLOCATION_CUTOFF_EXCEEDED`)*
 
 ## Errors it can return

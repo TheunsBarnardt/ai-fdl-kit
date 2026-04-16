@@ -58,15 +58,15 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 
 **✅ Success paths**
 
-- **Loan Confirmation Return** — when card_code eq "027", then move loan_status open → confirmed_or_returned; emit slb_upload.loan.confirmed.
-- **Collateral Confirmation Return** — when card_code eq "028", then move collateral_status posted → confirmed_or_returned; emit slb_upload.collateral.confirmed.
-- **Validate Collateral Link** — when card_code eq "026"; collateral_linked_loan_exists eq false, then emit slb_upload.collateral.unlinked.
-- **Generate Response Dataset** — when upload processing complete, then create_record; notify via email; emit slb_upload.response.delivered.
+- **Loan Confirmation Return** — when card_code eq "027", then move loan_status open → confirmed_or_returned; emit slb_upload.loan.confirmed. _Why: Broker submits loan confirmation or return (Layout 027)._
+- **Collateral Confirmation Return** — when card_code eq "028", then move collateral_status posted → confirmed_or_returned; emit slb_upload.collateral.confirmed. _Why: Broker submits collateral confirmation or return (Layout 028)._
+- **Validate Collateral Link** — when card_code eq "026"; collateral_linked_loan_exists eq false, then emit slb_upload.collateral.unlinked. _Why: Validate collateral record is linked to existing loan._
+- **Generate Response Dataset** — when upload processing complete, then create_record; notify via email; emit slb_upload.response.delivered. _Why: Generate SLB upload response dataset._
 
 **❌ Failure paths**
 
-- **Automated Loan Upload** — when card_code eq "025"; email_configured eq true, then create_record; emit slb_upload.loan.received. *(error: `SLB_UPLOAD_INVALID_LOAN_REF`)*
-- **Automated Collateral Upload** — when card_code eq "026", then create_record; emit slb_upload.collateral.received. *(error: `SLB_UPLOAD_COLLATERAL_NOT_LINKED`)*
+- **Automated Loan Upload** — when card_code eq "025"; email_configured eq true, then create_record; emit slb_upload.loan.received. _Why: Broker submits loan upload records (Layout 025)._ *(error: `SLB_UPLOAD_INVALID_LOAN_REF`)*
+- **Automated Collateral Upload** — when card_code eq "026", then create_record; emit slb_upload.collateral.received. _Why: Broker submits collateral upload records (Layout 026)._ *(error: `SLB_UPLOAD_COLLATERAL_NOT_LINKED`)*
 
 ## Errors it can return
 

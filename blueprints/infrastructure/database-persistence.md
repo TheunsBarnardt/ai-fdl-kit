@@ -30,23 +30,23 @@ Specifies 20 acceptance outcomes that any implementation must satisfy, regardles
 
 **✅ Success paths**
 
-- **Rdb Save Sync** — when SAVE command, then server blocks; snapshot written to disk; client receives OK.
-- **Rdb Bgsave** — when BGSAVE command; no_other_save_in_progress eq true, then background process started; client receives OK immediately.
+- **Rdb Save Sync** — when SAVE command, then server blocks; snapshot written to disk; client receives OK. _Why: Block and save snapshot synchronously._
+- **Rdb Bgsave** — when BGSAVE command; no_other_save_in_progress eq true, then background process started; client receives OK immediately. _Why: Save snapshot in background._
 - **Rdb Save Complete** — when rdb_save_succeeds eq true, then snapshot available for recovery.
-- **Rdb Lastsave** — when LASTSAVE command, then Unix timestamp of last successful save (or 0 if never saved).
-- **Aof Write Command** — when any write command (SET, DEL, LPUSH, etc.); aof_enabled eq true, then command written to AOF buffer (fsync per policy).
-- **Aof Fsync Always** — when fsync_policy eq "always", then AOF durability guaranteed; write latency increased.
-- **Aof Fsync Everysec** — when fsync_policy eq "everysec", then good balance of durability and performance.
-- **Aof Fsync No** — when fsync_policy eq "no", then fastest but least durable; data loss possible on crash.
-- **Aof Rewrite** — when BGREWRITEAOF command; no_rewrite_in_progress eq true, then background rewrite process started.
+- **Rdb Lastsave** — when LASTSAVE command, then Unix timestamp of last successful save (or 0 if never saved). _Why: Query last save time._
+- **Aof Write Command** — when any write command (SET, DEL, LPUSH, etc.); aof_enabled eq true, then command written to AOF buffer (fsync per policy). _Why: Append command to journal._
+- **Aof Fsync Always** — when fsync_policy eq "always", then AOF durability guaranteed; write latency increased. _Why: Sync after every write._
+- **Aof Fsync Everysec** — when fsync_policy eq "everysec", then good balance of durability and performance. _Why: Sync every 1 second._
+- **Aof Fsync No** — when fsync_policy eq "no", then fastest but least durable; data loss possible on crash. _Why: OS decides when to sync._
+- **Aof Rewrite** — when BGREWRITEAOF command; no_rewrite_in_progress eq true, then background rewrite process started. _Why: Compact AOF by rewriting._
 - **Aof Rewrite Complete** — when aof_rewrite_succeeds eq true, then AOF compacted; future appends continue on new AOF.
-- **Recovery Rdb Only** — when persistence_mode eq "rdb_only"; server startup, then database loaded from RDB; commands after snapshot lost.
-- **Recovery Aof Only** — when persistence_mode eq "aof_only", then database recovered to exact state before crash.
-- **Recovery Rdb And Aof** — when persistence_mode eq "rdb_and_aof", then fast load (RDB) with exact state (AOF replay).
-- **Recovery Aof Truncated** — when aof_last_command_incomplete eq true, then incomplete command skipped; recovery continues with earlier commands.
-- **Backup Via Rdb** — when strategy eq "snapshot-based", then small backup files; fast restore; acceptable data loss window.
-- **Backup Via Replication** — when strategy eq "replica-based", then replicas take RDB snapshots while staying up-to-date.
-- **Backup Hybrid** — when persistence_mode eq "rdb_and_aof", then maximum durability; largest disk footprint.
+- **Recovery Rdb Only** — when persistence_mode eq "rdb_only"; server startup, then database loaded from RDB; commands after snapshot lost. _Why: Recover from RDB snapshot._
+- **Recovery Aof Only** — when persistence_mode eq "aof_only", then database recovered to exact state before crash. _Why: Recover from AOF by replaying._
+- **Recovery Rdb And Aof** — when persistence_mode eq "rdb_and_aof", then fast load (RDB) with exact state (AOF replay). _Why: Recover RDB then replay AOF._
+- **Recovery Aof Truncated** — when aof_last_command_incomplete eq true, then incomplete command skipped; recovery continues with earlier commands. _Why: AOF has incomplete last command._
+- **Backup Via Rdb** — when strategy eq "snapshot-based", then small backup files; fast restore; acceptable data loss window. _Why: Use RDB for backup._
+- **Backup Via Replication** — when strategy eq "replica-based", then replicas take RDB snapshots while staying up-to-date. _Why: Replica holds backup snapshots._
+- **Backup Hybrid** — when persistence_mode eq "rdb_and_aof", then maximum durability; largest disk footprint. _Why: RDB + AOF for maximum safety._
 
 **❌ Failure paths**
 

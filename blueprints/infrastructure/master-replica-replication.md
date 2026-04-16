@@ -29,24 +29,24 @@ Specifies 18 acceptance outcomes that any implementation must satisfy, regardles
 
 **✅ Success paths**
 
-- **Configure Replication** — when REPLICAOF master_host master_port; master_address exists, then OK; replica begins connection to master.
-- **Stop Replication** — when REPLICAOF NO ONE, then OK; replica becomes master (accepts writes).
-- **Full Sync Rdb** — when replica_state eq "connecting"; partial_resync_possible eq false, then master begins sending RDB; replica loads snapshot.
+- **Configure Replication** — when REPLICAOF master_host master_port; master_address exists, then OK; replica begins connection to master. _Why: Configure instance as replica._
+- **Stop Replication** — when REPLICAOF NO ONE, then OK; replica becomes master (accepts writes). _Why: Promote replica to standalone._
+- **Full Sync Rdb** — when replica_state eq "connecting"; partial_resync_possible eq false, then master begins sending RDB; replica loads snapshot. _Why: Master sends RDB snapshot for full sync._
 - **Full Sync Complete** — when rdb_received eq true; replica_loaded_rdb eq true, then replica synchronized; begins receiving command stream.
-- **Partial Resync Request** — when replica_reconnect eq true; offset_in_backlog eq true, then PSYNC repl_id offset sent to master.
+- **Partial Resync Request** — when replica_reconnect eq true; offset_in_backlog eq true, then PSYNC repl_id offset sent to master. _Why: Replica attempts partial resync._
 - **Partial Resync Accepted** — when master_repl_id_matches eq true; replica_offset_in_backlog eq true, then +CONTINUE; master sends backlog commands from offset.
 - **Partial Resync Rejected** — when master_repl_id_mismatch eq true; replica_offset_too_old eq true OR repl_id_changed eq true, then -FULLRESYNC; master sends full RDB.
-- **Master Write Command** — when any write command (SET, DEL, LPUSH, etc.); replicas_connected gt 0, then master applies command locally and queues for replicas.
-- **Replica Receive Command** — when master_sends_command exists, then replica applies command to own dataset.
-- **Command Buffer Overflow** — when buffer_size_exceeds_limit eq true, then replica disconnected if buffer exceeds limits; full resync required on reconnect.
-- **Replica Disconnect** — when network_failure exists, then replica stops receiving; master queues commands for eventual resync.
-- **Replica Reconnect** — when replica_connects_again eq true, then replica attempts PSYNC; full sync if backlog not available.
-- **Backlog Command Buffered** — when write_command exists, then command available for partial resync.
-- **Backlog Overwrite** — when backlog_full eq true; new_command_added eq true, then old commands discarded; replicas with those offsets must full resync.
-- **Backlog Size Configurable** — when repl_backlog_size exists, then backlog capacity adjusted; takes effect on next command.
-- **Info Replication** — when INFO replication, then master: role=master, replicas=[{ip,port,state,offset}, ...]; replica: role=slave, master={ip,port,state}.
-- **Role Command** — when ROLE command, then master=[master, repl_offset, [[replica_ip, replica_port, replica_offset], ...]]; replica=[slave, master_ip, master_port, state, replica_offset].
-- **Wait For Replicas** — when WAIT num_replicas timeout_ms; num_replicas exists; timeout_ms exists, then blocks until >= num_replicas have replicated offset or timeout; returns count of acks.
+- **Master Write Command** — when any write command (SET, DEL, LPUSH, etc.); replicas_connected gt 0, then master applies command locally and queues for replicas. _Why: Master accepts write command._
+- **Replica Receive Command** — when master_sends_command exists, then replica applies command to own dataset. _Why: Replica receives and applies command._
+- **Command Buffer Overflow** — when buffer_size_exceeds_limit eq true, then replica disconnected if buffer exceeds limits; full resync required on reconnect. _Why: Replication buffer grows too large._
+- **Replica Disconnect** — when network_failure exists, then replica stops receiving; master queues commands for eventual resync. _Why: Network partition or timeout._
+- **Replica Reconnect** — when replica_connects_again eq true, then replica attempts PSYNC; full sync if backlog not available. _Why: Replica reconnects to master._
+- **Backlog Command Buffered** — when write_command exists, then command available for partial resync. _Why: Command added to replication backlog._
+- **Backlog Overwrite** — when backlog_full eq true; new_command_added eq true, then old commands discarded; replicas with those offsets must full resync. _Why: Backlog circular buffer overwrites old entry._
+- **Backlog Size Configurable** — when repl_backlog_size exists, then backlog capacity adjusted; takes effect on next command. _Why: Adjust backlog size for different retention._
+- **Info Replication** — when INFO replication, then master: role=master, replicas=[{ip,port,state,offset}, ...]; replica: role=slave, master={ip,port,state}. _Why: Query replication status._
+- **Role Command** — when ROLE command, then master=[master, repl_offset, [[replica_ip, replica_port, replica_offset], ...]]; replica=[slave, master_ip, master_port, state, replica_offset]. _Why: Get role and replication info._
+- **Wait For Replicas** — when WAIT num_replicas timeout_ms; num_replicas exists; timeout_ms exists, then blocks until >= num_replicas have replicated offset or timeout; returns count of acks. _Why: Block until replicas ack._
 
 ## Errors it can return
 

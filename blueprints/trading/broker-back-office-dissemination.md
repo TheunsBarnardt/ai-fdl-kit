@@ -80,14 +80,14 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 
 **✅ Success paths**
 
-- **Download Full Vs Changes** — when download_mode in ["full","changes"], then set delta_mode = "changes"; emit broker_dissem.mode.selected.
-- **Download Elective Frozen File** — when email_configured eq true; dataset_access eq true, then create_record; emit broker_dissem.frozen_file.delivered.
+- **Download Full Vs Changes** — when download_mode in ["full","changes"], then set delta_mode = "changes"; emit broker_dissem.mode.selected. _Why: User selects full download or changes-only based on data type._
+- **Download Elective Frozen File** — when email_configured eq true; dataset_access eq true, then create_record; emit broker_dissem.frozen_file.delivered. _Why: User downloads frozen elective events file via online request process._
 
 **❌ Failure paths**
 
-- **Schedule Dissemination Request** — when user_has_access eq true; schedule_parameters exists, then create_record; emit broker_dissem.schedule.created. *(error: `DISSEM_INVALID_SCHEDULE`)*
-- **Generate Eod Dissemination File** — when EOD batch process triggered; scheduled dissemination request exists, then create_record; call service; emit broker_dissem.file.generated. *(error: `DISSEM_FROZEN_FILE_UNAVAILABLE`)*
-- **Scheduling Access Denied** — when user_has_access eq false, then emit broker_dissem.access_denied. *(error: `DISSEM_ACCESS_DENIED`)*
+- **Schedule Dissemination Request** — when user_has_access eq true; schedule_parameters exists, then create_record; emit broker_dissem.schedule.created. _Why: Broker user schedules a dissemination request via online function._ *(error: `DISSEM_INVALID_SCHEDULE`)*
+- **Generate Eod Dissemination File** — when EOD batch process triggered; scheduled dissemination request exists, then create_record; call service; emit broker_dissem.file.generated. _Why: EOD batch generates dissemination file per scheduled request._ *(error: `DISSEM_FROZEN_FILE_UNAVAILABLE`)*
+- **Scheduling Access Denied** — when user_has_access eq false, then emit broker_dissem.access_denied. _Why: User without access attempts to schedule dissemination._ *(error: `DISSEM_ACCESS_DENIED`)*
 - **File Generation Failure** — when generation_status eq "failed", then notify via operations; emit broker_dissem.generation.failed. *(error: `DISSEM_FILE_GENERATION_FAILED`)*
 
 ## Errors it can return

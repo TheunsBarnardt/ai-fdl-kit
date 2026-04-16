@@ -1,0 +1,262 @@
+{
+  "feature": "rail-registry",
+  "version": "1.0.0",
+  "description": "Pluggable RailAdapter registry — admin API to add/swap rails, routing policy engine that selects a rail per payment by amount/region/merchant",
+  "category": "payment",
+  "tags": [
+    "rail",
+    "registry",
+    "routing",
+    "policy",
+    "pluggable",
+    "adapter"
+  ],
+  "uses": [
+    "code-quality-baseline",
+    "security-baseline",
+    "ai-pr-review"
+  ],
+  "aliases": [
+    "rails",
+    "rail-adapter-registry",
+    "payment-rails"
+  ],
+  "actors": [
+    {
+      "id": "pgw",
+      "name": "Payments Gateway",
+      "type": "system",
+      "description": "Caller — asks registry to route each payment"
+    },
+    {
+      "id": "admin",
+      "name": "Admin operator",
+      "type": "human",
+      "description": "Registers / swaps rail adapters via admin API"
+    },
+    {
+      "id": "adapter",
+      "name": "RailAdapter plugin",
+      "type": "external",
+      "description": "Implementation of the rail contract (PayShap, Visa, RTGS, sandbox, …)"
+    }
+  ],
+  "fields": [
+    {
+      "name": "rail_id",
+      "type": "text",
+      "required": true,
+      "label": "Rail identifier (e.g. payshap, visa, sandbox)"
+    },
+    {
+      "name": "adapter_module",
+      "type": "text",
+      "required": true,
+      "label": "Module path implementing the RailAdapter contract"
+    },
+    {
+      "name": "priority",
+      "type": "number",
+      "required": true,
+      "label": "Tie-break priority when policies match multiple rails"
+    },
+    {
+      "name": "enabled",
+      "type": "boolean",
+      "required": true,
+      "label": "Whether the rail is currently routable"
+    },
+    {
+      "name": "routing_policy",
+      "type": "json",
+      "required": true,
+      "label": "Policy expression (amount/currency/region/merchant rules)"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/v1/admin/rails"
+    },
+    "request": {
+      "content_type": "application/json",
+      "schema": {
+        "type": "object",
+        "required": [
+          "rail_id",
+          "adapter_module",
+          "priority",
+          "enabled",
+          "routing_policy"
+        ],
+        "properties": {
+          "rail_id": {
+            "type": "string"
+          },
+          "adapter_module": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "routing_policy": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "response": {
+      "success": {
+        "status": 201,
+        "schema": {
+          "type": "object",
+          "properties": {
+            "rail_id": {
+              "type": "string"
+            },
+            "registered_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "RAIL_INVALID_POLICY"
+        },
+        {
+          "status": 401,
+          "error_code": "RAIL_UNAUTHORIZED"
+        },
+        {
+          "status": 409,
+          "error_code": "RAIL_ALREADY_EXISTS"
+        }
+      ]
+    }
+  },
+  "rules": {
+    "contract": [
+      "MUST: every rail adapter implements authorize(), capture(), refund(), status(), supports_currency()",
+      "MUST: registering a rail does NOT require device firmware updates"
+    ],
+    "routing": [
+      "MUST: routing evaluates policies in priority order; first match wins",
+      "MUST: disabled rails are never selected even when policy matches"
+    ],
+    "admin": [
+      "MUST: rail registration requires operator role + mTLS-authenticated admin session"
+    ]
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not hardcode rail selection in PGW — always delegate to the registry",
+      "why": "Required by rail-registry contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}"
+    },
+    {
+      "rule": "Do not accept adapter_module paths outside the allowlist — arbitrary code load risk",
+      "why": "Required by rail-registry contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}"
+    }
+  ],
+  "outcomes": {
+    "rail_registered": {
+      "priority": 100,
+      "given": [
+        "operator role verified",
+        "adapter_module is in the signed allowlist",
+        "routing_policy parses and validates"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "rails"
+        },
+        {
+          "action": "emit_event",
+          "event": "rail.registered"
+        }
+      ],
+      "result": "Rail available for routing on next payment"
+    },
+    "invalid_policy": {
+      "priority": 5,
+      "error": "RAIL_INVALID_POLICY",
+      "given": [
+        "routing_policy fails schema validation"
+      ],
+      "then": [],
+      "result": "400 — policy rejected"
+    },
+    "unauthorized": {
+      "priority": 1,
+      "error": "RAIL_UNAUTHORIZED",
+      "given": [
+        "admin session missing or insufficient role"
+      ],
+      "then": [],
+      "result": "401 — operator auth required"
+    },
+    "duplicate": {
+      "priority": 10,
+      "error": "RAIL_ALREADY_EXISTS",
+      "given": [
+        "rail_id already registered"
+      ],
+      "then": [],
+      "result": "409 — use PUT to update instead"
+    }
+  },
+  "errors": [
+    {
+      "code": "RAIL_INVALID_POLICY",
+      "status": 400,
+      "message": "Routing policy is invalid"
+    },
+    {
+      "code": "RAIL_UNAUTHORIZED",
+      "status": 401,
+      "message": "Admin authentication required"
+    },
+    {
+      "code": "RAIL_ALREADY_EXISTS",
+      "status": 409,
+      "message": "A rail with that id already exists"
+    }
+  ],
+  "events": [
+    {
+      "name": "rail.registered",
+      "payload": []
+    },
+    {
+      "name": "rail.disabled",
+      "payload": []
+    },
+    {
+      "name": "rail.routing.decision",
+      "payload": []
+    }
+  ],
+  "related": [
+    {
+      "feature": "payments-gateway-api",
+      "type": "required",
+      "reason": "PGW is the sole caller of the registry during routing"
+    },
+    {
+      "feature": "payshap-rail",
+      "type": "recommended",
+      "reason": "First-class ZA rail adapter"
+    },
+    {
+      "feature": "sandbox-rail-adapter",
+      "type": "recommended",
+      "reason": "Mock rail used for sandbox and demos"
+    }
+  ]
+}

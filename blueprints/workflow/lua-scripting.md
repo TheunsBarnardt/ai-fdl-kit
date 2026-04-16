@@ -30,30 +30,30 @@ Specifies 21 acceptance outcomes that any implementation must satisfy, regardles
 
 **✅ Success paths**
 
-- **Eval Inline Script** — when EVAL script numkeys [key ...] [arg ...]; script exists; numkeys exists, then script result returned (value, error, or nil).
-- **Evalsha Cached** — when EVALSHA sha1 numkeys [key ...] [arg ...]; script_cached eq true, then script result returned.
-- **Script Result String** — when script_returns eq "string", then string value returned to client.
-- **Script Result Number** — when script_returns eq "number", then number value returned.
-- **Script Result Array** — when script_returns eq "table", then array returned with nested structures preserved.
-- **Script Result Error** — when redis.error_reply('message'), then error returned to client.
-- **Script Redis Error** — when redis.call() fails, then error returned; script aborted; database unchanged (atomic).
-- **Script Redis Error Handled** — when redis.pcall() returns error, then error table passed to Lua; script continues.
-- **Script Call Redis Command** — when redis.call('SET', 'key', 'value') or redis.pcall(...), then command executes atomically; result returned to script.
-- **Script Load** — when SCRIPT LOAD script; script exists, then SHA1 digest returned (can later use with EVALSHA).
-- **Script Exists** — when SCRIPT EXISTS sha1 [sha1 ...]; shas exists, then array of 0/1 for each SHA (1=cached, 0=not found).
-- **Script Flush** — when SCRIPT FLUSH [ASYNC|SYNC]; mode exists, then OK returned; all cached scripts deleted.
-- **Script Kill** — when SCRIPT KILL; script_executing eq true; execution_time_exceeds_timeout eq true, then script terminated; OK returned (or error if cannot kill).
-- **Sandbox No Network** — when socket.connect(), etc., then error returned.
-- **Sandbox Allowed Functions** — when allowed_libs in ["table","string","math","cjson"], then library functions execute normally.
-- **Script All Or Nothing** — when script with multiple redis.call(); first_command_succeeds eq true; second_command_fails eq true, then first command's effects remain (NOT transactional); script aborted at failure.
-- **Script Isolation** — when script execution in progress; other_client_modifies_key eq true, then script doesn't see other client's modification (changes applied after script completes).
+- **Eval Inline Script** — when EVAL script numkeys [key ...] [arg ...]; script exists; numkeys exists, then script result returned (value, error, or nil). _Why: Execute script inline._
+- **Evalsha Cached** — when EVALSHA sha1 numkeys [key ...] [arg ...]; script_cached eq true, then script result returned. _Why: Execute cached script by SHA1._
+- **Script Result String** — when script_returns eq "string", then string value returned to client. _Why: Script returns string value._
+- **Script Result Number** — when script_returns eq "number", then number value returned. _Why: Script returns numeric value._
+- **Script Result Array** — when script_returns eq "table", then array returned with nested structures preserved. _Why: Script returns array/table._
+- **Script Result Error** — when redis.error_reply('message'), then error returned to client. _Why: Script returns error via redis.error_reply()._
+- **Script Redis Error** — when redis.call() fails, then error returned; script aborted; database unchanged (atomic). _Why: Redis command within script fails with redis.call()._
+- **Script Redis Error Handled** — when redis.pcall() returns error, then error table passed to Lua; script continues. _Why: Redis command fails but caught with redis.pcall()._
+- **Script Call Redis Command** — when redis.call('SET', 'key', 'value') or redis.pcall(...), then command executes atomically; result returned to script. _Why: Execute Redis command from within script._
+- **Script Load** — when SCRIPT LOAD script; script exists, then SHA1 digest returned (can later use with EVALSHA). _Why: Pre-load script into cache._
+- **Script Exists** — when SCRIPT EXISTS sha1 [sha1 ...]; shas exists, then array of 0/1 for each SHA (1=cached, 0=not found). _Why: Check if scripts are cached._
+- **Script Flush** — when SCRIPT FLUSH [ASYNC|SYNC]; mode exists, then OK returned; all cached scripts deleted. _Why: Clear script cache._
+- **Script Kill** — when SCRIPT KILL; script_executing eq true; execution_time_exceeds_timeout eq true, then script terminated; OK returned (or error if cannot kill). _Why: Terminate long-running script._
+- **Sandbox No Network** — when socket.connect(), etc., then error returned. _Why: Network operations blocked._
+- **Sandbox Allowed Functions** — when allowed_libs in ["table","string","math","cjson"], then library functions execute normally. _Why: Standard library functions available._
+- **Script All Or Nothing** — when script with multiple redis.call(); first_command_succeeds eq true; second_command_fails eq true, then first command's effects remain (NOT transactional); script aborted at failure. _Why: Script atomicity guarantee._
+- **Script Isolation** — when script execution in progress; other_client_modifies_key eq true, then script doesn't see other client's modification (changes applied after script completes). _Why: Script sees consistent database state._
 
 **❌ Failure paths**
 
 - **Evalsha Not Found** — when script_cached eq false, then NOSCRIPT error returned; client can retry with EVAL. *(error: `NOSCRIPT`)*
-- **Script Runtime Error** — when lua_error eq true, then error returned; database unchanged. *(error: `SCRIPT_ERROR`)*
+- **Script Runtime Error** — when lua_error eq true, then error returned; database unchanged. _Why: Script execution fails (Lua error)._ *(error: `SCRIPT_ERROR`)*
 - **Script Call Denied** — when script_killed_mid_execution eq true, then redis.call() rejects further execution; SCRIPT KILL succeeded. *(error: `SCRIPT_KILLED`)*
-- **Sandbox No File Io** — when io.open(), os.execute(), etc., then error returned; script aborted. *(error: `SCRIPT_ERROR`)*
+- **Sandbox No File Io** — when io.open(), os.execute(), etc., then error returned; script aborted. _Why: File I/O operations blocked._ *(error: `SCRIPT_ERROR`)*
 
 ## Errors it can return
 

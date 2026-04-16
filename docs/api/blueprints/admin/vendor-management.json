@@ -1,0 +1,264 @@
+{
+  "feature": "vendor-management",
+  "version": "1.0.0",
+  "description": "Admin vendor registry — acquirers, SMS/email/KYC/fraud-signal providers; credential rotation, per-merchant overrides, health + cost visibility, full audit trail",
+  "category": "admin",
+  "tags": [
+    "admin",
+    "vendor",
+    "provider",
+    "credentials",
+    "rotation",
+    "audit"
+  ],
+  "uses": [
+    "code-quality-baseline",
+    "security-baseline",
+    "ai-pr-review"
+  ],
+  "aliases": [
+    "vendor-registry",
+    "providers",
+    "integration-registry"
+  ],
+  "actors": [
+    {
+      "id": "ops_operator",
+      "name": "Operations operator",
+      "type": "human"
+    },
+    {
+      "id": "vendor",
+      "name": "External vendor",
+      "type": "external"
+    }
+  ],
+  "fields": [
+    {
+      "name": "vendor_id",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "vendor_type",
+      "type": "select",
+      "required": true,
+      "options": [
+        {
+          "value": "acquirer",
+          "label": "acquirer"
+        },
+        {
+          "value": "sms_provider",
+          "label": "sms_provider"
+        },
+        {
+          "value": "email_provider",
+          "label": "email_provider"
+        },
+        {
+          "value": "kyc_provider",
+          "label": "kyc_provider"
+        },
+        {
+          "value": "fraud_signal_provider",
+          "label": "fraud_signal_provider"
+        }
+      ]
+    },
+    {
+      "name": "credentials_encrypted",
+      "type": "text",
+      "required": true,
+      "label": "KMS-wrapped credentials blob"
+    },
+    {
+      "name": "config",
+      "type": "json",
+      "required": true,
+      "label": "Vendor-specific config (endpoints, timeouts, regions)"
+    },
+    {
+      "name": "per_merchant_overrides",
+      "type": "json",
+      "required": false
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/v1/admin/vendors"
+    },
+    "request": {
+      "content_type": "application/json",
+      "schema": {
+        "type": "object",
+        "required": [
+          "vendor_id",
+          "vendor_type",
+          "credentials_encrypted",
+          "config"
+        ],
+        "properties": {
+          "vendor_id": {
+            "type": "string"
+          },
+          "vendor_type": {
+            "type": "string"
+          },
+          "credentials_encrypted": {
+            "type": "string"
+          },
+          "config": {
+            "type": "object"
+          },
+          "per_merchant_overrides": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "response": {
+      "success": {
+        "status": 201,
+        "schema": {
+          "type": "object",
+          "properties": {
+            "vendor_id": {
+              "type": "string"
+            },
+            "registered_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "VENDOR_INVALID_CONFIG"
+        },
+        {
+          "status": 401,
+          "error_code": "VENDOR_UNAUTHORIZED"
+        },
+        {
+          "status": 409,
+          "error_code": "VENDOR_ALREADY_EXISTS"
+        }
+      ]
+    }
+  },
+  "rules": {
+    "security": [
+      "MUST: credentials stored KMS-encrypted; never exposed in API responses",
+      "MUST: credential rotation is a first-class endpoint — operators cannot read current credentials, only rotate",
+      "MUST: every registration/rotation/override is audit-logged with operator + reason"
+    ],
+    "reliability": [
+      "SHOULD: vendor health is polled and surfaced on the console",
+      "SHOULD: cost per call tracked per vendor for FinOps"
+    ]
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not return credentials in any API response — write-only field",
+      "why": "Required by vendor-management contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}"
+    },
+    {
+      "rule": "Do not allow per-merchant overrides without explicit operator approval",
+      "why": "Required by vendor-management contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}"
+    }
+  ],
+  "outcomes": {
+    "vendor_registered": {
+      "priority": 100,
+      "given": [
+        "operator authenticated with ops role",
+        "config validates"
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "vendors"
+        },
+        {
+          "action": "emit_event",
+          "event": "vendor.registered"
+        }
+      ],
+      "result": "Vendor available for downstream services"
+    },
+    "invalid_config": {
+      "priority": 5,
+      "error": "VENDOR_INVALID_CONFIG",
+      "given": [
+        "config fails schema validation"
+      ],
+      "then": [],
+      "result": "400"
+    },
+    "unauthorized": {
+      "priority": 1,
+      "error": "VENDOR_UNAUTHORIZED",
+      "given": [
+        "no admin session or insufficient role"
+      ],
+      "then": [],
+      "result": "401"
+    },
+    "already_exists": {
+      "priority": 10,
+      "error": "VENDOR_ALREADY_EXISTS",
+      "given": [
+        "vendor_id already registered"
+      ],
+      "then": [],
+      "result": "409"
+    }
+  },
+  "errors": [
+    {
+      "code": "VENDOR_INVALID_CONFIG",
+      "status": 400,
+      "message": "Vendor config is invalid"
+    },
+    {
+      "code": "VENDOR_UNAUTHORIZED",
+      "status": 401,
+      "message": "Admin authentication required"
+    },
+    {
+      "code": "VENDOR_ALREADY_EXISTS",
+      "status": 409,
+      "message": "Vendor already exists"
+    }
+  ],
+  "events": [
+    {
+      "name": "vendor.registered",
+      "payload": []
+    },
+    {
+      "name": "vendor.rotated",
+      "payload": []
+    },
+    {
+      "name": "vendor.override_applied",
+      "payload": []
+    }
+  ],
+  "related": [
+    {
+      "feature": "transactions-console",
+      "type": "required",
+      "reason": "Vendor management is a companion module of the admin console"
+    },
+    {
+      "feature": "rail-registry",
+      "type": "required",
+      "reason": "Acquirer vendors plug into rails via this registry"
+    }
+  ]
+}

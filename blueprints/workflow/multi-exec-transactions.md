@@ -30,26 +30,26 @@ Specifies 18 acceptance outcomes that any implementation must satisfy, regardles
 
 **✅ Success paths**
 
-- **Multi Start** — when MULTI command; already_in_transaction eq false, then client receives OK; enters queuing mode.
-- **Queue Command** — when transaction_state eq "queuing"; command not_in ["EXEC","DISCARD","WATCH","UNWATCH"], then client receives QUEUED; command not executed yet.
-- **Exec Transaction** — when EXEC command; abort_transaction eq false; watch_violation eq false, then array of results (one per queued command; errors as error objects).
-- **Discard Transaction** — when DISCARD command; transaction_state eq "queuing", then client receives OK; queued commands discarded.
-- **Watch Keys** — when WATCH key [key ...]; transaction_state in ["idle","queuing"], then client receives OK; keys now monitored.
-- **Unwatch Keys** — when UNWATCH command, then client receives OK; watch list cleared.
-- **Watch Violation Detected** — when watched_key_modified eq true; modifier_client exists, then next EXEC returns nil (abort).
-- **Optimistic Lock Read** — when GET key (before MULTI); WATCH key, then value retrieved; key now watched.
-- **Optimistic Lock Compute** — when new_value exists, then application prepares new value.
-- **Optimistic Lock Execute** — when MULTI ... SET key new_value ... EXEC; key_unchanged eq true, then EXEC succeeds; new value set.
-- **Optimistic Lock Retry** — when watch_violation eq true, then EXEC returns nil; application retries (GET, compute, MULTI/EXEC).
-- **Command Runtime Error** — when command_executing exists; runtime_error eq true, then error stored in results array for that command; other commands still execute.
-- **Partial Execution** — when mixed_results eq true, then EXEC returns array with mix of values and error objects.
+- **Multi Start** — when MULTI command; already_in_transaction eq false, then client receives OK; enters queuing mode. _Why: Begin transaction._
+- **Queue Command** — when transaction_state eq "queuing"; command not_in ["EXEC","DISCARD","WATCH","UNWATCH"], then client receives QUEUED; command not executed yet. _Why: Queue command for transaction._
+- **Exec Transaction** — when EXEC command; abort_transaction eq false; watch_violation eq false, then array of results (one per queued command; errors as error objects). _Why: Execute all queued commands atomically._
+- **Discard Transaction** — when DISCARD command; transaction_state eq "queuing", then client receives OK; queued commands discarded. _Why: Abort without executing._
+- **Watch Keys** — when WATCH key [key ...]; transaction_state in ["idle","queuing"], then client receives OK; keys now monitored. _Why: Monitor keys for modifications._
+- **Unwatch Keys** — when UNWATCH command, then client receives OK; watch list cleared. _Why: Clear watch list._
+- **Watch Violation Detected** — when watched_key_modified eq true; modifier_client exists, then next EXEC returns nil (abort). _Why: Another client modified watched key._
+- **Optimistic Lock Read** — when GET key (before MULTI); WATCH key, then value retrieved; key now watched. _Why: Read value outside transaction._
+- **Optimistic Lock Compute** — when new_value exists, then application prepares new value. _Why: Compute new value based on read._
+- **Optimistic Lock Execute** — when MULTI ... SET key new_value ... EXEC; key_unchanged eq true, then EXEC succeeds; new value set. _Why: Attempt to update if no concurrent modification._
+- **Optimistic Lock Retry** — when watch_violation eq true, then EXEC returns nil; application retries (GET, compute, MULTI/EXEC). _Why: Retry if concurrent modification detected._
+- **Command Runtime Error** — when command_executing exists; runtime_error eq true, then error stored in results array for that command; other commands still execute. _Why: Command fails during execution (e.g., INCR on non-integer)._
+- **Partial Execution** — when mixed_results eq true, then EXEC returns array with mix of values and error objects. _Why: Some commands succeed, some fail._
 
 **❌ Failure paths**
 
 - **Nested Multi Error** — when already_in_transaction eq true, then error returned; transaction state unchanged. *(error: `NESTED_TRANSACTION`)*
-- **Queue Syntax Error** — when syntax_error eq true, then error returned; EXECABORT flag set; EXEC will fail. *(error: `EXECABORT`)*
-- **Exec Abort Syntax** — when abort_transaction eq true, then error returned; transaction discarded; client back to idle. *(error: `EXECABORT`)*
-- **Exec Watch Violation** — when watch_violation eq true, then nil returned; transaction rolled back; watched keys unchanged. *(error: `WATCH_VIOLATION`)*
+- **Queue Syntax Error** — when syntax_error eq true, then error returned; EXECABORT flag set; EXEC will fail. _Why: Syntax error during queueing._ *(error: `EXECABORT`)*
+- **Exec Abort Syntax** — when abort_transaction eq true, then error returned; transaction discarded; client back to idle. _Why: EXEC fails due to queueing errors._ *(error: `EXECABORT`)*
+- **Exec Watch Violation** — when watch_violation eq true, then nil returned; transaction rolled back; watched keys unchanged. _Why: EXEC fails due to watched key modification._ *(error: `WATCH_VIOLATION`)*
 - **Discard Without Transaction** — when transaction_state not_in ["queuing"], then error returned. *(error: `NO_TRANSACTION`)*
 
 ## Errors it can return

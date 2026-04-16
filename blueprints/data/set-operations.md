@@ -27,23 +27,23 @@ Specifies 17 acceptance outcomes that any implementation must satisfy, regardles
 
 **✅ Success paths**
 
-- **Add Members** — when SADD key member [member ...]; members_to_add exists, then set created if absent; members added; client receives count of newly added members.
-- **Remove Members** — when SREM key member [member ...]; members_to_remove exists, then members removed; client receives count of removed members; set deleted if empty.
-- **Get All Members** — when SMEMBERS key, then unordered array of all members (empty if set absent).
-- **Check Membership** — when SISMEMBER key member; member exists, then 1 if member present, 0 if not.
-- **Check Multiple Membership** — when SMISMEMBER key member [member ...]; members_to_check exists, then array of 0/1 for each member (1=member present, 0=absent).
-- **Get Cardinality** — when SCARD key, then number of members (0 if key absent).
-- **Random Members** — when SRANDMEMBER key [count]; count exists, then single member or array of members (may have duplicates if count > cardinality).
-- **Pop Random** — when SPOP key [count]; count exists, then single member or array of members removed (no duplicates); nil if empty.
-- **Move Between Sets** — when SMOVE source destination member; member_in_source eq true, then member moved; client receives 1 (or 0 if already in destination).
-- **Intersection** — when SINTER key [key ...]; input_sets exists, then array of elements in ALL sets (empty if no common elements).
-- **Intersection Store** — when SINTERSTORE destination key [key ...]; destination exists, then destination set created/overwritten; client receives cardinality of result.
-- **Intersection Cardinality** — when SINTERCARD numkeys key [key ...] [LIMIT limit]; limit exists, then cardinality of intersection (limited by LIMIT if provided).
-- **Union** — when SUNION key [key ...], then array of unique elements across all sets.
-- **Union Store** — when SUNIONSTORE destination key [key ...], then destination set created/overwritten; client receives cardinality.
-- **Difference** — when SDIFF key [key ...]; first_key: set to subtract from; other_keys: sets to subtract, then array of elements in first set minus all others.
-- **Difference Store** — when SDIFFSTORE destination key [key ...], then destination set created/overwritten; client receives cardinality.
-- **Scan Members** — when SSCAN key cursor [MATCH pattern] [COUNT count]; cursor: starting cursor position (0 to start), then array [new_cursor, [members...]] (cursor=0 when full scan complete).
+- **Add Members** — when SADD key member [member ...]; members_to_add exists, then set created if absent; members added; client receives count of newly added members. _Why: Add one or more elements to set._
+- **Remove Members** — when SREM key member [member ...]; members_to_remove exists, then members removed; client receives count of removed members; set deleted if empty. _Why: Remove elements from set._
+- **Get All Members** — when SMEMBERS key, then unordered array of all members (empty if set absent). _Why: Retrieve all set members._
+- **Check Membership** — when SISMEMBER key member; member exists, then 1 if member present, 0 if not. _Why: Check if element is member._
+- **Check Multiple Membership** — when SMISMEMBER key member [member ...]; members_to_check exists, then array of 0/1 for each member (1=member present, 0=absent). _Why: Check multiple elements at once._
+- **Get Cardinality** — when SCARD key, then number of members (0 if key absent). _Why: Get set size._
+- **Random Members** — when SRANDMEMBER key [count]; count exists, then single member or array of members (may have duplicates if count > cardinality). _Why: Return random element(s) from set._
+- **Pop Random** — when SPOP key [count]; count exists, then single member or array of members removed (no duplicates); nil if empty. _Why: Remove and return random element(s)._
+- **Move Between Sets** — when SMOVE source destination member; member_in_source eq true, then member moved; client receives 1 (or 0 if already in destination). _Why: Move element from source to destination set._
+- **Intersection** — when SINTER key [key ...]; input_sets exists, then array of elements in ALL sets (empty if no common elements). _Why: Get elements common to all input sets._
+- **Intersection Store** — when SINTERSTORE destination key [key ...]; destination exists, then destination set created/overwritten; client receives cardinality of result. _Why: Store intersection result._
+- **Intersection Cardinality** — when SINTERCARD numkeys key [key ...] [LIMIT limit]; limit exists, then cardinality of intersection (limited by LIMIT if provided). _Why: Get count of common elements without returning them._
+- **Union** — when SUNION key [key ...], then array of unique elements across all sets. _Why: Get all elements from any input set._
+- **Union Store** — when SUNIONSTORE destination key [key ...], then destination set created/overwritten; client receives cardinality. _Why: Store union result._
+- **Difference** — when SDIFF key [key ...]; first_key: set to subtract from; other_keys: sets to subtract, then array of elements in first set minus all others. _Why: Get elements in first set but not in others._
+- **Difference Store** — when SDIFFSTORE destination key [key ...], then destination set created/overwritten; client receives cardinality. _Why: Store difference result._
+- **Scan Members** — when SSCAN key cursor [MATCH pattern] [COUNT count]; cursor: starting cursor position (0 to start), then array [new_cursor, [members...]] (cursor=0 when full scan complete). _Why: Iterate members with cursor (safe for large sets)._
 
 ## Errors it can return
 

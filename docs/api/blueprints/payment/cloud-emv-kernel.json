@@ -1,0 +1,314 @@
+{
+  "feature": "cloud-emv-kernel",
+  "version": "1.0.0",
+  "description": "Server-side EMV L2 kernel — processes SPoC-forwarded card data from thin-client terminals; handles chip/tap/stripe authorization, tokenisation, PIN verification",
+  "category": "payment",
+  "tags": [
+    "emv",
+    "kernel",
+    "card",
+    "cloud",
+    "tokenisation",
+    "spoc",
+    "pci"
+  ],
+  "uses": [
+    "code-quality-baseline",
+    "security-baseline",
+    "ai-pr-review"
+  ],
+  "aliases": [
+    "emv-kernel",
+    "cloud-emv",
+    "card-kernel"
+  ],
+  "actors": [
+    {
+      "id": "pgw",
+      "name": "Payments Gateway",
+      "type": "system",
+      "description": "Forwards SPoC-encrypted card payload to kernel for processing"
+    },
+    {
+      "id": "card_reader",
+      "name": "SPoC card reader",
+      "type": "external",
+      "description": "On-device passthrough — captures and encrypts card data"
+    },
+    {
+      "id": "card_network",
+      "name": "Card network",
+      "type": "external",
+      "description": "Issuer host for authorization"
+    }
+  ],
+  "fields": [
+    {
+      "name": "transaction_id",
+      "type": "token",
+      "required": true
+    },
+    {
+      "name": "amount",
+      "type": "number",
+      "required": true
+    },
+    {
+      "name": "currency",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "method",
+      "type": "select",
+      "required": true,
+      "options": [
+        {
+          "value": "card_chip",
+          "label": "card_chip"
+        },
+        {
+          "value": "card_tap",
+          "label": "card_tap"
+        },
+        {
+          "value": "card_stripe",
+          "label": "card_stripe"
+        }
+      ]
+    },
+    {
+      "name": "card_data_encrypted",
+      "type": "text",
+      "required": true,
+      "label": "SPoC-encrypted payload from the device reader"
+    },
+    {
+      "name": "pin_block_encrypted",
+      "type": "text",
+      "required": false,
+      "label": "DUKPT-wrapped PIN block (chip only)"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/v1/emv/process"
+    },
+    "request": {
+      "content_type": "application/json",
+      "schema": {
+        "type": "object",
+        "required": [
+          "transaction_id",
+          "amount",
+          "currency",
+          "method",
+          "card_data_encrypted"
+        ],
+        "properties": {
+          "transaction_id": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "card_chip",
+              "card_tap",
+              "card_stripe"
+            ]
+          },
+          "card_data_encrypted": {
+            "type": "string"
+          },
+          "pin_block_encrypted": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "type": "object",
+          "properties": {
+            "authorisation_code": {
+              "type": "string"
+            },
+            "token_reference": {
+              "type": "string"
+            },
+            "scheme": {
+              "type": "string",
+              "enum": [
+                "visa",
+                "mastercard",
+                "amex",
+                "other"
+              ]
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "EMV_INVALID_DATA"
+        },
+        {
+          "status": 422,
+          "error_code": "EMV_DECLINED"
+        },
+        {
+          "status": 422,
+          "error_code": "EMV_PIN_FAILED"
+        },
+        {
+          "status": 503,
+          "error_code": "EMV_NETWORK_UNAVAILABLE"
+        }
+      ]
+    }
+  },
+  "rules": {
+    "security": [
+      "MUST: decryption of card_data_encrypted happens inside HSM boundary",
+      "MUST: clear-text PAN never leaves the HSM — only tokenised references cross process boundaries",
+      "MUST: PIN verification uses DUKPT; PIN block never logged"
+    ],
+    "pci": [
+      "MUST: kernel runs in PCI-DSS Level 1 certified environment"
+    ]
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not store PAN in application logs or databases — only token references",
+      "why": "Required by cloud-emv-kernel contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}"
+    },
+    {
+      "rule": "Do not bypass PIN verification for chip-insert transactions",
+      "why": "Required by cloud-emv-kernel contract — violating this rule breaks security, privacy, or correctness guarantees documented in rules{}"
+    }
+  ],
+  "outcomes": {
+    "authorised": {
+      "priority": 100,
+      "given": [
+        "issuer approves; kernel returns auth code"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "emv.authorised"
+        }
+      ],
+      "result": "Returns auth code + token reference"
+    },
+    "declined": {
+      "priority": 50,
+      "error": "EMV_DECLINED",
+      "given": [
+        "issuer returns decline"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "emv.declined"
+        }
+      ],
+      "result": "402 — card declined"
+    },
+    "pin_failed": {
+      "priority": 40,
+      "error": "EMV_PIN_FAILED",
+      "given": [
+        "PIN verification fails"
+      ],
+      "then": [],
+      "result": "422 — PIN wrong"
+    },
+    "invalid_data": {
+      "priority": 5,
+      "error": "EMV_INVALID_DATA",
+      "given": [
+        "card_data_encrypted fails to decrypt or parse"
+      ],
+      "then": [],
+      "result": "400 — malformed request"
+    },
+    "network_unavailable": {
+      "priority": 30,
+      "error": "EMV_NETWORK_UNAVAILABLE",
+      "given": [
+        "card network unreachable after retry"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "emv.network_unavailable"
+        }
+      ],
+      "result": "503 — try again later"
+    }
+  },
+  "errors": [
+    {
+      "code": "EMV_INVALID_DATA",
+      "status": 400,
+      "message": "Card data could not be read"
+    },
+    {
+      "code": "EMV_DECLINED",
+      "status": 422,
+      "message": "Card declined"
+    },
+    {
+      "code": "EMV_PIN_FAILED",
+      "status": 422,
+      "message": "Incorrect PIN"
+    },
+    {
+      "code": "EMV_NETWORK_UNAVAILABLE",
+      "status": 503,
+      "message": "Card network unavailable"
+    }
+  ],
+  "events": [
+    {
+      "name": "emv.authorised",
+      "payload": []
+    },
+    {
+      "name": "emv.declined",
+      "payload": []
+    },
+    {
+      "name": "emv.network_unavailable",
+      "payload": []
+    }
+  ],
+  "related": [
+    {
+      "feature": "popia-compliance",
+      "type": "required",
+      "reason": "Handles cardholder data (financial PII under POPIA)"
+    },
+    {
+      "feature": "payments-gateway-api",
+      "type": "required",
+      "reason": "PGW is the sole caller of the cloud EMV kernel"
+    },
+    {
+      "feature": "emv-card-reader",
+      "type": "required",
+      "reason": "Device-side SPoC reader that feeds this kernel"
+    }
+  ]
+}
