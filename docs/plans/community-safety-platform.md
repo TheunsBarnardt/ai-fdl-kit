@@ -284,8 +284,9 @@ Responders do not need operator approval to arrange external services — **time
 
 **Core screens:**
 
-- **Home** — a single big panic button, a categorised "request help" list (medical, fire, crime in progress, suspicious activity, property damage, accident, domestic, other), the resident's sector name, and their last-known incident status.
-- **Panic flow** — tap once from the home screen or lock screen widget. A 5-second silent-cancel countdown appears; if not cancelled, the incident fires with auto-location and auto-category (`panic_uncategorised`).
+- **Home** — a single big panic button, a categorised "request help" list (medical, fire, crime in progress, suspicious activity, property damage, accident, domestic, other), a **safety timer** quick-start ("I'm heading home — alert my sector if I don't arrive"), the resident's sector name, and their last-known incident status.
+- **Panic flow** — tap once from the home screen or lock screen widget. A 5-second silent-cancel countdown appears; if not cancelled, the incident fires with auto-location and auto-category (`panic_uncategorised`). **Silent panic mode:** in situations where noise would endanger the resident (home invasion, GBV), the panic can fire with no audio, no haptic feedback, and a discreet screen state — the dispatch is identical but initial communication with the operator defaults to text, not voice.
+- **Safety timer** — "I'm walking / driving / jogging — alert my sector if I don't check in by {time}." The resident sets a duration or destination ETA. If the timer expires without check-in, the system auto-fires an incident with the resident's last-known location and route history. Emergency contacts receive an SMS with a map link (no app install required). Timer can be extended or cancelled at any time. Inspired by Netcare 911 / mySOS activity-tracking model.
 - **Active incident screen** — map with approaching responder pins ranked by ETA, incident status (dispatching → accepted → en-route → on-scene → resolved), voice call button (joins conference), text message thread.
 - **Messages** — sector-scoped inbox. Direct messages to the operator, operator broadcast alerts, no direct line to any patroller outside of an active incident.
 - **History** — list of past incidents with their resolution and response time, downloadable summary.
@@ -305,7 +306,8 @@ Responders do not need operator approval to arrange external services — **time
 - **Duty toggle** — Start Patrol / Stop Patrol, with an odometer reading entry for SARS logbook compliance on shift start and shift end.
 - **Patrol dashboard (while on patrol)** — live map of own trail, km accumulated, time on patrol, recent incidents seen, quick-open of incident inbox.
 - **Incident inbox** — chronological feed of eligible incidents (those that passed the four dispatch gates). Tap to see category, location, requested skills, distance, current acceptor list. Accept or decline. Declining does not remove the incident from the feed — the patroller may reconsider until the incident closes or another acceptor reaches on-scene.
-- **Active incident screen** — map with resident location, route, other acceptors, voice conference join button, chat with resident + operator, on-scene button, resolved button.
+- **Active incident screen** — map with resident location, route, other acceptors, voice/video conference join button, chat with resident + operator, on-scene button, resolved button. **Scene triage relay** (see below) becomes available when the patroller taps on-scene.
+- **Scene triage relay** — structured on-scene assessment form: conscious? breathing? bleeding? trapped? number of casualties? hazards? Filled by the patroller on arrival, visible in real time to the operator console and to any arriving external service (ambulance, SAPS). Optional live video relay to the operator via the existing WebRTC bridge for guided first-aid (CPR, wound pressure, recovery position). Inspired by Netcare 911's Wi-Fi-enabled vital-signs relay and video-guided CPR capability.
 - **Liability-ack gate** — when accepting an incident outside declared opt-ins (e.g. unarmed CPF accepting `armed_robbery`), a modal presents the risk and requires explicit acknowledgement. The ack is recorded on the incident record and a high-alert is sent to the callcenter.
 - **Messages** — sector-scoped peer chat with fellow patrollers, operator broadcast channel, direct operator DM.
 - **Profile** — skills, response opt-ins (with informed-consent confirmation on sensitive categories), PSIRA grade / CPF affiliation number, vehicle registration, insurance.
@@ -603,10 +605,12 @@ The platform is defined as a set of FDL blueprints. Each blueprint is a self-con
 
 | Blueprint | Category | Purpose |
 |---|---|---|
-| `panic-button-sos` | workflow | One-tap panic, lock-screen capable, silent-cancel window, auto-location |
+| `panic-button-sos` | workflow | One-tap panic, lock-screen capable, silent-cancel window, auto-location, **silent panic mode** (no audio/haptic, discreet screen, text-first operator comms) |
+| `safety-timer` | workflow | Dead-man activity timer — resident sets duration or destination ETA; auto-fires incident on expiry with route history; emergency contacts get SMS map link |
 | `emergency-incident-request` | workflow | Categorised help request with media attachment |
 | `patrol-shift-log` | workflow | Start/Stop patrol with odometer, GPS trail, km accumulated, SARS-grade log |
 | `panic-confirmation-callback` | workflow | Operator outbound call flow and stand-down logic |
+| `scene-triage-relay` | workflow | Structured on-scene assessment (conscious/breathing/bleeding/trapped/casualties/hazards) with optional video relay to operator — visible to arriving external services |
 
 **Tier 3 — dispatch and response**
 
@@ -615,7 +619,7 @@ The platform is defined as a set of FDL blueprints. Each blueprint is a self-con
 | `skill-based-dispatch-routing` | workflow | Four-gate filter (capability, consent, geography, reachability), skill matching |
 | `multi-acceptor-dispatch` | workflow | Broadcast + race + ETA ranking + dark-patroller auto-promote |
 | `liability-ack-escalation` | workflow | Liability acknowledgement for out-of-opt-in acceptance; high-alert to callcenter |
-| `incident-voice-conference` | integration | WebRTC conference bridge, scoped to active incident |
+| `incident-voice-conference` | integration | WebRTC conference bridge with **video mode** for guided first-aid (CPR, wound pressure), scoped to active incident |
 
 **Tier 4 — callcenter operations**
 
@@ -656,7 +660,13 @@ The platform is defined as a set of FDL blueprints. Each blueprint is a self-con
 | `geofence-alerts` | Sector boundary events |
 | `popia-compliance` | Referenced by every new blueprint |
 
-**Total:** 23 new blueprints + 17 reused = 40 blueprints in the platform manifest.
+**Total:** 25 new blueprints + 17 reused = 42 blueprints in the platform manifest.
+
+**New in v1.1 (Netcare 911 inspired):**
+- `safety-timer` — dead-man activity timer with auto-escalation and route-sharing
+- `scene-triage-relay` — structured on-scene assessment with video relay
+- `panic-button-sos` enhanced with silent panic mode
+- `incident-voice-conference` enhanced with video mode for guided first-aid
 
 ---
 
