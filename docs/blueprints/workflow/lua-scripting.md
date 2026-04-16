@@ -58,6 +58,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 ### Eval_inline_script (Priority: 10)
 
+_Execute script inline_
+
 **Given:**
 - EVAL script numkeys [key ...] [arg ...]
 - `script` (input) exists
@@ -73,6 +75,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 **Result:** script result returned (value, error, or nil)
 
 ### Evalsha_cached (Priority: 11)
+
+_Execute cached script by SHA1_
 
 **Given:**
 - EVALSHA sha1 numkeys [key ...] [arg ...]
@@ -98,6 +102,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 ### Script_result_string (Priority: 13)
 
+_Script returns string value_
+
 **Given:**
 - `script_returns` (computed) eq `string`
 
@@ -108,6 +114,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 **Result:** string value returned to client
 
 ### Script_result_number (Priority: 14)
+
+_Script returns numeric value_
 
 **Given:**
 - `script_returns` (computed) eq `number`
@@ -120,6 +128,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 ### Script_result_array (Priority: 15)
 
+_Script returns array/table_
+
 **Given:**
 - `script_returns` (computed) eq `table`
 
@@ -129,6 +139,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 **Result:** array returned with nested structures preserved
 
 ### Script_result_error (Priority: 16)
+
+_Script returns error via redis.error_reply()_
 
 **Given:**
 - redis.error_reply('message')
@@ -140,6 +152,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 ### Script_runtime_error (Priority: 17) — Error: `SCRIPT_ERROR`
 
+_Script execution fails (Lua error)_
+
 **Given:**
 - `lua_error` (computed) eq `true`
 
@@ -149,6 +163,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 **Result:** error returned; database unchanged
 
 ### Script_redis_error (Priority: 18)
+
+_Redis command within script fails with redis.call()_
 
 **Given:**
 - redis.call() fails
@@ -160,6 +176,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 ### Script_redis_error_handled (Priority: 19)
 
+_Redis command fails but caught with redis.pcall()_
+
 **Given:**
 - redis.pcall() returns error
 
@@ -170,6 +188,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 ### Script_call_redis_command (Priority: 20)
 
+_Execute Redis command from within script_
+
 **Given:**
 - redis.call('SET', 'key', 'value') or redis.pcall(...)
 
@@ -179,6 +199,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 **Result:** command executes atomically; result returned to script
 
 ### Script_load (Priority: 30)
+
+_Pre-load script into cache_
 
 **Given:**
 - SCRIPT LOAD script
@@ -193,6 +215,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 ### Script_exists (Priority: 31)
 
+_Check if scripts are cached_
+
 **Given:**
 - SCRIPT EXISTS sha1 [sha1 ...]
 - `shas` (input) exists
@@ -203,6 +227,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 **Result:** array of 0/1 for each SHA (1=cached, 0=not found)
 
 ### Script_flush (Priority: 32)
+
+_Clear script cache_
 
 **Given:**
 - SCRIPT FLUSH [ASYNC|SYNC]
@@ -215,6 +241,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 **Result:** OK returned; all cached scripts deleted
 
 ### Script_kill (Priority: 33)
+
+_Terminate long-running script_
 
 **Given:**
 - SCRIPT KILL
@@ -238,6 +266,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 ### Sandbox_no_file_io (Priority: 40) — Error: `SCRIPT_ERROR`
 
+_File I/O operations blocked_
+
 **Given:**
 - io.open(), os.execute(), etc.
 
@@ -248,12 +278,16 @@ description: "Server-side Lua script execution providing atomic operations, prog
 
 ### Sandbox_no_network (Priority: 41)
 
+_Network operations blocked_
+
 **Given:**
 - socket.connect(), etc.
 
 **Result:** error returned
 
 ### Sandbox_allowed_functions (Priority: 42)
+
+_Standard library functions available_
 
 **Given:**
 - `allowed_libs` (system) in `table,string,math,cjson`
@@ -264,6 +298,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 **Result:** library functions execute normally
 
 ### Script_all_or_nothing (Priority: 50)
+
+_Script atomicity guarantee_
 
 **Given:**
 - script with multiple redis.call()
@@ -276,6 +312,8 @@ description: "Server-side Lua script execution providing atomic operations, prog
 **Result:** first command's effects remain (NOT transactional); script aborted at failure
 
 ### Script_isolation (Priority: 51)
+
+_Script sees consistent database state_
 
 **Given:**
 - script execution in progress

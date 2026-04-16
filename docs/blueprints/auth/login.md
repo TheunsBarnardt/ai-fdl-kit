@@ -63,12 +63,16 @@ description: "Authenticate a user with email and password. 3 fields. 6 outcomes.
 
 ### Rate_limited (Priority: 1) — Error: `LOGIN_RATE_LIMITED`
 
+_Defends against credential-stuffing and brute-force probes by short-circuiting before any DB lookup, so attackers cannot use response timing to enumerate accounts._
+
 **Given:**
 - `request_count` (computed) gt `10`
 
 **Result:** show "Too many login attempts. Please wait a moment."
 
 ### Account_locked (Priority: 2) — Error: `LOGIN_ACCOUNT_LOCKED`
+
+_Stops repeated failed-login attempts on a single account. Distinct from rate_limited: this is per-account state (sticky), not per-IP rate (rolling)._
 
 **Given:**
 - `failed_login_attempts` (db) gte `5`
@@ -81,12 +85,16 @@ description: "Authenticate a user with email and password. 3 fields. 6 outcomes.
 
 ### Account_disabled (Priority: 3) — Error: `LOGIN_ACCOUNT_DISABLED`
 
+_Honors admin/user deactivation as an explicit, non-recoverable state. Checked before credentials so a disabled user can never observe a 'wrong password' response._
+
 **Given:**
 - `status` (db) eq `disabled`
 
 **Result:** show "This account has been disabled. Please contact support."
 
 ### Invalid_credentials (Priority: 4) — Error: `LOGIN_INVALID_CREDENTIALS` | Transaction: atomic
+
+_Collapses 'user not found' and 'wrong password' into one indistinguishable response. Identical message + status + similar latency are mandatory to prevent user enumeration (OWASP ASVS 2.2.1)._
 
 **Given:**
 - ANY: `user` (db) not_exists OR `password` (input) neq `stored_hash`
@@ -101,6 +109,8 @@ description: "Authenticate a user with email and password. 3 fields. 6 outcomes.
 
 ### Email_not_verified (Priority: 5) — Error: `LOGIN_EMAIL_NOT_VERIFIED`
 
+_Blocks session creation until the user proves email ownership. Prevents unverified accounts from using protected features or receiving sensitive notifications._
+
 **Given:**
 - `email_verified` (db) eq `false`
 
@@ -110,6 +120,8 @@ description: "Authenticate a user with email and password. 3 fields. 6 outcomes.
 **Result:** redirect to /verify-email with message "Please verify your email before logging in"
 
 ### Successful_login (Priority: 10) | Transaction: atomic
+
+_The only path that creates a session. Atomic so the counter reset, session issuance, and success event all persist together — a half-succeeded login must roll back to avoid stale lockouts or orphaned sessions._
 
 **Given:**
 - `email` (input) matches `^[^\s@]+@[^\s@]+\.[^\s@]+$`

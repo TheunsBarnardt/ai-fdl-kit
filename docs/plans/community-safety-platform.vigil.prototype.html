@@ -1,0 +1,2156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vigil — Community Safety Response Platform (Full)</title>
+<link rel="preconnect" href="https://rsms.me/">
+<link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&display=swap">
+<style>
+  /* ============================================================
+     VIGIL — Community Safety Response Platform — FULL PROTOTYPE
+     59 screens · 5 frames · all surfaces from the design plan
+     Spec: community-safety-platform.DESIGN.md
+     ============================================================ */
+  :root {
+    /* Surfaces — warm-dark, never pure black */
+    --bg:#0B0F14; --surface:#131820; --surface-2:#1A2028; --surface-3:#232A33;
+    --border:#2A323D; --border-strong:#3A4350;
+    /* Text */
+    --text:#E8ECF1; --text-muted:#A8B2BD; --text-placeholder:#6C7684;
+    /* THE red — active emergency only */
+    --emergency:#FF3B30; --emergency-glow:rgba(255,59,48,0.35); --emergency-ambient:rgba(255,59,48,0.08);
+    /* Severity */
+    --attention:#FFB020; --attention-ambient:rgba(255,176,32,0.10); --attention-glow:rgba(255,176,32,0.28);
+    --info:#5CC8FF; --info-ambient:rgba(92,200,255,0.10); --info-glow:rgba(92,200,255,0.28);
+    --resolved:#34C77B; --resolved-ambient:rgba(52,199,123,0.10); --resolved-glow:rgba(52,199,123,0.28);
+    --accent:#A78BFA;
+    --focus-ring:rgba(92,200,255,0.45);
+    /* Type */
+    --font:"Inter Variable","Inter",system-ui,-apple-system,sans-serif;
+    --mono:"Geist Mono","JetBrains Mono",ui-monospace,Menlo,monospace;
+    /* Radius */
+    --r-control:4px; --r-sheet:16px; --r-canvas:20px; --r-phone:36px; --r-pill:9999px;
+    /* Motion */
+    --t-fast:120ms; --t-base:200ms; --t-slow:320ms; --t-breath:3000ms;
+    --e-snap:cubic-bezier(0.4,0,0.2,1);
+    --e-spring-soft:cubic-bezier(0.34,1.18,0.64,1);
+    --e-spring-firm:cubic-bezier(0.5,0,0.2,1.1);
+    /* Density (touch default; compact applied in admin/console) */
+    --tap-min:44px; --tap-emergency:88px;
+  }
+
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+  html{font-size:16px}
+  body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;padding:20px 16px 80px;line-height:1.55;font-feature-settings:"ss01","cv11";font-variation-settings:"opsz" 16}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background-image:radial-gradient(circle at 20% 10%,rgba(167,139,250,0.04),transparent 40%),radial-gradient(circle at 80% 90%,rgba(255,59,48,0.025),transparent 40%)}
+
+  .proto-badge{position:fixed;top:12px;right:12px;z-index:9999;background:var(--surface-2);color:var(--text-muted);padding:6px 12px;border-radius:var(--r-control);font-size:11px;font-weight:500;border:1px solid var(--border);font-family:var(--mono);letter-spacing:-0.01em}
+  .proto-badge::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--resolved);margin-right:8px;vertical-align:middle;box-shadow:0 0 8px var(--resolved-glow)}
+
+  /* Layout shell */
+  .shell{display:flex;gap:24px;max-width:1700px;margin:0 auto;align-items:flex-start;justify-content:center;flex-wrap:wrap;position:relative;z-index:1}
+  .frame-label{flex-basis:100%;text-align:center;font-family:var(--mono);font-size:10px;color:var(--text-placeholder);letter-spacing:0.16em;text-transform:uppercase;margin:32px 0 -8px}
+  .frame-label:first-child{margin-top:0}
+
+  /* ============================================================
+     PHONE FRAME
+     ============================================================ */
+  .phone{
+    width:360px;height:740px;flex-shrink:0;
+    background:var(--bg);border:1px solid var(--border);
+    border-radius:var(--r-phone);overflow:hidden;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),0 24px 64px rgba(0,0,0,0.5);
+    transition:box-shadow var(--t-slow) var(--e-snap);
+    position:relative;display:flex;flex-direction:column;
+  }
+  .phone--panic{box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),0 0 0 1px var(--emergency),0 0 32px var(--emergency-glow),0 24px 64px rgba(0,0,0,0.5);animation:vigil-breath-emergency 3s ease-in-out infinite}
+  .phone--info{box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),0 0 0 1px var(--info),0 0 24px var(--info-glow),0 24px 64px rgba(0,0,0,0.5)}
+  .phone--attention{box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),0 0 0 1px var(--attention),0 0 24px var(--attention-glow),0 24px 64px rgba(0,0,0,0.5)}
+  .phone--resolved{box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),0 0 0 1px var(--resolved),0 0 24px var(--resolved-glow),0 24px 64px rgba(0,0,0,0.5)}
+
+  @keyframes vigil-breath-emergency{
+    0%,100%{box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),0 0 0 1px var(--emergency),0 0 32px var(--emergency-glow),0 24px 64px rgba(0,0,0,0.5)}
+    50%{box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),0 0 0 1px var(--emergency),0 0 56px var(--emergency-glow),0 24px 64px rgba(0,0,0,0.5)}
+  }
+
+  .status-bar{height:36px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0}
+  .status-bar .app-id{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--text)}
+  .status-bar .app-id .glyph{color:var(--text-muted);font-size:14px}
+  .status-bar .meta{font-family:var(--mono);font-size:10px;color:var(--text-muted);letter-spacing:0}
+
+  /* Mobile-mode banner — operator on mobile */
+  .mode-banner{padding:8px 16px;background:var(--accent);color:#fff;font-size:11px;font-weight:600;letter-spacing:0.04em;text-align:center;border-bottom:1px solid var(--border)}
+
+  .phone-body{flex:1;padding:16px;overflow-y:auto;display:flex;flex-direction:column}
+  .phone-body::-webkit-scrollbar{width:0;height:0}
+
+  /* ============================================================
+     CONSOLE FRAME (operator + admin)
+     ============================================================ */
+  .console{
+    flex:1;min-width:440px;max-width:760px;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--r-canvas);overflow:hidden;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),0 24px 64px rgba(0,0,0,0.5);
+    display:flex;flex-direction:column;height:740px;
+  }
+  .console--admin{max-width:1080px;flex-basis:1080px}
+  .console-bar{height:48px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0}
+  .console-bar .ident{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600}
+  .console-bar .ident .dot{width:8px;height:8px;border-radius:50%;background:var(--resolved);box-shadow:0 0 8px var(--resolved-glow)}
+  .console-bar .ident .station{font-family:var(--mono);font-size:11px;color:var(--text-muted);font-weight:400}
+  .console-bar .tabs{display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end}
+  .tab{height:30px;padding:0 12px;background:transparent;border:1px solid transparent;border-radius:var(--r-control);color:var(--text-muted);font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer;transition:all var(--t-fast) var(--e-snap)}
+  .tab:hover{background:var(--surface-2);color:var(--text)}
+  .tab.active{background:var(--surface-3);color:var(--text);border-color:var(--border-strong)}
+  .console-body{flex:1;padding:20px;overflow-y:auto}
+  .console-body::-webkit-scrollbar{width:6px}
+  .console-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+  /* Two-column admin layout */
+  .admin-cols{display:grid;grid-template-columns:200px 1fr;gap:20px;height:100%}
+  .admin-side{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sheet);padding:16px;height:fit-content}
+  .admin-side .nav-item{display:block;padding:8px 12px;font-size:12px;color:var(--text-muted);border-radius:var(--r-control);cursor:pointer;transition:all var(--t-fast) var(--e-snap)}
+  .admin-side .nav-item:hover{background:var(--surface-3);color:var(--text)}
+  .admin-side .nav-item.active{background:var(--surface-3);color:var(--text);border-left:2px solid var(--accent)}
+
+  /* ============================================================
+     SCREENS
+     ============================================================ */
+  [data-screen]{display:none}
+  [data-screen].active{display:flex;flex-direction:column;flex:1;animation:vigil-fade var(--t-base) var(--e-spring-soft)}
+  @keyframes vigil-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  /* ============================================================
+     TYPOGRAPHY
+     ============================================================ */
+  .display{font-family:var(--font);font-weight:800;letter-spacing:-0.03em;font-variation-settings:"opsz" 32}
+  .heading{font-family:var(--font);font-weight:600;letter-spacing:-0.015em;font-size:17px}
+  .subhead{font-family:var(--font);font-weight:500;font-size:13px;color:var(--text-muted)}
+  .label{font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px}
+  .mono{font-family:var(--mono);letter-spacing:0;font-feature-settings:"ss01"}
+  /* Localization demo — taller line-height for Nguni diacritics */
+  .lang-zu{line-height:1.65;font-feature-settings:"ss01","cv11","ccmp"}
+
+  /* ============================================================
+     STATUS PILL
+     ============================================================ */
+  .pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:var(--r-pill);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;border:1px solid}
+  .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .pill--panic{color:var(--emergency);background:var(--emergency-ambient);border-color:rgba(255,59,48,0.3)}
+  .pill--attention{color:var(--attention);background:var(--attention-ambient);border-color:rgba(255,176,32,0.3)}
+  .pill--info{color:var(--info);background:var(--info-ambient);border-color:rgba(92,200,255,0.3)}
+  .pill--resolved{color:var(--resolved);background:var(--resolved-ambient);border-color:rgba(52,199,123,0.3)}
+  .pill--neutral{color:var(--text-muted);background:var(--surface-2);border-color:var(--border)}
+  .pill--accent{color:var(--accent);background:rgba(167,139,250,0.10);border-color:rgba(167,139,250,0.3)}
+
+  /* ============================================================
+     CARD
+     ============================================================ */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sheet);padding:16px;margin-bottom:12px;transition:border-color var(--t-fast) var(--e-snap)}
+  .card--panic{border-color:rgba(255,59,48,0.4);background:linear-gradient(180deg,var(--emergency-ambient),transparent 80%),var(--surface)}
+  .card--attention{border-color:rgba(255,176,32,0.35);background:linear-gradient(180deg,var(--attention-ambient),transparent 80%),var(--surface)}
+  .card--info{border-color:rgba(92,200,255,0.35);background:linear-gradient(180deg,var(--info-ambient),transparent 80%),var(--surface)}
+  .card--resolved{border-color:rgba(52,199,123,0.35);background:linear-gradient(180deg,var(--resolved-ambient),transparent 80%),var(--surface)}
+  .card--accent{border-color:rgba(167,139,250,0.35);background:linear-gradient(180deg,rgba(167,139,250,0.08),transparent 80%),var(--surface)}
+  .card-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+
+  /* ============================================================
+     BUTTON HIERARCHY
+     ============================================================ */
+  .btn{width:100%;height:52px;border:none;border-radius:var(--r-control);font-family:var(--font);font-size:15px;font-weight:600;letter-spacing:-0.01em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background var(--t-fast) var(--e-snap),transform var(--t-fast) var(--e-snap),box-shadow var(--t-fast) var(--e-snap);position:relative}
+  .btn+.btn{margin-top:8px}
+  .btn:focus-visible{outline:2px solid var(--info);outline-offset:2px}
+  .btn:active{transform:scale(0.985)}
+  .btn-surface{background:var(--surface-2);color:var(--text);border:1px solid var(--border-strong)}
+  .btn-surface:hover{background:var(--surface-3)}
+  .btn-ghost{background:transparent;color:var(--text-muted);border:1px solid var(--border)}
+  .btn-ghost:hover{background:var(--surface-2);color:var(--text);border-color:var(--border-strong)}
+  .btn-emergency{background:var(--emergency);color:#fff;border:none;box-shadow:0 0 0 0 var(--emergency-glow);font-weight:700}
+  .btn-emergency:hover{box-shadow:0 0 24px var(--emergency-glow)}
+  .btn-resolved{background:rgba(52,199,123,0.12);color:var(--resolved);border:1px solid rgba(52,199,123,0.4)}
+  .btn-resolved:hover{background:rgba(52,199,123,0.18)}
+  .btn-info{background:rgba(92,200,255,0.12);color:var(--info);border:1px solid rgba(92,200,255,0.4)}
+  .btn-info:hover{background:rgba(92,200,255,0.18)}
+  .btn-accent{background:rgba(167,139,250,0.14);color:var(--accent);border:1px solid rgba(167,139,250,0.4)}
+  .btn-accent:hover{background:rgba(167,139,250,0.20)}
+  .btn-attention{background:rgba(255,176,32,0.14);color:var(--attention);border:1px solid rgba(255,176,32,0.4)}
+  .btn-sm{height:36px;font-size:13px;padding:0 14px}
+  .btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .btn-row .btn,.btn-row .btn+.btn{margin-top:0}
+  .btn-row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .btn-row-3 .btn,.btn-row-3 .btn+.btn{margin-top:0}
+
+  /* Pill buttons (segmented) */
+  .pill-btn{flex:1;height:36px;padding:0 12px;background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border);border-radius:var(--r-control);font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:all var(--t-fast) var(--e-snap)}
+  .pill-btn:hover{background:var(--surface-3);color:var(--text)}
+  .pill-btn.on{background:var(--info-ambient);color:var(--info);border-color:rgba(92,200,255,0.4)}
+  .pill-btn.on--panic{background:var(--emergency-ambient);color:var(--emergency);border-color:rgba(255,59,48,0.4)}
+  .pill-btn.on--accent{background:rgba(167,139,250,0.12);color:var(--accent);border-color:rgba(167,139,250,0.4)}
+  .pill-row{display:flex;gap:8px;flex-wrap:wrap}
+
+  /* ============================================================
+     FIELD
+     ============================================================ */
+  .field{width:100%;height:44px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--r-control);padding:0 14px;font-family:var(--font);font-size:14px;transition:border-color var(--t-fast) var(--e-snap),box-shadow var(--t-fast) var(--e-snap)}
+  .field::placeholder{color:var(--text-placeholder)}
+  .field:focus{outline:none;border-color:var(--info);box-shadow:0 0 0 3px var(--focus-ring)}
+  textarea.field{height:auto;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5}
+  select.field{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--text-muted) 50%),linear-gradient(135deg,var(--text-muted) 50%,transparent 50%);background-position:calc(100% - 18px) 19px,calc(100% - 13px) 19px;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:36px}
+
+  /* OTP field */
+  .otp-row{display:flex;gap:8px;justify-content:center;margin:16px 0}
+  .otp-cell{width:42px;height:52px;border:1px solid var(--border);border-radius:var(--r-control);background:var(--surface);color:var(--text);font-family:var(--mono);font-size:22px;font-weight:600;text-align:center;letter-spacing:0}
+  .otp-cell:focus{outline:none;border-color:var(--info);box-shadow:0 0 0 3px var(--focus-ring)}
+
+  /* ============================================================
+     ONBOARDING
+     ============================================================ */
+  .ob-stepper{display:flex;gap:6px;justify-content:center;margin:8px 0 20px}
+  .ob-step{width:24px;height:3px;background:var(--border);border-radius:2px;transition:background var(--t-fast) var(--e-snap)}
+  .ob-step.done{background:var(--resolved)}
+  .ob-step.cur{background:var(--info);box-shadow:0 0 6px var(--info-glow)}
+  .ob-step-num{font-family:var(--mono);font-size:10px;color:var(--text-muted);text-align:center;margin-bottom:8px;letter-spacing:0.04em}
+  .ob-headline{font-size:20px;font-weight:700;letter-spacing:-0.02em;margin-bottom:8px}
+  .ob-sub{font-size:13px;color:var(--text-muted);margin-bottom:20px;line-height:1.5}
+
+  /* ============================================================
+     SOS CANVAS
+     ============================================================ */
+  .sos-canvas{flex:1;background:radial-gradient(circle at center,var(--surface-2) 0%,var(--surface) 80%);border:1px solid var(--border-strong);border-radius:24px;box-shadow:inset 0 2px 8px rgba(0,0,0,0.5),0 0 32px var(--emergency-glow);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;transition:transform var(--t-fast) var(--e-spring-firm),box-shadow var(--t-base) var(--e-snap);animation:sos-breath 3s ease-in-out infinite;min-height:300px}
+  .sos-canvas:active{transform:scale(0.97);box-shadow:inset 0 2px 12px rgba(0,0,0,0.7),0 0 56px var(--emergency-glow)}
+  .sos-canvas::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at center,var(--emergency-ambient),transparent 65%);pointer-events:none}
+  .sos-label{font-family:var(--mono);font-size:60px;font-weight:600;color:var(--emergency);letter-spacing:0.12em;line-height:1;text-shadow:0 0 24px var(--emergency-glow);position:relative;z-index:1}
+  .sos-sub{font-size:12px;color:var(--text-muted);margin-top:12px;letter-spacing:0.04em;position:relative;z-index:1}
+  @keyframes sos-breath{0%,100%{box-shadow:inset 0 2px 8px rgba(0,0,0,0.5),0 0 32px var(--emergency-glow)}50%{box-shadow:inset 0 2px 8px rgba(0,0,0,0.5),0 0 64px var(--emergency-glow)}}
+
+  .cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+  .cat-btn{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-control);padding:14px 6px;text-align:center;cursor:pointer;font-family:var(--font);transition:all var(--t-fast) var(--e-snap)}
+  .cat-btn:hover{background:var(--surface-3);border-color:var(--border-strong)}
+  .cat-btn .ci{font-size:18px;margin-bottom:6px;display:block;filter:grayscale(0.3) brightness(1.1)}
+  .cat-btn .ct{font-size:11px;font-weight:500;color:var(--text-muted)}
+
+  /* Countdown */
+  .countdown-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:20px}
+  .countdown-pre{font-size:11px;font-weight:600;color:var(--emergency);text-transform:uppercase;letter-spacing:0.12em}
+  .countdown-num{font-family:var(--mono);font-size:120px;font-weight:600;color:var(--emergency);line-height:1;text-shadow:0 0 32px var(--emergency-glow);animation:cd-pulse 1s ease-in-out infinite}
+  @keyframes cd-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.7;transform:scale(0.96)}}
+  .countdown-sub{font-size:13px;color:var(--text-muted)}
+
+  /* Map canvas */
+  .map{background:var(--surface);background-image:radial-gradient(circle,var(--border) 0.5px,transparent 0.5px);background-size:14px 14px;border:1px solid var(--border);border-radius:var(--r-sheet);height:160px;margin-bottom:12px;position:relative;overflow:hidden}
+  .map::before{content:"-26.0507, 28.0218";position:absolute;top:10px;left:12px;font-family:var(--mono);font-size:9px;color:var(--text-muted);letter-spacing:0}
+  .map-pin{position:absolute;top:50%;left:50%;width:14px;height:14px;border-radius:50%;background:var(--emergency);box-shadow:0 0 0 4px var(--emergency-ambient),0 0 16px var(--emergency-glow);transform:translate(-50%,-50%)}
+  .map-pin--info{background:var(--info);box-shadow:0 0 0 4px var(--info-ambient),0 0 16px var(--info-glow)}
+  .map-pin--resolved{background:var(--resolved);box-shadow:0 0 0 4px var(--resolved-ambient),0 0 16px var(--resolved-glow)}
+  .map-pin--attention{background:var(--attention);box-shadow:0 0 0 4px var(--attention-ambient),0 0 16px var(--attention-glow)}
+  .map-pin--p2{top:30%;left:35%}
+  .map-pin--p3{top:65%;left:70%}
+  .map-eta{position:absolute;top:10px;right:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-pill);padding:4px 10px;font-family:var(--mono);font-size:10px;color:var(--text);font-weight:500}
+
+  /* Uber-grade tracking polyline overlay */
+  .map .polyline{position:absolute;pointer-events:none;inset:0}
+  .map .polyline svg{width:100%;height:100%}
+  .map .polyline path{stroke:var(--info);stroke-width:3;fill:none;stroke-linecap:round;stroke-dasharray:6 4;animation:poly-march 1s linear infinite}
+  @keyframes poly-march{from{stroke-dashoffset:0}to{stroke-dashoffset:-20}}
+  .map .heading-arrow{position:absolute;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--info);font-size:14px;text-shadow:0 0 8px var(--info-glow);transform:translate(-50%,-50%) rotate(35deg)}
+  /* Driver-style responder card (Uber pattern) */
+  .responder-eta-card{display:flex;align-items:center;gap:12px;padding:14px;background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r-sheet);margin-bottom:8px;position:relative;overflow:hidden}
+  .responder-eta-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--info);box-shadow:0 0 12px var(--info-glow)}
+  .responder-eta-card .avatar-lg{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;font-weight:600;background:var(--surface-3);border:1px solid var(--border-strong);flex-shrink:0;letter-spacing:0;color:var(--text)}
+  .responder-eta-card .verified{position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:var(--resolved);color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;border:2px solid var(--surface)}
+  .responder-eta-card .info{flex:1;min-width:0}
+  .responder-eta-card .info .name{font-size:14px;font-weight:600;line-height:1.2;display:flex;align-items:center;gap:6px}
+  .responder-eta-card .info .vehicle{font-family:var(--mono);font-size:11px;color:var(--text-muted);margin-top:4px;letter-spacing:0}
+  .responder-eta-card .info .skills{font-size:10px;color:var(--text-muted);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em}
+  .responder-eta-card .eta{text-align:right}
+  .responder-eta-card .eta .v{font-family:var(--mono);font-size:18px;font-weight:600;color:var(--text);line-height:1;letter-spacing:-0.01em}
+  .responder-eta-card .eta .l{font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px}
+  .status-banner{padding:14px 16px;background:linear-gradient(180deg,var(--info-ambient),transparent 90%),var(--surface);border:1px solid rgba(92,200,255,0.3);border-radius:var(--r-sheet);margin-bottom:12px}
+  .status-banner .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .status-banner .state{font-size:18px;font-weight:700;letter-spacing:-0.01em;color:var(--text)}
+  .status-banner .state.panic{color:var(--emergency)}
+  .status-banner .sub{font-family:var(--mono);font-size:11px;color:var(--text-muted);letter-spacing:0}
+  /* Bottom action bar (Uber-style) */
+  .action-bar{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-top:auto;padding-top:12px}
+  .action-bar .btn{margin:0;height:48px;font-size:14px}
+  /* Swipe-to-cancel */
+  .swipe-cancel{padding:14px;background:var(--surface-2);border:1px dashed var(--border);border-radius:var(--r-control);text-align:center;font-size:11px;color:var(--text-muted);font-family:var(--mono);letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;margin-top:8px}
+
+  /* Sector polygon overlay (admin) */
+  .map--admin{height:280px}
+  .sector-poly{position:absolute;border:1.5px dashed var(--accent);background:rgba(167,139,250,0.08);border-radius:8px}
+  .sector-poly--a{top:18%;left:12%;width:38%;height:42%}
+  .sector-poly--b{top:46%;left:48%;width:32%;height:34%}
+  .sector-label{position:absolute;font-family:var(--mono);font-size:9px;color:var(--accent);background:var(--bg);padding:2px 6px;border-radius:3px;border:1px solid var(--accent)}
+
+  /* Responder list */
+  .resp-list{display:flex;flex-direction:column;gap:8px}
+  .resp{display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-control)}
+  .resp-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:500;font-size:11px;color:var(--text);background:var(--surface-3);border:1px solid var(--border-strong);flex-shrink:0;letter-spacing:0}
+  .resp-info{flex:1;min-width:0}
+  .resp-info .name{font-size:13px;font-weight:600;color:var(--text)}
+  .resp-info .meta{font-size:11px;color:var(--text-muted);margin-top:2px;font-family:var(--mono);letter-spacing:0}
+  .resp-eta{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--resolved)}
+
+  /* Duty + stats */
+  .duty{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sheet);margin-bottom:12px}
+  .duty.on{border-color:rgba(52,199,123,0.4);background:linear-gradient(180deg,var(--resolved-ambient),transparent 80%),var(--surface)}
+  .duty .dty-l{display:flex;align-items:center;gap:10px}
+  .duty .dty-dot{width:10px;height:10px;border-radius:50%;background:var(--resolved);box-shadow:0 0 12px var(--resolved-glow)}
+  .duty.off .dty-dot{background:var(--text-muted);box-shadow:none}
+  .duty .dty-label{font-size:13px;font-weight:600}
+  .duty .dty-sec{font-family:var(--mono);font-size:11px;color:var(--text-muted);margin-top:2px;letter-spacing:0}
+  .duty-switch{width:44px;height:24px;border-radius:var(--r-pill);background:var(--surface-3);position:relative;cursor:pointer;border:1px solid var(--border)}
+  .duty-switch::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--text-muted);transition:all var(--t-fast) var(--e-spring-soft)}
+  .duty.on .duty-switch{background:var(--resolved-ambient);border-color:rgba(52,199,123,0.5)}
+  .duty.on .duty-switch::after{left:22px;background:var(--resolved);box-shadow:0 0 8px var(--resolved-glow)}
+
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-control);padding:12px;text-align:center}
+  .stat .v{font-family:var(--mono);font-size:18px;font-weight:600;color:var(--text);letter-spacing:0;line-height:1}
+  .stat .l{font-size:10px;color:var(--text-muted);margin-top:6px;text-transform:uppercase;letter-spacing:0.08em;font-weight:500}
+
+  .inbox-row{display:block;background:var(--surface);border:1px solid var(--border);border-left:2px solid var(--border);border-radius:var(--r-control);padding:14px;margin-bottom:8px;cursor:pointer;transition:all var(--t-fast) var(--e-snap)}
+  .inbox-row:hover{background:var(--surface-2);border-color:var(--border-strong)}
+  .inbox-row--panic{border-left-color:var(--emergency);background:linear-gradient(90deg,var(--emergency-ambient),transparent 50%),var(--surface)}
+  .inbox-row--attention{border-left-color:var(--attention);background:linear-gradient(90deg,var(--attention-ambient),transparent 50%),var(--surface)}
+  .inbox-row--info{border-left-color:var(--info);background:linear-gradient(90deg,var(--info-ambient),transparent 50%),var(--surface)}
+  .inbox-row .ir-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .inbox-row .ir-title{font-size:13px;font-weight:600;margin-top:6px}
+  .inbox-row .ir-meta{font-family:var(--mono);font-size:11px;color:var(--text-muted);margin-top:4px;letter-spacing:0}
+  .inbox-row .ir-age{font-family:var(--mono);font-size:10px;color:var(--text-muted);letter-spacing:0}
+
+  /* Triage */
+  .triage-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px}
+  .triage{height:36px;background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border);border-radius:var(--r-control);font-family:var(--font);font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all var(--t-fast) var(--e-snap)}
+  .triage:hover{background:var(--surface-3)}
+  .triage.yes{background:var(--resolved-ambient);color:var(--resolved);border-color:rgba(52,199,123,0.4)}
+  .triage.no{background:var(--emergency-ambient);color:var(--emergency);border-color:rgba(255,59,48,0.4)}
+
+  /* Operator console specifics */
+  .op-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+  .op-stat{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-control);padding:14px}
+  .op-stat .v{font-family:var(--mono);font-size:28px;font-weight:600;letter-spacing:-0.02em;line-height:1}
+  .op-stat .v.panic{color:var(--emergency);text-shadow:0 0 12px var(--emergency-glow)}
+  .op-stat .v.resolved{color:var(--resolved)}
+  .op-stat .v.attention{color:var(--attention)}
+  .op-stat .l{font-size:10px;color:var(--text-muted);margin-top:8px;text-transform:uppercase;letter-spacing:0.08em;font-weight:500}
+
+  .queue-box{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sheet);overflow:hidden}
+  .queue-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap}
+  .queue-head .heading{font-size:13px}
+  .queue-head .field{height:30px;width:200px;font-size:12px}
+
+  .op-table{width:100%;border-collapse:collapse;font-size:12px}
+  .op-table th{text-align:left;padding:10px 14px;font-size:9px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;border-bottom:1px solid var(--border);background:var(--surface)}
+  .op-table td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+  .op-table tr:last-child td{border-bottom:none}
+  .op-table tbody tr{cursor:pointer;transition:background var(--t-fast) var(--e-snap)}
+  .op-table tbody tr:hover{background:var(--surface-3)}
+  .op-table tbody tr.row--panic{background:linear-gradient(90deg,var(--emergency-ambient),transparent 60%);border-left:2px solid var(--emergency)}
+  .op-table tbody tr.row--attention{background:linear-gradient(90deg,var(--attention-ambient),transparent 60%);border-left:2px solid var(--attention)}
+  .op-table tbody tr.row--info{background:linear-gradient(90deg,var(--info-ambient),transparent 60%);border-left:2px solid var(--info)}
+  .op-table .mono-id{font-family:var(--mono);font-size:11px;color:var(--text-muted);letter-spacing:0}
+  .op-table .age{font-family:var(--mono);font-size:11px;color:var(--text-muted);letter-spacing:0}
+
+  .op-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+
+  .audit-trail{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sheet);padding:14px;margin-top:12px}
+  .audit-trail .heading{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-bottom:10px}
+  .audit-row{display:flex;gap:12px;padding:6px 0;font-size:12px;border-bottom:1px solid var(--border)}
+  .audit-row:last-child{border-bottom:none}
+  .audit-row .ts{font-family:var(--mono);font-size:11px;color:var(--text);min-width:64px;letter-spacing:0}
+  .audit-row .msg{flex:1;color:var(--text-muted)}
+  .audit-row .msg strong{color:var(--text);font-weight:500}
+  .audit-row .actor{font-family:var(--mono);font-size:10px;color:var(--text-placeholder);letter-spacing:0}
+
+  /* Form rows */
+  .form-row{margin-bottom:14px}
+  .form-row .label{margin-bottom:6px}
+  .form-foot{display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid var(--border)}
+  .form-foot .meta{font-size:11px;color:var(--text-muted);font-family:var(--mono);letter-spacing:0}
+  .form-foot .btn{width:auto;padding:0 24px}
+
+  /* Big timer */
+  .timer-big{font-family:var(--mono);font-size:56px;font-weight:600;color:var(--info);letter-spacing:-0.02em;text-shadow:0 0 24px var(--info-glow);text-align:center;line-height:1;margin:8px 0}
+  .timer-sub{text-align:center;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:500}
+
+  /* Resolution checkmark */
+  .check-ring{width:80px;height:80px;border-radius:50%;border:2px solid var(--resolved);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:36px;color:var(--resolved);box-shadow:0 0 32px var(--resolved-glow);background:var(--resolved-ambient)}
+  .silent-ring{width:80px;height:80px;border-radius:50%;border:2px solid var(--emergency);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:32px;color:var(--emergency);box-shadow:0 0 32px var(--emergency-glow);background:var(--emergency-ambient);position:relative}
+  .silent-ring::after{content:"";position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(255,59,48,0.3);animation:sos-breath 3s ease-in-out infinite}
+
+  /* ============================================================
+     WHATSAPP-GRADE CHAT — read receipts, typing, voice note, encryption
+     Patterns inherited so users speak the language already.
+     ============================================================ */
+  .chat-header{display:flex;align-items:center;gap:10px;padding:10px 0 12px;border-bottom:1px solid var(--border);margin-bottom:12px}
+  .chat-header .avatar{width:36px;height:36px;border-radius:50%;background:var(--surface-3);border:1px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text);position:relative;flex-shrink:0}
+  .chat-header .avatar .presence{position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:var(--resolved);border:2px solid var(--bg);box-shadow:0 0 8px var(--resolved-glow)}
+  .chat-header .meta{flex:1;min-width:0}
+  .chat-header .meta .name{font-size:13px;font-weight:600;line-height:1.2}
+  .chat-header .meta .seen{font-size:10px;color:var(--text-muted);margin-top:2px}
+  .chat-header .icons{display:flex;gap:8px}
+  .chat-header .icon-btn{width:32px;height:32px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+  .e2e-banner{font-family:var(--mono);font-size:9px;color:var(--resolved);background:var(--resolved-ambient);border:1px solid rgba(52,199,123,0.25);border-radius:var(--r-control);padding:6px 10px;text-align:center;letter-spacing:0.06em;margin-bottom:12px}
+
+  /* Inbox row — WhatsApp list pattern */
+  .wa-inbox-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background var(--t-fast) var(--e-snap)}
+  .wa-inbox-row:hover{background:var(--surface-2)}
+  .wa-inbox-row .avatar{width:42px;height:42px;border-radius:50%;background:var(--surface-3);border:1px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text);flex-shrink:0;position:relative}
+  .wa-inbox-row .avatar .presence{position:absolute;bottom:0;right:0;width:10px;height:10px;border-radius:50%;background:var(--resolved);border:2px solid var(--bg)}
+  .wa-inbox-row .body{flex:1;min-width:0}
+  .wa-inbox-row .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+  .wa-inbox-row .name{font-size:13px;font-weight:600}
+  .wa-inbox-row .ts{font-family:var(--mono);font-size:10px;color:var(--text-muted);letter-spacing:0}
+  .wa-inbox-row .preview{font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:6px}
+  .wa-inbox-row .preview .ticks{color:var(--info);font-family:var(--mono);font-size:11px;letter-spacing:-2px;flex-shrink:0}
+  .wa-inbox-row .unread{background:var(--info);color:#fff;font-family:var(--mono);font-size:10px;min-width:20px;height:20px;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:0 6px;font-weight:600}
+
+  .chat-list{display:flex;flex-direction:column;gap:8px;padding:8px 0}
+  .chat-bubble{max-width:78%;padding:8px 12px;border-radius:var(--r-sheet);font-size:13px;line-height:1.5}
+  .chat-bubble .meta{font-family:var(--mono);font-size:9px;margin-top:4px;opacity:0.6;letter-spacing:0;display:flex;align-items:center;gap:4px;justify-content:flex-end}
+  .chat-bubble .ticks{color:var(--info);font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:-2px}
+  .chat-bubble .ticks.delivered{color:var(--text-muted)}
+  .chat-bubble.them{align-self:flex-start;background:var(--surface-2);border:1px solid var(--border);border-bottom-left-radius:4px}
+  .chat-bubble.me{align-self:flex-end;background:var(--info-ambient);border:1px solid rgba(92,200,255,0.3);color:var(--text);border-bottom-right-radius:4px}
+  .chat-bubble.system{align-self:center;background:transparent;border:1px dashed var(--border);font-family:var(--mono);font-size:10px;color:var(--text-muted);text-align:center;padding:6px 12px;letter-spacing:0.04em}
+  .chat-bubble.voice{display:flex;align-items:center;gap:10px;min-width:160px}
+  .chat-bubble.voice .play{width:28px;height:28px;border-radius:50%;background:var(--info);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+  .chat-bubble.voice .wave{flex:1;display:flex;align-items:center;gap:2px}
+  .chat-bubble.voice .wave span{width:2px;background:var(--info);border-radius:1px;display:block;opacity:0.6}
+  .chat-bubble.voice .duration{font-family:var(--mono);font-size:11px;color:var(--text-muted);letter-spacing:0;flex-shrink:0}
+  .chat-bubble.attached{padding:6px;display:flex;flex-direction:column;gap:6px}
+  .chat-bubble.attached .thumb{height:120px;background:var(--surface-3);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;font-family:var(--mono);letter-spacing:0.04em}
+  .chat-bubble .reply-quote{padding:6px 8px;border-left:2px solid var(--info);background:rgba(92,200,255,0.06);border-radius:4px;font-size:11px;color:var(--text-muted);margin-bottom:6px;line-height:1.4}
+  .chat-bubble .reply-quote strong{color:var(--info);font-weight:600;display:block;margin-bottom:2px}
+
+  .typing-indicator{align-self:flex-start;background:var(--surface-2);border:1px solid var(--border);padding:10px 14px;border-radius:var(--r-sheet);border-bottom-left-radius:4px;display:flex;gap:4px}
+  .typing-indicator span{width:6px;height:6px;border-radius:50%;background:var(--text-muted);animation:typing-bounce 1.2s ease-in-out infinite}
+  .typing-indicator span:nth-child(2){animation-delay:0.15s}
+  .typing-indicator span:nth-child(3){animation-delay:0.3s}
+  @keyframes typing-bounce{0%,60%,100%{transform:translateY(0);opacity:0.4}30%{transform:translateY(-4px);opacity:1}}
+
+  /* Compose — WhatsApp pattern: text + voice note hold-to-record */
+  .chat-compose{display:flex;gap:8px;padding-top:12px;border-top:1px solid var(--border);margin-top:auto;align-items:center}
+  .chat-compose .field{height:40px;flex:1}
+  .chat-compose .voice-btn{width:44px;height:44px;border-radius:50%;background:var(--info);color:#fff;border:none;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 16px var(--info-glow);transition:all var(--t-fast) var(--e-spring-firm)}
+  .chat-compose .voice-btn:active{transform:scale(0.92);background:var(--emergency);box-shadow:0 0 24px var(--emergency-glow)}
+  .chat-compose .attach{width:32px;height:32px;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;background:transparent;border:none;font-size:18px}
+
+  /* (legacy peer-chat selector still supported) */
+  .chat-list{display:flex;flex-direction:column;gap:8px;padding:8px 0}
+  .chat-bubble{max-width:78%;padding:8px 12px;border-radius:var(--r-sheet);font-size:13px;line-height:1.5}
+  .chat-bubble .meta{font-family:var(--mono);font-size:9px;margin-top:4px;opacity:0.6;letter-spacing:0}
+  .chat-bubble.them{align-self:flex-start;background:var(--surface-2);border:1px solid var(--border);border-bottom-left-radius:4px}
+  .chat-bubble.me{align-self:flex-end;background:var(--info-ambient);border:1px solid rgba(92,200,255,0.3);color:var(--text);border-bottom-right-radius:4px}
+  .chat-bubble.system{align-self:center;background:transparent;border:1px dashed var(--border);font-family:var(--mono);font-size:10px;color:var(--text-muted);text-align:center;padding:6px 12px;letter-spacing:0.04em}
+
+  .chat-compose{display:flex;gap:8px;padding-top:12px;border-top:1px solid var(--border);margin-top:auto}
+  .chat-compose .field{height:40px}
+
+  /* ============================================================
+     SETTINGS / PROFILE — toggle rows + consent
+     ============================================================ */
+  .row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)}
+  .row:last-child{border-bottom:none}
+  .row-l{flex:1}
+  .row-l .t{font-size:14px;font-weight:500}
+  .row-l .s{font-size:12px;color:var(--text-muted);margin-top:2px;line-height:1.4}
+  .toggle{width:36px;height:20px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border);position:relative;cursor:pointer;flex-shrink:0;transition:all var(--t-fast) var(--e-snap)}
+  .toggle::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--text-muted);transition:all var(--t-fast) var(--e-spring-soft)}
+  .toggle.on{background:var(--resolved-ambient);border-color:rgba(52,199,123,0.5)}
+  .toggle.on::after{left:18px;background:var(--resolved);box-shadow:0 0 8px var(--resolved-glow)}
+
+  /* Consent row variant — needs to show legal status */
+  .consent-row{display:flex;flex-direction:column;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-control);margin-bottom:8px}
+  .consent-row.granted{border-color:rgba(52,199,123,0.4)}
+  .consent-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+  .consent-title{font-size:13px;font-weight:600}
+  .consent-detail{font-size:11px;color:var(--text-muted);line-height:1.5}
+  .consent-foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)}
+  .consent-meta{font-family:var(--mono);font-size:9px;color:var(--text-placeholder);letter-spacing:0.04em}
+
+  /* ============================================================
+     PRIVACY DASHBOARD TILES
+     ============================================================ */
+  .privacy-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  .privacy-tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-control);padding:12px;cursor:pointer;transition:all var(--t-fast) var(--e-snap)}
+  .privacy-tile:hover{background:var(--surface-2);border-color:var(--border-strong)}
+  .privacy-tile .v{font-family:var(--mono);font-size:18px;font-weight:600;letter-spacing:0;line-height:1}
+  .privacy-tile .l{font-size:10px;color:var(--text-muted);margin-top:8px;text-transform:uppercase;letter-spacing:0.08em;font-weight:500}
+
+  /* ============================================================
+     LIABILITY / LEGAL MODAL
+     ============================================================ */
+  .legal-block{background:var(--surface);border:1px solid var(--attention);border-radius:var(--r-sheet);padding:16px;margin-bottom:12px;background:linear-gradient(180deg,var(--attention-ambient),transparent 80%),var(--surface)}
+  .legal-block .heading{color:var(--attention);font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+  .legal-block p{font-size:12px;color:var(--text);line-height:1.6;margin-bottom:8px}
+  .legal-block ul{font-size:12px;color:var(--text-muted);padding-left:18px;line-height:1.7}
+
+  /* ============================================================
+     A11Y MODE — VoiceOver demo (announcement as card footer, not tooltip)
+     ============================================================ */
+  .a11y-item{border:1px solid var(--accent);border-radius:var(--r-control);margin-bottom:12px;overflow:hidden;background:var(--surface)}
+  .a11y-item .a11y-num{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(167,139,250,0.3);background:rgba(167,139,250,0.06)}
+  .a11y-item .a11y-num .n{width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-family:var(--mono);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;letter-spacing:0}
+  .a11y-item .a11y-num .nm{font-size:11px;color:var(--accent);font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;font-weight:600;flex:1}
+  .a11y-item .a11y-preview{padding:14px 12px;display:flex;align-items:center;justify-content:center;min-height:48px}
+  .a11y-item .a11y-preview.sos{color:var(--emergency);font-family:var(--mono);font-size:28px;font-weight:600;letter-spacing:0.12em}
+  .a11y-item .a11y-say{padding:10px 12px;border-top:1px dashed var(--border);background:var(--bg);font-family:var(--mono);font-size:11px;color:var(--text);line-height:1.5;letter-spacing:0;word-break:break-word}
+  .a11y-item .a11y-say::before{content:"🔊 ";opacity:0.6}
+
+  /* Bottom screen nav */
+  .screen-nav{position:fixed;bottom:0;left:0;right:0;z-index:9998;background:rgba(11,15,20,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;gap:4px;padding:10px 16px;overflow-x:auto}
+  .screen-nav button{flex-shrink:0;height:30px;padding:0 12px;border:1px solid var(--border);border-radius:var(--r-control);background:transparent;color:var(--text-muted);font-family:var(--font);font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all var(--t-fast) var(--e-snap)}
+  .screen-nav button:hover{background:var(--surface-2);color:var(--text);border-color:var(--border-strong)}
+  .screen-nav button.active-nav{background:var(--surface-3);color:var(--text);border-color:var(--border-strong)}
+  .screen-nav .nav-group-label{font-family:var(--mono);font-size:9px;color:var(--text-placeholder);text-transform:uppercase;letter-spacing:0.12em;align-self:center;padding:0 6px;font-weight:500}
+  .screen-nav .sep{width:1px;background:var(--border);margin:0 4px}
+
+  /* Helpers */
+  .muted{color:var(--text-muted)}
+  .center{text-align:center}
+  .mt-8{margin-top:8px}.mt-12{margin-top:12px}.mt-16{margin-top:16px}.mt-24{margin-top:24px}
+  .mb-8{margin-bottom:8px}.mb-12{margin-bottom:12px}.mb-16{margin-bottom:16px}
+  .row-flex{display:flex;justify-content:space-between;align-items:center;gap:8px}
+
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation:none !important;transition:none !important}
+  }
+</style>
+</head>
+<body>
+
+<div class="proto-badge">VIGIL · COMMUNITY SAFETY · 59 SCREENS</div>
+
+<div class="shell">
+
+  <div class="frame-label">▼ MOBILE — RESIDENT &amp; PATROLLER · OPERATOR WEB CONSOLE</div>
+
+  <!-- ============================================================
+       RESIDENT APP
+       ============================================================ -->
+  <div class="phone" id="phone-resident">
+    <div class="status-bar">
+      <div class="app-id"><span class="glyph">◈</span> Vigil</div>
+      <div class="meta">BRYANSTON·W &middot; 13:42</div>
+    </div>
+    <div class="phone-body">
+
+      <!-- R: Splash / Offline — positioning + live sector signal -->
+      <section id="r-splash" data-screen>
+        <div class="center" style="margin-top:32px">
+          <div style="width:72px;height:72px;border-radius:20px;background:var(--surface-2);border:1px solid var(--border);margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:34px;color:var(--text);box-shadow:0 0 32px rgba(255,59,48,0.15)">◈</div>
+          <div style="font-size:32px;font-weight:800;letter-spacing:-0.03em">Vigil</div>
+          <div style="font-size:14px;color:var(--text-muted);margin-top:8px;line-height:1.5;padding:0 20px">When seconds count, your sector is already moving.</div>
+        </div>
+        <div class="card mt-24" style="background:linear-gradient(180deg,var(--resolved-ambient),transparent 90%),var(--surface);border-color:rgba(52,199,123,0.3)">
+          <div class="card-row mb-8">
+            <span class="pill pill--resolved">Sector Live</span>
+            <span class="mono" style="font-size:10px;color:var(--text-muted)">BRYANSTON·W</span>
+          </div>
+          <div class="row-flex" style="margin-top:10px">
+            <div><div class="mono" style="font-size:22px;font-weight:600;color:var(--resolved);line-height:1">23</div><div class="mono" style="font-size:9px;color:var(--text-muted);margin-top:4px;letter-spacing:0.06em">PATROLLERS · 5KM</div></div>
+            <div><div class="mono" style="font-size:22px;font-weight:600;color:var(--text);line-height:1">2:14</div><div class="mono" style="font-size:9px;color:var(--text-muted);margin-top:4px;letter-spacing:0.06em">AVG RESPONSE</div></div>
+            <div><div class="mono" style="font-size:22px;font-weight:600;color:var(--text);line-height:1">99.7%</div><div class="mono" style="font-size:9px;color:var(--text-muted);margin-top:4px;letter-spacing:0.06em">UPTIME · 30D</div></div>
+          </div>
+        </div>
+        <div class="card card--attention">
+          <div class="card-row mb-8"><span class="pill pill--attention">Offline-aware</span><span class="mono" style="font-size:10px;color:var(--text-muted)">SMS FALLBACK READY</span></div>
+          <div style="font-size:12px;color:var(--text);line-height:1.5">Even with no signal, SOS dispatches via SMS to operator + sector patrollers. We've designed for load-shedding and rural cells.</div>
+        </div>
+        <button class="btn btn-info" onclick="showR('r-home')">Continue</button>
+        <button class="btn btn-ghost" onclick="showR('r-ob-1')">First-time setup</button>
+        <div class="mono" style="font-size:9px;color:var(--text-placeholder);text-align:center;margin-top:16px;letter-spacing:0.06em">END-TO-END ENCRYPTED · POPIA-COMPLIANT · BUILT IN ZA</div>
+      </section>
+
+      <!-- R: Onboarding 1 — Phone -->
+      <section id="r-ob-1" data-screen>
+        <div class="ob-step-num mono">STEP 1 OF 8</div>
+        <div class="ob-stepper"><div class="ob-step cur"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div></div>
+        <div class="ob-headline">Your phone number</div>
+        <div class="ob-sub">We'll send a one-time code to verify it's you. This number becomes your sector identity — patrollers and operators will see it during incidents.</div>
+        <div class="label">Phone</div>
+        <div style="display:flex;gap:8px;margin-bottom:16px">
+          <select class="field" style="flex:0 0 90px"><option>+27</option></select>
+          <input class="field" style="flex:1" placeholder="82 555 0000" inputmode="tel">
+        </div>
+        <button class="btn btn-info" onclick="showR('r-ob-2')">Send code</button>
+        <div class="mono" style="font-size:10px;color:var(--text-placeholder);text-align:center;margin-top:12px;letter-spacing:0.04em">SMS · NO CALL · NO BIOMETRICS YET</div>
+      </section>
+
+      <!-- R: Onboarding 2 — OTP -->
+      <section id="r-ob-2" data-screen>
+        <div class="ob-step-num mono">STEP 2 OF 8</div>
+        <div class="ob-stepper"><div class="ob-step done"></div><div class="ob-step cur"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div></div>
+        <div class="ob-headline">Enter the code</div>
+        <div class="ob-sub">Sent to <span class="mono">+27 82 555 0000</span>. Code expires in <span class="mono">10:00</span>.</div>
+        <div class="otp-row">
+          <input class="otp-cell" maxlength="1" value="4">
+          <input class="otp-cell" maxlength="1" value="8">
+          <input class="otp-cell" maxlength="1" value="2">
+          <input class="otp-cell" maxlength="1" value="1">
+          <input class="otp-cell" maxlength="1" value="">
+          <input class="otp-cell" maxlength="1" value="">
+        </div>
+        <button class="btn btn-info" onclick="showR('r-ob-3')">Verify</button>
+        <button class="btn btn-ghost">Resend code</button>
+      </section>
+
+      <!-- R: Onboarding 3 — Personal -->
+      <section id="r-ob-3" data-screen>
+        <div class="ob-step-num mono">STEP 3 OF 8</div>
+        <div class="ob-stepper"><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step cur"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div></div>
+        <div class="ob-headline">Who are you?</div>
+        <div class="ob-sub">Your name appears to responders during an incident. We hash your ID number — never store the digits.</div>
+        <div class="form-row"><div class="label">Full name</div><input class="field" value="T. Barnardt"></div>
+        <div class="form-row"><div class="label">South African ID</div><input class="field" placeholder="13-digit number" inputmode="numeric"></div>
+        <div class="card" style="background:var(--info-ambient);border-color:rgba(92,200,255,0.3)">
+          <div style="font-size:11px;color:var(--info);font-weight:600;margin-bottom:4px">POPIA NOTICE</div>
+          <div style="font-size:11px;color:var(--text-muted);line-height:1.5">Your ID is hashed locally before transmission. The first 6 digits (date of birth) stay clear so responders can confirm your identity.</div>
+        </div>
+        <button class="btn btn-info mt-12" onclick="showR('r-ob-4')">Continue</button>
+      </section>
+
+      <!-- R: Onboarding 4 — Address + Sector -->
+      <section id="r-ob-4" data-screen>
+        <div class="ob-step-num mono">STEP 4 OF 8</div>
+        <div class="ob-stepper"><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step cur"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div></div>
+        <div class="ob-headline">Where do you live?</div>
+        <div class="ob-sub">Your address determines your sector and which patrollers respond to you.</div>
+        <div class="form-row"><div class="label">Street address</div><input class="field" value="14 Cedar Avenue"></div>
+        <div class="form-row"><div class="label">Suburb</div><input class="field" value="Bryanston"></div>
+        <div class="card card--resolved">
+          <div class="card-row">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--resolved)">Detected sector</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Bryanston West &middot; 23 active patrollers</div>
+            </div>
+            <span class="pill pill--resolved">Confirmed</span>
+          </div>
+        </div>
+        <div class="form-row"><div class="label">Proof of address</div>
+          <div style="border:1px dashed var(--border);border-radius:var(--r-control);padding:14px;text-align:center;color:var(--text-muted);font-size:12px;cursor:pointer">↑ Upload utility bill or rates statement</div>
+        </div>
+        <button class="btn btn-info" onclick="showR('r-ob-5')">Continue</button>
+      </section>
+
+      <!-- R: Onboarding 5 — Emergency contacts -->
+      <section id="r-ob-5" data-screen>
+        <div class="ob-step-num mono">STEP 5 OF 8</div>
+        <div class="ob-stepper"><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step cur"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div></div>
+        <div class="ob-headline">Emergency contacts</div>
+        <div class="ob-sub">If you can't respond after a panic, we'll text these people with your live map link.</div>
+        <div class="card">
+          <div class="form-row"><div class="label">Contact 1 — Name</div><input class="field" value="A. Barnardt"></div>
+          <div class="form-row"><div class="label">Phone</div><input class="field" value="+27 82 555 0011"></div>
+          <div class="form-row"><div class="label">Relationship</div><select class="field"><option>Spouse / partner</option><option>Parent</option><option>Sibling</option><option>Friend</option><option>Other</option></select></div>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px">+ Add another contact</button>
+        <button class="btn btn-info" onclick="showR('r-ob-6')">Continue</button>
+      </section>
+
+      <!-- R: Onboarding 6 — POPIA Consent walkthrough -->
+      <section id="r-ob-6" data-screen>
+        <div class="ob-step-num mono">STEP 6 OF 8</div>
+        <div class="ob-stepper"><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step cur"></div><div class="ob-step"></div><div class="ob-step"></div></div>
+        <div class="ob-headline">Your data, your call</div>
+        <div class="ob-sub">SafeZone follows POPIA Act 4 of 2013. Each consent is per-purpose and you can revoke any of them anytime.</div>
+        <div class="consent-row granted">
+          <div class="consent-head"><div class="consent-title">Live location during incidents</div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="consent-detail">Shared with assigned responders + operator only while an incident is active. Auto-stops when resolved.</div>
+          <div class="consent-foot"><span class="consent-meta">REQUIRED · POPIA s.13(1)</span><span class="mono" style="font-size:9px;color:var(--resolved)">GRANTED</span></div>
+        </div>
+        <div class="consent-row granted">
+          <div class="consent-head"><div class="consent-title">Medical notes (optional)</div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="consent-detail">Allergies, conditions, medications. Visible only to a responder you've accepted help from.</div>
+          <div class="consent-foot"><span class="consent-meta">OPTIONAL · POPIA s.26 special PI</span><span class="mono" style="font-size:9px;color:var(--resolved)">GRANTED</span></div>
+        </div>
+        <div class="consent-row">
+          <div class="consent-head"><div class="consent-title">Anonymised analytics</div><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+          <div class="consent-detail">Help us improve response times. Never identifies you individually.</div>
+          <div class="consent-foot"><span class="consent-meta">OPT-IN · POPIA s.11</span><span class="mono" style="font-size:9px;color:var(--text-placeholder)">DECLINED</span></div>
+        </div>
+        <button class="btn btn-info mt-12" onclick="showR('r-ob-7')">Continue</button>
+      </section>
+
+      <!-- R: Onboarding 7 — Biometric -->
+      <section id="r-ob-7" data-screen>
+        <div class="ob-step-num mono">STEP 7 OF 8</div>
+        <div class="ob-stepper"><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step cur"></div><div class="ob-step"></div></div>
+        <div class="ob-headline">Lock with your face</div>
+        <div class="ob-sub">Biometric unlock for the panic button. Even on a stolen device, no one can trigger SOS as you.</div>
+        <div class="center" style="margin:24px 0">
+          <div style="width:120px;height:120px;border-radius:24px;background:var(--surface-2);border:2px solid var(--info);margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:48px;color:var(--info);box-shadow:0 0 32px var(--info-glow)">⌖</div>
+          <div class="mono mt-12" style="font-size:11px;color:var(--text-muted);letter-spacing:0.04em">FACE ID · STORED ON DEVICE ONLY</div>
+        </div>
+        <button class="btn btn-info" onclick="showR('r-ob-8')">Enrol Face ID</button>
+        <button class="btn btn-ghost" onclick="showR('r-ob-8')">Use PIN instead</button>
+      </section>
+
+      <!-- R: Onboarding 8 — First panic rehearsal -->
+      <section id="r-ob-8" data-screen>
+        <div class="ob-step-num mono">STEP 8 OF 8</div>
+        <div class="ob-stepper"><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step cur"></div></div>
+        <div class="ob-headline">Try the panic button — safely</div>
+        <div class="ob-sub">This is a rehearsal. No real dispatch. Tap the button so you know what it feels like before you ever need it.</div>
+        <div class="card card--info">
+          <div style="font-size:13px;font-weight:600;color:var(--info);margin-bottom:6px">What happens for real:</div>
+          <ul style="font-size:12px;color:var(--text);line-height:1.7;padding-left:18px">
+            <li>Phone vibrates twice + screen flashes red</li>
+            <li>5-second silent cancel window</li>
+            <li>If not cancelled — dispatch fires + your contacts SMS'd</li>
+            <li>Your location shared with responders only</li>
+          </ul>
+        </div>
+        <button class="btn btn-emergency mt-12" onclick="showR('r-home')">Try panic (rehearsal)</button>
+        <button class="btn btn-resolved" onclick="showR('r-home')">Skip — I understand</button>
+      </section>
+
+      <!-- R: Home — ambient confidence + SOS as primary affordance -->
+      <section id="r-home" data-screen class="active">
+        <!-- Ambient sector status — built daily so trust is there in the moment of need -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:8px"><div style="width:8px;height:8px;border-radius:50%;background:var(--resolved);box-shadow:0 0 8px var(--resolved-glow)"></div><span class="mono" style="font-size:11px;color:var(--text);letter-spacing:0">23 patrollers awake · 5km</span></div>
+          <span class="mono" style="font-size:10px;color:var(--text-muted);letter-spacing:0.04em">AVG 2:14</span>
+        </div>
+        <div class="label">Tap to call for emergency help</div>
+        <div class="sos-canvas" onclick="showR('r-countdown')">
+          <div class="sos-label mono">SOS</div>
+          <div class="sos-sub">Press &middot; 5 second cancel window</div>
+        </div>
+        <!-- Last drill — like a smoke-alarm self-test, builds confidence -->
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px">
+          <span class="mono" style="font-size:10px;color:var(--text-muted);letter-spacing:0.04em">LAST DRILL · 4 DAYS AGO</span>
+          <span style="font-size:10px;color:var(--info);cursor:pointer">Test again →</span>
+        </div>
+        <div class="label mt-16">Or report by category</div>
+        <div class="cat-grid">
+          <div class="cat-btn" onclick="showR('r-active')"><span class="ci">⚠</span><div class="ct">Crime</div></div>
+          <div class="cat-btn" onclick="showR('r-active')"><span class="ci">✚</span><div class="ct">Medical</div></div>
+          <div class="cat-btn" onclick="showR('r-active')"><span class="ci">✦</span><div class="ct">Fire</div></div>
+          <div class="cat-btn" onclick="showR('r-active')"><span class="ci">▲</span><div class="ct">Accident</div></div>
+          <div class="cat-btn" onclick="showR('r-active')"><span class="ci">◉</span><div class="ct">Suspicious</div></div>
+          <div class="cat-btn" onclick="showR('r-active')"><span class="ci">◇</span><div class="ct">Other</div></div>
+        </div>
+        <div class="pill-row mt-16">
+          <button class="pill-btn on--panic" onclick="showR('r-silent')">Silent Panic</button>
+          <button class="pill-btn on" onclick="showR('r-timer')">Safety Timer</button>
+        </div>
+      </section>
+
+      <!-- R: Countdown -->
+      <section id="r-countdown" data-screen>
+        <div class="countdown-screen">
+          <div class="countdown-pre">EMERGENCY ACTIVATED</div>
+          <div class="countdown-num mono" id="cd-num">5</div>
+          <div class="countdown-sub">Sending in <span class="mono" id="cd-text">5</span> seconds</div>
+          <button class="btn btn-ghost" onclick="showR('r-home')">Cancel</button>
+        </div>
+      </section>
+
+      <!-- R: Active — Uber-grade tracking. Driver-style card, polyline, status states -->
+      <section id="r-active" data-screen>
+        <!-- Status banner with state words people already know from Uber: Heading to you / Around the corner / Outside -->
+        <div class="status-banner">
+          <div class="top">
+            <span class="pill pill--info">Around the corner</span>
+            <span class="mono" style="font-size:10px;color:var(--text-muted)">INC-4821</span>
+          </div>
+          <div class="state">J. van Wyk &middot; <span class="mono">0.4 km</span></div>
+          <div class="sub">ETA <span style="color:var(--info)">1:18</span> · live ticking · 2 responders en route</div>
+        </div>
+
+        <!-- Map with Uber-style polyline -->
+        <div class="map" style="height:200px">
+          <div class="polyline">
+            <svg viewBox="0 0 360 200" preserveAspectRatio="none">
+              <path d="M 60,40 Q 120,80 160,90 T 200,140 Q 220,160 180,170" />
+            </svg>
+          </div>
+          <div class="map-pin map-pin--info" style="top:20%;left:17%"><div class="heading-arrow" style="top:-4px;left:-4px">▲</div></div>
+          <div class="map-pin" style="top:85%;left:50%"></div>
+          <div class="map-eta mono">YOU ←→ JV</div>
+        </div>
+
+        <!-- Driver-style card (Uber pattern, exactly) -->
+        <div class="responder-eta-card">
+          <div class="avatar-lg" style="position:relative">JV<div class="verified">✓</div></div>
+          <div class="info">
+            <div class="name">J. van Wyk <span class="mono" style="font-size:9px;color:var(--resolved);background:var(--resolved-ambient);padding:2px 6px;border-radius:4px;letter-spacing:0.06em">VERIFIED</span></div>
+            <div class="vehicle">TOYOTA HILUX · CA 123-456 · WHITE</div>
+            <div class="skills">CPF · FIRST AID · 4.9★ · 312 RESPONSES</div>
+          </div>
+          <div class="eta">
+            <div class="v">1:18</div>
+            <div class="l">ETA</div>
+          </div>
+        </div>
+
+        <!-- Backup responder, lower hierarchy -->
+        <div class="resp">
+          <div class="resp-avatar">RM</div>
+          <div class="resp-info"><div class="name">R. Mokoena <span class="mono" style="font-size:9px;color:var(--resolved)">✓</span></div><div class="meta">PSIRA B · ARMED · 2.8 KM</div></div>
+          <div class="resp-eta">5:00</div>
+        </div>
+
+        <!-- Action bar — Uber pattern: primary call, secondary message, tertiary share -->
+        <div class="action-bar">
+          <button class="btn btn-emergency" onclick="showR('r-resolved')">📞 Call</button>
+          <button class="btn btn-ghost">💬 Chat</button>
+          <button class="btn btn-ghost">📍 Share</button>
+        </div>
+
+        <!-- Cancel hidden behind swipe (prevents accidental tap during stress) -->
+        <div class="swipe-cancel">→ Slide to cancel · double-confirm required</div>
+      </section>
+
+      <!-- R: Silent Panic -->
+      <section id="r-silent" data-screen>
+        <div class="center" style="padding-top:16px">
+          <div class="silent-ring">◑</div>
+          <div style="font-weight:700;font-size:15px;color:var(--emergency);letter-spacing:0.02em">SILENT PANIC ACTIVE</div>
+          <div class="mono" style="font-size:10px;color:var(--text-muted);margin-top:8px;letter-spacing:0.04em">NO SOUND · NO VIBRATION · DISCREET</div>
+        </div>
+        <div class="card card--panic mt-16">
+          <div style="font-size:12px;color:var(--text);line-height:1.8"><div>✓ Dispatch sent silently <span class="mono">13:42</span></div><div>✓ GPS location shared with responders</div></div>
+          <div style="font-size:13px;color:var(--emergency);font-weight:600;margin-top:10px">Operator will TEXT you (no call)</div>
+        </div>
+        <div class="card">
+          <div class="label">Text to operator</div>
+          <div style="display:flex;gap:8px"><input class="field" style="flex:1" placeholder="Type silently…"><button class="btn btn-emergency" style="width:auto;padding:0 18px">Send</button></div>
+        </div>
+        <button class="btn btn-ghost mt-8" onclick="showR('r-active')">View Responders</button>
+        <button class="btn btn-resolved" onclick="showR('r-home')">I'm Safe — Cancel</button>
+      </section>
+
+      <!-- R: Safety Timer -->
+      <section id="r-timer" data-screen>
+        <div class="label">Safety Timer</div>
+        <div class="card">
+          <div style="font-size:14px;font-weight:600;margin-bottom:6px">I'm heading somewhere safely</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;line-height:1.5">If I don't check in, my sector and emergency contacts will be alerted with my route.</div>
+          <div class="label">Activity</div>
+          <div class="pill-row mb-16"><button class="pill-btn on">Walking</button><button class="pill-btn">Jogging</button><button class="pill-btn">Driving</button></div>
+          <div class="label">Check-in deadline</div>
+          <select class="field mb-16"><option>15 minutes</option><option selected>30 minutes</option><option>45 minutes</option><option>1 hour</option></select>
+          <div class="label">Your contacts will receive</div>
+          <div style="font-size:12px;color:var(--text);line-height:1.9">✓ SMS with live map link<br>✓ Your route so far<br>✓ Auto-dispatch to sector patrollers</div>
+        </div>
+        <button class="btn btn-info" onclick="showR('r-timer-active')">Start Timer</button>
+        <button class="btn btn-ghost" onclick="showR('r-home')">Cancel</button>
+      </section>
+
+      <!-- R: Timer Active -->
+      <section id="r-timer-active" data-screen>
+        <div class="card card--info">
+          <div class="card-row"><span class="pill pill--info">Timer Active</span><span class="mono" style="font-size:10px;color:var(--text-muted);letter-spacing:0.04em">WALKING</span></div>
+          <div class="timer-big mono">24:37</div>
+          <div class="timer-sub">UNTIL AUTO-ALERT</div>
+          <div class="row-flex" style="margin-top:14px;font-size:11px;color:var(--text-muted)"><span class="mono">ROUTE 1.2 KM</span><span class="mono">CONTACTS 2</span></div>
+        </div>
+        <div class="map"><div class="map-pin map-pin--info"></div><div class="map-eta mono">LIVE</div></div>
+        <button class="btn btn-resolved" onclick="showR('r-home')">I've Arrived Safely</button>
+        <button class="btn btn-ghost">+ 15 Minutes</button>
+        <button class="btn btn-emergency mt-8" onclick="showR('r-active')">I Need Help NOW</button>
+      </section>
+
+      <!-- R: Resolved -->
+      <section id="r-resolved" data-screen>
+        <div class="center" style="padding-top:32px">
+          <div class="check-ring">✓</div>
+          <div style="font-weight:700;font-size:18px;color:var(--resolved);letter-spacing:-0.01em">Incident Resolved</div>
+          <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:8px;letter-spacing:0.04em">ON SCENE 13:47 · DURATION 4M 22S</div>
+        </div>
+        <div class="card mt-16">
+          <div class="row-flex" style="font-size:13px;padding:6px 0"><span class="muted">Ref</span><span class="mono">INC-4821</span></div>
+          <div class="row-flex" style="font-size:13px;padding:6px 0;border-top:1px solid var(--border)"><span class="muted">Type</span><span>Panic — confirmed</span></div>
+          <div class="row-flex" style="font-size:13px;padding:6px 0;border-top:1px solid var(--border)"><span class="muted">Responder</span><span>J. van Wyk · CPF</span></div>
+          <div class="row-flex" style="font-size:13px;padding:6px 0;border-top:1px solid var(--border)"><span class="muted">External</span><span class="mono" style="font-size:11px">SAPS BR-2026-1847</span></div>
+        </div>
+        <button class="btn btn-surface mt-16" onclick="showR('r-home')">Back to Home</button>
+      </section>
+
+      <!-- R: History -->
+      <section id="r-history" data-screen>
+        <div class="row-flex mb-16"><div class="heading">History</div><span class="mono" style="font-size:10px;color:var(--text-muted)">12 INCIDENTS · 90 DAYS</span></div>
+        <div class="inbox-row">
+          <div class="ir-top"><span class="pill pill--resolved">Resolved</span><span class="ir-age">YESTERDAY 13:42</span></div>
+          <div class="ir-title">Panic — confirmed genuine</div>
+          <div class="ir-meta">INC-4821 · J. VAN WYK · 4M 22S</div>
+        </div>
+        <div class="inbox-row">
+          <div class="ir-top"><span class="pill pill--resolved">Resolved</span><span class="ir-age">3 DAYS AGO</span></div>
+          <div class="ir-title">Suspicious vehicle reported</div>
+          <div class="ir-meta">INC-4798 · OPERATOR-014 · 12M</div>
+        </div>
+        <div class="inbox-row">
+          <div class="ir-top"><span class="pill pill--neutral">Cancelled</span><span class="ir-age">7 DAYS AGO</span></div>
+          <div class="ir-title">False alarm — pocket-tap</div>
+          <div class="ir-meta">INC-4756 · CANCELLED IN 3S · NO DISPATCH</div>
+        </div>
+        <div class="inbox-row">
+          <div class="ir-top"><span class="pill pill--resolved">Resolved</span><span class="ir-age">2 WEEKS AGO</span></div>
+          <div class="ir-title">Safety timer auto-alert</div>
+          <div class="ir-meta">INC-4612 · NO INCIDENT · CONTACTS NOTIFIED</div>
+        </div>
+        <button class="btn btn-ghost mt-16">Export my history</button>
+      </section>
+
+      <!-- R: Messages — WhatsApp-grade UX. Patterns users already speak. -->
+      <section id="r-messages" data-screen>
+        <!-- Inbox view (WhatsApp list pattern) -->
+        <div class="row-flex mb-12"><div class="heading">Messages</div><span class="pill pill--info">2 unread</span></div>
+        <div class="e2e-banner">🔒 END-TO-END ENCRYPTED · OPERATOR + RESPONDERS ONLY</div>
+
+        <div class="wa-inbox-row">
+          <div class="avatar">JV<div class="presence"></div></div>
+          <div class="body">
+            <div class="top"><span class="name">J. van Wyk</span><span class="ts">13:48</span></div>
+            <div class="preview">
+              <span class="ticks" style="color:var(--info)">✓✓</span>
+              <span style="color:var(--text)">Glad you're okay. CCTV from your gate cap…</span>
+            </div>
+          </div>
+          <div class="unread">2</div>
+        </div>
+
+        <div class="wa-inbox-row">
+          <div class="avatar">OP<div class="presence"></div></div>
+          <div class="body">
+            <div class="top"><span class="name">Operator-014 <span class="mono" style="font-size:9px;color:var(--accent)">SECTOR</span></span><span class="ts">13:30</span></div>
+            <div class="preview">
+              <span class="ticks">✓✓</span>
+              <span>Residents: increased suspicious vehicle activity along…</span>
+            </div>
+          </div>
+          <div class="unread">1</div>
+        </div>
+
+        <div class="wa-inbox-row">
+          <div class="avatar">RM<div class="presence" style="background:var(--text-muted);box-shadow:none"></div></div>
+          <div class="body">
+            <div class="top"><span class="name">R. Mokoena</span><span class="ts">YESTERDAY</span></div>
+            <div class="preview">
+              <span class="ticks">✓✓</span>
+              <span>🎤 Voice note · 0:12</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="wa-inbox-row">
+          <div class="avatar">⚙</div>
+          <div class="body">
+            <div class="top"><span class="name">System</span><span class="ts">3 DAYS</span></div>
+            <div class="preview"><span style="color:var(--text-muted)">Privacy summary · 14 location shares</span></div>
+          </div>
+        </div>
+
+        <!-- Open chat — full WhatsApp-grade thread -->
+        <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:12px">
+          <div class="chat-header">
+            <div class="avatar">JV<div class="presence"></div></div>
+            <div class="meta">
+              <div class="name">J. van Wyk <span class="mono" style="font-size:9px;color:var(--resolved);background:var(--resolved-ambient);padding:1px 5px;border-radius:3px;letter-spacing:0.06em">VERIFIED</span></div>
+              <div class="seen">Online · last seen 13:48</div>
+            </div>
+            <div class="icons">
+              <button class="icon-btn">📞</button>
+              <button class="icon-btn">📹</button>
+            </div>
+          </div>
+          <div class="chat-list">
+            <div class="chat-bubble system">INC-4821 · CHAT OPENED 13:42</div>
+            <div class="chat-bubble them">On my way — 1.2km out. Stay inside, lock the door. <div class="meta">13:42</div></div>
+            <div class="chat-bubble me">Front gate is open, side door locked. <div class="meta">13:43 <span class="ticks">✓✓</span></div></div>
+            <div class="chat-bubble them voice">
+              <button class="play">▶</button>
+              <div class="wave"><span style="height:6px"></span><span style="height:14px"></span><span style="height:9px"></span><span style="height:18px"></span><span style="height:12px"></span><span style="height:7px"></span><span style="height:16px"></span><span style="height:10px"></span><span style="height:13px"></span><span style="height:8px"></span><span style="height:15px"></span><span style="height:11px"></span></div>
+              <div class="duration">0:08</div>
+            </div>
+            <div class="chat-bubble me">
+              <div class="reply-quote"><strong>J. van Wyk</strong>0:08 voice note</div>
+              Got it — staying inside. <div class="meta">13:44 <span class="ticks">✓✓</span></div>
+            </div>
+            <div class="chat-bubble me attached">
+              <div class="thumb">📷 DASHCAM · 14_CEDAR_FRONT.JPG</div>
+              <div style="font-size:11px;color:var(--text-muted)">White Hilux idling at #18 — 13:15</div>
+              <div class="meta">13:45 <span class="ticks">✓✓</span></div>
+            </div>
+            <div class="chat-bubble them">Pulled the plate — running it now. Around the corner from you. <div class="meta">13:48 <span class="ticks delivered">✓✓</span></div></div>
+            <div class="typing-indicator"><span></span><span></span><span></span></div>
+          </div>
+          <div class="chat-compose">
+            <button class="attach">📎</button>
+            <input class="field" placeholder="Message…">
+            <button class="voice-btn" title="Hold to record">🎤</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- R: Profile -->
+      <section id="r-profile" data-screen>
+        <div class="heading mb-16">Profile</div>
+        <div class="card">
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px">
+            <div class="resp-avatar" style="width:56px;height:56px;font-size:16px">TB</div>
+            <div><div style="font-size:15px;font-weight:600">T. Barnardt</div><div class="mono" style="font-size:11px;color:var(--text-muted)">+27 82 555 0000 · BRYANSTON·W</div></div>
+          </div>
+          <div class="row"><div class="row-l"><div class="t">Address</div><div class="s">14 Cedar Avenue, Bryanston West</div></div><span class="mono" style="font-size:10px;color:var(--text-muted)">EDIT</span></div>
+          <div class="row"><div class="row-l"><div class="t">Sector</div><div class="s">Bryanston West · 23 patrollers active</div></div><span class="pill pill--resolved">Confirmed</span></div>
+        </div>
+        <div class="label mt-16">Emergency contacts (2)</div>
+        <div class="card">
+          <div class="row"><div class="row-l"><div class="t">A. Barnardt</div><div class="s mono">+27 82 555 0011 · SPOUSE</div></div><span class="mono" style="font-size:10px;color:var(--resolved)">PRIMARY</span></div>
+          <div class="row"><div class="row-l"><div class="t">M. Khoza</div><div class="s mono">+27 82 555 0022 · NEIGHBOUR</div></div></div>
+          <button class="btn btn-ghost btn-sm mt-12" style="width:100%">+ Add contact</button>
+        </div>
+        <div class="label mt-16">Medical notes (per-field consent)</div>
+        <div class="consent-row granted">
+          <div class="consent-head"><div class="consent-title">Allergies — Penicillin</div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="consent-detail">Visible to assigned medical responder during incident only.</div>
+        </div>
+        <div class="consent-row granted">
+          <div class="consent-head"><div class="consent-title">Blood type — O+</div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+        </div>
+      </section>
+
+      <!-- R: Privacy Dashboard -->
+      <section id="r-privacy" data-screen>
+        <div class="heading mb-12">Privacy</div>
+        <div class="subhead mb-16">POPIA Act 4 of 2013 · Your rights, exercised here.</div>
+        <div class="privacy-tiles">
+          <div class="privacy-tile"><div class="v mono">14</div><div class="l">Location shares · 90d</div></div>
+          <div class="privacy-tile"><div class="v mono">2</div><div class="l">Incident views</div></div>
+          <div class="privacy-tile"><div class="v mono resolved" style="color:var(--resolved)">0</div><div class="l">External exports</div></div>
+          <div class="privacy-tile"><div class="v mono">8</div><div class="l">Active consents</div></div>
+        </div>
+        <div class="label">Your data rights</div>
+        <button class="btn btn-info">Download my data</button>
+        <button class="btn btn-ghost">Manage consents</button>
+        <button class="btn btn-ghost">View access audit (who saw what)</button>
+        <div class="card card--attention mt-16">
+          <div style="font-size:12px;color:var(--attention);font-weight:600;margin-bottom:6px">DELETE MY ACCOUNT</div>
+          <div style="font-size:11px;color:var(--text-muted);line-height:1.5">Permanent. Live incidents must close first. Audit-log entries are anonymised, not deleted (POPIA s.14(1) — legal-record retention).</div>
+          <button class="btn btn-emergency btn-sm mt-12" style="width:100%">Begin deletion</button>
+        </div>
+      </section>
+
+      <!-- R: Settings -->
+      <section id="r-settings" data-screen>
+        <div class="heading mb-16">Settings</div>
+        <div class="label">Notifications</div>
+        <div class="card">
+          <div class="row"><div class="row-l"><div class="t">Sector advisories</div><div class="s">From operator only</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="row"><div class="row-l"><div class="t">Patroller messages</div><div class="s">DMs from accepted responders</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="row"><div class="row-l"><div class="t">Quiet hours</div><div class="s mono">22:00 → 06:00 · panic always rings</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+        </div>
+        <div class="label mt-16">Language</div>
+        <div class="pill-row mb-16"><button class="pill-btn on">English</button><button class="pill-btn">isiZulu</button><button class="pill-btn">Afrikaans</button></div>
+        <div class="label">Security</div>
+        <div class="card">
+          <div class="row"><div class="row-l"><div class="t">Re-enrol Face ID</div><div class="s">For panic confirmation</div></div><span class="mono" style="font-size:10px;color:var(--info)">CHANGE</span></div>
+          <div class="row"><div class="row-l"><div class="t">Backup PIN</div><div class="s mono">SET · 6 DIGITS</div></div><span class="mono" style="font-size:10px;color:var(--info)">CHANGE</span></div>
+        </div>
+        <button class="btn btn-emergency mt-16">Sign out</button>
+      </section>
+
+      <!-- R: Help / FAQ -->
+      <section id="r-help" data-screen>
+        <div class="heading mb-12">Help</div>
+        <input class="field mb-16" placeholder="Search help…">
+        <div class="label">Common questions</div>
+        <div class="inbox-row"><div class="ir-title">What happens when I press SOS?</div><div class="ir-meta">PANIC FLOW · 2 MIN READ</div></div>
+        <div class="inbox-row"><div class="ir-title">Will my contacts know I'm in trouble?</div><div class="ir-meta">EMERGENCY CONTACTS · 1 MIN</div></div>
+        <div class="inbox-row"><div class="ir-title">Can I use SafeZone offline?</div><div class="ir-meta">OFFLINE BEHAVIOUR · 3 MIN</div></div>
+        <div class="inbox-row"><div class="ir-title">Who sees my location?</div><div class="ir-meta">PRIVACY · POPIA · 5 MIN</div></div>
+        <div class="inbox-row"><div class="ir-title">How is the panic button hardware-triggered?</div><div class="ir-meta">ACCESSIBILITY · 2 MIN</div></div>
+        <div class="card card--attention mt-16">
+          <div style="font-size:12px;font-weight:600;color:var(--attention);margin-bottom:6px">In an emergency right now?</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">Don't read help — go back and press SOS.</div>
+          <button class="btn btn-emergency btn-sm" style="width:100%" onclick="showR('r-home')">Back to panic button</button>
+        </div>
+      </section>
+
+      <!-- R: Accessibility (VoiceOver demo) -->
+      <section id="r-a11y" data-screen>
+        <div class="card card--accent mb-16">
+          <div class="card-row"><span class="pill pill--accent">VoiceOver</span><span class="mono" style="font-size:10px;color:var(--text-muted)">DEMO MODE</span></div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.5">Showing how the home screen reads under screen-reader. Focus order, accessible labels, and haptic cues are all designed-in.</div>
+        </div>
+        <div class="label">Reading order &amp; what VoiceOver says:</div>
+
+        <div class="a11y-item">
+          <div class="a11y-num"><div class="n">1</div><div class="nm">Status bar</div></div>
+          <div class="a11y-preview"><span class="mono" style="font-size:11px;color:var(--text-muted)">Vigil · Bryanston·W · 13:42</span></div>
+          <div class="a11y-say">"Vigil, Bryanston West sector, you are online. Time 13:42."</div>
+        </div>
+
+        <div class="a11y-item">
+          <div class="a11y-num"><div class="n">2</div><div class="nm">Emergency button</div></div>
+          <div class="a11y-preview sos">SOS</div>
+          <div class="a11y-say">"Emergency button. Double-tap and hold for one second to dispatch help to your location."</div>
+        </div>
+
+        <div class="a11y-item">
+          <div class="a11y-num"><div class="n">3</div><div class="nm">Category grid</div></div>
+          <div class="a11y-preview"><span class="mono" style="font-size:10px;color:var(--text-muted);letter-spacing:0.06em">CRIME · MEDICAL · FIRE · ACCIDENT · SUSPICIOUS · OTHER</span></div>
+          <div class="a11y-say">"Six emergency categories. Swipe right to browse. Crime, one of six."</div>
+        </div>
+
+        <div class="a11y-item">
+          <div class="a11y-num"><div class="n">4</div><div class="nm">Silent panic / Safety timer</div></div>
+          <div class="a11y-preview"><span class="mono" style="font-size:10px;color:var(--text-muted);letter-spacing:0.06em">SILENT · TIMER</span></div>
+          <div class="a11y-say">"Silent panic, button. Activates dispatch with no sound or vibration."</div>
+        </div>
+
+        <div class="card mt-16">
+          <div class="label">A11y settings</div>
+          <div class="row"><div class="row-l"><div class="t">Reduce motion</div><div class="s">Disables ambient breathing</div></div><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+          <div class="row"><div class="row-l"><div class="t">Larger text</div><div class="s">+ 30% across critical paths</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="row"><div class="row-l"><div class="t">Hardware panic</div><div class="s">Lock + Vol-Up × 5 = SOS</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="row"><div class="row-l"><div class="t">Hearing-impaired routing</div><div class="s">Operator texts first, doesn't call</div></div><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+
+  <!-- ============================================================
+       PATROLLER APP
+       ============================================================ -->
+  <div class="phone" id="phone-patrol">
+    <div class="status-bar">
+      <div class="app-id"><span class="glyph">◈</span> Patrol</div>
+      <div class="meta">J.VAN WYK · CPF</div>
+    </div>
+    <div class="phone-body">
+
+      <!-- P: Onboarding 1 — Phone + OTP -->
+      <section id="p-ob-1" data-screen>
+        <div class="ob-step-num mono">STEP 1 OF 5</div>
+        <div class="ob-stepper"><div class="ob-step cur"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div></div>
+        <div class="ob-headline">Verify your phone</div>
+        <div class="ob-sub">As a patroller you'll receive incident dispatch on this number. SMS-only — no marketing.</div>
+        <div class="form-row"><div class="label">Phone</div><div style="display:flex;gap:8px"><select class="field" style="flex:0 0 90px"><option>+27</option></select><input class="field" style="flex:1" value="82 555 1234"></div></div>
+        <div class="otp-row"><input class="otp-cell" value="9"><input class="otp-cell" value="2"><input class="otp-cell" value="7"><input class="otp-cell" value="3"><input class="otp-cell" value=""><input class="otp-cell" value=""></div>
+        <button class="btn btn-info" onclick="showP('p-ob-2')">Verify &amp; continue</button>
+      </section>
+
+      <!-- P: Onboarding 2 — Role declaration -->
+      <section id="p-ob-2" data-screen>
+        <div class="ob-step-num mono">STEP 2 OF 5</div>
+        <div class="ob-stepper"><div class="ob-step done"></div><div class="ob-step cur"></div><div class="ob-step"></div><div class="ob-step"></div><div class="ob-step"></div></div>
+        <div class="ob-headline">Declare your role</div>
+        <div class="ob-sub">Different roles see different incident types and unlock different actions. Vetting is mandatory before activation.</div>
+        <div class="card" style="cursor:pointer;border-color:var(--info)">
+          <div class="card-row"><div style="font-size:14px;font-weight:600">Community Patrol Forum (CPF)</div><span class="pill pill--info">Selected</span></div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5">Volunteer · neighbourhood patrols · first-responder skills · SAPS-affiliated</div>
+        </div>
+        <div class="card" style="cursor:pointer">
+          <div class="card-row"><div style="font-size:14px;font-weight:600">Private security (PSIRA)</div><span class="mono" style="font-size:10px;color:var(--text-muted)">PSIRA NUMBER REQUIRED</span></div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5">Licensed · grade A/B/C/D/E · armed-response if grade A or B</div>
+        </div>
+        <div class="card" style="cursor:pointer">
+          <div class="card-row"><div style="font-size:14px;font-weight:600">Medical responder</div><span class="mono" style="font-size:10px;color:var(--text-muted)">CERT REQUIRED</span></div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5">Paramedic · BLS / ILS / ALS · clinical scope determined by certificate</div>
+        </div>
+        <button class="btn btn-info mt-12" onclick="showP('p-ob-3')">Continue as CPF</button>
+      </section>
+
+      <!-- P: Onboarding 3 — Documents + Skills -->
+      <section id="p-ob-3" data-screen>
+        <div class="ob-step-num mono">STEP 3 OF 5</div>
+        <div class="ob-stepper"><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step cur"></div><div class="ob-step"></div><div class="ob-step"></div></div>
+        <div class="ob-headline">Documents &amp; skills</div>
+        <div class="ob-sub">Vetted by an admin before you can accept incidents. Documents are encrypted at rest.</div>
+        <div class="label">Required documents</div>
+        <div class="card mb-12">
+          <div class="row"><div class="row-l"><div class="t">SA ID</div><div class="s mono">UPLOADED · PENDING VETTING</div></div><span class="pill pill--attention">Pending</span></div>
+          <div class="row"><div class="row-l"><div class="t">Proof of address</div><div class="s">Required</div></div><button class="btn btn-ghost btn-sm" style="width:auto;padding:0 12px">Upload</button></div>
+          <div class="row"><div class="row-l"><div class="t">CPF affiliation letter</div><div class="s">Required</div></div><button class="btn btn-ghost btn-sm" style="width:auto;padding:0 12px">Upload</button></div>
+        </div>
+        <div class="label">Skills (informed-consent for sensitive)</div>
+        <div class="consent-row granted">
+          <div class="consent-head"><div class="consent-title">First aid</div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="consent-detail">Will dispatch you to medical incidents.</div>
+        </div>
+        <div class="consent-row granted">
+          <div class="consent-head"><div class="consent-title">Trauma counselling — basic</div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="consent-detail">May be sent to traumatic-incident scenes (children, fatalities). Acknowledge psychological exposure.</div>
+        </div>
+        <button class="btn btn-info mt-12" onclick="showP('p-ob-4')">Continue</button>
+      </section>
+
+      <!-- P: Onboarding 4 — Vehicle + Biometric -->
+      <section id="p-ob-4" data-screen>
+        <div class="ob-step-num mono">STEP 4 OF 5</div>
+        <div class="ob-stepper"><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step cur"></div><div class="ob-step"></div></div>
+        <div class="ob-headline">Vehicle &amp; identity lock</div>
+        <div class="ob-sub">Vehicle for SARS logbook auto-fill. Biometric stops anyone but you accepting an incident in your name.</div>
+        <div class="form-row"><div class="label">Vehicle reg</div><input class="field mono" value="CA 123-456" style="font-family:var(--mono)"></div>
+        <div class="form-row"><div class="label">Make / model</div><input class="field" value="Toyota Hilux 2.4"></div>
+        <div class="form-row"><div class="label">Colour</div><input class="field" value="White"></div>
+        <div class="center mt-16">
+          <div style="width:80px;height:80px;border-radius:18px;background:var(--surface-2);border:2px solid var(--info);margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:36px;color:var(--info);box-shadow:0 0 24px var(--info-glow)">⌖</div>
+          <div class="mono mt-12" style="font-size:11px;color:var(--text-muted);letter-spacing:0.04em">FACE ID · STORED ON DEVICE ONLY</div>
+        </div>
+        <button class="btn btn-info mt-16" onclick="showP('p-ob-5')">Enrol &amp; continue</button>
+      </section>
+
+      <!-- P: Onboarding 5 — Liability + Submit -->
+      <section id="p-ob-5" data-screen>
+        <div class="ob-step-num mono">STEP 5 OF 5</div>
+        <div class="ob-stepper"><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step done"></div><div class="ob-step cur"></div></div>
+        <div class="ob-headline">Submit for vetting</div>
+        <div class="ob-sub">Admin team reviews 24–48h. You'll receive SMS when activated.</div>
+        <div class="legal-block">
+          <div class="heading">⚠ Volunteer liability acknowledgement</div>
+          <p>Responding to an incident is voluntary. SafeZone provides dispatch — not insurance, indemnity, or legal cover.</p>
+          <ul>
+            <li>You decide whether to accept any incident</li>
+            <li>You assume responsibility for your own safety</li>
+            <li>SafeZone records your acceptance and on-scene actions in the audit trail</li>
+            <li>Personal injury, vehicle damage, and legal exposure remain your own</li>
+          </ul>
+        </div>
+        <div class="row"><div class="row-l"><div class="t">I have read &amp; understood</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+        <button class="btn btn-info mt-16" onclick="showP('p-dash')">Submit for vetting</button>
+      </section>
+
+      <!-- P: Dashboard -->
+      <section id="p-dash" data-screen class="active">
+        <div class="duty on" onclick="this.classList.toggle('on');this.classList.toggle('off')">
+          <div class="dty-l"><div class="dty-dot"></div><div><div class="dty-label">On Duty</div><div class="dty-sec">SECTOR WEST · 1H 42M</div></div></div>
+          <div class="duty-switch"></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="v">1:42</div><div class="l">Hours</div></div>
+          <div class="stat"><div class="v">14.3</div><div class="l">km</div></div>
+          <div class="stat"><div class="v">2</div><div class="l">Incidents</div></div>
+        </div>
+        <div class="label">Incident Inbox</div>
+        <div class="inbox-row inbox-row--panic" onclick="showP('p-incident')">
+          <div class="ir-top"><span class="pill pill--panic">Panic</span><span class="ir-age">0:12 AGO</span></div>
+          <div class="ir-title">14 Cedar Avenue</div>
+          <div class="ir-meta">SKILLS ANY · 1.2 KM · 0 ACCEPTORS</div>
+        </div>
+        <div class="inbox-row inbox-row--attention">
+          <div class="ir-top"><span class="pill pill--attention">Medical</span><span class="ir-age">3:08 AGO</span></div>
+          <div class="ir-title">Elderly fall — 8 Oak Lane</div>
+          <div class="ir-meta">SKILLS FIRST_AID · 0.8 KM · 1 ACCEPTOR</div>
+        </div>
+      </section>
+
+      <!-- P: Patrol start (opening odometer) -->
+      <section id="p-patrol-start" data-screen>
+        <div class="card card--accent mb-16">
+          <div class="card-row"><span class="pill pill--accent">Patrol Mode</span><span class="mono" style="font-size:10px;color:var(--text-muted)">SARS LOGGED</span></div>
+          <div style="font-size:13px;color:var(--text);margin-top:8px;line-height:1.5">Opening odometer captured for SARS logbook. Live trail starts when you tap below.</div>
+        </div>
+        <div class="form-row"><div class="label">Opening odometer (km)</div><input class="field mono" value="184,623" style="font-family:var(--mono);font-size:18px"></div>
+        <div class="form-row"><div class="label">Vehicle</div><input class="field mono" value="Toyota Hilux · CA 123-456" disabled></div>
+        <div class="form-row"><div class="label">Patrol notes (optional)</div><textarea class="field" placeholder="Route, time, anything noteworthy…"></textarea></div>
+        <button class="btn btn-resolved mt-16" onclick="showP('p-patrol-active')">Start patrol</button>
+        <button class="btn btn-ghost" onclick="showP('p-dash')">Cancel</button>
+      </section>
+
+      <!-- P: Patrol active -->
+      <section id="p-patrol-active" data-screen>
+        <div class="card card--resolved">
+          <div class="card-row"><span class="pill pill--resolved">Patrolling</span><span class="mono" style="font-size:10px;color:var(--text-muted)">SECTOR WEST</span></div>
+          <div class="row-flex" style="margin-top:14px"><span class="mono" style="font-size:24px;font-weight:600;color:var(--resolved)">1:42</span><span class="mono" style="font-size:24px;font-weight:600;color:var(--resolved)">14.3 km</span></div>
+        </div>
+        <div class="map" style="height:200px"><div class="map-pin map-pin--resolved"></div><div class="map-eta mono">LIVE TRAIL</div></div>
+        <div class="stats">
+          <div class="stat"><div class="v">2</div><div class="l">Incidents</div></div>
+          <div class="stat"><div class="v">14.3</div><div class="l">km</div></div>
+          <div class="stat"><div class="v">0</div><div class="l">Pending</div></div>
+        </div>
+        <button class="btn btn-emergency" onclick="showP('p-patrol-stop')">Stop patrol</button>
+        <button class="btn btn-ghost">Add note to trail</button>
+      </section>
+
+      <!-- P: Patrol stop (closing odometer) -->
+      <section id="p-patrol-stop" data-screen>
+        <div class="heading mb-12">Close patrol</div>
+        <div class="form-row"><div class="label">Closing odometer (km)</div><input class="field mono" value="184,637" style="font-family:var(--mono);font-size:18px"></div>
+        <div class="card">
+          <div class="row"><div class="row-l"><div class="t">Distance</div></div><span class="mono" style="font-size:14px;font-weight:600;color:var(--resolved)">14.0 km</span></div>
+          <div class="row"><div class="row-l"><div class="t">Duration</div></div><span class="mono" style="font-size:14px;font-weight:600">1h 47m</span></div>
+          <div class="row"><div class="row-l"><div class="t">Incidents responded</div></div><span class="mono" style="font-size:14px;font-weight:600">2</span></div>
+          <div class="row"><div class="row-l"><div class="t">SARS logbook entry</div></div><span class="pill pill--resolved">Auto-filed</span></div>
+        </div>
+        <button class="btn btn-resolved mt-16" onclick="showP('p-dash')">Confirm &amp; close</button>
+      </section>
+
+      <!-- P: Accept -->
+      <section id="p-incident" data-screen>
+        <div class="card card--panic">
+          <div class="card-row"><span class="pill pill--panic">Panic</span><span class="mono" style="font-size:11px;color:var(--text-muted)">INC-4821</span></div>
+          <div style="font-size:16px;font-weight:700;margin-top:10px;letter-spacing:-0.01em">14 Cedar Avenue</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:6px;line-height:1.6">T. Barnardt · Sector West<br><span class="mono" style="font-size:11px;letter-spacing:0">DIST 1.2 KM · ETA ~2:00</span></div>
+        </div>
+        <div class="map"><div class="map-pin"></div><div class="map-eta mono">2:00</div></div>
+        <button class="btn btn-resolved" onclick="showP('p-responding')">Accept — En Route</button>
+        <button class="btn btn-ghost" onclick="showP('p-dash')">Decline</button>
+      </section>
+
+      <!-- P: Liability ack modal (out-of-opt-in) -->
+      <section id="p-liability-ack" data-screen>
+        <div class="legal-block">
+          <div class="heading">⚠ Out-of-opt-in acceptance</div>
+          <p>This incident is <strong>medical · paediatric · trauma</strong>. You did not opt in to this skill category.</p>
+          <p style="color:var(--text-muted);font-size:11px">Accepting now records that you are responding outside your declared scope. The audit trail captures this acknowledgement and the operator will be informed.</p>
+          <ul>
+            <li>You may withdraw at any point — including on scene</li>
+            <li>The operator can dispatch a more-qualified responder in parallel</li>
+            <li>Your SARS logbook entry will note the variance</li>
+          </ul>
+        </div>
+        <div class="row"><div class="row-l"><div class="t">I acknowledge &amp; accept</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+        <button class="btn btn-emergency mt-16" onclick="showP('p-responding')">Continue acceptance</button>
+        <button class="btn btn-ghost" onclick="showP('p-dash')">Cancel — leave to others</button>
+      </section>
+
+      <!-- P: Responding -->
+      <section id="p-responding" data-screen>
+        <div class="card card--info">
+          <div class="card-row"><span class="pill pill--info">En Route</span><span class="mono" style="font-size:11px;color:var(--text-muted)">INC-4821</span></div>
+          <div style="font-size:14px;font-weight:600;margin-top:10px">14 Cedar Ave · Panic</div>
+          <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:4px">ETA 1:40 · 0.9 KM REMAINING</div>
+        </div>
+        <div class="map" style="height:200px"><div class="map-pin"></div><div class="map-eta mono">1:40</div></div>
+        <button class="btn btn-emergency">Join Voice Call</button>
+        <div class="btn-row mt-8"><button class="btn btn-ghost btn-sm">Ambulance</button><button class="btn btn-ghost btn-sm">SAPS</button></div>
+        <button class="btn btn-resolved mt-12" onclick="showP('p-onscene')">Arrived — On Scene</button>
+      </section>
+
+      <!-- P: On Scene -->
+      <section id="p-onscene" data-screen>
+        <div class="card card--info">
+          <div class="card-row"><span class="pill pill--info">On Scene</span><span class="mono" style="font-size:11px;color:var(--text-muted)">INC-4821</span></div>
+          <div style="font-size:14px;font-weight:600;margin-top:10px">14 Cedar Ave · Panic</div>
+        </div>
+        <div class="card card--attention">
+          <div class="row-flex mb-12"><div class="label" style="margin:0">Scene Triage</div><span class="mono" style="font-size:9px;color:var(--text-muted);letter-spacing:0.04em">LIVE → OPERATOR + AMB</span></div>
+          <div class="triage-grid">
+            <button class="triage yes">✓ Conscious</button><button class="triage yes">✓ Breathing</button>
+            <button class="triage no">✗ Bleeding</button><button class="triage">Trapped?</button>
+          </div>
+          <div style="display:flex;gap:6px;margin-bottom:10px">
+            <select class="field" style="flex:1;height:36px;font-size:11px"><option>1 casualty</option><option>2</option><option>3+</option></select>
+            <select class="field" style="flex:1;height:36px;font-size:11px"><option>No hazards</option><option>Fire</option><option>Weapon</option><option>Chemical</option></select>
+          </div>
+          <button class="btn btn-info btn-sm" style="width:100%">Video Relay → Operator (CPR guidance)</button>
+        </div>
+        <div class="btn-row"><button class="btn btn-ghost btn-sm">Ambulance</button><button class="btn btn-ghost btn-sm">SAPS</button></div>
+        <div class="btn-row mt-8"><button class="btn btn-ghost btn-sm">Fire</button><button class="btn btn-ghost btn-sm">Message</button></div>
+        <button class="btn btn-resolved mt-12" onclick="showP('p-dash')">Resolved — Genuine</button>
+        <button class="btn btn-ghost" onclick="showP('p-dash')">False Alarm</button>
+      </section>
+
+      <!-- P: SARS logbook -->
+      <section id="p-sars" data-screen>
+        <div class="row-flex mb-16"><div class="heading">SARS Logbook</div><select class="field" style="width:auto;padding:0 30px 0 14px;height:32px;font-size:12px"><option>2026</option><option>2025</option></select></div>
+        <div class="card">
+          <div class="row"><div class="row-l"><div class="t">Volunteer-time km YTD</div></div><span class="mono" style="font-size:18px;font-weight:600;color:var(--resolved)">1,847 km</span></div>
+          <div class="row"><div class="row-l"><div class="t">Volunteer hours YTD</div></div><span class="mono" style="font-size:18px;font-weight:600">142.3 h</span></div>
+          <div class="row"><div class="row-l"><div class="t">Patrols logged</div></div><span class="mono" style="font-size:18px;font-weight:600">87</span></div>
+          <div class="row"><div class="row-l"><div class="t">Incidents responded</div></div><span class="mono" style="font-size:18px;font-weight:600">31</span></div>
+        </div>
+        <div class="label mt-16">Recent entries</div>
+        <div class="inbox-row"><div class="ir-top"><span class="mono" style="font-size:11px">2026-04-15</span><span class="ir-age">14.0 KM · 1H 47M</span></div><div class="ir-title">Sector West patrol</div><div class="ir-meta">2 INCIDENTS · INC-4821, INC-4820</div></div>
+        <div class="inbox-row"><div class="ir-top"><span class="mono" style="font-size:11px">2026-04-13</span><span class="ir-age">9.2 KM · 1H 12M</span></div><div class="ir-title">Sector West patrol</div><div class="ir-meta">0 INCIDENTS</div></div>
+        <button class="btn btn-info mt-16">Export 2026 SARS PDF</button>
+      </section>
+
+      <!-- P: Peer chat -->
+      <section id="p-peer-chat" data-screen>
+        <div class="row-flex mb-16"><div class="heading">Sector West chat</div><span class="pill pill--info">7 ACTIVE</span></div>
+        <div class="chat-list" style="flex:1;overflow-y:auto">
+          <div class="chat-bubble system">SHIFT START · 6 PATROLLERS ON DUTY</div>
+          <div class="chat-bubble them"><strong>R. Mokoena:</strong> Heads up — silver Polo circling Cedar / Oak. Plate fragment GPV. <div class="meta mono">13:14</div></div>
+          <div class="chat-bubble them"><strong>K. Nkosi:</strong> Got eyes from Marlin Crescent. Will follow if it loops back. <div class="meta mono">13:16</div></div>
+          <div class="chat-bubble me">In the area in 5. Logging patrol via Cedar. <div class="meta mono">13:18 · READ BY 4</div></div>
+          <div class="chat-bubble system">INC-4821 · PANIC · 14 CEDAR AVE — 2 ACCEPTED</div>
+          <div class="chat-bubble them"><strong>Operator-014:</strong> Standing up sector standby. Confirm all en-route. <div class="meta mono">13:42</div></div>
+        </div>
+        <div class="chat-compose"><input class="field" placeholder="Type to sector channel…"><button class="btn btn-info" style="width:auto;padding:0 18px">Send</button></div>
+      </section>
+
+      <!-- P: Profile -->
+      <section id="p-profile" data-screen>
+        <div class="heading mb-16">Profile</div>
+        <div class="card">
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px">
+            <div class="resp-avatar" style="width:56px;height:56px;font-size:16px">JV</div>
+            <div><div style="font-size:15px;font-weight:600">J. van Wyk</div><div class="mono" style="font-size:11px;color:var(--text-muted)">CPF · BRYANSTON-W · ID-VETTED</div></div>
+          </div>
+          <div class="row"><div class="row-l"><div class="t">PSIRA / affiliation</div><div class="s mono">CPF-BRY-2024-0142</div></div></div>
+          <div class="row"><div class="row-l"><div class="t">Vehicle</div><div class="s mono">TOYOTA HILUX · CA 123-456</div></div></div>
+          <div class="row"><div class="row-l"><div class="t">Vetting status</div><div class="s mono">APPROVED · 2024-08-12</div></div><span class="pill pill--resolved">Active</span></div>
+        </div>
+        <div class="label mt-16">Skills &amp; opt-ins</div>
+        <div class="consent-row granted">
+          <div class="consent-head"><div class="consent-title">First aid</div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="consent-detail">Active — receiving medical incident dispatch</div>
+        </div>
+        <div class="consent-row granted">
+          <div class="consent-head"><div class="consent-title">Trauma response</div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="consent-detail">Active — informed consent recorded 2024-08-14</div>
+        </div>
+        <div class="consent-row">
+          <div class="consent-head"><div class="consent-title">Paediatric</div><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+          <div class="consent-detail">Off — out-of-scope, will require ack on each acceptance</div>
+        </div>
+      </section>
+
+      <!-- P: Privacy dashboard -->
+      <section id="p-privacy" data-screen>
+        <div class="heading mb-12">Privacy</div>
+        <div class="subhead mb-16">Your patrol log + acceptance audit. POPIA-compliant viewer.</div>
+        <div class="privacy-tiles">
+          <div class="privacy-tile"><div class="v mono">87</div><div class="l">Patrols logged</div></div>
+          <div class="privacy-tile"><div class="v mono">31</div><div class="l">Incidents accepted</div></div>
+          <div class="privacy-tile"><div class="v mono" style="color:var(--info)">142.3 h</div><div class="l">Volunteer time</div></div>
+          <div class="privacy-tile"><div class="v mono">12</div><div class="l">Active consents</div></div>
+        </div>
+        <div class="label">Your data rights</div>
+        <button class="btn btn-info">Export volunteer-time + patrol log</button>
+        <button class="btn btn-ghost">Manage skill consents</button>
+        <button class="btn btn-ghost">View access audit</button>
+        <div class="card card--attention mt-16">
+          <div style="font-size:12px;color:var(--attention);font-weight:600;margin-bottom:6px">Stand down permanently</div>
+          <div style="font-size:11px;color:var(--text-muted);line-height:1.5">Removes you from dispatch. Audit-trail entries retained as legal records (POPIA s.14(1)).</div>
+        </div>
+      </section>
+
+      <!-- P: Operator-mode elevation -->
+      <section id="p-elevate" data-screen>
+        <div class="card card--accent">
+          <div class="card-row"><span class="pill pill--accent">Operator privilege</span><span class="mono" style="font-size:10px;color:var(--text-muted)">YOU + 6 OTHERS</span></div>
+          <div style="font-size:13px;color:var(--text);margin-top:8px;line-height:1.5">You hold operator privilege for this sector. Mobile operator-mode provides a compact queue + critical actions when you can't reach a workstation.</div>
+        </div>
+        <div class="legal-block">
+          <div class="heading">Mode elevation banner is mandatory</div>
+          <p style="font-size:12px">Once elevated, every screen shows a persistent "OPERATOR ON MOBILE" banner. Patrollers can see when an operator is mobile-only via the chat presence indicator.</p>
+        </div>
+        <div class="form-row"><div class="label">Reason for mobile-mode</div>
+          <select class="field"><option>Off-site — covering peer absence</option><option>Backup during station outage</option><option>Shift handover gap</option><option>Other</option></select>
+        </div>
+        <button class="btn btn-accent mt-16" onclick="showOM('om-queue')">Elevate to operator-mode</button>
+        <button class="btn btn-ghost" onclick="showP('p-dash')">Stay as patroller</button>
+      </section>
+
+      <!-- P: isiZulu rendering demo -->
+      <section id="p-zu" data-screen>
+        <div class="card card--accent mb-12">
+          <div class="card-row"><span class="pill pill--accent">isiZulu</span><span class="mono" style="font-size:10px;color:var(--text-muted)">LINE-HEIGHT 1.65</span></div>
+          <div class="lang-zu" style="font-size:13px;color:var(--text-muted);margin-top:8px">Ushintsho lolimi · diacritics tested at body type scale</div>
+        </div>
+        <div class="duty on">
+          <div class="dty-l"><div class="dty-dot"></div><div><div class="dty-label lang-zu">Usebenza Manje</div><div class="dty-sec lang-zu">INDAWO ENTSHONALANGA · 1H 42M</div></div></div>
+          <div class="duty-switch"></div>
+        </div>
+        <div class="label lang-zu">Ibhokisi yokungenayo</div>
+        <div class="inbox-row inbox-row--panic">
+          <div class="ir-top"><span class="pill pill--panic" class="lang-zu">Isimo Sengozi</span><span class="ir-age">0:12</span></div>
+          <div class="ir-title lang-zu">Ngiyaxhumana — Awusekho phakathi kwengozi?</div>
+          <div class="ir-meta lang-zu">AMAKHONO · 1.2 KM · 0 ABAMUKELA</div>
+        </div>
+        <div class="card mt-16">
+          <div style="font-size:12px;color:var(--text);line-height:1.65">
+            <div class="lang-zu" style="margin-bottom:8px"><strong>Sotho:</strong> O bolokegile? Re hloka ho tseba hore na o phela hantle.</div>
+            <div class="lang-zu"><strong>Afrikaans:</strong> Is jy veilig? Ons moet weet of jy oukei is.</div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+
+  <!-- ============================================================
+       OPERATOR WEB CONSOLE
+       ============================================================ -->
+  <div class="console" id="console-operator">
+    <div class="console-bar">
+      <div class="ident"><div class="dot"></div>Operator Console<span class="station">· STATION-A · OP-014</span></div>
+      <div class="tabs">
+        <button class="tab active" onclick="showO('o-queue')">Queue</button>
+        <button class="tab" onclick="showO('o-card')">Incident</button>
+        <button class="tab" onclick="showO('o-map')">Map</button>
+        <button class="tab" onclick="showO('o-broadcast')">Broadcast</button>
+        <button class="tab" onclick="showO('o-external')">External</button>
+        <button class="tab" onclick="showO('o-handover')">Handover</button>
+      </div>
+    </div>
+    <div class="console-body">
+
+      <!-- O: Sign-in / Shift sign-up -->
+      <section id="o-signin" data-screen>
+        <div class="card" style="max-width:440px;margin:40px auto 0">
+          <div class="heading mb-16">Operator sign-in</div>
+          <div class="form-row"><div class="label">Operator ID</div><input class="field mono" value="OP-014"></div>
+          <div class="form-row"><div class="label">Password</div><input class="field" type="password" value="••••••••••"></div>
+          <div class="form-row"><div class="label">Hardware key</div><div class="card" style="margin:0;background:var(--info-ambient);border-color:rgba(92,200,255,0.3);padding:10px"><div class="card-row"><span class="mono" style="font-size:11px;color:var(--info)">⌖ YUBIKEY DETECTED</span><span class="pill pill--info">Touch to confirm</span></div></div></div>
+          <button class="btn btn-info">Sign in</button>
+        </div>
+        <div class="card mt-16" style="max-width:440px;margin-left:auto;margin-right:auto">
+          <div class="heading mb-12">Shift sign-up</div>
+          <div class="form-row"><div class="label">Shift</div>
+            <select class="field"><option>Today · 18:00 → 22:00 (Bryanston-W)</option><option>Tomorrow · 06:00 → 10:00 (Bryanston-N)</option></select>
+          </div>
+          <div class="form-row"><div class="label">Mode</div>
+            <div class="pill-row"><button class="pill-btn on">Web console</button><button class="pill-btn">Mobile-mode (backup)</button></div>
+          </div>
+          <button class="btn btn-resolved" onclick="showO('o-queue')">Confirm shift</button>
+        </div>
+      </section>
+
+      <!-- O: Queue -->
+      <section id="o-queue" data-screen class="active">
+        <div class="op-stats">
+          <div class="op-stat"><div class="v panic">3</div><div class="l">Active</div></div>
+          <div class="op-stat"><div class="v">7</div><div class="l">On duty</div></div>
+          <div class="op-stat"><div class="v resolved">12</div><div class="l">Resolved today</div></div>
+          <div class="op-stat"><div class="v">2:14</div><div class="l">Avg response</div></div>
+        </div>
+        <div class="queue-box">
+          <div class="queue-head"><div class="heading">Live Incident Queue</div><input class="field" placeholder="Search ref / address…"></div>
+          <table class="op-table">
+            <thead><tr><th>Ref</th><th>Type</th><th>Sector</th><th>Age</th><th>Acceptors</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr class="row--panic" onclick="showO('o-card')"><td class="mono-id">INC-4821</td><td><span style="font-weight:600">Panic</span></td><td>West</td><td class="age">0:45</td><td><span class="pill pill--resolved">2 accepted</span></td><td><span class="pill pill--attention">Unconfirmed</span></td></tr>
+              <tr class="row--attention"><td class="mono-id">INC-4820</td><td>Medical</td><td>West</td><td class="age">3:12</td><td><span class="pill pill--resolved">1 accepted</span></td><td><span class="pill pill--resolved">Confirmed</span></td></tr>
+              <tr class="row--info"><td class="mono-id">INC-4819</td><td>Suspicious</td><td>East</td><td class="age">8:04</td><td><span class="pill pill--info">On scene</span></td><td><span class="pill pill--resolved">Confirmed</span></td></tr>
+              <tr><td class="mono-id">INC-4818</td><td>Vehicle</td><td>North</td><td class="age">12:28</td><td><span class="pill pill--neutral">—</span></td><td><span class="pill pill--resolved">Resolved</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- O: Incident Card -->
+      <section id="o-card" data-screen>
+        <div class="card card--panic">
+          <div class="card-row" style="align-items:flex-start">
+            <div>
+              <div style="display:flex;gap:8px;align-items:center"><span class="pill pill--panic">Panic</span><span class="mono" style="font-size:11px;color:var(--text-muted)">INC-4821</span></div>
+              <div style="font-weight:700;font-size:17px;margin-top:8px;letter-spacing:-0.01em">14 Cedar Ave, Bryanston West</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">T. Barnardt · Resident since 2024 · No prior incidents</div>
+            </div>
+            <span class="pill pill--attention">Unconfirmed</span>
+          </div>
+        </div>
+        <div class="op-grid">
+          <div class="card" style="margin:0">
+            <div class="label" style="margin-bottom:12px">Responders</div>
+            <div class="resp" style="margin-bottom:8px"><div class="resp-avatar">JV</div><div class="resp-info"><div class="name">J. van Wyk</div><div class="meta">CPF · ETA 2:00 · 1.2 KM</div></div></div>
+            <div class="resp"><div class="resp-avatar">RM</div><div class="resp-info"><div class="name">R. Mokoena</div><div class="meta">PSIRA B · ARMED · ETA 5:00</div></div></div>
+          </div>
+          <div class="card" style="margin:0">
+            <div class="label" style="margin-bottom:12px">Actions</div>
+            <button class="btn btn-emergency btn-sm mb-8" style="width:100%">Confirm Call</button>
+            <button class="btn btn-ghost btn-sm mb-8" style="width:100%" onclick="showO('o-external')">Dispatch Ambulance</button>
+            <button class="btn btn-ghost btn-sm mb-8" style="width:100%" onclick="showO('o-external')">Dispatch SAPS</button>
+            <button class="btn btn-ghost btn-sm" style="width:100%">Dispatch Fire</button>
+          </div>
+        </div>
+        <div class="audit-trail">
+          <div class="heading">Audit Trail</div>
+          <div class="audit-row"><span class="ts">13:42:31</span><span class="msg"><strong>Incident created</strong> · panic</span><span class="actor">AUTO</span></div>
+          <div class="audit-row"><span class="ts">13:42:32</span><span class="msg"><strong>Fan-out</strong> · 5 patrollers, 2 armed-response</span><span class="actor">DISPATCH</span></div>
+          <div class="audit-row"><span class="ts">13:42:38</span><span class="msg"><strong>Accepted</strong> · J. van Wyk (CPF)</span><span class="actor">PATROLLER</span></div>
+          <div class="audit-row"><span class="ts">13:42:44</span><span class="msg"><strong>Accepted</strong> · R. Mokoena (PSIRA B)</span><span class="actor">PATROLLER</span></div>
+          <div class="audit-row"><span class="ts">13:42:50</span><span class="msg"><strong>Queued</strong> for operator confirmation</span><span class="actor">SYSTEM</span></div>
+        </div>
+      </section>
+
+      <!-- O: Live Map -->
+      <section id="o-map" data-screen>
+        <div class="card-row mb-12">
+          <div class="heading">Live Operations Map</div>
+          <div class="pill-row" style="gap:6px"><button class="pill-btn on">Active</button><button class="pill-btn">Patrols</button><button class="pill-btn">Heat-map</button></div>
+        </div>
+        <div class="map map--admin" style="height:340px">
+          <div class="sector-poly sector-poly--a"></div>
+          <div class="sector-label" style="top:18%;left:14%">SECTOR W · 23 ACTIVE</div>
+          <div class="sector-poly sector-poly--b"></div>
+          <div class="sector-label" style="top:46%;left:50%">SECTOR E · 18 ACTIVE</div>
+          <div class="map-pin" style="top:34%;left:30%"></div>
+          <div class="map-pin map-pin--info" style="top:52%;left:60%"></div>
+          <div class="map-pin map-pin--resolved" style="top:70%;left:25%"></div>
+          <div class="map-pin map-pin--attention" style="top:25%;left:70%"></div>
+          <div class="map-eta mono">3 ACTIVE · 7 PATROLS</div>
+        </div>
+        <div class="op-grid">
+          <div class="card" style="margin:0"><div class="label">Pin legend</div>
+            <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t" style="font-size:12px"><span class="map-pin" style="position:relative;top:auto;left:auto;transform:none;display:inline-block;margin-right:8px;width:10px;height:10px"></span>Active panic</div></div><span class="mono" style="font-size:11px">1</span></div>
+            <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t" style="font-size:12px"><span class="map-pin map-pin--info" style="position:relative;top:auto;left:auto;transform:none;display:inline-block;margin-right:8px;width:10px;height:10px"></span>On scene</div></div><span class="mono" style="font-size:11px">1</span></div>
+            <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t" style="font-size:12px"><span class="map-pin map-pin--attention" style="position:relative;top:auto;left:auto;transform:none;display:inline-block;margin-right:8px;width:10px;height:10px"></span>Attention</div></div><span class="mono" style="font-size:11px">1</span></div>
+          </div>
+          <div class="card" style="margin:0"><div class="label">Sector selectors</div>
+            <div class="pill-row"><button class="pill-btn on">Bryanston-W</button><button class="pill-btn">Bryanston-E</button><button class="pill-btn">Bryanston-N</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- O: Broadcast -->
+      <section id="o-broadcast" data-screen>
+        <div class="card" style="margin-bottom:0">
+          <div class="heading mb-16">Broadcast Composer</div>
+          <div class="form-row"><div class="label">Target</div><select class="field"><option>Sector: Bryanston West</option><option>All Bryanston sectors</option><option>Patrollers only</option><option>System-wide</option></select></div>
+          <div class="form-row"><div class="label">Severity</div>
+            <div class="pill-row"><button class="pill-btn on">Info</button><button class="pill-btn">Advisory</button><button class="pill-btn on--panic">Urgent</button></div>
+          </div>
+          <div class="form-row"><div class="label">Message</div><textarea class="field">Residents: increased suspicious vehicle activity along Cedar Ave. Be vigilant and report unfamiliar vehicles. Do not approach.</textarea></div>
+          <div class="form-row"><div class="label">Audit reason</div><input class="field" value="Multiple reports — INC-4818, INC-4819"></div>
+          <div class="form-foot"><span class="meta">847 RESIDENTS · 23 PATROLLERS</span><button class="btn btn-emergency btn-sm" onclick="showO('o-queue')">Send Broadcast</button></div>
+        </div>
+      </section>
+
+      <!-- O: External-service tracker -->
+      <section id="o-external" data-screen>
+        <div class="heading mb-12">External-service tracker</div>
+        <div class="subhead mb-16">SAPS, ambulance, fire, armed response. Pending vs ETA, with handover checklists.</div>
+        <div class="op-stats" style="grid-template-columns:repeat(3,1fr)">
+          <div class="op-stat"><div class="v panic mono">2</div><div class="l">Pending</div></div>
+          <div class="op-stat"><div class="v mono">3</div><div class="l">En route</div></div>
+          <div class="op-stat"><div class="v resolved mono">8</div><div class="l">Closed today</div></div>
+        </div>
+        <div class="card card--panic">
+          <div class="card-row"><span class="pill pill--panic">Pending</span><span class="mono" style="font-size:11px;color:var(--text-muted)">SAPS · INC-4821 · 0:45</span></div>
+          <div style="font-size:13px;font-weight:600;margin-top:8px">SAPS dial — 14 Cedar Ave</div>
+          <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:4px">DIAL ATTEMPT 1/3 · OPERATOR-014</div>
+          <div class="btn-row mt-12"><button class="btn btn-emergency btn-sm">Retry dial</button><button class="btn btn-ghost btn-sm">Escalate to commander</button></div>
+        </div>
+        <div class="card card--info">
+          <div class="card-row"><span class="pill pill--info">En route</span><span class="mono" style="font-size:11px;color:var(--text-muted)">AMBULANCE · INC-4820 · ETA 6:00</span></div>
+          <div style="font-size:13px;font-weight:600;margin-top:8px">Netcare 911 — 8 Oak Lane</div>
+          <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:4px">CALL REF NC-9821-114 · CONFIRMED 13:39</div>
+          <div class="label mt-12" style="margin:12px 0 6px">Handover checklist</div>
+          <div class="row" style="border:none;padding:4px 0"><div class="row-l"><div class="t" style="font-size:12px">Patient state shared</div></div><span class="pill pill--resolved">Done</span></div>
+          <div class="row" style="border:none;padding:4px 0"><div class="row-l"><div class="t" style="font-size:12px">Access route confirmed</div></div><span class="pill pill--resolved">Done</span></div>
+          <div class="row" style="border:none;padding:4px 0"><div class="row-l"><div class="t" style="font-size:12px">On-scene contact named</div></div><span class="pill pill--attention">Pending</span></div>
+        </div>
+      </section>
+
+      <!-- O: Shift handover -->
+      <section id="o-handover" data-screen>
+        <div class="heading mb-12">Shift handover</div>
+        <div class="subhead mb-16">Outgoing OP-014 → Incoming OP-021. Sign-off requires acknowledged read.</div>
+        <div class="card card--info">
+          <div class="card-row"><span class="pill pill--info">Active hand-off</span><span class="mono" style="font-size:11px;color:var(--text-muted)">22:00 SHIFT END</span></div>
+          <div class="form-row mt-12"><div class="label">Active incidents to brief on</div>
+            <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t mono" style="font-size:12px">INC-4821</div><div class="s">Panic, on scene, awaiting SAPS dial confirmation</div></div><span class="pill pill--attention">Brief</span></div>
+            <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t mono" style="font-size:12px">INC-4820</div><div class="s">Medical, ambulance ETA 6m</div></div><span class="pill pill--info">Brief</span></div>
+          </div>
+          <div class="form-row"><div class="label">Sector advisories sent today</div>
+            <div class="card" style="background:var(--surface);margin:0">
+              <div class="audit-row"><span class="ts">19:14</span><span class="msg"><strong>Cedar Ave</strong> · suspicious vehicle</span><span class="actor">SENT</span></div>
+              <div class="audit-row"><span class="ts">21:32</span><span class="msg"><strong>Oak Lane</strong> · medical follow-up</span><span class="actor">SENT</span></div>
+            </div>
+          </div>
+          <div class="form-row"><div class="label">Notes for incoming operator</div><textarea class="field">Patrollers JV + RM still on scene at INC-4821. RM armed. SAPS commander cell active for escalation. SARS Cedar logbook export queued — incoming op please verify when running.</textarea></div>
+          <button class="btn btn-resolved">Sign off &amp; transfer</button>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+
+  <div class="frame-label">▼ MOBILE OPERATOR-MODE · ADMIN PORTAL</div>
+
+  <!-- ============================================================
+       OPERATOR MOBILE-MODE FRAME
+       ============================================================ -->
+  <div class="phone" id="phone-opmobile">
+    <div class="status-bar">
+      <div class="app-id"><span class="glyph">◈</span> Patrol</div>
+      <div class="meta">J.VAN WYK · OP-MODE</div>
+    </div>
+    <div class="mode-banner">⚠ OPERATOR ON MOBILE · WEB CONSOLE PREFERRED IF AVAILABLE</div>
+    <div class="phone-body">
+
+      <section id="om-queue" data-screen class="active">
+        <div class="op-stats" style="grid-template-columns:repeat(2,1fr);margin-bottom:12px">
+          <div class="op-stat"><div class="v panic mono" style="font-size:24px">3</div><div class="l">Active</div></div>
+          <div class="op-stat"><div class="v mono" style="font-size:24px">7</div><div class="l">On duty</div></div>
+        </div>
+        <div class="label">Critical queue</div>
+        <div class="inbox-row inbox-row--panic" onclick="showOM('om-card')">
+          <div class="ir-top"><span class="pill pill--panic">Panic</span><span class="ir-age">0:45</span></div>
+          <div class="ir-title">INC-4821 · 14 Cedar Ave</div>
+          <div class="ir-meta">2 ACCEPTED · UNCONFIRMED</div>
+        </div>
+        <div class="inbox-row inbox-row--attention">
+          <div class="ir-top"><span class="pill pill--attention">Medical</span><span class="ir-age">3:12</span></div>
+          <div class="ir-title">INC-4820 · 8 Oak Lane</div>
+          <div class="ir-meta">AMB ETA 6M · CONFIRMED</div>
+        </div>
+        <div class="inbox-row inbox-row--info">
+          <div class="ir-top"><span class="pill pill--info">Suspicious</span><span class="ir-age">8:04</span></div>
+          <div class="ir-title">INC-4819 · East sector</div>
+          <div class="ir-meta">ON SCENE</div>
+        </div>
+        <button class="btn btn-accent mt-12" onclick="showOM('om-broadcast')">Send broadcast</button>
+        <button class="btn btn-ghost" onclick="showP('p-dash')">Stand down to patroller</button>
+      </section>
+
+      <section id="om-card" data-screen>
+        <div class="card card--panic">
+          <div class="card-row"><span class="pill pill--panic">Panic</span><span class="mono" style="font-size:11px;color:var(--text-muted)">INC-4821</span></div>
+          <div style="font-size:15px;font-weight:700;margin-top:8px">14 Cedar Ave</div>
+          <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:4px">2 ACCEPTORS · 0:45 AGO</div>
+        </div>
+        <div class="label">Critical actions</div>
+        <button class="btn btn-emergency">Confirm call</button>
+        <div class="btn-row mt-8"><button class="btn btn-info btn-sm">Ambulance</button><button class="btn btn-info btn-sm">SAPS</button></div>
+        <div class="btn-row mt-8"><button class="btn btn-attention btn-sm">Reassign</button><button class="btn btn-resolved btn-sm">Stand down</button></div>
+        <button class="btn btn-accent mt-12" onclick="showOM('om-broadcast')">Sector broadcast</button>
+        <button class="btn btn-ghost" onclick="showOM('om-queue')">← Queue</button>
+      </section>
+
+      <section id="om-broadcast" data-screen>
+        <div class="card card--accent mb-12">
+          <span class="pill pill--accent">Mobile broadcast</span>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.5">Reduced form: target, severity, message. Audit-reason captured automatically as "operator-mobile triage".</div>
+        </div>
+        <div class="form-row"><div class="label">Target</div><select class="field"><option>Sector: Bryanston West</option><option>Patrollers only</option></select></div>
+        <div class="form-row"><div class="label">Severity</div><div class="pill-row"><button class="pill-btn on">Info</button><button class="pill-btn on--panic">Urgent</button></div></div>
+        <div class="form-row"><div class="label">Message</div><textarea class="field" placeholder="Type quickly — 240 char limit"></textarea></div>
+        <button class="btn btn-emergency" onclick="showOM('om-queue')">Send</button>
+        <button class="btn btn-ghost" onclick="showOM('om-queue')">Cancel</button>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- ============================================================
+       ADMIN PORTAL
+       ============================================================ -->
+  <div class="console console--admin" id="console-admin">
+    <div class="console-bar">
+      <div class="ident"><div class="dot" style="background:var(--accent);box-shadow:0 0 8px rgba(167,139,250,0.6)"></div>Admin Portal<span class="station">· ADMIN-002 · CTO</span></div>
+      <div class="tabs"><button class="tab">Help</button><button class="tab">Sign out</button></div>
+    </div>
+    <div class="console-body">
+      <div class="admin-cols">
+
+        <!-- Side nav -->
+        <div class="admin-side">
+          <div class="label">Manage</div>
+          <div class="nav-item active" onclick="showA('a-people')">People directory</div>
+          <div class="nav-item" onclick="showA('a-vetting')">Vetting queue</div>
+          <div class="nav-item" onclick="showA('a-sectors')">Sectors</div>
+          <div class="nav-item" onclick="showA('a-skills')">Skill taxonomy</div>
+          <div class="label mt-16">Audit &amp; data</div>
+          <div class="nav-item" onclick="showA('a-audit')">Audit log</div>
+          <div class="nav-item" onclick="showA('a-export')">Export workshop</div>
+          <div class="nav-item" onclick="showA('a-popia')">POPIA panel</div>
+          <div class="label mt-16">System</div>
+          <div class="nav-item" onclick="showA('a-config')">Configuration</div>
+        </div>
+
+        <!-- Main -->
+        <div style="min-width:0">
+
+          <!-- A: People directory -->
+          <section id="a-people" data-screen class="active">
+            <div class="card-row mb-12"><div class="heading">People directory</div><div style="display:flex;gap:8px"><input class="field" placeholder="Search name / phone…" style="width:240px;height:32px;font-size:12px"><button class="btn btn-ghost btn-sm" style="width:auto">+ Add</button></div></div>
+            <div class="pill-row mb-12"><button class="pill-btn on">All</button><button class="pill-btn">Residents</button><button class="pill-btn">Patrollers</button><button class="pill-btn">Operators</button><button class="pill-btn">Admin</button></div>
+            <div class="card card--attention mb-12" style="margin:0">
+              <div style="font-size:11px;color:var(--attention)">⚠ Viewing personal records is audited. Each profile open creates an audit entry visible to the data subject.</div>
+            </div>
+            <div class="queue-box">
+              <table class="op-table">
+                <thead><tr><th>Name</th><th>Role</th><th>Sector</th><th>Status</th><th>Joined</th><th>Last active</th></tr></thead>
+                <tbody>
+                  <tr><td>T. Barnardt</td><td>Resident</td><td>West</td><td><span class="pill pill--resolved">Active</span></td><td class="mono-id">2024-08-12</td><td class="age">12m</td></tr>
+                  <tr><td>J. van Wyk</td><td>Patroller · CPF</td><td>West</td><td><span class="pill pill--resolved">On duty</span></td><td class="mono-id">2024-08-12</td><td class="age">2m</td></tr>
+                  <tr><td>R. Mokoena</td><td>Patroller · PSIRA-B</td><td>West</td><td><span class="pill pill--resolved">On duty</span></td><td class="mono-id">2024-09-04</td><td class="age">5m</td></tr>
+                  <tr><td>K. Nkosi</td><td>Patroller · CPF</td><td>West</td><td><span class="pill pill--info">Off duty</span></td><td class="mono-id">2024-11-18</td><td class="age">8h</td></tr>
+                  <tr><td>L. Singh</td><td>Operator</td><td>—</td><td><span class="pill pill--info">Off shift</span></td><td class="mono-id">2024-06-02</td><td class="age">2d</td></tr>
+                  <tr><td>M. Khoza</td><td>Resident</td><td>West</td><td><span class="pill pill--neutral">Inactive</span></td><td class="mono-id">2025-02-14</td><td class="age">14d</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- A: Vetting -->
+          <section id="a-vetting" data-screen>
+            <div class="card-row mb-16"><div class="heading">Vetting queue</div><span class="pill pill--attention">4 PENDING REVIEW</span></div>
+            <div class="card card--attention">
+              <div class="card-row" style="align-items:flex-start">
+                <div>
+                  <div style="display:flex;gap:8px;align-items:center"><span class="pill pill--attention">Pending</span><span class="mono" style="font-size:11px;color:var(--text-muted)">VET-2026-0142</span></div>
+                  <div style="font-weight:700;font-size:15px;margin-top:8px">P. Williams · Patroller · PSIRA-A (armed)</div>
+                  <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Bryanston-N · Submitted 2026-04-14 · 2 days in queue</div>
+                </div>
+                <span class="pill pill--accent">High-risk role</span>
+              </div>
+              <div class="op-grid mt-12">
+                <div class="card" style="margin:0"><div class="label">Documents</div>
+                  <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t" style="font-size:12px">SA ID</div></div><span class="pill pill--resolved">Verified</span></div>
+                  <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t" style="font-size:12px">PSIRA-A certificate</div></div><span class="pill pill--resolved">Verified</span></div>
+                  <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t" style="font-size:12px">Firearm licence</div></div><span class="pill pill--attention">Manual check</span></div>
+                  <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t" style="font-size:12px">SAPS clearance</div></div><span class="pill pill--info">Pending callback</span></div>
+                </div>
+                <div class="card" style="margin:0"><div class="label">Decision</div>
+                  <button class="btn btn-resolved btn-sm" style="width:100%;margin-bottom:8px">Approve · activate dispatch</button>
+                  <button class="btn btn-attention btn-sm" style="width:100%;margin-bottom:8px">Approve · skills-restricted</button>
+                  <button class="btn btn-emergency btn-sm" style="width:100%;margin-bottom:8px">Reject — fail file</button>
+                  <button class="btn btn-ghost btn-sm" style="width:100%">Request more info</button>
+                </div>
+              </div>
+              <div class="form-row mt-12"><div class="label">Decision rationale (audit-recorded)</div><textarea class="field" placeholder="Required — visible in audit trail and to applicant"></textarea></div>
+            </div>
+          </section>
+
+          <!-- A: Sectors -->
+          <section id="a-sectors" data-screen>
+            <div class="card-row mb-12"><div class="heading">Sector management</div><button class="btn btn-accent btn-sm" style="width:auto">+ New sector</button></div>
+            <div class="map map--admin" style="height:320px">
+              <div class="sector-poly sector-poly--a"></div><div class="sector-label" style="top:18%;left:14%">BRYANSTON-W · 23 P · 847 R</div>
+              <div class="sector-poly sector-poly--b"></div><div class="sector-label" style="top:46%;left:50%">BRYANSTON-E · 18 P · 612 R</div>
+              <div class="sector-poly" style="top:5%;left:55%;width:30%;height:30%"></div><div class="sector-label" style="top:5%;left:57%">BRYANSTON-N · 15 P · 503 R</div>
+              <div class="map-eta mono">DRAW MODE · CLICK TO PLACE VERTICES</div>
+            </div>
+            <div class="op-grid">
+              <div class="card" style="margin:0"><div class="label">Selected sector — Bryanston-W</div>
+                <div class="row"><div class="row-l"><div class="t">Patrollers</div></div><span class="mono" style="font-size:14px;font-weight:600">23</span></div>
+                <div class="row"><div class="row-l"><div class="t">Residents</div></div><span class="mono" style="font-size:14px;font-weight:600">847</span></div>
+                <div class="row"><div class="row-l"><div class="t">Avg response</div></div><span class="mono" style="font-size:14px;font-weight:600;color:var(--resolved)">2:14</span></div>
+                <div class="row"><div class="row-l"><div class="t">SLA target</div></div><span class="mono" style="font-size:14px;font-weight:600">4:00</span></div>
+              </div>
+              <div class="card" style="margin:0"><div class="label">Roster</div>
+                <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t" style="font-size:12px">Operator coverage</div></div><span class="pill pill--resolved">24/7</span></div>
+                <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t" style="font-size:12px">Armed-response coverage</div></div><span class="pill pill--attention">Gap 02-04</span></div>
+                <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t" style="font-size:12px">First-aid coverage</div></div><span class="pill pill--resolved">24/7</span></div>
+                <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px">Edit roster</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- A: Skills taxonomy -->
+          <section id="a-skills" data-screen>
+            <div class="card-row mb-12"><div class="heading">Skill taxonomy</div><button class="btn btn-accent btn-sm" style="width:auto">+ Add skill</button></div>
+            <div class="subhead mb-16">Skills determine which incidents a patroller is dispatched to. Sensitive skills require informed consent at acceptance.</div>
+            <div class="queue-box">
+              <table class="op-table">
+                <thead><tr><th>Skill</th><th>Sensitive</th><th>Patrollers</th><th>Avg use / mo</th><th>Active</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>first_aid</strong></td><td>—</td><td class="mono-id">87</td><td class="mono-id">142</td><td><span class="pill pill--resolved">Active</span></td></tr>
+                  <tr><td><strong>armed_response</strong></td><td><span class="pill pill--panic">Yes</span></td><td class="mono-id">14</td><td class="mono-id">38</td><td><span class="pill pill--resolved">Active</span></td></tr>
+                  <tr><td><strong>trauma_response</strong></td><td><span class="pill pill--attention">Yes</span></td><td class="mono-id">22</td><td class="mono-id">12</td><td><span class="pill pill--resolved">Active</span></td></tr>
+                  <tr><td><strong>paediatric</strong></td><td><span class="pill pill--attention">Yes</span></td><td class="mono-id">3</td><td class="mono-id">2</td><td><span class="pill pill--attention">Limited</span></td></tr>
+                  <tr><td><strong>fire_response</strong></td><td>—</td><td class="mono-id">12</td><td class="mono-id">8</td><td><span class="pill pill--resolved">Active</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- A: Audit log -->
+          <section id="a-audit" data-screen>
+            <div class="card-row mb-12"><div class="heading">Audit log</div><div style="display:flex;gap:8px"><select class="field" style="height:32px;font-size:12px;width:auto"><option>All actors</option><option>Operator</option><option>Patroller</option><option>Admin</option><option>System</option></select><input class="field" placeholder="Search…" style="width:200px;height:32px;font-size:12px"><button class="btn btn-info btn-sm" style="width:auto">Export CSV</button></div></div>
+            <div class="card card--info mb-16" style="margin:0">
+              <div style="font-size:11px;color:var(--info)">POPIA s.14(1) — audit log retention is 7 years. Records are append-only and signed.</div>
+            </div>
+            <div class="card" style="margin:0">
+              <div class="audit-row"><span class="ts mono">13:45:02</span><span class="msg"><strong>Profile viewed</strong> · T. Barnardt by ADMIN-002</span><span class="actor">ADMIN</span></div>
+              <div class="audit-row"><span class="ts mono">13:42:50</span><span class="msg"><strong>INC-4821 created</strong> · panic dispatch</span><span class="actor">SYSTEM</span></div>
+              <div class="audit-row"><span class="ts mono">13:42:38</span><span class="msg"><strong>Acceptance</strong> · J. van Wyk on INC-4821</span><span class="actor">PATROLLER</span></div>
+              <div class="audit-row"><span class="ts mono">13:30:14</span><span class="msg"><strong>Broadcast sent</strong> · sector advisory · 847 + 23</span><span class="actor">OPERATOR-014</span></div>
+              <div class="audit-row"><span class="ts mono">13:14:00</span><span class="msg"><strong>Vetting decision</strong> · approved P. Williams</span><span class="actor">ADMIN-002</span></div>
+              <div class="audit-row"><span class="ts mono">12:58:21</span><span class="msg"><strong>Consent revoked</strong> · medical_notes by T. Barnardt</span><span class="actor">RESIDENT</span></div>
+              <div class="audit-row"><span class="ts mono">12:30:08</span><span class="msg"><strong>DSAR raised</strong> · data subject K. Nkosi</span><span class="actor">RESIDENT</span></div>
+              <div class="audit-row"><span class="ts mono">11:42:00</span><span class="msg"><strong>Sector polygon edited</strong> · Bryanston-W boundary</span><span class="actor">ADMIN-002</span></div>
+            </div>
+          </section>
+
+          <!-- A: Export workshop -->
+          <section id="a-export" data-screen>
+            <div class="heading mb-12">Export workshop</div>
+            <div class="subhead mb-16">Generate snapshots for SARS, audits, breach notifications, or research. Every export creates an audit record.</div>
+            <div class="op-grid">
+              <div class="card" style="margin:0"><div class="label">SARS volunteer-time</div>
+                <div style="font-size:13px;color:var(--text);margin-bottom:8px">Per-patroller km + hours, year-aggregated. PDF or CSV.</div>
+                <div class="form-row"><div class="label">Year</div><select class="field"><option>2026</option><option>2025</option></select></div>
+                <div class="form-row"><div class="label">Format</div><div class="pill-row"><button class="pill-btn on">PDF</button><button class="pill-btn">CSV</button></div></div>
+                <button class="btn btn-info btn-sm" style="width:100%">Generate</button>
+              </div>
+              <div class="card" style="margin:0"><div class="label">Incident report</div>
+                <div style="font-size:13px;color:var(--text);margin-bottom:8px">Per-incident detail with audit trail. Used for SAPS docket support.</div>
+                <div class="form-row"><div class="label">Incident</div><input class="field mono" placeholder="INC-4821"></div>
+                <button class="btn btn-info btn-sm" style="width:100%">Generate</button>
+              </div>
+              <div class="card" style="margin:0"><div class="label">Audit snapshot</div>
+                <div style="font-size:13px;color:var(--text);margin-bottom:8px">Signed audit-log range for compliance review.</div>
+                <div class="form-row"><div class="label">From → to</div><div style="display:flex;gap:6px"><input class="field mono" value="2026-01-01" style="height:36px"><input class="field mono" value="2026-04-16" style="height:36px"></div></div>
+                <button class="btn btn-info btn-sm" style="width:100%">Generate signed PDF</button>
+              </div>
+              <div class="card" style="margin:0"><div class="label">Anonymised research dataset</div>
+                <div style="font-size:13px;color:var(--text);margin-bottom:8px">k-anonymised incident + response data. Requires dual-admin approval.</div>
+                <button class="btn btn-attention btn-sm" style="width:100%">Request approval</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- A: POPIA panel -->
+          <section id="a-popia" data-screen>
+            <div class="card-row mb-12"><div class="heading">POPIA operator panel</div><span class="pill pill--accent">Information Officer access</span></div>
+            <div class="subhead mb-16">DSARs, deletion requests, breach workflow. Statutory deadlines tracked and surfaced.</div>
+            <div class="op-stats">
+              <div class="op-stat"><div class="v mono attention">2</div><div class="l">DSAR open</div></div>
+              <div class="op-stat"><div class="v mono">1</div><div class="l">Deletion pending</div></div>
+              <div class="op-stat"><div class="v mono panic">0</div><div class="l">Active breach</div></div>
+              <div class="op-stat"><div class="v mono resolved">14</div><div class="l">DSARs · 90d</div></div>
+            </div>
+            <div class="card card--attention">
+              <div class="card-row"><span class="pill pill--attention">DSAR · day 18 of 30</span><span class="mono" style="font-size:11px;color:var(--text-muted)">DSAR-2026-0042</span></div>
+              <div style="font-size:14px;font-weight:600;margin-top:8px">K. Nkosi — full data access request</div>
+              <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:4px">RECEIVED 2026-03-29 · DUE 2026-04-28 · POPIA s.23</div>
+              <div class="btn-row mt-12"><button class="btn btn-info btn-sm">Generate response pack</button><button class="btn btn-ghost btn-sm">Request 30d extension</button></div>
+            </div>
+            <div class="card">
+              <div class="card-row"><span class="pill pill--info">Deletion · pending closure</span><span class="mono" style="font-size:11px;color:var(--text-muted)">DEL-2026-0009</span></div>
+              <div style="font-size:14px;font-weight:600;margin-top:8px">M. Khoza — account deletion</div>
+              <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:4px">REQUESTED 2026-04-12 · 1 ACTIVE INCIDENT MUST CLOSE FIRST</div>
+              <button class="btn btn-info btn-sm mt-12" style="width:auto;padding:0 18px">View blocking incidents</button>
+            </div>
+            <div class="card card--accent mt-12">
+              <div class="card-row"><span class="pill pill--accent">Breach workflow</span><span class="mono" style="font-size:11px;color:var(--text-muted)">DRAFT · INFO-OFFICER ONLY</span></div>
+              <div style="font-size:13px;color:var(--text);margin-top:8px;line-height:1.5">Standby workflow for s.22 notification. Requires breach severity, affected count, and Information Regulator + data-subject notification within statutory window.</div>
+              <button class="btn btn-emergency btn-sm mt-12" style="width:auto;padding:0 18px">Open breach workflow</button>
+            </div>
+          </section>
+
+          <!-- A: System config -->
+          <section id="a-config" data-screen>
+            <div class="heading mb-16">System configuration</div>
+            <div class="op-grid">
+              <div class="card" style="margin:0"><div class="label">Feature flags</div>
+                <div class="row"><div class="row-l"><div class="t">Mobile operator-mode</div><div class="s">Compact queue + critical actions for off-station operators</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+                <div class="row"><div class="row-l"><div class="t">Voice conference</div><div class="s">Multi-party voice on active incidents</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+                <div class="row"><div class="row-l"><div class="t">CCTV ingest (beta)</div><div class="s">Sector cameras attach to incident timeline</div></div><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+                <div class="row"><div class="row-l"><div class="t">Hardware panic key</div><div class="s">Lock + Vol-Up × 5 = SOS</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+              </div>
+              <div class="card" style="margin:0"><div class="label">SLA</div>
+                <div class="row"><div class="row-l"><div class="t">Panic acknowledgement</div></div><span class="mono" style="font-size:14px;font-weight:600">≤ 0:30</span></div>
+                <div class="row"><div class="row-l"><div class="t">First responder accept</div></div><span class="mono" style="font-size:14px;font-weight:600">≤ 1:30</span></div>
+                <div class="row"><div class="row-l"><div class="t">On scene</div></div><span class="mono" style="font-size:14px;font-weight:600">≤ 4:00</span></div>
+                <div class="row"><div class="row-l"><div class="t">Operator confirm call</div></div><span class="mono" style="font-size:14px;font-weight:600">≤ 2:00</span></div>
+              </div>
+              <div class="card" style="margin:0"><div class="label">Notification templates</div>
+                <div class="row" style="padding:8px 0"><div class="row-l"><div class="t" style="font-size:12px">Panic dispatched</div><div class="s mono" style="font-size:10px">SMS · ES + ZU + AF</div></div><span class="mono" style="font-size:10px;color:var(--info)">EDIT</span></div>
+                <div class="row" style="padding:8px 0"><div class="row-l"><div class="t" style="font-size:12px">Sector advisory</div><div class="s mono" style="font-size:10px">PUSH + SMS · ES + ZU + AF</div></div><span class="mono" style="font-size:10px;color:var(--info)">EDIT</span></div>
+                <div class="row" style="padding:8px 0"><div class="row-l"><div class="t" style="font-size:12px">DSAR acknowledgement</div><div class="s mono" style="font-size:10px">EMAIL · ES only</div></div><span class="mono" style="font-size:10px;color:var(--info)">EDIT</span></div>
+              </div>
+              <div class="card" style="margin:0"><div class="label">External-service endpoints</div>
+                <div class="row"><div class="row-l"><div class="t">SAPS commander cell</div><div class="s mono">+27 11 555 SAPS</div></div><span class="pill pill--resolved">OK</span></div>
+                <div class="row"><div class="row-l"><div class="t">Netcare 911 dispatch</div><div class="s mono">CALLBACK · 2.4S AVG</div></div><span class="pill pill--resolved">OK</span></div>
+                <div class="row"><div class="row-l"><div class="t">JMPD fire</div><div class="s mono">VOICE ONLY</div></div><span class="pill pill--attention">Manual</span></div>
+              </div>
+              <div class="card" style="margin:0"><div class="label">Monitoring</div>
+                <div class="row"><div class="row-l"><div class="t">Dispatch latency P95</div></div><span class="mono" style="font-size:14px;font-weight:600;color:var(--resolved)">340ms</span></div>
+                <div class="row"><div class="row-l"><div class="t">SMS deliverability 24h</div></div><span class="mono" style="font-size:14px;font-weight:600;color:var(--resolved)">99.7%</span></div>
+                <div class="row"><div class="row-l"><div class="t">Voice conference uptime</div></div><span class="mono" style="font-size:14px;font-weight:600;color:var(--resolved)">99.94%</span></div>
+              </div>
+              <div class="card" style="margin:0"><div class="label">Danger zone</div>
+                <button class="btn btn-attention btn-sm" style="width:100%;margin-bottom:8px">Maintenance mode</button>
+                <button class="btn btn-emergency btn-sm" style="width:100%">Hard rotate signing keys</button>
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================================================
+     BOTTOM SCREEN NAV
+     ============================================================ -->
+<nav class="screen-nav">
+  <span class="nav-group-label">Resident</span>
+  <button onclick="showR('r-splash')" data-nav="r-splash">Splash</button>
+  <button onclick="showR('r-ob-1')" data-nav="r-ob-1">OB·1</button>
+  <button onclick="showR('r-ob-2')" data-nav="r-ob-2">OB·2</button>
+  <button onclick="showR('r-ob-3')" data-nav="r-ob-3">OB·3</button>
+  <button onclick="showR('r-ob-4')" data-nav="r-ob-4">OB·4</button>
+  <button onclick="showR('r-ob-5')" data-nav="r-ob-5">OB·5</button>
+  <button onclick="showR('r-ob-6')" data-nav="r-ob-6">OB·6 (POPIA)</button>
+  <button onclick="showR('r-ob-7')" data-nav="r-ob-7">OB·7</button>
+  <button onclick="showR('r-ob-8')" data-nav="r-ob-8">OB·8</button>
+  <button onclick="showR('r-home')" data-nav="r-home" class="active-nav">Home</button>
+  <button onclick="showR('r-countdown')" data-nav="r-countdown">Panic</button>
+  <button onclick="showR('r-active')" data-nav="r-active">Active</button>
+  <button onclick="showR('r-silent')" data-nav="r-silent">Silent</button>
+  <button onclick="showR('r-timer')" data-nav="r-timer">Timer</button>
+  <button onclick="showR('r-timer-active')" data-nav="r-timer-active">Timer Live</button>
+  <button onclick="showR('r-resolved')" data-nav="r-resolved">Resolved</button>
+  <button onclick="showR('r-history')" data-nav="r-history">History</button>
+  <button onclick="showR('r-messages')" data-nav="r-messages">Messages</button>
+  <button onclick="showR('r-profile')" data-nav="r-profile">Profile</button>
+  <button onclick="showR('r-privacy')" data-nav="r-privacy">Privacy</button>
+  <button onclick="showR('r-settings')" data-nav="r-settings">Settings</button>
+  <button onclick="showR('r-help')" data-nav="r-help">Help</button>
+  <button onclick="showR('r-a11y')" data-nav="r-a11y">A11y</button>
+
+  <span class="sep"></span>
+  <span class="nav-group-label">Patrol</span>
+  <button onclick="showP('p-ob-1')" data-nav="p-ob-1">OB·1</button>
+  <button onclick="showP('p-ob-2')" data-nav="p-ob-2">OB·Role</button>
+  <button onclick="showP('p-ob-3')" data-nav="p-ob-3">OB·Docs</button>
+  <button onclick="showP('p-ob-4')" data-nav="p-ob-4">OB·Vehicle</button>
+  <button onclick="showP('p-ob-5')" data-nav="p-ob-5">OB·Liability</button>
+  <button onclick="showP('p-dash')" data-nav="p-dash">Dash</button>
+  <button onclick="showP('p-patrol-start')" data-nav="p-patrol-start">Patrol Start</button>
+  <button onclick="showP('p-patrol-active')" data-nav="p-patrol-active">Patrol Live</button>
+  <button onclick="showP('p-patrol-stop')" data-nav="p-patrol-stop">Patrol Stop</button>
+  <button onclick="showP('p-incident')" data-nav="p-incident">Accept</button>
+  <button onclick="showP('p-liability-ack')" data-nav="p-liability-ack">Liability</button>
+  <button onclick="showP('p-responding')" data-nav="p-responding">En Route</button>
+  <button onclick="showP('p-onscene')" data-nav="p-onscene">On Scene</button>
+  <button onclick="showP('p-sars')" data-nav="p-sars">SARS</button>
+  <button onclick="showP('p-peer-chat')" data-nav="p-peer-chat">Peer Chat</button>
+  <button onclick="showP('p-profile')" data-nav="p-profile">Profile</button>
+  <button onclick="showP('p-privacy')" data-nav="p-privacy">Privacy</button>
+  <button onclick="showP('p-elevate')" data-nav="p-elevate">Elevate</button>
+  <button onclick="showP('p-zu')" data-nav="p-zu">isiZulu</button>
+
+  <span class="sep"></span>
+  <span class="nav-group-label">Operator</span>
+  <button onclick="showO('o-signin')" data-nav="o-signin">Sign-in</button>
+  <button onclick="showO('o-queue')" data-nav="o-queue">Queue</button>
+  <button onclick="showO('o-card')" data-nav="o-card">Incident</button>
+  <button onclick="showO('o-map')" data-nav="o-map">Map</button>
+  <button onclick="showO('o-broadcast')" data-nav="o-broadcast">Broadcast</button>
+  <button onclick="showO('o-external')" data-nav="o-external">External</button>
+  <button onclick="showO('o-handover')" data-nav="o-handover">Handover</button>
+
+  <span class="sep"></span>
+  <span class="nav-group-label">Op·Mobile</span>
+  <button onclick="showOM('om-queue')" data-nav="om-queue">Queue</button>
+  <button onclick="showOM('om-card')" data-nav="om-card">Incident</button>
+  <button onclick="showOM('om-broadcast')" data-nav="om-broadcast">Broadcast</button>
+
+  <span class="sep"></span>
+  <span class="nav-group-label">Admin</span>
+  <button onclick="showA('a-people')" data-nav="a-people">People</button>
+  <button onclick="showA('a-vetting')" data-nav="a-vetting">Vetting</button>
+  <button onclick="showA('a-sectors')" data-nav="a-sectors">Sectors</button>
+  <button onclick="showA('a-skills')" data-nav="a-skills">Skills</button>
+  <button onclick="showA('a-audit')" data-nav="a-audit">Audit</button>
+  <button onclick="showA('a-export')" data-nav="a-export">Export</button>
+  <button onclick="showA('a-popia')" data-nav="a-popia">POPIA</button>
+  <button onclick="showA('a-config')" data-nav="a-config">Config</button>
+</nav>
+
+<script>
+const $r = () => document.getElementById('phone-resident');
+const $p = () => document.getElementById('phone-patrol');
+const $om = () => document.getElementById('phone-opmobile');
+
+// Frame mood — sets the phone's ambient glow based on screen
+const RESIDENT_MOOD = {
+  'r-splash':'phone--attention',
+  'r-home':'',
+  'r-countdown':'phone--panic',
+  'r-active':'phone--panic',
+  'r-silent':'phone--panic',
+  'r-timer':'',
+  'r-timer-active':'phone--info',
+  'r-resolved':'phone--resolved'
+};
+const PATROL_MOOD = {
+  'p-dash':'',
+  'p-patrol-start':'',
+  'p-patrol-active':'phone--resolved',
+  'p-incident':'phone--panic',
+  'p-liability-ack':'phone--attention',
+  'p-responding':'phone--info',
+  'p-onscene':'phone--info'
+};
+const OPMOBILE_MOOD = {
+  'om-queue':'phone--attention',
+  'om-card':'phone--panic',
+  'om-broadcast':''
+};
+
+function setMood(el, classes){
+  el.classList.remove('phone--panic','phone--info','phone--attention','phone--resolved');
+  if(classes) el.classList.add(...classes.split(' '));
+}
+
+function showR(id){
+  document.querySelectorAll('#phone-resident [data-screen]').forEach(s=>s.classList.remove('active'));
+  const e = document.getElementById(id);
+  if(e) e.classList.add('active');
+  setMood($r(), RESIDENT_MOOD[id] || '');
+  if(id==='r-countdown') runCountdown();
+  updateNav(id);
+}
+function showP(id){
+  document.querySelectorAll('#phone-patrol [data-screen]').forEach(s=>s.classList.remove('active'));
+  const e = document.getElementById(id);
+  if(e) e.classList.add('active');
+  setMood($p(), PATROL_MOOD[id] || '');
+  updateNav(id);
+}
+function showOM(id){
+  document.querySelectorAll('#phone-opmobile [data-screen]').forEach(s=>s.classList.remove('active'));
+  const e = document.getElementById(id);
+  if(e) e.classList.add('active');
+  setMood($om(), OPMOBILE_MOOD[id] || '');
+  updateNav(id);
+}
+function showO(id){
+  document.querySelectorAll('#console-operator [data-screen]').forEach(s=>s.classList.remove('active'));
+  const e = document.getElementById(id);
+  if(e) e.classList.add('active');
+  document.querySelectorAll('#console-operator .tab').forEach(t=>t.classList.remove('active'));
+  const map = {'o-signin':-1,'o-queue':0,'o-card':1,'o-map':2,'o-broadcast':3,'o-external':4,'o-handover':5};
+  const tabs = document.querySelectorAll('#console-operator .tab');
+  if(tabs[map[id]]) tabs[map[id]].classList.add('active');
+  updateNav(id);
+}
+function showA(id){
+  document.querySelectorAll('#console-admin [data-screen]').forEach(s=>s.classList.remove('active'));
+  const e = document.getElementById(id);
+  if(e) e.classList.add('active');
+  document.querySelectorAll('#console-admin .nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('#console-admin .nav-item').forEach(n=>{
+    if(n.getAttribute('onclick') && n.getAttribute('onclick').includes(id)) n.classList.add('active');
+  });
+  updateNav(id);
+}
+function updateNav(id){
+  document.querySelectorAll('.screen-nav button').forEach(b=>b.classList.toggle('active-nav', b.getAttribute('data-nav')===id));
+}
+function runCountdown(){
+  let n=5;
+  const el=document.getElementById('cd-num');
+  const tx=document.getElementById('cd-text');
+  if(!el) return;
+  el.textContent=n; tx.textContent=n;
+  const iv=setInterval(()=>{
+    n--;
+    if(n<=0){clearInterval(iv); showR('r-active');}
+    else{el.textContent=n; tx.textContent=n;}
+  },1000);
+}
+</script>
+</body>
+</html>

@@ -57,6 +57,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 ### Push_to_head (Priority: 10)
 
+_Add element(s) to head of list_
+
 **Given:**
 - LPUSH command issued
 - elements: one or more values to push
@@ -68,6 +70,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 **Result:** list created if absent; elements added; client receives new length
 
 ### Push_to_tail (Priority: 11)
+
+_Add element(s) to tail of list_
 
 **Given:**
 - RPUSH command issued
@@ -81,6 +85,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 ### Push_conditional (Priority: 12)
 
+_Add elements only if list exists_
+
 **Given:**
 - `command` (input) in `LPUSHX,RPUSHX`
 
@@ -91,6 +97,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 **Result:** elements added if list present; returns 0 if key absent
 
 ### Pop_from_head (Priority: 20)
+
+_Remove and return element(s) from head_
 
 **Given:**
 - LPOP command issued
@@ -103,6 +111,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 **Result:** client receives single element or array of count elements (or nil if empty)
 
 ### Pop_from_tail (Priority: 21)
+
+_Remove and return element(s) from tail_
 
 **Given:**
 - RPOP command issued
@@ -125,6 +135,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 **Result:** client receives nil
 
 ### Blocking_pop (Priority: 23)
+
+_Wait for element(s) to become available_
 
 **Given:**
 - `command` (input) in `BLPOP,BRPOP,BLMOVE,BLMPOP`
@@ -151,6 +163,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 ### Get_range (Priority: 30)
 
+_Retrieve elements by index range_
+
 **Given:**
 - LRANGE key start stop
 - start: zero-based index (negative counts from tail)
@@ -163,6 +177,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 ### Get_index (Priority: 31)
 
+_Retrieve single element by index_
+
 **Given:**
 - LINDEX key index
 - index: zero-based position (negative counts from tail)
@@ -174,6 +190,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 ### Get_length (Priority: 32)
 
+_Get list length_
+
 **Given:**
 - LLEN key
 
@@ -183,6 +201,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 **Result:** number of elements (0 if key absent)
 
 ### Set_index (Priority: 40)
+
+_Overwrite element at index_
 
 **Given:**
 - LSET key index element
@@ -202,6 +222,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 **Result:** error returned; list unchanged
 
 ### Insert_element (Priority: 42)
+
+_Insert element before/after pivot_
 
 **Given:**
 - LINSERT key BEFORE|AFTER pivot element
@@ -226,6 +248,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 ### Trim_range (Priority: 44)
 
+_Keep only elements in range, remove rest_
+
 **Given:**
 - LTRIM key start stop
 - start: first index to keep
@@ -239,6 +263,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 ### Remove_elements (Priority: 45)
 
+_Remove matching elements_
+
 **Given:**
 - LREM key count element
 - count: positive=remove from head, negative=from tail, 0=all occurrences
@@ -251,6 +277,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 ### Find_position (Priority: 46)
 
+_Find position(s) of element with options_
+
 **Given:**
 - LPOS key element [RANK rank] [COUNT count] [MAXLEN len]
 
@@ -260,6 +288,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 **Result:** single position or array of positions (or nil if not found)
 
 ### Move_between_lists (Priority: 50)
+
+_Atomically pop from source and push to destination_
 
 **Given:**
 - LMOVE source destination LEFT|RIGHT LEFT|RIGHT
@@ -284,6 +314,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 ### Blocking_move (Priority: 52)
 
+_Block until source has data, then move_
+
 **Given:**
 - `command` (input) eq `BLMOVE`
 - `source_empty` (db) eq `true`
@@ -297,6 +329,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 
 ### Mpop_from_multiple_keys (Priority: 60)
 
+_Pop from first non-empty list among multiple_
+
 **Given:**
 - LMPOP numkeys key [key ...] LEFT|RIGHT [COUNT count]
 - first_non_empty: first key in list with available data
@@ -308,6 +342,8 @@ description: "Ordered collection with efficient head/tail insertion, removal, an
 **Result:** nested array [key, [elements...]] or nil if all empty
 
 ### Blocking_mpop (Priority: 61)
+
+_Block until any of multiple lists has data_
 
 **Given:**
 - `command` (input) eq `BLMPOP`

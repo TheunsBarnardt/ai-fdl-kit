@@ -2,10 +2,10 @@
 
 # Blueprint Index
 
-Fast lookup for all **406** blueprints across **21** categories.
+Fast lookup for all **415** blueprints across **23** categories.
 Each entry links to the human-friendly summary (`.md`) and the underlying spec (`.blueprint.yaml`).
 
-**Jump to a category:** [Access](#access) (18) · [Ai](#ai) (6) · [Asset](#asset) (20) · [Auth](#auth) (37) · [Communication](#communication) (16) · [Crm](#crm) (5) · [Data](#data) (59) · [Infrastructure](#infrastructure) (13) · [Integration](#integration) (56) · [Inventory](#inventory) (6) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (18) · [Observability](#observability) (5) · [Payment](#payment) (21) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Trading](#trading) (20) · [Ui](#ui) (25) · [Workflow](#workflow) (64)
+**Jump to a category:** [Access](#access) (18) · [Admin](#admin) (2) · [Ai](#ai) (6) · [Asset](#asset) (20) · [Auth](#auth) (38) · [Communication](#communication) (16) · [Crm](#crm) (5) · [Data](#data) (59) · [Infrastructure](#infrastructure) (13) · [Integration](#integration) (57) · [Inventory](#inventory) (6) · [Manufacturing](#manufacturing) (4) · [Notification](#notification) (18) · [Observability](#observability) (5) · [Payment](#payment) (24) · [Procurement](#procurement) (1) · [Project](#project) (1) · [Quality](#quality) (3) · [Security](#security) (8) · [Testing](#testing) (2) · [Trading](#trading) (20) · [Ui](#ui) (25) · [Workflow](#workflow) (64)
 
 ---
 
@@ -31,6 +31,13 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**user-consent-management**](./access/user-consent-management.md) | OAuth/OIDC consent tracking and enforcement | 1.0.0 | [yaml](./access/user-consent-management.blueprint.yaml) |
 | [**user-deactivation-archiving**](./access/user-deactivation-archiving.md) | Controlled suspension and permanent deletion of user accounts, preserving message history and audit trails on soft-deactivation while supporting hard deletion for GDPR right-to-erasure requests. | 1.0.0 | [yaml](./access/user-deactivation-archiving.blueprint.yaml) |
 | [**user-groups-organizations**](./access/user-groups-organizations.md) | Hierarchical groups with role inheritance | 1.0.0 | [yaml](./access/user-groups-organizations.blueprint.yaml) |
+
+## Admin
+
+| Feature | Description | Version | Spec |
+|---------|-------------|---------|------|
+| [**transactions-console**](./admin/transactions-console.md) | Admin web UI — live transaction explorer with drill-down, refund/dispute initiation, reconciliation state, and CSV/JSON export; every admin action is audited <sub>_aka_ admin-transactions, transactions-explorer, ops-console</sub> | 1.0.0 | [yaml](./admin/transactions-console.blueprint.yaml) |
+| [**vendor-management**](./admin/vendor-management.md) | Admin vendor registry — acquirers, SMS/email/KYC/fraud-signal providers; credential rotation, per-merchant overrides, health + cost visibility, full audit trail <sub>_aka_ vendor-registry, providers, integration-registry</sub> | 1.0.0 | [yaml](./admin/vendor-management.blueprint.yaml) |
 
 ## Ai
 
@@ -75,6 +82,7 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**api-key-management**](./auth/api-key-management.md) | Create, rotate, revoke, and scope API keys for programmatic access | 1.0.0 | [yaml](./auth/api-key-management.blueprint.yaml) |
 | [**biometric-auth**](./auth/biometric-auth.md) | Palm vein biometric authentication — alternative to password login with enrollment of up to 2 palms per user | 1.0.0 | [yaml](./auth/biometric-auth.blueprint.yaml) |
 | [**cross-signing-verification**](./auth/cross-signing-verification.md) | Three-key trust hierarchy for verifying devices and users. Master key signs self-signing and user-signing keys. All uploads are cryptographically validated before storage. | 1.0.0 | [yaml](./auth/cross-signing-verification.blueprint.yaml) |
+| [**device-attestation**](./auth/device-attestation.md) | TPM-backed device identity and per-call signed attestation — terminals prove their identity to the Payments Gateway on every request; rejected devices cannot transact <sub>_aka_ attestation, device-identity, device-certs</sub> | 1.0.0 | [yaml](./auth/device-attestation.blueprint.yaml) |
 | [**device-management**](./auth/device-management.md) | Track all client sessions as named devices per user account. List, rename, and delete devices with cascading cleanup. Auto-purge devices inactive beyond retention period. | 1.0.0 | [yaml](./auth/device-management.blueprint.yaml) |
 | [**disappearing-messages**](./auth/disappearing-messages.md) | Per-conversation timer that automatically deletes messages on all participant devices after a configurable duration, with the server assisting by propagating timer changes | 1.0.0 | [yaml](./auth/disappearing-messages.blueprint.yaml) |
 | [**e2e-key-exchange**](./auth/e2e-key-exchange.md) | Manages cryptographic key material for end-to-end encrypted messaging. Handles device key publication, one-time pre-key upload/claiming, and cross-server key queries. | 1.0.0 | [yaml](./auth/e2e-key-exchange.blueprint.yaml) |
@@ -265,6 +273,7 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**outgoing-webhooks**](./integration/outgoing-webhooks.md) | Trigger HTTP callbacks to external URLs when configured events occur in channels, enabling real-time integration with external systems | 1.0.0 | [yaml](./integration/outgoing-webhooks.blueprint.yaml) |
 | [**palm-vein**](./integration/palm-vein.md) | USB palm vein scanner integration using SDPVUnifiedAPI — capture, ROI detection, enrollment, 1:N identification, and cache pool management | 2.0.0 | [yaml](./integration/palm-vein.blueprint.yaml) |
 | [**payment-gateway**](./integration/payment-gateway.md) | Process payments through a provider-agnostic gateway abstraction supporting authorization, capture, void, refund, and webhook-driven status updates | 1.0.0 | [yaml](./integration/payment-gateway.blueprint.yaml) |
+| [**payments-gateway-api**](./integration/payments-gateway-api.md) | Central HTTP surface for all payment operations — thin-client terminals and admin consoles call this; PGW owns rail selection, EMV, fraud, refunds, disputes <sub>_aka_ pgw, payments-gateway, payment-gateway-api, v1-payments</sub> | 1.0.0 | [yaml](./integration/payments-gateway-api.blueprint.yaml) |
 | [**payshap-rail**](./integration/payshap-rail.md) | Real-time payment rail integration for instant credit push payments with proxy resolution, settlement confirmation, and retry handling | 1.0.0 | [yaml](./integration/payshap-rail.blueprint.yaml) |
 | [**plugin-development**](./integration/plugin-development.md) | Create and register plugins to extend CSS framework with custom utilities, variants, and theme values | 1.0.0 | [yaml](./integration/plugin-development.blueprint.yaml) |
 | [**plugin-overrides**](./integration/plugin-overrides.md) | Extensible plugin architecture with 12 UI override points, wrapping composition, field type customization, and sidebar panels | 1.0.0 | [yaml](./integration/plugin-overrides.blueprint.yaml) |
@@ -342,6 +351,7 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | Feature | Description | Version | Spec |
 |---------|-------------|---------|------|
 | [**cart-checkout**](./payment/cart-checkout.md) | Shopping cart and checkout flow with stock reservation, guest cart merge, multi-step checkout, tax, promo codes, and order placement. | 1.0.0 | [yaml](./payment/cart-checkout.blueprint.yaml) |
+| [**cloud-emv-kernel**](./payment/cloud-emv-kernel.md) | Server-side EMV L2 kernel — processes SPoC-forwarded card data from thin-client terminals; handles chip/tap/stripe authorization, tokenisation, PIN verification <sub>_aka_ emv-kernel, cloud-emv, card-kernel</sub> | 1.0.0 | [yaml](./payment/cloud-emv-kernel.blueprint.yaml) |
 | [**currency-conversion**](./payment/currency-conversion.md) | Convert amounts between currencies using live or cached exchange rates | 1.0.0 | [yaml](./payment/currency-conversion.blueprint.yaml) |
 | [**dispute-management**](./payment/dispute-management.md) | Payment dispute and chargeback lifecycle — initiation, evidence collection, investigation, and resolution for PayShap and card transactions | 1.0.0 | [yaml](./payment/dispute-management.blueprint.yaml) |
 | [**driver-earnings-payouts**](./payment/driver-earnings-payouts.md) | Track driver earnings per trip, manage payout schedules, and process driver compensation | 1.0.0 | [yaml](./payment/driver-earnings-payouts.blueprint.yaml) |
@@ -354,6 +364,7 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**payment-processing**](./payment/payment-processing.md) | Process incoming, outgoing, and internal transfer payments with multi-currency support, reference allocation, and automatic reconciliation | 1.0.0 | [yaml](./payment/payment-processing.blueprint.yaml) |
 | [**pos-core**](./payment/pos-core.md) | Point-of-sale system managing sales sessions, product orders, payment processing, cash register operations, receipt generation, and accounting integration. | 1.0.0 | [yaml](./payment/pos-core.blueprint.yaml) |
 | [**pricing-rules-promotions**](./payment/pricing-rules-promotions.md) | Define and apply pricing rules, discount schemes, and promotional offers with priority-based conflict resolution, cumulative tracking, and free item support | 1.0.0 | [yaml](./payment/pricing-rules-promotions.blueprint.yaml) |
+| [**rail-registry**](./payment/rail-registry.md) | Pluggable RailAdapter registry — admin API to add/swap rails, routing policy engine that selects a rail per payment by amount/region/merchant <sub>_aka_ rails, rail-adapter-registry, payment-rails</sub> | 1.0.0 | [yaml](./payment/rail-registry.blueprint.yaml) |
 | [**refunds-returns**](./payment/refunds-returns.md) | Refund processing and return merchandise management with reason codes, approval workflow, partial/full refunds, and restocking. | 1.0.0 | [yaml](./payment/refunds-returns.blueprint.yaml) |
 | [**sales-purchase-invoicing**](./payment/sales-purchase-invoicing.md) | Create, submit, and manage sales and purchase invoices with double-entry accounting, tax calculation, returns, and credit limit enforcement | 1.0.0 | [yaml](./payment/sales-purchase-invoicing.blueprint.yaml) |
 | [**shipping-calculation**](./payment/shipping-calculation.md) | Shipping rate calculation with zone-based pricing, dimensional weight, free shipping thresholds, carrier quotes, and delivery estimation. | 1.0.0 | [yaml](./payment/shipping-calculation.blueprint.yaml) |
@@ -361,6 +372,7 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**terminal-enrollment**](./payment/terminal-enrollment.md) | At-terminal palm vein enrollment — walk-up registration with OTP verification and payment proxy linking | 1.0.0 | [yaml](./payment/terminal-enrollment.blueprint.yaml) |
 | [**terminal-offline-queue**](./payment/terminal-offline-queue.md) | Offline transaction queuing for payment terminals — risk-limited queuing with automatic flush on reconnect | 1.0.0 | [yaml](./payment/terminal-offline-queue.blueprint.yaml) |
 | [**terminal-payment-flow**](./payment/terminal-payment-flow.md) | Payment terminal transaction orchestration — amount entry, method selection (palm or card), payment execution, and digital receipt delivery | 1.0.0 | [yaml](./payment/terminal-payment-flow.blueprint.yaml) |
+| [**terminal-thin-client**](./payment/terminal-thin-client.md) | Android thin-client payment terminal — base UI + palm-vein capture with on-device 1:N match + card reader SPoC passthrough + PGW API client; no rail SDKs or EMV kernel on-device <sub>_aka_ thin-terminal, palm-terminal, pgw-client-terminal</sub> | 1.0.0 | [yaml](./payment/terminal-thin-client.blueprint.yaml) |
 | [**trip-billing-invoicing**](./payment/trip-billing-invoicing.md) | Calculate and manage trip-based billing, service rates, and invoice generation for completed deliveries | 1.0.0 | [yaml](./payment/trip-billing-invoicing.blueprint.yaml) |
 
 ## Procurement
@@ -395,6 +407,13 @@ Each entry links to the human-friendly summary (`.md`) and the underlying spec (
 | [**prompt-obfuscation-pipeline**](./security/prompt-obfuscation-pipeline.md) | Chain converters to transform a prompt into an obfuscated form designed to bypass AI safety filters — supports encoding, character substitution, language translation, and 40+ transforms. | 1.0.0 | [yaml](./security/prompt-obfuscation-pipeline.blueprint.yaml) |
 | [**redteam-conversation-memory**](./security/redteam-conversation-memory.md) | Persist all red-team prompts, model responses, scores, and attack metadata to a queryable store — enables session replay, cross-run analysis, and compliance reporting. | 1.0.0 | [yaml](./security/redteam-conversation-memory.blueprint.yaml) |
 | [**security-scan-report**](./security/security-scan-report.md) | Generate, persist, and export a structured AI vulnerability scan report with per-probe pass rates, confidence intervals, attempt-level detail, and AVID-compatible export. | 1.0.0 | [yaml](./security/security-scan-report.blueprint.yaml) |
+
+## Testing
+
+| Feature | Description | Version | Spec |
+|---------|-------------|---------|------|
+| [**sandbox-environment**](./testing/sandbox-environment.md) | Parallel PGW environment with full data isolation — merchants/terminals can be flipped to sandbox for demos and integration testing without moving real money; provisioned per merchant at enrolment <sub>_aka_ sandbox, pgw-sandbox, test-environment</sub> | 1.0.0 | [yaml](./testing/sandbox-environment.blueprint.yaml) |
+| [**sandbox-rail-adapter**](./testing/sandbox-rail-adapter.md) | Contract-compatible mock RailAdapter — scripted success/decline/timeout/rate-limit scenarios, realistic latency profiles, webhook callbacks that mirror real rails (pacs.002, PaymentStatusReport); d... <sub>_aka_ mock-rail, sandbox-rail, test-rail-adapter</sub> | 1.0.0 | [yaml](./testing/sandbox-rail-adapter.blueprint.yaml) |
 
 ## Trading
 

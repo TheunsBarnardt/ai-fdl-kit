@@ -74,6 +74,8 @@ description: "Broker deal management upload to central back-office - deal alloca
 
 ### Manual_deal_allocation_upload (Priority: 1) — Error: `DEAL_UPLOAD_INVALID_EXTERNAL_ACCOUNT`
 
+_Broker manually submits deal allocations via FTP_
+
 **Given:**
 - `submission_mode` (input) eq `manual_ftp`
 
@@ -83,6 +85,8 @@ description: "Broker deal management upload to central back-office - deal alloca
 
 ### Automated_deal_allocation_upload (Priority: 2) — Error: `DEAL_UPLOAD_INVALID_TRADE_DATE`
 
+_Automated deal allocation upload via FTP_
+
 **Given:**
 - `submission_mode` (input) eq `automated_ftp`
 
@@ -91,6 +95,8 @@ description: "Broker deal management upload to central back-office - deal alloca
 - **emit_event** event: `deal_upload.automated.received`
 
 ### Same_day_allocation_upload (Priority: 3)
+
+_Same-day allocation upload with intraday processing_
 
 **Given:**
 - `allocation_type` (input) eq `same_day`
@@ -102,6 +108,8 @@ description: "Broker deal management upload to central back-office - deal alloca
 
 ### Deals_upload (Priority: 4) — Error: `DEAL_UPLOAD_INSTRUMENT_NOT_FOUND`
 
+_Automated deals upload_
+
 **Given:**
 - `upload_type` (input) eq `deals`
 
@@ -110,6 +118,8 @@ description: "Broker deal management upload to central back-office - deal alloca
 - **emit_event** event: `deal_upload.deals.received`
 
 ### External_account_mapping (Priority: 5)
+
+_Map external account code to internal client account_
 
 **Given:**
 - `external_account_code` (input) exists

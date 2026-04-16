@@ -105,6 +105,8 @@ description: "Client account data upload from broker firms to central back-offic
 
 ### Automated_upload_submission (Priority: 1)
 
+_Broker submits upload file via FTP automated process_
+
 **Given:**
 - `email_configured` (db) eq `true`
 - `file_format` (input) eq `fixed_width_card_code`
@@ -114,6 +116,8 @@ description: "Client account data upload from broker firms to central back-offic
 - **emit_event** event: `client_upload.submitted`
 
 ### Validate_mandatory_fields (Priority: 2)
+
+_Validate Card Code 031 mandatory fields_
 
 **Given:**
 - `card_code` (input) eq `031`
@@ -133,6 +137,8 @@ description: "Client account data upload from broker firms to central back-offic
 
 ### Fatca_validation_check (Priority: 4) — Error: `CLIENT_UPLOAD_FATCA_VALIDATION_FAILED`
 
+_Validate FATCA classification on Card Code 038_
+
 **Given:**
 - `card_code` (input) eq `038`
 - `us_person_indicator` (input) eq `Y`
@@ -143,6 +149,8 @@ description: "Client account data upload from broker firms to central back-offic
 
 ### Generate_response_dataset (Priority: 5)
 
+_Generate response dataset with per-record status_
+
 **Given:**
 - upload file processing complete
 
@@ -152,6 +160,8 @@ description: "Client account data upload from broker firms to central back-offic
 - **emit_event** event: `client_upload.response.delivered`
 
 ### Archive_upload (Priority: 6)
+
+_Archive processed upload file_
 
 **Given:**
 - `processing_status` (system) eq `completed`

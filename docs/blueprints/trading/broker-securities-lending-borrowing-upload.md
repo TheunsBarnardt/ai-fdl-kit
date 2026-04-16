@@ -75,6 +75,8 @@ description: "Broker securities lending and borrowing (SLB) upload to central ba
 
 ### Automated_loan_upload (Priority: 1) — Error: `SLB_UPLOAD_INVALID_LOAN_REF`
 
+_Broker submits loan upload records (Layout 025)_
+
 **Given:**
 - `card_code` (input) eq `025`
 - `email_configured` (db) eq `true`
@@ -85,6 +87,8 @@ description: "Broker securities lending and borrowing (SLB) upload to central ba
 
 ### Automated_collateral_upload (Priority: 2) — Error: `SLB_UPLOAD_COLLATERAL_NOT_LINKED`
 
+_Broker submits collateral upload records (Layout 026)_
+
 **Given:**
 - `card_code` (input) eq `026`
 
@@ -93,6 +97,8 @@ description: "Broker securities lending and borrowing (SLB) upload to central ba
 - **emit_event** event: `slb_upload.collateral.received`
 
 ### Loan_confirmation_return (Priority: 3)
+
+_Broker submits loan confirmation or return (Layout 027)_
 
 **Given:**
 - `card_code` (input) eq `027`
@@ -103,6 +109,8 @@ description: "Broker securities lending and borrowing (SLB) upload to central ba
 
 ### Collateral_confirmation_return (Priority: 4)
 
+_Broker submits collateral confirmation or return (Layout 028)_
+
 **Given:**
 - `card_code` (input) eq `028`
 
@@ -112,6 +120,8 @@ description: "Broker securities lending and borrowing (SLB) upload to central ba
 
 ### Validate_collateral_link (Priority: 5)
 
+_Validate collateral record is linked to existing loan_
+
 **Given:**
 - `card_code` (input) eq `026`
 - `collateral_linked_loan_exists` (computed) eq `false`
@@ -120,6 +130,8 @@ description: "Broker securities lending and borrowing (SLB) upload to central ba
 - **emit_event** event: `slb_upload.collateral.unlinked`
 
 ### Generate_response_dataset (Priority: 6)
+
+_Generate SLB upload response dataset_
 
 **Given:**
 - upload processing complete

@@ -408,6 +408,10 @@ function renderOutcomesProse(outcomes) {
     }
     if (!sentence.endsWith('.')) sentence += '.';
 
+    if (outcome.description) {
+      sentence += ` _Why: ${oneLine(outcome.description).replace(/\.$/, '')}._`;
+    }
+
     if (outcome.error) {
       sentence += ` *(error: \`${outcome.error}\`)*`;
       failure.push(`- ${sentence}`);

@@ -62,6 +62,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 ### Sentinel_monitor_master (Priority: 10)
 
+_Start monitoring master_
+
 **Given:**
 - `sentinel_config` (input) exists
 
@@ -71,6 +73,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 **Result:** Sentinel begins periodic health checks (PING, INFO)
 
 ### Sentinel_health_check (Priority: 11)
+
+_Ping master; no response = SDOWN_
 
 **Given:**
 - `ping_no_response` (system) exists
@@ -82,6 +86,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 **Result:** this Sentinel marks master subjectively down
 
 ### Sentinel_quorum_agreement (Priority: 12)
+
+_Other Sentinels agree master is down_
 
 **Given:**
 - `other_sentinels_agree` (system) gte `quorum-1`
@@ -95,6 +101,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 ### Sentinel_leader_election (Priority: 13)
 
+_Sentinel elected as failover leader_
+
 **Given:**
 - `odown` (db) eq `true`
 - `leader_elected` (system) eq `this_sentinel`
@@ -107,6 +115,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 ### Sentinel_replica_selection (Priority: 14)
 
+_Choose best replica to promote_
+
 **Given:**
 - `replica_candidates` (db) exists
 - `selection_criteria` (system) exists
@@ -118,6 +128,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 ### Sentinel_promotion (Priority: 15)
 
+_Promote replica to master_
+
 **Given:**
 - SLAVEOF NO ONE sent to replica
 
@@ -127,6 +139,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 **Result:** replica stops replication, becomes master
 
 ### Sentinel_reconfigure_replicas (Priority: 16)
+
+_Reconfigure other replicas_
 
 **Given:**
 - `new_master` (system) exists
@@ -151,6 +165,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 ### Cluster_node_join (Priority: 30)
 
+_Node joins cluster_
+
 **Given:**
 - CLUSTER MEET ip port
 - `cluster_mode_enabled` (system) eq `true`
@@ -161,6 +177,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 **Result:** node added to cluster; gossip begins
 
 ### Cluster_slot_assignment (Priority: 31) — Error: `CLUSTER_CROSSSLOT`
+
+_Assign slots to nodes_
 
 **Given:**
 - CLUSTER ADDSLOTS slot [slot ...]
@@ -173,6 +191,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 **Result:** slots now served by this node
 
 ### Cluster_key_routing (Priority: 32)
+
+_Client request routed to correct slot owner_
 
 **Given:**
 - `key` (input) exists
@@ -187,6 +207,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 ### Cluster_moved_redirect (Priority: 33)
 
+_Permanent redirection (slot reassigned)_
+
 **Given:**
 - `slot_owner_changed` (system) eq `true`
 
@@ -196,6 +218,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 **Result:** client receives MOVED node_ip:node_port; should update slot map
 
 ### Cluster_ask_redirect (Priority: 34)
+
+_Temporary redirection (slot being migrated)_
 
 **Given:**
 - `slot_importing` (db) eq `true`
@@ -208,6 +232,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 ### Cluster_slot_migration (Priority: 35) — Error: `CLUSTER_SLOT_UNOWNED`
 
+_Move slots between nodes_
+
 **Given:**
 - CLUSTER SETSLOT slot MIGRATING target_node_id
 - target node: CLUSTER SETSLOT slot IMPORTING source_node_id
@@ -219,6 +245,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 ### Cluster_multi_key_restriction (Priority: 36) — Error: `CLUSTER_CROSSSLOT`
 
+_Multi-key operation on different slots_
+
 **Given:**
 - `command_touches_multiple_slots` (computed) eq `true`
 
@@ -228,6 +256,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 **Result:** error returned; operation not allowed (use MGET, MSET on keys with same slot)
 
 ### Cluster_state_ok (Priority: 40)
+
+_All slots covered and reachable_
 
 **Given:**
 - `all_slots_assigned` (db) eq `true`
@@ -241,6 +271,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 ### Cluster_state_fail (Priority: 41)
 
+_Some slots unreachable_
+
 **Given:**
 - `unreachable_slots` (system) gt `0`
 
@@ -252,6 +284,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 
 ### Cluster_gossip_update (Priority: 42)
 
+_Periodic gossip between nodes_
+
 **Given:**
 - cluster tick (internal periodic task)
 
@@ -261,6 +295,8 @@ description: "Sentinel: automatic failover and monitoring; Cluster: distributed 
 **Result:** nodes exchange health/slot info; topology discovered
 
 ### Cluster_info (Priority: 43)
+
+_Query cluster state_
 
 **Given:**
 - CLUSTER INFO

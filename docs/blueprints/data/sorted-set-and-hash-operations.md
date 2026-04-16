@@ -55,6 +55,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ### Zadd_members (Priority: 10)
 
+_Add or update members with scores_
+
 **Given:**
 - `command` (input) eq `ZADD`
 - `nx_xx_compat` (input) not_in `NX+XX`
@@ -67,6 +69,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ### Zadd_incr (Priority: 11)
 
+_Increment member score_
+
 **Given:**
 - `incr_flag` (input) eq `INCR`
 
@@ -77,6 +81,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 **Result:** new score returned (as string)
 
 ### Zadd_conditional (Priority: 12)
+
+_Add only if condition met (NX, XX, GT, LT)_
 
 **Given:**
 - `condition` (input) in `NX,XX,GT,LT`
@@ -90,6 +96,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ### Zrem_members (Priority: 13)
 
+_Remove members by name_
+
 **Given:**
 - ZREM key member [member ...]
 
@@ -101,6 +109,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ### Zrange_by_rank (Priority: 20)
 
+_Get members by index range_
+
 **Given:**
 - ZRANGE key start stop [WITHSCORES]
 - `range_type` (input) eq `rank`
@@ -111,6 +121,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 **Result:** array of members (with scores if WITHSCORES); empty if out-of-range
 
 ### Zrange_by_score (Priority: 21)
+
+_Get members by score range_
 
 **Given:**
 - ZRANGE key min max BYSCORE [WITHSCORES] [LIMIT offset count]
@@ -124,6 +136,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ### Zrange_by_lex (Priority: 22)
 
+_Get members by lexicographic range (requires equal scores)_
+
 **Given:**
 - ZRANGE key min max BYLEX [LIMIT offset count]
 - `all_equal_scores` (db) eq `true`
@@ -135,6 +149,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ### Zrank_member (Priority: 23)
 
+_Get member rank by position_
+
 **Given:**
 - ZRANK key member [WITHSCORE]
 
@@ -145,6 +161,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ### Zscore_member (Priority: 24)
 
+_Get member score_
+
 **Given:**
 - ZSCORE key member
 
@@ -154,6 +172,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 **Result:** score as string (or nil if member absent)
 
 ### Zinter_sets (Priority: 30)
+
+_Get intersection of sorted sets_
 
 **Given:**
 - ZINTER numkeys key [key ...] [WEIGHTS weight ...] [AGGREGATE SUM|MIN|MAX]
@@ -167,6 +187,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ### Zunion_sets (Priority: 31)
 
+_Get union of sorted sets_
+
 **Given:**
 - ZUNION numkeys key [key ...] [WEIGHTS weight ...] [AGGREGATE SUM|MIN|MAX]
 
@@ -176,6 +198,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 **Result:** array of members in any set (scores combined per AGGREGATE)
 
 ### Hset_fields (Priority: 40)
+
+_Set one or more field-value pairs_
 
 **Given:**
 - `command` (input) in `HSET,HMSET`
@@ -189,6 +213,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ### Hget_field (Priority: 41)
 
+_Get single field value_
+
 **Given:**
 - HGET key field
 
@@ -198,6 +224,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 **Result:** field value (or nil if field absent or expired)
 
 ### Hmget_fields (Priority: 42)
+
+_Get multiple field values_
 
 **Given:**
 - HMGET key field [field ...]
@@ -209,6 +237,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ### Hgetall_fields (Priority: 43)
 
+_Get all field-value pairs_
+
 **Given:**
 - HGETALL key
 
@@ -218,6 +248,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 **Result:** flattened array [field1, value1, field2, value2, ...] (excludes expired fields)
 
 ### Hkeys_fields (Priority: 44)
+
+_Get all field names_
 
 **Given:**
 - HKEYS key
@@ -229,6 +261,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ### Hvals_values (Priority: 45)
 
+_Get all field values_
+
 **Given:**
 - HVALS key
 
@@ -238,6 +272,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 **Result:** array of all values (excludes expired fields)
 
 ### Hdel_fields (Priority: 46)
+
+_Delete fields_
 
 **Given:**
 - HDEL key field [field ...]
@@ -249,6 +285,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 **Result:** count of deleted fields; hash deleted if empty
 
 ### Hincrby_field (Priority: 47)
+
+_Increment field value by integer_
 
 **Given:**
 - HINCRBY key field increment
@@ -262,6 +300,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ### Hincrbyfloat_field (Priority: 48)
 
+_Increment field value by float_
+
 **Given:**
 - HINCRBYFLOAT key field increment
 
@@ -273,6 +313,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ### Hexists_field (Priority: 49)
 
+_Check if field exists_
+
 **Given:**
 - HEXISTS key field
 
@@ -283,6 +325,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ### Hlen_hash (Priority: 50)
 
+_Get hash field count_
+
 **Given:**
 - HLEN key
 
@@ -292,6 +336,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 **Result:** number of fields (after lazy-expiring expired fields)
 
 ### Hexpire_field (Priority: 60)
+
+_Set field expiration time (seconds)_
 
 **Given:**
 - HEXPIRE key [NX|XX|GT|LT] seconds FIELDS count field [field ...]
@@ -305,6 +351,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ### Hpexpire_field (Priority: 61)
 
+_Set field expiration time (milliseconds)_
+
 **Given:**
 - HPEXPIRE key [condition] milliseconds FIELDS count field [field ...]
 
@@ -315,6 +363,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 **Result:** array with affected field counts
 
 ### Hpersist_field (Priority: 62)
+
+_Remove field expiration (make permanent)_
 
 **Given:**
 - HPERSIST key FIELDS count field [field ...]
@@ -327,6 +377,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 
 ### Httl_field (Priority: 63)
 
+_Get field TTL (seconds)_
+
 **Given:**
 - HTTL key field [field ...]
 
@@ -336,6 +388,8 @@ description: "Sorted collections with ranking and scoring; nested key-value maps
 **Result:** array of TTLs in seconds (-1=no-ttl, -2=field-absent)
 
 ### Hscan_fields (Priority: 70)
+
+_Iterate fields with cursor_
 
 **Given:**
 - HSCAN key cursor [MATCH pattern] [COUNT count]

@@ -59,6 +59,8 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 
 ### Rdb_save_sync (Priority: 10)
 
+_Block and save snapshot synchronously_
+
 **Given:**
 - SAVE command
 
@@ -69,6 +71,8 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 **Result:** server blocks; snapshot written to disk; client receives OK
 
 ### Rdb_bgsave (Priority: 11)
+
+_Save snapshot in background_
 
 **Given:**
 - BGSAVE command
@@ -106,6 +110,8 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 
 ### Rdb_lastsave (Priority: 14)
 
+_Query last save time_
+
 **Given:**
 - LASTSAVE command
 
@@ -115,6 +121,8 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 **Result:** Unix timestamp of last successful save (or 0 if never saved)
 
 ### Aof_write_command (Priority: 20)
+
+_Append command to journal_
 
 **Given:**
 - any write command (SET, DEL, LPUSH, etc.)
@@ -127,6 +135,8 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 
 ### Aof_fsync_always (Priority: 21)
 
+_Sync after every write_
+
 **Given:**
 - `fsync_policy` (db) eq `always`
 
@@ -136,6 +146,8 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 **Result:** AOF durability guaranteed; write latency increased
 
 ### Aof_fsync_everysec (Priority: 22)
+
+_Sync every 1 second_
 
 **Given:**
 - `fsync_policy` (db) eq `everysec`
@@ -147,6 +159,8 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 
 ### Aof_fsync_no (Priority: 23)
 
+_OS decides when to sync_
+
 **Given:**
 - `fsync_policy` (db) eq `no`
 
@@ -156,6 +170,8 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 **Result:** fastest but least durable; data loss possible on crash
 
 ### Aof_rewrite (Priority: 24)
+
+_Compact AOF by rewriting_
 
 **Given:**
 - BGREWRITEAOF command
@@ -191,6 +207,8 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 
 ### Recovery_rdb_only (Priority: 30)
 
+_Recover from RDB snapshot_
+
 **Given:**
 - `persistence_mode` (system) eq `rdb_only`
 - server startup
@@ -202,6 +220,8 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 
 ### Recovery_aof_only (Priority: 31)
 
+_Recover from AOF by replaying_
+
 **Given:**
 - `persistence_mode` (system) eq `aof_only`
 
@@ -212,6 +232,8 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 
 ### Recovery_rdb_and_aof (Priority: 32)
 
+_Recover RDB then replay AOF_
+
 **Given:**
 - `persistence_mode` (system) eq `rdb_and_aof`
 
@@ -221,6 +243,8 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 **Result:** fast load (RDB) with exact state (AOF replay)
 
 ### Recovery_aof_truncated (Priority: 33)
+
+_AOF has incomplete last command_
 
 **Given:**
 - `aof_last_command_incomplete` (system) eq `true`
@@ -242,6 +266,8 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 
 ### Backup_via_rdb (Priority: 40)
 
+_Use RDB for backup_
+
 **Given:**
 - `strategy` (system) eq `snapshot-based`
 
@@ -252,6 +278,8 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 
 ### Backup_via_replication (Priority: 41)
 
+_Replica holds backup snapshots_
+
 **Given:**
 - `strategy` (system) eq `replica-based`
 
@@ -261,6 +289,8 @@ description: "Data durability via RDB snapshots and/or AOF journaling; recover t
 **Result:** replicas take RDB snapshots while staying up-to-date
 
 ### Backup_hybrid (Priority: 42)
+
+_RDB + AOF for maximum safety_
 
 **Given:**
 - `persistence_mode` (system) eq `rdb_and_aof`

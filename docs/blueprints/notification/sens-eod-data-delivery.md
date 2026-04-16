@@ -115,6 +115,8 @@ description: "End-of-day SENS announcements delivery via NewsML-G2 XML — text 
 
 ### Company_announcement_with_share (Priority: 1)
 
+_Company announcement when primary company has listed share_
+
 **Given:**
 - `announcement_class` (input) eq `company_with_share`
 
@@ -126,6 +128,8 @@ description: "End-of-day SENS announcements delivery via NewsML-G2 XML — text 
 
 ### Company_announcement_no_share (Priority: 2)
 
+_Company announcement when primary company has no share (debt issuer)_
+
 **Given:**
 - `announcement_class` (input) eq `company_no_share`
 
@@ -135,6 +139,8 @@ description: "End-of-day SENS announcements delivery via NewsML-G2 XML — text 
 - **emit_event** event: `sens.company_no_share_announcement.created`
 
 ### Exchange_announcement (Priority: 3)
+
+_Exchange announcement with EXCH group code and General role_
 
 **Given:**
 - `announcement_class` (input) eq `exchange`
@@ -146,6 +152,8 @@ description: "End-of-day SENS announcements delivery via NewsML-G2 XML — text 
 
 ### Regulatory_institution_announcement (Priority: 4)
 
+_Regulatory institution announcement_
+
 **Given:**
 - `announcement_class` (input) eq `regulatory_institution`
 
@@ -156,6 +164,8 @@ description: "End-of-day SENS announcements delivery via NewsML-G2 XML — text 
 
 ### Price_sensitive_urgency_1 (Priority: 5)
 
+_Price-sensitive announcements get urgency=1_
+
 **Given:**
 - `price_sensitivity_indicator` (input) eq `Y`
 
@@ -165,6 +175,8 @@ description: "End-of-day SENS announcements delivery via NewsML-G2 XML — text 
 
 ### Non_price_sensitive_urgency_4 (Priority: 6)
 
+_Non-price-sensitive announcements get urgency=4_
+
 **Given:**
 - `price_sensitivity_indicator` (input) eq `N`
 
@@ -172,6 +184,8 @@ description: "End-of-day SENS announcements delivery via NewsML-G2 XML — text 
 - **set_field** target: `urgency` value: `4`
 
 ### Announcement_cancellation (Priority: 7)
+
+_Cancellation correction with signal=Cncl_
 
 **Given:**
 - `correction_type` (input) eq `cancellation`
@@ -183,6 +197,8 @@ description: "End-of-day SENS announcements delivery via NewsML-G2 XML — text 
 
 ### Announcement_replacement (Priority: 8)
 
+_Replacement correction with signal=Repl_
+
 **Given:**
 - `correction_type` (input) eq `replacement`
 
@@ -192,6 +208,8 @@ description: "End-of-day SENS announcements delivery via NewsML-G2 XML — text 
 
 ### Headline_too_long (Priority: 9) — Error: `SENS_HEADLINE_TOO_LONG`
 
+_Headline exceeds 150 characters_
+
 **Given:**
 - `headline_length` (computed) gt `150`
 
@@ -199,6 +217,8 @@ description: "End-of-day SENS announcements delivery via NewsML-G2 XML — text 
 - **emit_event** event: `sens.validation.headline_rejected`
 
 ### Eod_text_too_large (Priority: 10) — Error: `SENS_ANNOUNCEMENT_TEXT_TOO_LARGE`
+
+_Plain text announcement exceeds 4MB_
 
 **Given:**
 - `inline_data_size_bytes` (computed) gt `4194304`
@@ -208,6 +228,8 @@ description: "End-of-day SENS announcements delivery via NewsML-G2 XML — text 
 
 ### Eod_pdf_too_large (Priority: 11) — Error: `SENS_PDF_TOO_LARGE`
 
+_PDF exceeds configured limit (default 10MB)_
+
 **Given:**
 - `remote_content_size` (input) gt `10485760`
 
@@ -216,6 +238,8 @@ description: "End-of-day SENS announcements delivery via NewsML-G2 XML — text 
 - **emit_event** event: `sens.validation.pdf_too_large`
 
 ### Generate_eod_package (Priority: 12)
+
+_End-of-day PackageItem groups daily announcements into zip_
 
 **Given:**
 - end of trading day reached

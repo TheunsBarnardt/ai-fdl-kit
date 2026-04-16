@@ -102,6 +102,8 @@ description: "End-of-day bonds market data delivery via FTP — CSV/XLS formats 
 
 ### Generate_zero_curve_1430 (Priority: 1)
 
+_Zero Curve report generated and disseminated at 14:30 daily_
+
 **Given:**
 - system time reaches 14:30 SAST
 - daily curve inputs are available
@@ -113,6 +115,8 @@ description: "End-of-day bonds market data delivery via FTP — CSV/XLS formats 
 
 ### Generate_zero_curve_1530 (Priority: 2)
 
+_Zero Curve report disseminated at 15:30 with updated inputs_
+
 **Given:**
 - system time reaches 15:30 SAST
 
@@ -121,6 +125,8 @@ description: "End-of-day bonds market data delivery via FTP — CSV/XLS formats 
 - **emit_event** event: `bonds.zero_curve.1530.disseminated`
 
 ### Generate_zero_curve_1730 (Priority: 3)
+
+_Final Zero Curve report disseminated at 17:30_
 
 **Given:**
 - system time reaches 17:30 SAST
@@ -131,6 +137,8 @@ description: "End-of-day bonds market data delivery via FTP — CSV/XLS formats 
 
 ### Generate_zaronia_zero_curve (Priority: 4)
 
+_ZARONIA Zero Curve (Zaronia Swap Curve) disseminated 3 times daily_
+
 **Given:**
 - system time reaches 14:30, 15:30, or 17:30 SAST
 
@@ -139,6 +147,8 @@ description: "End-of-day bonds market data delivery via FTP — CSV/XLS formats 
 - **emit_event** event: `bonds.zaronia_curve.disseminated`
 
 ### Generate_mtm_detailed_1730 (Priority: 5)
+
+_MTM Detailed report (T+3 settlement) disseminated at 17:30_
 
 **Given:**
 - system time reaches 17:30 SAST
@@ -151,6 +161,8 @@ description: "End-of-day bonds market data delivery via FTP — CSV/XLS formats 
 
 ### Generate_mtm_t1_1730 (Priority: 6)
 
+_MTM T+1 report (T+1 settlement valuations) disseminated at 17:30_
+
 **Given:**
 - system time reaches 17:30 SAST
 
@@ -159,6 +171,8 @@ description: "End-of-day bonds market data delivery via FTP — CSV/XLS formats 
 - **emit_event** event: `bonds.mtm_t1.disseminated`
 
 ### Generate_mtm_value_today_1730 (Priority: 7)
+
+_MTM Value Today report (T+0 settlement) disseminated at 17:30_
 
 **Given:**
 - system time reaches 17:30 SAST
@@ -169,6 +183,8 @@ description: "End-of-day bonds market data delivery via FTP — CSV/XLS formats 
 
 ### Generate_utmtm_reports_1530 (Priority: 8)
 
+_UTMTM, UTMTM+1, and UTMTM Value Today reports (Unit Trust MTM, 15:00 data) disseminated at 15:30_
+
 **Given:**
 - system time reaches 15:30 SAST
 
@@ -177,6 +193,8 @@ description: "End-of-day bonds market data delivery via FTP — CSV/XLS formats 
 - **emit_event** event: `bonds.utmtm.disseminated`
 
 ### Generate_trade_detail_eod (Priority: 9)
+
+_Trade Detail report with all reported trades for the day_
 
 **Given:**
 - end of day batch triggered
@@ -187,6 +205,8 @@ description: "End-of-day bonds market data delivery via FTP — CSV/XLS formats 
 
 ### Generate_instrument_detail_eod (Priority: 10)
 
+_Instrument Detail statistical report per trade type_
+
 **Given:**
 - end of day batch triggered
 
@@ -195,6 +215,8 @@ description: "End-of-day bonds market data delivery via FTP — CSV/XLS formats 
 - **emit_event** event: `bonds.instrument_detail.disseminated`
 
 ### Generate_member_client_position_eod (Priority: 11)
+
+_Member/Client Position report with Buy/Sell split per member/local/foreign_
 
 **Given:**
 - end of day batch triggered
@@ -205,6 +227,8 @@ description: "End-of-day bonds market data delivery via FTP — CSV/XLS formats 
 
 ### Ftp_dissemination_failure (Priority: 12) — Error: `BONDS_DISSEMINATION_FAILED`
 
+_FTP dissemination to IDP fails_
+
 **Given:**
 - any bonds EOD file generation succeeds
 - `ftp_transfer_status` (system) eq `failed`
@@ -214,6 +238,8 @@ description: "End-of-day bonds market data delivery via FTP — CSV/XLS formats 
 - **emit_event** event: `bonds.dissemination.failed`
 
 ### Subscriber_not_provisioned (Priority: 13) — Error: `BONDS_SUBSCRIBER_NOT_PROVISIONED`
+
+_Subscriber attempts to retrieve file without entitlement_
 
 **Given:**
 - `subscriber_entitled` (db) eq `false`

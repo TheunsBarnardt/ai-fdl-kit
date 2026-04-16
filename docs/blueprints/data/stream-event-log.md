@@ -58,6 +58,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 ### Xadd_entry (Priority: 10)
 
+_Add new entry with auto-generated or explicit ID_
+
 **Given:**
 - XADD key [ID|*] field value [field value ...]
 - `id_generation` (input) exists
@@ -70,6 +72,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 **Result:** new entry ID returned to producer
 
 ### Xadd_with_trimming (Priority: 11)
+
+_Add entry and trim stream to max length/id_
 
 **Given:**
 - XADD with MAXLEN|MINID flag
@@ -84,6 +88,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 ### Xadd_idempotent (Priority: 12)
 
+_Add with idempotent deduplication (IDMP)_
+
 **Given:**
 - XADD with IDMP <producer_id> <idempotent_id>
 - `duplicate` (db) eq `true`
@@ -94,6 +100,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 **Result:** existing entry ID returned (no new entry added)
 
 ### Xread_entries (Priority: 20)
+
+_Read entries starting after given ID_
 
 **Given:**
 - XREAD [COUNT count] STREAMS key id
@@ -106,6 +114,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 ### Xread_range (Priority: 21)
 
+_Get entries by ID range_
+
 **Given:**
 - `command` (input) in `XRANGE,XREVRANGE`
 - `start_id` (input) exists
@@ -117,6 +127,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 **Result:** array of entries in range (XREVRANGE returns reverse order)
 
 ### Xread_blocking (Priority: 22)
+
+_Block until new entries arrive_
 
 **Given:**
 - XREAD BLOCK timeout_ms ... STREAMS key id
@@ -131,6 +143,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 ### Xlen_count (Priority: 23)
 
+_Get stream length (non-deleted entries)_
+
 **Given:**
 - XLEN key
 
@@ -140,6 +154,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 **Result:** number of non-deleted entries
 
 ### Xgroup_create (Priority: 30)
+
+_Create consumer group_
 
 **Given:**
 - XGROUP CREATE key group id
@@ -154,6 +170,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 ### Xgroup_destroy (Priority: 31)
 
+_Delete consumer group_
+
 **Given:**
 - XGROUP DESTROY key group
 
@@ -163,6 +181,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 **Result:** OK returned; group and its PEL deleted
 
 ### Xgroup_setid (Priority: 32)
+
+_Update group read position_
 
 **Given:**
 - XGROUP SETID key group id
@@ -174,6 +194,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 ### Xgroup_createconsumer (Priority: 33)
 
+_Explicitly create consumer in group_
+
 **Given:**
 - XGROUP CREATECONSUMER key group consumer
 
@@ -184,6 +206,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 ### Xgroup_delconsumer (Priority: 34)
 
+_Remove consumer from group_
+
 **Given:**
 - XGROUP DELCONSUMER key group consumer
 
@@ -193,6 +217,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 **Result:** count of pending entries that were removed
 
 ### Xreadgroup_entries (Priority: 35)
+
+_Read as consumer group member_
 
 **Given:**
 - XREADGROUP GROUP group consumer STREAMS key id
@@ -208,6 +234,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 ### Xreadgroup_blocking (Priority: 36)
 
+_Block within consumer group_
+
 **Given:**
 - XREADGROUP BLOCK timeout_ms ...
 - `new_messages` (db) eq `false`
@@ -219,6 +247,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 **Result:** client blocks; returns entries or nil on timeout
 
 ### Xack_messages (Priority: 40)
+
+_Acknowledge messages as processed_
 
 **Given:**
 - XACK key group id [id ...]
@@ -233,6 +263,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 ### Xpending_summary (Priority: 41)
 
+_Get pending message summary_
+
 **Given:**
 - XPENDING key group
 
@@ -242,6 +274,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 **Result:** [total_pending, first_pending_id, last_pending_id, [[consumer, count], ...]]
 
 ### Xpending_details (Priority: 42)
+
+_Get detailed pending message info_
 
 **Given:**
 - XPENDING key group [IDLE min_idle] start end count
@@ -253,6 +287,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 **Result:** array of [id, consumer, idle_ms, delivery_count]
 
 ### Xclaim_messages (Priority: 43)
+
+_Claim idle messages from other consumer_
 
 **Given:**
 - XCLAIM key group new_consumer min_idle_ms id [id ...] [IDLE ms] [RETRYCOUNT count]
@@ -266,6 +302,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 ### Xautoclaim_messages (Priority: 44)
 
+_Auto-claim idle messages with pagination_
+
 **Given:**
 - XAUTOCLAIM key group consumer min_idle_ms start_id [COUNT count]
 
@@ -275,6 +313,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 **Result:** [cursor_id, [[id, [field, value, ...]], ...]]
 
 ### Xdel_entries (Priority: 50)
+
+_Mark entries as deleted_
 
 **Given:**
 - XDEL key id [id ...]
@@ -287,6 +327,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 ### Xtrim_entries (Priority: 51)
 
+_Remove old entries by length or ID threshold_
+
 **Given:**
 - XTRIM key [MAXLEN|MINID] [~] threshold [LIMIT count]
 - `trim_type` (input) exists
@@ -298,6 +340,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 ### Xinfo_stream (Priority: 60)
 
+_Get stream metadata_
+
 **Given:**
 - XINFO STREAM key
 
@@ -308,6 +352,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 
 ### Xinfo_groups (Priority: 61)
 
+_List consumer groups_
+
 **Given:**
 - XINFO GROUPS key
 
@@ -317,6 +363,8 @@ description: "Append-only event log with monotonically increasing IDs, consumer 
 **Result:** array of group info (name, consumers_count, pending_entries, last_id)
 
 ### Xinfo_consumers (Priority: 62)
+
+_List consumers in group_
 
 **Given:**
 - XINFO CONSUMERS key group

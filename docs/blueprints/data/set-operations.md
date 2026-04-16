@@ -54,6 +54,8 @@ description: "Unordered collection of unique elements with set algebra operation
 
 ### Add_members (Priority: 10)
 
+_Add one or more elements to set_
+
 **Given:**
 - SADD key member [member ...]
 - `members_to_add` (input) exists
@@ -66,6 +68,8 @@ description: "Unordered collection of unique elements with set algebra operation
 **Result:** set created if absent; members added; client receives count of newly added members
 
 ### Remove_members (Priority: 11)
+
+_Remove elements from set_
 
 **Given:**
 - SREM key member [member ...]
@@ -80,6 +84,8 @@ description: "Unordered collection of unique elements with set algebra operation
 
 ### Get_all_members (Priority: 20)
 
+_Retrieve all set members_
+
 **Given:**
 - SMEMBERS key
 
@@ -89,6 +95,8 @@ description: "Unordered collection of unique elements with set algebra operation
 **Result:** unordered array of all members (empty if set absent)
 
 ### Check_membership (Priority: 21)
+
+_Check if element is member_
 
 **Given:**
 - SISMEMBER key member
@@ -101,6 +109,8 @@ description: "Unordered collection of unique elements with set algebra operation
 
 ### Check_multiple_membership (Priority: 22)
 
+_Check multiple elements at once_
+
 **Given:**
 - SMISMEMBER key member [member ...]
 - `members_to_check` (input) exists
@@ -112,6 +122,8 @@ description: "Unordered collection of unique elements with set algebra operation
 
 ### Get_cardinality (Priority: 23)
 
+_Get set size_
+
 **Given:**
 - SCARD key
 
@@ -121,6 +133,8 @@ description: "Unordered collection of unique elements with set algebra operation
 **Result:** number of members (0 if key absent)
 
 ### Random_members (Priority: 24)
+
+_Return random element(s) from set_
 
 **Given:**
 - SRANDMEMBER key [count]
@@ -132,6 +146,8 @@ description: "Unordered collection of unique elements with set algebra operation
 **Result:** single member or array of members (may have duplicates if count > cardinality)
 
 ### Pop_random (Priority: 25)
+
+_Remove and return random element(s)_
 
 **Given:**
 - SPOP key [count]
@@ -146,6 +162,8 @@ description: "Unordered collection of unique elements with set algebra operation
 
 ### Move_between_sets (Priority: 26)
 
+_Move element from source to destination set_
+
 **Given:**
 - SMOVE source destination member
 - `member_in_source` (db) eq `true`
@@ -159,6 +177,8 @@ description: "Unordered collection of unique elements with set algebra operation
 
 ### Intersection (Priority: 30)
 
+_Get elements common to all input sets_
+
 **Given:**
 - SINTER key [key ...]
 - `input_sets` (input) exists
@@ -169,6 +189,8 @@ description: "Unordered collection of unique elements with set algebra operation
 **Result:** array of elements in ALL sets (empty if no common elements)
 
 ### Intersection_store (Priority: 31)
+
+_Store intersection result_
 
 **Given:**
 - SINTERSTORE destination key [key ...]
@@ -182,6 +204,8 @@ description: "Unordered collection of unique elements with set algebra operation
 
 ### Intersection_cardinality (Priority: 32)
 
+_Get count of common elements without returning them_
+
 **Given:**
 - SINTERCARD numkeys key [key ...] [LIMIT limit]
 - `limit` (input) exists
@@ -193,6 +217,8 @@ description: "Unordered collection of unique elements with set algebra operation
 
 ### Union (Priority: 33)
 
+_Get all elements from any input set_
+
 **Given:**
 - SUNION key [key ...]
 
@@ -202,6 +228,8 @@ description: "Unordered collection of unique elements with set algebra operation
 **Result:** array of unique elements across all sets
 
 ### Union_store (Priority: 34)
+
+_Store union result_
 
 **Given:**
 - SUNIONSTORE destination key [key ...]
@@ -213,6 +241,8 @@ description: "Unordered collection of unique elements with set algebra operation
 **Result:** destination set created/overwritten; client receives cardinality
 
 ### Difference (Priority: 35)
+
+_Get elements in first set but not in others_
 
 **Given:**
 - SDIFF key [key ...]
@@ -226,6 +256,8 @@ description: "Unordered collection of unique elements with set algebra operation
 
 ### Difference_store (Priority: 36)
 
+_Store difference result_
+
 **Given:**
 - SDIFFSTORE destination key [key ...]
 
@@ -236,6 +268,8 @@ description: "Unordered collection of unique elements with set algebra operation
 **Result:** destination set created/overwritten; client receives cardinality
 
 ### Scan_members (Priority: 40)
+
+_Iterate members with cursor (safe for large sets)_
 
 **Given:**
 - SSCAN key cursor [MATCH pattern] [COUNT count]

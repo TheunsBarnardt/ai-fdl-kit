@@ -98,6 +98,8 @@ description: "Back-office data dissemination from central broker administration 
 
 ### Schedule_dissemination_request (Priority: 1) — Error: `DISSEM_INVALID_SCHEDULE`
 
+_Broker user schedules a dissemination request via online function_
+
 **Given:**
 - `user_has_access` (db) eq `true`
 - `schedule_parameters` (input) exists
@@ -107,6 +109,8 @@ description: "Back-office data dissemination from central broker administration 
 - **emit_event** event: `broker_dissem.schedule.created`
 
 ### Generate_eod_dissemination_file (Priority: 2) — Error: `DISSEM_FROZEN_FILE_UNAVAILABLE`
+
+_EOD batch generates dissemination file per scheduled request_
 
 **Given:**
 - EOD batch process triggered
@@ -119,6 +123,8 @@ description: "Back-office data dissemination from central broker administration 
 
 ### Download_full_vs_changes (Priority: 3)
 
+_User selects full download or changes-only based on data type_
+
 **Given:**
 - `download_mode` (input) in `full,changes`
 
@@ -127,6 +133,8 @@ description: "Back-office data dissemination from central broker administration 
 - **emit_event** event: `broker_dissem.mode.selected`
 
 ### Download_elective_frozen_file (Priority: 4)
+
+_User downloads frozen elective events file via online request process_
 
 **Given:**
 - `email_configured` (db) eq `true`
@@ -137,6 +145,8 @@ description: "Back-office data dissemination from central broker administration 
 - **emit_event** event: `broker_dissem.frozen_file.delivered`
 
 ### Scheduling_access_denied (Priority: 5) — Error: `DISSEM_ACCESS_DENIED`
+
+_User without access attempts to schedule dissemination_
 
 **Given:**
 - `user_has_access` (db) eq `false`

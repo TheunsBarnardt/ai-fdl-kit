@@ -220,6 +220,7 @@ outcomes:
   rate_limited:
     priority: 1
     error: LOGIN_RATE_LIMITED
+    description: "Defends against credential-stuffing and brute-force probes by short-circuiting before any DB lookup, so attackers cannot use response timing to enumerate accounts."
     # Checked FIRST — before any DB lookups or password comparisons
     given:
       - field: request_count
@@ -232,6 +233,7 @@ outcomes:
   account_locked:
     priority: 2
     error: LOGIN_ACCOUNT_LOCKED
+    description: "Stops repeated failed-login attempts on a single account. Distinct from rate_limited: this is per-account state (sticky), not per-IP rate (rolling)."
     # Checked after rate limit, before password comparison
     given:
       - field: failed_login_attempts
@@ -253,6 +255,7 @@ outcomes:
   account_disabled:
     priority: 3
     error: LOGIN_ACCOUNT_DISABLED
+    description: "Honors admin/user deactivation as an explicit, non-recoverable state. Checked before credentials so a disabled user can never observe a 'wrong password' response."
     given:
       - field: status
         source: db
@@ -265,6 +268,7 @@ outcomes:
     priority: 4
     error: LOGIN_INVALID_CREDENTIALS
     transaction: true
+    description: "Collapses 'user not found' and 'wrong password' into one indistinguishable response. Identical message + status + similar latency are mandatory to prevent user enumeration (OWASP ASVS 2.2.1)."
     # All side effects (increment + lock + emit) are atomic
     # Checked after lock/disable — uses OR grouping for user-not-found vs wrong-password
     given:
@@ -300,6 +304,7 @@ outcomes:
   email_not_verified:
     priority: 5
     error: LOGIN_EMAIL_NOT_VERIFIED
+    description: "Blocks session creation until the user proves email ownership. Prevents unverified accounts from using protected features or receiving sensitive notifications."
     given:
       - field: email_verified
         source: db
@@ -315,6 +320,7 @@ outcomes:
   successful_login:
     priority: 10
     transaction: true
+    description: "The only path that creates a session. Atomic so the counter reset, session issuance, and success event all persist together — a half-succeeded login must roll back to avoid stale lockouts or orphaned sessions."
     # All side effects (reset counter + create session + emit) are atomic
     # Only reached if ALL above outcomes did not match
     given:

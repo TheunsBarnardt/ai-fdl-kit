@@ -68,6 +68,8 @@ description: "Broker financial data upload to central back-office via fixed-widt
 
 ### Automated_ftp_upload (Priority: 1)
 
+_Broker submits financial data via FTP_
+
 **Given:**
 - `upload_method` (input) eq `ftp`
 - `email_configured` (db) eq `true`
@@ -78,6 +80,8 @@ description: "Broker financial data upload to central back-office via fixed-widt
 
 ### Manual_online_upload (Priority: 2)
 
+_Broker uploads financial data via online manual interface_
+
 **Given:**
 - `upload_method` (input) eq `online_manual`
 
@@ -86,6 +90,8 @@ description: "Broker financial data upload to central back-office via fixed-widt
 - **emit_event** event: `fin_upload.manual_received`
 
 ### Validate_journal_balance (Priority: 3)
+
+_Validate journal debits equal credits_
 
 **Given:**
 - `layout_number` (input) eq `065`
@@ -103,6 +109,8 @@ description: "Broker financial data upload to central back-office via fixed-widt
 - **emit_event** event: `fin_upload.journal.unbalanced`
 
 ### Generate_response_dataset (Priority: 5)
+
+_Generate response dataset for financial upload_
 
 **Given:**
 - upload processing complete

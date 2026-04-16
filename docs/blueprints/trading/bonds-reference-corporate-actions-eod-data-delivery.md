@@ -158,6 +158,8 @@ description: "Bonds reference data and corporate actions delivery via FTP — CS
 
 ### Generate_bonds_instrument_reference_daily (Priority: 1) — Error: `BONDS_REF_SUBSCRIBER_NOT_PROVISIONED`
 
+_Daily Bonds Instrument Reference file published 3 times per day (SLA 11:30, 13:30, 16:20)_
+
 **Given:**
 - scheduled dissemination time reached
 
@@ -168,6 +170,8 @@ description: "Bonds reference data and corporate actions delivery via FTP — CS
 
 ### Generate_new_bonds_listing_daily (Priority: 2)
 
+_New Bonds Listing file published 3 times per day (11:30, 13:30, 16:20)_
+
 **Given:**
 - scheduled dissemination time reached
 
@@ -176,6 +180,8 @@ description: "Bonds reference data and corporate actions delivery via FTP — CS
 - **emit_event** event: `bonds_ref.new_listings.disseminated`
 
 ### Generate_corporate_actions_schedule (Priority: 3)
+
+_Bonds Corporate Actions Events Schedule disseminated daily_
 
 **Given:**
 - end of day corporate actions processing complete
@@ -186,6 +192,8 @@ description: "Bonds reference data and corporate actions delivery via FTP — CS
 
 ### Generate_coupon_rate_update (Priority: 4)
 
+_Bonds Coupon Rate Update disseminated when floating rate notes reset_
+
 **Given:**
 - coupon reset date reached for floating rate instrument
 
@@ -194,6 +202,8 @@ description: "Bonds reference data and corporate actions delivery via FTP — CS
 - **emit_event** event: `bonds_ref.coupon_rate_update.disseminated`
 
 ### Instrument_listed_new (Priority: 5)
+
+_New instrument included on Issue date with status 'Listed'_
 
 **Given:**
 - `instrument_status` (input) eq `Listed`
@@ -206,6 +216,8 @@ description: "Bonds reference data and corporate actions delivery via FTP — CS
 
 ### Instrument_delisted_or_matured (Priority: 6)
 
+_Instrument remains in file until month-end of status change month_
+
 **Given:**
 - `instrument_status` (input) in `Delisted,Matured,Called,Redeemed,Repurchased`
 
@@ -214,6 +226,8 @@ description: "Bonds reference data and corporate actions delivery via FTP — CS
 - **emit_event** event: `bonds_ref.instrument.retired`
 
 ### Isin_generation_fails (Priority: 7) — Error: `BONDS_REF_INVALID_ISIN`
+
+_ISIN validation fails (must be 12 chars, G in 3rd position for debt)_
 
 **Given:**
 - ANY: `isin` (computed) matches `^.{0,11}$` OR `isin_third_character` (computed) neq `G`
@@ -224,6 +238,8 @@ description: "Bonds reference data and corporate actions delivery via FTP — CS
 
 ### Callable_step_up_event_created (Priority: 8)
 
+_Callable / Step Up event created at least 4 days before effective date_
+
 **Given:**
 - `callable_step_up_date` (input) exists
 - `days_until_effective` (computed) gte `4`
@@ -233,6 +249,8 @@ description: "Bonds reference data and corporate actions delivery via FTP — CS
 - **emit_event** event: `bonds_ref.callable_step_up.created`
 
 ### Historical_retention_40_days (Priority: 9)
+
+_Daily files retained on IDP for rolling 40 business days with _yyyymmdd suffix_
 
 **Given:**
 - file disseminated successfully

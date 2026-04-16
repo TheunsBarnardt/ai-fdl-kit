@@ -56,6 +56,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 ### Read_existing_string (Priority: 1)
 
+_Retrieve existing string value_
+
 **Given:**
 - key exists and has string value
 - key is not expired
@@ -67,6 +69,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 ### Read_missing_key (Priority: 2)
 
+_Attempt to read non-existent key_
+
 **Given:**
 - key does not exist
 
@@ -76,6 +80,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 **Result:** client receives null/nil
 
 ### Read_with_ttl_modification (Priority: 3)
+
+_Read value and optionally modify or check TTL_
 
 **Given:**
 - key exists with string value
@@ -90,6 +96,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 ### Set_or_overwrite (Priority: 10)
 
+_Set value unconditionally, overwriting if exists_
+
 **Given:**
 - SET command issued
 
@@ -103,6 +111,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 ### Set_with_conditions (Priority: 11)
 
+_SET only if condition met (NX, XX, or equality check)_
+
 **Given:**
 - `condition_type` (input) in `NX,XX,IFEQ,IFNE,IFDEQ,IFDNE`
 - `condition_met` (computed) eq `true`
@@ -114,6 +124,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 **Result:** value set and OK returned; or nil if condition not met
 
 ### Set_with_ttl (Priority: 12)
+
+_Set value with immediate expiration time_
 
 **Given:**
 - SET with EX|PX|EXAT|PXAT flag
@@ -138,6 +150,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 ### Append_to_string (Priority: 20) — Error: `STRING_TOO_LARGE`
 
+_Append suffix to existing or missing string_
+
 **Given:**
 - APPEND command
 - `value` (input) exists
@@ -150,6 +164,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 ### Get_substring (Priority: 21)
 
+_Extract substring by start/end indices_
+
 **Given:**
 - GETRANGE key start end
 - `start` (input) gte `-2^31`
@@ -161,6 +177,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 **Result:** substring from start to end inclusive (0-indexed, supports negative indices); empty string if range out of bounds
 
 ### Set_substring (Priority: 22)
+
+_Overwrite portion of string starting at offset_
 
 **Given:**
 - SETRANGE key offset value
@@ -180,6 +198,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 **Result:** error returned; string unchanged
 
 ### Increment_integer (Priority: 30)
+
+_Increment numeric string value by integer amount_
 
 **Given:**
 - INCR, INCRBY, or DECR command
@@ -208,6 +228,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 ### Increment_float (Priority: 33)
 
+_Increment numeric string by floating-point amount_
+
 **Given:**
 - INCRBYFLOAT command
 - `value` (db) exists
@@ -228,6 +250,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 ### Getset_atomically (Priority: 40)
 
+_Atomically retrieve old value and set new value_
+
 **Given:**
 - GETSET or SET with GET flag
 
@@ -237,6 +261,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 **Result:** old value returned to client; new value now stored
 
 ### Getdel_atomically (Priority: 41)
+
+_Atomically retrieve value and delete key_
 
 **Given:**
 - GETDEL command
@@ -249,6 +275,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 ### Mget_multiple_keys (Priority: 50)
 
+_Retrieve multiple values in single request_
+
 **Given:**
 - MGET key1 [key2 ...]
 
@@ -259,6 +287,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 
 ### Mset_multiple_keys (Priority: 51)
 
+_Set multiple key-value pairs atomically_
+
 **Given:**
 - MSET key1 value1 [key2 value2 ...]
 
@@ -268,6 +298,8 @@ description: "Store and retrieve arbitrary-length string values with atomic incr
 **Result:** all keys set; client receives OK
 
 ### Msetnx_conditional_bulk (Priority: 52)
+
+_Set multiple pairs only if ALL keys absent_
 
 **Given:**
 - MSETNX key1 value1 [key2 value2 ...]

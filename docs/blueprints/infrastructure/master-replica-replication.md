@@ -60,6 +60,8 @@ description: "One-way data synchronization from master to replicas; full or part
 
 ### Configure_replication (Priority: 10)
 
+_Configure instance as replica_
+
 **Given:**
 - REPLICAOF master_host master_port
 - `master_address` (input) exists
@@ -72,6 +74,8 @@ description: "One-way data synchronization from master to replicas; full or part
 
 ### Stop_replication (Priority: 11)
 
+_Promote replica to standalone_
+
 **Given:**
 - REPLICAOF NO ONE
 
@@ -82,6 +86,8 @@ description: "One-way data synchronization from master to replicas; full or part
 **Result:** OK; replica becomes master (accepts writes)
 
 ### Full_sync_rdb (Priority: 20)
+
+_Master sends RDB snapshot for full sync_
 
 **Given:**
 - `replica_state` (db) eq `connecting`
@@ -106,6 +112,8 @@ description: "One-way data synchronization from master to replicas; full or part
 **Result:** replica synchronized; begins receiving command stream
 
 ### Partial_resync_request (Priority: 30)
+
+_Replica attempts partial resync_
 
 **Given:**
 - `replica_reconnect` (system) eq `true`
@@ -142,6 +150,8 @@ description: "One-way data synchronization from master to replicas; full or part
 
 ### Master_write_command (Priority: 40)
 
+_Master accepts write command_
+
 **Given:**
 - any write command (SET, DEL, LPUSH, etc.)
 - `replicas_connected` (system) gt `0`
@@ -153,6 +163,8 @@ description: "One-way data synchronization from master to replicas; full or part
 
 ### Replica_receive_command (Priority: 41)
 
+_Replica receives and applies command_
+
 **Given:**
 - `master_sends_command` (system) exists
 
@@ -163,6 +175,8 @@ description: "One-way data synchronization from master to replicas; full or part
 
 ### Command_buffer_overflow (Priority: 42)
 
+_Replication buffer grows too large_
+
 **Given:**
 - `buffer_size_exceeds_limit` (system) eq `true`
 
@@ -172,6 +186,8 @@ description: "One-way data synchronization from master to replicas; full or part
 **Result:** replica disconnected if buffer exceeds limits; full resync required on reconnect
 
 ### Replica_disconnect (Priority: 50)
+
+_Network partition or timeout_
 
 **Given:**
 - `network_failure` (system) exists
@@ -184,6 +200,8 @@ description: "One-way data synchronization from master to replicas; full or part
 
 ### Replica_reconnect (Priority: 51)
 
+_Replica reconnects to master_
+
 **Given:**
 - `replica_connects_again` (system) eq `true`
 
@@ -195,6 +213,8 @@ description: "One-way data synchronization from master to replicas; full or part
 
 ### Backlog_command_buffered (Priority: 60)
 
+_Command added to replication backlog_
+
 **Given:**
 - `write_command` (system) exists
 
@@ -204,6 +224,8 @@ description: "One-way data synchronization from master to replicas; full or part
 **Result:** command available for partial resync
 
 ### Backlog_overwrite (Priority: 61)
+
+_Backlog circular buffer overwrites old entry_
 
 **Given:**
 - `backlog_full` (system) eq `true`
@@ -216,6 +238,8 @@ description: "One-way data synchronization from master to replicas; full or part
 
 ### Backlog_size_configurable (Priority: 62)
 
+_Adjust backlog size for different retention_
+
 **Given:**
 - `repl_backlog_size` (input) exists
 
@@ -227,6 +251,8 @@ description: "One-way data synchronization from master to replicas; full or part
 
 ### Info_replication (Priority: 70)
 
+_Query replication status_
+
 **Given:**
 - INFO replication
 
@@ -237,6 +263,8 @@ description: "One-way data synchronization from master to replicas; full or part
 
 ### Role_command (Priority: 71)
 
+_Get role and replication info_
+
 **Given:**
 - ROLE command
 
@@ -246,6 +274,8 @@ description: "One-way data synchronization from master to replicas; full or part
 **Result:** master=[master, repl_offset, [[replica_ip, replica_port, replica_offset], ...]]; replica=[slave, master_ip, master_port, state, replica_offset]
 
 ### Wait_for_replicas (Priority: 80)
+
+_Block until replicas ack_
 
 **Given:**
 - WAIT num_replicas timeout_ms

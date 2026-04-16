@@ -60,6 +60,8 @@ description: "Broker dematerialisation (DEMAT) position upload to central back-o
 
 ### Automated_demat_upload (Priority: 1) — Error: `DEMAT_UPLOAD_INVALID_CSDP`
 
+_Broker uploads DEMAT positions via automated FTP_
+
 **Given:**
 - `broker_subscribed` (db) eq `true`
 - `email_configured` (db) eq `true`
@@ -78,6 +80,8 @@ description: "Broker dematerialisation (DEMAT) position upload to central back-o
 
 ### Validate_csdp_reference (Priority: 3)
 
+_Validate CSDP account and code on Card Code 030_
+
 **Given:**
 - `card_code` (input) eq `030`
 
@@ -86,6 +90,8 @@ description: "Broker dematerialisation (DEMAT) position upload to central back-o
 - **emit_event** event: `demat_upload.csdp.validated`
 
 ### Generate_response_dataset (Priority: 4)
+
+_Generate response dataset with per-record response codes_
 
 **Given:**
 - upload processing complete
@@ -96,6 +102,8 @@ description: "Broker dematerialisation (DEMAT) position upload to central back-o
 - **emit_event** event: `demat_upload.response.delivered`
 
 ### Archive_upload (Priority: 5)
+
+_Archive processed DEMAT upload_
 
 **Given:**
 - `processing_status` (system) eq `completed`

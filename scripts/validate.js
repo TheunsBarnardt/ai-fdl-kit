@@ -1107,7 +1107,7 @@ function validateFile(filePath) {
   // ─── Validate outcomes ─────────────────────────────────
 
   if (data.outcomes) {
-    const validOutcomeKeys = new Set(["given", "then", "result", "priority", "error", "transaction", "prerequisites"]);
+    const validOutcomeKeys = new Set(["given", "then", "result", "priority", "error", "transaction", "prerequisites", "description"]);
     const errorCodes = new Set((data.errors || []).map((e) => e.code));
 
     for (const [name, outcome] of Object.entries(data.outcomes)) {
@@ -1126,6 +1126,25 @@ function validateFile(filePath) {
       // Validate priority
       if (outcome.priority !== undefined && typeof outcome.priority !== "number") {
         customErrors.push(`  outcomes.${name}.priority: must be a number`);
+      }
+
+      // Validate description — short prose explaining the WHY of this outcome.
+      // Hard error if present-but-wrong-shape; soft warning if missing so
+      // generators get the intent signal they need to disambiguate paths.
+      if (outcome.description !== undefined) {
+        if (typeof outcome.description !== "string") {
+          customErrors.push(`  outcomes.${name}.description: must be a string`);
+        } else if (outcome.description.trim().length === 0) {
+          customErrors.push(`  outcomes.${name}.description: must not be empty`);
+        } else if (outcome.description.length > 280) {
+          customWarnings.push(
+            `  outcomes.${name}.description: ${outcome.description.length} chars — keep it under 280 (one or two sentences explaining intent)`
+          );
+        }
+      } else {
+        customWarnings.push(
+          `  outcomes.${name}: missing "description" — add a one-line WHY so generators can disambiguate intent`
+        );
       }
 
       // Validate error binding — must reference a defined error code

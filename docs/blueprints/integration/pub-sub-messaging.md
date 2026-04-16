@@ -58,6 +58,8 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 ### Publish_message (Priority: 10)
 
+_Send message to channel_
+
 **Given:**
 - PUBLISH channel message
 - `channel` (input) exists
@@ -81,6 +83,8 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 ### Sharded_publish (Priority: 12)
 
+_Publish to shard channel (cluster mode)_
+
 **Given:**
 - SPUBLISH shard_channel message
 - `shard_owned_by_this_node` (system) eq `true`
@@ -91,6 +95,8 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 **Result:** count of subscribers on this shard that received message
 
 ### Subscribe_to_channels (Priority: 20)
+
+_Subscribe to one or more channels_
 
 **Given:**
 - SUBSCRIBE channel [channel ...]
@@ -104,6 +110,8 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 ### Subscribe_pattern (Priority: 21)
 
+_Subscribe to channels matching pattern_
+
 **Given:**
 - PSUBSCRIBE pattern [pattern ...]
 - `patterns` (input) exists
@@ -116,6 +124,8 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 ### Receive_message (Priority: 22)
 
+_Receive message from subscribed channel_
+
 **Given:**
 - `message_published` (system) exists
 - `subscriber_state` (db) eq `subscribed`
@@ -126,6 +136,8 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 **Result:** message delivered to subscriber in format [type, channel/pattern, message]
 
 ### Receive_pattern_match (Priority: 23)
+
+_Receive message via pattern subscription_
 
 **Given:**
 - `channel_matches_pattern` (system) eq `true`
@@ -138,6 +150,8 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 ### Sharded_subscribe (Priority: 24)
 
+_Subscribe to shard channel_
+
 **Given:**
 - SSUBSCRIBE shard_channel [shard_channel ...]
 
@@ -149,6 +163,8 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 ### Unsubscribe_from_channels (Priority: 30)
 
+_Stop subscribing to channels_
+
 **Given:**
 - UNSUBSCRIBE [channel ...]
 - `channels` (input) exists
@@ -159,6 +175,8 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 **Result:** receives unsubscription confirmations; client exits subscription mode if no subscriptions remain
 
 ### Unsubscribe_from_patterns (Priority: 31)
+
+_Stop subscribing to patterns_
 
 **Given:**
 - PUNSUBSCRIBE [pattern ...]
@@ -182,6 +200,8 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 ### Sharded_unsubscribe (Priority: 33)
 
+_Stop subscribing to shard channels_
+
 **Given:**
 - SUNSUBSCRIBE [shard_channel ...]
 
@@ -191,6 +211,8 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 **Result:** unsubscription confirmations
 
 ### Command_in_subscription_mode (Priority: 40) — Error: `SUBSCRIPTION_MODE`
+
+_Attempt non-pub/sub command while subscribed_
 
 **Given:**
 - `subscriber_state` (db) eq `subscribed`
@@ -203,6 +225,8 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 ### Ping_while_subscribed (Priority: 41)
 
+_PING allowed in subscription mode_
+
 **Given:**
 - `subscriber_state` (db) eq `subscribed`
 - PING [message]
@@ -213,6 +237,8 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 **Result:** [pong, message-or-nil]
 
 ### Pubsub_channels (Priority: 50)
+
+_List active channels_
 
 **Given:**
 - PUBSUB CHANNELS [pattern]
@@ -225,6 +251,8 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 
 ### Pubsub_numsub (Priority: 51)
 
+_Get subscriber count per channel_
+
 **Given:**
 - PUBSUB NUMSUB channel [channel ...]
 
@@ -234,6 +262,8 @@ description: "Real-time fire-and-forget message broadcasting with direct channel
 **Result:** flattened array [channel1, count1, channel2, count2, ...]
 
 ### Pubsub_numpat (Priority: 52)
+
+_Get total pattern subscription count_
 
 **Given:**
 - PUBSUB NUMPAT

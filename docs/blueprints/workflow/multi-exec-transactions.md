@@ -56,6 +56,8 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 
 ### Multi_start (Priority: 10)
 
+_Begin transaction_
+
 **Given:**
 - MULTI command
 - `already_in_transaction` (db) eq `false`
@@ -76,6 +78,8 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 
 ### Queue_command (Priority: 12)
 
+_Queue command for transaction_
+
 **Given:**
 - `transaction_state` (db) eq `queuing`
 - `command` (input) not_in `EXEC,DISCARD,WATCH,UNWATCH`
@@ -88,6 +92,8 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 
 ### Queue_syntax_error (Priority: 13) — Error: `EXECABORT`
 
+_Syntax error during queueing_
+
 **Given:**
 - `syntax_error` (computed) eq `true`
 
@@ -98,6 +104,8 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 **Result:** error returned; EXECABORT flag set; EXEC will fail
 
 ### Exec_transaction (Priority: 14)
+
+_Execute all queued commands atomically_
 
 **Given:**
 - EXEC command
@@ -114,6 +122,8 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 
 ### Exec_abort_syntax (Priority: 15) — Error: `EXECABORT`
 
+_EXEC fails due to queueing errors_
+
 **Given:**
 - `abort_transaction` (db) eq `true`
 
@@ -125,6 +135,8 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 
 ### Exec_watch_violation (Priority: 16) — Error: `WATCH_VIOLATION`
 
+_EXEC fails due to watched key modification_
+
 **Given:**
 - `watch_violation` (db) eq `true`
 
@@ -135,6 +147,8 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 **Result:** nil returned; transaction rolled back; watched keys unchanged
 
 ### Discard_transaction (Priority: 17)
+
+_Abort without executing_
 
 **Given:**
 - DISCARD command
@@ -156,6 +170,8 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 
 ### Watch_keys (Priority: 20)
 
+_Monitor keys for modifications_
+
 **Given:**
 - WATCH key [key ...]
 - `transaction_state` (db) in `idle,queuing`
@@ -168,6 +184,8 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 
 ### Unwatch_keys (Priority: 21)
 
+_Clear watch list_
+
 **Given:**
 - UNWATCH command
 
@@ -178,6 +196,8 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 **Result:** client receives OK; watch list cleared
 
 ### Watch_violation_detected (Priority: 22)
+
+_Another client modified watched key_
 
 **Given:**
 - `watched_key_modified` (system) eq `true`
@@ -191,6 +211,8 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 
 ### Optimistic_lock_read (Priority: 30)
 
+_Read value outside transaction_
+
 **Given:**
 - GET key (before MULTI)
 - WATCH key
@@ -202,6 +224,8 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 
 ### Optimistic_lock_compute (Priority: 31)
 
+_Compute new value based on read_
+
 **Given:**
 - `new_value` (computed) exists
 
@@ -211,6 +235,8 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 **Result:** application prepares new value
 
 ### Optimistic_lock_execute (Priority: 32)
+
+_Attempt to update if no concurrent modification_
 
 **Given:**
 - MULTI ... SET key new_value ... EXEC
@@ -223,6 +249,8 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 
 ### Optimistic_lock_retry (Priority: 33)
 
+_Retry if concurrent modification detected_
+
 **Given:**
 - `watch_violation` (db) eq `true`
 
@@ -232,6 +260,8 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 **Result:** EXEC returns nil; application retries (GET, compute, MULTI/EXEC)
 
 ### Command_runtime_error (Priority: 40)
+
+_Command fails during execution (e.g., INCR on non-integer)_
 
 **Given:**
 - `command_executing` (system) exists
@@ -243,6 +273,8 @@ description: "Atomic multi-command execution with optional optimistic locking vi
 **Result:** error stored in results array for that command; other commands still execute
 
 ### Partial_execution (Priority: 41)
+
+_Some commands succeed, some fail_
 
 **Given:**
 - `mixed_results` (computed) eq `true`

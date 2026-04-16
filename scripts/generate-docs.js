@@ -145,6 +145,10 @@ function renderOutcomes(outcomes) {
     if (outcome.transaction) md += ` | Transaction: atomic`;
     md += '\n\n';
 
+    if (outcome.description) {
+      md += `_${outcome.description}_\n\n`;
+    }
+
     if (outcome.given && outcome.given.length > 0) {
       md += '**Given:**\n';
       for (const cond of outcome.given) {

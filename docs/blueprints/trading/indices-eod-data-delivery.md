@@ -113,6 +113,8 @@ description: "End-of-day FTSE-JSE indices market data delivery via FTP — fixed
 
 ### Generate_valuations_eod (Priority: 1)
 
+_Daily Valuations file generated for each index family at EOD_
+
 **Given:**
 - end of trading day reached
 - all index calculations complete
@@ -124,6 +126,8 @@ description: "End-of-day FTSE-JSE indices market data delivery via FTP — fixed
 
 ### Generate_constituents_eod (Priority: 2)
 
+_Daily Constituents file listing all stocks in each index_
+
 **Given:**
 - end of trading day reached
 
@@ -132,6 +136,8 @@ description: "End-of-day FTSE-JSE indices market data delivery via FTP — fixed
 - **emit_event** event: `indices.constituents.disseminated`
 
 ### Generate_tracker_1_index_level (Priority: 3)
+
+_Tracker 1 file with index-level data per index family_
 
 **Given:**
 - end of trading day reached
@@ -142,6 +148,8 @@ description: "End-of-day FTSE-JSE indices market data delivery via FTP — fixed
 
 ### Generate_tracker_2_weighting_amendments (Priority: 4)
 
+_Tracker 2 file with stock-level weighting amendments_
+
 **Given:**
 - ANY: `constituent_shares_changed` (computed) eq `true` OR `free_float_changed` (computed) eq `true` OR `capping_factor_changed` (computed) eq `true`
 
@@ -150,6 +158,8 @@ description: "End-of-day FTSE-JSE indices market data delivery via FTP — fixed
 - **emit_event** event: `indices.tracker_2.disseminated`
 
 ### Generate_tracker_3_ex_dividend (Priority: 5)
+
+_Tracker 3 file with ex-dividend changes_
 
 **Given:**
 - `ex_dividend_events_present` (computed) eq `true`
@@ -160,6 +170,8 @@ description: "End-of-day FTSE-JSE indices market data delivery via FTP — fixed
 
 ### Generate_opening_constituents (Priority: 6)
 
+_Opening Constituents file with starting positions_
+
 **Given:**
 - start of trading day reached
 
@@ -168,6 +180,8 @@ description: "End-of-day FTSE-JSE indices market data delivery via FTP — fixed
 - **emit_event** event: `indices.opening_constituents.disseminated`
 
 ### Generate_five_day_tracker (Priority: 7)
+
+_Five-day rolling tracker of upcoming weighting amendments_
 
 **Given:**
 - end of trading day reached
@@ -179,6 +193,8 @@ description: "End-of-day FTSE-JSE indices market data delivery via FTP — fixed
 
 ### Dissemination_failure (Priority: 8) — Error: `INDICES_FILE_GENERATION_FAILED`
 
+_Fixed-width file generation or FTP dissemination fails_
+
 **Given:**
 - `ftp_transfer_status` (system) eq `failed`
 
@@ -187,6 +203,8 @@ description: "End-of-day FTSE-JSE indices market data delivery via FTP — fixed
 - **emit_event** event: `indices.dissemination.failed`
 
 ### Subscriber_not_provisioned (Priority: 9) — Error: `INDICES_SUBSCRIBER_NOT_PROVISIONED`
+
+_Subscriber attempts retrieval without entitlement_
 
 **Given:**
 - `subscriber_entitled` (db) eq `false`

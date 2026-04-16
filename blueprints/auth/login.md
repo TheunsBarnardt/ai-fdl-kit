@@ -45,15 +45,15 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 
 **✅ Success paths**
 
-- **Successful Login** — when Email is valid format; User found in database (after lowercase + trim normalization); Password matches stored hash (constant-time via bcrypt); status neq "disabled"; email_verified eq true, then redirect to /dashboard.
+- **Successful Login** — when Email is valid format; User found in database (after lowercase + trim normalization); Password matches stored hash (constant-time via bcrypt); status neq "disabled"; email_verified eq true, then redirect to /dashboard. _Why: The only path that creates a session. Atomic so the counter reset, session issuance, and success event all persist together — a half-succeeded login must roll back to avoid stale lockouts or orphaned sessions._
 
 **❌ Failure paths**
 
-- **Rate Limited** — when More than 10 requests in 60 seconds from this IP, then show "Too many login attempts. Please wait a moment.". *(error: `LOGIN_RATE_LIMITED`)*
-- **Account Locked** — when Max attempts exceeded; Lockout period has not expired, then show "Account temporarily locked. Please try again later.". *(error: `LOGIN_ACCOUNT_LOCKED`)*
-- **Account Disabled** — when Account deactivated by admin or user, then show "This account has been disabled. Please contact support.". *(error: `LOGIN_ACCOUNT_DISABLED`)*
-- **Invalid Credentials** — when User not found in database OR Password does not match (constant-time comparison), then show "Invalid email or password" (SAME message for both cases — enumeration prevention). *(error: `LOGIN_INVALID_CREDENTIALS`)*
-- **Email Not Verified** — when User exists, password correct, but email not verified, then redirect to /verify-email with message "Please verify your email before logging in". *(error: `LOGIN_EMAIL_NOT_VERIFIED`)*
+- **Rate Limited** — when More than 10 requests in 60 seconds from this IP, then show "Too many login attempts. Please wait a moment.". _Why: Defends against credential-stuffing and brute-force probes by short-circuiting before any DB lookup, so attackers cannot use response timing to enumerate accounts._ *(error: `LOGIN_RATE_LIMITED`)*
+- **Account Locked** — when Max attempts exceeded; Lockout period has not expired, then show "Account temporarily locked. Please try again later.". _Why: Stops repeated failed-login attempts on a single account. Distinct from rate_limited: this is per-account state (sticky), not per-IP rate (rolling)._ *(error: `LOGIN_ACCOUNT_LOCKED`)*
+- **Account Disabled** — when Account deactivated by admin or user, then show "This account has been disabled. Please contact support.". _Why: Honors admin/user deactivation as an explicit, non-recoverable state. Checked before credentials so a disabled user can never observe a 'wrong password' response._ *(error: `LOGIN_ACCOUNT_DISABLED`)*
+- **Invalid Credentials** — when User not found in database OR Password does not match (constant-time comparison), then show "Invalid email or password" (SAME message for both cases — enumeration prevention). _Why: Collapses 'user not found' and 'wrong password' into one indistinguishable response. Identical message + status + similar latency are mandatory to prevent user enumeration (OWASP ASVS 2.2.1)._ *(error: `LOGIN_INVALID_CREDENTIALS`)*
+- **Email Not Verified** — when User exists, password correct, but email not verified, then redirect to /verify-email with message "Please verify your email before logging in". _Why: Blocks session creation until the user proves email ownership. Prevents unverified accounts from using protected features or receiving sensitive notifications._ *(error: `LOGIN_EMAIL_NOT_VERIFIED`)*
 
 ## Errors it can return
 
