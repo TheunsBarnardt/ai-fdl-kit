@@ -3,363 +3,573 @@ name: fdl-extract-design
 description: Produce a DESIGN.md design-system file that /fdl-generate and /fdl-build consume when scaffolding UI
 user_invocable: true
 command: fdl-extract-design
-arguments: "[source] [--out <path>] [--dark] [--preview]"
+arguments: "[source-or-brand] [--stack <framework>] [--out <path>] [--dark]"
 ---
 
-# FDL Extract Design — Brand/Design-System to DESIGN.md
+# FDL Extract Design — Visual Spec Generator
 
-Produce a `DESIGN.md` file — a plain-markdown design system that AI coding agents (this kit's `/fdl-generate` and `/fdl-build`, as well as Cursor, Copilot, Aider, etc.) read before generating UI so the output matches the target brand. This skill is an **add-on**, not a replacement — it does not modify any existing skill or blueprint, and it does not produce YAML. Its sole output is a markdown file.
+Capture a brand's visual language into an **FDL Visual Spec** (`DESIGN.md`) so that `/fdl-generate` and `/fdl-build` produce UI that actually looks like the target brand. Zero external dependencies — uses only the tools already in this kit.
 
-Inspired by Google Stitch's DESIGN.md concept and the VoltAgent awesome-design-md collection.
+This skill is **not** a port of Google Stitch or awesome-design-md. It produces an FDL-native format with a machine-readable `tokens:` block that framework adapters can apply directly to Tailwind, CSS variables, Material theme, or native stylesheets.
 
-## Core principle: plain language, human-first output
+## Core principle
 
-- NEVER write YAML. Output is always `DESIGN.md` (markdown).
-- NEVER invent brand tokens. If a value can't be derived from the source, say so and ask before filling it in.
-- Extracted tokens must map to a concrete source: a URL, an image region, a CSS variable, a Tailwind key, or a user statement.
-- Treat the output as a **living contract** — generators will rely on it verbatim, so precision (hex codes, px/rem values, font stacks) matters more than prose.
+The entire value is the moment when a developer says **"make it look like Stripe"** and gets code that _actually_ looks like Stripe — not a generic template. This skill bridges that gap. It is:
+
+- **Source-agnostic** — derives tokens from a URL, a screenshot, an existing codebase, or a plain-English brief
+- **Framework-aware** — knows how to emit tokens as Tailwind `theme.extend`, CSS custom properties, or a native theme object
+- **Inline-first** — triggered automatically by `/fdl-generate` and `/fdl-build` when a "looks like X" phrase is detected; can also be invoked standalone
 
 ## Usage
 
 ```
-# Crawl a brand/product site and derive tokens
-/fdl-extract-design https://stripe.com --out DESIGN.md
+# Standalone — specific brand URL
+/fdl-extract-design https://stripe.com
 
-# Extract from a screenshot or logo asset
-/fdl-extract-design ./assets/brand/home.png
+# Standalone — named brand (uses built-in seed library, then live-refines)
+/fdl-extract-design stripe
+/fdl-extract-design linear --dark
+/fdl-extract-design vercel --stack nextjs
 
-# Reverse-engineer from an existing codebase's theme files
+# Standalone — from a screenshot or logo
+/fdl-extract-design ./assets/brand-reference.png
+
+# Standalone — from existing codebase theme files
 /fdl-extract-design ./apps/web --from-code
 
-# Start from a preset (stripe, vercel, linear, notion, shadcn, material)
-/fdl-extract-design --preset linear
+# Standalone — plain-English brief (short Q&A then writes)
+/fdl-extract-design "dark fintech, deep navy, electric blue accent, Inter, sharp 4px corners"
 
-# Plain-English brief (skill asks questions then writes the file)
-/fdl-extract-design "modern fintech, navy + teal accent, Inter, rounded 8px, generous whitespace"
-
-# Add a dark-mode variant block
-/fdl-extract-design https://example.com --dark
-
-# Also emit preview.html swatches next to the DESIGN.md
-/fdl-extract-design --preset vercel --preview
+# Inline — triggered by /fdl-generate or /fdl-build (see "Trigger Detection" below)
+/fdl-generate login nextjs --looks-like stripe
+/fdl-build "nextjs expense tracker styled like Linear"
 ```
 
 ## Arguments
 
-- `[source]` — One of:
-  - A URL → crawl mode (uses the same Chrome MCP approach as `/fdl-extract-web`)
-  - A local image path (`.png`, `.jpg`, `.webp`, `.svg`) → vision mode
-  - A local folder → `--from-code` mode (scans `tailwind.config.*`, `*.css` / `*.scss` tokens, `theme.ts/js`, design-token JSON)
-  - A plain-English description → brief mode (skill clarifies via questions)
-- `--out <path>` — Output path. Default: `DESIGN.md` at the project root. If the user ran this inside a generated app (see `/fdl-build --path`), default is `<path>/DESIGN.md`.
-- `--preset <name>` — Start from a known reference system (`stripe`, `vercel`, `linear`, `notion`, `shadcn`, `material`, `ios-hig`). Values are seeded from the awesome-design-md family and then refined with the user.
-- `--dark` — Emit a `## Dark Mode` section with dark-variant color roles.
-- `--preview` — Also write `preview.html` (and `preview-dark.html` when `--dark` is set) next to the `DESIGN.md`. Swatches + type scale + button states, zero dependencies.
-- `--from-code` — Force codebase-scan mode even when the source looks like a folder of assets.
+| Argument | Description |
+|---|---|
+| `[source-or-brand]` | URL · local image · local folder · brand name · plain-English brief |
+| `--stack <framework>` | `nextjs` `react` `vue` `svelte` `angular` `flutter` `expo` `laravel`. Drives the Framework Adapter output. When called inline from another skill, the stack is inherited automatically. |
+| `--out <path>` | Output path. Default: `DESIGN.md` at project root (or `<--path>/DESIGN.md` when called from `/fdl-build`). |
+| `--dark` | Add a dark-mode token block to the file. |
+| `--from-code` | Force codebase-scan mode even when source looks like an asset folder. |
 
-## Security / POPIA
+---
 
-- Do NOT include customer screenshots, internal URLs, or any PII in the `DESIGN.md`. Design tokens are safe; product-specific screen content is not.
-- When crawling a site, strip any query strings, auth headers, or session tokens from recorded URLs.
-- Never embed real API keys, CMS IDs, or analytics IDs found in page source — even in comments.
-- If a source image clearly contains PII (names, account numbers, ID numbers), refuse to process and ask the user to provide a sanitized asset.
+## Trigger Detection (inline use in /fdl-generate and /fdl-build)
+
+`/fdl-generate` and `/fdl-build` scan the raw user prompt for design-intent keywords **before** anything else. When a match is found, they invoke this skill automatically and feed the resulting token block into code generation.
+
+### Phrase patterns that trigger this skill
+
+| Phrase pattern | Example |
+|---|---|
+| `look(s) like <X>` | "looks like Stripe" |
+| `styled like <X>` | "styled like Linear" |
+| `design like <X>` | "design like Vercel" |
+| `inspired by <X>` | "inspired by Notion" |
+| `<X> style` | "Stripe style" / "in a Vercel style" |
+| `<X> design` | "with a Notion design" |
+| `similar to <X>` | "UI similar to Supabase" |
+| `theme of <X>` | "with the theme of GitHub" |
+| `make it look like <X>` | "make it look like Figma" |
+
+**`X`** is resolved in this order:
+1. Match against the Built-in Brand Library (below) — fires the seed immediately, no crawling required.
+2. If `X` is a URL → crawl mode.
+3. If `X` is an unknown brand name → brief mode: "I don't have a built-in seed for '{X}'. Give me their site URL or a screenshot and I'll extract it."
+
+When triggered inline, the skill writes the `DESIGN.md` silently, then returns control to the calling skill. The calling skill then applies the tokens via the Framework Adapter before emitting any UI files.
+
+---
+
+## Built-in Brand Library
+
+Seeded from FDL's own knowledge — not copied from any external collection. Each entry is a compact token seed that the skill refines by fetching live signal from the brand's public site when network access is available.
+
+### Developer Tools
+
+| Brand | Mood | Primary | Surface | Radius | Font |
+|---|---|---|---|---|---|
+| `vercel` | Minimal, black/white, ultra-clean | #000000 | #FFFFFF / #111111 dark | 6px | Geist, Inter, system |
+| `linear` | Dark, violet-accented, dense | #5E6AD2 | #1A1A2E / #0F0F23 dark | 6px | Inter Tight, Inter |
+| `supabase` | Dark, green-accented, data-dense | #3ECF8E | #1C1C1C / #141414 dark | 8px | Custom, Inter |
+| `github` | Neutral, gray-scale, utilitarian | #0969DA | #FFFFFF / #0D1117 dark | 6px | -apple-system, Segoe |
+| `raycast` | Dark, frost-glass, macOS-native | #FF6363 | #1C1C1E / #111111 dark | 10px | SF Pro, system |
+
+### Fintech
+
+| Brand | Mood | Primary | Surface | Radius | Font |
+|---|---|---|---|---|---|
+| `stripe` | Clean, editorial, indigo | #635BFF | #FFFFFF / #0A2540 | 6px | Sohne, Inter |
+| `wise` | Fresh, green, approachable | #9FE870 | #FFFFFF / #163300 | 8px | Inter, system |
+| `revolut` | Dark, purple, bold | #7B61FF | #191919 / #0D0D0D dark | 8px | Inter, Helvetica |
+| `shopify` | Green, trust-building, merchant | #008060 | #FFFFFF / #1A1A1A | 4px | ShopifySans, system |
+
+### AI Platforms
+
+| Brand | Mood | Primary | Surface | Radius | Font |
+|---|---|---|---|---|---|
+| `openai` | Dark neutral, minimal, confident | #10A37F | #FFFFFF / #212121 dark | 8px | Söhne, system |
+| `anthropic` | Warm, terracotta/sand, thoughtful | #D97757 | #FAF9F6 / #1A1A18 dark | 8px | Tiempos Text, Inter |
+
+### Productivity & Design
+
+| Brand | Mood | Primary | Surface | Radius | Font |
+|---|---|---|---|---|---|
+| `notion` | Warm white, papery, minimal | #000000 | #FFFFFF / #191919 dark | 3px | ui-sans-serif, system |
+| `figma` | Bold purple-pink, design-native | #A259FF | #1E1E1E / #2C2C2C dark | 6px | Inter, system |
+| `airtable` | Colorful, approachable, SaaS | #FCB400 | #FFFFFF / #18181B dark | 6px | CircularXX, Inter |
+
+---
 
 ## Workflow
 
-### Step 1: Decide the source mode
-
-Parse `[source]` (or `--preset` / `--from-code`) and pick ONE mode:
-
-| Mode | Trigger | Tooling |
-|---|---|---|
-| **Crawl** | `source` is a URL | Chrome MCP (`navigate`, `get_page_text`, `screenshot`, DOM JS) |
-| **Vision** | `source` is an image path | Built-in `Read` on the image |
-| **Code** | `source` is a folder, or `--from-code` | `Glob` + `Read` on theme files |
-| **Preset** | `--preset <name>` | Seed from the preset table below |
-| **Brief** | `source` is free text or empty | `AskUserQuestion` rounds |
-
-If the user's input is ambiguous (e.g. a URL that 404s, an image that's corrupt), fall back to brief mode — never silently invent values.
-
-### Step 2: Gather raw signal
-
-#### Crawl mode
-1. Connect Chrome MCP and navigate to the URL.
-2. Screenshot the landing hero (full page).
-3. Extract the computed style of key elements — buttons, headings, body text, links, form inputs, cards. Use `document.defaultView.getComputedStyle(...)` via the MCP `evaluate`-style call.
-4. Pull the site's CSS custom properties (`--*`) from `:root` and the `<body>` element. These are often the brand token source of truth.
-5. Collect font-family declarations (de-dupe) and the numeric font sizes used on H1/H2/H3/body/small.
-6. Collect the top ~8 distinct colors by frequency from the computed styles. Record both hex and role (surface, text, accent, border).
-7. Capture `border-radius`, `box-shadow`, and `spacing` (margins, paddings) from the same sample set.
-8. Note the responsive breakpoints by resizing the viewport (`computer` action `set_viewport_size` at 375, 768, 1024, 1440 if available) and observing which styles change.
-
-#### Vision mode
-1. `Read` the image. Describe it systematically: dominant colors, text treatment, density, shape language (pill vs square corners), shadow usage.
-2. Produce hex approximations for the top 6–8 colors. Be explicit that these are approximations and ask the user to confirm critical accent colors.
-3. If multiple images are attached (light + dark, home + dashboard), process each and merge.
-
-#### Code mode
-1. `Glob` for design-token sources in this order — stop at the first hit:
-   - `tailwind.config.{js,ts,cjs,mjs}` → read `theme.extend.colors`, `fontFamily`, `fontSize`, `borderRadius`, `boxShadow`, `spacing`.
-   - `*.css`, `*.scss`, `*.less` under `src/`, `styles/`, `app/`, `theme/` → parse `:root { --* }` custom properties.
-   - `theme.{ts,js,json}`, `design-tokens.json`, `tokens.json` → read directly.
-   - `app.json` / `expo.config.*` (React Native/Expo) → read theme block.
-2. Report which file(s) were used so the user can see traceability.
-
-#### Preset mode
-Seed the DESIGN.md from the preset, then ask the user what to tweak:
-
-| Preset | Core palette | Typography | Shape |
-|---|---|---|---|
-| `stripe` | indigo accent on white; purple→blue gradients | Sohne / Inter stack | soft 6–8px radius, subtle shadows |
-| `vercel` | black/white, geist blue accent | Geist / Inter stack | sharp 4px radius, crisp borders |
-| `linear` | deep violet on near-black; mono accents | Inter Tight | 6px radius, subtle inner-glow |
-| `notion` | warm whites, paper tones, 1-2 accents | Inter / system | 4px radius, flat |
-| `shadcn` | neutral slate + zinc, CSS variable driven | Geist / system | 6–8px radius, card-centric |
-| `material` | Material 3 dynamic color | Roboto Flex | 12px radius, elevation 1–5 |
-| `ios-hig` | SF system blues + neutrals | SF Pro | 10px radius, frosted-glass blurs |
-
-Presets are seeds, not outputs. Always confirm with the user before writing.
-
-#### Brief mode
-Ask a short, focused set via `AskUserQuestion`:
-1. Product category / mood (fintech, playful, editorial, ops-dashboard, …)
-2. Primary brand color (hex or named)
-3. Accent color (optional)
-4. Surface tone (white, warm-white, near-black, dark-gray)
-5. Font preference (system, Inter, Geist, custom display + body pair)
-6. Shape language (sharp / rounded / pill)
-7. Density (compact, comfortable, spacious)
-8. Dark mode required? (yes / no)
-
-Keep it to ≤8 questions. Batch them in one AskUserQuestion call when possible.
-
-### Step 3: Present the extracted token summary
-
-Before writing the file, show the user a plain-English summary (no markdown code blocks in the conversation). Example:
+### Step 1: Resolve source mode
 
 ```
-Here's what I pulled from {source}:
-
-COLORS (8)
-  Primary       #635BFF    buttons, links, focus
-  Primary hover #5A52E5
-  Background    #FFFFFF
-  Surface       #F7FAFC    cards, panels
-  Border        #E3E8EE
-  Text          #0A2540    body
-  Text muted    #425466    secondary
-  Danger        #DF1B41
-
-TYPOGRAPHY
-  Display: Sohne, Inter, system-ui (700 weight)
-  Body: Sohne, Inter, system-ui (400 weight)
-  Scale: 12 / 14 / 16 / 18 / 24 / 32 / 48 / 64
-
-SHAPE
-  Radius: 6px (inputs, cards) / 9999px (pills)
-  Shadows: subtle 0 1px 3px rgba(0,0,0,0.08)
-
-SPACING
-  Scale: 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64
-
-COMPONENT NOTES
-  Buttons: filled primary, hairline secondary, ghost tertiary
-  Inputs: 40px height, 1px border, focus ring in primary/20
-  Cards: 1px border, radius 6, subtle shadow on hover
-
-⚠ ITEMS I'M NOT SURE ABOUT
-  - Dark-mode surface tone (source site has no dark variant)
-  - Danger hover state
+source-or-brand
+├── URL → Crawl mode
+├── Local image (.png / .jpg / .webp / .svg) → Vision mode
+├── Local folder → Code mode
+├── Name in Built-in Brand Library → Seed mode (+ optional live-refine)
+└── Free text / unknown brand → Brief mode
 ```
 
-Use `AskUserQuestion` to resolve the uncertain items. Wait for confirmation.
+If called inline from another skill, the detected `<X>` phrase is the source. If `X` matches the built-in library, jump directly to Seed mode (no Q&A, no waiting — speed matters in inline use).
 
-### Step 4: Write DESIGN.md
+---
 
-Write to `--out` (default `DESIGN.md`) following the 9-section Stitch format. ALL sections are required; omit nothing — if a section has no content, write `_Not specified — defaults to framework/system values._` so downstream generators know it's intentional.
+### Step 2: Gather signal
+
+#### Seed mode (built-in brand)
+1. Load the token seed from the Built-in Brand Library table.
+2. If network is available, live-refine by fetching the brand's public homepage with `WebFetch`:
+   - Ask it to describe computed CSS colors, typography, radii, shadow, density.
+   - Merge live observations into the seed — live data wins on hex values, seed wins on role assignments.
+3. Skip live-refine silently if network is unavailable; proceed with seed.
+
+#### Crawl mode (URL)
+1. Use Chrome MCP if available: `navigate`, wait 2–3s, `screenshot`, then extract `:root` CSS custom properties and `getComputedStyle` on key elements (h1, button, input, card).
+2. Fall back to `WebFetch` if Chrome MCP is unavailable. Ask the fetch result to describe colors, typography, radius, shadows, density.
+3. Collect: top 8–10 color hex values + roles, font families, numeric font sizes on h1/h2/h3/body/small, border-radius, box-shadow values, spacing rhythm.
+
+#### Vision mode (image)
+1. `Read` the image file (Claude multimodal vision).
+2. Describe systematically: dominant colors (with approximate hex), text treatment, density, shape language, shadow presence.
+3. Flag that hex values are approximations and ask user to confirm the accent/primary before writing.
+
+#### Code mode (local folder)
+Scan in priority order — stop at first match per category:
+
+| Category | Files to scan |
+|---|---|
+| Colors | `tailwind.config.{js,ts,cjs,mjs}` → `theme.extend.colors` |
+| Colors alt | `:root { --* }` in `*.css`, `*.scss` under `src/`, `styles/`, `app/`, `theme/` |
+| Colors alt | `theme.{ts,js,json}`, `design-tokens.json`, `tokens.json` |
+| Typography | Same tailwind config → `fontFamily`, `fontSize` |
+| Spacing | Same tailwind config → `spacing`, `padding` |
+| Radius | Same tailwind config → `borderRadius` |
+| Shadows | Same tailwind config → `boxShadow` |
+
+Record which file each token came from for traceability.
+
+#### Brief mode (free text or unknown brand)
+Ask in one `AskUserQuestion` call (batch all questions):
+1. Mood — fintech / playful / editorial / ops-dashboard / consumer / developer / other?
+2. Primary brand color (hex or description)
+3. Accent or secondary color?
+4. Surface: white / warm-white / near-black / dark-gray?
+5. Font preference: system / Inter / Geist / custom?
+6. Shape: sharp (2–4px) / rounded (6–8px) / pill (12px+)?
+7. Density: compact / comfortable / spacious?
+8. Dark mode needed?
+
+---
+
+### Step 3: Confirm extracted tokens (interactive runs only)
+
+In interactive (non-inline) runs, present a compact plain-language summary and use `AskUserQuestion` to resolve uncertainty before writing the file. In inline runs, write immediately without prompting — speed over perfection, and the user can re-run the skill standalone to refine.
+
+**Example interactive summary:**
+```
+DESIGN TOKENS — Stripe (live-refined)
+
+Colors (10 roles):
+  primary      #635BFF  CTAs, links, focus
+  primary-hover #5A52E5  hover
+  background   #FFFFFF  page
+  surface      #F6F9FC  cards, panels
+  border       #E3E8EE  hairlines
+  text         #0A2540  body
+  text-muted   #425466  secondary
+  danger       #DF1B41  errors
+  success      #0E9F6E  confirmations
+  warning      #C27803  cautions
+
+Typography:
+  heading: Sohne, Inter, system-ui  weight 600/700
+  body:    Sohne, Inter, system-ui  weight 400/500
+  mono:    "Sohne Mono", "SF Mono", Menlo
+  scale:   12 / 14 / 16 / 18 / 24 / 32 / 48 / 64
+
+Shape:
+  radius: 6px (controls) · 8px (cards) · 9999px (pills)
+  shadow: 4 levels (0.06 → 0.18 rgba)
+
+Spacing: 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64
+
+⚠ Not confirmed: dark-mode surface tone (no dark variant on live site)
+```
+
+---
+
+### Step 4: Write DESIGN.md (FDL Visual Spec format)
+
+This is the FDL-native format. It is NOT Stitch's 9-section format — it leads with a machine-readable `tokens:` YAML block so framework adapters can parse it directly, followed by human-readable rules.
 
 ```markdown
-# DESIGN.md — {Brand / Feature name}
+<!--
+  FDL Visual Spec — {Brand}
+  Generated: {ISO date} by /fdl-extract-design
+  Source: {url / image path / built-in seed / brief}
+  Stack target: {framework or "any"}
 
-> Source: {URL / image path / preset / codebase path} · Generated {ISO date} by `/fdl-extract-design`.
-> This file is read by AI coding agents before generating UI. Treat it as the source of truth for tokens, components, and do/don't rules.
+  This file is the source of truth for UI tokens in this project.
+  /fdl-generate and /fdl-build read it before emitting any UI code.
+  Edit manually to refine; re-run /fdl-extract-design to rebuild from source.
+-->
 
-## 1. Visual Theme & Atmosphere
-{2–5 sentences: mood, density, design philosophy. No marketing fluff — describe what a designer would see.}
+# Visual Spec — {Brand}
 
-## 2. Color Palette & Roles
-| Role | Hex | Usage |
+## tokens
+<!-- Machine-readable block. DO NOT rename keys — framework adapters depend on them. -->
+
+```yaml
+brand: {brand-name}
+source: {url | seed | image | code | brief}
+
+colors:
+  primary:       "#635BFF"
+  primary_hover: "#5A52E5"
+  primary_active: "#4840C4"
+  background:    "#FFFFFF"
+  surface:       "#F6F9FC"
+  surface_2:     "#EFF3F8"
+  border:        "#E3E8EE"
+  text:          "#0A2540"
+  text_muted:    "#425466"
+  text_placeholder: "#8898AA"
+  danger:        "#DF1B41"
+  success:       "#0E9F6E"
+  warning:       "#C27803"
+  focus_ring:    "rgba(99,91,255,0.25)"
+
+dark:                         # present only when --dark or brand has native dark
+  background:    "#0A2540"
+  surface:       "#0D2D4A"
+  surface_2:     "#1A3A5C"
+  border:        "#1E3A56"
+  text:          "#E6EDF3"
+  text_muted:    "#8B949E"
+
+typography:
+  heading_family: '"Sohne", "Inter", system-ui, sans-serif'
+  body_family:    '"Sohne", "Inter", system-ui, sans-serif'
+  mono_family:    '"Sohne Mono", "SF Mono", Menlo, monospace'
+  weights:
+    regular: 400
+    medium:  500
+    semibold: 600
+    bold:    700
+  scale:          # rem
+    xs:    0.75
+    sm:    0.875
+    base:  1
+    lg:    1.125
+    xl:    1.25
+    "2xl": 1.5
+    "3xl": 2.25
+    "4xl": 3
+    "5xl": 3.5
+  line_heights:
+    display: 1.1
+    body:    1.5
+    compact: 1.25
+  letter_spacing:
+    display: "-0.02em"
+    body:    "0"
+    caps:    "0.06em"
+
+shape:
+  radius:
+    control:  "6px"          # inputs, buttons, badges
+    card:     "8px"          # cards, panels
+    dialog:   "12px"         # modals, drawers
+    pill:     "9999px"       # tags, chips
+  shadows:
+    level_0: "none"
+    level_1: "0 1px 2px rgba(10,37,64,0.06)"
+    level_2: "0 2px 8px rgba(10,37,64,0.08)"
+    level_3: "0 8px 24px rgba(10,37,64,0.12)"
+    level_4: "0 24px 48px rgba(10,37,64,0.18)"
+
+spacing:                      # px — also used as Tailwind spacing multiplier
+  scale: [4, 8, 12, 16, 24, 32, 48, 64, 96, 128]
+
+layout:
+  container_max: "1200px"
+  columns: 12
+  gutter_desktop: "32px"
+  gutter_mobile: "16px"
+```
+
+## Color roles
+| Role | Hex | When to use |
 |---|---|---|
-| primary | #635BFF | Primary CTAs, links, focus rings |
-| primary-hover | #5A52E5 | Hover state of primary |
-| background | #FFFFFF | Page surface |
-| surface | #F7FAFC | Cards, elevated panels |
-| border | #E3E8EE | Hairline borders |
-| text | #0A2540 | Body copy |
-| text-muted | #425466 | Secondary copy, captions |
-| danger | #DF1B41 | Destructive actions, errors |
-| success | #0E9F6E | Confirmations |
-| warning | #C27803 | Cautions |
+| `primary` | #635BFF | The single most important action on screen — one per view |
+| `primary-hover` | #5A52E5 | Hover state of any primary interactive element |
+| `background` | #FFFFFF | Page canvas |
+| `surface` | #F6F9FC | Cards, panels, elevated sections |
+| `border` | #E3E8EE | All hairline separators |
+| `text` | #0A2540 | Body copy and headings |
+| `text-muted` | #425466 | Secondary copy, timestamps, helper text |
+| `danger` | #DF1B41 | Destructive actions and error states only |
+| `success` | #0E9F6E | Confirmation states |
+| `warning` | #C27803 | Caution states |
 
-## 3. Typography Rules
-- **Display font:** {stack}, weights {...}
-- **Body font:** {stack}, weights {...}
-- **Mono font:** {stack} (for code / data)
-- **Scale (rem):** h1 3 · h2 2 · h3 1.5 · h4 1.25 · body 1 · small 0.875 · xs 0.75
-- **Line-heights:** display 1.1 · body 1.5 · compact 1.25
-- **Letter-spacing:** display −0.02em · body 0 · caps 0.06em
+## Typography
+- Heading stack: {heading_family} · semibold / bold
+- Body stack: {body_family} · regular / medium
+- Code / data: {mono_family}
+- Scale: xs(12) · sm(14) · base(16) · lg(18) · xl(20) · 2xl(24) · 3xl(36) · 4xl(48) · 5xl(56)
+- Display copy: −0.02em letter-spacing, 1.1 line-height
+- Body copy: 0em letter-spacing, 1.5 line-height
 
-## 4. Component Stylings
-### Buttons
-- Primary: filled, radius 6, height 40, weight 500, hover = primary-hover, focus = 3px ring primary/25, disabled = 50% opacity.
-- Secondary: 1px border, transparent fill.
-- Ghost: no border, text only, hover = surface.
-- Destructive: variant of primary using `danger` role.
+## Components
 
-### Inputs
-- Height 40, 1px border, radius 6, focus = primary border + 3px ring.
-- Label above, hint below in text-muted.
-- Error state: border + helper text in `danger`.
+### Button
+- **Primary** height:{control-height} radius:{shape.radius.control} weight:500 fill:primary hover:primary-hover focus:{focus_ring} disabled:opacity-50
+- **Secondary** height:same 1px-border:text fill:transparent hover:surface
+- **Ghost** no border fill:transparent hover:surface
+- **Destructive** same shape as primary, fill:danger
 
-### Cards
-- Radius 8, 1px border, background surface.
-- Hover = subtle shadow (see §6).
+### Input
+- Height:{control-height} radius:{shape.radius.control} border:1px-{border} focus:{primary}-border+{focus_ring}
+- Label above in text/sm/medium · hint below in text-muted/sm/regular · error in danger/sm
+
+### Card
+- radius:{shape.radius.card} border:1px-{border} background:surface
+- hover → shadow.level_2 (no border-color change)
 
 ### Navigation
-- Top nav height 56–64, border-bottom hairline.
-- Active item: primary text + 2px bottom accent.
+- Top bar height:64 border-bottom:1px-{border}
+- Active item: primary text + 2px bottom indicator
+- Below md: drawer/hamburger pattern
 
-## 5. Layout Principles
-- **Spacing scale (px):** 4 · 8 · 12 · 16 · 24 · 32 · 48 · 64
-- **Container max-width:** {e.g. 1200px}
-- **Grid:** 12-column, 24px gutter on desktop, 16px on mobile.
-- **Whitespace philosophy:** {one sentence — "generous vertical rhythm", "dense ops-dashboard", etc.}
+## Do rules
+- One `primary` action per screen. Secondary and ghost for everything else.
+- Use `text-muted` for all metadata — never a custom gray.
+- Surface separators with `border` alone on mobile; add `shadow.level_1` on desktop only.
+- Maintain 96px minimum vertical rhythm between major page sections.
+- Accent gradient (if defined) is for hero / marketing surfaces only — never controls.
 
-## 6. Depth & Elevation
-| Level | Usage | Shadow |
-|---|---|---|
-| 0 | Flat surface | none |
-| 1 | Cards at rest | 0 1px 2px rgba(0,0,0,0.06) |
-| 2 | Hovered card / dropdown | 0 2px 8px rgba(0,0,0,0.08) |
-| 3 | Popover / menu | 0 8px 24px rgba(0,0,0,0.12) |
-| 4 | Modal / dialog | 0 24px 48px rgba(0,0,0,0.18) |
-
-## 7. Do's and Don'ts
-**Do**
-- Use `primary` only for the single most important action on screen.
-- Use `text-muted` for metadata, timestamps, helper copy.
-- Pair dense data tables with comfortable whitespace around them.
-
-**Don't**
-- Don't layer two shadow levels on the same element.
+## Don't rules
+- Don't stack two shadow levels on one element.
 - Don't use `danger` for anything other than destructive or error states.
-- Don't mix radii — pick one of {6, 8} for cards/inputs and stay consistent.
-- Don't hard-code colors outside this palette. If a new role is needed, add it here first.
+- Don't mix `shape.radius.control` and `shape.radius.card` on the same element.
+- Don't hard-code any hex value outside this spec — add a role here first.
+- Don't apply `shadow` to cards on mobile — use `border` instead.
 
-## 8. Responsive Behavior
-- **Breakpoints:** sm 640 · md 768 · lg 1024 · xl 1280 · 2xl 1536
-- **Touch target minimum:** 44×44 (mobile), 32×32 (desktop pointer).
-- **Stacking rule:** multi-column layouts collapse to single-column below `md`.
-- **Navigation:** top nav becomes hamburger drawer below `md`.
-- **Typography scaling:** display scales down one step below `md`.
+## Responsive
+| Breakpoint | px | Changes |
+|---|---|---|
+| sm | 640 | Single-column; typography scale −1 step |
+| md | 768 | Two-column grid; nav collapses to drawer |
+| lg | 1024 | Full grid; cards show hover shadows |
+| xl | 1280 | Container capped at max_width |
+| 2xl | 1536 | Full-bleed hero only |
 
-## 9. Agent Prompt Guide
-Quick reference for AI coding agents (Claude Code, Copilot, Cursor):
+Touch targets: 44×44 minimum on mobile, 32×32 on desktop pointer.
+
+## Generation instructions
+<!-- Section read verbatim by /fdl-generate and /fdl-build when emitting UI. -->
 
 ```
-Use these brand tokens when generating UI for this project:
-- Primary color: #635BFF (role: primary)
-- Background: #FFFFFF, Surface: #F7FAFC, Border: #E3E8EE
-- Text: #0A2540 (primary), #425466 (muted)
-- Font stack: Sohne, Inter, system-ui
-- Radius: 6px (inputs/cards), 9999px (pills)
-- Spacing scale: 4/8/12/16/24/32/48/64
-- Respect the Do's and Don'ts in §7 strictly.
-- If a value is missing, derive it from the role (e.g. primary-active = darken primary-hover 10%) rather than inventing a new color.
+Tokens are in the ## tokens block above. Use them as follows:
+- Map color roles to the framework adapter output (CSS vars / Tailwind extend / theme object).
+- Never use a raw hex that is not in the tokens block.
+- Apply shape.radius.control to all interactive controls; shape.radius.card to all card/panel surfaces.
+- Use shadow levels for elevation — level_1 for resting cards, level_2 for hover, level_3 for popovers, level_4 for modals.
+- Honour every rule in ## Do rules and ## Don't rules as hard constraints, not suggestions.
+- When the stack has no explicit Tailwind config, emit CSS custom properties from the tokens block.
+```
 ```
 
-{OPTIONAL: if --dark}
-## Dark Mode
-| Role | Hex (dark) |
-|---|---|
-| background | #0B0E14 |
-| surface | #141821 |
-| border | #1F2430 |
-| text | #E6EDF3 |
-| text-muted | #8B949E |
-| primary | {same or tuned} |
+---
+
+### Step 5: Framework Adapter output
+
+After writing `DESIGN.md`, emit a second file in the correct format for the target stack. This is what the code generator pastes directly into framework boilerplate — no manual translation required.
+
+#### nextjs / react / vue / svelte → `design-tokens.{js,ts}`
+
+```ts
+// design-tokens.ts — generated by /fdl-extract-design
+// Source: {brand} · {date}
+// DO NOT EDIT — re-run /fdl-extract-design to regenerate.
+
+export const tokens = {
+  colors: {
+    primary:      "#635BFF",
+    primaryHover: "#5A52E5",
+    background:   "#FFFFFF",
+    surface:      "#F6F9FC",
+    border:       "#E3E8EE",
+    text:         "#0A2540",
+    textMuted:    "#425466",
+    danger:       "#DF1B41",
+    success:      "#0E9F6E",
+    warning:      "#C27803",
+  },
+  radius: { control: "6px", card: "8px", dialog: "12px", pill: "9999px" },
+  shadow: {
+    1: "0 1px 2px rgba(10,37,64,0.06)",
+    2: "0 2px 8px rgba(10,37,64,0.08)",
+    3: "0 8px 24px rgba(10,37,64,0.12)",
+    4: "0 24px 48px rgba(10,37,64,0.18)",
+  },
+  font: {
+    heading: '"Sohne", "Inter", system-ui, sans-serif',
+    body:    '"Sohne", "Inter", system-ui, sans-serif',
+    mono:    '"Sohne Mono", "SF Mono", Menlo, monospace',
+  },
+} as const;
 ```
 
-### Step 5: Emit optional previews
+#### Tailwind → additions to `tailwind.config.{js,ts}` `theme.extend`
 
-If `--preview` is set:
-1. Write `preview.html` next to the `DESIGN.md`. It must be a zero-dependency static file (no CDN fonts, no build step) that renders:
-   - Color swatch grid (one card per role with hex + name)
-   - Type scale ladder (h1–small)
-   - Button variants in each state (rest, hover-frozen, focus-frozen, disabled)
-   - Input + card + alert examples
-2. If `--dark` is also set, emit `preview-dark.html` with dark tokens applied.
+```js
+// Paste into theme.extend:
+colors: {
+  primary:       "#635BFF",
+  "primary-hover": "#5A52E5",
+  surface:       "#F6F9FC",
+  border:        "#E3E8EE",
+  "text-base":   "#0A2540",
+  "text-muted":  "#425466",
+  danger:        "#DF1B41",
+  success:       "#0E9F6E",
+},
+borderRadius: { control: "6px", card: "8px", dialog: "12px" },
+boxShadow: {
+  1: "0 1px 2px rgba(10,37,64,0.06)",
+  2: "0 2px 8px rgba(10,37,64,0.08)",
+  3: "0 8px 24px rgba(10,37,64,0.12)",
+  4: "0 24px 48px rgba(10,37,64,0.18)",
+},
+fontFamily: {
+  sans: ['"Sohne"', '"Inter"', 'system-ui', 'sans-serif'],
+  mono: ['"Sohne Mono"', '"SF Mono"', 'Menlo', 'monospace'],
+},
+```
 
-The preview is purely for human review — never parsed by generators.
+#### CSS custom properties → `tokens.css`
 
-### Step 6: Register the DESIGN.md with the project
+```css
+/* tokens.css — generated by /fdl-extract-design */
+:root {
+  --color-primary:      #635BFF;
+  --color-primary-hover:#5A52E5;
+  --color-background:   #FFFFFF;
+  --color-surface:      #F6F9FC;
+  --color-border:       #E3E8EE;
+  --color-text:         #0A2540;
+  --color-text-muted:   #425466;
+  --color-danger:       #DF1B41;
+  --color-success:      #0E9F6E;
+  --color-warning:      #C27803;
+  --radius-control:     6px;
+  --radius-card:        8px;
+  --radius-dialog:      12px;
+  --shadow-1: 0 1px 2px rgba(10,37,64,0.06);
+  --shadow-2: 0 2px 8px rgba(10,37,64,0.08);
+  --shadow-3: 0 8px 24px rgba(10,37,64,0.12);
+  --shadow-4: 0 24px 48px rgba(10,37,64,0.18);
+  --font-heading: "Sohne", "Inter", system-ui, sans-serif;
+  --font-body:    "Sohne", "Inter", system-ui, sans-serif;
+  --font-mono:    "Sohne Mono", "SF Mono", Menlo, monospace;
+}
+```
 
-1. If `--out` is inside a path that already has a `CLAUDE.md`, append a one-line reference to `CLAUDE.md` under a "Design System" section (create if missing):
-   ```markdown
-   ## Design System
-   See [DESIGN.md](./DESIGN.md) — read before generating any UI.
+#### Flutter → `design_tokens.dart`
+
+```dart
+// design_tokens.dart — generated by /fdl-extract-design
+import 'package:flutter/material.dart';
+class DesignTokens {
+  static const Color primary      = Color(0xFF635BFF);
+  static const Color background   = Color(0xFFFFFFFF);
+  static const Color surface      = Color(0xFFF6F9FC);
+  static const Color textBase     = Color(0xFF0A2540);
+  static const Color textMuted    = Color(0xFF425466);
+  static const Color danger       = Color(0xFFDF1B41);
+  static const double radiusControl = 6.0;
+  static const double radiusCard    = 8.0;
+}
+```
+
+#### shadcn/ui → add to `globals.css` `:root` block
+
+Emit the CSS custom properties above AND remap the shadcn semantic variables:
+```css
+:root {
+  --background: 0 0% 100%;          /* #FFFFFF */
+  --foreground: 213 96% 14%;        /* #0A2540 */
+  --primary: 243 100% 69%;          /* #635BFF */
+  --primary-foreground: 0 0% 100%;
+  --muted: 213 40% 96%;             /* #F6F9FC */
+  --muted-foreground: 213 22% 56%;  /* #425466 */
+  --border: 213 24% 91%;            /* #E3E8EE */
+  --radius: 6px;
+}
+```
+(Convert hex to HSL — do the math correctly. Never approximate HSL.)
+
+---
+
+### Step 6: Register and complete
+
+1. If `DESIGN.md` already exists at the output path, show a one-line diff summary and ask before overwriting.
+2. After writing, print:
    ```
-   Only append if that exact line is not already present. Never modify existing CLAUDE.md rules.
-2. Do NOT commit automatically. This skill is a generator, not an evolver — the user decides when to commit. Print:
+   ✓ DESIGN.md written to {path}
+   ✓ {adapter-file} written ({framework} adapter)
+
+   /fdl-generate and /fdl-build will apply these tokens automatically.
+   Refine: edit DESIGN.md · Rebuild: /fdl-extract-design {source}
    ```
-   Wrote DESIGN.md to {path}.
-   Review, adjust, then run `git add DESIGN.md` when you're happy with it.
-   ```
+3. Do NOT commit. Do NOT run validate. Do NOT invoke auto-evolve. This skill produces design files, not blueprints.
 
-### Step 7: Output summary
-
-```
-Created: {path}/DESIGN.md
-Source:  {source}
-Colors:  {N} roles
-Fonts:   {N} families
-Preview: {written? yes/no}
-
-/fdl-generate and /fdl-build will read this file automatically for UI tasks in this project.
-
-Next steps:
-  - Open DESIGN.md and tweak anything that looks off.
-  - Re-run this skill with --preset or a new source to regenerate.
-  - Run /fdl-generate <feature> <framework> — UI will match these tokens.
-```
-
-## Handling edge cases
-
-### Multiple conflicting sources
-If `source` is a URL but `--from-code` also matches, prefer the source the user named explicitly. Call out the conflict and ask.
-
-### Source contains many themes (theme switcher, brand family)
-Ask the user which theme / product line this DESIGN.md should represent. Don't silently merge.
-
-### Code mode finds no theme files
-Fall back to brief mode, but tell the user: "No `tailwind.config`, `theme.{ts,js,json}`, or `:root` CSS variables found under {path}. Let's build one from scratch."
-
-### Existing DESIGN.md at `--out`
-Do not overwrite without confirmation. Show a diff-style summary of what would change and ask.
-
-### Site requires login (crawl mode)
-Ask the user to log in manually in Chrome. Never enter credentials on their behalf.
+---
 
 ## What this skill does NOT do
 
-- It does NOT create or modify `.blueprint.yaml` files.
-- It does NOT run `/fdl-auto-evolve`, validation, or generation. Those are separate skills.
-- It does NOT commit to git.
-- It does NOT touch the schema or the blueprint index.
-- It does NOT replace `/fdl-extract`, `/fdl-extract-web`, `/fdl-extract-code`, or any other skill — it lives alongside them and produces a different artifact (markdown, not YAML).
+- Does not create or modify `.blueprint.yaml` files.
+- Does not copy from, reference, or depend on awesome-design-md, Firecrawl, or Google Stitch.
+- Does not require any external API key or paid service.
+- Does not commit or push.
+- Does not replace any other skill.
+
+## Security / POPIA
+
+- Strip credentials, auth tokens, and analytics IDs from any crawled page source before recording URLs in the spec.
+- Refuse to process images that visibly contain PII (ID numbers, names + account numbers).
+- Never include real API keys or secrets in the token output — design tokens are purely visual.
 
 ## Integration with other skills
 
-- **`/fdl-generate`** — reads `DESIGN.md` at project root (or the `--path` target) before emitting UI code. If missing, generation proceeds as before with framework defaults.
-- **`/fdl-build`** — does the same, and additionally offers to invoke this skill if no `DESIGN.md` exists when the stack has a UI target (nextjs, angular, flutter, react, vue, svelte, etc.).
-- **Third-party agents** (Cursor, Copilot, Aider, Continue) — `DESIGN.md` is plain markdown with no FDL-specific schema, so they consume it automatically when reading project files.
+- **`/fdl-generate`** — reads `DESIGN.md` + the framework adapter file at Step 0a.5 before emitting UI. Tokens in the `## tokens` YAML block are parsed and merged into `extracted.design_tokens`. Rules in `## Do rules` and `## Don't rules` become hard constraints alongside blueprint rules.
+- **`/fdl-build`** — at Step 0.7, detects "looks like X" phrases and calls this skill inline before code generation begins. If no DESIGN.md exists and the build has a UI target, offers to generate one.
+- **Third-party agents** (Cursor, Copilot, Aider, Continue) — `DESIGN.md` is plain markdown; they consume it natively. The `## tokens` block is fenced YAML, readable by any agent.

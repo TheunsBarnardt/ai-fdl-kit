@@ -782,6 +782,124 @@ The brainstorm skill does NOT terminate until:
 
 **Why this matters for `/fdl-generate`:** The proposal is ultimately a plan for code generation. `/fdl-generate` works from blueprints. If a gap blueprint doesn't exist, `/fdl-generate` cannot generate that capability, and the system ships with a hole. Every "Pending" in the proposal is a production defect waiting to happen.
 
+### Step 9c — Flat prototype (clickable HTML showcase)
+
+After the gap analysis, offer the user a self-contained, clickable HTML prototype of the feature. The prototype is a **showcase and adjustment tool** — it lets stakeholders see and click through the feature before a single line of production code is written. Think Figma mockup, but in a plain HTML file that needs no design tool, no build step, and no internet connection.
+
+**This step is offered, not forced.** Ask once via `AskUserQuestion`:
+
+> "Want me to generate a clickable HTML prototype of this feature?
+>
+> It will show the main screens (happy path + key error states) using the design tokens from `DESIGN.md` if one exists. You can open it in a browser, adjust the HTML directly, or share it with stakeholders for feedback.
+>
+> (yes · no)"
+
+If the user says **no**, skip this step entirely. Do not re-ask.
+If the user says **yes**, proceed with the generation rules below.
+
+#### What the prototype covers
+
+Derive the screen list directly from the brainstorm (Steps 3–6). Do not invent screens the brainstorm did not establish.
+
+| Brainstorm source | Screen to generate |
+|---|---|
+| Step 3 happy path | Primary success view (confirmation, list, dashboard panel) |
+| Step 6 "Data" section fields | Form screen with all collected fields + a submit button |
+| Step 4 failure modes | One error-state screen per major failure (form validation, auth, service-down) |
+| Step 6 user journey — multi-step | Wizard/step sequence (one HTML panel per step, Next/Back nav) |
+| Step 6 "states" (state machine) | A status timeline or badge showing the lifecycle |
+| Actor: admin / manager | Admin view screen (approve/reject actions, list of items) |
+
+Keep to the screens you can justify from the brainstorm. Three well-derived screens beat eight invented ones.
+
+#### Generation rules
+
+**Self-contained single file** — one `.html` file, inline `<style>` and `<script>`, zero external dependencies. Must open correctly with `file://` in any modern browser.
+
+**Navigation** — clicking a button or action transitions to the relevant screen. Implement with vanilla JS that shows/hides named `<section id="screen-*">` panels:
+
+```js
+function show(id) {
+  document.querySelectorAll('[data-screen]').forEach(s => s.hidden = true);
+  document.getElementById(id).hidden = false;
+}
+```
+
+**Design tokens** — check whether `DESIGN.md` exists at project root or the target path:
+- If it exists, parse the `## tokens` YAML block and apply colors, typography, radius, shadows as inline CSS custom properties on `:root`. Use the exact hex values from the file.
+- If it doesn't exist, apply a clean neutral default palette (white bg, #0F172A text, #6366F1 primary, 6px radius, Inter/system font). This default is intentionally conservative — it showcases the layout, not a brand.
+
+**Layout** — use a simple centered-content shell. On desktop, cap width at 860px. No grid frameworks.
+
+**Prototype badge** — every screen must show a fixed top-right badge:
+
+```html
+<div style="position:fixed;top:12px;right:12px;background:#FEF3C7;color:#92400E;
+            padding:4px 10px;border-radius:4px;font-size:12px;font-weight:600;
+            border:1px solid #FCD34D;z-index:9999">
+  FDL Prototype · Not for production
+</div>
+```
+
+**Screen nav bar** — a fixed bottom or sidebar panel listing all screen names so reviewers can jump around without following the happy path:
+
+```html
+<nav style="position:fixed;bottom:0;left:0;right:0;background:#F8FAFC;
+            border-top:1px solid #E2E8F0;display:flex;gap:8px;padding:8px 16px;
+            overflow-x:auto;z-index:9998">
+  <button onclick="show('screen-form')">Form</button>
+  <button onclick="show('screen-success')">Success</button>
+  <button onclick="show('screen-error')">Error</button>
+  <!-- one button per screen -->
+</nav>
+```
+
+**Interactivity** — keep it minimal but convincing:
+- Form fields are real `<input>` / `<select>` / `<textarea>` elements (they hold values, but submission is faked).
+- Submit button runs a brief "processing" state (1.2s spinner) then shows the success screen.
+- Error state is reachable via a nav-bar button OR a "simulate error" toggle.
+- State badges reflect the lifecycle from the brainstorm's `states` section.
+
+**Annotation comments** — each screen section starts with an HTML comment that links it back to the brainstorm:
+
+```html
+<!-- Screen: form
+     Source: Step 6 "Data" section — fields: {field list}
+     Blueprint outcome: {outcome name} -->
+```
+
+#### File naming and location
+
+Hold in memory until Step 10 resolves the save path. Then write to:
+
+```
+projects/{project}/brainstorms/{feature}.prototype.html
+```
+
+Or, if the user skipped project setup:
+
+```
+docs/brainstorms/{feature}.prototype.html
+```
+
+Print the final path after writing:
+
+```
+✓ Prototype written: projects/{project}/brainstorms/{feature}.prototype.html
+  Open in browser → file://{absolute-path}
+  Screens: {N} ({comma-separated screen names})
+  Tokens: {DESIGN.md found and applied | default palette used}
+```
+
+#### What this prototype is NOT
+
+- Not production code — never connected to a backend, never committed as app source.
+- Not a Figma replacement — no design-token export, no component library, no constraints.
+- Not editable by the skill — the user adjusts the HTML directly in a text editor. The skill generates once; subsequent edits are manual.
+- Not re-generated automatically — running the brainstorm again offers a fresh prototype but does not overwrite an existing one without confirmation.
+
+---
+
 ### Step 10 — Ask about the project; create one if none exists
 
 Before saving the brainstorm doc, ask the user where it belongs.
@@ -863,10 +981,11 @@ After gap resolution, re-run the production readiness checklist from Step 9b aga
 **Outputs of this skill (all produced automatically):**
 1. A **client-facing business proposal** at `projects/{project}/brainstorms/{feature}.brainstorm.md` (or `docs/brainstorms/` if no project) — comprehensive enough to present to stakeholders without editing.
 2. A **production readiness gap analysis** embedded in the proposal (Section 12) — identifies every missing capability, maps existing blueprints, and recommends extractions.
-3. **Primary blueprints** created via `/fdl-create` — the core features designed during the brainstorm.
-4. **Gap-filling blueprints** created via `/fdl-create` or `/fdl-extract-code-feature` — addressing every gap the analysis identified.
-5. **Cross-references updated** — `related` arrays linked between all new and existing blueprints.
-6. **Auto-evolve** — validation, docs generation, AGI propagation, and commit.
+3. **Clickable HTML prototype** at `projects/{project}/brainstorms/{feature}.prototype.html` (optional, Step 9c) — self-contained flat mockup of all key screens, zero dependencies, opens in any browser. Uses design tokens from `DESIGN.md` if present.
+4. **Primary blueprints** created via `/fdl-create` — the core features designed during the brainstorm.
+5. **Gap-filling blueprints** created via `/fdl-create` or `/fdl-extract-code-feature` — addressing every gap the analysis identified.
+6. **Cross-references updated** — `related` arrays linked between all new and existing blueprints.
+7. **Auto-evolve** — validation, docs generation, AGI propagation, and commit.
 
 ## Why this skill exists
 
