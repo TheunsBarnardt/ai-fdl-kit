@@ -317,6 +317,27 @@ Walk through each section. **Do not dump the whole design at once.** After each 
 4. **Security** — auth, rate limits, input validation rules
 5. **Related features** — blueprints this depends on or extends
 
+### Step 6b — Ask about plan and prototype outputs
+
+After presenting the design sections, and before the user gives final approval, ask **one bundled question** via `AskUserQuestion`:
+
+> "Before I finalise, two optional outputs:
+>
+> 1. **Plan document** — a detailed `docs/plans/{feature}.md` business proposal with architecture diagrams, user journeys, risk assessment, production readiness audit, and build commands. This is the kind of document you'd hand to a client, stakeholder, or architect. (Recommended for non-trivial features.)
+>
+> 2. **Clickable HTML prototype** — a self-contained `.prototype.html` file showing the key screens derived from this brainstorm. Opens in any browser, zero dependencies, uses your DESIGN.md tokens if one exists. Shows the terminal/app/admin screens side-by-side so stakeholders can click through the feature before a line of production code is written.
+>
+> Which do you want? (both · plan only · prototype only · neither)"
+
+Record the answer. The plan is written at Step 9. The prototype is written at Step 9c. Both are saved alongside each other in the same folder (either `projects/{project}/brainstorms/` or `docs/plans/` depending on Step 10).
+
+- **both** → write plan + prototype (prototype consumes the plan's user journeys for screen derivation)
+- **plan only** → write plan, skip Step 9c
+- **prototype only** → skip the full business proposal (Step 9), write a minimal summary header, then generate the prototype at Step 9c
+- **neither** → skip both; proceed directly to blueprint creation via Step 11
+
+This question is asked once and not repeated. For trivial features (single CRUD operation, no state machine, no actors), you may suggest "neither" as the default — the brainstorm doc overhead isn't worth it. For anything with a state machine, multiple actors, or hardware integration, lean toward "both".
+
 ### Step 7 — Hard gate: user must approve the full design
 
 No invocation of `/fdl-create` until the user says "yes, that's what I want" to the complete picture. If they hesitate, loop back to the specific section that feels wrong.
