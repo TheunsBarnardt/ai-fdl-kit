@@ -1672,13 +1672,34 @@ async function main() {
   process.exit(totalFailed > 0 ? 1 : 0);
 }
 
+// ─── Schema metadata (canonical GitHub source) ──────────────
+// Load from blueprint.schema.yaml so skills can fetch blueprints remotely
+
+const schemaMetadata = (() => {
+  try {
+    const schemaYaml = readFileSync(resolve("schema/blueprint.schema.yaml"), "utf8");
+    const schema = YAML.parse(schemaYaml);
+    return {
+      repository: schema?.schema?.repository || "https://github.com/TheunsBarnardt/ai-fdl-kit",
+      blueprint_source: schema?.schema?.blueprint_source || "https://raw.githubusercontent.com/TheunsBarnardt/ai-fdl-kit/master/blueprints",
+      index_url: schema?.schema?.index_url || "https://raw.githubusercontent.com/TheunsBarnardt/ai-fdl-kit/master/blueprints/INDEX.md",
+    };
+  } catch (e) {
+    return {
+      repository: "https://github.com/TheunsBarnardt/ai-fdl-kit",
+      blueprint_source: "https://raw.githubusercontent.com/TheunsBarnardt/ai-fdl-kit/master/blueprints",
+      index_url: "https://raw.githubusercontent.com/TheunsBarnardt/ai-fdl-kit/master/blueprints/INDEX.md",
+    };
+  }
+})();
+
 // ─── Exports for testing ─────────────────────────────────
 
-export { validateFile, validateRelationships, validateUniqueness, blueprintJsonSchema };
+export { validateFile, validateRelationships, validateUniqueness, blueprintJsonSchema, schemaMetadata };
 
 // ─── Run CLI only when invoked directly ──────────────────
 
 import { pathToFileURL } from "url";
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main();
 }
