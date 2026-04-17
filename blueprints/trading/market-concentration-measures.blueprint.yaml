@@ -1,0 +1,178 @@
+# ============================================================
+# market-concentration-measures — Feature Blueprint
+# Source: CFA LV1 2025 Vol 02 — Module 1, p.40-44
+# ============================================================
+
+feature: market-concentration-measures
+version: "1.0.0"
+description: Quantify industry concentration using the N-firm concentration ratio and the Herfindahl-Hirschman Index to infer market power and antitrust risk
+category: trading
+tags: [economics, microeconomics, concentration-ratio, hhi, market-power, antitrust, cfa-level-1]
+aliases:
+  - herfindahl-hirschman-index
+  - hhi
+  - n-firm-concentration-ratio
+  - concentration-measurement
+  - market-power-index
+  - antitrust-screen
+
+actors:
+  - id: market_analyst
+    name: Market Structure Analyst
+    type: system
+
+fields:
+  - name: market_id
+    type: text
+    required: true
+    label: Market identifier
+  - name: firm_shares
+    type: json
+    required: true
+    label: Array of firm market shares (in percent or decimal)
+  - name: top_n
+    type: number
+    required: false
+    label: Number of top firms for concentration ratio (typical 4)
+
+rules:
+  n_firm_concentration_ratio:
+    # Source: Vol 2, Module 1, p.42-43
+    formula: "CR_n = sum of top n firms' market shares"
+    typical_n: "4 (CR4) or 8 (CR8)"
+    range: "0 to 100 percent"
+    interpretation:
+      low: "CR4 < 40 percent -> unconcentrated / competitive"
+      moderate: "40 percent <= CR4 < 70 percent -> moderately concentrated"
+      high: "CR4 >= 70 percent -> highly concentrated"
+  herfindahl_hirschman_index:
+    # Source: Vol 2, Module 1, p.43-44
+    formula: "HHI = sum_i s_i^2, where s_i = market share in percent (or decimal)"
+    range: "0 to 10,000 (if shares expressed as percent) or 0 to 1"
+    interpretation_dept_of_justice:
+      unconcentrated: "HHI < 1,500"
+      moderately_concentrated: "1,500 <= HHI < 2,500"
+      highly_concentrated: "HHI >= 2,500"
+    merger_screen: "Change in HHI > 200 in highly concentrated markets triggers scrutiny"
+  relative_merits:
+    # Source: Vol 2, Module 1, p.44
+    cr_n_advantages: "Simple; widely reported"
+    cr_n_limitations: "Ignores distribution among top N and outside top N"
+    hhi_advantages: "Captures entire size distribution; sensitive to merger effects"
+    hhi_limitations: "Requires share data for all firms; sensitive to market definition"
+  limitations_of_both:
+    market_definition: "Geographic and product scope determine who is a 'competitor'"
+    import_competition: "Domestic share overstates power when imports discipline prices"
+    dynamic_entry: "Contestable markets behave competitively even with high concentration"
+  investment_applications:
+    antitrust_due_diligence: "Estimate HHI before and after merger to forecast approval risk"
+    industry_attractiveness: "High concentration often correlates with higher ROE"
+    activism_target_screen: "Low-HHI industries may benefit from consolidation"
+  validation:
+    shares_present: "firm_shares must exist with at least 1 entry"
+    shares_non_negative: "each share >= 0"
+    shares_sum_reasonable: "sum of shares <= 100 (if percent) or <= 1 (if decimal)"
+    valid_top_n: "top_n >= 1"
+
+outcomes:
+  compute_concentration:
+    priority: 1
+    description: Compute CR_n and HHI
+    given:
+      - field: firm_shares
+        source: input
+        operator: exists
+      - field: shares_valid
+        source: computed
+        operator: eq
+        value: true
+    then:
+      - action: call_service
+        target: market_analyst
+      - action: emit_event
+        event: market.concentration_computed
+  invalid_shares:
+    priority: 10
+    description: Share data invalid (negative, sums > 100 percent)
+    given:
+      - field: shares_valid
+        source: computed
+        operator: eq
+        value: false
+    then:
+      - action: emit_event
+        event: market.concentration_rejected
+    error: CONCENTRATION_SHARES_INVALID
+  missing_shares:
+    priority: 11
+    description: Shares array missing
+    given:
+      - field: firm_shares
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: market.concentration_rejected
+    error: CONCENTRATION_SHARES_MISSING
+
+errors:
+  - code: CONCENTRATION_SHARES_INVALID
+    status: 400
+    message: Firm shares must be non-negative and sum to at most 100 percent (or 1 in decimal)
+  - code: CONCENTRATION_SHARES_MISSING
+    status: 400
+    message: firm_shares array is required
+
+events:
+  - name: market.concentration_computed
+    payload: [market_id, cr_n, hhi, category, top_firm_share]
+  - name: market.concentration_rejected
+    payload: [market_id, reason_code]
+
+anti_patterns:
+  - rule: Do not interpret CR4 without also checking HHI
+    why: "CR4 can equal 60 percent with either one dominant firm or four evenly matched firms; HHI distinguishes these cases"
+  - rule: Do not ignore market definition when computing concentration
+    why: "Narrow definitions inflate measured concentration; broad definitions hide local monopolies. Antitrust analysis hinges on this choice"
+  - rule: Do not use historical HHI to predict future pricing power in contestable markets
+    why: "Low entry barriers can keep prices competitive even when measured concentration is high (contestable markets theory)"
+  - rule: Do not assume concentration causes profitability
+    why: "The correlation is robust but reflects barriers to entry and product differentiation as much as measured shares; causation runs multiple ways"
+
+api:
+  http:
+    method: POST
+    path: /micro/market/concentration
+  request:
+    schema:
+      market_id: string
+      firm_shares: array
+      top_n: number
+  response:
+    success:
+      status: 200
+      schema:
+        cr_n: number
+        hhi: number
+        category: string
+        top_firm_share: number
+    errors:
+      - status: 400
+        error_code: CONCENTRATION_SHARES_INVALID
+      - status: 400
+        error_code: CONCENTRATION_SHARES_MISSING
+
+extensions:
+  worked_example:
+    firm_shares_percent: [35, 25, 15, 10, 8, 4, 3]
+    cr4: 85
+    hhi: "35^2 + 25^2 + 15^2 + 10^2 + 8^2 + 4^2 + 3^2 = 1225 + 625 + 225 + 100 + 64 + 16 + 9 = 2264"
+    category: "Moderately concentrated (HHI between 1500 and 2500)"
+
+related:
+  - feature: market-structures-analysis
+    type: required
+  - feature: oligopoly-pricing
+    type: recommended
+  - feature: monopoly-pricing
+    type: recommended

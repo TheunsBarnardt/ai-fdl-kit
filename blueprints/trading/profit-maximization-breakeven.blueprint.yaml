@@ -1,0 +1,195 @@
+# ============================================================
+# profit-maximization-breakeven — Feature Blueprint
+# Source: CFA LV1 2025 Vol 02 — Module 1, p.6-19
+# ============================================================
+
+feature: profit-maximization-breakeven
+version: "1.0.0"
+description: Determine the profit-maximising output, breakeven quantity, and shutdown point of a firm using marginal revenue equals marginal cost and short-run average cost analysis
+category: trading
+tags: [economics, microeconomics, profit-maximization, breakeven, shutdown, mr-mc, cfa-level-1]
+aliases:
+  - mr-mc-rule
+  - shutdown-decision
+  - breakeven-analysis
+  - firm-optimisation
+  - short-run-shutdown
+  - economies-of-scale
+
+actors:
+  - id: pricing_engine
+    name: Firm Pricing Engine
+    type: system
+
+fields:
+  - name: price
+    type: number
+    required: true
+    label: Market price per unit
+  - name: marginal_cost_schedule
+    type: json
+    required: true
+    label: Array of marginal cost observations at various quantities
+  - name: average_total_cost
+    type: number
+    required: false
+    label: ATC at current output
+  - name: average_variable_cost
+    type: number
+    required: false
+    label: AVC at current output
+  - name: quantity
+    type: number
+    required: true
+    label: Current output quantity
+
+rules:
+  profit_maximization:
+    # Source: Vol 2, Module 1, p.7-9
+    rule: "Produce where MR = MC (marginal revenue equals marginal cost)"
+    perfect_competition: "MR = P, so produce where P = MC"
+    concavity: "MC must be rising through MR for a maximum, not a minimum"
+  breakeven:
+    # Source: Vol 2, Module 1, p.9-10
+    definition: "Output level at which total revenue = total cost (economic profit = 0)"
+    formula: "P = ATC at breakeven quantity"
+    normal_profit: "Accounting profit covers opportunity cost of capital"
+  shutdown_decision:
+    # Source: Vol 2, Module 1, p.10-13
+    short_run_rule: "Shut down if P < AVC; continue if P >= AVC (cover variable cost)"
+    long_run_rule: "Exit if P < ATC (cannot cover total cost long term)"
+    intuition: "In short run, fixed costs are sunk; operate if you cover variable cost and contribute to fixed"
+  economies_of_scale:
+    # Source: Vol 2, Module 1, p.14-18
+    economies: "LRAC falls as output rises — scale benefits"
+    diseconomies: "LRAC rises as output rises — coordination costs dominate"
+    minimum_efficient_scale: "Output at which LRAC bottoms"
+  applications:
+    corporate_capacity: "Decide plant closure when price dips below AVC"
+    commodity_producers: "Oil/gas shutdown decisions tied to spot vs variable cost"
+    manufacturing: "Scale decisions and unit-economics analysis"
+    equity_valuation: "Understand margin sustainability across the cycle"
+  validation:
+    positive_price: "price >= 0"
+    valid_quantity: "quantity > 0"
+    mc_schedule_sorted: "marginal_cost_schedule entries sorted by quantity"
+
+outcomes:
+  compute_optimal_output:
+    priority: 1
+    description: Determine profit-maximising quantity where P = MC
+    given:
+      - field: price
+        source: input
+        operator: gte
+        value: 0
+      - field: marginal_cost_schedule
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: pricing_engine
+      - action: emit_event
+        event: firm.optimal_output_computed
+  shutdown_recommended:
+    priority: 5
+    description: Price below AVC in short run
+    given:
+      - field: price
+        source: input
+        operator: lt
+        value: average_variable_cost
+    then:
+      - action: emit_event
+        event: firm.shutdown_recommended
+  exit_recommended:
+    priority: 6
+    description: Price below ATC in long run
+    given:
+      - field: price
+        source: input
+        operator: lt
+        value: average_total_cost
+    then:
+      - action: emit_event
+        event: firm.exit_recommended
+  invalid_inputs:
+    priority: 10
+    description: Missing required inputs
+    given:
+      - any:
+          - field: price
+            source: input
+            operator: not_exists
+          - field: quantity
+            source: input
+            operator: not_exists
+    then:
+      - action: emit_event
+        event: firm.optimisation_rejected
+    error: FIRM_INPUT_MISSING
+
+errors:
+  - code: FIRM_INPUT_MISSING
+    status: 400
+    message: price and quantity are required
+
+events:
+  - name: firm.optimal_output_computed
+    payload: [firm_id, optimal_quantity, max_profit, breakeven_quantity]
+  - name: firm.shutdown_recommended
+    payload: [firm_id, price, avc, rationale]
+  - name: firm.exit_recommended
+    payload: [firm_id, price, atc, rationale]
+  - name: firm.optimisation_rejected
+    payload: [firm_id, reason_code]
+
+anti_patterns:
+  - rule: Do not use accounting profit as the criterion for continuing operations
+    why: "Economic profit includes opportunity cost of capital; positive accounting profit with negative economic profit means better uses of capital exist"
+  - rule: Do not shut down immediately when price dips below ATC
+    why: "Short-run operation covers variable costs and contributes to fixed; shutting down means losing that contribution with fixed costs still running"
+  - rule: Do not ignore sunk costs as irrelevant but treat fixed costs as sunk forever
+    why: "Fixed costs are sunk in the short run but avoidable in the long run via exit; apply short- vs long-run rules accordingly"
+  - rule: Do not assume MC curve is monotonic
+    why: "MC typically U-shaped due to diminishing returns; the intersection with MR must be on the rising portion for a maximum"
+
+api:
+  http:
+    method: POST
+    path: /micro/firm/optimise
+  request:
+    schema:
+      price: number
+      marginal_cost_schedule: array
+      average_total_cost: number
+      average_variable_cost: number
+      quantity: number
+  response:
+    success:
+      status: 200
+      schema:
+        optimal_quantity: number
+        max_profit: number
+        breakeven_quantity: number
+        recommendation: string
+    errors:
+      - status: 400
+        error_code: FIRM_INPUT_MISSING
+
+extensions:
+  decision_rules_summary:
+    - condition: "P > ATC"
+      action: "Produce; economic profit > 0"
+    - condition: "P = ATC"
+      action: "Produce; normal profit only (breakeven)"
+    - condition: "AVC <= P < ATC"
+      action: "Short run: produce; long run: exit"
+    - condition: "P < AVC"
+      action: "Shut down immediately (even short run)"
+
+related:
+  - feature: market-structures-analysis
+    type: required
+  - feature: market-concentration-measures
+    type: recommended

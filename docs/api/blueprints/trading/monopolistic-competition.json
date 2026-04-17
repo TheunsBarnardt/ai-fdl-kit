@@ -1,0 +1,273 @@
+{
+  "feature": "monopolistic-competition",
+  "version": "1.0.0",
+  "description": "Model pricing, output, and long-run equilibrium in monopolistic competition — many firms selling differentiated products with free entry and downward-sloping demand for each firm",
+  "category": "trading",
+  "tags": [
+    "economics",
+    "microeconomics",
+    "monopolistic-competition",
+    "product-differentiation",
+    "brand",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "differentiated-products-market",
+    "brand-competition",
+    "excess-capacity-theorem",
+    "chamberlinian-competition",
+    "monopolistic-competitive-equilibrium",
+    "non-price-competition"
+  ],
+  "actors": [
+    {
+      "id": "pricing_engine",
+      "name": "Firm Pricing Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "firm_id",
+      "type": "text",
+      "required": true,
+      "label": "Firm identifier"
+    },
+    {
+      "name": "own_demand_curve",
+      "type": "json",
+      "required": false,
+      "label": "Firm-level demand schedule"
+    },
+    {
+      "name": "marginal_cost",
+      "type": "number",
+      "required": false,
+      "label": "MC at current output"
+    },
+    {
+      "name": "marginal_revenue",
+      "type": "number",
+      "required": false,
+      "label": "MR at current output"
+    },
+    {
+      "name": "average_total_cost",
+      "type": "number",
+      "required": false,
+      "label": "ATC at current output"
+    },
+    {
+      "name": "time_horizon",
+      "type": "select",
+      "required": false,
+      "label": "short_run | long_run"
+    }
+  ],
+  "rules": {
+    "demand_in_monopolistic_competition": {
+      "firm_demand_slope": "Downward-sloping — firms have some pricing power due to differentiation",
+      "elasticity": "Relatively elastic because many close substitutes exist",
+      "shift_factors": "Advertising, quality, branding, product variety"
+    },
+    "supply_and_optimal_output": {
+      "rule": "Profit max at MR = MC; price set from demand curve at that quantity",
+      "output_less_than_mes": "Firms produce below minimum efficient scale — 'excess capacity theorem'"
+    },
+    "long_run_equilibrium": {
+      "entry_drives_profit_to_zero": "Free entry competes away economic profit",
+      "condition": "P = ATC at MR = MC output (demand curve tangent to ATC)",
+      "outcome": "Normal accounting profit, zero economic profit, excess capacity"
+    },
+    "non_price_competition": {
+      "channels": "Advertising, R&D, product features, service, packaging, brand equity",
+      "role": "Shift demand curve outward and make it less elastic",
+      "risk": "Advertising cost can dissipate any economic profit"
+    },
+    "investment_applications": {
+      "brand_value_analysis": "Measure moat strength via price premium sustainability",
+      "retail_apparel": "High-differentiation, low-entry-barriers example",
+      "packaged_goods": "Heavy advertising sustains pricing power short term",
+      "restaurants": "Classic monopolistic competition"
+    },
+    "validation": {
+      "firm_id_present": "firm_id required",
+      "valid_horizon": "time_horizon in {short_run, long_run}"
+    }
+  },
+  "outcomes": {
+    "compute_short_run_equilibrium": {
+      "priority": 1,
+      "description": "Short-run optimum at MR = MC",
+      "given": [
+        {
+          "field": "time_horizon",
+          "source": "input",
+          "operator": "eq",
+          "value": "short_run"
+        },
+        {
+          "field": "marginal_cost",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "marginal_revenue",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "pricing_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "moncomp.short_run_computed"
+        }
+      ]
+    },
+    "compute_long_run_equilibrium": {
+      "priority": 2,
+      "description": "Long-run normal-profit equilibrium",
+      "given": [
+        {
+          "field": "time_horizon",
+          "source": "input",
+          "operator": "eq",
+          "value": "long_run"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "pricing_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "moncomp.long_run_computed"
+        }
+      ]
+    },
+    "missing_inputs": {
+      "priority": 10,
+      "description": "Required cost/revenue data missing",
+      "given": [
+        {
+          "field": "firm_id",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "moncomp.equilibrium_rejected"
+        }
+      ],
+      "error": "MONCOMP_MISSING_INPUT"
+    }
+  },
+  "errors": [
+    {
+      "code": "MONCOMP_MISSING_INPUT",
+      "status": 400,
+      "message": "firm_id and cost/revenue data required"
+    }
+  ],
+  "events": [
+    {
+      "name": "moncomp.short_run_computed",
+      "payload": [
+        "firm_id",
+        "optimal_quantity",
+        "optimal_price",
+        "short_run_profit"
+      ]
+    },
+    {
+      "name": "moncomp.long_run_computed",
+      "payload": [
+        "firm_id",
+        "equilibrium_quantity",
+        "equilibrium_price",
+        "normal_profit_only"
+      ]
+    },
+    {
+      "name": "moncomp.equilibrium_rejected",
+      "payload": [
+        "firm_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not assume all differentiation is valuable",
+      "why": "Cosmetic differentiation that customers ignore wastes resources without expanding pricing power"
+    },
+    {
+      "rule": "Do not project long-term economic profit for a monopolistically competitive firm",
+      "why": "Free entry drives economic profit to zero in the long run; value premium only lasts as long as the brand moat holds"
+    },
+    {
+      "rule": "Do not confuse monopolistic competition with monopoly",
+      "why": "Monopolistic competition has many firms and free entry; monopoly has one firm and blocked entry — very different economics"
+    },
+    {
+      "rule": "Do not ignore advertising costs when modelling profitability",
+      "why": "Advertising inflates fixed costs; a firm can have high markups yet zero economic profit after advertising"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/micro/monopolistic-competition/equilibrium"
+    },
+    "request": {
+      "schema": {
+        "firm_id": "string",
+        "own_demand_curve": "array",
+        "marginal_cost": "number",
+        "marginal_revenue": "number",
+        "average_total_cost": "number",
+        "time_horizon": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "optimal_quantity": "number",
+          "optimal_price": "number",
+          "economic_profit": "number",
+          "regime": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "MONCOMP_MISSING_INPUT"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "excess_capacity_note": {
+      "result": "In long-run equilibrium, output lies to the left of minimum ATC",
+      "implication": "Monopolistically competitive industries operate with 'unused' efficient-scale capacity"
+    }
+  },
+  "related": [
+    {
+      "feature": "market-structures-analysis",
+      "type": "required"
+    },
+    {
+      "feature": "profit-maximization-breakeven",
+      "type": "required"
+    }
+  ]
+}

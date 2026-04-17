@@ -1,0 +1,299 @@
+{
+  "feature": "oligopoly-pricing",
+  "version": "1.0.0",
+  "description": "Analyse oligopoly pricing and output decisions using Cournot output competition, Nash equilibrium, Stackelberg leadership, kinked demand, and cartel models",
+  "category": "trading",
+  "tags": [
+    "economics",
+    "microeconomics",
+    "oligopoly",
+    "game-theory",
+    "nash-equilibrium",
+    "cournot",
+    "cartel",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "cournot-model",
+    "nash-equilibrium",
+    "stackelberg-leadership",
+    "kinked-demand",
+    "oligopoly-cartel",
+    "strategic-pricing"
+  ],
+  "actors": [
+    {
+      "id": "game_theory_engine",
+      "name": "Game Theory Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "market_id",
+      "type": "text",
+      "required": true,
+      "label": "Market identifier"
+    },
+    {
+      "name": "number_of_firms",
+      "type": "number",
+      "required": true,
+      "label": "Number of firms in the oligopoly (typically 2 to 10)"
+    },
+    {
+      "name": "model",
+      "type": "select",
+      "required": true,
+      "label": "cournot | stackelberg | kinked_demand | cartel | bertrand"
+    },
+    {
+      "name": "market_demand",
+      "type": "json",
+      "required": false,
+      "label": "Market demand schedule or inverse demand function"
+    },
+    {
+      "name": "cost_structure",
+      "type": "json",
+      "required": false,
+      "label": "Cost functions for each firm"
+    }
+  ],
+  "rules": {
+    "cournot_model": {
+      "definition": "Firms choose output simultaneously, assuming rivals hold output fixed",
+      "equilibrium": "Nash equilibrium in quantities; each firm's Q is a best response given rivals",
+      "duopoly_result": "Each firm produces 1/3 of monopoly output (with identical constant MC)"
+    },
+    "nash_equilibrium": {
+      "definition": "Strategy profile in which no firm can improve profit by unilaterally changing strategy",
+      "existence": "Every finite game has at least one Nash equilibrium (possibly mixed)"
+    },
+    "stackelberg_model": {
+      "definition": "Sequential moves — a leader commits first, follower reacts",
+      "result": "Leader gains first-mover advantage; total output higher than Cournot"
+    },
+    "kinked_demand": {
+      "assumption": "Rivals match price cuts but ignore price increases",
+      "implication": "Demand is elastic above and inelastic below the current price -> price stability",
+      "outcome": "Prices are sticky in oligopolies"
+    },
+    "cartel": {
+      "goal": "Coordinate on joint monopoly output and price",
+      "challenge": "Each member has incentive to cheat; stability depends on detection and punishment",
+      "examples": "OPEC, De Beers historically"
+    },
+    "bertrand_model": {
+      "assumption": "Firms compete on price with identical homogeneous products",
+      "outcome": "Price driven to marginal cost even with two firms (Bertrand paradox)"
+    },
+    "factors_supporting_collusion": [
+      "Few firms (lower coordination cost)",
+      "Homogeneous products",
+      "Similar cost structures",
+      "Repeated interaction",
+      "Low demand volatility",
+      "Transparent prices"
+    ],
+    "investment_applications": {
+      "airline_routes": "Capacity discipline vs price wars — Cournot dynamics",
+      "telecom": "Oligopoly with Stackelberg leader in new-market entry",
+      "oil_market": "OPEC+ cartel behaviour and compliance monitoring",
+      "beverage_duopoly": "Classic Bertrand-type brand-price competition"
+    },
+    "validation": {
+      "valid_model": "model in {cournot, stackelberg, kinked_demand, cartel, bertrand}",
+      "n_firms_reasonable": "2 <= number_of_firms <= 20"
+    }
+  },
+  "outcomes": {
+    "simulate_oligopoly": {
+      "priority": 1,
+      "description": "Compute equilibrium outputs and prices for the chosen model",
+      "given": [
+        {
+          "field": "model",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "cournot",
+            "stackelberg",
+            "kinked_demand",
+            "cartel",
+            "bertrand"
+          ]
+        },
+        {
+          "field": "number_of_firms",
+          "source": "input",
+          "operator": "gte",
+          "value": 2
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "game_theory_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "oligopoly.equilibrium_computed"
+        }
+      ]
+    },
+    "invalid_model": {
+      "priority": 10,
+      "description": "Unsupported oligopoly model",
+      "given": [
+        {
+          "field": "model",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "cournot",
+            "stackelberg",
+            "kinked_demand",
+            "cartel",
+            "bertrand"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "oligopoly.equilibrium_rejected"
+        }
+      ],
+      "error": "OLIGOPOLY_INVALID_MODEL"
+    },
+    "insufficient_firms": {
+      "priority": 11,
+      "description": "Single firm cannot be oligopoly",
+      "given": [
+        {
+          "field": "number_of_firms",
+          "source": "input",
+          "operator": "lt",
+          "value": 2
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "oligopoly.equilibrium_rejected"
+        }
+      ],
+      "error": "OLIGOPOLY_TOO_FEW_FIRMS"
+    }
+  },
+  "errors": [
+    {
+      "code": "OLIGOPOLY_INVALID_MODEL",
+      "status": 400,
+      "message": "model must be cournot, stackelberg, kinked_demand, cartel, or bertrand"
+    },
+    {
+      "code": "OLIGOPOLY_TOO_FEW_FIRMS",
+      "status": 400,
+      "message": "Oligopoly requires at least 2 firms"
+    }
+  ],
+  "events": [
+    {
+      "name": "oligopoly.equilibrium_computed",
+      "payload": [
+        "market_id",
+        "model",
+        "equilibrium_output",
+        "equilibrium_price",
+        "firm_profits"
+      ]
+    },
+    {
+      "name": "oligopoly.equilibrium_rejected",
+      "payload": [
+        "market_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not assume oligopolies always reach the cartel outcome",
+      "why": "Cheating incentives and regulatory constraints often destabilise collusion; the actual outcome can be closer to Cournot or Bertrand"
+    },
+    {
+      "rule": "Do not apply kinked-demand logic to industries with homogeneous products and transparent prices",
+      "why": "Bertrand or Cournot dynamics dominate; the kinked-demand model fits differentiated, non-transparent settings"
+    },
+    {
+      "rule": "Do not interpret the Nash equilibrium as the socially optimal outcome",
+      "why": "Nash is individually rational, not Pareto-efficient; prisoner's-dilemma situations illustrate this gap"
+    },
+    {
+      "rule": "Do not overlook antitrust risk when modelling cartel profits",
+      "why": "Regulators impose large fines and breakups; cartel NPV must net of enforcement risk"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/micro/oligopoly/equilibrium"
+    },
+    "request": {
+      "schema": {
+        "market_id": "string",
+        "number_of_firms": "number",
+        "model": "string",
+        "market_demand": "object",
+        "cost_structure": "object"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "market_id": "string",
+          "model": "string",
+          "equilibrium_output": "number",
+          "equilibrium_price": "number",
+          "firm_profits": "array"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "OLIGOPOLY_INVALID_MODEL"
+        },
+        {
+          "status": 400,
+          "error_code": "OLIGOPOLY_TOO_FEW_FIRMS"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "duopoly_output_ranking": {
+      "monopoly": "Q_m — lowest combined output, highest price",
+      "cartel": "approximately Q_m if collusion holds",
+      "stackelberg": "Q_s > Q_cournot — leader forces larger total output",
+      "cournot": "Q_c — between Stackelberg and perfect competition",
+      "bertrand": "Q_pc — equal to perfect competition with P = MC"
+    }
+  },
+  "related": [
+    {
+      "feature": "market-structures-analysis",
+      "type": "required"
+    },
+    {
+      "feature": "monopoly-pricing",
+      "type": "recommended"
+    },
+    {
+      "feature": "market-concentration-measures",
+      "type": "recommended"
+    }
+  ]
+}

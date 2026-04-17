@@ -1,0 +1,183 @@
+# ============================================================
+# market-structures-analysis — Feature Blueprint
+# Source: CFA LV1 2025 Vol 02 — Module 1, p.20-24
+# ============================================================
+
+feature: market-structures-analysis
+version: "1.0.0"
+description: Classify an industry by market structure — perfect competition, monopolistic competition, oligopoly, or monopoly — and infer pricing power, entry barriers, and profitability implications
+category: trading
+tags: [economics, microeconomics, market-structure, perfect-competition, monopoly, cfa-level-1]
+aliases:
+  - market-structure-classification
+  - perfect-competition
+  - monopoly-analysis
+  - industry-structure
+  - pricing-power-assessment
+  - porter-structure
+
+actors:
+  - id: market_analyst
+    name: Market Structure Analyst
+    type: system
+
+fields:
+  - name: number_of_sellers
+    type: select
+    required: true
+    label: many | many_differentiated | few | one
+  - name: product_differentiation
+    type: select
+    required: true
+    label: homogeneous | differentiated
+  - name: barriers_to_entry
+    type: select
+    required: true
+    label: none | low | high | very_high
+  - name: pricing_power
+    type: select
+    required: false
+    label: price_taker | limited | substantial | price_maker
+
+rules:
+  four_structures:
+    # Source: Vol 2, Module 1, Exhibit 5, p.20-23
+    perfect_competition:
+      sellers: many
+      product: homogeneous
+      entry: none
+      pricing: price_taker
+      demand: perfectly_elastic
+      long_run_profit: zero_economic_profit
+    monopolistic_competition:
+      sellers: many
+      product: differentiated
+      entry: low
+      pricing: limited
+      demand: downward_sloping_elastic
+      long_run_profit: zero_economic_profit
+    oligopoly:
+      sellers: few
+      product: either
+      entry: high
+      pricing: substantial
+      demand: kinked_or_game_theoretic
+      long_run_profit: can_persist_with_barriers
+    monopoly:
+      sellers: one
+      product: unique
+      entry: very_high
+      pricing: price_maker
+      demand: market_demand
+      long_run_profit: positive_with_barriers
+  key_questions:
+    # Source: Vol 2, Module 1, p.20
+    - "How many firms compete?"
+    - "Are products identical or differentiated?"
+    - "Are there barriers to entry?"
+    - "Do firms compete on price or other dimensions?"
+  investment_implications:
+    perfect_competition: "Commodity-like returns; no sustainable margin"
+    monopolistic_competition: "Brand moats; temporary economic profit"
+    oligopoly: "Game theory dominates; coordination risk"
+    monopoly: "Highest margins but regulatory/antitrust risk"
+  applications:
+    retail_banking: "Monopolistic competition among branded banks"
+    airlines: "Oligopoly with few major carriers on key routes"
+    utilities: "Regulated monopoly with fixed ROE"
+    agricultural_commodities: "Perfect competition for homogeneous products"
+  validation:
+    valid_number: "number_of_sellers in {many, many_differentiated, few, one}"
+    valid_differentiation: "product_differentiation in {homogeneous, differentiated}"
+    valid_barriers: "barriers_to_entry in {none, low, high, very_high}"
+
+outcomes:
+  classify_structure:
+    priority: 1
+    description: Assign an industry to one of four market structures
+    given:
+      - field: number_of_sellers
+        source: input
+        operator: exists
+      - field: product_differentiation
+        source: input
+        operator: exists
+      - field: barriers_to_entry
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: market_analyst
+      - action: emit_event
+        event: market.structure_classified
+  invalid_classification:
+    priority: 10
+    description: Inputs do not map to a known structure
+    given:
+      - field: classification_valid
+        source: computed
+        operator: eq
+        value: false
+    then:
+      - action: emit_event
+        event: market.classification_rejected
+    error: MARKET_STRUCTURE_UNMATCHED
+
+errors:
+  - code: MARKET_STRUCTURE_UNMATCHED
+    status: 400
+    message: Inputs do not map to a recognised market structure
+
+events:
+  - name: market.structure_classified
+    payload: [industry_id, structure, pricing_power, implied_profitability]
+  - name: market.classification_rejected
+    payload: [industry_id, reason_code]
+
+anti_patterns:
+  - rule: Do not treat a high market share as proof of monopoly
+    why: "Contestable markets with low entry barriers can discipline even a single incumbent; look at barriers, not just share"
+  - rule: Do not assume all oligopolies coordinate on price
+    why: "Oligopoly outcomes range from Cournot competition to cartel pricing; the actual behaviour depends on game-theoretic incentives"
+  - rule: Do not ignore regulation and antitrust when valuing a monopolist
+    why: "Regulated monopolies face capped ROE; unregulated ones face breakup risk. Both constrain 'monopoly profits' in practice"
+  - rule: Do not equate branding with monopolistic competition alone
+    why: "Many oligopolists and monopolists also brand; brand strength matters across structures, not only one"
+
+api:
+  http:
+    method: POST
+    path: /micro/market-structure/classify
+  request:
+    schema:
+      number_of_sellers: string
+      product_differentiation: string
+      barriers_to_entry: string
+      pricing_power: string
+  response:
+    success:
+      status: 200
+      schema:
+        structure: string
+        pricing_power: string
+        implied_profitability: string
+    errors:
+      - status: 400
+        error_code: MARKET_STRUCTURE_UNMATCHED
+
+extensions:
+  structure_comparison_summary:
+    dimensions: [number_of_sellers, product, barriers, pricing_power, long_run_profit]
+    # See rules.four_structures for full mapping
+
+related:
+  - feature: profit-maximization-breakeven
+    type: required
+  - feature: monopolistic-competition
+    type: recommended
+  - feature: oligopoly-pricing
+    type: recommended
+  - feature: monopoly-pricing
+    type: recommended
+  - feature: market-concentration-measures
+    type: recommended
