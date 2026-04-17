@@ -3,113 +3,262 @@
 </p>
 
 <h1 align="center">ai-fdl-kit</h1>
-<p align="center"><strong>The AI Feature Definition Language</strong> — portable YAML blueprints for software features, consumable by any AI coding tool.</p>
+<p align="center"><strong>Build Production Apps With AI —</strong> interactive planning, prototype iteration, then automatic code generation.</p>
+<p align="center"><em>Meet Bob. Ask him to build anything. He plans, shows you a prototype, gets your approval, then builds.</em></p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/ai-fdl-kit"><img src="https://img.shields.io/npm/v/ai-fdl-kit.svg?color=cb3837&label=npm" alt="npm"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="MIT"></a>
   <a href="blueprints/"><img src="https://img.shields.io/badge/blueprints-381-blue" alt="Blueprints"></a>
-  <a href="https://theunsbarnardt.github.io/ai-fdl-kit/using-with-other-ai/"><img src="https://img.shields.io/badge/AI_Tools-Claude_|_ChatGPT_|_Copilot_|_Cursor-purple.svg" alt="AI Tools"></a>
   <a href="https://theunsbarnardt.github.io/ai-fdl-kit/"><img src="https://img.shields.io/badge/docs-github_pages-green.svg" alt="Docs"></a>
 </p>
 
 ---
 
-## One command, any project, no clone
+## The Problem: AI Builds Wrong, Fast
+
+You ask ChatGPT to "build a POS system":
+
+- ❌ It generates 50 files in one shot
+- ❌ You realize mid-way the UI is wrong
+- ❌ Reworking 50 files is **painful**
+- ❌ The business rules got lost in translation
+- ❌ Half the features are missing edge cases
+
+**Result:** You don't trust it. You still rewrite it yourself.
+
+---
+
+## The Solution: Meet BOB
+
+**BOB is an orchestrator agent** that runs a two-stage pipeline:
+
+### Stage 1: Plan → Prototype → Iterate ⚡
+
+```
+You:  "Build a Next.js POS with OTP login, inventory, and Square"
+      ↓
+Bob:  ✓ Drafts a plan (features, tech stack, risks)
+      ✓ You review and approve
+      ✓ Shows you an interactive prototype (single HTML file)
+      ✓ You iterate with instant feedback
+      ✓ You approve the prototype
+      
+Result: Plan + prototype frozen as your spec
+```
+
+### Stage 2: Production Build 🚀
+
+```
+Bob:  ✓ Reads your frozen plan (it's now the spec)
+      ✓ Generates production code for every feature
+      ✓ Validates each feature against the blueprint
+      ✓ Independent QA review
+      ✓ Auto-generates documentation
+      ✓ Ready to deploy
+      
+Result: Production code that matches what you approved
+```
+
+**Why this works:**
+- 🎯 **No surprises** — UI is approved before code is written
+- 📦 **Scope lock** — Plan can't change during Stage 2 (scope creep is over)
+- ⚡ **Fast iteration** — Iterate on 1 HTML file, not 50 source files
+- ✅ **Approval checkpoints** — You control every decision
+- 🔍 **Deterministic output** — Code matches spec exactly
+
+---
+
+## What Can You Build?
+
+**Examples of full apps Bob has generated:**
+
+| App | Time | Output |
+|-----|------|--------|
+| **Payment Terminal** (palm vein + PayShap) | 1 conversation | [Full proposal](docs/plans/payment-terminal-app.md) + 6 blueprints |
+| **POS System** (OTP, inventory, receipts) | 1 conversation | Plan + prototype + code |
+| **Fleet Management** (GPS, maintenance, geofencing) | 1 conversation | Full app with 12+ blueprints |
+| **E-commerce** (auth, catalog, checkout, payments) | 1 conversation | Multi-tenant, multi-currency |
+| **Admin Dashboard** (users, roles, audit logs) | 1 conversation | RBAC + compliance-ready |
+
+All from **conversational prompts**. No YAML. No boilerplate. Bob handles everything.
+
+---
+
+## The Crew: Bob Dispatches 7 Specialists
+
+You only talk to Bob. **The crew is invisible.**
+
+```
+              USER
+               │
+         ┌─────▼─────┐
+         │ BOB (You) │ ← ask questions here
+         │Orchestr.  │
+         └─────┬─────┘
+               │ direct dispatch
+   ┌─┬────┬──┬─┬────┬──┬───┐
+   ▼ ▼    ▼  ▼ ▼    ▼  ▼   ▼
+  Scout Surveyor Sketcher Builder Inspector Scribe Reviewer
+```
+
+| Role | Job |
+|------|-----|
+| **Scout** | Find matching blueprints in the 380+ catalog |
+| **Surveyor** | Identify gaps + recommend solutions |
+| **Sketcher** | Build interactive prototype UI |
+| **Builder** | Generate production code |
+| **Inspector** | Validate each feature |
+| **Scribe** | Auto-generate API docs |
+| **Reviewer** | Cold-context independent QA |
+
+---
+
+## BOB's Personality: Jarvis from Iron Man
+
+BOB is **opinionated, efficient, anticipatory:**
+
+```
+You: "Should I use JWT or SAML for auth?"
+
+Bob: "I'd recommend SAML if you have enterprise SSO needs,
+     JWT for consumer apps. You mentioned 'POS system' — 
+     most retail uses JWT (simpler, faster). 
+     Unless you're selling to enterprise, go JWT. Thoughts?"
+```
+
+- ✅ **Gives opinions** — backed by tradeoffs
+- ✅ **Shows reasoning** — explains the why
+- ✅ **Never offers neutral menus** — no "A, B, or C?"
+- ✅ **Anticipates needs** — "You'll need thermal printer middleware"
+- ✅ **Quiet during production** — doesn't narrate builds
+- ✅ **Dry wit** — occasionally witty without being annoying
+
+Think **Jarvis** from Iron Man: Polished. Prepared. A little witty. Never flustered.
+
+---
+
+## Two-Stage Pipeline in Detail
+
+### Stage 1: Interactive Planning (Your Control)
+
+**Step 1: Draft Plan**
+```
+Bob reads your request and drafts a plan showing:
+  ✓ All features (organized by blueprint)
+  ✓ Tech stack recommendations (with reasoning)
+  ✓ Dependencies and risks
+  ✓ Integrations (Stripe? Clerk? Twilio?)
+```
+
+**🔴 Checkpoint 1: Plan Review**
+```
+You review Bob's plan:
+  "Looks good, but swap Stripe for Square"
+  "Add tax calculation"
+  "Remove geofencing for now"
+  
+Bob updates the plan and proceeds.
+```
+
+**Step 2: Build Prototype**
+```
+Bob dispatches Sketcher to build a single HTML file:
+  ✓ Full UI flow (login → POS screen → receipt)
+  ✓ Interactive buttons and forms
+  ✓ Shows exactly what users will see
+  ✓ NO backend code yet
+```
+
+**🟡 Checkpoint 2: Prototype Iteration**
+```
+You open prototype.html in your browser:
+
+  "The POS grid is too cramped"
+  
+Bob advises: "Bigger items = less overview. 
+             Better: Add category tabs instead?"
+             
+You: "Yes, do that"
+
+Bob updates prototype.html → you reload → see changes
+
+Loop continues until: "Prototype approved!"
+```
+
+**🟢 Checkpoint 3: Final Sign-Off**
+```
+You approve:
+  ✓ plan.md (frozen — won't change)
+  ✓ prototype.html (frozen — what you approved)
+  ✓ DESIGN.md (design decisions captured)
+  
+Archived to .fdl/history/{timestamp}/ for audit trail
+```
+
+### Stage 2: Non-Conversational Production Build
+
+**Input:** Your frozen plan
+
+**Bob orchestrates in parallel:**
+- Builder × 4 (auth, inventory, pos, square) → code
+- Inspector × 4 → validation gates
+- Reviewer × 4 → independent QA
+- Scribe × 1 → auto-docs
+
+**Output:**
+- ✅ Production code (matches plan exactly)
+- ✅ API docs + system design
+- ✅ Tests (optional)
+- ✅ Ready to deploy
+
+**Key:** Stage 2 is **non-conversational**. The plan IS the spec. If something is ambiguous, it fails — forcing you back to prototype loop. No rework surprises.
+
+---
+
+## Why This Matters
+
+### Before BOB (Old Way)
+```
+User: "Build login"
+AI: [generates 50 files]
+User: "I wanted SAML, not JWT"
+AI: [reworks 20 files]
+User: "This UI looks wrong"
+→ More rework. More friction. More waste.
+```
+
+### With BOB (New Way)
+```
+User: "Build login"
+Bob: "Auth or SSO? JWT or SAML?"
+     [shows prototype with your choices]
+User: "Perfect, build it"
+Bob: [generates exactly what you approved]
+→ No surprises. No rework. Done.
+```
+
+---
+
+## Get Started
+
+### Option 1: No Clone (Fastest)
+
+Use BOB in any existing project:
 
 ```bash
-npx ai-fdl-kit@latest init --tool cursor
+cd your-project
+npx ai-fdl-kit@latest init --tool claude-code
 ```
 
-Bootstraps FDL into your existing project — schema, config, AI tool instructions — without cloning anything. Your project gets ~3 small files. The ~200 community blueprints stay remote and are pulled on demand.
-
-```bash
-npx ai-fdl-kit@latest list              # browse the remote catalog
-npx ai-fdl-kit@latest pull auth/login   # copy a blueprint locally
-npx ai-fdl-kit@latest check             # validate + completeness gate
+Then in Claude Code:
+```
+/fdl-build "nextjs app with OTP login and POS"
 ```
 
-**Define features as YAML blueprints. Generate complete implementations for any framework. Extract architectural patterns from any codebase, API docs, or business document.**
+Bob handles everything. You get a `.fdl/` folder with plans, prototypes, and code.
 
-ai-fdl-kit is an open-source system for writing "blueprints" — YAML specifications that describe software features completely. You define the *what* (fields, rules, outcomes, errors, events). Any AI tool — Claude, ChatGPT, Copilot, Cursor, Gemini — reads the blueprint and generates a correct, complete implementation for your chosen language and framework.
-
-No code. No YAML knowledge needed. The CLI + conversational skills handle everything in plain English.
-
----
-
-## What Problems Does This Solve?
-
-- **Every developer rebuilds the same features from scratch.** Login, signup, password reset — something always gets missed.
-- **When you ask AI to "build login", it guesses.** There's no shared definition of what "login" actually needs.
-- **Business rules live in people's heads.** When it's time to build software, critical rules get lost.
-
-**FDL solves all three.** A blueprint is the single source of truth for a feature — what data it needs, what rules govern it, what should happen in every scenario.
-
----
-
-## Meet Bob — The Multi-Agent Orchestrator
-
-Ask Bob a question. He runs the entire pipeline:
-
-```
-You: "Build a Next.js POS with OTP login and inventory"
-     ↓
-Bob orchestrates:
-  ├─ Scout → find matching blueprints
-  ├─ Surveyor → identify gaps + suggest solutions  
-  ├─ Sketcher → interactive prototype UI
-  ├─ Builder → generate production code
-  ├─ Inspector → validate each feature
-  ├─ Scribe → auto-generate docs
-  └─ Reviewer → independent cold-context QA
-     ↓
-You: review plan → iterate prototype → approve → full build
-```
-
-**Two-stage pipeline:**
-1. **Stage 1 (Plan → Prototype)** — Iterate UI and design with instant feedback before writing code
-2. **Stage 2 (Build)** — Generate production-ready implementation against an approved spec
-
-[Read the full crew architecture →](docs/plans/bob-crew-contracts.md)
-
----
-
-## How It Works
-
-| Method | When to use it | Command |
-|--------|---------------|---------|
-| **Build a full app** | Ask Bob to build anything | `/fdl-build "nextjs POS with OTP login"` |
-| **Brainstorm a feature** | You have a problem, not a solution | `/fdl-brainstorm` |
-| **Create from scratch** | You know what feature you want | `/fdl-create checkout payment` |
-| **Extract from a document** | You have a BRD, policy doc, or SOP | `/fdl-extract docs/policy.pdf` |
-| **Extract from a website** | API docs, developer portal | `/fdl-extract-web https://docs.example.com/api` |
-| **Extract from code** | Existing codebase or git repo | `/fdl-extract-code ./src/auth login auth` |
-| **Extract features selectively** | Large repo, pick only what you want | `/fdl-extract-code-feature https://github.com/org/repo` |
-| **Generate code** | You have a blueprint, want code | `/fdl-generate login nextjs` |
-| **Export for other AI tools** | Use blueprints with ChatGPT, Gemini, etc. | `/fdl-build-yaml "my app description"` |
-| **Install for AI tools** | Set up Cursor, Windsurf, Copilot, etc. | `/fdl-install cursor` |
-| **Auto-evolve** | Validate, regenerate docs, and commit | `/fdl-auto-evolve` |
-
----
-
-## Getting Started
-
-### Option 1 — No clone, use the CLI in any project ✨ recommended
-
-```bash
-cd your-existing-project
-npx ai-fdl-kit@latest init --tool cursor    # or windsurf, copilot, gemini, cline, ...
-```
-
-That's it. The CLI writes:
-- `blueprints/` — where your feature specs live. Each feature ships as a pair: `{feature}.blueprint.yaml` (the spec) and `{feature}.md` (an auto-generated human-friendly summary, regenerated by `npm run generate` — never hand-edit).
-- `schema/blueprint.schema.yaml` — for IDE autocomplete
-- `fdl.config.yaml` — project config
-- `.cursor/rules/fdl.mdc` (or equivalent for your AI tool) — tells the AI how to read blueprints
-
-Then ask your AI tool: *"Build login using the auth/login blueprint"* — it fetches the blueprint over HTTP from the remote registry and generates code for your stack.
-
-### Option 2 — Clone the full repo (for contributors and blueprint authors)
+### Option 2: Clone & Contribute
 
 ```bash
 git clone https://github.com/TheunsBarnardt/ai-fdl-kit.git
@@ -117,164 +266,179 @@ cd ai-fdl-kit
 npm install
 ```
 
-Then open Claude Code and ask Bob anything:
-
+Then in Claude Code:
 ```
-/fdl-build "nextjs app with OTP login, POS, and inventory"
-  ↓ 
-Bob drafts a plan → you review → he shows a prototype → you iterate → he builds
+/fdl-build "the app you want to build"
 ```
-
-Other conversational skills for one-off tasks:
-
-```
-/fdl-brainstorm                              # Socratic elicitation if the idea is vague
-/fdl-create login auth                        # Create a single blueprint
-/fdl-generate login nextjs                    # Generate code from a blueprint
-/fdl-extract-code ./src auth                 # Reverse-engineer features from existing code
-```
-
-**Bob's voice:** Polished, efficient, anticipatory. He gives opinions backed by tradeoffs, never neutral menus. Think Jarvis from Iron Man — quietly witty, always prepared.
 
 ---
 
-## Static API for AI Tools
+## The Blueprints: 380+ Patterns
 
-Every blueprint is available as JSON — no scraping needed:
+FDL ships with 380+ battle-tested blueprints encoding architectural patterns:
+
+| Category | Examples | Count |
+|----------|----------|-------|
+| **Auth Pack** | OAuth, SAML, MFA, rate limiting, token lifecycle | 12 |
+| **Data Pack** | CRUD, search, filtering, pagination, soft delete | 28 |
+| **Payment Pack** | Stripe, Square, PayPal, subscriptions, refunds | 15 |
+| **UI Pack** | Forms, modals, drag-drop, navigation, editors | 22 |
+| **Workflow Pack** | Approvals, SLAs, state machines, events | 18 |
+| **ERP Pack** | POS, inventory, tax, bank reconciliation | 31 |
+| **Integration Pack** | Webhooks, async jobs, idempotency, retries | 14 |
+| **Compliance Pack** | POPIA, GDPR, audit logs, data export | 12 |
+
+Every blueprint is available as **JSON** for any AI tool:
 
 ```
-GET /api/registry.json              — index of all 330 blueprints
-GET /api/blueprints/auth/login.json — complete blueprint as JSON
+GET https://theunsbarnardt.github.io/api-fdl-kit/api/blueprints/auth/login.json
 ```
 
-Paste into ChatGPT: `https://theunsbarnardt.github.io/ai-fdl-kit/api/blueprints/auth/login.json`
-
-[Browse the API registry](https://theunsbarnardt.github.io/ai-fdl-kit/api/registry.json)
+[Browse all blueprints →](blueprints/)
 
 ---
 
-## Third-Party Skill Integration
+## Static JSON API
 
-`/fdl-generate` and `/fdl-brainstorm` can compose with Claude skill packs from any community catalog — without crawling or auto-installing:
+Every blueprint is queryable via HTTP — no AI scraping:
 
-- **Auto-detected** — popular stacks (shadcn, tailwind, clerk, prisma, drizzle, nextauth) and data sources (google-calendar, stripe, twilio, resend, s3, maps) are matched against a fixed trigger table on every run
-- **User-provided** — one explicit question per run lets you paste install commands or URLs from [skills.sh](https://skills.sh), [anthropics/skills](https://github.com/anthropics/skills), or [awesome-claude-skills](https://github.com/travisvn/awesome-claude-skills). Example:
+```bash
+curl https://theunsbarnardt.github.io/ai-fdl-kit/api/registry.json
+curl https://theunsbarnardt.github.io/ai-fdl-kit/api/blueprints/auth/login.json
+```
 
-  ```
-  npx skills add https://github.com/shadcn/ui --skill shadcn
-  ```
-
-Install commands always land in the final summary for you to run yourself — FDL never auto-executes third-party installers. Auto-detected + user-provided skills both flow through the same downstream pipeline, so you only decide once per invocation.
+Use with **ChatGPT, Gemini, Copilot** — no Claude required.
 
 ---
 
-## What Else You Gain
+## How Blueprints Work
 
-Blueprints aren't just templates — they encode transferable architectural patterns:
+A blueprint is a **YAML spec** that describes a feature completely:
 
-- **Auth Pack** — Rate limiting, token lifecycle, enumeration prevention
-- **Integration Pack** — Async callbacks, idempotency, hardware state machines
-- **UI Pack** — Registry architecture, MCP server integration, drag-and-drop
-- **CMS Pack** — Lifecycle hooks, row-level security, draft/publish workflows
-- **Visual Editor Pack** — Collision detection, undo/redo, plugin systems
-- **ERP Pack** — POS sessions, tax computation, bank reconciliation, automation rules
-- **Workflow Pack** — Approval chains, SLA enforcement, event-driven automation
-- **Wealth Management Pack** — Portfolio valuations, market data feeds, document management, multi-account hierarchies, real-time pricing integration
-- **Onboarding Pack** — Client and advisor registration, multi-step onboarding workflows, proposal/quotation generation, state machines, DocuSign integration
+```yaml
+feature: login
+category: auth
+description: "User authentication with email + password"
 
----
+fields:
+  email: { type: email, required: true }
+  password: { type: password, required: true }
+  remember_me: { type: boolean, default: false }
 
-## Plans & Proposals
+rules:
+  rate_limit: 5 attempts per 15 minutes
+  password_min_length: 8 characters
+  require_verification: true
 
-`/fdl-brainstorm` turns a rough idea into a **client-ready business proposal** with production readiness analysis — automatically.
+outcomes:
+  success:
+    given: "valid credentials"
+    then: ["create session", "emit login.success event"]
+    
+  invalid_credentials:
+    given: "invalid password"
+    error: LOGIN_INVALID_CREDENTIALS
+    
+  rate_limited:
+    given: "5+ failed attempts in 15 min"
+    error: LOGIN_RATE_LIMITED
+```
 
-### Example: Palm Vein Payment Terminal
-
-**Input:** *"I want to build a payment terminal app that uses a palm vein scanner, it will give the user the option to pay with a card or hand and the payment system it will use to do the payment will be PayShap rail"*
-
-**Output:** A full [business proposal](docs/plans/payment-terminal-app.md) containing:
-
-| Section | What it covers |
-|---------|---------------|
-| Original Request & Requirements Elicitation | Verbatim input + every decision captured through Socratic questioning |
-| Executive Summary | Value proposition, 30-second overview — written for non-technical stakeholders |
-| Problem & Solution | Business-framed pain points, detailed capability descriptions |
-| User Journeys | Payment flow, enrolment flow, refund flow — with diagrams and time estimates |
-| System Architecture | Component diagram, technology table |
-| Offline Resilience | Risk-limited queuing with configurable caps (R500/tx, 10 queue depth, R2,000 total) |
-| Fleet Management | Heartbeat monitoring, OTA updates, remote config, decommissioning |
-| Security & Compliance | POPIA, PCI DSS, SARB, FICA — with implementation details |
-| Risk Assessment | 7 risks with likelihood, impact, and mitigation |
-| Implementation Roadmap | 4 phases over 16 weeks |
-| Success Metrics | 6 measurable KPIs with targets |
-| **Production Readiness** | Before/after gap analysis — 16 categories checked, gaps resolved automatically |
-
-The brainstorm also created **6 new blueprints** (`payshap-rail`, `palm-pay`, `terminal-payment-flow`, `terminal-enrollment`, `terminal-fleet`, `terminal-offline-queue`), linked **11 existing blueprints**, and identified **4 gaps** to resolve for production readiness — all from a single sentence.
-
-Browse all plans: [`docs/plans/`](docs/plans/)
+**BOB reads this and generates complete implementation** (Node, React, SQL, UI, tests).
 
 ---
 
-## 🔧 Improve the low-scoring blueprints
+## Plans: Client-Ready Proposals
 
-The fitness scorer (`npm run fitness`) flags blueprints scoring **below 70/100** as needing semantic help — the mechanical auto-improver can't fix missing outcomes, unbound error codes, or absent relationships.
+`/fdl-brainstorm` generates a full **business proposal** from a rough idea:
 
-Each weak blueprint is tracked as its own GitHub Issue (labeled [`fitness-low` + `priority:low`](https://github.com/TheunsBarnardt/ai-fdl-kit/issues?q=is%3Aissue+is%3Aopen+label%3Afitness-low)) with suggested upstream repos to extract from. Pick an issue, run the `/fdl-extract-code` command from the issue body, and `/fdl-auto-evolve` re-scores after extraction — the issue auto-closes once the blueprint crosses **≥75/100**. The [extraction backlog](https://github.com/TheunsBarnardt/ai-fdl-kit/issues?q=is%3Aissue+is%3Aopen+label%3Aextraction-backlog) is tracked the same way.
+**Input:** *"Build a payment terminal with palm vein + Card payments"*
 
-Sync is managed by `scripts/sync-github-issues.js` and runs automatically via GitHub Actions.
+**Output:** 
+- Executive summary (for stakeholders)
+- User journeys with diagrams
+- System architecture
+- Security & compliance checklist
+- Risk assessment
+- 4-phase roadmap (16 weeks)
+- 6 new blueprints created
+- 11 existing blueprints linked
 
+[See full example →](docs/plans/payment-terminal-app.md)
 
 ---
 
-## Data Protection & POPIA Compliance
+## Data Protection: Zero-Tolerance for Secrets
 
-FDL enforces **zero-tolerance for leaked secrets and private data** at every layer:
+FDL enforces **secret scanning at every layer:**
 
 | Layer | Protection |
 |-------|-----------|
-| **Policy** | CLAUDE.md rules — refuse to process secrets even if pasted in chat |
-| **Validator** | `scripts/validate.js` scans all blueprint strings for API keys, JWTs, connection strings, private keys, SA ID numbers |
-| **Completeness Check** | `scripts/completeness-check.js` provides secondary secret detection |
-| **Skills** | All `/fdl-extract-*` skills scan source material and redact secrets before generating blueprints |
+| **Policy** | CLAUDE.md — refuse to process secrets |
+| **Validator** | Scan all blueprint strings for API keys, JWTs, credentials |
+| **Completeness** | Secondary secret detection |
+| **Skills** | Extract and redact before generating blueprints |
 
-Detected patterns include: OpenAI/Stripe keys (`sk-`), AWS keys (`AKIA`), GitHub tokens (`ghp_`), JWT tokens, connection strings with credentials, private keys, and South African ID numbers. Any blueprint containing secrets **fails validation** — no exceptions.
+Any blueprint containing `sk-...`, `AKIA...`, `ghp_...`, connection strings, or SA ID numbers **fails validation**. No exceptions.
 
 ---
 
-## AGI-Readiness Layer
+## AGI-Ready Layer
 
-All 330 blueprints include an `agi` section that makes them consumable by autonomous AI agents:
+All 380 blueprints include an `agi` section for autonomous agents:
 
-| Sub-section | Purpose | Example |
-|------------|---------|---------|
-| **Goals** | Business objectives with measurable success criteria | `"Authenticate users with < 2% lockout rate"` |
-| **Autonomy** | Human involvement level | `human_in_loop`, `supervised`, `semi_autonomous`, `fully_autonomous` |
-| **Verification** | Invariants, acceptance tests, monitoring thresholds | Self-verifying specs agents can validate |
-| **Composability** | Declared capabilities, boundaries, and tradeoffs | `"prefer security over performance"` |
-| **Evolution** | Adaptive triggers and deprecation schedules | `"if error_rate > 1%, add circuit breaker"` |
-| **Coordination** | Multi-agent collaboration protocols | `protocol: pub_sub`, `exposes`, `consumes` with fallback |
-| **Safety** | Per-action granular permissions | `autonomous`, `supervised`, `human_required` with cooldowns |
-| **Explainability** | Decision logging and audit trails | `log_decisions: true`, `audit_events` with required fields |
-| **Learning** | Feedback loops and adaptive behavior | Signals, experiments, rollback conditions |
+```yaml
+agi:
+  autonomy: semi_autonomous
+  verification: "error_rate < 1% and latency < 200ms"
+  safety: human_required  # for production deploys
+  evolution: "if errors > threshold, add circuit breaker"
+  coordination: ["auth.verified", "user.id"]
+```
 
-Run `/fdl-propagate-agi` to auto-generate AGI sections for new blueprints, or `/fdl-research` to research the latest AI patterns and improve FDL.
+Run `/fdl-propagate-agi` to auto-generate AGI sections.
 
 ---
 
 ## Documentation
 
-Full documentation at **[theunsbarnardt.github.io/ai-fdl-kit](https://theunsbarnardt.github.io/ai-fdl-kit/)**:
+Full docs at **[theunsbarnardt.github.io/ai-fdl-kit](https://theunsbarnardt.github.io/ai-fdl-kit/)**:
 
-- [All Eleven Commands](https://theunsbarnardt.github.io/ai-fdl-kit/commands/) — detailed reference
-- [Blueprint Format](https://theunsbarnardt.github.io/ai-fdl-kit/blueprint-format/) — what's inside a blueprint
-- [Blueprint Catalog](https://theunsbarnardt.github.io/ai-fdl-kit/catalog/) — browse all 330 blueprints
-- [Combining Blueprints](https://theunsbarnardt.github.io/ai-fdl-kit/combining/) — build complex systems
-- [Real-World Examples](https://theunsbarnardt.github.io/ai-fdl-kit/examples/) — 8 walkthroughs
-- [Using with ChatGPT & Others](https://theunsbarnardt.github.io/ai-fdl-kit/using-with-other-ai/) — no Claude required
+- [Commands Reference](https://theunsbarnardt.github.io/ai-fdl-kit/commands/) — all 11 commands explained
+- [Blueprint Format](https://theunsbarnardt.github.io/ai-fdl-kit/blueprint-format/) — schema reference
+- [Examples & Walkthroughs](https://theunsbarnardt.github.io/ai-fdl-kit/examples/) — real projects
+- [Using with ChatGPT, Copilot, Gemini](https://theunsbarnardt.github.io/ai-fdl-kit/using-with-other-ai/)
 - [FAQ](https://theunsbarnardt.github.io/ai-fdl-kit/faq/)
+
+---
+
+## Why BOB Works
+
+1. **Iteration happens early** — on 1 HTML file, not 50 source files
+2. **Plan is authoritative** — no ambiguity during production build
+3. **Approval gates work** — you control every decision point
+4. **Crew is invisible** — you talk to Bob, not 7 agents
+5. **Opinionated not neutral** — Bob gives advice with reasoning
+6. **Deterministic output** — code matches spec exactly
 
 ---
 
 ## License
 
-MIT
+MIT — Use freely for any purpose, commercial or personal.
+
+---
+
+## Questions?
+
+- 💬 Open an [issue on GitHub](https://github.com/TheunsBarnardt/ai-fdl-kit/issues)
+- 📖 Read the [docs](https://theunsbarnardt.github.io/ai-fdl-kit/)
+- 🚀 Try `/fdl-build` in Claude Code
+
+**Ready to build?**
+
+```bash
+npx ai-fdl-kit@latest init
+```
+
+Then ask Bob to build something amazing.
