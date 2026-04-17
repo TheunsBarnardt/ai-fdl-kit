@@ -1,0 +1,236 @@
+# ============================================================
+# bayes-formula — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 4, p.141-150
+# ============================================================
+
+feature: bayes-formula
+version: "1.0.0"
+description: Apply Bayes' formula to update a prior probability to a posterior probability in the light of new evidence — the formal rule for rational belief revision
+category: trading
+tags: [quantitative-methods, probability, bayes, bayesian-updating, conditional-probability, prior-posterior, cfa-level-1]
+aliases:
+  - bayes-theorem
+  - bayesian-updating
+  - posterior-probability
+  - prior-posterior
+  - belief-revision
+  - probability-update
+  - conditional-inversion
+
+actors:
+  - id: probability_engine
+    name: Probability / Inference Engine
+    type: system
+
+fields:
+  - name: prior_probability
+    type: number
+    required: true
+    label: Prior probability P(event) before observing evidence
+  - name: likelihood
+    type: number
+    required: true
+    label: Likelihood P(evidence | event)
+  - name: complementary_likelihood
+    type: number
+    required: false
+    label: P(evidence | not event) — used with prior to derive denominator
+  - name: unconditional_evidence
+    type: number
+    required: false
+    label: P(evidence) directly, if known — else derived via total probability
+  - name: multiple_scenarios
+    type: json
+    required: false
+    label: Array of {scenario_id, prior, likelihood} for multi-hypothesis Bayes
+
+rules:
+  core_formula:
+    # Source: Vol 1, Module 4, Equation 7, p.141-142
+    bayes_two_scenario: "P(event | evidence) = P(evidence | event) * P(event) / P(evidence)"
+    denominator_total_probability: "P(evidence) = P(evidence | event) * P(event) + P(evidence | not event) * P(not event)"
+    bayes_multi_scenario: "P(S_i | evidence) = P(evidence | S_i) * P(S_i) / sum_j[ P(evidence | S_j) * P(S_j) ]"
+  interpretation:
+    prior: "Initial belief before observing evidence"
+    likelihood: "Probability of observing the evidence under each hypothesis"
+    posterior: "Updated belief after observing evidence"
+    evidence_informativeness: "Evidence shifts prior more when likelihoods differ substantially across hypotheses"
+  key_properties:
+    inversion: "Bayes swaps the direction of conditioning: P(A|B) → P(B|A)"
+    sequential_updates: "Today's posterior becomes tomorrow's prior; natural fit for streaming evidence"
+    calibration: "Formula is correct; the art is in specifying priors and likelihoods"
+  common_fallacies:
+    base_rate_neglect: "Ignoring the prior → confusing P(evidence | event) with P(event | evidence)"
+    prosecutor_fallacy: "Treating P(evidence | innocent) as P(innocent | evidence)"
+  investment_applications:
+    earnings_surprise: "Update P(firm_high_quality) given positive earnings surprise"
+    credit_analysis: "Update default probability given rating migration"
+    technical_signals: "Update P(trend_up) given breakout, factoring false-positive rate"
+    portfolio_managers: "Bayesian blending of prior and observed returns (Black-Litterman)"
+  validation:
+    probabilities_in_range: "0 <= prior_probability <= 1; 0 <= likelihood <= 1"
+    denominator_positive: "P(evidence) > 0 (else posterior undefined)"
+
+outcomes:
+  compute_two_scenario:
+    priority: 1
+    description: Standard Bayes with event and complement
+    given:
+      - field: prior_probability
+        source: input
+        operator: exists
+      - field: likelihood
+        source: input
+        operator: exists
+      - field: complementary_likelihood
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: probability_engine
+      - action: emit_event
+        event: probability.bayes_calculated
+  compute_multi_scenario:
+    priority: 2
+    description: Multi-hypothesis Bayes
+    given:
+      - field: multiple_scenarios
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: probability_engine
+      - action: emit_event
+        event: probability.bayes_calculated
+  zero_evidence_probability:
+    priority: 10
+    description: Denominator P(evidence) is zero
+    given:
+      - field: unconditional_evidence
+        source: computed
+        operator: eq
+        value: 0
+    then:
+      - action: emit_event
+        event: probability.bayes_rejected
+    error: BAYES_ZERO_EVIDENCE
+  probabilities_out_of_range:
+    priority: 11
+    description: Prior or likelihood out of [0,1]
+    given:
+      - any:
+          - field: prior_probability
+            source: input
+            operator: lt
+            value: 0
+          - field: prior_probability
+            source: input
+            operator: gt
+            value: 1
+          - field: likelihood
+            source: input
+            operator: lt
+            value: 0
+          - field: likelihood
+            source: input
+            operator: gt
+            value: 1
+    then:
+      - action: emit_event
+        event: probability.bayes_rejected
+    error: BAYES_INVALID_PROBABILITY
+  missing_inputs:
+    priority: 12
+    description: Required inputs missing
+    given:
+      - any:
+          - field: prior_probability
+            source: input
+            operator: not_exists
+          - field: likelihood
+            source: input
+            operator: not_exists
+    then:
+      - action: emit_event
+        event: probability.bayes_rejected
+    error: BAYES_MISSING_INPUTS
+
+errors:
+  - code: BAYES_ZERO_EVIDENCE
+    status: 422
+    message: P(evidence) is zero; posterior probability is undefined
+  - code: BAYES_INVALID_PROBABILITY
+    status: 400
+    message: Probabilities must lie in [0, 1]
+  - code: BAYES_MISSING_INPUTS
+    status: 400
+    message: Prior probability and likelihood are required
+
+events:
+  - name: probability.bayes_calculated
+    payload: [hypothesis_id, prior_probability, likelihood, posterior_probability, evidence_probability]
+  - name: probability.bayes_rejected
+    payload: [hypothesis_id, reason_code]
+
+anti_patterns:
+  - rule: Do not commit the base-rate fallacy by ignoring the prior
+    why: "A test with 99% sensitivity for a 1-in-10000 disease still produces mostly false positives; ignoring the prior yields wildly wrong posteriors"
+  - rule: Do not confuse P(evidence | hypothesis) with P(hypothesis | evidence)
+    why: "The prosecutor's fallacy; Bayes exists precisely because these are different quantities that can differ by orders of magnitude"
+  - rule: Do not apply Bayes with a prior that ignores available domain information
+    why: "Uniform priors over vast hypothesis spaces are often worse than weakly informative priors; garbage-in, garbage-out still applies"
+  - rule: Do not perform sequential updates using the same evidence twice
+    why: "Each piece of evidence must be independent conditional on the hypothesis; reusing evidence produces overconfident posteriors"
+
+api:
+  http:
+    method: POST
+    path: /analytics/probability/bayes
+  request:
+    schema:
+      prior_probability: number
+      likelihood: number
+      complementary_likelihood: number
+      unconditional_evidence: number
+      multiple_scenarios: array
+  response:
+    success:
+      status: 200
+      schema:
+        posterior_probability: number
+        prior_probability: number
+        likelihood: number
+        evidence_probability: number
+    errors:
+      - status: 400
+        error_code: BAYES_MISSING_INPUTS
+      - status: 400
+        error_code: BAYES_INVALID_PROBABILITY
+      - status: 422
+        error_code: BAYES_ZERO_EVIDENCE
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 4, Example 5, p.143-145 — DriveMed new product
+    scenario: "Prior P(high_quality) = 0.7; P(positive_surprise | high_quality) = 0.45; P(positive_surprise | low_quality) = 0.10"
+    prior: 0.70
+    likelihood_given_high: 0.45
+    likelihood_given_low: 0.10
+    evidence_probability: "0.70*0.45 + 0.30*0.10 = 0.345"
+    posterior_high_quality: "0.70 * 0.45 / 0.345 = 0.913"
+    interpretation: "Positive surprise raises conviction from 70% to 91.3%"
+  diagnostic_test_example:
+    scenario: "Disease prevalence 0.01; test sensitivity 0.99; test specificity 0.95"
+    prior: 0.01
+    likelihood: 0.99
+    complementary_likelihood: 0.05
+    posterior: "0.01*0.99 / (0.01*0.99 + 0.99*0.05) = 0.1667"
+    interpretation: "Positive test gives only 16.7% probability of disease due to low prior"
+
+related:
+  - feature: expected-value-variance
+    type: required
+  - feature: total-probability-rule
+    type: required
+  - feature: probability-tree-conditional-expectation
+    type: recommended

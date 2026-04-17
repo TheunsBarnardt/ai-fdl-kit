@@ -1,0 +1,368 @@
+{
+  "feature": "total-probability-rule",
+  "version": "1.0.0",
+  "description": "Apply the total probability rule and law of total expectation — decomposing an unconditional probability or expectation into a weighted sum over mutually exclusive, exhaustive scenarios",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "probability",
+    "total-probability",
+    "law-of-total-expectation",
+    "scenario-analysis",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "law-of-total-probability",
+    "total-expectation",
+    "law-of-total-expectation",
+    "unconditional-probability",
+    "unconditional-expectation",
+    "iterated-expectation",
+    "scenario-weighted-expectation"
+  ],
+  "actors": [
+    {
+      "id": "probability_engine",
+      "name": "Probability / Forecasting Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "scenarios",
+      "type": "json",
+      "required": true,
+      "label": "Array of {id, probability} representing mutually exclusive and exhaustive scenarios"
+    },
+    {
+      "name": "conditional_probabilities",
+      "type": "json",
+      "required": false,
+      "label": "Array of {scenario_id, P(A|S)} for computing P(A)"
+    },
+    {
+      "name": "conditional_expectations",
+      "type": "json",
+      "required": false,
+      "label": "Array of {scenario_id, E(X|S)} for computing E(X)"
+    },
+    {
+      "name": "compute",
+      "type": "select",
+      "required": true,
+      "label": "unconditional_probability | unconditional_expectation | unconditional_variance"
+    }
+  ],
+  "rules": {
+    "core_formulas": {
+      "total_probability": "P(A) = sum_{i=1..n}[ P(A | S_i) * P(S_i) ]",
+      "total_expectation": "E(X) = sum_{i=1..n}[ E(X | S_i) * P(S_i) ]",
+      "total_variance": "Var(X) = sum_{i=1..n}[ P(S_i) * (E(X | S_i) - E(X))^2 ] + sum_{i=1..n}[ P(S_i) * Var(X | S_i) ]"
+    },
+    "scenario_requirements": {
+      "mutually_exclusive": "No two scenarios can occur simultaneously",
+      "exhaustive": "Scenarios span the entire event space; sum(P(S_i)) = 1"
+    },
+    "interpretation": {
+      "total_probability": "Unconditional P(A) is the probability-weighted average of scenario-conditional P(A|S_i)",
+      "total_expectation": "Unconditional E(X) is the probability-weighted average of scenario-conditional E(X|S_i)",
+      "variance_decomposition": "Total variance = between-scenario variance + within-scenario variance (Law of Total Variance)"
+    },
+    "investment_applications": {
+      "scenario_analysis": "Combine bull/base/bear conditional expectations into a single unconditional forecast",
+      "stress_testing": "Decompose portfolio risk into crisis vs non-crisis regimes",
+      "macro_overlay": "Forecast earnings as recession-weighted + expansion-weighted components"
+    },
+    "relation_to_bayes": {
+      "denominator": "Total probability rule provides the denominator (unconditional) in Bayes' formula"
+    },
+    "validation": {
+      "scenarios_exhaustive": "|sum(P(S_i)) - 1| <= 1e-8",
+      "conditionals_provided": "At least one of conditional_probabilities or conditional_expectations must match compute choice",
+      "scenarios_align": "Every scenario_id in conditionals must exist in scenarios"
+    }
+  },
+  "outcomes": {
+    "compute_unconditional_probability": {
+      "priority": 1,
+      "description": "P(A) via total probability",
+      "given": [
+        {
+          "field": "compute",
+          "source": "input",
+          "operator": "eq",
+          "value": "unconditional_probability"
+        },
+        {
+          "field": "conditional_probabilities",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "probability_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "probability.total_probability_calculated"
+        }
+      ]
+    },
+    "compute_unconditional_expectation": {
+      "priority": 2,
+      "description": "E(X) via total expectation",
+      "given": [
+        {
+          "field": "compute",
+          "source": "input",
+          "operator": "eq",
+          "value": "unconditional_expectation"
+        },
+        {
+          "field": "conditional_expectations",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "probability_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "probability.total_expectation_calculated"
+        }
+      ]
+    },
+    "compute_unconditional_variance": {
+      "priority": 3,
+      "description": "Var(X) via law of total variance",
+      "given": [
+        {
+          "field": "compute",
+          "source": "input",
+          "operator": "eq",
+          "value": "unconditional_variance"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "probability_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "probability.total_variance_calculated"
+        }
+      ]
+    },
+    "scenarios_not_exhaustive": {
+      "priority": 10,
+      "description": "Scenario probabilities do not sum to 1",
+      "given": [
+        {
+          "field": "scenarios_exhaustive",
+          "source": "computed",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "probability.total_rejected"
+        }
+      ],
+      "error": "TOTAL_PROB_NOT_EXHAUSTIVE"
+    },
+    "missing_conditionals": {
+      "priority": 11,
+      "description": "Required conditional inputs missing",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "scenarios",
+              "source": "input",
+              "operator": "not_exists"
+            },
+            {
+              "field": "compute",
+              "source": "input",
+              "operator": "not_exists"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "probability.total_rejected"
+        }
+      ],
+      "error": "TOTAL_PROB_MISSING_INPUTS"
+    }
+  },
+  "errors": [
+    {
+      "code": "TOTAL_PROB_NOT_EXHAUSTIVE",
+      "status": 400,
+      "message": "Scenarios must be mutually exclusive and exhaustive; probabilities must sum to 1"
+    },
+    {
+      "code": "TOTAL_PROB_MISSING_INPUTS",
+      "status": 400,
+      "message": "Scenarios and compute target are required"
+    }
+  ],
+  "events": [
+    {
+      "name": "probability.total_probability_calculated",
+      "payload": [
+        "dataset_id",
+        "unconditional_probability",
+        "scenario_count"
+      ]
+    },
+    {
+      "name": "probability.total_expectation_calculated",
+      "payload": [
+        "dataset_id",
+        "unconditional_expectation",
+        "scenario_count"
+      ]
+    },
+    {
+      "name": "probability.total_variance_calculated",
+      "payload": [
+        "dataset_id",
+        "unconditional_variance",
+        "between_variance",
+        "within_variance"
+      ]
+    },
+    {
+      "name": "probability.total_rejected",
+      "payload": [
+        "dataset_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not apply the total probability rule to overlapping (non-mutually-exclusive) scenarios",
+      "why": "Overlap double-counts probability mass; partition the event space properly before applying the rule"
+    },
+    {
+      "rule": "Do not omit the between-scenario variance when computing Var(X) from conditional variances",
+      "why": "Law of Total Variance has two terms; using only within-scenario variance systematically understates total risk"
+    },
+    {
+      "rule": "Do not derive unconditional expectation from a single 'most likely' scenario",
+      "why": "Skips the probability-weighted averaging that is the whole point of the total expectation rule; ignores tail scenarios"
+    },
+    {
+      "rule": "Do not confuse total probability rule with Bayes' formula",
+      "why": "Total probability computes an unconditional from conditionals; Bayes inverts conditionals. They are related but distinct"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/probability/total"
+    },
+    "request": {
+      "schema": {
+        "scenarios": "array",
+        "conditional_probabilities": "array",
+        "conditional_expectations": "array",
+        "compute": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "unconditional_probability": "number",
+          "unconditional_expectation": "number",
+          "unconditional_variance": "number",
+          "between_variance": "number",
+          "within_variance": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "TOTAL_PROB_NOT_EXHAUSTIVE"
+        },
+        {
+          "status": 400,
+          "error_code": "TOTAL_PROB_MISSING_INPUTS"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "worked_example": {
+      "scenarios": [
+        {
+          "id": "good",
+          "probability": 0.6
+        },
+        {
+          "id": "poor",
+          "probability": 0.4
+        }
+      ],
+      "conditional_expectations": [
+        {
+          "scenario_id": "good",
+          "value": 2.4875
+        },
+        {
+          "scenario_id": "poor",
+          "value": 2.12
+        }
+      ],
+      "unconditional_expectation": "0.60 * 2.4875 + 0.40 * 2.12 = 2.3405"
+    },
+    "stress_scenario_example": {
+      "scenarios": [
+        {
+          "id": "recession",
+          "probability": 0.2,
+          "e_return": -0.15
+        },
+        {
+          "id": "normal",
+          "probability": 0.65,
+          "e_return": 0.08
+        },
+        {
+          "id": "boom",
+          "probability": 0.15,
+          "e_return": 0.2
+        }
+      ],
+      "expected_return": "0.20*(-0.15) + 0.65*0.08 + 0.15*0.20 = 0.052"
+    }
+  },
+  "related": [
+    {
+      "feature": "expected-value-variance",
+      "type": "required"
+    },
+    {
+      "feature": "probability-tree-conditional-expectation",
+      "type": "required"
+    },
+    {
+      "feature": "bayes-formula",
+      "type": "recommended"
+    }
+  ]
+}

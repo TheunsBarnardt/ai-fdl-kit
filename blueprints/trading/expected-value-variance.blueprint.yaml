@@ -1,0 +1,191 @@
+# ============================================================
+# expected-value-variance — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 4, p.134-136
+# ============================================================
+
+feature: expected-value-variance
+version: "1.0.0"
+description: Compute the expected value, variance, and standard deviation of a discrete random variable — probability-weighted summaries used in forecasting and risk measurement
+category: trading
+tags: [quantitative-methods, probability, expected-value, variance, random-variable, forecasting, cfa-level-1]
+aliases:
+  - expected-value
+  - ev
+  - expectation
+  - variance-of-rv
+  - standard-deviation-rv
+  - discrete-random-variable
+  - probability-weighted-mean
+
+actors:
+  - id: probability_engine
+    name: Probability / Forecasting Engine
+    type: system
+
+fields:
+  - name: outcomes
+    type: json
+    required: true
+    label: Array of {value, probability} pairs defining the discrete distribution
+  - name: variable_type
+    type: select
+    required: false
+    label: discrete (default) | continuous
+  - name: compute
+    type: select
+    required: false
+    label: expected_value | variance | std_dev | all (default all)
+
+rules:
+  core_formulas:
+    # Source: Vol 1, Module 4, Equations 1-3, p.134-135
+    expected_value: "E(X) = sum_{i=1..n}[ P(X_i) * X_i ]"
+    variance: "Var(X) = E[(X - E(X))^2] = sum_{i=1..n}[ P(X_i) * (X_i - E(X))^2 ]"
+    std_dev: "sigma(X) = sqrt(Var(X))"
+    computational_variance: "Var(X) = E(X^2) - [E(X)]^2"
+  probability_axioms:
+    non_negative: "P(X_i) >= 0 for all i"
+    sum_to_one: "sum(P(X_i)) = 1"
+  interpretation:
+    expected_value: "Probability-weighted forecast; 'best single-number' estimate of X"
+    variance: "Measure of dispersion in squared units of X; zero means X is deterministic"
+    std_dev: "Dispersion in same units as X; interpretable as 'typical' deviation from E(X)"
+  contrast_with_sample:
+    expected_value_vs_sample_mean: "E(X) is forward-looking (population parameter); sample mean is historical average"
+    equal_weights_vs_probability_weights: "Sample mean weights observations equally; E(X) weights by probability"
+  applications:
+    eps_forecasting: "Probability-weighted EPS across scenarios produces the point forecast"
+    scenario_analysis: "Compute E(return), sigma(return) under weighted bull/base/bear outcomes"
+    capital_budgeting: "Expected NPV under uncertain cash flow outcomes"
+  validation:
+    non_empty: "outcomes array must be non-empty"
+    non_negative_probabilities: "All probabilities >= 0"
+    sum_to_one: "|sum(probabilities) - 1| <= 1e-8 tolerance"
+
+outcomes:
+  compute_all:
+    priority: 1
+    description: Compute E(X), Var(X), sigma(X)
+    given:
+      - field: outcomes
+        source: input
+        operator: exists
+      - field: probabilities_valid
+        source: computed
+        operator: eq
+        value: true
+    then:
+      - action: call_service
+        target: probability_engine
+      - action: emit_event
+        event: probability.moments_calculated
+  probabilities_dont_sum:
+    priority: 10
+    description: Probabilities do not sum to 1 within tolerance
+    given:
+      - field: probabilities_valid
+        source: computed
+        operator: eq
+        value: false
+    then:
+      - action: emit_event
+        event: probability.moments_rejected
+    error: EV_PROB_NOT_SUM_ONE
+  negative_probability:
+    priority: 11
+    description: A probability is negative
+    given:
+      - field: min_probability
+        source: computed
+        operator: lt
+        value: 0
+    then:
+      - action: emit_event
+        event: probability.moments_rejected
+    error: EV_NEGATIVE_PROBABILITY
+  empty_outcomes:
+    priority: 12
+    description: Outcomes empty or missing
+    given:
+      - field: outcomes
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: probability.moments_rejected
+    error: EV_EMPTY
+
+errors:
+  - code: EV_EMPTY
+    status: 400
+    message: Outcomes array must not be empty
+  - code: EV_PROB_NOT_SUM_ONE
+    status: 400
+    message: Probabilities must sum to 1 within tolerance
+  - code: EV_NEGATIVE_PROBABILITY
+    status: 400
+    message: Probabilities must be non-negative
+
+events:
+  - name: probability.moments_calculated
+    payload: [dataset_id, expected_value, variance, std_dev, outcome_count]
+  - name: probability.moments_rejected
+    payload: [dataset_id, reason_code]
+
+anti_patterns:
+  - rule: Do not treat E(X) as a likely outcome for skewed discrete distributions
+    why: "E(X) may be a value the random variable never actually takes (e.g., expected number of heads in 3 coin flips = 1.5); it is a weighted average, not a forecast of a specific outcome"
+  - rule: Do not use the computational formula E(X^2) - [E(X)]^2 when numerical precision matters
+    why: "Subtracting two large nearly-equal numbers amplifies floating-point error; use the two-pass definitional formula for high-precision needs"
+  - rule: Do not mix scenario probabilities from different sources without re-normalising
+    why: "Probabilities sourced from different models may not sum to 1; always normalise before computing E(X)"
+  - rule: Do not confuse sample variance (n-1 denominator) with variance of a random variable (no n-1)
+    why: "Var(X) for a random variable uses probability-weighted squared deviations; sample variance uses Bessel's correction. Different concepts, different formulas"
+
+api:
+  http:
+    method: POST
+    path: /analytics/probability/moments
+  request:
+    schema:
+      outcomes: array
+      variable_type: string
+      compute: string
+  response:
+    success:
+      status: 200
+      schema:
+        expected_value: number
+        variance: number
+        std_dev: number
+        outcome_count: number
+    errors:
+      - status: 400
+        error_code: EV_EMPTY
+      - status: 400
+        error_code: EV_PROB_NOT_SUM_ONE
+      - status: 400
+        error_code: EV_NEGATIVE_PROBABILITY
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 4, Example 1, p.135-136 — BankCorp EPS
+    scenario: "Discrete EPS distribution"
+    outcomes:
+      - {probability: 0.15, value: 2.60}
+      - {probability: 0.45, value: 2.45}
+      - {probability: 0.24, value: 2.20}
+      - {probability: 0.16, value: 2.00}
+    expected_value: 2.3405
+    variance: 0.0369
+    std_dev: 0.1920
+
+related:
+  - feature: arithmetic-mean-return
+    type: recommended
+  - feature: measures-of-dispersion
+    type: recommended
+  - feature: probability-tree-conditional-expectation
+    type: recommended
+  - feature: bayes-formula
+    type: recommended
