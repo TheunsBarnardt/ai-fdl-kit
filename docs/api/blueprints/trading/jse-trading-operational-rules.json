@@ -1,0 +1,248 @@
+{
+  "feature": "jse-trading-operational-rules",
+  "version": "1.0.0",
+  "description": "JSE trading operational rules covering order types, time-in-force, auction session matching, self-match prevention, trade conformance",
+  "category": "trading",
+  "tags": [
+    "jse-rules",
+    "operational-rules",
+    "order-management",
+    "auction",
+    "conformance"
+  ],
+  "aliases": [
+    "jse-operational-rules",
+    "jse-trading-rules",
+    "jse-order-management",
+    "jse-trade-conformance",
+    "jse-auction-rules"
+  ],
+  "fields": [
+    {
+      "name": "rule_category",
+      "type": "select",
+      "required": true,
+      "label": "Rule Category"
+    },
+    {
+      "name": "effective_date",
+      "type": "date",
+      "required": true,
+      "label": "Effective Date"
+    },
+    {
+      "name": "application_scope",
+      "type": "select",
+      "required": false,
+      "label": "Scope (Equity, Derivatives, Bonds)"
+    }
+  ],
+  "rules": {
+    "order_types": {
+      "market_order": "Immediate execution at best available price",
+      "limit_order": "Execution at specified price or better",
+      "market_to_limit": "Market execution; unfilled portion becomes limit order",
+      "iceberg": "Visible tranche only; hidden balance replenishes as visible fills",
+      "pegged_order": "Price pegged to bid/ask; dynamic tracking of market"
+    },
+    "time_in_force": {
+      "day": "Order valid for trading day only; cancels at close",
+      "gtc": "Good Till Cancelled; remains active until filled or cancelled",
+      "ioc": "Immediate Or Cancel; unfilled portion cancelled immediately",
+      "fok": "Fill Or Kill; entire order must fill or entire order cancelled",
+      "gtt": "Good Till Time; active until specified time/date"
+    },
+    "auction": {
+      "opening_auction": "Pre-market price discovery; volume aggregation; single-price clearing",
+      "closing_auction": "End-of-day final price; prevents manipulation near close",
+      "intraday_auction": "Halt-related auctions for instrument resumption"
+    },
+    "self_match": {
+      "prevention_rule": "System rejects orders that would create self-trade (same account cross)",
+      "exceptions": "Permitted for portfolio rebalancing with specific approval"
+    },
+    "conformance": {
+      "trade_reporting": "All trades reported to regulator within specified timeline",
+      "data_validation": "Trade details validated against master data before acceptance",
+      "dispute_resolution": "Trade matching disputes resolved per standard procedures"
+    }
+  },
+  "outcomes": {
+    "enforce_order_type_rules": {
+      "priority": 1,
+      "description": "Enforce order type submission and execution rules",
+      "given": [
+        {
+          "field": "rule_category",
+          "source": "input",
+          "operator": "eq",
+          "value": "order_types"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "order_validated"
+        }
+      ]
+    },
+    "prevent_self_match": {
+      "priority": 2,
+      "description": "Prevent self-matching trades",
+      "given": [
+        {
+          "field": "rule_category",
+          "source": "input",
+          "operator": "eq",
+          "value": "self_match"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "self_match_prevented"
+        }
+      ]
+    },
+    "validate_trade_conformance": {
+      "priority": 3,
+      "description": "Validate trade against conformance rules",
+      "given": [
+        {
+          "field": "application_scope",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "trade_conformed"
+        }
+      ]
+    }
+  },
+  "errors": [
+    {
+      "code": "SELF_MATCH_DETECTED",
+      "status": 409,
+      "message": "Order would create self-match"
+    },
+    {
+      "code": "CONFORMANCE_VIOLATION",
+      "status": 422,
+      "message": "Trade violates conformance rules"
+    }
+  ],
+  "events": [
+    {
+      "name": "order.validated",
+      "payload": [
+        "order_id",
+        "order_type",
+        "tif"
+      ]
+    },
+    {
+      "name": "self_match.prevented",
+      "payload": [
+        "order_id",
+        "account_code"
+      ]
+    },
+    {
+      "name": "trade.conformed",
+      "payload": [
+        "trade_id",
+        "conformance_status"
+      ]
+    }
+  ],
+  "extensions": {
+    "order_type_codes": [
+      {
+        "code": 1,
+        "name": "Market"
+      },
+      {
+        "code": 2,
+        "name": "Limit"
+      },
+      {
+        "code": 4,
+        "name": "MarketToLimit"
+      },
+      {
+        "code": "E",
+        "name": "Iceberg"
+      },
+      {
+        "code": "P",
+        "name": "Pegged"
+      }
+    ],
+    "tif_codes": [
+      {
+        "code": 0,
+        "name": "Day"
+      },
+      {
+        "code": 1,
+        "name": "GTC"
+      },
+      {
+        "code": 3,
+        "name": "IOC"
+      },
+      {
+        "code": 4,
+        "name": "FOK"
+      },
+      {
+        "code": 6,
+        "name": "GTT"
+      }
+    ],
+    "auction_types": [
+      {
+        "type": "OpeningAuction",
+        "time": "08:00",
+        "clearing": "single_price"
+      },
+      {
+        "type": "ClosingAuction",
+        "time": "16:50",
+        "clearing": "single_price"
+      },
+      {
+        "type": "HaltAuction",
+        "trigger": "trading_halt",
+        "duration": "until_resume"
+      }
+    ],
+    "self_match_exceptions": [
+      {
+        "exception": "PortfolioRebalancing",
+        "approval_required": true
+      },
+      {
+        "exception": "ArbitrageActivity",
+        "approval_required": true
+      }
+    ]
+  },
+  "related": [
+    {
+      "feature": "trading-gateway-fix",
+      "type": "required"
+    },
+    {
+      "feature": "post-trade-gateway-fix",
+      "type": "required"
+    },
+    {
+      "feature": "reference-data-management",
+      "type": "required"
+    }
+  ]
+}

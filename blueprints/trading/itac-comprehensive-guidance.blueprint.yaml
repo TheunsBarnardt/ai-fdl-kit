@@ -1,0 +1,98 @@
+feature: itac-comprehensive-guidance
+version: 1.0.0
+description: ITaC comprehensive guidance covering corporate actions, dividend treatment, trade cancellations, FCO expiries, user-created instruments, password policy
+category: trading
+tags: [itac, consensus-guidance, operational-rules, compliance]
+aliases:
+  - itac-guidance-comprehensive
+  - itac-operational-rules
+  - itac-consensus-all
+  - trading-consensus-guidance
+  - itac-software-requirements
+
+fields:
+  - name: guidance_topic
+    type: select
+    required: true
+    label: Guidance Topic
+  - name: effective_date
+    type: date
+    required: true
+    label: Effective Date
+  - name: requirement_level
+    type: select
+    required: false
+    label: Level (Mandatory, Recommended, Optional)
+
+rules:
+  software:
+    password_policy: "Minimum 12 characters; change every 90 days; no reuse of last 5 passwords"
+    user_created_instruments: "Software must validate user-created securities against master list"
+    two_factor_auth: "Required for critical operations (block trades, corporate action elections)"
+  operations:
+    trade_cancellation: "Only before settlement; must be bilateral agreement"
+    fco_expiry: "Foreign Currency Options expire on specific UTC times per currency"
+    dividend_treatment: "Interim vs final; ordinary vs special; tax-imputation credits"
+  compliance:
+    audit_trail: "All transactions logged with timestamp, user, IP address"
+    conformance_testing: "Annual software conformance validation required"
+    contact_registry: "Software providers must maintain current contact details"
+
+outcomes:
+  publish_guidance:
+    priority: 1
+    description: Issue new or updated ITaC guidance
+    given:
+      - field: guidance_topic
+        source: input
+        operator: exists
+    then:
+      - action: emit_event
+        event: guidance.published
+  validate_compliance:
+    priority: 2
+    description: Validate software compliance with guidance
+    given:
+      - field: requirement_level
+        source: input
+        operator: eq
+        value: mandatory
+    then:
+      - action: emit_event
+        event: compliance.validated
+
+errors:
+  - code: NON_COMPLIANT
+    status: 409
+    message: Software not compliant with ITaC guidance
+
+events:
+  - name: guidance.published
+    payload: [guidance_topic, effective_date, requirement_level]
+  - name: compliance.validated
+    payload: [software_name, conformance_status]
+
+extensions:
+  guidance_topics:
+    - {topic: CorporateActions, scope: Dividend, Rights, Scheme, Takeover, Capitalisation}
+    - {topic: TradeManagement, scope: Cancellation, Novation, Amendment}
+    - {topic: Derivatives, scope: FCO Expiry, Settlement, Expiration}
+    - {topic: Security, scope: PasswordPolicy, TwoFactorAuth, AuditTrail}
+    - {topic: Instruments, scope: UserCreatedSecurities, Validation, Master List}
+    - {topic: Conformance, scope: Testing, Validation, SoftwareProviders}
+  password_requirements:
+    - {rule: MinimumLength, value: 12}
+    - {rule: ChangeFrequency, days: 90}
+    - {rule: NoReuse, count: 5}
+    - {rule: Complexity, requires: [Uppercase, Lowercase, Digits, Symbols]}
+  dividend_types:
+    - {type: Ordinary, imputation: applicable}
+    - {type: Special, imputation: applicable}
+    - {type: Interim, imputation: applicable}
+    - {type: Final, imputation: applicable}
+
+related:
+  - feature: itac-corporate-actions
+    type: extends
+  - feature: reference-data-management
+    type: required
