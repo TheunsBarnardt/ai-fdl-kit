@@ -1,0 +1,188 @@
+# ============================================================
+# data-science-processing — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 12, p.337-340
+# ============================================================
+
+feature: data-science-processing
+version: "1.0.0"
+description: Execute the five stages of the data science pipeline — capture, curation, storage, analysis, and visualization — to transform raw big data into investment-ready insights
+category: trading
+tags: [quantitative-methods, data-science, data-pipeline, data-curation, visualization, cfa-level-1]
+aliases:
+  - data-pipeline
+  - five-data-stages
+  - data-wrangling
+  - data-curation
+  - etl-pipeline
+  - data-visualization
+
+actors:
+  - id: pipeline_engine
+    name: Data Pipeline Engine
+    type: system
+
+fields:
+  - name: pipeline_id
+    type: text
+    required: true
+    label: Unique identifier of this pipeline run
+  - name: stage
+    type: select
+    required: true
+    label: capture | curation | storage | analysis | visualization
+  - name: input_ref
+    type: json
+    required: false
+    label: Upstream data references for this stage
+  - name: config
+    type: json
+    required: false
+    label: Stage-specific configuration
+
+rules:
+  data_capture:
+    # Source: Vol 1, Module 12, p.337
+    definition: "Acquire raw data from source systems"
+    methods: "API pulls, web scraping, sensor feeds, partner file deliveries"
+    considerations: "Licensing, rate limits, access controls"
+  data_curation:
+    # Source: Vol 1, Module 12, p.338
+    definition: "Clean, de-duplicate, reconcile, and normalise raw data"
+    steps:
+      - "Remove or impute missing values"
+      - "Correct or flag outliers"
+      - "Resolve entity identifiers across sources"
+      - "Standardise units, currencies, timestamps"
+    quality_dimensions: "Completeness, accuracy, timeliness, consistency"
+  data_storage:
+    # Source: Vol 1, Module 12, p.338
+    definition: "Persist curated data for retrieval"
+    options: "Relational DB (Postgres), document DB (MongoDB), columnar store (Parquet), data warehouse (Redshift/BigQuery), data lake (S3)"
+    choice_factors: "Query patterns, volume, latency, cost"
+  data_analysis:
+    # Source: Vol 1, Module 12, p.339
+    definition: "Apply statistical, econometric, or ML techniques to curated data"
+    typical_steps: "Feature engineering -> model selection -> training -> validation"
+  data_visualization:
+    # Source: Vol 1, Module 12, p.339-340
+    definition: "Present analytical output so stakeholders can interpret and act"
+    forms: "Time series charts, heat maps, tree maps, network graphs, dashboards"
+    best_practices: "Choose chart type matched to data shape; avoid misleading scales; annotate key events"
+  structured_vs_unstructured_handling:
+    structured: "Ingest directly into relational or columnar store"
+    semi_structured: "Parse via JSON/XML schema, then flatten or keep nested"
+    unstructured: "Apply NLP, CV, or audio pipelines to extract features before storage"
+  applications:
+    esg_ingest: "Capture regulatory filings -> curate ESG fields -> store in warehouse -> analyse -> dashboard"
+    alt_data_signals: "Pull satellite imagery -> curate parking counts -> regression against sales"
+    client_reporting: "Combine holdings + returns + benchmarks into visualised portfolio reports"
+  validation:
+    valid_stage: "stage in {capture, curation, storage, analysis, visualization}"
+    pipeline_id_known: "pipeline_id must exist"
+
+outcomes:
+  execute_stage:
+    priority: 1
+    description: Run the selected pipeline stage
+    given:
+      - field: pipeline_id
+        source: input
+        operator: exists
+      - field: stage
+        source: input
+        operator: in
+        value: [capture, curation, storage, analysis, visualization]
+    then:
+      - action: call_service
+        target: pipeline_engine
+      - action: emit_event
+        event: pipeline.stage_completed
+  invalid_stage:
+    priority: 10
+    description: Stage not supported
+    given:
+      - field: stage
+        source: input
+        operator: not_in
+        value: [capture, curation, storage, analysis, visualization]
+    then:
+      - action: emit_event
+        event: pipeline.stage_rejected
+    error: PIPELINE_INVALID_STAGE
+  missing_pipeline_id:
+    priority: 11
+    description: Pipeline identifier missing
+    given:
+      - field: pipeline_id
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: pipeline.stage_rejected
+    error: PIPELINE_MISSING_ID
+
+errors:
+  - code: PIPELINE_INVALID_STAGE
+    status: 400
+    message: Stage must be capture, curation, storage, analysis, or visualization
+  - code: PIPELINE_MISSING_ID
+    status: 400
+    message: pipeline_id is required
+
+events:
+  - name: pipeline.stage_completed
+    payload: [pipeline_id, stage, records_processed, duration_ms, output_ref]
+  - name: pipeline.stage_rejected
+    payload: [pipeline_id, stage, reason_code]
+
+anti_patterns:
+  - rule: Do not skip data curation to speed up the pipeline
+    why: "Feeding dirty data to downstream models amplifies noise and hides bugs; spend the time upstream to save tenfold downstream"
+  - rule: Do not store raw PII in data lakes without access controls
+    why: "Big-data storage is often less secure than structured DBs; expose PII only where absolutely needed and audit access"
+  - rule: Do not rely on a single visualization chart type for all insights
+    why: "Line charts hide distributional features; heatmaps obscure time; choose form to match the question"
+  - rule: Do not confuse data pipeline automation with reliability
+    why: "Automated pipelines silently propagate upstream errors; add data-quality checks and alerts at each stage"
+
+api:
+  http:
+    method: POST
+    path: /data/pipeline/stage
+  request:
+    schema:
+      pipeline_id: string
+      stage: string
+      input_ref: object
+      config: object
+  response:
+    success:
+      status: 200
+      schema:
+        pipeline_id: string
+        stage: string
+        records_processed: number
+        duration_ms: number
+        output_ref: object
+    errors:
+      - status: 400
+        error_code: PIPELINE_INVALID_STAGE
+      - status: 400
+        error_code: PIPELINE_MISSING_ID
+
+extensions:
+  data_visualization_types:
+    # Source: Vol 1, Module 12, p.340
+    - "Tag cloud — frequency of keywords in text corpus"
+    - "Mosaic plot — joint distribution of categoricals"
+    - "Heat map — correlation or volatility surface"
+    - "Tree map — hierarchical portfolio weights"
+    - "Network graph — firm or security interconnections"
+
+related:
+  - feature: big-data-characteristics
+    type: required
+  - feature: machine-learning-techniques
+    type: recommended
+  - feature: fintech-investment-analysis
+    type: recommended
