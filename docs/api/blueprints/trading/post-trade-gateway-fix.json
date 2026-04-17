@@ -1,0 +1,295 @@
+{
+  "feature": "post-trade-gateway-fix",
+  "version": "1.0.0",
+  "description": "FIX 5.0 SP2 post-trade gateway for trade reporting, allocations, confirmations and give-ups",
+  "category": "trading",
+  "tags": [
+    "fix",
+    "post-trade",
+    "trade-reporting",
+    "allocation",
+    "confirmation",
+    "settlement"
+  ],
+  "aliases": [
+    "post-trade-fix-gateway",
+    "trade-capture-fix",
+    "allocation-fix",
+    "trade-reporting-fix",
+    "ptg-fix"
+  ],
+  "actors": [
+    {
+      "id": "sell_side",
+      "name": "Sell-Side (Broker)",
+      "type": "human"
+    },
+    {
+      "id": "buy_side",
+      "name": "Buy-Side (Fund Manager)",
+      "type": "human"
+    },
+    {
+      "id": "clearing_house",
+      "name": "Clearing House",
+      "type": "system"
+    },
+    {
+      "id": "settlement_system",
+      "name": "Settlement System",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "trade_id",
+      "type": "text",
+      "required": true,
+      "label": "Trade ID"
+    },
+    {
+      "name": "counterparty",
+      "type": "text",
+      "required": true,
+      "label": "Counterparty"
+    },
+    {
+      "name": "trade_date",
+      "type": "date",
+      "required": true,
+      "label": "Trade Date"
+    },
+    {
+      "name": "settlement_date",
+      "type": "date",
+      "required": true,
+      "label": "Settlement Date (T+n)"
+    },
+    {
+      "name": "allocation_type",
+      "type": "select",
+      "required": false,
+      "label": "Allocation Type (Normal, GiveUp, TakeUp)"
+    }
+  ],
+  "rules": {
+    "reporting": {
+      "trade_capture_timeline": "Trade must be reported within regulatory timeline (T+0 or T+1 per market)",
+      "allocation_matching": "Allocation must match original trade in quantity and price"
+    },
+    "settlement": {
+      "settlement_date_validation": "Settlement date must be valid trading day",
+      "counterparty_verification": "Counterparty must be valid and have settlement capability"
+    }
+  },
+  "outcomes": {
+    "trade_capture_report": {
+      "priority": 1,
+      "description": "Broker submits trade capture report (TradeCaptureReport)",
+      "given": [
+        {
+          "field": "trade_id",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "clearing_house"
+        },
+        {
+          "action": "emit_event",
+          "event": "trade.captured"
+        }
+      ],
+      "error": "TRADE_CAPTURE_FAILED"
+    },
+    "allocation_instruction": {
+      "priority": 2,
+      "description": "Sell-side sends allocation to clear a block trade to multiple accounts",
+      "given": [
+        {
+          "field": "allocation_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "normal"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "clearing_house"
+        },
+        {
+          "action": "emit_event",
+          "event": "allocation.instructed"
+        }
+      ]
+    },
+    "confirmation": {
+      "priority": 3,
+      "description": "Buy-side confirms trade details",
+      "given": [
+        {
+          "field": "trade_id",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "settlement_system"
+        },
+        {
+          "action": "emit_event",
+          "event": "trade.confirmed"
+        }
+      ]
+    }
+  },
+  "errors": [
+    {
+      "code": "TRADE_CAPTURE_FAILED",
+      "status": 400,
+      "message": "Trade capture validation failed"
+    },
+    {
+      "code": "ALLOCATION_MISMATCH",
+      "status": 409,
+      "message": "Allocation does not match trade"
+    }
+  ],
+  "events": [
+    {
+      "name": "trade.captured",
+      "payload": [
+        "trade_id",
+        "trade_date",
+        "settlement_date"
+      ]
+    },
+    {
+      "name": "allocation.instructed",
+      "payload": [
+        "trade_id",
+        "allocation_type",
+        "quantity"
+      ]
+    },
+    {
+      "name": "trade.confirmed",
+      "payload": [
+        "trade_id",
+        "counterparty"
+      ]
+    }
+  ],
+  "extensions": {
+    "message_layouts": {
+      "TRADE_CAPTURE_REPORT": [
+        {
+          "name": "MsgType",
+          "tag": 35,
+          "offset": 0,
+          "length": 1,
+          "type": "char"
+        },
+        {
+          "name": "TradeID",
+          "tag": 1003,
+          "offset": 1,
+          "length": 20,
+          "type": "string"
+        },
+        {
+          "name": "TradeDate",
+          "tag": 75,
+          "offset": 21,
+          "length": 8,
+          "type": "date"
+        },
+        {
+          "name": "SettlDate",
+          "tag": 64,
+          "offset": 29,
+          "length": 8,
+          "type": "date"
+        }
+      ],
+      "ALLOCATION_INSTRUCTION": [
+        {
+          "name": "MsgType",
+          "tag": 35,
+          "offset": 0,
+          "length": 1,
+          "type": "char"
+        },
+        {
+          "name": "AllocationID",
+          "tag": 70,
+          "offset": 1,
+          "length": 20,
+          "type": "string"
+        },
+        {
+          "name": "TradeID",
+          "tag": 1003,
+          "offset": 21,
+          "length": 20,
+          "type": "string"
+        },
+        {
+          "name": "AllocType",
+          "tag": 626,
+          "offset": 41,
+          "length": 1,
+          "type": "char"
+        }
+      ]
+    },
+    "allocation_states": [
+      {
+        "code": 0,
+        "name": "Received"
+      },
+      {
+        "code": 1,
+        "name": "Pending"
+      },
+      {
+        "code": 2,
+        "name": "Accepted"
+      },
+      {
+        "code": 3,
+        "name": "Rejected"
+      }
+    ],
+    "trade_capture_status_codes": [
+      {
+        "code": 0,
+        "name": "Accepted"
+      },
+      {
+        "code": 1,
+        "name": "Rejected"
+      },
+      {
+        "code": 4,
+        "name": "Pending"
+      }
+    ]
+  },
+  "related": [
+    {
+      "feature": "trading-gateway-fix",
+      "type": "recommended"
+    },
+    {
+      "feature": "clearing-settlement-integration",
+      "type": "required"
+    }
+  ]
+}

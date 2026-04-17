@@ -1,0 +1,540 @@
+{
+  "feature": "broker-credit-limit-dissemination",
+  "version": "1.0.0",
+  "description": "Disseminate per-account credit limits to broker trading systems for pre-trade risk checks, utilisation tracking and order blocking on breach.",
+  "category": "trading",
+  "aliases": [
+    "credit-limit-dissemination",
+    "credit-limit-feed",
+    "pre-trade-risk-limits",
+    "broker-cr-lim-feed",
+    "crd-lim-dissem"
+  ],
+  "tags": [
+    "credit-limit",
+    "pre-trade-risk",
+    "dissemination",
+    "risk-management",
+    "broker-feed"
+  ],
+  "actors": [
+    {
+      "id": "back_office_system",
+      "name": "Back-office clearing and settlement system",
+      "type": "system"
+    },
+    {
+      "id": "broker_trading_system",
+      "name": "Broker order management / trading system",
+      "type": "system"
+    },
+    {
+      "id": "risk_officer",
+      "name": "Broker risk officer",
+      "type": "human"
+    },
+    {
+      "id": "member_firm",
+      "name": "Subscribing member firm",
+      "type": "external"
+    }
+  ],
+  "fields": [
+    {
+      "name": "broker_code",
+      "type": "text",
+      "required": true,
+      "label": "Broker code",
+      "validation": [
+        {
+          "type": "pattern",
+          "value": "^[0-9]{3}$",
+          "message": "Broker code failed pattern validation"
+        }
+      ]
+    },
+    {
+      "name": "account_code",
+      "type": "text",
+      "required": true,
+      "label": "Account code",
+      "validation": [
+        {
+          "type": "pattern",
+          "value": "^[0-9]{7}$",
+          "message": "Account code failed pattern validation"
+        }
+      ]
+    },
+    {
+      "name": "valuation_date",
+      "type": "date",
+      "required": true,
+      "label": "Valuation date"
+    },
+    {
+      "name": "credit_limit_amount_code",
+      "type": "select",
+      "required": true,
+      "label": "Credit limit type",
+      "options": [
+        {
+          "value": "PF",
+          "label": "Portfolio-valuation derived (valid one day)"
+        },
+        {
+          "value": "ST",
+          "label": "Static broker-maintained limit"
+        },
+        {
+          "value": "UP",
+          "label": "Broker-uploaded limit (valid one day)"
+        }
+      ]
+    },
+    {
+      "name": "credit_limit_amount",
+      "type": "number",
+      "required": true,
+      "label": "Credit limit amount"
+    },
+    {
+      "name": "currency",
+      "type": "text",
+      "required": false,
+      "label": "Limit currency",
+      "validation": [
+        {
+          "type": "pattern",
+          "value": "^[A-Z]{3}$",
+          "message": "Limit currency failed pattern validation"
+        }
+      ]
+    },
+    {
+      "name": "limit_scope",
+      "type": "select",
+      "required": false,
+      "label": "Limit scope",
+      "options": [
+        {
+          "value": "intraday",
+          "label": "Intra-day exposure limit"
+        },
+        {
+          "value": "overnight",
+          "label": "Overnight exposure limit"
+        },
+        {
+          "value": "gross_exposure",
+          "label": "Gross exposure limit"
+        }
+      ]
+    },
+    {
+      "name": "utilised_amount",
+      "type": "number",
+      "required": false,
+      "label": "Current utilised amount"
+    },
+    {
+      "name": "run_date",
+      "type": "date",
+      "required": true,
+      "label": "Dissemination run date"
+    }
+  ],
+  "rules": {
+    "general": {
+      "rule_1": "A credit limit record must exist for every counter-party account before orders may be routed.",
+      "rule_2": "Three limit types are supported: PF (portfolio-derived, one-day validity), ST (static), UP (broker-uploaded, one-day validity).",
+      "rule_3": "PF and UP limits automatically expire after one trading day unless refreshed.",
+      "rule_4": "Broker trading systems must perform a pre-trade check against the latest disseminated limit and reject orders that would breach it.",
+      "rule_5": "End-of-day file is delivered via secure file transfer; real-time updates use push messages for intra-day changes.",
+      "rule_6": "Members must register in writing by Thursday 09:00 to begin receiving the feed from the following Monday.",
+      "rule_7": "No historical limit data is disseminated — only the current active limit per account.",
+      "rule_8": "Every record carries broker code, record type BC, sub-type 01 and continuation sequence 01.",
+      "rule_9": "Breaches must emit an alert to the broker risk desk and be logged for audit."
+    }
+  },
+  "outcomes": {
+    "disseminate_limits_eod": {
+      "priority": 10,
+      "description": "Produce the end-of-day credit limit file for every subscribing broker.",
+      "given": [
+        {
+          "field": "eod_cycle",
+          "source": "system",
+          "operator": "eq",
+          "value": "complete"
+        },
+        {
+          "field": "subscription_active",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "credit_limit_feed_file"
+        },
+        {
+          "action": "call_service",
+          "target": "sftp_delivery"
+        },
+        {
+          "action": "emit_event",
+          "event": "credit_limit.eod_disseminated",
+          "payload": [
+            "broker_code",
+            "run_date",
+            "record_count"
+          ]
+        }
+      ],
+      "transaction": true
+    },
+    "push_limit_update": {
+      "priority": 5,
+      "description": "Push an intra-day limit update to the broker trading system when a limit changes.",
+      "given": [
+        {
+          "field": "limit_changed",
+          "source": "system",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "broker_trading_system_push"
+        },
+        {
+          "action": "set_field",
+          "target": "last_pushed_at",
+          "value": "now"
+        },
+        {
+          "action": "emit_event",
+          "event": "credit_limit.updated",
+          "payload": [
+            "broker_code",
+            "account_code",
+            "credit_limit_amount",
+            "credit_limit_amount_code",
+            "valuation_date"
+          ]
+        }
+      ]
+    },
+    "breach_alert": {
+      "priority": 2,
+      "description": "Raise an alert when utilisation approaches or exceeds the limit.",
+      "given": [
+        {
+          "field": "utilised_amount",
+          "source": "computed",
+          "operator": "gte",
+          "value": "credit_limit_amount"
+        }
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "in_app"
+        },
+        {
+          "action": "notify",
+          "channel": "email"
+        },
+        {
+          "action": "emit_event",
+          "event": "credit_limit.breached",
+          "payload": [
+            "broker_code",
+            "account_code",
+            "utilised_amount",
+            "credit_limit_amount"
+          ]
+        }
+      ],
+      "error": "CREDIT_LIMIT_BREACHED"
+    },
+    "block_order_on_breach": {
+      "priority": 1,
+      "description": "Reject an inbound order that would cause utilisation to exceed the account credit limit.",
+      "given": [
+        {
+          "field": "projected_utilisation",
+          "source": "computed",
+          "operator": "gt",
+          "value": "credit_limit_amount"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "order_status",
+          "from": "received",
+          "to": "rejected"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.blocked_credit_limit",
+          "payload": [
+            "broker_code",
+            "account_code",
+            "order_id",
+            "credit_limit_amount"
+          ]
+        },
+        {
+          "action": "notify",
+          "channel": "in_app"
+        }
+      ],
+      "error": "ORDER_BLOCKED_CREDIT_LIMIT",
+      "transaction": true
+    },
+    "missing_limit_record": {
+      "priority": 3,
+      "description": "Block trading on an account that has no active credit limit on file.",
+      "given": [
+        {
+          "field": "credit_limit_amount",
+          "source": "db",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "order_status",
+          "from": "received",
+          "to": "rejected"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.blocked_no_limit",
+          "payload": [
+            "broker_code",
+            "account_code",
+            "order_id"
+          ]
+        }
+      ],
+      "error": "NO_CREDIT_LIMIT_ON_FILE"
+    }
+  },
+  "events": [
+    {
+      "name": "credit_limit.eod_disseminated",
+      "payload": [
+        "broker_code",
+        "run_date",
+        "record_count"
+      ]
+    },
+    {
+      "name": "credit_limit.updated",
+      "payload": [
+        "broker_code",
+        "account_code",
+        "credit_limit_amount",
+        "credit_limit_amount_code",
+        "valuation_date"
+      ]
+    },
+    {
+      "name": "credit_limit.breached",
+      "payload": [
+        "broker_code",
+        "account_code",
+        "utilised_amount",
+        "credit_limit_amount"
+      ]
+    },
+    {
+      "name": "order.blocked_credit_limit",
+      "payload": [
+        "broker_code",
+        "account_code",
+        "order_id",
+        "credit_limit_amount"
+      ]
+    },
+    {
+      "name": "order.blocked_no_limit",
+      "payload": [
+        "broker_code",
+        "account_code",
+        "order_id"
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": "CREDIT_LIMIT_BREACHED",
+      "status": 409,
+      "message": "Account credit limit has been breached."
+    },
+    {
+      "code": "ORDER_BLOCKED_CREDIT_LIMIT",
+      "status": 409,
+      "message": "Order rejected — would exceed account credit limit."
+    },
+    {
+      "code": "NO_CREDIT_LIMIT_ON_FILE",
+      "status": 409,
+      "message": "No active credit limit on file for this account."
+    },
+    {
+      "code": "INVALID_LIMIT_TYPE",
+      "status": 422,
+      "message": "Credit limit type must be PF, ST or UP."
+    },
+    {
+      "code": "SUBSCRIPTION_NOT_ACTIVE",
+      "status": 403,
+      "message": "Broker is not subscribed to the credit limit feed."
+    },
+    {
+      "code": "FEED_DELIVERY_FAILED",
+      "status": 503,
+      "message": "Credit limit feed delivery failed — retry scheduled."
+    }
+  ],
+  "related": [
+    {
+      "feature": "broker-client-account-maintenance",
+      "type": "required"
+    },
+    {
+      "feature": "popia-compliance",
+      "type": "required"
+    }
+  ],
+  "extensions": {
+    "record_type_map": {
+      "BC_01_01": {
+        "record_type": "BC",
+        "sub_type": "01",
+        "sequence": "01",
+        "description": "Client credit limit record"
+      }
+    },
+    "record_layouts": {
+      "LEADING": {
+        "description": "Leading record layout wrapping every disseminated credit limit record.",
+        "length": 148,
+        "fields": [
+          {
+            "name": "broker_code",
+            "start": 1,
+            "length": 3,
+            "end": 3,
+            "type": "numeric"
+          },
+          {
+            "name": "filler_packed_sequence",
+            "start": 4,
+            "length": 7,
+            "end": 10,
+            "type": "packed"
+          },
+          {
+            "name": "record_type",
+            "start": 11,
+            "length": 3,
+            "end": 13,
+            "type": "text"
+          },
+          {
+            "name": "sub_record_type",
+            "start": 14,
+            "length": 2,
+            "end": 15,
+            "type": "text"
+          },
+          {
+            "name": "continuation_sequence_number",
+            "start": 16,
+            "length": 2,
+            "end": 17,
+            "type": "numeric"
+          },
+          {
+            "name": "filler",
+            "start": 18,
+            "length": 14,
+            "end": 31,
+            "type": "text"
+          },
+          {
+            "name": "run_date",
+            "start": 32,
+            "length": 8,
+            "end": 39,
+            "type": "date_ccyymmdd"
+          },
+          {
+            "name": "data",
+            "start": 40,
+            "length": 109,
+            "end": 148,
+            "type": "text"
+          }
+        ]
+      },
+      "CC": {
+        "description": "Client credit limit payload (Record Type BC, Sub Type 01, Sequence 01).",
+        "length": 32,
+        "fields": [
+          {
+            "name": "account_code",
+            "start": 40,
+            "length": 7,
+            "end": 46,
+            "type": "numeric"
+          },
+          {
+            "name": "valuation_date",
+            "start": 47,
+            "length": 8,
+            "end": 54,
+            "type": "date_ccyymmdd"
+          },
+          {
+            "name": "credit_limit_amount_code",
+            "start": 55,
+            "length": 2,
+            "end": 56,
+            "type": "text"
+          },
+          {
+            "name": "credit_limit_amount",
+            "start": 57,
+            "length": 15,
+            "end": 71,
+            "type": "numeric"
+          }
+        ]
+      }
+    },
+    "limit_type_codes": {
+      "PF": "Portfolio-valuation-derived credit limit (valid one day).",
+      "ST": "Static broker-maintained credit limit.",
+      "UP": "Broker-uploaded credit limit (valid one day)."
+    },
+    "delivery": {
+      "channel": "sftp",
+      "cadence": "end_of_day",
+      "realtime_updates": "push",
+      "subscription_cutoff": "Thursday 09:00 for following Monday activation",
+      "historical_data": false
+    }
+  }
+}

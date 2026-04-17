@@ -2,15 +2,15 @@
 
 # Broker Back Office Dissemination
 
-> Back-office data dissemination from central broker administration to member firms via fixed-width card code records (accounts, balances, deals, scrip, GL, SLB, elective events)
+> End-of-day back-office dissemination from central broker admin to member firms via fixed-width card code records (accounts, balances, deals, scrip, GL, SLB, elective events)
 
-**Category:** Trading · **Version:** 1.0.0 · **Tags:** back-office · broker · dissemination · fixed-width · card-codes · accounts · deals · scrip · gl · sbl · elective-events · corporate-actions
+**Category:** Trading · **Version:** 1.1.0 · **Tags:** back-office · broker · dissemination · fixed-width · card-codes · accounts · deals · scrip · gl · sbl · elective-events · corporate-actions
 
 ## What this does
 
-Back-office data dissemination from central broker administration to member firms via fixed-width card code records (accounts, balances, deals, scrip, GL, SLB, elective events)
+End-of-day back-office dissemination from central broker admin to member firms via fixed-width card code records (accounts, balances, deals, scrip, GL, SLB, elective events)
 
-Specifies 6 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+Specifies 11 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
 
 ## Fields
 
@@ -72,23 +72,29 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 
 - **scheduling:** MUST: Allow broker users to schedule dissemination via online request process function, MUST: Support multiple scheduled requests per day per broker, MUST: Allow filtering by branch code, partner code, portfolio indicator, and FATCA flags, MUST: Support download of full daily data set or changes-only (delta) mode depending on data type
 - **grouping:** MUST: Group related data into distinct Card Codes to isolate business domains, MUST: Allocate General Ledger data to separate dataset from other disseminated data, MUST: Allow end users to select which card codes to download per dataset
-- **format:** MUST: Use fixed-width card code record format, MUST: Start every dissemination file with Header record (Card Code 000), MUST: End every dissemination file with Trailer record (Card Code 999), MUST: Include layout version number in each record
+- **format:** MUST: Use fixed-width card code record format, 173 characters per record, blank filled, MUST: Start every dissemination file with Header record (Card Code 000), MUST: End every dissemination file with Trailer record (Card Code 999), MUST: Include layout version number in each record, MUST: Multiply balance amounts by 100 and represent as whole numbers with leading sign (+, -, space)
 - **access_control:** MUST: Verify user has relevant access before scheduling dissemination, MUST: Allow dissemination to member firms and authorized service providers
 - **frozen_file:** MUST: Support frozen elective event file download via online request process, MUST: Require email address setup before frozen file access, MUST: Provide Header (000), Event Detail (071), Account Detail (072), and Trailer (999) records in frozen file
+- **zero_balance_exclusion:** MUST: Support excluding zero balances for card codes 90 and 91 when requested, MUST: Support excluding zero GL balances for card code 75 when requested
 
 ## Success & failure scenarios
 
 **✅ Success paths**
 
+- **Schedule Dissemination** — when run_parameters exists, then create_record; emit broker_dissem.run.scheduled. _Why: Persist dissemination run parameters per broker including layout selection flags._
+- **Generate Header Record** — when file_opened eq true, then create_record; emit broker_dissem.header.written. _Why: Write Header record (Card Code 000) as the first record of every dissemination file with machine date, machine time, and batch run date._
+- **Generate Trailer Record** — when file_closing eq true, then create_record; emit broker_dissem.trailer.written. _Why: Write Trailer record (Card Code 999) as the last record with total record count and batch run date._
+- **Full Vs Updates Only** — when download_mode in ["full","updates_only"], then set delta_mode = "updates_only"; emit broker_dissem.mode.selected. _Why: User selects full dataset download or only records changed on the day, per card code family._
 - **Download Full Vs Changes** — when download_mode in ["full","changes"], then set delta_mode = "changes"; emit broker_dissem.mode.selected. _Why: User selects full download or changes-only based on data type._
+- **Exclude Zero Balances** — when exclude_zero eq true, then set filter_zero_balances = true; emit broker_dissem.zero_balances.excluded. _Why: When exclusion flag is set, omit zero-balance records from balance layouts (90, 91, 75)._
 - **Download Elective Frozen File** — when email_configured eq true; dataset_access eq true, then create_record; emit broker_dissem.frozen_file.delivered. _Why: User downloads frozen elective events file via online request process._
 
 **❌ Failure paths**
 
 - **Schedule Dissemination Request** — when user_has_access eq true; schedule_parameters exists, then create_record; emit broker_dissem.schedule.created. _Why: Broker user schedules a dissemination request via online function._ *(error: `DISSEM_INVALID_SCHEDULE`)*
-- **Generate Eod Dissemination File** — when EOD batch process triggered; scheduled dissemination request exists, then create_record; call service; emit broker_dissem.file.generated. _Why: EOD batch generates dissemination file per scheduled request._ *(error: `DISSEM_FROZEN_FILE_UNAVAILABLE`)*
+- **Generate Eod Dissemination File** — when eod_batch eq "running"; scheduled_request exists, then create_record; call service; emit broker_dissem.file.generated. _Why: EOD batch generates dissemination file per scheduled request._ *(error: `DISSEM_FROZEN_FILE_UNAVAILABLE`)*
 - **Scheduling Access Denied** — when user_has_access eq false, then emit broker_dissem.access_denied. _Why: User without access attempts to schedule dissemination._ *(error: `DISSEM_ACCESS_DENIED`)*
-- **File Generation Failure** — when generation_status eq "failed", then notify via operations; emit broker_dissem.generation.failed. *(error: `DISSEM_FILE_GENERATION_FAILED`)*
+- **File Generation Failure** — when generation_status eq "failed", then notify via email; emit broker_dissem.generation.failed. _Why: File generation failed during EOD batch or online request._ *(error: `DISSEM_FILE_GENERATION_FAILED`)*
 
 ## Errors it can return
 
@@ -105,8 +111,9 @@ Specifies 6 acceptance outcomes that any implementation must satisfy, regardless
 - **broker-deal-management-upload** *(recommended)*
 - **broker-dematerialisation-upload** *(optional)*
 - **broker-securities-lending-borrowing-upload** *(recommended)*
+- **popia-compliance** *(required)*
 
-## Quality fitness 🟢 82/100
+## Quality fitness 🟢 83/100
 
 Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
 
@@ -115,13 +122,15 @@ Automated quality score measuring outcome coverage, rule structure, error bindin
 | Description | `██████████` | 10/10 |
 | Rules | `██████████` | 10/10 |
 | Outcomes | `█████████████████████░░░░` | 21/25 |
-| Structured conditions | `█████████░` | 9/10 |
+| Structured conditions | `██████████` | 10/10 |
 | Error binding | `████████░░` | 8/10 |
 | Field validation | `█████░░░░░` | 5/10 |
 | Relationships | `████████░░` | 8/10 |
 | Events | `██░░░` | 2/5 |
 | AGI readiness | `████░` | 4/5 |
 | Simplicity | `█████` | 5/5 |
+
+📈 **+1** since baseline (82 → 83)
 
 **Recent auto-improvements** *(via autoresearch-style keep-or-reset loop — applied only because they raised the fitness score)*
 

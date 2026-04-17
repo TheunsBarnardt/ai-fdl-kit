@@ -1,0 +1,384 @@
+{
+  "feature": "trading-gateway-fix",
+  "version": "1.0.0",
+  "description": "FIX 5.0 SP2 order-entry gateway for submitting and managing trading orders",
+  "category": "trading",
+  "tags": [
+    "fix",
+    "order-entry",
+    "trading",
+    "gateway",
+    "real-time",
+    "electronic-communication"
+  ],
+  "aliases": [
+    "fix-trading-gateway",
+    "fix-order-entry",
+    "fix50sp2-trading",
+    "order-entry-fix",
+    "trading-fix-gateway"
+  ],
+  "actors": [
+    {
+      "id": "order_originator",
+      "name": "Order Originator (Trader/System)",
+      "type": "human"
+    },
+    {
+      "id": "trading_system",
+      "name": "Trading System (Gateway)",
+      "type": "system"
+    },
+    {
+      "id": "matching_engine",
+      "name": "Matching Engine",
+      "type": "system"
+    },
+    {
+      "id": "risk_manager",
+      "name": "Risk Management System",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "order_id",
+      "type": "text",
+      "required": true,
+      "label": "Order ID (ClOrdID)"
+    },
+    {
+      "name": "symbol",
+      "type": "text",
+      "required": true,
+      "label": "Symbol (SecurityID)"
+    },
+    {
+      "name": "side",
+      "type": "select",
+      "required": true,
+      "label": "Side (Buy or Sell)"
+    },
+    {
+      "name": "order_type",
+      "type": "select",
+      "required": true,
+      "label": "Order Type (Limit, Market, Iceberg)"
+    },
+    {
+      "name": "quantity",
+      "type": "number",
+      "required": true,
+      "label": "Order Quantity"
+    },
+    {
+      "name": "price",
+      "type": "number",
+      "required": false,
+      "label": "Limit Price"
+    },
+    {
+      "name": "time_in_force",
+      "type": "select",
+      "required": false,
+      "label": "Time In Force (Day, GTC, IOC, FOK)"
+    },
+    {
+      "name": "currency",
+      "type": "text",
+      "required": false,
+      "label": "Currency"
+    },
+    {
+      "name": "account_code",
+      "type": "text",
+      "required": true,
+      "label": "Account Code"
+    }
+  ],
+  "rules": {
+    "session": {
+      "logon_required": "Session must be authenticated via Logon message before order entry",
+      "heartbeat": "Heartbeat required every 30 seconds or session disconnects"
+    },
+    "order_validation": {
+      "symbol_exists": "Symbol must exist in reference data and be trading",
+      "quantity_minimum": "Order quantity must be positive and a valid multiple of contract size"
+    },
+    "risk": {
+      "pre_trade_check": "Risk system must validate against credit and exposure limits",
+      "self_trade_prevention": "System rejects orders creating self-trades"
+    }
+  },
+  "outcomes": {
+    "logon": {
+      "priority": 1,
+      "description": "Client authenticates to gateway",
+      "given": [
+        {
+          "field": "username",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "session.logon"
+        }
+      ]
+    },
+    "new_order_single": {
+      "priority": 2,
+      "description": "Client submits single order for execution",
+      "given": [
+        {
+          "field": "order_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "quantity",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "matching_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.submitted"
+        }
+      ],
+      "error": "ORDER_SUBMIT_FAILED",
+      "transaction": true
+    },
+    "execution_report": {
+      "priority": 3,
+      "description": "Matching engine reports execution result",
+      "given": [
+        {
+          "field": "execution_status",
+          "source": "system",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "order.executed"
+        }
+      ]
+    },
+    "order_rejected": {
+      "priority": 4,
+      "description": "Matching engine rejects order",
+      "given": [
+        {
+          "field": "reject_reason",
+          "source": "system",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "email"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.rejected"
+        }
+      ],
+      "error": "ORDER_REJECTED_BY_EXCHANGE"
+    }
+  },
+  "errors": [
+    {
+      "code": "ORDER_SUBMIT_FAILED",
+      "status": 400,
+      "message": "Order submission failed validation"
+    },
+    {
+      "code": "ORDER_REJECTED_BY_EXCHANGE",
+      "status": 409,
+      "message": "Exchange rejected the order"
+    },
+    {
+      "code": "SESSION_NOT_AUTHENTICATED",
+      "status": 401,
+      "message": "Session not authenticated"
+    }
+  ],
+  "events": [
+    {
+      "name": "session.logon",
+      "payload": [
+        "username",
+        "session_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "order.submitted",
+      "payload": [
+        "order_id",
+        "symbol",
+        "quantity",
+        "price"
+      ]
+    },
+    {
+      "name": "order.executed",
+      "payload": [
+        "order_id",
+        "execution_id",
+        "fill_price",
+        "fill_quantity"
+      ]
+    },
+    {
+      "name": "order.rejected",
+      "payload": [
+        "order_id",
+        "reject_reason"
+      ]
+    }
+  ],
+  "extensions": {
+    "message_layouts": {
+      "LOGON": [
+        {
+          "name": "MsgType",
+          "tag": 35,
+          "offset": 0,
+          "length": 1,
+          "type": "char"
+        },
+        {
+          "name": "SenderCompID",
+          "tag": 49,
+          "offset": 1,
+          "length": 20,
+          "type": "string"
+        },
+        {
+          "name": "TargetCompID",
+          "tag": 56,
+          "offset": 21,
+          "length": 20,
+          "type": "string"
+        }
+      ],
+      "NEW_ORDER_SINGLE": [
+        {
+          "name": "MsgType",
+          "tag": 35,
+          "offset": 0,
+          "length": 1,
+          "type": "char"
+        },
+        {
+          "name": "ClOrdID",
+          "tag": 11,
+          "offset": 1,
+          "length": 20,
+          "type": "string"
+        },
+        {
+          "name": "Symbol",
+          "tag": 55,
+          "offset": 21,
+          "length": 20,
+          "type": "string"
+        },
+        {
+          "name": "Side",
+          "tag": 54,
+          "offset": 41,
+          "length": 1,
+          "type": "char"
+        },
+        {
+          "name": "OrderQty",
+          "tag": 38,
+          "offset": 42,
+          "length": 10,
+          "type": "integer"
+        },
+        {
+          "name": "Price",
+          "tag": 44,
+          "offset": 52,
+          "length": 8,
+          "type": "decimal"
+        }
+      ],
+      "EXECUTION_REPORT": [
+        {
+          "name": "MsgType",
+          "tag": 35,
+          "offset": 0,
+          "length": 1,
+          "type": "char"
+        },
+        {
+          "name": "ExecID",
+          "tag": 17,
+          "offset": 1,
+          "length": 20,
+          "type": "string"
+        },
+        {
+          "name": "ExecStatus",
+          "tag": 150,
+          "offset": 21,
+          "length": 1,
+          "type": "char"
+        }
+      ]
+    },
+    "order_types": [
+      {
+        "code": 1,
+        "name": "Market"
+      },
+      {
+        "code": 2,
+        "name": "Limit"
+      },
+      {
+        "code": 4,
+        "name": "MarketToLimit"
+      }
+    ],
+    "tif_codes": [
+      {
+        "code": 0,
+        "name": "Day"
+      },
+      {
+        "code": 1,
+        "name": "GTC"
+      },
+      {
+        "code": 3,
+        "name": "IOC"
+      },
+      {
+        "code": 4,
+        "name": "FOK"
+      }
+    ]
+  },
+  "related": [
+    {
+      "feature": "reference-data-management",
+      "type": "required"
+    }
+  ]
+}

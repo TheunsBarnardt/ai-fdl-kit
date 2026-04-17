@@ -1,0 +1,4625 @@
+{
+  "feature": "broker-institution-dissemination",
+  "version": "1.0.0",
+  "description": "Overnight dissemination of broker back-office data (accounts, balances, deals, transactions, entitlements) to subscribed institutional clients for reconciliation.",
+  "category": "trading",
+  "aliases": [
+    "institutional-dissemination",
+    "asset-manager-feed",
+    "pension-fund-feed",
+    "instn-dissem",
+    "broker-institution-feed",
+    "institution-data-download"
+  ],
+  "tags": [
+    "dissemination",
+    "institutional",
+    "reconciliation",
+    "fixed-width",
+    "overnight-batch",
+    "popia"
+  ],
+  "actors": [
+    {
+      "id": "institution",
+      "name": "Participating Institution",
+      "type": "external",
+      "description": "Asset manager, pension fund, or other entity subscribing to a broker's disseminated data feed."
+    },
+    {
+      "id": "broker",
+      "name": "Broker",
+      "type": "external",
+      "description": "Back-office member whose account, balance, deal, and transaction data is disseminated to an authorised institution."
+    },
+    {
+      "id": "customer_support",
+      "name": "Customer Support",
+      "type": "human",
+      "description": "Exchange operations staff who configure the scheduled download (process DISINS) per institution's written request."
+    },
+    {
+      "id": "dissemination_engine",
+      "name": "Dissemination Engine",
+      "type": "system",
+      "description": "Batch process that assembles the nightly file from the back-office system and writes to the institution's allocated dataset."
+    },
+    {
+      "id": "open_systems",
+      "name": "Open Systems / Identity Provider",
+      "type": "system",
+      "description": "Issues and maintains credentials (user ID, password, dataset name) used to retrieve the file."
+    }
+  ],
+  "fields": [
+    {
+      "name": "institution_code",
+      "type": "text",
+      "required": true,
+      "label": "Institution Code",
+      "validation": [
+        {
+          "type": "pattern",
+          "value": "^[A-Z0-9]{2,8}$",
+          "message": "Institution Code failed pattern validation"
+        }
+      ]
+    },
+    {
+      "name": "broker_code",
+      "type": "text",
+      "required": true,
+      "label": "Broker Code",
+      "validation": [
+        {
+          "type": "pattern",
+          "value": "^[0-9]{3}$",
+          "message": "Broker Code failed pattern validation"
+        }
+      ]
+    },
+    {
+      "name": "branch_code",
+      "type": "text",
+      "required": false,
+      "label": "Branch Code"
+    },
+    {
+      "name": "partner_code",
+      "type": "text",
+      "required": false,
+      "label": "Partner Code"
+    },
+    {
+      "name": "portfolio_indicator",
+      "type": "select",
+      "required": false,
+      "label": "Portfolio Indicator",
+      "options": [
+        {
+          "value": "Y",
+          "label": "Portfolio clients only"
+        },
+        {
+          "value": "N",
+          "label": "Non-portfolio clients only"
+        },
+        {
+          "value": "",
+          "label": "All clients"
+        }
+      ]
+    },
+    {
+      "name": "authorisation_status",
+      "type": "select",
+      "required": true,
+      "label": "Broker Authorisation Status",
+      "options": [
+        {
+          "value": "pending",
+          "label": "Pending broker consent"
+        },
+        {
+          "value": "authorised",
+          "label": "Authorised by broker"
+        },
+        {
+          "value": "revoked",
+          "label": "Revoked"
+        }
+      ]
+    },
+    {
+      "name": "authorisation_date",
+      "type": "date",
+      "required": false,
+      "label": "Authorisation Date"
+    },
+    {
+      "name": "dataset_name",
+      "type": "text",
+      "required": true,
+      "label": "Allocated Dataset Name"
+    },
+    {
+      "name": "delivery_user_id",
+      "type": "text",
+      "required": true,
+      "label": "Delivery User ID"
+    },
+    {
+      "name": "delivery_password",
+      "type": "password",
+      "required": true,
+      "label": "Delivery Password",
+      "validation": [
+        {
+          "type": "pattern",
+          "value": "^(?=.*[A-Za-z])(?=.*[0-9]).{8,}$",
+          "message": "Delivery Password failed pattern validation"
+        }
+      ]
+    },
+    {
+      "name": "delivery_protocol",
+      "type": "select",
+      "required": true,
+      "label": "Delivery Protocol",
+      "options": [
+        {
+          "value": "sftp",
+          "label": "SFTP"
+        },
+        {
+          "value": "ftps",
+          "label": "FTPS"
+        },
+        {
+          "value": "mainframe_dataset",
+          "label": "Mainframe dataset"
+        }
+      ]
+    },
+    {
+      "name": "file_date",
+      "type": "date",
+      "required": true,
+      "label": "File Batch Date"
+    },
+    {
+      "name": "record_count",
+      "type": "number",
+      "required": true,
+      "label": "Number of Detail Records"
+    },
+    {
+      "name": "selection_flags",
+      "type": "json",
+      "required": false,
+      "label": "Per-Request Selection Flags (account/balance/deal/instrument/etc.)"
+    }
+  ],
+  "rules": {
+    "general": {
+      "rule_1": "Institution must submit a written request to Customer Support to be scheduled on the dissemination process (DISINS).",
+      "rule_2": "Each institution is allocated a dedicated dataset; data for multiple brokers may be aggregated into that dataset.",
+      "rule_3": "Each disseminated broker must have explicit written authorisation on file before their data is released to an institution.",
+      "rule_4": "All records in the file are fixed-width, 173 characters, blank-filled.",
+      "rule_5": "Every file begins with a header record (machine date/time, batch date) and ends with a trailer record (record count).",
+      "rule_6": "All balance amounts are multiplied by 100 and represented as whole numbers; sign character (+, -, or space) precedes the amount.",
+      "rule_7": "Each detail record begins with SYSTEM ('BD') followed by a 2-digit CARD-CDE identifying the record layout.",
+      "rule_8": "Passwords must be at least 8 characters, alphanumeric, unique per user, and must not contain common words or personal identifiers.",
+      "rule_9": "Password resume/reset requires a signed letterhead request, callback verification, and is performed only by Open Systems.",
+      "rule_10": "Selections in the DISINS request are hierarchical: BRANCH/PARTNER and PF-IND are applied first, then record-type selection flags.",
+      "rule_11": "Disclosure of broker client personal information to an institution is a POPIA processing activity; lawful basis and data-subject notification must be established before the feed is enabled.",
+      "rule_12": "The institution must retain the file only as long as needed for reconciliation and must apply equivalent protection to the PII it contains.",
+      "rule_13": "Cross-border transfer of the file to an institution outside South Africa requires POPIA section 72 conditions to be met.",
+      "rule_14": "Feeds must be auditable: every scheduled run, file produced, and file retrieval must be logged with timestamp, dataset, institution, and record count.",
+      "rule_15": "Broker authorisation may be revoked in writing; next overnight run must exclude the revoked broker's data."
+    }
+  },
+  "events": [
+    {
+      "name": "dissemination.schedule.created",
+      "payload": [
+        "institution_code",
+        "broker_code",
+        "selection_flags",
+        "scheduled_by"
+      ]
+    },
+    {
+      "name": "dissemination.authorisation.granted",
+      "payload": [
+        "broker_code",
+        "institution_code",
+        "authorisation_date"
+      ]
+    },
+    {
+      "name": "dissemination.authorisation.revoked",
+      "payload": [
+        "broker_code",
+        "institution_code",
+        "revoked_date",
+        "reason"
+      ]
+    },
+    {
+      "name": "dissemination.file.generated",
+      "payload": [
+        "institution_code",
+        "file_date",
+        "dataset_name",
+        "record_count"
+      ]
+    },
+    {
+      "name": "dissemination.file.retrieved",
+      "payload": [
+        "institution_code",
+        "file_date",
+        "retrieved_at",
+        "user_id"
+      ]
+    },
+    {
+      "name": "dissemination.reconciliation.completed",
+      "payload": [
+        "institution_code",
+        "file_date",
+        "matched_count",
+        "unmatched_count"
+      ]
+    },
+    {
+      "name": "dissemination.credential.reset",
+      "payload": [
+        "user_id",
+        "reset_by",
+        "reset_at"
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": "DISSEM_BROKER_NOT_AUTHORISED",
+      "status": 403,
+      "message": "Institution is not authorised to receive data for the requested broker."
+    },
+    {
+      "code": "DISSEM_INSTITUTION_NOT_REGISTERED",
+      "status": 404,
+      "message": "Institution code is not registered for dissemination."
+    },
+    {
+      "code": "DISSEM_CREDENTIALS_INVALID",
+      "status": 401,
+      "message": "The supplied credentials are not valid for file retrieval."
+    },
+    {
+      "code": "DISSEM_PASSWORD_POLICY",
+      "status": 422,
+      "message": "Password does not meet complexity requirements."
+    },
+    {
+      "code": "DISSEM_FILE_NOT_READY",
+      "status": 409,
+      "message": "Overnight file has not yet been generated for the requested batch date."
+    },
+    {
+      "code": "DISSEM_RECORD_COUNT_MISMATCH",
+      "status": 500,
+      "message": "Trailer record count does not match number of detail records."
+    },
+    {
+      "code": "DISSEM_POPIA_CONSENT_MISSING",
+      "status": 403,
+      "message": "Lawful basis for disclosing broker client personal information has not been recorded."
+    },
+    {
+      "code": "DISSEM_SCHEDULE_CONFLICT",
+      "status": 409,
+      "message": "A dissemination schedule already exists for this institution and broker combination."
+    }
+  ],
+  "outcomes": {
+    "schedule_requires_authorisation": {
+      "priority": 1,
+      "description": "A dissemination schedule cannot be created unless the broker has authorised the institution.",
+      "given": [
+        {
+          "field": "authorisation_status",
+          "source": "db",
+          "operator": "neq",
+          "value": "authorised"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "dissemination.authorisation.revoked",
+          "payload": [
+            "broker_code",
+            "institution_code"
+          ]
+        }
+      ],
+      "error": "DISSEM_BROKER_NOT_AUTHORISED"
+    },
+    "schedule_requires_popia_basis": {
+      "priority": 2,
+      "description": "Schedule creation is blocked if no lawful basis for PII disclosure to the institution is on file.",
+      "given": [
+        {
+          "field": "popia_lawful_basis",
+          "source": "db",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "email",
+          "target": "compliance"
+        }
+      ],
+      "error": "DISSEM_POPIA_CONSENT_MISSING"
+    },
+    "schedule_created": {
+      "priority": 10,
+      "description": "Customer Support schedules DISINS for an authorised institution with selection flags.",
+      "transaction": true,
+      "given": [
+        {
+          "field": "authorisation_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "authorised"
+        },
+        {
+          "field": "institution_code",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "dissemination_schedule"
+        },
+        {
+          "action": "emit_event",
+          "event": "dissemination.schedule.created",
+          "payload": [
+            "institution_code",
+            "broker_code",
+            "selection_flags",
+            "scheduled_by"
+          ]
+        }
+      ]
+    },
+    "overnight_file_generated": {
+      "priority": 20,
+      "description": "Overnight batch produces the fixed-width file with header, detail records per selection, and trailer.",
+      "transaction": true,
+      "given": [
+        {
+          "field": "batch_window",
+          "source": "system",
+          "operator": "eq",
+          "value": "overnight"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "dissemination_file"
+        },
+        {
+          "action": "emit_event",
+          "event": "dissemination.file.generated",
+          "payload": [
+            "institution_code",
+            "file_date",
+            "dataset_name",
+            "record_count"
+          ]
+        }
+      ]
+    },
+    "trailer_record_count_mismatch": {
+      "priority": 25,
+      "description": "If the trailer count does not equal the number of detail records written, the file is flagged and not released.",
+      "given": [
+        {
+          "field": "trailer_count",
+          "source": "computed",
+          "operator": "neq",
+          "value": "detail_count"
+        }
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "channel": "email",
+          "target": "operations"
+        }
+      ],
+      "error": "DISSEM_RECORD_COUNT_MISMATCH"
+    },
+    "credentials_rejected": {
+      "priority": 30,
+      "description": "File retrieval with invalid credentials is refused and logged.",
+      "given": [
+        {
+          "field": "delivery_user_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "credential_match",
+          "source": "computed",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "dissemination.credential.reset",
+          "payload": [
+            "user_id",
+            "reset_by",
+            "reset_at"
+          ]
+        }
+      ],
+      "error": "DISSEM_CREDENTIALS_INVALID"
+    },
+    "file_retrieved": {
+      "priority": 40,
+      "description": "Institution retrieves the generated file from the allocated dataset over the configured protocol.",
+      "given": [
+        {
+          "field": "file_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "ready"
+        },
+        {
+          "field": "credential_match",
+          "source": "computed",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "file_status",
+          "value": "retrieved"
+        },
+        {
+          "action": "emit_event",
+          "event": "dissemination.file.retrieved",
+          "payload": [
+            "institution_code",
+            "file_date",
+            "retrieved_at",
+            "user_id"
+          ]
+        }
+      ]
+    },
+    "reconciliation_completed": {
+      "priority": 50,
+      "description": "Institution reconciles deal and transaction records to in-house books and reports match status.",
+      "given": [
+        {
+          "field": "file_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "retrieved"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "dissemination.reconciliation.completed",
+          "payload": [
+            "institution_code",
+            "file_date",
+            "matched_count",
+            "unmatched_count"
+          ]
+        }
+      ]
+    },
+    "authorisation_revoked": {
+      "priority": 60,
+      "description": "When a broker revokes authorisation, the next batch excludes that broker's data and the institution is notified.",
+      "transaction": true,
+      "given": [
+        {
+          "field": "authorisation_status",
+          "source": "input",
+          "operator": "eq",
+          "value": "revoked"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "authorisation_status",
+          "from": "authorised",
+          "to": "revoked"
+        },
+        {
+          "action": "notify",
+          "channel": "email",
+          "target": "institution"
+        },
+        {
+          "action": "emit_event",
+          "event": "dissemination.authorisation.revoked",
+          "payload": [
+            "broker_code",
+            "institution_code",
+            "revoked_date",
+            "reason"
+          ]
+        }
+      ]
+    }
+  },
+  "flows": {
+    "onboarding": {
+      "description": "Institution onboarding for dissemination feed.",
+      "steps": [
+        {
+          "actor": "institution",
+          "step": "Submit written request to Customer Support naming brokers to be disseminated."
+        },
+        {
+          "actor": "customer_support",
+          "step": "Verify broker authorisation letters for each requested broker."
+        },
+        {
+          "actor": "open_systems",
+          "step": "Issue user ID, password, and dataset name; confirm receipt with institution."
+        },
+        {
+          "actor": "customer_support",
+          "step": "Schedule DISINS with the institution's selection flags."
+        },
+        {
+          "actor": "institution",
+          "step": "Perform connectivity and decode test against the first generated file."
+        }
+      ]
+    },
+    "daily_cycle": {
+      "description": "Daily overnight dissemination cycle.",
+      "steps": [
+        {
+          "actor": "dissemination_engine",
+          "step": "Read schedule, extract records per selection flags, write fixed-width 173-char records to institution's dataset."
+        },
+        {
+          "actor": "dissemination_engine",
+          "step": "Write header, detail records (ordered by card code), and trailer with record count."
+        },
+        {
+          "actor": "institution",
+          "step": "Retrieve file via SFTP/FTPS/dataset after batch completion."
+        },
+        {
+          "actor": "institution",
+          "step": "Parse records by CARD-CDE, decode signed/scaled balance fields, and load into back-office reconciliation system."
+        },
+        {
+          "actor": "institution",
+          "step": "Reconcile deals (layouts 81-84, 99) and transactions (87, 88, 89, 97) against in-house systems; raise exceptions for unmatched items."
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "popia-compliance",
+      "type": "required"
+    },
+    {
+      "feature": "broker-client-account-maintenance",
+      "type": "recommended"
+    },
+    {
+      "feature": "broker-deal-capture",
+      "type": "recommended"
+    },
+    {
+      "feature": "broker-back-office-dissemination",
+      "type": "recommended"
+    },
+    {
+      "feature": "broker-corporate-actions",
+      "type": "optional"
+    },
+    {
+      "feature": "broker-portfolio-management",
+      "type": "optional"
+    }
+  ],
+  "extensions": {
+    "file_format": {
+      "record_length": 173,
+      "padding": "blank",
+      "encoding": "ASCII",
+      "line_terminator": "none_fixed_width",
+      "balance_scale": 100,
+      "sign_values": [
+        "+",
+        "-",
+        " "
+      ],
+      "system_prefix": "BD"
+    },
+    "record_type_map": {
+      "69": "Multiple Bank Accounts",
+      "74": "Electronically Settled Corporate Actions",
+      "77": "Account Details Record 4",
+      "78": "Account Details Record 5",
+      "79": "Account Details Record 6 (BEE)",
+      "80": "Account Details Record 1",
+      "81": "Deals Record 1",
+      "82": "Deals Record 2 (charges)",
+      "83": "Deals Record 3 (references)",
+      "84": "Deals Record 4 (bond pricing)",
+      "85": "Account Details Record 2 (contact)",
+      "86": "Account Details Record 3 (address)",
+      "87": "Financial Transaction Record",
+      "88": "Scrip Transaction Record 1",
+      "89": "Scrip Transaction Record 2",
+      "90": "Balances Record 1",
+      "91": "Balances Record 2",
+      "92": "Instrument Record",
+      "93": "Dividend Record",
+      "94": "Entitlements Record",
+      "95": "Portfolio Balances Record",
+      "96": "Portfolio / All Holdings Record",
+      "97": "Cash Transaction Record",
+      "98": "Account Details Record 7 (CSDP)",
+      "99": "Deals Record 5"
+    },
+    "record_layouts": {
+      "HEADER": [
+        {
+          "name": "DATE",
+          "start": 1,
+          "length": 10,
+          "type": "alpha",
+          "end": 10
+        },
+        {
+          "name": "FILLER_1",
+          "start": 11,
+          "length": 1,
+          "type": "alpha",
+          "end": 11
+        },
+        {
+          "name": "TIME",
+          "start": 12,
+          "length": 8,
+          "type": "alpha",
+          "end": 19
+        },
+        {
+          "name": "FILLER_2",
+          "start": 20,
+          "length": 1,
+          "type": "alpha",
+          "end": 20
+        },
+        {
+          "name": "BAT_DTE",
+          "start": 21,
+          "length": 8,
+          "type": "numeric",
+          "end": 28
+        },
+        {
+          "name": "FILLER_3",
+          "start": 29,
+          "length": 145,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "TRAILER": [
+        {
+          "name": "DATE",
+          "start": 1,
+          "length": 10,
+          "type": "alpha",
+          "end": 10
+        },
+        {
+          "name": "FILLER_1",
+          "start": 11,
+          "length": 1,
+          "type": "alpha",
+          "end": 11
+        },
+        {
+          "name": "TIME",
+          "start": 12,
+          "length": 8,
+          "type": "alpha",
+          "end": 19
+        },
+        {
+          "name": "FILLER_2",
+          "start": 20,
+          "length": 1,
+          "type": "alpha",
+          "end": 20
+        },
+        {
+          "name": "NARRATIVE",
+          "start": 21,
+          "length": 20,
+          "type": "alpha",
+          "end": 40
+        },
+        {
+          "name": "RECORDS",
+          "start": 41,
+          "length": 9,
+          "type": "numeric",
+          "end": 49
+        },
+        {
+          "name": "FILLER_3",
+          "start": 50,
+          "length": 1,
+          "type": "alpha",
+          "end": 50
+        },
+        {
+          "name": "BAT_DTE",
+          "start": 51,
+          "length": 8,
+          "type": "numeric",
+          "end": 58
+        },
+        {
+          "name": "FILLER_4",
+          "start": 59,
+          "length": 115,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC80": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "ACC_TYP_CDE",
+          "start": 15,
+          "length": 2,
+          "type": "alpha",
+          "end": 16
+        },
+        {
+          "name": "BRN_CDE",
+          "start": 17,
+          "length": 2,
+          "type": "alpha",
+          "end": 18
+        },
+        {
+          "name": "PARTNER_CDE",
+          "start": 19,
+          "length": 2,
+          "type": "alpha",
+          "end": 20
+        },
+        {
+          "name": "PF_IND",
+          "start": 21,
+          "length": 1,
+          "type": "alpha",
+          "end": 21
+        },
+        {
+          "name": "PF_MAN_CHG_CDE",
+          "start": 22,
+          "length": 2,
+          "type": "numeric",
+          "end": 23
+        },
+        {
+          "name": "ADVR_CDE",
+          "start": 24,
+          "length": 4,
+          "type": "alpha",
+          "end": 27
+        },
+        {
+          "name": "CLI_TITLE",
+          "start": 28,
+          "length": 10,
+          "type": "alpha",
+          "end": 37
+        },
+        {
+          "name": "INITIALS",
+          "start": 38,
+          "length": 4,
+          "type": "alpha",
+          "end": 41
+        },
+        {
+          "name": "SURNAME",
+          "start": 42,
+          "length": 40,
+          "type": "alpha",
+          "end": 81
+        },
+        {
+          "name": "EXTNL_ACC_IND",
+          "start": 82,
+          "length": 1,
+          "type": "alpha",
+          "end": 82
+        },
+        {
+          "name": "EXTNL_ACC_CDE",
+          "start": 83,
+          "length": 17,
+          "type": "alpha",
+          "end": 99
+        },
+        {
+          "name": "MAN_CDE",
+          "start": 100,
+          "length": 3,
+          "type": "alpha",
+          "end": 102
+        },
+        {
+          "name": "SET_TYP_CDE",
+          "start": 103,
+          "length": 1,
+          "type": "alpha",
+          "end": 103
+        },
+        {
+          "name": "NON_RES_IND",
+          "start": 104,
+          "length": 1,
+          "type": "alpha",
+          "end": 104
+        },
+        {
+          "name": "COUNTRY_CDE",
+          "start": 105,
+          "length": 3,
+          "type": "alpha",
+          "end": 107
+        },
+        {
+          "name": "INV_TYPE",
+          "start": 108,
+          "length": 3,
+          "type": "alpha",
+          "end": 110
+        },
+        {
+          "name": "DTE_DEACTIVATED",
+          "start": 111,
+          "length": 8,
+          "type": "numeric",
+          "end": 118
+        },
+        {
+          "name": "SEX",
+          "start": 119,
+          "length": 1,
+          "type": "alpha",
+          "end": 119
+        },
+        {
+          "name": "ID_NO",
+          "start": 120,
+          "length": 13,
+          "type": "alpha",
+          "end": 132
+        },
+        {
+          "name": "LANG_CDE",
+          "start": 133,
+          "length": 1,
+          "type": "alpha",
+          "end": 133
+        },
+        {
+          "name": "PRIN_AG_IND",
+          "start": 134,
+          "length": 1,
+          "type": "alpha",
+          "end": 134
+        },
+        {
+          "name": "CLI_IND",
+          "start": 135,
+          "length": 7,
+          "type": "alpha",
+          "end": 141
+        },
+        {
+          "name": "CLI_CAT",
+          "start": 142,
+          "length": 2,
+          "type": "alpha",
+          "end": 143
+        },
+        {
+          "name": "SCRIP_ACC_NO",
+          "start": 144,
+          "length": 12,
+          "type": "alpha",
+          "end": 155
+        },
+        {
+          "name": "EL_PAY_MAN_DTE",
+          "start": 156,
+          "length": 8,
+          "type": "numeric",
+          "end": 163
+        },
+        {
+          "name": "MIN_NTE_IND",
+          "start": 164,
+          "length": 1,
+          "type": "alpha",
+          "end": 164
+        },
+        {
+          "name": "ELECTION_IND",
+          "start": 165,
+          "length": 1,
+          "type": "alpha",
+          "end": 165
+        },
+        {
+          "name": "ELEC_RPT_IND",
+          "start": 166,
+          "length": 1,
+          "type": "alpha",
+          "end": 166
+        },
+        {
+          "name": "SLB_RATE",
+          "start": 167,
+          "length": 5,
+          "type": "numeric",
+          "end": 171
+        },
+        {
+          "name": "FILLER",
+          "start": 172,
+          "length": 2,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC85": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "ADR_LINE_1",
+          "start": 15,
+          "length": 40,
+          "type": "alpha",
+          "end": 54
+        },
+        {
+          "name": "ADR_LINE_2",
+          "start": 55,
+          "length": 40,
+          "type": "alpha",
+          "end": 94
+        },
+        {
+          "name": "TEL_NO_1",
+          "start": 95,
+          "length": 15,
+          "type": "alpha",
+          "end": 109
+        },
+        {
+          "name": "TEL_NO_2",
+          "start": 110,
+          "length": 15,
+          "type": "alpha",
+          "end": 124
+        },
+        {
+          "name": "TAX_NO",
+          "start": 125,
+          "length": 12,
+          "type": "alpha",
+          "end": 136
+        },
+        {
+          "name": "VAT_NO",
+          "start": 137,
+          "length": 13,
+          "type": "alpha",
+          "end": 149
+        },
+        {
+          "name": "CO_REG_NO",
+          "start": 150,
+          "length": 14,
+          "type": "alpha",
+          "end": 163
+        },
+        {
+          "name": "FILLER",
+          "start": 164,
+          "length": 10,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC86": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "ADR_LINE_3",
+          "start": 15,
+          "length": 40,
+          "type": "alpha",
+          "end": 54
+        },
+        {
+          "name": "ADR_LINE_4",
+          "start": 55,
+          "length": 40,
+          "type": "alpha",
+          "end": 94
+        },
+        {
+          "name": "POSTAL_CDE",
+          "start": 95,
+          "length": 4,
+          "type": "alpha",
+          "end": 98
+        },
+        {
+          "name": "TELEFAX",
+          "start": 99,
+          "length": 15,
+          "type": "alpha",
+          "end": 113
+        },
+        {
+          "name": "EMAIL_ADDR",
+          "start": 114,
+          "length": 45,
+          "type": "alpha",
+          "end": 158
+        },
+        {
+          "name": "FILLER",
+          "start": 159,
+          "length": 15,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC77": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "FIRST_NAMES",
+          "start": 15,
+          "length": 40,
+          "type": "alpha",
+          "end": 54
+        },
+        {
+          "name": "DTE_LOADED",
+          "start": 55,
+          "length": 8,
+          "type": "numeric",
+          "end": 62
+        },
+        {
+          "name": "EXCH_CTL",
+          "start": 63,
+          "length": 1,
+          "type": "alpha",
+          "end": 63
+        },
+        {
+          "name": "STAFF_IND",
+          "start": 64,
+          "length": 1,
+          "type": "alpha",
+          "end": 64
+        },
+        {
+          "name": "FILLER_1",
+          "start": 65,
+          "length": 2,
+          "type": "numeric",
+          "end": 66
+        },
+        {
+          "name": "FILLER_2",
+          "start": 67,
+          "length": 5,
+          "type": "numeric",
+          "end": 71
+        },
+        {
+          "name": "FILLER_3",
+          "start": 72,
+          "length": 11,
+          "type": "numeric",
+          "end": 82
+        },
+        {
+          "name": "MAND_RCV_DTE",
+          "start": 83,
+          "length": 8,
+          "type": "numeric",
+          "end": 90
+        },
+        {
+          "name": "MAND_CHG_DTE",
+          "start": 91,
+          "length": 8,
+          "type": "numeric",
+          "end": 98
+        },
+        {
+          "name": "INSTIT_CDE",
+          "start": 99,
+          "length": 3,
+          "type": "alpha",
+          "end": 101
+        },
+        {
+          "name": "BKGE_PCNT",
+          "start": 102,
+          "length": 3,
+          "type": "numeric",
+          "end": 104
+        },
+        {
+          "name": "LAS_UPD_DTE",
+          "start": 105,
+          "length": 8,
+          "type": "numeric",
+          "end": 112
+        },
+        {
+          "name": "ACC_ID_CDE",
+          "start": 113,
+          "length": 3,
+          "type": "alpha",
+          "end": 115
+        },
+        {
+          "name": "BCA_CITY_CDE",
+          "start": 116,
+          "length": 2,
+          "type": "alpha",
+          "end": 117
+        },
+        {
+          "name": "SHORT_NAME",
+          "start": 118,
+          "length": 20,
+          "type": "alpha",
+          "end": 137
+        },
+        {
+          "name": "REF_BY",
+          "start": 138,
+          "length": 30,
+          "type": "alpha",
+          "end": 167
+        },
+        {
+          "name": "FILLER",
+          "start": 168,
+          "length": 6,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC78": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "CTA_OPTN_CDE",
+          "start": 15,
+          "length": 1,
+          "type": "alpha",
+          "end": 15
+        },
+        {
+          "name": "MANDATE_MOD",
+          "start": 16,
+          "length": 1,
+          "type": "alpha",
+          "end": 16
+        },
+        {
+          "name": "REG_INS_CDE",
+          "start": 17,
+          "length": 2,
+          "type": "numeric",
+          "end": 18
+        },
+        {
+          "name": "SCR_DISP_CDE",
+          "start": 19,
+          "length": 2,
+          "type": "alpha",
+          "end": 20
+        },
+        {
+          "name": "SC_CHG_CDE",
+          "start": 21,
+          "length": 2,
+          "type": "numeric",
+          "end": 22
+        },
+        {
+          "name": "SPEC_REG_NAME",
+          "start": 23,
+          "length": 70,
+          "type": "alpha",
+          "end": 92
+        },
+        {
+          "name": "NEG_SCALE",
+          "start": 93,
+          "length": 3,
+          "type": "alpha",
+          "end": 95
+        },
+        {
+          "name": "INV_RET_CDE",
+          "start": 96,
+          "length": 2,
+          "type": "alpha",
+          "end": 97
+        },
+        {
+          "name": "ASSET_RATE",
+          "start": 98,
+          "length": 5,
+          "type": "numeric",
+          "end": 102
+        },
+        {
+          "name": "CR_LIM_CDE",
+          "start": 103,
+          "length": 2,
+          "type": "alpha",
+          "end": 104
+        },
+        {
+          "name": "CR_LIM_AMT",
+          "start": 105,
+          "length": 15,
+          "type": "numeric",
+          "end": 119
+        },
+        {
+          "name": "RTS_CONSOL_IND",
+          "start": 120,
+          "length": 1,
+          "type": "alpha",
+          "end": 120
+        },
+        {
+          "name": "CON_KEY_OPTN",
+          "start": 121,
+          "length": 1,
+          "type": "alpha",
+          "end": 121
+        },
+        {
+          "name": "ALLOC_SEQ_NO",
+          "start": 122,
+          "length": 3,
+          "type": "numeric",
+          "end": 124
+        },
+        {
+          "name": "VAT_INV_IND",
+          "start": 125,
+          "length": 1,
+          "type": "alpha",
+          "end": 125
+        },
+        {
+          "name": "DEL_CHQ_IND",
+          "start": 126,
+          "length": 1,
+          "type": "alpha",
+          "end": 126
+        },
+        {
+          "name": "LEG_ENT_CDE",
+          "start": 127,
+          "length": 2,
+          "type": "alpha",
+          "end": 128
+        },
+        {
+          "name": "POW_ATT",
+          "start": 129,
+          "length": 1,
+          "type": "alpha",
+          "end": 129
+        },
+        {
+          "name": "MMKT_IND",
+          "start": 130,
+          "length": 1,
+          "type": "alpha",
+          "end": 130
+        },
+        {
+          "name": "MMKT_MANDATE_DTE",
+          "start": 131,
+          "length": 8,
+          "type": "numeric",
+          "end": 138
+        },
+        {
+          "name": "SAFEX_ACC_CDE",
+          "start": 139,
+          "length": 5,
+          "type": "alpha",
+          "end": 143
+        },
+        {
+          "name": "SAFEX_RATE_CLASS",
+          "start": 144,
+          "length": 1,
+          "type": "alpha",
+          "end": 144
+        },
+        {
+          "name": "UNEX_CDE",
+          "start": 145,
+          "length": 8,
+          "type": "alpha",
+          "end": 152
+        },
+        {
+          "name": "NO_MST_IND",
+          "start": 153,
+          "length": 1,
+          "type": "alpha",
+          "end": 153
+        },
+        {
+          "name": "CMPY_RPT_IND",
+          "start": 154,
+          "length": 1,
+          "type": "alpha",
+          "end": 154
+        },
+        {
+          "name": "PRIME_BRK_CDE",
+          "start": 155,
+          "length": 3,
+          "type": "numeric",
+          "end": 157
+        },
+        {
+          "name": "PRIME_ACC_CDE",
+          "start": 158,
+          "length": 7,
+          "type": "numeric",
+          "end": 164
+        },
+        {
+          "name": "PRIME_BRK_VER_DTE",
+          "start": 165,
+          "length": 8,
+          "type": "numeric",
+          "end": 172
+        },
+        {
+          "name": "PRIME_STATUS_IND",
+          "start": 173,
+          "length": 1,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC79": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "PROCS_DTE",
+          "start": 15,
+          "length": 8,
+          "type": "numeric",
+          "end": 22
+        },
+        {
+          "name": "BEE_IND",
+          "start": 23,
+          "length": 1,
+          "type": "alpha",
+          "end": 23
+        },
+        {
+          "name": "EXP_DTE",
+          "start": 24,
+          "length": 8,
+          "type": "numeric",
+          "end": 31
+        },
+        {
+          "name": "FILLER",
+          "start": 32,
+          "length": 142,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC98": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "CSDP_CDE",
+          "start": 15,
+          "length": 2,
+          "type": "alpha",
+          "end": 16
+        },
+        {
+          "name": "CSDP_BRN_CDE",
+          "start": 17,
+          "length": 4,
+          "type": "alpha",
+          "end": 20
+        },
+        {
+          "name": "CSDP_ACC_NO",
+          "start": 21,
+          "length": 16,
+          "type": "alpha",
+          "end": 36
+        },
+        {
+          "name": "CSDP_BIC_CDE",
+          "start": 37,
+          "length": 11,
+          "type": "alpha",
+          "end": 47
+        },
+        {
+          "name": "CSDP_BP_ID",
+          "start": 48,
+          "length": 8,
+          "type": "alpha",
+          "end": 55
+        },
+        {
+          "name": "CSDP_CSD_ACC_NO",
+          "start": 56,
+          "length": 9,
+          "type": "numeric",
+          "end": 64
+        },
+        {
+          "name": "CSDP_VER_DTE",
+          "start": 65,
+          "length": 8,
+          "type": "numeric",
+          "end": 72
+        },
+        {
+          "name": "CSH_AGT_CDE",
+          "start": 73,
+          "length": 2,
+          "type": "alpha",
+          "end": 74
+        },
+        {
+          "name": "CSH_AGT_BRN_CDE",
+          "start": 75,
+          "length": 4,
+          "type": "alpha",
+          "end": 78
+        },
+        {
+          "name": "CSH_AGT_ACCT_NO",
+          "start": 79,
+          "length": 16,
+          "type": "alpha",
+          "end": 94
+        },
+        {
+          "name": "CSH_AGT_BIC_CDE",
+          "start": 95,
+          "length": 11,
+          "type": "alpha",
+          "end": 105
+        },
+        {
+          "name": "CSH_AGT_BP_ID",
+          "start": 106,
+          "length": 8,
+          "type": "alpha",
+          "end": 113
+        },
+        {
+          "name": "CSH_AGT_VER_DTE",
+          "start": 114,
+          "length": 8,
+          "type": "numeric",
+          "end": 121
+        },
+        {
+          "name": "CLNT_BIC_CDE",
+          "start": 122,
+          "length": 11,
+          "type": "alpha",
+          "end": 132
+        },
+        {
+          "name": "NTE_IND",
+          "start": 133,
+          "length": 1,
+          "type": "alpha",
+          "end": 133
+        },
+        {
+          "name": "STRT_CSDP_TEL_NO",
+          "start": 134,
+          "length": 15,
+          "type": "alpha",
+          "end": 148
+        },
+        {
+          "name": "STRT_ACC_TYP_HOLDER",
+          "start": 149,
+          "length": 1,
+          "type": "alpha",
+          "end": 149
+        },
+        {
+          "name": "PRIME_ACC_IND",
+          "start": 150,
+          "length": 1,
+          "type": "alpha",
+          "end": 150
+        },
+        {
+          "name": "FILLER",
+          "start": 151,
+          "length": 23,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC90": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "BAL_CDE",
+          "start": 15,
+          "length": 2,
+          "type": "alpha",
+          "end": 16
+        },
+        {
+          "name": "K0U_SIGN",
+          "start": 17,
+          "length": 1,
+          "type": "alpha",
+          "end": 17
+        },
+        {
+          "name": "K0U_CASH_BAL",
+          "start": 18,
+          "length": 15,
+          "type": "numeric",
+          "end": 32
+        },
+        {
+          "name": "K0U_JSET_SIGN",
+          "start": 33,
+          "length": 1,
+          "type": "alpha",
+          "end": 33
+        },
+        {
+          "name": "K0U_JSET_BAL",
+          "start": 34,
+          "length": 15,
+          "type": "numeric",
+          "end": 48
+        },
+        {
+          "name": "FILLER",
+          "start": 49,
+          "length": 125,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC91": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "K06_SIGN",
+          "start": 15,
+          "length": 1,
+          "type": "alpha",
+          "end": 15
+        },
+        {
+          "name": "K06_CASH_BAL",
+          "start": 16,
+          "length": 15,
+          "type": "numeric",
+          "end": 30
+        },
+        {
+          "name": "K06_JSET_SIGN",
+          "start": 31,
+          "length": 1,
+          "type": "alpha",
+          "end": 31
+        },
+        {
+          "name": "K06_JSET_BAL",
+          "start": 32,
+          "length": 15,
+          "type": "numeric",
+          "end": 46
+        },
+        {
+          "name": "K06_CS_SIGN",
+          "start": 47,
+          "length": 1,
+          "type": "alpha",
+          "end": 47
+        },
+        {
+          "name": "K06_CUR_SAL",
+          "start": 48,
+          "length": 15,
+          "type": "numeric",
+          "end": 62
+        },
+        {
+          "name": "K06_CP_SIGN",
+          "start": 63,
+          "length": 1,
+          "type": "alpha",
+          "end": 63
+        },
+        {
+          "name": "K06_CUR_PUR",
+          "start": 64,
+          "length": 15,
+          "type": "alpha",
+          "end": 78
+        },
+        {
+          "name": "K06_FS_SIGN",
+          "start": 79,
+          "length": 1,
+          "type": "alpha",
+          "end": 79
+        },
+        {
+          "name": "K06_FUT_SAL",
+          "start": 80,
+          "length": 15,
+          "type": "numeric",
+          "end": 94
+        },
+        {
+          "name": "K06_FP_SIGN",
+          "start": 95,
+          "length": 1,
+          "type": "alpha",
+          "end": 95
+        },
+        {
+          "name": "K06_FUT_PUR",
+          "start": 96,
+          "length": 15,
+          "type": "numeric",
+          "end": 110
+        },
+        {
+          "name": "K06_FR_SIGN",
+          "start": 111,
+          "length": 1,
+          "type": "alpha",
+          "end": 111
+        },
+        {
+          "name": "K06_FREE_BAL",
+          "start": 112,
+          "length": 15,
+          "type": "numeric",
+          "end": 126
+        },
+        {
+          "name": "FILLER",
+          "start": 127,
+          "length": 47,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC95": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "INSTR_TYP",
+          "start": 15,
+          "length": 1,
+          "type": "alpha",
+          "end": 15
+        },
+        {
+          "name": "ICB_SECTOR_CDE_OLD",
+          "start": 16,
+          "length": 4,
+          "type": "alpha",
+          "end": 19
+        },
+        {
+          "name": "COST_SIGN",
+          "start": 20,
+          "length": 1,
+          "type": "alpha",
+          "end": 20
+        },
+        {
+          "name": "POSN_COST",
+          "start": 21,
+          "length": 15,
+          "type": "numeric",
+          "end": 35
+        },
+        {
+          "name": "VAL_SIGN",
+          "start": 36,
+          "length": 1,
+          "type": "alpha",
+          "end": 36
+        },
+        {
+          "name": "POSN_VAL",
+          "start": 37,
+          "length": 15,
+          "type": "numeric",
+          "end": 51
+        },
+        {
+          "name": "INC_SIGN",
+          "start": 52,
+          "length": 1,
+          "type": "alpha",
+          "end": 52
+        },
+        {
+          "name": "POSN_INC",
+          "start": 53,
+          "length": 15,
+          "type": "numeric",
+          "end": 67
+        },
+        {
+          "name": "VAL_CLNP_SIGN",
+          "start": 68,
+          "length": 1,
+          "type": "alpha",
+          "end": 68
+        },
+        {
+          "name": "POSN_VAL_CLNP",
+          "start": 69,
+          "length": 15,
+          "type": "numeric",
+          "end": 83
+        },
+        {
+          "name": "BOARD_IND",
+          "start": 84,
+          "length": 1,
+          "type": "alpha",
+          "end": 84
+        },
+        {
+          "name": "ICB_SECTOR_CDE_NEW",
+          "start": 85,
+          "length": 8,
+          "type": "alpha",
+          "end": 92
+        },
+        {
+          "name": "FILLER",
+          "start": 93,
+          "length": 81,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC87": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "BAL_CDE",
+          "start": 15,
+          "length": 2,
+          "type": "alpha",
+          "end": 16
+        },
+        {
+          "name": "DESIG_CDE",
+          "start": 17,
+          "length": 2,
+          "type": "alpha",
+          "end": 18
+        },
+        {
+          "name": "SIGN_AMT",
+          "start": 19,
+          "length": 1,
+          "type": "alpha",
+          "end": 19
+        },
+        {
+          "name": "TRAN_AMT",
+          "start": 20,
+          "length": 15,
+          "type": "numeric",
+          "end": 34
+        },
+        {
+          "name": "TRAN_NARATV",
+          "start": 35,
+          "length": 40,
+          "type": "alpha",
+          "end": 74
+        },
+        {
+          "name": "FIN_TRAN_CDE",
+          "start": 75,
+          "length": 2,
+          "type": "alpha",
+          "end": 76
+        },
+        {
+          "name": "DOC_REF_NO",
+          "start": 77,
+          "length": 6,
+          "type": "alpha",
+          "end": 82
+        },
+        {
+          "name": "CHQ_DEP_NO",
+          "start": 83,
+          "length": 7,
+          "type": "numeric",
+          "end": 89
+        },
+        {
+          "name": "CASH_ALPHA",
+          "start": 90,
+          "length": 2,
+          "type": "alpha",
+          "end": 91
+        },
+        {
+          "name": "AGE_DTE",
+          "start": 92,
+          "length": 8,
+          "type": "numeric",
+          "end": 99
+        },
+        {
+          "name": "EXCH_CTL",
+          "start": 100,
+          "length": 1,
+          "type": "alpha",
+          "end": 100
+        },
+        {
+          "name": "GENRL_ANALS",
+          "start": 101,
+          "length": 9,
+          "type": "alpha",
+          "end": 109
+        },
+        {
+          "name": "FILLER",
+          "start": 110,
+          "length": 64,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC88": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "INSTR_TYP",
+          "start": 15,
+          "length": 1,
+          "type": "alpha",
+          "end": 15
+        },
+        {
+          "name": "INSTR_ALPHA",
+          "start": 16,
+          "length": 6,
+          "type": "alpha",
+          "end": 21
+        },
+        {
+          "name": "INSTR_VERSION",
+          "start": 22,
+          "length": 3,
+          "type": "numeric",
+          "end": 24
+        },
+        {
+          "name": "SCR_TYP",
+          "start": 25,
+          "length": 2,
+          "type": "alpha",
+          "end": 26
+        },
+        {
+          "name": "CERT_NO",
+          "start": 27,
+          "length": 9,
+          "type": "alpha",
+          "end": 35
+        },
+        {
+          "name": "DEED_NO",
+          "start": 36,
+          "length": 9,
+          "type": "alpha",
+          "end": 44
+        },
+        {
+          "name": "SCR_RCPT_NO",
+          "start": 45,
+          "length": 9,
+          "type": "alpha",
+          "end": 53
+        },
+        {
+          "name": "SCR_SEQ_NO",
+          "start": 54,
+          "length": 3,
+          "type": "numeric",
+          "end": 56
+        },
+        {
+          "name": "SCR_REC_ORG",
+          "start": 57,
+          "length": 2,
+          "type": "alpha",
+          "end": 58
+        },
+        {
+          "name": "DTE_RCVD",
+          "start": 59,
+          "length": 8,
+          "type": "numeric",
+          "end": 66
+        },
+        {
+          "name": "LOCN_ALPHA",
+          "start": 67,
+          "length": 2,
+          "type": "alpha",
+          "end": 68
+        },
+        {
+          "name": "LOCN_BRN",
+          "start": 69,
+          "length": 2,
+          "type": "alpha",
+          "end": 70
+        },
+        {
+          "name": "SIGN_QTY",
+          "start": 71,
+          "length": 1,
+          "type": "alpha",
+          "end": 71
+        },
+        {
+          "name": "TRAN_QTY",
+          "start": 72,
+          "length": 11,
+          "type": "numeric",
+          "end": 82
+        },
+        {
+          "name": "SIGN_AMT",
+          "start": 83,
+          "length": 1,
+          "type": "alpha",
+          "end": 83
+        },
+        {
+          "name": "TRAN_AMT",
+          "start": 84,
+          "length": 15,
+          "type": "numeric",
+          "end": 98
+        },
+        {
+          "name": "AGE_DTE",
+          "start": 99,
+          "length": 8,
+          "type": "numeric",
+          "end": 106
+        },
+        {
+          "name": "LOCN_ALPHA2",
+          "start": 107,
+          "length": 2,
+          "type": "alpha",
+          "end": 108
+        },
+        {
+          "name": "LOCN_BRN2",
+          "start": 109,
+          "length": 2,
+          "type": "alpha",
+          "end": 110
+        },
+        {
+          "name": "LOCN_DUE",
+          "start": 111,
+          "length": 2,
+          "type": "alpha",
+          "end": 112
+        },
+        {
+          "name": "SCR_TRAN_CDE",
+          "start": 113,
+          "length": 2,
+          "type": "alpha",
+          "end": 114
+        },
+        {
+          "name": "REG_CDE",
+          "start": 115,
+          "length": 2,
+          "type": "numeric",
+          "end": 116
+        },
+        {
+          "name": "DEL_ID",
+          "start": 117,
+          "length": 7,
+          "type": "numeric",
+          "end": 123
+        },
+        {
+          "name": "FILLER",
+          "start": 124,
+          "length": 50,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC89": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "INSTR_TYP",
+          "start": 15,
+          "length": 1,
+          "type": "alpha",
+          "end": 15
+        },
+        {
+          "name": "INSTR_ALPHA",
+          "start": 16,
+          "length": 6,
+          "type": "alpha",
+          "end": 21
+        },
+        {
+          "name": "INSTR_VERSION",
+          "start": 22,
+          "length": 3,
+          "type": "numeric",
+          "end": 24
+        },
+        {
+          "name": "SCR_TYP",
+          "start": 25,
+          "length": 2,
+          "type": "alpha",
+          "end": 26
+        },
+        {
+          "name": "CERT_NO",
+          "start": 27,
+          "length": 9,
+          "type": "alpha",
+          "end": 35
+        },
+        {
+          "name": "DEED_NO",
+          "start": 36,
+          "length": 9,
+          "type": "alpha",
+          "end": 44
+        },
+        {
+          "name": "SCR_RCPT_NO",
+          "start": 45,
+          "length": 9,
+          "type": "alpha",
+          "end": 53
+        },
+        {
+          "name": "SCR_SEQ_NO",
+          "start": 54,
+          "length": 3,
+          "type": "numeric",
+          "end": 56
+        },
+        {
+          "name": "REG_HOLDER",
+          "start": 57,
+          "length": 70,
+          "type": "alpha",
+          "end": 126
+        },
+        {
+          "name": "FILLER",
+          "start": 127,
+          "length": 47,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC97": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "BAL_CDE",
+          "start": 15,
+          "length": 2,
+          "type": "alpha",
+          "end": 16
+        },
+        {
+          "name": "DESIG_CDE",
+          "start": 17,
+          "length": 2,
+          "type": "alpha",
+          "end": 18
+        },
+        {
+          "name": "SIGN_AMT",
+          "start": 19,
+          "length": 1,
+          "type": "alpha",
+          "end": 19
+        },
+        {
+          "name": "TRAN_AMT",
+          "start": 20,
+          "length": 15,
+          "type": "numeric",
+          "end": 34
+        },
+        {
+          "name": "TRAN_NARATV",
+          "start": 35,
+          "length": 40,
+          "type": "alpha",
+          "end": 74
+        },
+        {
+          "name": "FIN_TRAN_CDE",
+          "start": 75,
+          "length": 2,
+          "type": "alpha",
+          "end": 76
+        },
+        {
+          "name": "DOC_REF_NO",
+          "start": 77,
+          "length": 6,
+          "type": "alpha",
+          "end": 82
+        },
+        {
+          "name": "CHQ_DEP_NO",
+          "start": 83,
+          "length": 7,
+          "type": "numeric",
+          "end": 89
+        },
+        {
+          "name": "CASH_ALPHA",
+          "start": 90,
+          "length": 2,
+          "type": "alpha",
+          "end": 91
+        },
+        {
+          "name": "AGE_DTE",
+          "start": 92,
+          "length": 8,
+          "type": "numeric",
+          "end": 99
+        },
+        {
+          "name": "EXCH_CTL",
+          "start": 100,
+          "length": 1,
+          "type": "alpha",
+          "end": 100
+        },
+        {
+          "name": "GENRL_ANALS",
+          "start": 101,
+          "length": 9,
+          "type": "alpha",
+          "end": 109
+        },
+        {
+          "name": "FILLER",
+          "start": 110,
+          "length": 64,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC81": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "DEL_ID",
+          "start": 15,
+          "length": 7,
+          "type": "numeric",
+          "end": 21
+        },
+        {
+          "name": "DEL_SEQ",
+          "start": 22,
+          "length": 3,
+          "type": "numeric",
+          "end": 24
+        },
+        {
+          "name": "ACC_TYP_CDE",
+          "start": 25,
+          "length": 2,
+          "type": "alpha",
+          "end": 26
+        },
+        {
+          "name": "BRN_CDE",
+          "start": 27,
+          "length": 2,
+          "type": "alpha",
+          "end": 28
+        },
+        {
+          "name": "PARTNER_CDE",
+          "start": 29,
+          "length": 2,
+          "type": "alpha",
+          "end": 30
+        },
+        {
+          "name": "AGE_DTE",
+          "start": 31,
+          "length": 8,
+          "type": "numeric",
+          "end": 38
+        },
+        {
+          "name": "INSTR_TYP",
+          "start": 39,
+          "length": 1,
+          "type": "alpha",
+          "end": 39
+        },
+        {
+          "name": "INSTR_ALPHA",
+          "start": 40,
+          "length": 6,
+          "type": "alpha",
+          "end": 45
+        },
+        {
+          "name": "INSTR_VERSION",
+          "start": 46,
+          "length": 3,
+          "type": "numeric",
+          "end": 48
+        },
+        {
+          "name": "PS_IND",
+          "start": 49,
+          "length": 1,
+          "type": "alpha",
+          "end": 49
+        },
+        {
+          "name": "SIGN_TRAN_AMT",
+          "start": 50,
+          "length": 1,
+          "type": "alpha",
+          "end": 50
+        },
+        {
+          "name": "TRAN_AMT",
+          "start": 51,
+          "length": 15,
+          "type": "numeric",
+          "end": 65
+        },
+        {
+          "name": "SIGN_QTY",
+          "start": 66,
+          "length": 1,
+          "type": "alpha",
+          "end": 66
+        },
+        {
+          "name": "TRAN_QTY",
+          "start": 67,
+          "length": 11,
+          "type": "numeric",
+          "end": 77
+        },
+        {
+          "name": "CON_CHG_IND",
+          "start": 78,
+          "length": 1,
+          "type": "alpha",
+          "end": 78
+        },
+        {
+          "name": "CON_NTE_IND",
+          "start": 79,
+          "length": 1,
+          "type": "alpha",
+          "end": 79
+        },
+        {
+          "name": "SIGN_CONSID",
+          "start": 80,
+          "length": 1,
+          "type": "alpha",
+          "end": 80
+        },
+        {
+          "name": "CONSID",
+          "start": 81,
+          "length": 15,
+          "type": "numeric",
+          "end": 95
+        },
+        {
+          "name": "PRCE",
+          "start": 96,
+          "length": 9,
+          "type": "numeric",
+          "end": 104
+        },
+        {
+          "name": "DEL_TRAN_CDE",
+          "start": 105,
+          "length": 2,
+          "type": "alpha",
+          "end": 106
+        },
+        {
+          "name": "TRADE_CAP",
+          "start": 107,
+          "length": 1,
+          "type": "alpha",
+          "end": 107
+        },
+        {
+          "name": "TRADE_TYP",
+          "start": 108,
+          "length": 2,
+          "type": "alpha",
+          "end": 109
+        },
+        {
+          "name": "RVSD_DEL_ID",
+          "start": 110,
+          "length": 7,
+          "type": "numeric",
+          "end": 116
+        },
+        {
+          "name": "DEALR_CDE",
+          "start": 117,
+          "length": 5,
+          "type": "numeric",
+          "end": 121
+        },
+        {
+          "name": "ORD_NUM",
+          "start": 122,
+          "length": 12,
+          "type": "alpha",
+          "end": 133
+        },
+        {
+          "name": "SIGN_UT_QTY",
+          "start": 134,
+          "length": 1,
+          "type": "alpha",
+          "end": 134
+        },
+        {
+          "name": "UT_QTY",
+          "start": 135,
+          "length": 15,
+          "type": "numeric",
+          "end": 149
+        },
+        {
+          "name": "RAND_IND",
+          "start": 150,
+          "length": 1,
+          "type": "alpha",
+          "end": 150
+        },
+        {
+          "name": "FILLER",
+          "start": 151,
+          "length": 23,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC82": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "DEL_ID",
+          "start": 15,
+          "length": 7,
+          "type": "numeric",
+          "end": 21
+        },
+        {
+          "name": "DEL_SEQ",
+          "start": 22,
+          "length": 3,
+          "type": "numeric",
+          "end": 24
+        },
+        {
+          "name": "CHG_STRCT_ENTRD",
+          "start": 25,
+          "length": 1,
+          "type": "alpha",
+          "end": 25
+        },
+        {
+          "name": "CHG_ENTRD",
+          "start": 26,
+          "length": 1,
+          "type": "alpha",
+          "end": 26
+        },
+        {
+          "name": "CHG_STR_CDE",
+          "start": 27,
+          "length": 2,
+          "type": "alpha",
+          "end": 28
+        },
+        {
+          "name": "SIGN_BAS",
+          "start": 29,
+          "length": 1,
+          "type": "alpha",
+          "end": 29
+        },
+        {
+          "name": "CHG_BAS",
+          "start": 30,
+          "length": 15,
+          "type": "numeric",
+          "end": 44
+        },
+        {
+          "name": "SIGN_BRO",
+          "start": 45,
+          "length": 1,
+          "type": "alpha",
+          "end": 45
+        },
+        {
+          "name": "CHG_BRO",
+          "start": 46,
+          "length": 15,
+          "type": "numeric",
+          "end": 60
+        },
+        {
+          "name": "SIGN_VAT",
+          "start": 61,
+          "length": 1,
+          "type": "alpha",
+          "end": 61
+        },
+        {
+          "name": "CHG_VAT",
+          "start": 62,
+          "length": 15,
+          "type": "numeric",
+          "end": 76
+        },
+        {
+          "name": "SIGN_MST",
+          "start": 77,
+          "length": 1,
+          "type": "alpha",
+          "end": 77
+        },
+        {
+          "name": "CHG_MST",
+          "start": 78,
+          "length": 15,
+          "type": "numeric",
+          "end": 92
+        },
+        {
+          "name": "SIGN_INS",
+          "start": 93,
+          "length": 1,
+          "type": "alpha",
+          "end": 93
+        },
+        {
+          "name": "CHG_INS",
+          "start": 94,
+          "length": 15,
+          "type": "numeric",
+          "end": 108
+        },
+        {
+          "name": "SIGN_SET",
+          "start": 109,
+          "length": 1,
+          "type": "alpha",
+          "end": 109
+        },
+        {
+          "name": "CHG_SET",
+          "start": 110,
+          "length": 15,
+          "type": "numeric",
+          "end": 124
+        },
+        {
+          "name": "SETTLE_WK",
+          "start": 125,
+          "length": 4,
+          "type": "numeric",
+          "end": 128
+        },
+        {
+          "name": "TRMS_1",
+          "start": 129,
+          "length": 2,
+          "type": "alpha",
+          "end": 130
+        },
+        {
+          "name": "TRMS_2",
+          "start": 131,
+          "length": 2,
+          "type": "alpha",
+          "end": 132
+        },
+        {
+          "name": "TRMS_3",
+          "start": 133,
+          "length": 2,
+          "type": "alpha",
+          "end": 134
+        },
+        {
+          "name": "TRMS_4",
+          "start": 135,
+          "length": 2,
+          "type": "alpha",
+          "end": 136
+        },
+        {
+          "name": "TRMS_5",
+          "start": 137,
+          "length": 2,
+          "type": "alpha",
+          "end": 138
+        },
+        {
+          "name": "TRMS_6",
+          "start": 139,
+          "length": 2,
+          "type": "alpha",
+          "end": 140
+        },
+        {
+          "name": "TRMS_7",
+          "start": 141,
+          "length": 2,
+          "type": "alpha",
+          "end": 142
+        },
+        {
+          "name": "RVSD_DEL_ID",
+          "start": 143,
+          "length": 7,
+          "type": "numeric",
+          "end": 149
+        },
+        {
+          "name": "DEALR_CDE",
+          "start": 150,
+          "length": 5,
+          "type": "numeric",
+          "end": 154
+        },
+        {
+          "name": "ORD_NUM",
+          "start": 155,
+          "length": 12,
+          "type": "alpha",
+          "end": 166
+        },
+        {
+          "name": "FILLER",
+          "start": 167,
+          "length": 7,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC83": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "DEL_ID",
+          "start": 15,
+          "length": 7,
+          "type": "numeric",
+          "end": 21
+        },
+        {
+          "name": "DEL_SEQ",
+          "start": 22,
+          "length": 3,
+          "type": "numeric",
+          "end": 24
+        },
+        {
+          "name": "REF_ALPHA",
+          "start": 25,
+          "length": 2,
+          "type": "alpha",
+          "end": 26
+        },
+        {
+          "name": "REF_TYP",
+          "start": 27,
+          "length": 1,
+          "type": "alpha",
+          "end": 27
+        },
+        {
+          "name": "REF_PAGE_NO",
+          "start": 28,
+          "length": 10,
+          "type": "alpha",
+          "end": 37
+        },
+        {
+          "name": "REF_LINE_NO",
+          "start": 38,
+          "length": 3,
+          "type": "numeric",
+          "end": 40
+        },
+        {
+          "name": "REF_ORD_NO",
+          "start": 41,
+          "length": 7,
+          "type": "numeric",
+          "end": 47
+        },
+        {
+          "name": "ORD_NO",
+          "start": 48,
+          "length": 12,
+          "type": "alpha",
+          "end": 59
+        },
+        {
+          "name": "DEL_ID_OPTN",
+          "start": 60,
+          "length": 7,
+          "type": "numeric",
+          "end": 66
+        },
+        {
+          "name": "SETTLE_DTE",
+          "start": 67,
+          "length": 8,
+          "type": "numeric",
+          "end": 74
+        },
+        {
+          "name": "BRK_DIR_IND",
+          "start": 75,
+          "length": 1,
+          "type": "alpha",
+          "end": 75
+        },
+        {
+          "name": "COUNTRY_CDE",
+          "start": 76,
+          "length": 3,
+          "type": "alpha",
+          "end": 78
+        },
+        {
+          "name": "NON_RES_IND",
+          "start": 79,
+          "length": 1,
+          "type": "alpha",
+          "end": 79
+        },
+        {
+          "name": "EXCH_CTL",
+          "start": 80,
+          "length": 1,
+          "type": "alpha",
+          "end": 80
+        },
+        {
+          "name": "PRCE_FORMAT",
+          "start": 81,
+          "length": 1,
+          "type": "alpha",
+          "end": 81
+        },
+        {
+          "name": "PRCE_NOM",
+          "start": 82,
+          "length": 9,
+          "type": "numeric",
+          "end": 90
+        },
+        {
+          "name": "REF_BRK_CDE",
+          "start": 91,
+          "length": 3,
+          "type": "numeric",
+          "end": 93
+        },
+        {
+          "name": "EXTNL_ACC_CDE",
+          "start": 94,
+          "length": 17,
+          "type": "alpha",
+          "end": 110
+        },
+        {
+          "name": "ORDER_DTE",
+          "start": 111,
+          "length": 9,
+          "type": "numeric",
+          "end": 119
+        },
+        {
+          "name": "CAPTR_TIME_STMP",
+          "start": 120,
+          "length": 7,
+          "type": "numeric",
+          "end": 126
+        },
+        {
+          "name": "MATCH_TIME",
+          "start": 127,
+          "length": 9,
+          "type": "numeric",
+          "end": 135
+        },
+        {
+          "name": "RVSD_DEL_ID",
+          "start": 136,
+          "length": 7,
+          "type": "numeric",
+          "end": 142
+        },
+        {
+          "name": "DEALR_CDE",
+          "start": 143,
+          "length": 5,
+          "type": "numeric",
+          "end": 147
+        },
+        {
+          "name": "DEAL_EXTNL_ACC_CDE",
+          "start": 148,
+          "length": 17,
+          "type": "alpha",
+          "end": 164
+        },
+        {
+          "name": "FILLER",
+          "start": 165,
+          "length": 9,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC84": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "DEL_ID",
+          "start": 15,
+          "length": 7,
+          "type": "numeric",
+          "end": 21
+        },
+        {
+          "name": "CLEAN_PRCE",
+          "start": 22,
+          "length": 9,
+          "type": "numeric",
+          "end": 30
+        },
+        {
+          "name": "NET_PRCE",
+          "start": 31,
+          "length": 9,
+          "type": "numeric",
+          "end": 39
+        },
+        {
+          "name": "ALL_IN_PRCE",
+          "start": 40,
+          "length": 9,
+          "type": "numeric",
+          "end": 48
+        },
+        {
+          "name": "YIELD_TO_M",
+          "start": 49,
+          "length": 9,
+          "type": "numeric",
+          "end": 57
+        },
+        {
+          "name": "SIGN_BKGE",
+          "start": 58,
+          "length": 1,
+          "type": "alpha",
+          "end": 58
+        },
+        {
+          "name": "BKGE_PCNT_GILT",
+          "start": 59,
+          "length": 9,
+          "type": "numeric",
+          "end": 67
+        },
+        {
+          "name": "SIGN_INT_FAC",
+          "start": 68,
+          "length": 1,
+          "type": "alpha",
+          "end": 68
+        },
+        {
+          "name": "INT_FACTOR",
+          "start": 69,
+          "length": 9,
+          "type": "numeric",
+          "end": 77
+        },
+        {
+          "name": "EX_IND",
+          "start": 78,
+          "length": 1,
+          "type": "alpha",
+          "end": 78
+        },
+        {
+          "name": "INT_DTE",
+          "start": 79,
+          "length": 8,
+          "type": "alpha",
+          "end": 86
+        },
+        {
+          "name": "NUM_DAY_INT",
+          "start": 87,
+          "length": 3,
+          "type": "numeric",
+          "end": 89
+        },
+        {
+          "name": "SIGN_INT_AMT",
+          "start": 90,
+          "length": 1,
+          "type": "alpha",
+          "end": 90
+        },
+        {
+          "name": "INT_AMT",
+          "start": 91,
+          "length": 15,
+          "type": "numeric",
+          "end": 105
+        },
+        {
+          "name": "FILLER",
+          "start": 106,
+          "length": 68,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC99": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "DEL_ID",
+          "start": 15,
+          "length": 7,
+          "type": "numeric",
+          "end": 21
+        },
+        {
+          "name": "BRN_CDE",
+          "start": 22,
+          "length": 2,
+          "type": "alpha",
+          "end": 23
+        },
+        {
+          "name": "PARTNER_CDE",
+          "start": 24,
+          "length": 2,
+          "type": "alpha",
+          "end": 25
+        },
+        {
+          "name": "AGE_DTE",
+          "start": 26,
+          "length": 9,
+          "type": "numeric",
+          "end": 34
+        },
+        {
+          "name": "INSTR_TYP",
+          "start": 35,
+          "length": 1,
+          "type": "alpha",
+          "end": 35
+        },
+        {
+          "name": "INSTR_ALPHA",
+          "start": 36,
+          "length": 6,
+          "type": "alpha",
+          "end": 41
+        },
+        {
+          "name": "INSTR_VERSION",
+          "start": 42,
+          "length": 3,
+          "type": "numeric",
+          "end": 44
+        },
+        {
+          "name": "SETTLE_DTE",
+          "start": 45,
+          "length": 9,
+          "type": "numeric",
+          "end": 53
+        },
+        {
+          "name": "PS_IND",
+          "start": 54,
+          "length": 1,
+          "type": "alpha",
+          "end": 54
+        },
+        {
+          "name": "SIGN_TRAN_AMT",
+          "start": 55,
+          "length": 1,
+          "type": "alpha",
+          "end": 55
+        },
+        {
+          "name": "TRAN_AMT",
+          "start": 56,
+          "length": 15,
+          "type": "numeric",
+          "end": 70
+        },
+        {
+          "name": "SIGN_QTY",
+          "start": 71,
+          "length": 1,
+          "type": "alpha",
+          "end": 71
+        },
+        {
+          "name": "TRAN_QTY",
+          "start": 72,
+          "length": 11,
+          "type": "numeric",
+          "end": 82
+        },
+        {
+          "name": "FILLER",
+          "start": 83,
+          "length": 91,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC92": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "INSTR_TYP",
+          "start": 8,
+          "length": 1,
+          "type": "alpha",
+          "end": 8
+        },
+        {
+          "name": "INSTR_ALPHA",
+          "start": 9,
+          "length": 6,
+          "type": "alpha",
+          "end": 14
+        },
+        {
+          "name": "INSTR_VERSION",
+          "start": 15,
+          "length": 3,
+          "type": "numeric",
+          "end": 17
+        },
+        {
+          "name": "DTE_EFF_FROM",
+          "start": 18,
+          "length": 8,
+          "type": "numeric",
+          "end": 25
+        },
+        {
+          "name": "DTE_EFF_TO",
+          "start": 26,
+          "length": 8,
+          "type": "numeric",
+          "end": 33
+        },
+        {
+          "name": "PRCE",
+          "start": 34,
+          "length": 9,
+          "type": "numeric",
+          "end": 42
+        },
+        {
+          "name": "PRCE_NOM",
+          "start": 43,
+          "length": 9,
+          "type": "numeric",
+          "end": 51
+        },
+        {
+          "name": "GILT_PRCE",
+          "start": 52,
+          "length": 9,
+          "type": "numeric",
+          "end": 60
+        },
+        {
+          "name": "GILT_ALLIN_PRCE",
+          "start": 61,
+          "length": 9,
+          "type": "numeric",
+          "end": 69
+        },
+        {
+          "name": "INSTR_RPT_NAME",
+          "start": 70,
+          "length": 24,
+          "type": "alpha",
+          "end": 93
+        },
+        {
+          "name": "INSTR_SHRT_NAME",
+          "start": 94,
+          "length": 14,
+          "type": "alpha",
+          "end": 107
+        },
+        {
+          "name": "ICB_SECTOR_CDE_OLD",
+          "start": 108,
+          "length": 4,
+          "type": "alpha",
+          "end": 111
+        },
+        {
+          "name": "PRCE_FORMAT",
+          "start": 112,
+          "length": 1,
+          "type": "alpha",
+          "end": 112
+        },
+        {
+          "name": "COUPON_RATE",
+          "start": 113,
+          "length": 7,
+          "type": "numeric",
+          "end": 119
+        },
+        {
+          "name": "YIELD_TO_M",
+          "start": 120,
+          "length": 9,
+          "type": "numeric",
+          "end": 128
+        },
+        {
+          "name": "ELEC_TRADE_DTE",
+          "start": 129,
+          "length": 8,
+          "type": "numeric",
+          "end": 136
+        },
+        {
+          "name": "BOARD_IND",
+          "start": 137,
+          "length": 1,
+          "type": "alpha",
+          "end": 137
+        },
+        {
+          "name": "BEE_IND",
+          "start": 138,
+          "length": 1,
+          "type": "alpha",
+          "end": 138
+        },
+        {
+          "name": "MST_PCNT_FACTOR",
+          "start": 139,
+          "length": 7,
+          "type": "numeric",
+          "end": 145
+        },
+        {
+          "name": "ICB_SECTOR_CDE_NEW",
+          "start": 146,
+          "length": 8,
+          "type": "alpha",
+          "end": 153
+        },
+        {
+          "name": "FILLER",
+          "start": 154,
+          "length": 20,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC69": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "BAL_CDE",
+          "start": 15,
+          "length": 2,
+          "type": "alpha",
+          "end": 16
+        },
+        {
+          "name": "BANK_BRN_NO",
+          "start": 17,
+          "length": 6,
+          "type": "numeric",
+          "end": 22
+        },
+        {
+          "name": "BANK_ACC_NO",
+          "start": 23,
+          "length": 16,
+          "type": "alpha",
+          "end": 38
+        },
+        {
+          "name": "BANK_DESCRIP",
+          "start": 39,
+          "length": 20,
+          "type": "alpha",
+          "end": 58
+        },
+        {
+          "name": "BANK_ACC_TYP",
+          "start": 59,
+          "length": 1,
+          "type": "alpha",
+          "end": 59
+        },
+        {
+          "name": "PREFERRED_ACC",
+          "start": 60,
+          "length": 1,
+          "type": "alpha",
+          "end": 60
+        },
+        {
+          "name": "VERIFY_STA",
+          "start": 61,
+          "length": 1,
+          "type": "alpha",
+          "end": 61
+        },
+        {
+          "name": "VERIFY_DTE",
+          "start": 62,
+          "length": 8,
+          "type": "numeric",
+          "end": 69
+        },
+        {
+          "name": "VERIFY_TME",
+          "start": 70,
+          "length": 7,
+          "type": "numeric",
+          "end": 76
+        },
+        {
+          "name": "VERIFY_USER",
+          "start": 77,
+          "length": 4,
+          "type": "alpha",
+          "end": 80
+        },
+        {
+          "name": "DTE_DEACTIVATED",
+          "start": 81,
+          "length": 8,
+          "type": "numeric",
+          "end": 88
+        },
+        {
+          "name": "TME_DEACTIVATED",
+          "start": 89,
+          "length": 7,
+          "type": "numeric",
+          "end": 95
+        },
+        {
+          "name": "USER_DEACTIVATED",
+          "start": 96,
+          "length": 4,
+          "type": "alpha",
+          "end": 99
+        },
+        {
+          "name": "LAS_UPD_DTE",
+          "start": 100,
+          "length": 8,
+          "type": "numeric",
+          "end": 107
+        },
+        {
+          "name": "LAS_UPD_TME",
+          "start": 108,
+          "length": 7,
+          "type": "numeric",
+          "end": 114
+        },
+        {
+          "name": "LAS_UPD_USER",
+          "start": 115,
+          "length": 4,
+          "type": "alpha",
+          "end": 118
+        },
+        {
+          "name": "LAS_UPD_SOURCE",
+          "start": 119,
+          "length": 8,
+          "type": "alpha",
+          "end": 126
+        },
+        {
+          "name": "FILLER",
+          "start": 127,
+          "length": 47,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC93": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "INSTR_TYP",
+          "start": 8,
+          "length": 1,
+          "type": "alpha",
+          "end": 8
+        },
+        {
+          "name": "INSTR_ALPHA",
+          "start": 9,
+          "length": 6,
+          "type": "alpha",
+          "end": 14
+        },
+        {
+          "name": "INSTR_VERSION",
+          "start": 15,
+          "length": 3,
+          "type": "numeric",
+          "end": 17
+        },
+        {
+          "name": "LDR_DTE",
+          "start": 18,
+          "length": 8,
+          "type": "numeric",
+          "end": 25
+        },
+        {
+          "name": "DIV_SEQ_NO",
+          "start": 26,
+          "length": 1,
+          "type": "numeric",
+          "end": 26
+        },
+        {
+          "name": "DIV_NO",
+          "start": 27,
+          "length": 5,
+          "type": "numeric",
+          "end": 31
+        },
+        {
+          "name": "DIV_TYP",
+          "start": 32,
+          "length": 1,
+          "type": "alpha",
+          "end": 32
+        },
+        {
+          "name": "DTE_DECLARED",
+          "start": 33,
+          "length": 8,
+          "type": "numeric",
+          "end": 40
+        },
+        {
+          "name": "EX_DIV_DTE",
+          "start": 41,
+          "length": 8,
+          "type": "numeric",
+          "end": 48
+        },
+        {
+          "name": "PAY_DTE",
+          "start": 49,
+          "length": 8,
+          "type": "numeric",
+          "end": 56
+        },
+        {
+          "name": "DIV_RATE",
+          "start": 57,
+          "length": 11,
+          "type": "numeric",
+          "end": 67
+        },
+        {
+          "name": "DIV_FORMAT",
+          "start": 68,
+          "length": 1,
+          "type": "alpha",
+          "end": 68
+        },
+        {
+          "name": "DIV_BONUS",
+          "start": 69,
+          "length": 11,
+          "type": "numeric",
+          "end": 79
+        },
+        {
+          "name": "RATE_CONF",
+          "start": 80,
+          "length": 1,
+          "type": "alpha",
+          "end": 80
+        },
+        {
+          "name": "NRST_PCNT",
+          "start": 81,
+          "length": 9,
+          "type": "numeric",
+          "end": 89
+        },
+        {
+          "name": "ISSUE_RAT_OLD",
+          "start": 90,
+          "length": 13,
+          "type": "numeric",
+          "end": 102
+        },
+        {
+          "name": "ISSUE_RAT_NEW",
+          "start": 103,
+          "length": 13,
+          "type": "numeric",
+          "end": 115
+        },
+        {
+          "name": "INSTR_TYP_REP",
+          "start": 116,
+          "length": 1,
+          "type": "alpha",
+          "end": 116
+        },
+        {
+          "name": "INSTR_ALPHA_REP",
+          "start": 117,
+          "length": 6,
+          "type": "alpha",
+          "end": 122
+        },
+        {
+          "name": "INSTR_VERS_REP",
+          "start": 123,
+          "length": 3,
+          "type": "numeric",
+          "end": 125
+        },
+        {
+          "name": "FILLER",
+          "start": 126,
+          "length": 48,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC94": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "INSTR_TYP",
+          "start": 8,
+          "length": 1,
+          "type": "alpha",
+          "end": 8
+        },
+        {
+          "name": "INSTR_ALPHA",
+          "start": 9,
+          "length": 6,
+          "type": "alpha",
+          "end": 14
+        },
+        {
+          "name": "INSTR_VERSION",
+          "start": 15,
+          "length": 3,
+          "type": "numeric",
+          "end": 17
+        },
+        {
+          "name": "RTS_CONV_DTE",
+          "start": 18,
+          "length": 8,
+          "type": "numeric",
+          "end": 25
+        },
+        {
+          "name": "LINK_SEQ_NO",
+          "start": 26,
+          "length": 1,
+          "type": "numeric",
+          "end": 26
+        },
+        {
+          "name": "INSTR_TYP_REP",
+          "start": 27,
+          "length": 1,
+          "type": "alpha",
+          "end": 27
+        },
+        {
+          "name": "INSTR_ALPHA_REP",
+          "start": 28,
+          "length": 6,
+          "type": "alpha",
+          "end": 33
+        },
+        {
+          "name": "INSTR_VERS_REP",
+          "start": 34,
+          "length": 3,
+          "type": "numeric",
+          "end": 36
+        },
+        {
+          "name": "RTS_CONV_CDE",
+          "start": 37,
+          "length": 2,
+          "type": "alpha",
+          "end": 38
+        },
+        {
+          "name": "ISSUE_RAT_OLD",
+          "start": 39,
+          "length": 13,
+          "type": "numeric",
+          "end": 51
+        },
+        {
+          "name": "ISSUE_RAT_NEW",
+          "start": 52,
+          "length": 13,
+          "type": "numeric",
+          "end": 64
+        },
+        {
+          "name": "RTS_TU_PRCE",
+          "start": 65,
+          "length": 13,
+          "type": "numeric",
+          "end": 77
+        },
+        {
+          "name": "RTS_PAY_QTY",
+          "start": 78,
+          "length": 6,
+          "type": "numeric",
+          "end": 83
+        },
+        {
+          "name": "RTS_PO_PRCE",
+          "start": 84,
+          "length": 13,
+          "type": "numeric",
+          "end": 96
+        },
+        {
+          "name": "RTS_LINK_CDE",
+          "start": 97,
+          "length": 1,
+          "type": "alpha",
+          "end": 97
+        },
+        {
+          "name": "NRST_PCNT",
+          "start": 98,
+          "length": 9,
+          "type": "numeric",
+          "end": 106
+        },
+        {
+          "name": "FILLER",
+          "start": 107,
+          "length": 67,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC74": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "LDT",
+          "start": 8,
+          "length": 8,
+          "type": "numeric",
+          "end": 15
+        },
+        {
+          "name": "INSTR_TYP",
+          "start": 16,
+          "length": 1,
+          "type": "alpha",
+          "end": 16
+        },
+        {
+          "name": "INSTR_ALPHA",
+          "start": 17,
+          "length": 6,
+          "type": "alpha",
+          "end": 22
+        },
+        {
+          "name": "INSTR_VERSION",
+          "start": 23,
+          "length": 3,
+          "type": "numeric",
+          "end": 25
+        },
+        {
+          "name": "PROCS_TYP",
+          "start": 26,
+          "length": 2,
+          "type": "alpha",
+          "end": 27
+        },
+        {
+          "name": "PROCS_SEQ",
+          "start": 28,
+          "length": 3,
+          "type": "numeric",
+          "end": 30
+        },
+        {
+          "name": "RD",
+          "start": 31,
+          "length": 8,
+          "type": "numeric",
+          "end": 38
+        },
+        {
+          "name": "ELECTION_DTE",
+          "start": 39,
+          "length": 8,
+          "type": "numeric",
+          "end": 46
+        },
+        {
+          "name": "PAY_DTE",
+          "start": 47,
+          "length": 8,
+          "type": "numeric",
+          "end": 54
+        },
+        {
+          "name": "EX_DIV_DTE",
+          "start": 55,
+          "length": 8,
+          "type": "numeric",
+          "end": 62
+        },
+        {
+          "name": "DIV_NO",
+          "start": 63,
+          "length": 5,
+          "type": "numeric",
+          "end": 67
+        },
+        {
+          "name": "DIV_TYP",
+          "start": 68,
+          "length": 3,
+          "type": "alpha",
+          "end": 70
+        },
+        {
+          "name": "DIV_RATE",
+          "start": 71,
+          "length": 11,
+          "type": "numeric",
+          "end": 81
+        },
+        {
+          "name": "DIV_BONUS",
+          "start": 82,
+          "length": 11,
+          "type": "numeric",
+          "end": 92
+        },
+        {
+          "name": "RATE_CONF",
+          "start": 93,
+          "length": 1,
+          "type": "alpha",
+          "end": 93
+        },
+        {
+          "name": "INSTR_TYP_REP",
+          "start": 94,
+          "length": 1,
+          "type": "alpha",
+          "end": 94
+        },
+        {
+          "name": "INSTR_ALPHA_REP",
+          "start": 95,
+          "length": 6,
+          "type": "alpha",
+          "end": 100
+        },
+        {
+          "name": "INSTR_VERS_REP",
+          "start": 101,
+          "length": 3,
+          "type": "numeric",
+          "end": 103
+        },
+        {
+          "name": "ISSUE_RAT_OLD",
+          "start": 104,
+          "length": 13,
+          "type": "numeric",
+          "end": 116
+        },
+        {
+          "name": "ISSUE_RAT_NEW",
+          "start": 117,
+          "length": 13,
+          "type": "numeric",
+          "end": 129
+        },
+        {
+          "name": "PAY_OUT_PRCE",
+          "start": 130,
+          "length": 13,
+          "type": "numeric",
+          "end": 142
+        },
+        {
+          "name": "TAKE_UP_PRC",
+          "start": 143,
+          "length": 13,
+          "type": "numeric",
+          "end": 155
+        },
+        {
+          "name": "FILLER",
+          "start": 156,
+          "length": 18,
+          "type": "alpha",
+          "end": 173
+        }
+      ],
+      "CC96": [
+        {
+          "name": "SYSTEM",
+          "start": 1,
+          "length": 2,
+          "type": "alpha",
+          "end": 2
+        },
+        {
+          "name": "CARD_CDE",
+          "start": 3,
+          "length": 2,
+          "type": "numeric",
+          "end": 4
+        },
+        {
+          "name": "BRK_CDE",
+          "start": 5,
+          "length": 3,
+          "type": "numeric",
+          "end": 7
+        },
+        {
+          "name": "ACC_CDE",
+          "start": 8,
+          "length": 7,
+          "type": "numeric",
+          "end": 14
+        },
+        {
+          "name": "INSTR_TYP",
+          "start": 15,
+          "length": 1,
+          "type": "alpha",
+          "end": 15
+        },
+        {
+          "name": "INSTR_ALPHA",
+          "start": 16,
+          "length": 6,
+          "type": "alpha",
+          "end": 21
+        },
+        {
+          "name": "INSTR_VERSION",
+          "start": 22,
+          "length": 3,
+          "type": "numeric",
+          "end": 24
+        },
+        {
+          "name": "ICB_SECTOR_CDE_OLD",
+          "start": 25,
+          "length": 4,
+          "type": "alpha",
+          "end": 28
+        },
+        {
+          "name": "SIGN_HLDG_QTY",
+          "start": 29,
+          "length": 1,
+          "type": "alpha",
+          "end": 29
+        },
+        {
+          "name": "SH_HLDG_QTY",
+          "start": 30,
+          "length": 13,
+          "type": "numeric",
+          "end": 42
+        },
+        {
+          "name": "SIGN_QTY_AH",
+          "start": 43,
+          "length": 1,
+          "type": "alpha",
+          "end": 43
+        },
+        {
+          "name": "QTY_AH",
+          "start": 44,
+          "length": 13,
+          "type": "numeric",
+          "end": 56
+        },
+        {
+          "name": "SIGN_COST_OTH",
+          "start": 57,
+          "length": 1,
+          "type": "alpha",
+          "end": 57
+        },
+        {
+          "name": "COST_PF_OTH",
+          "start": 58,
+          "length": 15,
+          "type": "numeric",
+          "end": 72
+        },
+        {
+          "name": "SIGN_COST_AH",
+          "start": 73,
+          "length": 1,
+          "type": "alpha",
+          "end": 73
+        },
+        {
+          "name": "COST_PF_AH",
+          "start": 74,
+          "length": 15,
+          "type": "numeric",
+          "end": 88
+        },
+        {
+          "name": "SIGN_QTY_HLDG",
+          "start": 89,
+          "length": 1,
+          "type": "alpha",
+          "end": 89
+        },
+        {
+          "name": "UT_QTY_HLDG",
+          "start": 90,
+          "length": 15,
+          "type": "numeric",
+          "end": 104
+        },
+        {
+          "name": "SIGN_DEMAT_QTY",
+          "start": 105,
+          "length": 1,
+          "type": "alpha",
+          "end": 105
+        },
+        {
+          "name": "DEMAT_HLDG_QTY",
+          "start": 106,
+          "length": 13,
+          "type": "numeric",
+          "end": 118
+        },
+        {
+          "name": "SIGN_UT_QTY",
+          "start": 119,
+          "length": 1,
+          "type": "alpha",
+          "end": 119
+        },
+        {
+          "name": "UT_QTY",
+          "start": 120,
+          "length": 15,
+          "type": "numeric",
+          "end": 134
+        },
+        {
+          "name": "SIGN_CL_QTY",
+          "start": 135,
+          "length": 1,
+          "type": "alpha",
+          "end": 135
+        },
+        {
+          "name": "CL_QTY",
+          "start": 136,
+          "length": 13,
+          "type": "numeric",
+          "end": 148
+        },
+        {
+          "name": "BOARD_IND",
+          "start": 149,
+          "length": 1,
+          "type": "alpha",
+          "end": 149
+        },
+        {
+          "name": "ICB_SECTOR_CDE_NEW",
+          "start": 150,
+          "length": 8,
+          "type": "alpha",
+          "end": 157
+        },
+        {
+          "name": "FILLER",
+          "start": 158,
+          "length": 16,
+          "type": "alpha",
+          "end": 173
+        }
+      ]
+    }
+  }
+}

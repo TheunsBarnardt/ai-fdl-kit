@@ -1,0 +1,371 @@
+{
+  "feature": "bond-pricing-models",
+  "version": "1.0.0",
+  "description": "Bond pricing and valuation methodologies for conventional, floating-rate, inflation-indexed bonds and MTM revaluation",
+  "category": "trading",
+  "tags": [
+    "bonds",
+    "pricing",
+    "valuation",
+    "mtm",
+    "frn",
+    "inflation-indexed",
+    "yield"
+  ],
+  "aliases": [
+    "bond-pricing",
+    "bond-valuation",
+    "mtm-bond-pricing",
+    "frn-pricing",
+    "inflation-bond-pricing"
+  ],
+  "actors": [
+    {
+      "id": "bond_trader",
+      "name": "Bond Trader",
+      "type": "human"
+    },
+    {
+      "id": "pricing_engine",
+      "name": "Pricing and Valuation Engine",
+      "type": "system"
+    },
+    {
+      "id": "risk_system",
+      "name": "Risk Management System",
+      "type": "system"
+    },
+    {
+      "id": "settlement_system",
+      "name": "Settlement System",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "bond_isin",
+      "type": "text",
+      "required": true,
+      "label": "Bond ISIN"
+    },
+    {
+      "name": "bond_type",
+      "type": "select",
+      "required": true,
+      "label": "Bond Type (Conventional, FRN, InflationIndexed, ZeroCoupon)"
+    },
+    {
+      "name": "face_value",
+      "type": "number",
+      "required": true,
+      "label": "Face Value"
+    },
+    {
+      "name": "coupon_rate",
+      "type": "number",
+      "required": false,
+      "label": "Coupon Rate (% per annum)"
+    },
+    {
+      "name": "maturity_date",
+      "type": "date",
+      "required": true,
+      "label": "Maturity Date"
+    },
+    {
+      "name": "last_coupon_date",
+      "type": "date",
+      "required": false,
+      "label": "Last Coupon Payment Date"
+    },
+    {
+      "name": "market_price",
+      "type": "number",
+      "required": true,
+      "label": "Market Price (% of par or absolute)"
+    },
+    {
+      "name": "accrued_interest",
+      "type": "number",
+      "required": false,
+      "label": "Accrued Interest Since Last Coupon"
+    },
+    {
+      "name": "yield_to_maturity",
+      "type": "number",
+      "required": false,
+      "label": "Yield To Maturity (YTM)"
+    }
+  ],
+  "rules": {
+    "conventional_bond": {
+      "bond_math": "Price = Sum of (coupon / (1+ytm)^t) + Face Value / (1+ytm)^n",
+      "accrued_interest": "Buyer pays seller accrued interest since last coupon date",
+      "dirty_price": "Settlement price = clean price + accrued interest"
+    },
+    "floating_rate_note": {
+      "coupon_reset": "Coupon resets quarterly/semi-annually to index (JIBAR, SOFR) + spread",
+      "margin_fixed": "Margin (spread) is fixed for life of bond; index component floats",
+      "price_convergence": "Price converges to par on each reset date (barring credit deterioration)"
+    },
+    "inflation_indexed_bond": {
+      "principal_indexed": "Principal amount adjusted by inflation rate; coupon applied to indexed principal",
+      "inflation_rate_source": "Inflation rate typically from CPI official publication",
+      "floor_protection": "Some bonds have principal floor (no deflation loss)"
+    },
+    "mtm_revaluation": {
+      "daily_mtm": "Bond portfolio revalued daily at market prices (MTM=Mark To Market)",
+      "curve_shift_sensitivity": "Price change ~duration * yield change (duration approximation)",
+      "interest_rate_risk": "Rising rates → falling prices; falling rates → rising prices"
+    }
+  },
+  "outcomes": {
+    "calculate_conventional_price": {
+      "priority": 1,
+      "description": "Calculate conventional bond price from yield",
+      "given": [
+        {
+          "field": "bond_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "conventional"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "pricing_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "bond.price_calculated"
+        }
+      ]
+    },
+    "price_frn": {
+      "priority": 2,
+      "description": "Price floating-rate note (with coupon reset)",
+      "given": [
+        {
+          "field": "bond_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "frn"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "pricing_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "frn.priced"
+        }
+      ]
+    },
+    "price_inflation_bond": {
+      "priority": 3,
+      "description": "Calculate inflation-indexed bond price (principal-adjusted)",
+      "given": [
+        {
+          "field": "bond_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "inflation_indexed"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "pricing_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "inflation_bond.priced"
+        }
+      ]
+    },
+    "mtm_revalue": {
+      "priority": 4,
+      "description": "Daily mark-to-market revaluation of bond holdings",
+      "given": [
+        {
+          "field": "market_price",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "risk_system"
+        },
+        {
+          "action": "emit_event",
+          "event": "mtm.revalued"
+        }
+      ],
+      "error": "MTM_CALCULATION_FAILED"
+    }
+  },
+  "errors": [
+    {
+      "code": "MTM_CALCULATION_FAILED",
+      "status": 500,
+      "message": "MTM revaluation calculation failed"
+    },
+    {
+      "code": "INVALID_YIELD_CURVE",
+      "status": 400,
+      "message": "Yield curve data invalid or incomplete"
+    }
+  ],
+  "events": [
+    {
+      "name": "bond.price_calculated",
+      "payload": [
+        "bond_isin",
+        "clean_price",
+        "dirty_price",
+        "yield"
+      ]
+    },
+    {
+      "name": "frn.priced",
+      "payload": [
+        "bond_isin",
+        "next_coupon_rate",
+        "next_reset_date"
+      ]
+    },
+    {
+      "name": "inflation_bond.priced",
+      "payload": [
+        "bond_isin",
+        "indexed_principal",
+        "coupon_on_indexed"
+      ]
+    },
+    {
+      "name": "mtm.revalued",
+      "payload": [
+        "bond_isin",
+        "market_value",
+        "prior_value",
+        "change_pct"
+      ]
+    }
+  ],
+  "extensions": {
+    "pricing_models": {
+      "conventional": {
+        "formula": "P = Sum(C/(1+y)^t) + FV/(1+y)^n",
+        "inputs": [
+          "coupon",
+          "yield_to_maturity",
+          "face_value",
+          "years_to_maturity"
+        ],
+        "outputs": [
+          "clean_price",
+          "dirty_price",
+          "duration",
+          "convexity"
+        ],
+        "description": "Standard bond pricing using discounted cash flows"
+      },
+      "frn": {
+        "formula": "P = (Notional * (Index + Spread)) / (1 + Discount Rate)",
+        "inputs": [
+          "notional",
+          "reference_index",
+          "spread",
+          "discount_rate",
+          "reset_frequency"
+        ],
+        "outputs": [
+          "price_at_reset",
+          "price_between_resets"
+        ],
+        "description": "Floating rate note pricing with quarterly/semi-annual coupon reset"
+      },
+      "inflation_indexed": {
+        "formula": "P_adj = FV * (1 + Cumulative Inflation), Coupon = Coupon Rate * P_adj",
+        "inputs": [
+          "face_value",
+          "coupon_rate",
+          "inflation_rate",
+          "years_to_maturity"
+        ],
+        "outputs": [
+          "indexed_principal",
+          "coupon_on_indexed",
+          "ytm_real",
+          "ytm_nominal"
+        ],
+        "description": "Inflation-linked bond with principal and coupon adjustments"
+      }
+    },
+    "day_count_conventions": [
+      {
+        "name": "Actual/365",
+        "description": "Use actual days in period / 365"
+      },
+      {
+        "name": "Actual/360",
+        "description": "Use actual days in period / 360 (money market)"
+      },
+      {
+        "name": "30/360",
+        "description": "Assume 30-day months, 360-day year"
+      },
+      {
+        "name": "Actual/Actual",
+        "description": "Actual days; handle leap years"
+      }
+    ],
+    "curve_data": [
+      {
+        "maturity": "2Y",
+        "yield_rate": 0.025
+      },
+      {
+        "maturity": "5Y",
+        "yield_rate": 0.035
+      },
+      {
+        "maturity": "10Y",
+        "yield_rate": 0.045
+      },
+      {
+        "maturity": "20Y",
+        "yield_rate": 0.05
+      }
+    ],
+    "mtm_adjustment_triggers": [
+      {
+        "trigger": "daily_market_close",
+        "frequency": "once_per_day"
+      },
+      {
+        "trigger": "corporate_action",
+        "frequency": "on_event"
+      },
+      {
+        "trigger": "rating_change",
+        "frequency": "on_event"
+      }
+    ]
+  },
+  "related": [
+    {
+      "feature": "post-trade-gateway-fix",
+      "type": "recommended"
+    },
+    {
+      "feature": "reference-data-management",
+      "type": "required"
+    }
+  ]
+}

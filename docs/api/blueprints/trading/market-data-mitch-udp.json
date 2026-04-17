@@ -1,0 +1,269 @@
+{
+  "feature": "market-data-mitch-udp",
+  "version": "1.0.0",
+  "description": "MITCH binary protocol over UDP multicast delivering full order-book tick-by-tick market data",
+  "category": "trading",
+  "tags": [
+    "market-data",
+    "mitch",
+    "udp",
+    "multicast",
+    "l2",
+    "order-book",
+    "real-time"
+  ],
+  "aliases": [
+    "mitch-feed",
+    "mitch-udp",
+    "l2-order-book-feed",
+    "market-data-mitch",
+    "order-book-mitch"
+  ],
+  "fields": [
+    {
+      "name": "symbol",
+      "type": "text",
+      "required": true,
+      "label": "Symbol"
+    },
+    {
+      "name": "message_type",
+      "type": "select",
+      "required": true,
+      "label": "Message Type (Add, Execute, Cancel, Trade, etc)"
+    },
+    {
+      "name": "order_id",
+      "type": "text",
+      "required": false,
+      "label": "Order Reference"
+    },
+    {
+      "name": "quantity",
+      "type": "number",
+      "required": false,
+      "label": "Quantity"
+    },
+    {
+      "name": "price",
+      "type": "number",
+      "required": false,
+      "label": "Price"
+    }
+  ],
+  "rules": {
+    "session": {
+      "multicast_subscription": "Client must subscribe to UDP multicast channel per product",
+      "sequence_gap_detection": "Gaps in sequence numbers trigger snapshot recovery",
+      "snapshot_recovery": "Client sends TCP request to snapshot server on gap"
+    }
+  },
+  "outcomes": {
+    "subscribe_feed": {
+      "priority": 1,
+      "description": "Client subscribes to market data multicast channel",
+      "given": [
+        {
+          "field": "symbol",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "feed.subscribed"
+        }
+      ]
+    },
+    "receive_tick": {
+      "priority": 2,
+      "description": "Market data message received (add, execute, cancel, trade)",
+      "given": [
+        {
+          "field": "message_type",
+          "source": "system",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "tick.received"
+        }
+      ]
+    },
+    "gap_recovery": {
+      "priority": 3,
+      "description": "Sequence gap detected; request snapshot recovery",
+      "given": [
+        {
+          "field": "sequence_gap",
+          "source": "system",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "snapshot_server"
+        },
+        {
+          "action": "emit_event",
+          "event": "recovery.snapshot_requested"
+        }
+      ]
+    }
+  },
+  "errors": [
+    {
+      "code": "SEQUENCE_GAP",
+      "status": 409,
+      "message": "Sequence gap detected in market data"
+    },
+    {
+      "code": "SNAPSHOT_UNAVAILABLE",
+      "status": 503,
+      "message": "Snapshot server unavailable"
+    }
+  ],
+  "events": [
+    {
+      "name": "feed.subscribed",
+      "payload": [
+        "symbol",
+        "channel",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "tick.received",
+      "payload": [
+        "symbol",
+        "message_type",
+        "order_id",
+        "price",
+        "quantity"
+      ]
+    },
+    {
+      "name": "recovery.snapshot_requested",
+      "payload": [
+        "symbol",
+        "last_sequence_received"
+      ]
+    }
+  ],
+  "extensions": {
+    "message_layouts": {
+      "SYSTEM_EVENT": [
+        {
+          "name": "MessageType",
+          "offset": 0,
+          "length": 1,
+          "type": "char"
+        },
+        {
+          "name": "EventCode",
+          "offset": 1,
+          "length": 1,
+          "type": "char"
+        }
+      ],
+      "ADD_ORDER": [
+        {
+          "name": "MessageType",
+          "offset": 0,
+          "length": 1,
+          "type": "char"
+        },
+        {
+          "name": "OrderID",
+          "offset": 1,
+          "length": 8,
+          "type": "integer"
+        },
+        {
+          "name": "Side",
+          "offset": 9,
+          "length": 1,
+          "type": "char"
+        },
+        {
+          "name": "Quantity",
+          "offset": 10,
+          "length": 4,
+          "type": "integer"
+        },
+        {
+          "name": "Price",
+          "offset": 14,
+          "length": 8,
+          "type": "decimal"
+        }
+      ],
+      "ORDER_EXECUTED": [
+        {
+          "name": "MessageType",
+          "offset": 0,
+          "length": 1,
+          "type": "char"
+        },
+        {
+          "name": "OrderID",
+          "offset": 1,
+          "length": 8,
+          "type": "integer"
+        },
+        {
+          "name": "ExecutedQuantity",
+          "offset": 9,
+          "length": 4,
+          "type": "integer"
+        },
+        {
+          "name": "ExecutionID",
+          "offset": 13,
+          "length": 8,
+          "type": "integer"
+        }
+      ]
+    },
+    "feed_topics": [
+      {
+        "symbol_group": "equity_main",
+        "channel": "udp_multicast_1",
+        "frequency": "tick_by_tick"
+      },
+      {
+        "symbol_group": "derivatives",
+        "channel": "udp_multicast_2",
+        "frequency": "tick_by_tick"
+      }
+    ],
+    "system_event_codes": [
+      {
+        "code": "O",
+        "name": "StartOfDay"
+      },
+      {
+        "code": "C",
+        "name": "EndOfDay"
+      },
+      {
+        "code": "H",
+        "name": "Halt"
+      },
+      {
+        "code": "R",
+        "name": "Resume"
+      }
+    ]
+  },
+  "related": [
+    {
+      "feature": "reference-data-management",
+      "type": "required"
+    }
+  ]
+}

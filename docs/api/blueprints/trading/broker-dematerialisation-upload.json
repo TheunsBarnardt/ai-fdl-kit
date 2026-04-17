@@ -1,7 +1,7 @@
 {
   "feature": "broker-dematerialisation-upload",
-  "version": "1.0.0",
-  "description": "Broker dematerialisation (DEMAT) position upload to central back-office via fixed-width card code file with automated submission, error reporting, and response codes",
+  "version": "1.1.0",
+  "description": "Bulk dematerialisation upload from broker to back-office via fixed-width card-code file, validating paper certificates against the register and routing holdings to the central depository",
   "category": "trading",
   "tags": [
     "back-office",
@@ -11,7 +11,9 @@
     "dematerialisation",
     "positions",
     "card-codes",
-    "fixed-width"
+    "fixed-width",
+    "certificate-register",
+    "central-depository"
   ],
   "actors": [
     {
@@ -25,10 +27,14 @@
       "type": "system"
     },
     {
-      "id": "csdp",
-      "name": "Central Security Depository Participant",
-      "type": "external",
-      "description": "CSDP holding dematerialised positions"
+      "id": "central_depository",
+      "name": "Central Securities Depository",
+      "type": "external"
+    },
+    {
+      "id": "certificate_registrar",
+      "name": "Physical Certificate Registrar",
+      "type": "external"
     }
   ],
   "fields": [
@@ -51,111 +57,158 @@
       "label": "Upload Date"
     },
     {
-      "name": "account_number",
+      "name": "upload_time",
       "type": "text",
       "required": true,
-      "label": "Account Number"
+      "label": "Upload Time"
     },
     {
-      "name": "instrument_code",
+      "name": "sequence_prefix",
       "type": "text",
       "required": true,
-      "label": "Instrument Code"
+      "label": "Sequence Prefix"
     },
     {
-      "name": "isin",
+      "name": "sequence_number",
       "type": "text",
-      "required": false,
-      "label": "Isin"
+      "required": true,
+      "label": "Sequence Number"
     },
     {
-      "name": "demat_quantity",
+      "name": "account_code",
+      "type": "text",
+      "required": true,
+      "label": "Account Code"
+    },
+    {
+      "name": "account_type",
+      "type": "select",
+      "required": true,
+      "label": "Account Type",
+      "options": [
+        {
+          "value": "C",
+          "label": "Controlled Client"
+        }
+      ]
+    },
+    {
+      "name": "instrument_type",
+      "type": "select",
+      "required": true,
+      "label": "Instrument Type",
+      "options": [
+        {
+          "value": "E",
+          "label": "Electronically Settled"
+        }
+      ]
+    },
+    {
+      "name": "instrument_alpha",
+      "type": "text",
+      "required": true,
+      "label": "Instrument Alpha"
+    },
+    {
+      "name": "instrument_version",
+      "type": "text",
+      "required": true,
+      "label": "Instrument Version"
+    },
+    {
+      "name": "share_quantity",
       "type": "number",
       "required": true,
-      "label": "Demat Quantity"
+      "label": "Share Quantity"
     },
     {
-      "name": "csdp_account_number",
-      "type": "text",
-      "required": false,
-      "label": "Csdp Account Number"
-    },
-    {
-      "name": "csdp_code",
-      "type": "text",
-      "required": false,
-      "label": "Csdp Code"
-    },
-    {
-      "name": "effective_date",
-      "type": "date",
-      "required": false,
-      "label": "Effective Date"
-    },
-    {
-      "name": "reference_number",
-      "type": "text",
-      "required": false,
-      "label": "Reference Number"
-    },
-    {
-      "name": "cost_value",
+      "name": "portfolio_cost",
       "type": "number",
       "required": false,
-      "label": "Cost Value"
+      "label": "Portfolio Cost (cents)"
     },
     {
-      "name": "market_value",
+      "name": "demat_request_type",
+      "type": "select",
+      "required": true,
+      "label": "Demat Request Type",
+      "options": [
+        {
+          "value": "D",
+          "label": "Deposit (paper -> electronic)"
+        },
+        {
+          "value": "W",
+          "label": "Withdrawal (electronic -> paper)"
+        },
+        {
+          "value": "T",
+          "label": "Transfer (depository-to-depository)"
+        }
+      ]
+    },
+    {
+      "name": "certificate_number",
+      "type": "text",
+      "required": false,
+      "label": "Physical Certificate Number"
+    },
+    {
+      "name": "certificate_destroyed",
+      "type": "boolean",
+      "required": false,
+      "label": "Physical Certificate Destruction Confirmed"
+    },
+    {
+      "name": "total_records",
+      "type": "number",
+      "required": true,
+      "label": "Total Records"
+    },
+    {
+      "name": "records_processed",
       "type": "number",
       "required": false,
-      "label": "Market Value"
+      "label": "Records Processed"
     },
     {
-      "name": "position_type",
-      "type": "select",
-      "required": false,
-      "label": "Position Type"
-    },
-    {
-      "name": "pledge_indicator",
-      "type": "select",
-      "required": false,
-      "label": "Pledge Indicator"
-    },
-    {
-      "name": "restriction_indicator",
-      "type": "select",
-      "required": false,
-      "label": "Restriction Indicator"
-    },
-    {
-      "name": "record_count",
+      "name": "records_rejected",
       "type": "number",
       "required": false,
-      "label": "Record Count"
+      "label": "Records Rejected"
     }
   ],
   "rules": {
     "subscription": [
-      "MUST: Require broker subscription to DEMAT upload service before use"
+      "MUST: Require broker subscription before enabling DEMAT upload service"
     ],
     "processing": [
-      "MUST: Apply defined processing rules to every uploaded record",
-      "MUST: Validate CSDP account and code references",
-      "MUST: Reject records with invalid instrument or account references"
+      "MUST: Only accept positions on accounts of type C (controlled client)",
+      "MUST: Only accept electronically settled instruments",
+      "MUST: Only create new positions (no closing of positions via upload)",
+      "MUST: Exclude non-dematerialised scrip",
+      "MUST: Apply PFV cost only when provided (no actual/average calculation)",
+      "MUST: Update position only when all field validations pass",
+      "MUST: Validate paper certificate numbers against the physical certificate register before deposit",
+      "MUST: Require confirmation of physical certificate destruction before electronic holding is created"
     ],
     "submission": [
-      "MUST: Support automated upload submission via FTP",
-      "MUST: Configure email addresses for response notifications",
-      "MUST: Provide error reporting via COMPR and PCOMPR functions",
-      "MUST: Generate response dataset with per-record status and response codes",
-      "MUST: Archive processed upload files"
+      "MUST: Support automated FTP submission and auto-dispatch of processing batch",
+      "MUST: Allow up to 10 response e-mail addresses per broker",
+      "MUST: Produce a response dataset containing each input line annotated with response codes",
+      "MUST: Archive both upload and response files on a rolling cycle"
     ],
     "format": [
-      "MUST: Use fixed-width card code record format",
-      "MUST: Start file with Header Record (Card Code 000)",
-      "MUST: End file with Trailer Record (Card Code 999)",
-      "MUST: Use Card Code 030 for demat share position records"
+      "MUST: Use fixed-width card-code record format, total record length 100",
+      "MUST: Begin each file with Header Record (Card Code 000)",
+      "MUST: End each file with Trailer Record (Card Code 999)",
+      "MUST: Use Card Code 030 for DEMAT share upload records",
+      "MUST: Reject entire file if trailer record is missing, duplicated, or totals mismatch"
+    ],
+    "audit": [
+      "MUST: Maintain immutable audit trail of every demat request, validation outcome and depository routing",
+      "MUST: Link each electronic holding back to the originating certificate number and destruction evidence"
     ]
   },
   "errors": [
@@ -165,19 +218,39 @@
       "message": "Broker not subscribed to DEMAT upload service"
     },
     {
-      "code": "DEMAT_UPLOAD_INVALID_CSDP",
+      "code": "DEMAT_UPLOAD_INVALID_DEPOSITORY_REF",
       "status": 422,
-      "message": "CSDP account or code is invalid"
+      "message": "Central depository account or participant reference is invalid"
     },
     {
       "code": "DEMAT_UPLOAD_INSTRUMENT_NOT_FOUND",
       "status": 422,
-      "message": "Referenced instrument does not exist"
+      "message": "Referenced instrument does not exist or is not electronically settled"
     },
     {
       "code": "DEMAT_UPLOAD_ACCOUNT_NOT_FOUND",
       "status": 422,
-      "message": "Referenced client account does not exist"
+      "message": "Referenced client account does not exist or is not type C"
+    },
+    {
+      "code": "DEMAT_UPLOAD_CERT_NOT_IN_REGISTER",
+      "status": 422,
+      "message": "Physical certificate number not found in certificate register"
+    },
+    {
+      "code": "DEMAT_UPLOAD_CERT_NOT_DESTROYED",
+      "status": 409,
+      "message": "Physical certificate destruction has not been confirmed"
+    },
+    {
+      "code": "DEMAT_UPLOAD_TRAILER_MISMATCH",
+      "status": 422,
+      "message": "Trailer totals do not reconcile to records received"
+    },
+    {
+      "code": "DEMAT_UPLOAD_FILE_REJECTED",
+      "status": 422,
+      "message": "Upload file rejected due to structural error"
     },
     {
       "code": "DEMAT_UPLOAD_PROCESSING_FAILED",
@@ -186,9 +259,28 @@
     }
   ],
   "outcomes": {
-    "automated_demat_upload": {
+    "not_subscribed": {
       "priority": 1,
-      "description": "Broker uploads DEMAT positions via automated FTP",
+      "description": "Broker is not subscribed to the DEMAT upload service",
+      "error": "DEMAT_UPLOAD_NOT_SUBSCRIBED",
+      "given": [
+        {
+          "field": "broker_subscribed",
+          "source": "db",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "demat_upload.not_subscribed"
+        }
+      ]
+    },
+    "automated_demat_upload": {
+      "priority": 2,
+      "description": "Broker uploads a DEMAT file via automated FTP",
       "given": [
         {
           "field": "broker_subscribed",
@@ -210,7 +302,8 @@
           "fields": [
             "broker_code",
             "file_name",
-            "record_count",
+            "total_records",
+            "sequence_number",
             "submission_timestamp"
           ]
         },
@@ -218,30 +311,132 @@
           "action": "emit_event",
           "event": "demat_upload.received"
         }
-      ],
-      "error": "DEMAT_UPLOAD_INVALID_CSDP"
+      ]
     },
-    "not_subscribed": {
-      "priority": 2,
-      "error": "DEMAT_UPLOAD_NOT_SUBSCRIBED",
+    "bulk_demat_deposit": {
+      "priority": 3,
+      "description": "Bulk deposit of paper share certificates converted to electronic holdings",
       "given": [
         {
-          "field": "broker_subscribed",
+          "field": "card_code",
+          "source": "input",
+          "operator": "eq",
+          "value": "030"
+        },
+        {
+          "field": "demat_request_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "D"
+        },
+        {
+          "field": "account_type",
           "source": "db",
+          "operator": "eq",
+          "value": "C"
+        },
+        {
+          "field": "instrument_type",
+          "source": "db",
+          "operator": "eq",
+          "value": "E"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "electronic_holding",
+          "fields": [
+            "account_code",
+            "instrument_alpha",
+            "share_quantity",
+            "portfolio_cost",
+            "certificate_number"
+          ]
+        },
+        {
+          "action": "call_service",
+          "target": "central_depository_router"
+        },
+        {
+          "action": "emit_event",
+          "event": "demat_upload.deposit.created"
+        }
+      ]
+    },
+    "demat_validation_against_cert_register": {
+      "priority": 4,
+      "description": "Validate the paper certificate against the physical certificate register before creating the electronic holding",
+      "given": [
+        {
+          "field": "demat_request_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "D"
+        },
+        {
+          "field": "certificate_number",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "certificate_register_validator"
+        },
+        {
+          "action": "set_field",
+          "target": "certificate_destroyed",
+          "value": true
+        },
+        {
+          "action": "emit_event",
+          "event": "demat_upload.certificate.validated"
+        }
+      ],
+      "error": "DEMAT_UPLOAD_CERT_NOT_IN_REGISTER"
+    },
+    "demat_rejection_handling": {
+      "priority": 5,
+      "description": "Record-level rejection with response code appended to the originating line",
+      "given": [
+        {
+          "field": "record_valid",
+          "source": "computed",
           "operator": "eq",
           "value": false
         }
       ],
       "then": [
         {
+          "action": "set_field",
+          "target": "records_rejected",
+          "value": "records_rejected_plus_1"
+        },
+        {
+          "action": "create_record",
+          "type": "demat_response_line",
+          "fields": [
+            "original_line",
+            "response_code",
+            "error_message"
+          ]
+        },
+        {
+          "action": "notify",
+          "channel": "email"
+        },
+        {
           "action": "emit_event",
-          "event": "demat_upload.not_subscribed"
+          "event": "demat_upload.record.rejected"
         }
-      ]
+      ],
+      "error": "DEMAT_UPLOAD_FILE_REJECTED"
     },
-    "validate_csdp_reference": {
-      "priority": 3,
-      "description": "Validate CSDP account and code on Card Code 030",
+    "validate_depository_reference": {
+      "priority": 6,
+      "description": "Validate central depository account and participant reference",
       "given": [
         {
           "field": "card_code",
@@ -253,24 +448,36 @@
       "then": [
         {
           "action": "call_service",
-          "target": "csdp_validator"
+          "target": "depository_reference_validator"
         },
         {
           "action": "emit_event",
-          "event": "demat_upload.csdp.validated"
+          "event": "demat_upload.depository.validated"
         }
       ]
     },
     "generate_response_dataset": {
-      "priority": 4,
-      "description": "Generate response dataset with per-record response codes",
+      "priority": 7,
+      "description": "Generate response dataset with per-record response codes and totals",
       "given": [
-        "upload processing complete"
+        {
+          "field": "processing_status",
+          "source": "system",
+          "operator": "eq",
+          "value": "completed"
+        }
       ],
       "then": [
         {
           "action": "create_record",
-          "type": "demat_response_dataset"
+          "type": "demat_response_dataset",
+          "fields": [
+            "broker_code",
+            "sequence_number",
+            "total_records",
+            "records_processed",
+            "records_rejected"
+          ]
         },
         {
           "action": "notify",
@@ -283,8 +490,8 @@
       ]
     },
     "archive_upload": {
-      "priority": 5,
-      "description": "Archive processed DEMAT upload",
+      "priority": 8,
+      "description": "Archive processed DEMAT upload and response files on rolling cycle",
       "given": [
         {
           "field": "processing_status",
@@ -309,7 +516,7 @@
     "goals": [
       {
         "id": "reliable_broker_dematerialisation_upload",
-        "description": "Broker dematerialisation (DEMAT) position upload to central back-office via fixed-width card code file with automated submission, error reporting, and response codes",
+        "description": "Bulk dematerialisation upload with certificate-register validation, depository routing, and full audit trail",
         "success_metrics": [
           {
             "metric": "policy_violation_rate",
@@ -320,12 +527,22 @@
             "metric": "audit_completeness",
             "target": "100%",
             "measurement": "All decisions have complete audit trails"
+          },
+          {
+            "metric": "certificate_reconciliation_rate",
+            "target": "100%",
+            "measurement": "Electronic holdings reconciled to destroyed paper certificates"
           }
         ],
         "constraints": [
           {
             "type": "regulatory",
             "description": "All operations must be auditable and traceable",
+            "negotiable": false
+          },
+          {
+            "type": "regulatory",
+            "description": "No electronic holding created without confirmed destruction of paper certificate",
             "negotiable": false
           }
         ]
@@ -334,11 +551,13 @@
     "autonomy": {
       "level": "supervised",
       "human_checkpoints": [
-        "before making irreversible changes"
+        "before making irreversible changes",
+        "before confirming physical certificate destruction"
       ],
       "escalation_triggers": [
         "error_rate > 5",
-        "consecutive_failures > 3"
+        "consecutive_failures > 3",
+        "certificate_register_mismatch"
       ]
     },
     "safety": {
@@ -348,11 +567,15 @@
           "permission": "autonomous"
         },
         {
-          "action": "not_subscribed",
-          "permission": "autonomous"
+          "action": "bulk_demat_deposit",
+          "permission": "supervised"
         },
         {
-          "action": "validate_csdp_reference",
+          "action": "demat_validation_against_cert_register",
+          "permission": "supervised"
+        },
+        {
+          "action": "demat_rejection_handling",
           "permission": "autonomous"
         },
         {
@@ -369,39 +592,360 @@
       {
         "prefer": "accuracy",
         "over": "latency",
-        "reason": "trading operations require precise execution and full audit trails"
+        "reason": "dematerialisation is irreversible once paper certificates are destroyed"
       }
     ],
     "verification": {
       "invariants": [
-        "error messages never expose internal system details"
+        "error messages never expose internal system details",
+        "no electronic holding exists without a matching destroyed certificate reference"
       ]
     }
   },
   "extensions": {
+    "demat_request_types": {
+      "D": {
+        "name": "Deposit",
+        "description": "Paper share certificate lodged and converted to electronic holding"
+      },
+      "W": {
+        "name": "Withdrawal",
+        "description": "Electronic holding converted back to paper certificate"
+      },
+      "T": {
+        "name": "Transfer",
+        "description": "Holding transferred between central depository participants"
+      }
+    },
     "card_codes": {
       "999": {
-        "name": "Trailer Record"
+        "name": "Trailer Record",
+        "purpose": "File trailer - totals and reconciliation counts"
       },
       "000": {
-        "name": "Header Record"
+        "name": "Header Record",
+        "purpose": "File header - broker, date, time, sequence number"
       },
       "030": {
         "name": "Demat Share Upload",
-        "purpose": "Dematerialised share position records"
+        "purpose": "Dematerialised share position record (one per holding)"
       }
     },
+    "record_layouts": {
+      "999": {
+        "description": "Trailer Record (Card Code 999), total length 100",
+        "fields": [
+          {
+            "name": "card_code",
+            "start": 1,
+            "length": 3,
+            "type": "numeric",
+            "end": 3
+          },
+          {
+            "name": "broker_code",
+            "start": 4,
+            "length": 3,
+            "type": "numeric",
+            "end": 6
+          },
+          {
+            "name": "process_date",
+            "start": 7,
+            "length": 8,
+            "type": "numeric",
+            "end": 14
+          },
+          {
+            "name": "process_time",
+            "start": 15,
+            "length": 6,
+            "type": "numeric",
+            "end": 20
+          },
+          {
+            "name": "total_records",
+            "start": 21,
+            "length": 9,
+            "type": "numeric",
+            "end": 29
+          },
+          {
+            "name": "records_processed",
+            "start": 30,
+            "length": 9,
+            "type": "numeric",
+            "end": 38
+          },
+          {
+            "name": "records_rejected",
+            "start": 39,
+            "length": 9,
+            "type": "numeric",
+            "end": 47
+          },
+          {
+            "name": "filler",
+            "start": 48,
+            "length": 53,
+            "type": "character",
+            "end": 100
+          }
+        ]
+      },
+      "000": {
+        "description": "Header Record (Card Code 000), total length 100",
+        "fields": [
+          {
+            "name": "card_code",
+            "start": 1,
+            "length": 3,
+            "type": "numeric",
+            "end": 3
+          },
+          {
+            "name": "broker_code",
+            "start": 4,
+            "length": 3,
+            "type": "numeric",
+            "end": 6
+          },
+          {
+            "name": "upload_date",
+            "start": 7,
+            "length": 8,
+            "type": "numeric",
+            "end": 14
+          },
+          {
+            "name": "upload_time",
+            "start": 15,
+            "length": 6,
+            "type": "numeric",
+            "end": 20
+          },
+          {
+            "name": "sequence_prefix",
+            "start": 21,
+            "length": 1,
+            "type": "character",
+            "end": 21
+          },
+          {
+            "name": "sequence_number",
+            "start": 22,
+            "length": 7,
+            "type": "character",
+            "end": 28
+          },
+          {
+            "name": "filler",
+            "start": 29,
+            "length": 72,
+            "type": "character",
+            "end": 100
+          }
+        ]
+      },
+      "030": {
+        "description": "Demat Share Upload Record (Card Code 030), total length 100",
+        "fields": [
+          {
+            "name": "card_code",
+            "start": 1,
+            "length": 3,
+            "type": "numeric",
+            "end": 3
+          },
+          {
+            "name": "broker_code",
+            "start": 4,
+            "length": 3,
+            "type": "character",
+            "end": 6
+          },
+          {
+            "name": "account_code",
+            "start": 7,
+            "length": 7,
+            "type": "numeric",
+            "end": 13
+          },
+          {
+            "name": "instrument_type",
+            "start": 14,
+            "length": 1,
+            "type": "character",
+            "end": 14
+          },
+          {
+            "name": "instrument_alpha",
+            "start": 15,
+            "length": 6,
+            "type": "character",
+            "end": 20
+          },
+          {
+            "name": "instrument_version",
+            "start": 21,
+            "length": 3,
+            "type": "numeric",
+            "end": 23
+          },
+          {
+            "name": "share_quantity",
+            "start": 24,
+            "length": 11,
+            "type": "numeric",
+            "end": 34
+          },
+          {
+            "name": "portfolio_cost",
+            "start": 35,
+            "length": 15,
+            "type": "numeric",
+            "end": 49
+          },
+          {
+            "name": "filler",
+            "start": 50,
+            "length": 51,
+            "type": "character",
+            "end": 100
+          }
+        ]
+      },
+      "response": {
+        "description": "Response File Record Layout, total length 700",
+        "fields": [
+          {
+            "name": "card_code",
+            "start": 1,
+            "length": 3,
+            "type": "numeric",
+            "end": 3
+          },
+          {
+            "name": "broker_code",
+            "start": 4,
+            "length": 3,
+            "type": "numeric",
+            "end": 6
+          },
+          {
+            "name": "process_date",
+            "start": 7,
+            "length": 8,
+            "type": "numeric",
+            "end": 14
+          },
+          {
+            "name": "process_time",
+            "start": 15,
+            "length": 6,
+            "type": "numeric",
+            "end": 20
+          },
+          {
+            "name": "total_records",
+            "start": 21,
+            "length": 9,
+            "type": "numeric",
+            "end": 29
+          },
+          {
+            "name": "records_processed",
+            "start": 30,
+            "length": 9,
+            "type": "numeric",
+            "end": 38
+          },
+          {
+            "name": "records_rejected",
+            "start": 39,
+            "length": 9,
+            "type": "numeric",
+            "end": 47
+          },
+          {
+            "name": "filler",
+            "start": 48,
+            "length": 653,
+            "type": "character",
+            "end": 700
+          },
+          {
+            "name": "count_of_msgs_for_line",
+            "start": 701,
+            "length": 3,
+            "type": "numeric",
+            "end": 703
+          },
+          {
+            "name": "error_message",
+            "start": 704,
+            "length": 50,
+            "type": "character",
+            "end": 753
+          }
+        ]
+      }
+    },
+    "response_codes": {
+      "000": "Successfully updated",
+      "001": "Invalid Card Code Number",
+      "002": "Card Code Number required",
+      "003": "Invalid Broker Code",
+      "004": "Broker Code required",
+      "005": "Invalid Upload Type",
+      "006": "Upload Type required",
+      "007": "Invalid Account Code",
+      "008": "Account Code required",
+      "009": "Invalid Account Type - must be C only",
+      "010": "Instrument Type required",
+      "011": "Instrument Alpha required",
+      "012": "Instrument Version required",
+      "013": "Invalid Instrument Type",
+      "014": "Invalid Instrument Alpha",
+      "015": "Invalid Instrument Version",
+      "016": "Invalid Share Qty",
+      "017": "Share Qty required",
+      "018": "Share Qty must be preceded by a valid sign",
+      "019": "Invalid Portfolio Cost",
+      "020": "Portfolio Cost must be preceded by a valid sign",
+      "021": "Portfolio Cost must have valid decimals",
+      "022": "Instrument not electronically settled",
+      "023": "Member cannot process Controlled clients",
+      "024": "No trailer record - file rejected",
+      "025": "Technical error - no changes were applied"
+    },
+    "file_rejection_reasons": [
+      "RECORD RECEIVED AFTER TRAILER",
+      "DUPLICATE TRAILER RECEIVED",
+      "BRK CDE NOT SAME AS HDR",
+      "TRAILER REC TOTAL NOT SAME AS RECS SENT",
+      "TRAILER NOT RECEIVED"
+    ],
     "workflow": [
       "1. Broker subscription to DEMAT upload service",
-      "2. Email address set-up",
-      "3. Upload file creation per Card Code 030",
-      "4. FTP submission",
-      "5. Processing with validation rules",
-      "6. Response dataset with response codes",
-      "7. Archiving"
+      "2. Email address set-up (up to 10 addresses)",
+      "3. Paper certificate lodged with registrar and listed on upload",
+      "4. Fixed-width file built per Card Code 030 layout",
+      "5. FTP submission triggers batch processing",
+      "6. Validation against certificate register and depository reference data",
+      "7. Confirmation of physical certificate destruction",
+      "8. Electronic holding created and routed to central depository",
+      "9. Response dataset generated with per-line response codes",
+      "10. Archiving of upload and response files"
     ],
     "submission_methods": [
       "Automated FTP upload"
+    ],
+    "audit_trail": [
+      "Every input record retained with response code annotation",
+      "Certificate register lookup logged with operator, timestamp and outcome",
+      "Destruction confirmation retained against the resulting electronic holding",
+      "Depository routing message id stored against the holding"
     ]
   },
   "related": [

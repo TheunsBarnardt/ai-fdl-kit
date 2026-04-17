@@ -385,7 +385,7 @@ Any blueprint containing `sk-...`, `AKIA...`, `ghp_...`, connection strings, or 
 
 ## AGI-Ready Layer
 
-All 443 blueprints include an `agi` section for autonomous agents:
+All 458 blueprints include an `agi` section for autonomous agents:
 
 ```yaml
 agi:

@@ -1,0 +1,348 @@
+{
+  "feature": "itac-corporate-actions",
+  "version": "1.0.0",
+  "description": "ITaC consensus guidance on dividend, rights, scheme of arrangement, and corporate action processing",
+  "category": "trading",
+  "tags": [
+    "itac",
+    "corporate-actions",
+    "dividend",
+    "rights",
+    "scheme",
+    "consensus-rules"
+  ],
+  "aliases": [
+    "itac-ca-guidance",
+    "itac-ca-processing",
+    "itac-dividend-guidance",
+    "itac-rights-guidance",
+    "ca-processing-consensus"
+  ],
+  "actors": [
+    {
+      "id": "issuer_ca_team",
+      "name": "Issuer Corporate Actions Team",
+      "type": "human"
+    },
+    {
+      "id": "ca_processing_system",
+      "name": "CA Processing System",
+      "type": "system"
+    },
+    {
+      "id": "custodian",
+      "name": "Custodian / CSDP",
+      "type": "system"
+    },
+    {
+      "id": "central_registry",
+      "name": "Central Share Registry",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "ca_event_id",
+      "type": "text",
+      "required": true,
+      "label": "Corporate Action Event ID"
+    },
+    {
+      "name": "issuer_code",
+      "type": "text",
+      "required": true,
+      "label": "Issuer Code"
+    },
+    {
+      "name": "ca_type",
+      "type": "select",
+      "required": true,
+      "label": "CA Type (Dividend, Rights, Scheme, Takeover, Capitalisation)"
+    },
+    {
+      "name": "record_date",
+      "type": "date",
+      "required": true,
+      "label": "Record Date (entitlement snapshot)"
+    },
+    {
+      "name": "payment_date",
+      "type": "date",
+      "required": false,
+      "label": "Payment/Settlement Date"
+    },
+    {
+      "name": "election_deadline",
+      "type": "datetime",
+      "required": false,
+      "label": "Election Deadline (for voluntary events)"
+    },
+    {
+      "name": "default_election",
+      "type": "select",
+      "required": false,
+      "label": "Default Election (if shareholder does not elect)"
+    }
+  ],
+  "rules": {
+    "dividend": {
+      "record_date_cutoff": "Holders as at record date entitled to dividend; no trading settlement post-RD applies",
+      "payment_date_posting": "Cash payments must be posted by payment date; dividends cannot be delayed",
+      "tax_withholding": "System must apply applicable tax withholding per issuer and holder jurisdiction"
+    },
+    "rights": {
+      "rights_allocation": "Rights allocated 1:n per holding as at record date",
+      "rights_exercise_deadline": "Exercise deadline minimum 3 weeks from announcement",
+      "unexercised_lapse": "Unexercised rights lapse automatically after deadline; no further entitlement"
+    },
+    "scheme": {
+      "scheme_date": "Scheme effective date determines when old shares cancelled and new shares issued",
+      "exchange_ratio": "Fixed exchange ratio (e.g. 1 old for 2 new) applied to all holdings",
+      "takeover_compulsory": "Compulsory takeover ratio enforced for minority shareholders if threshold met"
+    }
+  },
+  "outcomes": {
+    "publish_ca_event": {
+      "priority": 1,
+      "description": "Issuer announces corporate action event",
+      "given": [
+        {
+          "field": "ca_type",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "ca.announced"
+        }
+      ]
+    },
+    "calculate_entitlements": {
+      "priority": 2,
+      "description": "Calculate per-holder entitlement based on record date holdings",
+      "given": [
+        {
+          "field": "record_date",
+          "source": "system",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "entitlements.calculated"
+        }
+      ]
+    },
+    "process_dividend": {
+      "priority": 3,
+      "description": "Process dividend payment with tax withholding",
+      "given": [
+        {
+          "field": "ca_type",
+          "source": "system",
+          "operator": "eq",
+          "value": "dividend"
+        },
+        {
+          "field": "payment_date",
+          "source": "system",
+          "operator": "lte",
+          "value": "today"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "central_registry"
+        },
+        {
+          "action": "emit_event",
+          "event": "dividend.processed"
+        }
+      ],
+      "error": "DIVIDEND_PROCESSING_FAILED"
+    },
+    "apply_scheme": {
+      "priority": 4,
+      "description": "Apply scheme of arrangement (cancel old shares, issue new shares)",
+      "given": [
+        {
+          "field": "ca_type",
+          "source": "system",
+          "operator": "eq",
+          "value": "scheme"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "central_registry"
+        },
+        {
+          "action": "emit_event",
+          "event": "scheme.applied"
+        }
+      ]
+    }
+  },
+  "errors": [
+    {
+      "code": "DIVIDEND_PROCESSING_FAILED",
+      "status": 500,
+      "message": "Dividend payment processing failed"
+    },
+    {
+      "code": "RIGHTS_EXERCISE_DEADLINE_MISSED",
+      "status": 409,
+      "message": "Rights exercise deadline has passed"
+    },
+    {
+      "code": "SCHEME_EFFECTIVE_DATE_INVALID",
+      "status": 400,
+      "message": "Scheme effective date must be after record date"
+    }
+  ],
+  "events": [
+    {
+      "name": "ca.announced",
+      "payload": [
+        "ca_event_id",
+        "ca_type",
+        "issuer_code",
+        "record_date"
+      ]
+    },
+    {
+      "name": "entitlements.calculated",
+      "payload": [
+        "ca_event_id",
+        "holder_count",
+        "total_entitlement"
+      ]
+    },
+    {
+      "name": "dividend.processed",
+      "payload": [
+        "ca_event_id",
+        "dividend_per_share",
+        "tax_rate",
+        "payment_date"
+      ]
+    },
+    {
+      "name": "scheme.applied",
+      "payload": [
+        "ca_event_id",
+        "exchange_ratio",
+        "effective_date"
+      ]
+    }
+  ],
+  "extensions": {
+    "ca_types": [
+      {
+        "code": "DIV",
+        "name": "Dividend",
+        "subtypes": [
+          "Cash",
+          "Scrip"
+        ]
+      },
+      {
+        "code": "RTS",
+        "name": "Rights Issue",
+        "subtypes": [
+          "Renounceable",
+          "NonRenounceable"
+        ]
+      },
+      {
+        "code": "SCH",
+        "name": "Scheme of Arrangement",
+        "subtypes": [
+          "Merger",
+          "Takeover",
+          "Reconstruction"
+        ]
+      },
+      {
+        "code": "TKO",
+        "name": "Takeover",
+        "subtypes": [
+          "Offer",
+          "Compulsory"
+        ]
+      },
+      {
+        "code": "CAP",
+        "name": "Capitalisation",
+        "subtypes": [
+          "BonusIssue",
+          "StockSplit"
+        ]
+      }
+    ],
+    "dividend_rules": [
+      {
+        "rule": "Interim dividend may be paid before end of financial year"
+      },
+      {
+        "rule": "Final dividend typically declared after year-end results"
+      },
+      {
+        "rule": "Dividend reinvestment plans (DRIP) must be offered per listing rules"
+      }
+    ],
+    "tax_withholding": [
+      {
+        "jurisdiction": "ZA",
+        "resident_rate": 0.2,
+        "non_resident_rate": 0.25
+      },
+      {
+        "jurisdiction": "US",
+        "resident_rate": 0.15,
+        "non_resident_rate": 0.3
+      }
+    ],
+    "rights_processing": [
+      {
+        "step": 1,
+        "action": "Calculate entitlement ratio per holding"
+      },
+      {
+        "step": 2,
+        "action": "Publish rights prospectus and exercise instructions"
+      },
+      {
+        "step": 3,
+        "action": "Accept rights exercises until deadline"
+      },
+      {
+        "step": 4,
+        "action": "Cancel unexercised rights"
+      },
+      {
+        "step": 5,
+        "action": "Allot new shares to exercised rights"
+      }
+    ]
+  },
+  "related": [
+    {
+      "feature": "broker-ca-election-download",
+      "type": "required"
+    },
+    {
+      "feature": "broker-ca-election-upload",
+      "type": "required"
+    },
+    {
+      "feature": "reference-data-management",
+      "type": "required"
+    }
+  ]
+}

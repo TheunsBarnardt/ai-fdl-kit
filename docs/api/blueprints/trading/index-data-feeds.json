@@ -1,0 +1,339 @@
+{
+  "feature": "index-data-feeds",
+  "version": "1.0.0",
+  "description": "Real-time index calculation and dissemination (equity indices, sector indices, style indices, thematic indices)",
+  "category": "trading",
+  "tags": [
+    "indices",
+    "index-data",
+    "market-barometer",
+    "performance-tracking",
+    "real-time-calc"
+  ],
+  "aliases": [
+    "index-feeds",
+    "equity-indices",
+    "index-calculation",
+    "index-dissemination",
+    "market-indices"
+  ],
+  "actors": [
+    {
+      "id": "index_committee",
+      "name": "Index Committee",
+      "type": "human"
+    },
+    {
+      "id": "index_calculation_engine",
+      "name": "Index Calculation Engine",
+      "type": "system"
+    },
+    {
+      "id": "data_vendor",
+      "name": "Data Vendor / Index Provider",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "index_code",
+      "type": "text",
+      "required": true,
+      "label": "Index Code (e.g. ALSI, TOP40, FINI, RAFI)"
+    },
+    {
+      "name": "index_name",
+      "type": "text",
+      "required": true,
+      "label": "Index Name"
+    },
+    {
+      "name": "index_type",
+      "type": "select",
+      "required": true,
+      "label": "Type (Equity, Sector, Style, Thematic, Factor)"
+    },
+    {
+      "name": "base_date",
+      "type": "date",
+      "required": true,
+      "label": "Base Date (index inception)"
+    },
+    {
+      "name": "base_level",
+      "type": "number",
+      "required": true,
+      "label": "Base Level (starting point, typically 1000 or 10000)"
+    },
+    {
+      "name": "constituent_count",
+      "type": "number",
+      "required": false,
+      "label": "Number of Constituents"
+    },
+    {
+      "name": "current_level",
+      "type": "number",
+      "required": true,
+      "label": "Current Index Level"
+    },
+    {
+      "name": "change_pct",
+      "type": "number",
+      "required": false,
+      "label": "Change (%) from prior close"
+    }
+  ],
+  "rules": {
+    "calculation": {
+      "constituent_selection": "Constituents selected per published methodology (market cap, liquidity, sector weights)",
+      "weighting": "Indices are typically market-cap weighted or equal-weighted per methodology",
+      "rebalance": "Rebalancing frequency defined per index (quarterly, semi-annual, annual)",
+      "corporate_actions": "Index adjusted for splits, dividends (price-return vs total-return variants)"
+    },
+    "dissemination": {
+      "real_time": "Index levels calculated and disseminated in real-time during trading hours",
+      "calculation_frequency": "Indices updated at least every 5 seconds during trading",
+      "price_source": "Index prices sourced from latest traded/quoted prices only"
+    },
+    "variants": {
+      "price_return": "Excludes dividend income; tracks pure price appreciation",
+      "total_return": "Includes reinvested dividends; shows total investor return"
+    }
+  },
+  "outcomes": {
+    "calculate_index_level": {
+      "priority": 1,
+      "description": "Calculate current index level from constituent prices",
+      "given": [
+        {
+          "field": "constituent_count",
+          "source": "system",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "index_calculation_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "index.calculated"
+        }
+      ]
+    },
+    "disseminate_index_data": {
+      "priority": 2,
+      "description": "Disseminate index level and analytics to subscribers",
+      "given": [
+        {
+          "field": "current_level",
+          "source": "system",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "index.disseminated"
+        }
+      ]
+    },
+    "rebalance_constituents": {
+      "priority": 3,
+      "description": "Perform periodic rebalancing of index constituents",
+      "given": [
+        {
+          "field": "rebalance_frequency",
+          "source": "system",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "index.rebalanced"
+        }
+      ]
+    },
+    "adjust_corporate_action": {
+      "priority": 4,
+      "description": "Adjust index for corporate actions (splits, special dividends)",
+      "given": [
+        {
+          "field": "ca_type",
+          "source": "system",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "index.adjusted"
+        }
+      ]
+    }
+  },
+  "errors": [
+    {
+      "code": "INDEX_CALCULATION_FAILED",
+      "status": 500,
+      "message": "Index level calculation failed"
+    },
+    {
+      "code": "CONSTITUENT_DATA_MISSING",
+      "status": 400,
+      "message": "Missing price data for one or more constituents"
+    }
+  ],
+  "events": [
+    {
+      "name": "index.calculated",
+      "payload": [
+        "index_code",
+        "current_level",
+        "change_pct",
+        "calculation_time"
+      ]
+    },
+    {
+      "name": "index.disseminated",
+      "payload": [
+        "index_code",
+        "current_level",
+        "subscribers_count"
+      ]
+    },
+    {
+      "name": "index.rebalanced",
+      "payload": [
+        "index_code",
+        "rebalance_date",
+        "constituent_changes"
+      ]
+    },
+    {
+      "name": "index.adjusted",
+      "payload": [
+        "index_code",
+        "adjustment_reason",
+        "adjustment_factor"
+      ]
+    }
+  ],
+  "extensions": {
+    "index_families": [
+      {
+        "family": "Headline",
+        "indices": [
+          "ALSI",
+          "TOP40",
+          "FINI40",
+          "RAFI40"
+        ]
+      },
+      {
+        "family": "Sector",
+        "indices": [
+          "Financial",
+          "Industrial",
+          "Resource",
+          "Technology"
+        ]
+      },
+      {
+        "family": "Style",
+        "indices": [
+          "Value",
+          "Growth",
+          "MomentumSmallCap"
+        ]
+      },
+      {
+        "family": "Thematic",
+        "indices": [
+          "SustainabilityIndex",
+          "ClimateAwareIndex"
+        ]
+      },
+      {
+        "family": "Factor",
+        "indices": [
+          "DividendYield",
+          "LowVolatility",
+          "Quality"
+        ]
+      }
+    ],
+    "calculation_rules": {
+      "market_cap_weight": "Weight = (Constituent Market Cap) / (Sum of All Market Caps)",
+      "equal_weight": "Weight = 1 / (Number of Constituents)",
+      "float_adjusted": "Weight based on free-float market cap (excludes locked-up shares)",
+      "capped_weight": "Maximum weight per constituent (e.g., 10% cap per large-cap)"
+    },
+    "corporate_action_adjustments": [
+      {
+        "event": "StockSplit",
+        "adjustment": "Divisor change to maintain index continuity"
+      },
+      {
+        "event": "RightsIssue",
+        "adjustment": "Price adjustment for dilution"
+      },
+      {
+        "event": "Dividend",
+        "adjustment": "For total-return variant; price-return unaffected"
+      },
+      {
+        "event": "Delisting",
+        "adjustment": "Constituent removed; reweight remaining"
+      }
+    ],
+    "dissemination_schedule": [
+      {
+        "frequency": "real_time",
+        "interval_sec": 5,
+        "trading_hours_only": true
+      },
+      {
+        "frequency": "eod",
+        "time": "17:00",
+        "publication_time": "17:15"
+      },
+      {
+        "frequency": "historical",
+        "granularity": "daily"
+      }
+    ],
+    "index_variants": [
+      {
+        "variant": "price_return",
+        "description": "Excludes dividends"
+      },
+      {
+        "variant": "total_return",
+        "description": "Includes reinvested dividends"
+      },
+      {
+        "variant": "gross_return",
+        "description": "Before withholding tax"
+      },
+      {
+        "variant": "net_return",
+        "description": "After withholding tax"
+      }
+    ]
+  },
+  "related": [
+    {
+      "feature": "reference-data-management",
+      "type": "required"
+    },
+    {
+      "feature": "market-data-mitch-udp",
+      "type": "recommended"
+    }
+  ]
+}
