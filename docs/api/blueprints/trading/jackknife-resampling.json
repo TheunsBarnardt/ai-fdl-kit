@@ -1,0 +1,324 @@
+{
+  "feature": "jackknife-resampling",
+  "version": "1.0.0",
+  "description": "Apply the jackknife leave-one-out resampling technique — systematically excluding one observation at a time to estimate the bias and standard error of a statistic without parametric assumptions",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "resampling",
+    "jackknife",
+    "leave-one-out",
+    "bias-correction",
+    "standard-error",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "jackknife",
+    "leave-one-out",
+    "loo",
+    "jackknife-estimator",
+    "tukey-jackknife",
+    "bias-correction-resampling"
+  ],
+  "actors": [
+    {
+      "id": "simulation_engine",
+      "name": "Resampling Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "observed_sample",
+      "type": "json",
+      "required": true,
+      "label": "Array of n observations"
+    },
+    {
+      "name": "statistic",
+      "type": "select",
+      "required": true,
+      "label": "mean | median | variance | std_dev | correlation | custom"
+    },
+    {
+      "name": "compute",
+      "type": "select",
+      "required": false,
+      "label": "bias | standard_error | confidence_interval | all"
+    }
+  ],
+  "rules": {
+    "core_mechanics": {
+      "process": "Construct n leave-one-out subsamples by omitting each observation in turn; compute the statistic on each",
+      "without_replacement": "Each jackknife subsample has size n-1 with one unique observation removed (NOT random resampling)",
+      "deterministic": "Unlike bootstrap, jackknife produces the same result every run for a given sample"
+    },
+    "key_formulas": {
+      "jackknife_replicates": "theta_hat_(i) = statistic applied to sample with observation i removed",
+      "jackknife_mean": "theta_hat_mean = (1/n) * sum_i theta_hat_(i)",
+      "bias_estimate": "bias_jack = (n - 1) * (theta_hat_mean - theta_hat_full)",
+      "bias_corrected": "theta_hat_BC = theta_hat_full - bias_jack = n*theta_hat_full - (n-1)*theta_hat_mean",
+      "jackknife_variance": "Var_jack = ((n-1)/n) * sum_i (theta_hat_(i) - theta_hat_mean)^2",
+      "jackknife_se": "SE_jack = sqrt(Var_jack)"
+    },
+    "differences_vs_bootstrap": {
+      "sampling": {
+        "bootstrap": "Random sampling WITH replacement; produces B random resamples",
+        "jackknife": "Deterministic leave-one-out; produces exactly n subsamples"
+      },
+      "coverage": {
+        "bootstrap": "Samples entire subset space stochastically",
+        "jackknife": "Visits only n of the 2^n possible subsets"
+      },
+      "purpose": {
+        "bootstrap": "Sampling distribution approximation; complex CIs",
+        "jackknife": "Simple bias and variance estimation; computationally cheap"
+      }
+    },
+    "strengths": {
+      "bias_reduction": "Directly targets and removes the leading-order bias of the estimator",
+      "computational_efficiency": "Only n evaluations required vs thousands for bootstrap",
+      "deterministic_reproducibility": "Identical output each run; no random seeds"
+    },
+    "limitations": {
+      "statistic_smoothness": "Fails for non-smooth statistics such as the median or quantiles",
+      "less_accurate_se": "Typically less accurate standard errors than bootstrap",
+      "assumes_small_perturbation": "Leave-one-out approximates infinitesimal perturbation; breaks down for influential observations"
+    },
+    "applications": {
+      "factor_model_bias": "Jackknife alpha/beta estimates across holdings",
+      "sharpe_ratio_uncertainty": "Jackknife SE of Sharpe ratio using historical returns",
+      "credit_model_validation": "Leave-one-firm-out stability testing of scoring models",
+      "outlier_diagnosis": "Large theta_hat_(i) - theta_hat_full indicates influential observation i"
+    },
+    "validation": {
+      "sample_size": "n >= 3 (need at least one observation to remove and still estimate)",
+      "statistic_smoothness": "Warn if statistic is known to be non-smooth (e.g., median)"
+    }
+  },
+  "outcomes": {
+    "run_jackknife": {
+      "priority": 1,
+      "description": "Execute n leave-one-out replicates and aggregate",
+      "given": [
+        {
+          "field": "observed_sample",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "sample_size",
+          "source": "computed",
+          "operator": "gte",
+          "value": 3
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "simulation_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "simulation.jackknife_completed"
+        }
+      ]
+    },
+    "compute_bias_correction": {
+      "priority": 2,
+      "description": "Apply jackknife bias correction to the full-sample statistic",
+      "given": [
+        {
+          "field": "compute",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "bias",
+            "all"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "simulation_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "simulation.jackknife_bias_corrected"
+        }
+      ]
+    },
+    "small_sample": {
+      "priority": 10,
+      "description": "n < 3 — jackknife undefined",
+      "given": [
+        {
+          "field": "sample_size",
+          "source": "computed",
+          "operator": "lt",
+          "value": 3
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "simulation.jackknife_rejected"
+        }
+      ],
+      "error": "JACKKNIFE_SAMPLE_TOO_SMALL"
+    },
+    "non_smooth_statistic": {
+      "priority": 11,
+      "description": "Statistic is known to be non-smooth; jackknife unreliable",
+      "given": [
+        {
+          "field": "statistic",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "median",
+            "quantile"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "simulation.jackknife_warning"
+        }
+      ]
+    }
+  },
+  "errors": [
+    {
+      "code": "JACKKNIFE_SAMPLE_TOO_SMALL",
+      "status": 400,
+      "message": "Jackknife requires at least 3 observations"
+    }
+  ],
+  "events": [
+    {
+      "name": "simulation.jackknife_completed",
+      "payload": [
+        "jackknife_id",
+        "statistic_value",
+        "bias_estimate",
+        "standard_error",
+        "n"
+      ]
+    },
+    {
+      "name": "simulation.jackknife_bias_corrected",
+      "payload": [
+        "jackknife_id",
+        "original_estimate",
+        "bias_correction",
+        "corrected_estimate"
+      ]
+    },
+    {
+      "name": "simulation.jackknife_warning",
+      "payload": [
+        "jackknife_id",
+        "warning_message"
+      ]
+    },
+    {
+      "name": "simulation.jackknife_rejected",
+      "payload": [
+        "jackknife_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not apply the jackknife to non-smooth statistics such as the median",
+      "why": "Leave-one-out changes the median only at discrete jumps; jackknife SE formula assumes smoothness and gives biased estimates — use bootstrap instead"
+    },
+    {
+      "rule": "Do not use the jackknife to build confidence intervals for heavily skewed statistics",
+      "why": "Jackknife assumes near-symmetric sampling distribution; for skewed statistics (e.g., variance, ratios) BCa bootstrap CIs are preferred"
+    },
+    {
+      "rule": "Do not ignore the bias-correction factor (n-1) when computing jackknife bias",
+      "why": "The (n-1) multiplier is essential to jackknife theory; omitting it produces a biased bias-estimate (ironically)"
+    },
+    {
+      "rule": "Do not interpret large leave-one-out differences as statistical noise",
+      "why": "A single observation that moves theta substantially is a high-leverage point; document and investigate rather than averaging away"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/simulation/jackknife"
+    },
+    "request": {
+      "schema": {
+        "observed_sample": "array",
+        "statistic": "string",
+        "compute": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "statistic_value": "number",
+          "jackknife_mean": "number",
+          "bias_estimate": "number",
+          "bias_corrected_estimate": "number",
+          "standard_error": "number",
+          "n": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "JACKKNIFE_SAMPLE_TOO_SMALL"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "worked_example": {
+      "sample": [
+        0.08,
+        0.12,
+        -0.03,
+        0.05,
+        0.1
+      ],
+      "sample_mean_full": 0.064,
+      "leave_one_out_means": [
+        0.06,
+        0.05,
+        0.0875,
+        0.0675,
+        0.055
+      ],
+      "jackknife_se_formula": "sqrt((n-1)/n * sum((theta_(i) - theta_mean)^2))"
+    },
+    "bootstrap_comparison": {
+      "cost_per_run": "n evaluations vs B >= 1000 for bootstrap",
+      "use_when": "Sample size moderate; statistic is smooth; speed matters",
+      "avoid_when": "Quantile-based statistics or very small n"
+    }
+  },
+  "related": [
+    {
+      "feature": "bootstrap-resampling",
+      "type": "required"
+    },
+    {
+      "feature": "standard-error-sample-mean",
+      "type": "recommended"
+    },
+    {
+      "feature": "central-limit-theorem",
+      "type": "recommended"
+    }
+  ]
+}

@@ -43,7 +43,6 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 
 ## What must be true
 
-- **lookback_model:** The first `lookback` input bars produce no output. outBegIdx tells the caller which input index maps to out[0]. outNBElement is the count of valid output values.
 - **lookback_model → formula:** valid_output_count = input_length - lookback_period
 - **lookback_model → constraint:** If input_length <= lookback_period, outNBElement = 0 (no valid output)
 - **rsi → formula:** RS = avgGain / avgLoss (Wilder smoothing); RSI = 100 - 100 / (1 + RS)
@@ -129,16 +128,16 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 
 **✅ Success paths**
 
-- **Range Clamp Edge** — when High == Low for all bars in period and indicator_type in [WILLR, STOCH, BOP] OR SumUp + SumDown == 0 and indicator_type == CMO OR PosMF + NegMF == 0 and indicator_type == MFI, then Output clamped to boundary — indicates flat market with no price movement. _Why: Edge case where denominator is zero (flat price bar or zero volume period)._
-- **Compute Success** — when input_length > lookback_period for selected indicator; all required price arrays present and of equal length; all optional parameters within valid ranges, then out_values contains valid oscillator readings; caller aligns output to input using outBegIdx. _Why: Sufficient data and valid parameters — indicator computed, output arrays populated._
-- **Macd Computed** — when indicator_type in [MACD, MACDEXT, MACDFIX]; input_length > lookback_period, then Three aligned output arrays; histogram crossing zero indicates signal crossover. _Why: MACD / MACDEXT / MACDFIX computed with all three output lines._
-- **Aroon Computed** — when indicator_type == AROON; input_length > lookback_period, then Two arrays: AroonDown and AroonUp, both in range [0,100]. _Why: AROON returns two output lines (AroonDown + AroonUp)._
+- **Range Clamp Edge** — when High == Low for all bars in period and indicator_type in [WILLR, STOCH, BOP] OR SumUp + SumDown == 0 and indicator_type == CMO OR PosMF + NegMF == 0 and indicator_type == MFI, then Output clamped to boundary — indicates flat market with no price movement.
+- **Compute Success** — when input_length > lookback_period for selected indicator; all required price arrays present and of equal length; all optional parameters within valid ranges, then out_values contains valid oscillator readings; caller aligns output to input using outBegIdx.
+- **Macd Computed** — when indicator_type in [MACD, MACDEXT, MACDFIX]; input_length > lookback_period, then Three aligned output arrays; histogram crossing zero indicates signal crossover.
+- **Aroon Computed** — when indicator_type == AROON; input_length > lookback_period, then Two arrays: AroonDown and AroonUp, both in range [0,100].
 
 **❌ Failure paths**
 
-- **Insufficient Data** — when input_length <= lookback_period for selected indicator, then outNBElement = 0; caller must provide more bars before meaningful output is available. _Why: Input series shorter than required lookback — no output produced._ *(error: `INSUFFICIENT_DATA`)*
-- **Invalid Parameters** — when time_period < 2 and indicator_type in [RSI, CCI, WILLR, CMO, MFI, STOCH] OR fast_period < 2 and indicator_type in [MACD, APO, PPO] OR slow_period < fast_period and indicator_type == MACD OR period1 < 1 or period2 < 2 or period3 < 2 and indicator_type == ULTOSC, then Function returns error code; caller must validate parameters before calling. _Why: A required parameter is outside its valid range._ *(error: `INVALID_PARAMETER`)*
-- **Missing Required Inputs** — when high_prices is null and indicator_type in [CCI, WILLR, STOCH, STOCHF, STOCHRSI, ULTOSC, MFI, AROON, AROONOSC] OR volume is null and indicator_type == MFI OR open_prices is null and indicator_type == BOP, then Invalid output; ensure all required price arrays are supplied. _Why: High/Low/Volume arrays absent when required by the selected indicator._ *(error: `MISSING_INPUT`)*
+- **Insufficient Data** — when input_length <= lookback_period for selected indicator, then outNBElement = 0; caller must provide more bars before meaningful output is available. *(error: `INSUFFICIENT_DATA`)*
+- **Invalid Parameters** — when time_period < 2 and indicator_type in [RSI, CCI, WILLR, CMO, MFI, STOCH] OR fast_period < 2 and indicator_type in [MACD, APO, PPO] OR slow_period < fast_period and indicator_type == MACD OR period1 < 1 or period2 < 2 or period3 < 2 and indicator_type == ULTOSC, then Function returns error code; caller must validate parameters before calling. *(error: `INVALID_PARAMETER`)*
+- **Missing Required Inputs** — when high_prices is null and indicator_type in [CCI, WILLR, STOCH, STOCHF, STOCHRSI, ULTOSC, MFI, AROON, AROONOSC] OR volume is null and indicator_type == MFI OR open_prices is null and indicator_type == BOP, then Invalid output; ensure all required price arrays are supplied. *(error: `MISSING_INPUT`)*
 
 ## Errors it can return
 
@@ -148,28 +147,28 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 
 ## Events
 
-**`indicator.computed`** — Emitted when an oscillator computation completes with valid output
+**`indicator.computed`**
   Payload: `indicator_type`, `out_nb_element`, `out_beg_idx`
 
-**`indicator.overbought`** — Emitted when the latest value exceeds the conventional overbought threshold (RSI>70, MFI>80, etc.)
+**`indicator.overbought`**
   Payload: `indicator_type`, `value`, `threshold`
 
-**`indicator.oversold`** — Emitted when the latest value falls below the conventional oversold threshold
+**`indicator.oversold`**
   Payload: `indicator_type`, `value`, `threshold`
 
-**`indicator.crossover`** — Emitted when MACD or Stochastic K/D lines cross (signal confirmation)
+**`indicator.crossover`**
   Payload: `indicator_type`, `direction`, `value`
 
 ## Connects to
 
-- **moving-average-overlap-studies**
-- **volatility-band-indicators**
-- **directional-movement-indicators**
-- **volume-flow-indicators**
-- **candlestick-pattern-recognition**
-- **market-data-feeds**
+- **moving-average-overlap-studies** *(required)*
+- **volatility-band-indicators** *(recommended)*
+- **directional-movement-indicators** *(recommended)*
+- **volume-flow-indicators** *(recommended)*
+- **candlestick-pattern-recognition** *(optional)*
+- **market-data-feeds** *(required)*
 
-## Quality fitness 🟢 81/100
+## Quality fitness 🟢 83/100
 
 Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
 
@@ -181,7 +180,7 @@ Automated quality score measuring outcome coverage, rule structure, error bindin
 | Structured conditions | `███████░░░` | 7/10 |
 | Error binding | `██████████` | 10/10 |
 | Field validation | `█████░░░░░` | 5/10 |
-| Relationships | `██████░░░░` | 6/10 |
+| Relationships | `████████░░` | 8/10 |
 | Events | `█████` | 5/5 |
 | AGI readiness | `░░░░░` | 0/5 |
 | Simplicity | `█████` | 5/5 |

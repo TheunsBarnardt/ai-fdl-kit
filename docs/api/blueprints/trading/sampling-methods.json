@@ -1,0 +1,363 @@
+{
+  "feature": "sampling-methods",
+  "version": "1.0.0",
+  "description": "Select a sample from a population using probability (simple random, stratified, cluster) or non-probability (convenience, judgmental) methods, trading representativeness against cost and speed",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "sampling",
+    "probability-sampling",
+    "stratified-sampling",
+    "cluster-sampling",
+    "sampling-error",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "simple-random-sampling",
+    "stratified-sampling",
+    "cluster-sampling",
+    "convenience-sampling",
+    "judgmental-sampling",
+    "sampling-design",
+    "sample-selection"
+  ],
+  "actors": [
+    {
+      "id": "sampling_engine",
+      "name": "Sampling / Survey Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "population_size",
+      "type": "number",
+      "required": false,
+      "label": "Total size of the population (N)"
+    },
+    {
+      "name": "sample_size",
+      "type": "number",
+      "required": true,
+      "label": "Desired sample size (n)"
+    },
+    {
+      "name": "method",
+      "type": "select",
+      "required": true,
+      "label": "simple_random | stratified_random | cluster | convenience | judgmental"
+    },
+    {
+      "name": "strata_definitions",
+      "type": "json",
+      "required": false,
+      "label": "Array of {stratum_id, population_share, sample_share} for stratified designs"
+    },
+    {
+      "name": "clusters",
+      "type": "json",
+      "required": false,
+      "label": "Array of cluster IDs with member counts for cluster sampling"
+    }
+  ],
+  "rules": {
+    "probability_methods": {
+      "simple_random": "Each member of the population has equal probability of selection; gold standard for representativeness",
+      "stratified_random": "Population divided into mutually exclusive subgroups (strata); random samples drawn from each stratum proportionally",
+      "cluster_sampling": "Population divided into clusters; a random subset of CLUSTERS selected, all members of selected clusters measured"
+    },
+    "non_probability_methods": {
+      "convenience": "Selection based on accessibility; fast and cheap but prone to selection bias",
+      "judgmental": "Expert selects what is believed to be representative; useful for small populations with clear criteria"
+    },
+    "sampling_error": {
+      "definition": "Difference between sample statistic and the true population parameter it estimates",
+      "decomposition": "Random (unbiased) error decreases with n; systematic (bias) error does not"
+    },
+    "stratified_advantages": {
+      "precision": "Lower variance than simple random for same n if strata are internally homogeneous",
+      "subgroup_inference": "Guaranteed representation of each stratum"
+    },
+    "cluster_tradeoffs": {
+      "cost": "Lower field cost when clusters are geographically compact",
+      "precision": "Higher sampling error than simple random of same size if clusters are heterogeneous"
+    },
+    "investment_applications": {
+      "index_construction": "Stratified sampling across sectors/countries to mirror a benchmark with fewer holdings",
+      "survey_research": "Investor surveys stratified by wealth tier",
+      "credit_portfolio_audits": "Cluster sampling by branch for loan file audits",
+      "alternative_data": "Convenience samples from web scraping — always flag selection bias"
+    },
+    "validation": {
+      "sample_size_positive": "sample_size >= 1",
+      "method_supported": "method in {simple_random, stratified_random, cluster, convenience, judgmental}",
+      "strata_sum_to_population": "Sum of stratum population_shares = 1 (or counts sum to N)"
+    }
+  },
+  "outcomes": {
+    "draw_simple_random": {
+      "priority": 1,
+      "description": "Random selection with equal probability",
+      "given": [
+        {
+          "field": "method",
+          "source": "input",
+          "operator": "eq",
+          "value": "simple_random"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "sampling_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "sampling.sample_drawn"
+        }
+      ]
+    },
+    "draw_stratified": {
+      "priority": 2,
+      "description": "Proportional allocation across strata",
+      "given": [
+        {
+          "field": "method",
+          "source": "input",
+          "operator": "eq",
+          "value": "stratified_random"
+        },
+        {
+          "field": "strata_definitions",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "sampling_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "sampling.sample_drawn"
+        }
+      ]
+    },
+    "draw_cluster": {
+      "priority": 3,
+      "description": "Select clusters then enumerate",
+      "given": [
+        {
+          "field": "method",
+          "source": "input",
+          "operator": "eq",
+          "value": "cluster"
+        },
+        {
+          "field": "clusters",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "sampling_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "sampling.sample_drawn"
+        }
+      ]
+    },
+    "missing_strata": {
+      "priority": 10,
+      "description": "Stratified design missing strata definitions",
+      "given": [
+        {
+          "field": "method",
+          "source": "input",
+          "operator": "eq",
+          "value": "stratified_random"
+        },
+        {
+          "field": "strata_definitions",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "sampling.sample_rejected"
+        }
+      ],
+      "error": "SAMPLE_STRATA_MISSING"
+    },
+    "invalid_method": {
+      "priority": 11,
+      "description": "Unsupported sampling method",
+      "given": [
+        {
+          "field": "method_supported",
+          "source": "computed",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "sampling.sample_rejected"
+        }
+      ],
+      "error": "SAMPLE_METHOD_INVALID"
+    }
+  },
+  "errors": [
+    {
+      "code": "SAMPLE_STRATA_MISSING",
+      "status": 400,
+      "message": "Stratified sampling requires strata definitions with population shares"
+    },
+    {
+      "code": "SAMPLE_METHOD_INVALID",
+      "status": 400,
+      "message": "Sampling method must be one of simple_random, stratified_random, cluster, convenience, judgmental"
+    }
+  ],
+  "events": [
+    {
+      "name": "sampling.sample_drawn",
+      "payload": [
+        "sample_id",
+        "method",
+        "sample_size",
+        "strata_count",
+        "estimated_sampling_error"
+      ]
+    },
+    {
+      "name": "sampling.sample_rejected",
+      "payload": [
+        "sample_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use convenience sampling for inferential statistics",
+      "why": "Convenience samples have non-random selection mechanisms; sampling error formulas assume randomness, so CI and p-values are invalid"
+    },
+    {
+      "rule": "Do not ignore non-response bias in low-response-rate probability samples",
+      "why": "A 10% response rate makes even a simple random sample effectively non-probability; non-respondents typically differ systematically from respondents"
+    },
+    {
+      "rule": "Do not pool stratified samples with equal weights when strata have different sampling fractions",
+      "why": "Unweighted pooling violates the design; use inverse-probability weights (w_i = 1/pi_i) to recover unbiased estimators"
+    },
+    {
+      "rule": "Do not choose cluster sampling for heterogeneous clusters",
+      "why": "High intra-cluster homogeneity inflates the design effect (DEFF); sampling error can exceed simple random sampling of the same size"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/sampling/draw"
+    },
+    "request": {
+      "schema": {
+        "population_size": "number",
+        "sample_size": "number",
+        "method": "string",
+        "strata_definitions": "array",
+        "clusters": "array"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "sample": "array",
+          "method": "string",
+          "sample_size": "number",
+          "estimated_sampling_error": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "SAMPLE_STRATA_MISSING"
+        },
+        {
+          "status": 400,
+          "error_code": "SAMPLE_METHOD_INVALID"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "stratified_example": {
+      "strata": [
+        {
+          "id": "small_cap",
+          "population_share": 0.2,
+          "sample_share": 0.2
+        },
+        {
+          "id": "mid_cap",
+          "population_share": 0.3,
+          "sample_share": 0.3
+        },
+        {
+          "id": "large_cap",
+          "population_share": 0.5,
+          "sample_share": 0.5
+        }
+      ],
+      "total_sample_size": 200,
+      "notes": "Proportional allocation mirrors population mix"
+    },
+    "comparison_table": {
+      "simple_random": {
+        "representativeness": "high",
+        "cost": "high",
+        "sampling_error": "moderate"
+      },
+      "stratified": {
+        "representativeness": "high",
+        "cost": "moderate",
+        "sampling_error": "low"
+      },
+      "cluster": {
+        "representativeness": "moderate",
+        "cost": "low",
+        "sampling_error": "high"
+      },
+      "convenience": {
+        "representativeness": "low",
+        "cost": "low",
+        "sampling_error": "unquantifiable"
+      },
+      "judgmental": {
+        "representativeness": "depends",
+        "cost": "low",
+        "sampling_error": "unquantifiable"
+      }
+    }
+  },
+  "related": [
+    {
+      "feature": "central-limit-theorem",
+      "type": "recommended"
+    },
+    {
+      "feature": "bootstrap-resampling",
+      "type": "recommended"
+    }
+  ]
+}

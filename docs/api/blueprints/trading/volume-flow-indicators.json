@@ -1,0 +1,458 @@
+{
+  "feature": "volume-flow-indicators",
+  "version": "1.0.0",
+  "description": "Volume-based flow indicators that track accumulation, distribution, and buying/selling pressure by weighting price action with volume — confirming or diverging from price trend signals",
+  "category": "trading",
+  "tags": [
+    "technical-analysis",
+    "volume",
+    "obv",
+    "accumulation-distribution",
+    "money-flow",
+    "ta-lib",
+    "indicators"
+  ],
+  "aliases": [
+    "volume-indicators",
+    "accumulation-distribution",
+    "obv-ad-mfi",
+    "money-flow-indicators",
+    "ta-lib-volume",
+    "volume-analysis"
+  ],
+  "actors": [
+    {
+      "id": "quant_analyst",
+      "name": "Quantitative Analyst",
+      "type": "human"
+    },
+    {
+      "id": "indicator_engine",
+      "name": "Technical Indicator Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "close_prices",
+      "type": "json",
+      "required": true,
+      "label": "Close Prices (chronological double array)"
+    },
+    {
+      "name": "high_prices",
+      "type": "json",
+      "required": false,
+      "label": "High Prices (required for AD, ADOSC, MFI)"
+    },
+    {
+      "name": "low_prices",
+      "type": "json",
+      "required": false,
+      "label": "Low Prices (required for AD, ADOSC, MFI)"
+    },
+    {
+      "name": "volume",
+      "type": "json",
+      "required": true,
+      "label": "Volume series (chronological double array; required for all four indicators)"
+    },
+    {
+      "name": "indicator_type",
+      "type": "select",
+      "required": true,
+      "label": "Volume indicator to compute",
+      "options": [
+        {
+          "value": "OBV",
+          "label": "OBV"
+        },
+        {
+          "value": "AD",
+          "label": "AD"
+        },
+        {
+          "value": "ADOSC",
+          "label": "ADOSC"
+        },
+        {
+          "value": "MFI",
+          "label": "MFI"
+        }
+      ]
+    },
+    {
+      "name": "fast_period",
+      "type": "number",
+      "required": false,
+      "label": "ADOSC Fast EMA Period (default 3; range 2-100000)"
+    },
+    {
+      "name": "slow_period",
+      "type": "number",
+      "required": false,
+      "label": "ADOSC Slow EMA Period (default 10; range 2-100000)"
+    },
+    {
+      "name": "time_period",
+      "type": "number",
+      "required": false,
+      "label": "MFI Time Period (default 14; range 2-100000)"
+    },
+    {
+      "name": "out_beg_idx",
+      "type": "number",
+      "required": false,
+      "label": "Output Begin Index"
+    },
+    {
+      "name": "out_nb_element",
+      "type": "number",
+      "required": false,
+      "label": "Number of valid output elements"
+    },
+    {
+      "name": "out_values",
+      "type": "json",
+      "required": false,
+      "label": "Indicator output array (double values; unbounded for OBV/AD/ADOSC; 0-100 for MFI)"
+    }
+  ],
+  "rules": {
+    "obv": {
+      "formula": "OBV[0] = Volume[0]; OBV[i] = OBV[i-1] + Volume[i] if Close[i] > Close[i-1] else OBV[i-1] - Volume[i] if Close[i] < Close[i-1] else OBV[i-1]",
+      "inputs_required": [
+        "Close",
+        "Volume"
+      ],
+      "lookback": 0,
+      "output_unit": "Cumulative volume (no price normalization)",
+      "output_range": "Unbounded (can be very large; sign is directional)",
+      "divergence_rule": "Price making new high while OBV fails to confirm → bearish divergence",
+      "note": "OBV starting value depends on the first bar in the dataset; absolute level is arbitrary — only trend and divergence matter"
+    },
+    "ad": {
+      "formula": {
+        "clv": "CLV = ((Close - Low) - (High - Close)) / (High - Low)  [Close Location Value, -1 to +1]",
+        "mf": "MoneyFlow = CLV * Volume",
+        "ad": "AD[i] = AD[i-1] + MoneyFlow[i]"
+      },
+      "inputs_required": [
+        "High",
+        "Low",
+        "Close",
+        "Volume"
+      ],
+      "lookback": 0,
+      "output_unit": "Cumulative volume-weighted money flow",
+      "output_range": "Unbounded",
+      "edge_case": "When High == Low, CLV = 0 (no price range) → no money flow added",
+      "divergence_rule": "Price rising while AD falling → distribution (bearish divergence)",
+      "advantage_over_obv": "AD uses CLV to weight volume by position of close within the day's range, not just direction of close vs. previous close"
+    },
+    "adosc": {
+      "formula": "ADOSC = EMA(AD, fast) - EMA(AD, slow)",
+      "inputs_required": [
+        "High",
+        "Low",
+        "Close",
+        "Volume"
+      ],
+      "defaults": "fast=3, slow=10",
+      "period_range": "2 to 100000 for both",
+      "lookback": "slow_period - 1",
+      "output_unit": "Rate of change in money flow (derivative of AD)",
+      "output_range": "Unbounded (oscillates around zero)",
+      "interpretation": {
+        "positive": "ADOSC > 0 → accumulation dominant (buying pressure)",
+        "negative": "ADOSC < 0 → distribution dominant (selling pressure)",
+        "zero_cross": "ADOSC crossing zero signals potential trend change in money flow"
+      }
+    },
+    "mfi": {
+      "formula": {
+        "typical_price": "TP = (High + Low + Close) / 3",
+        "raw_money_flow": "RMF = TP * Volume",
+        "classification": "Positive MF if TP > PrevTP; Negative MF if TP < PrevTP; unchanged if TP == PrevTP",
+        "mfi": "MFI = 100 - 100 / (1 + PosMF_sum / NegMF_sum)  over n periods"
+      },
+      "inputs_required": [
+        "High",
+        "Low",
+        "Close",
+        "Volume"
+      ],
+      "default_period": 14,
+      "period_range": "2 to 100000",
+      "lookback": "timePeriod",
+      "output_range": "0 to 100",
+      "interpretation": {
+        "overbought": "> 80",
+        "oversold": "< 20"
+      },
+      "edge_case": "When NegMF_sum = 0, MFI = 100 (all positive money flow in period)"
+    }
+  },
+  "outcomes": {
+    "compute_success": {
+      "priority": 10,
+      "given": [
+        "input_length > lookback_period for selected indicator",
+        "close_prices, volume, and required OHLC arrays present and equal length"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "out_beg_idx",
+          "value": "first input index mapped to out[0]"
+        },
+        {
+          "action": "set_field",
+          "target": "out_nb_element",
+          "value": "input_length - lookback_period"
+        },
+        {
+          "action": "set_field",
+          "target": "out_values",
+          "value": "volume flow values"
+        },
+        {
+          "action": "emit_event",
+          "event": "volume.computed",
+          "payload": [
+            "indicator_type",
+            "out_nb_element"
+          ]
+        }
+      ],
+      "result": "Volume-weighted flow series aligned to input; divergence analysis against price trend"
+    },
+    "bullish_divergence": {
+      "priority": 10,
+      "given": [
+        "indicator_type in [OBV, AD]",
+        "close_prices makes new n-bar low",
+        "out_values does not make new n-bar low"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "volume.bullish_divergence",
+          "payload": [
+            "indicator_type",
+            "price_low",
+            "volume_indicator_value"
+          ]
+        }
+      ],
+      "result": "Bullish divergence signal — potential price reversal to the upside"
+    },
+    "bearish_divergence": {
+      "priority": 10,
+      "given": [
+        "indicator_type in [OBV, AD]",
+        "close_prices makes new n-bar high",
+        "out_values does not make new n-bar high"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "volume.bearish_divergence",
+          "payload": [
+            "indicator_type",
+            "price_high",
+            "volume_indicator_value"
+          ]
+        }
+      ],
+      "result": "Bearish divergence signal — potential price reversal to the downside"
+    },
+    "mfi_overbought": {
+      "priority": 10,
+      "given": [
+        "indicator_type == MFI",
+        "out_values[latest] > 80"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "volume.overbought",
+          "payload": [
+            "MFI",
+            "out_values_latest"
+          ]
+        }
+      ],
+      "result": "Volume-confirmed overbought — higher confidence reversal signal than RSI alone"
+    },
+    "mfi_oversold": {
+      "priority": 10,
+      "given": [
+        "indicator_type == MFI",
+        "out_values[latest] < 20"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "volume.oversold",
+          "payload": [
+            "MFI",
+            "out_values_latest"
+          ]
+        }
+      ],
+      "result": "Volume-confirmed oversold — higher confidence reversal signal than RSI alone"
+    },
+    "insufficient_data": {
+      "priority": 1,
+      "error": "INSUFFICIENT_DATA",
+      "given": [
+        "input_length <= lookback_period"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "out_nb_element",
+          "value": 0
+        }
+      ],
+      "result": "No output produced"
+    },
+    "missing_volume": {
+      "priority": 2,
+      "error": "MISSING_INPUT",
+      "given": [
+        "volume is null or empty"
+      ],
+      "result": "Cannot compute any volume flow indicator without volume data"
+    },
+    "flat_bar_edge": {
+      "priority": 3,
+      "given": [
+        "indicator_type in [AD, ADOSC]",
+        "any bar has High == Low"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "out_values",
+          "value": "0 money flow added for affected bars (CLV = 0)"
+        }
+      ],
+      "result": "Flat bars contribute zero to AD accumulation — no error, handled gracefully"
+    }
+  },
+  "errors": [
+    {
+      "code": "INSUFFICIENT_DATA",
+      "message": "Not enough bars. ADOSC requires slow_period bars minimum; MFI requires time_period bars.",
+      "status": 422
+    },
+    {
+      "code": "MISSING_INPUT",
+      "message": "Volume array is required for all volume flow indicators. High and Low are required for AD, ADOSC, and MFI.",
+      "status": 400
+    },
+    {
+      "code": "INVALID_PARAMETER",
+      "message": "Period parameter out of range (MFI period < 2, or ADOSC slow < fast).",
+      "status": 400
+    }
+  ],
+  "events": [
+    {
+      "name": "volume.computed",
+      "payload": [
+        "indicator_type",
+        "out_nb_element",
+        "out_beg_idx"
+      ]
+    },
+    {
+      "name": "volume.bullish_divergence",
+      "payload": [
+        "indicator_type",
+        "price_low",
+        "indicator_value"
+      ]
+    },
+    {
+      "name": "volume.bearish_divergence",
+      "payload": [
+        "indicator_type",
+        "price_high",
+        "indicator_value"
+      ]
+    },
+    {
+      "name": "volume.overbought",
+      "payload": [
+        "indicator_type",
+        "value",
+        "threshold"
+      ]
+    },
+    {
+      "name": "volume.oversold",
+      "payload": [
+        "indicator_type",
+        "value",
+        "threshold"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "momentum-oscillators",
+      "type": "recommended"
+    },
+    {
+      "feature": "directional-movement-indicators",
+      "type": "recommended"
+    },
+    {
+      "feature": "volatility-band-indicators",
+      "type": "optional"
+    },
+    {
+      "feature": "candlestick-pattern-recognition",
+      "type": "optional"
+    },
+    {
+      "feature": "market-data-feeds",
+      "type": "required"
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use OBV absolute level for cross-instrument comparison",
+      "why": "OBV is a cumulative counter that depends on the starting date of the dataset — the absolute value is arbitrary; only trend and divergence matter"
+    },
+    {
+      "rule": "Do not treat ADOSC and RSI as equivalent oscillators",
+      "why": "ADOSC is an unbounded rate-of-change in money flow (not normalized to 0-100); it requires divergence analysis rather than level thresholds"
+    },
+    {
+      "rule": "Do not ignore that MFI uses Typical Price direction, not Close vs PrevClose",
+      "why": "MFI classifies money flow by whether TP rises or falls vs. the prior bar's TP — this differs from OBV which uses Close vs PrevClose; same day, different signals are possible"
+    },
+    {
+      "rule": "Do not apply MFI in low-volume markets without caution",
+      "why": "Thin volume periods (pre-market, after-hours, illiquid instruments) cause MFI to spike to extremes on tiny flows — filter by minimum volume threshold first"
+    },
+    {
+      "rule": "Do not use volume indicators as primary signals on instruments with unreliable volume data",
+      "why": "FX spot, crypto OTC, and some OTC derivatives often have estimated or missing volume; OBV/AD/MFI become noise in those markets"
+    }
+  ],
+  "extensions": {
+    "tech_stack": {
+      "language": "C99",
+      "bindings": "Java, .NET, Rust, Python",
+      "source_repo": "https://github.com/TA-Lib/ta-lib"
+    },
+    "indicator_count": 4,
+    "obv_note": "OBV lookback = 0 means all bars produce output including the first bar",
+    "ad_note": "AD lookback = 0; the initial AD value depends on the first bar's CLV × Volume"
+  }
+}

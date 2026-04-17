@@ -1,0 +1,215 @@
+# ============================================================
+# central-limit-theorem — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 7, p.205-212
+# ============================================================
+
+feature: central-limit-theorem
+version: "1.0.0"
+description: Apply the Central Limit Theorem — the sampling distribution of the sample mean is approximately normal with mean mu and variance sigma^2 / n for large n, regardless of population shape
+category: trading
+tags: [quantitative-methods, clt, central-limit-theorem, sampling-distribution, standard-error, inference, cfa-level-1]
+aliases:
+  - clt
+  - central-limit
+  - sampling-distribution-mean
+  - standard-error-mean
+  - sample-mean-distribution
+  - large-sample-approximation
+
+actors:
+  - id: inference_engine
+    name: Statistical Inference Engine
+    type: system
+
+fields:
+  - name: sample_mean
+    type: number
+    required: false
+    label: Observed sample mean x_bar
+  - name: sample_std_dev
+    type: number
+    required: false
+    label: Sample standard deviation s
+  - name: population_std_dev
+    type: number
+    required: false
+    label: Population standard deviation sigma (if known)
+  - name: sample_size
+    type: number
+    required: true
+    label: n - sample size
+  - name: compute
+    type: select
+    required: false
+    label: standard_error | sampling_distribution | z_statistic | confidence_interval
+
+rules:
+  core_theorem:
+    # Source: Vol 1, Module 7, p.206-207
+    statement: "Given population with mean mu and finite variance sigma^2, the sampling distribution of X_bar from random samples of size n is approximately Normal(mu, sigma^2 / n) for large n"
+    distributional_assumption: "No distributional assumption on the population — only finite variance"
+    large_n_threshold: "Typically n >= 30 is considered sufficient for CLT to apply (convention, not theorem)"
+  sampling_distribution_properties:
+    mean_of_sample_mean: "E(X_bar) = mu (unbiased)"
+    variance_of_sample_mean: "Var(X_bar) = sigma^2 / n"
+    standard_error: "SE(X_bar) = sigma / sqrt(n) — known sigma; s / sqrt(n) when estimated"
+    convergence_rate: "Standard error shrinks as 1/sqrt(n); halving error requires 4x sample size"
+  implications:
+    consistent_estimator: "X_bar converges to mu as n -> infinity"
+    normal_approximation: "Allows z-statistic inference for large n even if population is non-normal"
+    finite_variance_caveat: "CLT fails if population variance is infinite (e.g., Cauchy distribution)"
+  z_statistic:
+    # Source: Vol 1, Module 7, p.210
+    known_sigma: "Z = (X_bar - mu) / (sigma / sqrt(n)) ~ N(0, 1)"
+    unknown_sigma_large_n: "Z_approx = (X_bar - mu) / (s / sqrt(n)) ~ N(0, 1) when n is large"
+  investment_applications:
+    return_forecasting: "Average realized return has SE = sigma / sqrt(T); tighter for longer history"
+    performance_attribution: "Test whether manager alpha differs from zero"
+    risk_factor_testing: "Large-sample inference on factor premia"
+  validation:
+    sample_size_large_enough: "n >= 30 for reliable CLT approximation; smaller n requires known normality"
+    variance_finite: "Population must have finite variance"
+    independence: "Observations must be independent (or at least uncorrelated)"
+
+outcomes:
+  compute_standard_error:
+    priority: 1
+    description: SE = sigma/sqrt(n) or s/sqrt(n)
+    given:
+      - field: sample_size
+        source: input
+        operator: exists
+      - any:
+          - field: sample_std_dev
+            source: input
+            operator: exists
+          - field: population_std_dev
+            source: input
+            operator: exists
+    then:
+      - action: call_service
+        target: inference_engine
+      - action: emit_event
+        event: inference.standard_error_calculated
+  apply_clt_approximation:
+    priority: 2
+    description: Construct sampling distribution under CLT
+    given:
+      - field: sample_size
+        source: input
+        operator: gte
+        value: 30
+    then:
+      - action: call_service
+        target: inference_engine
+      - action: emit_event
+        event: inference.clt_applied
+  small_sample_warning:
+    priority: 3
+    description: n < 30 — CLT may not hold; flag for t-distribution or distributional check
+    given:
+      - field: sample_size
+        source: input
+        operator: lt
+        value: 30
+    then:
+      - action: emit_event
+        event: inference.small_sample_warned
+  insufficient_sample:
+    priority: 10
+    description: n < 2 — sampling distribution undefined
+    given:
+      - field: sample_size
+        source: input
+        operator: lt
+        value: 2
+    then:
+      - action: emit_event
+        event: inference.clt_rejected
+    error: CLT_INSUFFICIENT_SAMPLE
+  missing_inputs:
+    priority: 11
+    description: Required inputs missing
+    given:
+      - field: sample_size
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: inference.clt_rejected
+    error: CLT_MISSING_INPUTS
+
+errors:
+  - code: CLT_INSUFFICIENT_SAMPLE
+    status: 400
+    message: Sample size must be at least 2 for the CLT to be applicable
+  - code: CLT_MISSING_INPUTS
+    status: 400
+    message: Sample size is required; std dev (population or sample) needed for standard error
+
+events:
+  - name: inference.standard_error_calculated
+    payload: [sample_id, standard_error, sample_size, std_dev_source]
+  - name: inference.clt_applied
+    payload: [sample_id, sample_mean, standard_error, sampling_distribution_mean, sampling_distribution_variance]
+  - name: inference.small_sample_warned
+    payload: [sample_id, sample_size, warning]
+  - name: inference.clt_rejected
+    payload: [sample_id, reason_code]
+
+anti_patterns:
+  - rule: Do not apply the CLT to samples from fat-tailed distributions with infinite variance
+    why: "Stable distributions (e.g., Cauchy) violate the finite-variance requirement; sample mean does not converge to a normal distribution regardless of n"
+  - rule: Do not conflate the population standard deviation with the standard error
+    why: "Sigma describes dispersion of individual values; SE describes dispersion of the sample mean — SE = sigma/sqrt(n) is smaller by factor sqrt(n)"
+  - rule: Do not rely on n >= 30 as a universal threshold for CLT
+    why: "Heavily skewed or kurtotic populations may need n >> 30; the 30 rule is a convention, not a theorem. Check the sampling distribution empirically when in doubt"
+  - rule: Do not apply the CLT to dependent (e.g., time-series) data without adjustment
+    why: "Autocorrelation inflates the effective sampling variance; use Newey-West or HAC standard errors for dependent observations"
+
+api:
+  http:
+    method: POST
+    path: /analytics/inference/clt
+  request:
+    schema:
+      sample_mean: number
+      sample_std_dev: number
+      population_std_dev: number
+      sample_size: number
+      compute: string
+  response:
+    success:
+      status: 200
+      schema:
+        standard_error: number
+        sampling_mean: number
+        sampling_variance: number
+        large_sample_ok: boolean
+    errors:
+      - status: 400
+        error_code: CLT_INSUFFICIENT_SAMPLE
+      - status: 400
+        error_code: CLT_MISSING_INPUTS
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 7, p.208
+    population_mean: 0.08
+    population_std_dev: 0.20
+    sample_size: 100
+    standard_error: "0.20 / sqrt(100) = 0.02"
+    interpretation: "Sample mean is approximately Normal(0.08, 0.02^2); 95% CI half-width ~ 1.96 * 0.02 = 3.92%"
+  convergence_illustration:
+    n_30: "SE = 0.0365"
+    n_100: "SE = 0.0200"
+    n_400: "SE = 0.0100"
+    rule: "To halve SE, quadruple n"
+
+related:
+  - feature: standard-error-sample-mean
+    type: recommended
+  - feature: sampling-methods
+    type: recommended
+  - feature: bootstrap-resampling
+    type: recommended

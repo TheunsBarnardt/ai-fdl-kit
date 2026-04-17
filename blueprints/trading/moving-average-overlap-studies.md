@@ -38,7 +38,6 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 
 ## What must be true
 
-- **lookback_model:** First N bars produce no output; outBegIdx maps out[0] to its corresponding input index
 - **lookback_model → constraint:** If input_length <= lookback, outNBElement = 0
 - **sma → formula:** SMA[i] = sum(price[i-n+1 .. i]) / n
 - **sma → default_period:** 30
@@ -83,9 +82,7 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - **t3 → v_factor_range:** 0 to 1
 - **t3 → lookback:** (timePeriod - 1) * 6
 - **t3 → characteristic:** Smoother than TEMA with less overshoot; vFactor controls smoothness-responsiveness tradeoff
-- **ma_generic:** Generic MA dispatcher — delegates to SMA, EMA, WMA, DEMA, TEMA, TRIMA, KAMA, MAMA, or T3 based on MAType parameter
 - **ma_generic → default_period:** 30
-- **mavp:** Computes MA where each output bar uses a potentially different period drawn from the periods[] array
 - **mavp → min_period_default:** 2
 - **mavp → max_period_default:** 30
 - **mavp → characteristic:** Allows cycle-adaptive smoothing; each bar's period is dynamically supplied
@@ -102,7 +99,6 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 - **midprice → default_period:** 14
 - **midprice → period_range:** 2 to 100000
 - **midprice → inputs_required:** High, Low
-- **ht_trendline:** Removes dominant cycle from price using Hilbert Transform; residual is the trend
 - **ht_trendline → lookback:** 63
 - **ht_trendline → characteristic:** Zero-lag trend extraction; best in trending markets; noisy in ranging markets
 
@@ -110,14 +106,14 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 
 **✅ Success paths**
 
-- **Compute Success** — when input_length > lookback_period for selected indicator; required price arrays present; parameters within valid ranges, then Smoothed trend series aligned to input via outBegIdx. _Why: Sufficient data and valid parameters — MA computed, output populated._
-- **Accbands Computed** — when indicator_type == ACCBANDS; input_length > lookback_period, then Three overlaid bands on price chart; breakout above upper signals acceleration. _Why: Acceleration Bands returns three aligned output arrays._
-- **Mama Computed** — when indicator_type == MAMA; input_length > 32 (MAMA lookback ~32), then Two adaptive trend lines; MAMA/FAMA crossover signals trend change. _Why: MAMA returns MAMA and FAMA lines._
+- **Compute Success** — when input_length > lookback_period for selected indicator; required price arrays present; parameters within valid ranges, then Smoothed trend series aligned to input via outBegIdx.
+- **Accbands Computed** — when indicator_type == ACCBANDS; input_length > lookback_period, then Three overlaid bands on price chart; breakout above upper signals acceleration.
+- **Mama Computed** — when indicator_type == MAMA; input_length > 32 (MAMA lookback ~32), then Two adaptive trend lines; MAMA/FAMA crossover signals trend change.
 
 **❌ Failure paths**
 
-- **Insufficient Data** — when input_length <= lookback_period, then No output produced; caller must buffer more bars. _Why: Input too short for selected indicator lookback._ *(error: `INSUFFICIENT_DATA`)*
-- **Invalid Parameters** — when time_period < 2 OR fast_limit > slow_limit and indicator_type == MAMA OR v_factor < 0 or v_factor > 1 and indicator_type == T3 OR min_period > max_period and indicator_type == MAVP, then Function returns error; caller must supply valid parameter ranges. _Why: Period or limit parameter out of range._ *(error: `INVALID_PARAMETER`)*
+- **Insufficient Data** — when input_length <= lookback_period, then No output produced; caller must buffer more bars. *(error: `INSUFFICIENT_DATA`)*
+- **Invalid Parameters** — when time_period < 2 OR fast_limit > slow_limit and indicator_type == MAMA OR v_factor < 0 or v_factor > 1 and indicator_type == T3 OR min_period > max_period and indicator_type == MAVP, then Function returns error; caller must supply valid parameter ranges. *(error: `INVALID_PARAMETER`)*
 
 ## Errors it can return
 
@@ -127,20 +123,20 @@ Specifies 5 acceptance outcomes that any implementation must satisfy, regardless
 
 ## Events
 
-**`indicator.computed`** — Emitted when a moving average computation produces valid output
+**`indicator.computed`**
   Payload: `indicator_type`, `out_nb_element`, `out_beg_idx`
 
-**`indicator.crossover`** — Emitted when two MA lines cross (e.g., fast MA crosses slow MA, or MAMA crosses FAMA)
+**`indicator.crossover`**
   Payload: `indicator_type`, `direction`, `value`
 
 ## Connects to
 
-- **momentum-oscillators**
-- **volatility-band-indicators**
-- **directional-movement-indicators**
-- **market-data-feeds**
+- **momentum-oscillators** *(required)*
+- **volatility-band-indicators** *(recommended)*
+- **directional-movement-indicators** *(recommended)*
+- **market-data-feeds** *(required)*
 
-## Quality fitness 🟢 77/100
+## Quality fitness 🟢 79/100
 
 Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
 
@@ -152,7 +148,7 @@ Automated quality score measuring outcome coverage, rule structure, error bindin
 | Structured conditions | `██████░░░░` | 6/10 |
 | Error binding | `███████░░░` | 7/10 |
 | Field validation | `█████░░░░░` | 5/10 |
-| Relationships | `██████░░░░` | 6/10 |
+| Relationships | `████████░░` | 8/10 |
 | Events | `█████` | 5/5 |
 | AGI readiness | `░░░░░` | 0/5 |
 | Simplicity | `█████` | 5/5 |
