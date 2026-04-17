@@ -1,0 +1,170 @@
+# ============================================================
+# forwards-futures-contracts — Feature Blueprint
+# Source: CFA LV1 2025 Vol 07 — Module 2, Forward Commitments
+# ============================================================
+
+feature: forwards-futures-contracts
+version: "1.0.0"
+description: Compare forward and futures contracts on customisation, mark-to-market, margin, clearing, and basis, and compute settlement cash flows and mark-to-market variation margin
+category: trading
+tags: [derivatives, forwards, futures, margin, marking-to-market, basis-risk, cfa-level-1]
+aliases:
+  - forward-contract
+  - futures-contract
+  - initial-margin-futures
+  - variation-margin
+  - basis-risk
+  - cash-futures-convergence
+
+actors:
+  - id: fwd_fut_engine
+    name: Forward & Futures Engine
+    type: system
+
+fields:
+  - name: contract_id
+    type: text
+    required: true
+    label: Contract identifier
+  - name: contract_type
+    type: select
+    required: true
+    label: forward | future
+  - name: contract_price
+    type: number
+    required: true
+    label: Contracted price
+  - name: spot_price
+    type: number
+    required: false
+    label: Current spot
+  - name: days_to_expiry
+    type: number
+    required: true
+    label: Days to expiry
+
+rules:
+  forward_characteristics:
+    custom: "Tailor maturity, size, underlying"
+    bilateral: "Counterparty risk unless collateralised"
+    settlement: "At expiry — physical or cash"
+    no_margin: "Typically no periodic margin; rising credit exposure"
+  futures_characteristics:
+    standardised: "Exchange-specified underlying, size, delivery"
+    cleared: "CCP becomes counterparty — margin required"
+    marked_to_market: "Daily variation margin"
+    liquid: "Transparent pricing"
+  margin_mechanics:
+    initial_margin: "Good-faith deposit at trade entry"
+    maintenance_margin: "Threshold below which call is triggered"
+    variation_margin: "Daily gains/losses posted in cash"
+  basis_and_convergence:
+    basis: "Spot - futures"
+    convergence: "Basis tends to zero at expiry (for physically settled)"
+    basis_risk: "Hedging asset differs from deliverable grade/location"
+  differences_impact:
+    valuation: "Forward value accumulates; futures reset daily"
+    pnl: "Cash P&L for futures is daily; forwards realised at settlement"
+    credit: "Forwards carry counterparty risk; futures carry clearinghouse risk"
+  validation:
+    contract_required: "contract_id present"
+    valid_type: "contract_type in [forward, future]"
+    positive_days: "days_to_expiry > 0"
+
+outcomes:
+  compute_settlement:
+    priority: 1
+    description: Compute settlement cash flow and accrued variation margin
+    given:
+      - field: contract_id
+        source: input
+        operator: exists
+      - field: contract_type
+        source: input
+        operator: in
+        value: [forward, future]
+      - field: days_to_expiry
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: fwd_fut_engine
+      - action: emit_event
+        event: contract.settled
+  invalid_type:
+    priority: 10
+    description: Unsupported contract type
+    given:
+      - field: contract_type
+        source: input
+        operator: not_in
+        value: [forward, future]
+    then:
+      - action: emit_event
+        event: contract.settlement_rejected
+    error: FUT_INVALID_TYPE
+  invalid_expiry:
+    priority: 11
+    description: Non-positive expiry
+    given:
+      - field: days_to_expiry
+        source: input
+        operator: lte
+        value: 0
+    then:
+      - action: emit_event
+        event: contract.settlement_rejected
+    error: FUT_INVALID_EXPIRY
+
+errors:
+  - code: FUT_INVALID_TYPE
+    status: 400
+    message: contract_type must be forward or future
+  - code: FUT_INVALID_EXPIRY
+    status: 400
+    message: days_to_expiry must be positive
+
+events:
+  - name: contract.settled
+    payload: [settlement_id, contract_id, contract_type, pnl, accrued_margin]
+  - name: contract.settlement_rejected
+    payload: [settlement_id, reason_code]
+
+anti_patterns:
+  - rule: Do not treat forward and futures prices as identical when rates are stochastic
+    why: "Daily margining of futures creates a covariance with rates; small but measurable divergence from forwards"
+  - rule: Do not ignore basis risk in cross-hedges
+    why: "Underlying differences create residual risk even when duration-matched"
+  - rule: Do not size positions by notional alone
+    why: "Risk scales with price volatility and delta, not notional; maintenance calls can force liquidation"
+
+api:
+  http:
+    method: POST
+    path: /derivatives/forwards-futures/settle
+  request:
+    schema:
+      contract_id: string
+      contract_type: string
+      contract_price: number
+      spot_price: number
+      days_to_expiry: number
+  response:
+    success:
+      status: 200
+      schema:
+        settlement_id: string
+        pnl: number
+        accrued_margin: number
+    errors:
+      - status: 400
+        error_code: FUT_INVALID_TYPE
+      - status: 400
+        error_code: FUT_INVALID_EXPIRY
+
+related:
+  - feature: derivatives-instrument-features
+    type: required
+  - feature: forward-futures-pricing
+    type: required

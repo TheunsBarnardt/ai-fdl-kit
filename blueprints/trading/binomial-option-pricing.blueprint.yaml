@@ -1,0 +1,184 @@
+# ============================================================
+# binomial-option-pricing — Feature Blueprint
+# Source: CFA LV1 2025 Vol 07 — Module 10, Binomial Model
+# ============================================================
+
+feature: binomial-option-pricing
+version: "1.0.0"
+description: Value European and American options with one- and multi-period binomial trees using risk-neutral probabilities, replication, and backward induction for early exercise
+category: trading
+tags: [derivatives, option-pricing, binomial-model, risk-neutral, backward-induction, cfa-level-1]
+aliases:
+  - binomial-valuation-tree
+  - cfa-one-period-binomial
+  - cfa-multi-period-binomial
+  - risk-neutral-valuation
+  - backward-induction-options
+  - american-option-pricing
+
+actors:
+  - id: binomial_pricer
+    name: Binomial Option Pricer
+    type: system
+
+fields:
+  - name: pricing_id
+    type: text
+    required: true
+    label: Pricing identifier
+  - name: option_type
+    type: select
+    required: true
+    label: call | put
+  - name: exercise_style
+    type: select
+    required: true
+    label: european | american
+  - name: u_factor
+    type: number
+    required: true
+    label: Up-move multiplier
+  - name: d_factor
+    type: number
+    required: true
+    label: Down-move multiplier
+  - name: steps
+    type: number
+    required: true
+    label: Number of tree steps
+
+rules:
+  risk_neutral_probability:
+    formula: "q = (1 + r - d) / (u - d)"
+    requirement: "d < 1 + r < u else arbitrage"
+  one_period:
+    payoff_up: "c_u or p_u at up node"
+    payoff_down: "c_d or p_d at down node"
+    value: "V0 = (q * V_up + (1-q) * V_down) / (1 + r)"
+  multi_period:
+    method: "Build full tree of underlying prices"
+    european_valuation: "Compute terminal payoffs; discount expectations back step by step"
+    american_valuation: "At each node, take max of continuation value and exercise value"
+  replication:
+    hedge_ratio: "h = (V_up - V_down) / (S_up - S_down)"
+    cash_position: "B = (V_up - h * S_up) / (1 + r)"
+  convergence:
+    as_steps_increase: "Tree value converges to Black-Scholes for European"
+  volatility_link:
+    cox_ross_rubinstein: "u = e^(sigma * sqrt(dt)); d = 1/u"
+  validation:
+    pricing_required: "pricing_id present"
+    valid_type: "option_type in [call, put]"
+    valid_style: "exercise_style in [european, american]"
+    positive_steps: "steps > 0"
+    u_greater_than_d: "u_factor > d_factor"
+
+outcomes:
+  value_via_binomial:
+    priority: 1
+    description: Compute option value using binomial tree and risk-neutral probabilities
+    given:
+      - field: pricing_id
+        source: input
+        operator: exists
+      - field: option_type
+        source: input
+        operator: in
+        value: [call, put]
+      - field: exercise_style
+        source: input
+        operator: in
+        value: [european, american]
+      - field: steps
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: binomial_pricer
+      - action: emit_event
+        event: binomial.valued
+  invalid_type:
+    priority: 10
+    description: Unsupported type or style
+    given:
+      - any:
+          - field: option_type
+            source: input
+            operator: not_in
+            value: [call, put]
+          - field: exercise_style
+            source: input
+            operator: not_in
+            value: [european, american]
+    then:
+      - action: emit_event
+        event: binomial.valuation_rejected
+    error: BIN_INVALID_OPTION
+  invalid_factors:
+    priority: 11
+    description: u not greater than d
+    given:
+      - field: u_factor
+        source: input
+        operator: lte
+        value: d_factor
+    then:
+      - action: emit_event
+        event: binomial.valuation_rejected
+    error: BIN_INVALID_FACTORS
+
+errors:
+  - code: BIN_INVALID_OPTION
+    status: 400
+    message: option_type must be call or put and exercise_style must be european or american
+  - code: BIN_INVALID_FACTORS
+    status: 400
+    message: u_factor must exceed d_factor
+
+events:
+  - name: binomial.valued
+    payload: [pricing_id, value, hedge_ratio, early_exercise_nodes]
+  - name: binomial.valuation_rejected
+    payload: [pricing_id, reason_code]
+
+anti_patterns:
+  - rule: Do not value American options with pure discounted expectation
+    why: "Backward induction with continuation-vs-exercise comparison is required; naive expectation under-values the option"
+  - rule: Do not use real-world probabilities in binomial pricing
+    why: "Risk-neutral probability is an arbitrage-free construct; real-world p with risk-free discount double-counts risk"
+  - rule: Do not ignore u*d = 1 convention when benchmarking
+    why: "Recombining tree requires consistent u,d relationship; arbitrary choices cause path explosion and computation errors"
+
+api:
+  http:
+    method: POST
+    path: /derivatives/options/binomial
+  request:
+    schema:
+      pricing_id: string
+      option_type: string
+      exercise_style: string
+      u_factor: number
+      d_factor: number
+      steps: number
+  response:
+    success:
+      status: 200
+      schema:
+        pricing_id: string
+        value: number
+        hedge_ratio: number
+    errors:
+      - status: 400
+        error_code: BIN_INVALID_OPTION
+      - status: 400
+        error_code: BIN_INVALID_FACTORS
+
+related:
+  - feature: options-put-call-parity
+    type: required
+  - feature: derivatives-arbitrage-replication
+    type: required
+  - feature: options-contracts-features
+    type: required

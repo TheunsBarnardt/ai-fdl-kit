@@ -1,0 +1,260 @@
+{
+  "feature": "swap-pricing-valuation",
+  "version": "1.0.0",
+  "description": "Price interest-rate, currency, and equity swaps at inception (par swap rate) and value during life using spot-curve discounting and replicating portfolios of bonds",
+  "category": "trading",
+  "tags": [
+    "derivatives",
+    "swap-pricing",
+    "par-swap-rate",
+    "swap-valuation",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "par-swap-rate",
+    "swap-valuation",
+    "ir-swap-pricing",
+    "swap-as-bond-portfolio",
+    "fixed-leg-pricing",
+    "floating-leg-value"
+  ],
+  "actors": [
+    {
+      "id": "swap_pricer",
+      "name": "Swap Pricing Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "swap_id",
+      "type": "text",
+      "required": true,
+      "label": "Swap identifier"
+    },
+    {
+      "name": "swap_family",
+      "type": "select",
+      "required": true,
+      "label": "ir_swap | currency_swap | equity_swap"
+    },
+    {
+      "name": "tenor_years",
+      "type": "number",
+      "required": true,
+      "label": "Swap tenor in years"
+    },
+    {
+      "name": "notional",
+      "type": "number",
+      "required": true,
+      "label": "Notional amount"
+    }
+  ],
+  "rules": {
+    "par_swap_rate": {
+      "formula": "c = (1 - P(T)) / sum(P(t_i) * delta_i)",
+      "interpretation": "Fixed coupon that makes PV of fixed leg equal PV of floating leg at inception"
+    },
+    "swap_as_bonds": {
+      "fixed_payer": "Long floating-rate bond + short fixed-rate bond",
+      "fixed_receiver": "Short floating-rate bond + long fixed-rate bond"
+    },
+    "valuation_during_life": {
+      "fixed_rate_swap_value": "V_fix = PV(remaining fixed) - PV(remaining floating)",
+      "floating_reset": "Floating leg resets to par at each reset date"
+    },
+    "currency_swap_inception": {
+      "requirement": "PV of both currency legs equal at inception using FX and local curves"
+    },
+    "equity_swap_valuation": {
+      "fixed_receiver": "Pay equity return, receive fixed; value depends on equity index move and discount curve"
+    },
+    "counterparty_valuation_adjustments": {
+      "cva": "Credit Valuation Adjustment — cost of counterparty default",
+      "dva": "Debit Valuation Adjustment — own default",
+      "fva": "Funding Valuation Adjustment — funding cost of uncollateralised"
+    },
+    "validation": {
+      "swap_required": "swap_id present",
+      "valid_family": "swap_family in [ir_swap, currency_swap, equity_swap]",
+      "positive_tenor": "tenor_years > 0",
+      "positive_notional": "notional > 0"
+    }
+  },
+  "outcomes": {
+    "price_swap": {
+      "priority": 1,
+      "description": "Compute par swap rate at inception or mark-to-market value",
+      "given": [
+        {
+          "field": "swap_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "swap_family",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "ir_swap",
+            "currency_swap",
+            "equity_swap"
+          ]
+        },
+        {
+          "field": "tenor_years",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        },
+        {
+          "field": "notional",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "swap_pricer"
+        },
+        {
+          "action": "emit_event",
+          "event": "swap.priced"
+        }
+      ]
+    },
+    "invalid_family": {
+      "priority": 10,
+      "description": "Unsupported family",
+      "given": [
+        {
+          "field": "swap_family",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "ir_swap",
+            "currency_swap",
+            "equity_swap"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "swap.pricing_rejected"
+        }
+      ],
+      "error": "SWAP_PRICE_INVALID_FAMILY"
+    },
+    "invalid_tenor": {
+      "priority": 11,
+      "description": "Non-positive tenor",
+      "given": [
+        {
+          "field": "tenor_years",
+          "source": "input",
+          "operator": "lte",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "swap.pricing_rejected"
+        }
+      ],
+      "error": "SWAP_PRICE_INVALID_TENOR"
+    }
+  },
+  "errors": [
+    {
+      "code": "SWAP_PRICE_INVALID_FAMILY",
+      "status": 400,
+      "message": "swap_family must be ir_swap, currency_swap, or equity_swap"
+    },
+    {
+      "code": "SWAP_PRICE_INVALID_TENOR",
+      "status": 400,
+      "message": "tenor_years must be positive"
+    }
+  ],
+  "events": [
+    {
+      "name": "swap.priced",
+      "payload": [
+        "pricing_id",
+        "swap_id",
+        "par_rate",
+        "mark_to_market"
+      ]
+    },
+    {
+      "name": "swap.pricing_rejected",
+      "payload": [
+        "pricing_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not price swaps off a single yield curve when CSA demands alternate discount",
+      "why": "Collateralised swaps discount at OIS/SOFR; uncollateralised discount at funding curve; mismatched curve mis-prices swap by basis points"
+    },
+    {
+      "rule": "Do not neglect CVA/DVA/FVA",
+      "why": "Post-2008 fair value includes counterparty and funding adjustments; ignoring overstates book value"
+    },
+    {
+      "rule": "Do not assume swap spread is constant through stress",
+      "why": "Swap spreads widen in funding stress; roll costs and hedging efficacy change materially"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/derivatives/swaps/price"
+    },
+    "request": {
+      "schema": {
+        "swap_id": "string",
+        "swap_family": "string",
+        "tenor_years": "number",
+        "notional": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "pricing_id": "string",
+          "par_rate": "number",
+          "mark_to_market": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "SWAP_PRICE_INVALID_FAMILY"
+        },
+        {
+          "status": 400,
+          "error_code": "SWAP_PRICE_INVALID_TENOR"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "swaps-contracts-features",
+      "type": "required"
+    },
+    {
+      "feature": "derivatives-arbitrage-replication",
+      "type": "required"
+    }
+  ]
+}

@@ -1,0 +1,228 @@
+{
+  "feature": "derivatives-uses-risks",
+  "version": "1.0.0",
+  "description": "Catalogue derivative benefits and risks for issuers and investors — hedging, speculation, cost-efficiency, leverage, counterparty risk, operational and legal risks",
+  "category": "trading",
+  "tags": [
+    "derivatives",
+    "hedging",
+    "speculation",
+    "counterparty-risk",
+    "leverage",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "derivative-hedging",
+    "derivative-speculation",
+    "derivative-counterparty-risk",
+    "derivative-leverage",
+    "derivative-legal-risk",
+    "issuer-investor-uses"
+  ],
+  "actors": [
+    {
+      "id": "deriv_use_analyst",
+      "name": "Derivative Use & Risk Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "program_id",
+      "type": "text",
+      "required": true,
+      "label": "Derivative program identifier"
+    },
+    {
+      "name": "user_type",
+      "type": "select",
+      "required": true,
+      "label": "issuer | investor | market_maker | speculator"
+    },
+    {
+      "name": "primary_purpose",
+      "type": "select",
+      "required": true,
+      "label": "hedge | speculate | arbitrage | synthetic_exposure | income"
+    }
+  ],
+  "rules": {
+    "benefits": {
+      "risk_transfer": "Shift unwanted exposures to counterparties willing to bear them",
+      "price_discovery": "Forward and futures curves reveal expected prices",
+      "operational_efficiency": "Lower transaction cost vs building cash positions",
+      "leverage": "Margin-based exposure amplifies capital efficiency",
+      "market_completeness": "Access to payoffs not otherwise available"
+    },
+    "issuer_uses": [
+      "Hedge floating-rate debt with IRS",
+      "Lock in FX on foreign revenue",
+      "Commodity input hedging",
+      "Monetise inventory via variance/vol swaps"
+    ],
+    "investor_uses": [
+      "Portfolio overlay for beta management",
+      "Convexity trades via options",
+      "Income via writing covered calls",
+      "Credit views via CDS"
+    ],
+    "risk_categories": {
+      "market_risk": "Price changes in underlying",
+      "counterparty_risk": "Default of OTC counterparty",
+      "liquidity_risk": "Inability to close out at fair price",
+      "operational_risk": "Collateral, settlement, data errors",
+      "legal_risk": "Enforceability of contracts across jurisdictions",
+      "basis_risk": "Imperfect hedge relationship"
+    },
+    "moral_hazard": {
+      "concern": "Excessive risk-taking encouraged by off-balance-sheet leverage",
+      "mitigation": "Transparency, disclosure, centralised clearing"
+    },
+    "regulatory_framework": {
+      "dodd_frank": "US post-2008 clearing mandate",
+      "emir": "EU reporting and clearing",
+      "initial_margin_reform": "Phased IM on uncleared OTC"
+    },
+    "validation": {
+      "program_required": "program_id present",
+      "valid_purpose": "primary_purpose in allowed set"
+    }
+  },
+  "outcomes": {
+    "assess_program": {
+      "priority": 1,
+      "description": "Assess derivative program purpose and risk profile",
+      "given": [
+        {
+          "field": "program_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "primary_purpose",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "hedge",
+            "speculate",
+            "arbitrage",
+            "synthetic_exposure",
+            "income"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "deriv_use_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "deriv_program.assessed"
+        }
+      ]
+    },
+    "invalid_purpose": {
+      "priority": 10,
+      "description": "Unsupported purpose",
+      "given": [
+        {
+          "field": "primary_purpose",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "hedge",
+            "speculate",
+            "arbitrage",
+            "synthetic_exposure",
+            "income"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "deriv_program.assessment_rejected"
+        }
+      ],
+      "error": "DERIV_USE_INVALID_PURPOSE"
+    }
+  },
+  "errors": [
+    {
+      "code": "DERIV_USE_INVALID_PURPOSE",
+      "status": 400,
+      "message": "primary_purpose must be hedge, speculate, arbitrage, synthetic_exposure, or income"
+    }
+  ],
+  "events": [
+    {
+      "name": "deriv_program.assessed",
+      "payload": [
+        "program_id",
+        "purpose",
+        "risk_profile"
+      ]
+    },
+    {
+      "name": "deriv_program.assessment_rejected",
+      "payload": [
+        "program_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not label speculation as hedging",
+      "why": "Mis-classified speculation evades risk limits and tax hedge accounting; transparency is required"
+    },
+    {
+      "rule": "Do not ignore wrong-way risk",
+      "why": "Counterparty exposure correlates with underlying move; hedges against counterparties whose credit deteriorates together amplify loss"
+    },
+    {
+      "rule": "Do not use leverage to chase returns without margin sizing",
+      "why": "Leverage amplifies both sides; margin requirements in stress can force unwinds at worst prices"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/derivatives/programs/assess"
+    },
+    "request": {
+      "schema": {
+        "program_id": "string",
+        "user_type": "string",
+        "primary_purpose": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "program_id": "string",
+          "purpose": "string",
+          "risk_profile": "object"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "DERIV_USE_INVALID_PURPOSE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "derivatives-instrument-features",
+      "type": "required"
+    },
+    {
+      "feature": "derivatives-arbitrage-replication",
+      "type": "recommended"
+    }
+  ]
+}

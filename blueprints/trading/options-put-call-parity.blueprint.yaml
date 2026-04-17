@@ -1,0 +1,157 @@
+# ============================================================
+# options-put-call-parity — Feature Blueprint
+# Source: CFA LV1 2025 Vol 07 — Module 9, Put-Call Parity
+# ============================================================
+
+feature: options-put-call-parity
+version: "1.0.0"
+description: Apply put-call parity on non-dividend, dividend-paying, and forward-style options to derive synthetic positions, arbitrage, and lower/upper option-value bounds
+category: trading
+tags: [derivatives, options, put-call-parity, synthetic-position, arbitrage, cfa-level-1]
+aliases:
+  - put-call-parity-equation
+  - synthetic-call
+  - synthetic-put
+  - option-bounds
+  - put-call-forward-parity
+  - protective-put-replication
+
+actors:
+  - id: parity_engine
+    name: Put-Call Parity Engine
+    type: system
+
+fields:
+  - name: pricing_id
+    type: text
+    required: true
+    label: Pricing identifier
+  - name: parity_form
+    type: select
+    required: true
+    label: european_no_div | european_div | forward_based
+  - name: spot_price
+    type: number
+    required: true
+    label: Current spot
+  - name: strike
+    type: number
+    required: true
+    label: Strike
+  - name: time_to_expiry
+    type: number
+    required: true
+    label: Time to expiry in years
+
+rules:
+  put_call_parity:
+    european_no_div: "c + K * e^(-rT) = p + S"
+    european_div: "c + K * e^(-rT) = p + S - PV(dividends)"
+    forward_based: "c + PV(K) = p + PV(F)"
+  synthetic_positions:
+    synthetic_call: "c = p + S - PV(K)"
+    synthetic_put: "p = c - S + PV(K)"
+    synthetic_stock: "S = c - p + PV(K)"
+    synthetic_zero_coupon: "PV(K) = p - c + S"
+  option_bounds:
+    call_upper: "c <= S"
+    call_lower_european: "c >= max(0, S - PV(K))"
+    put_upper_european: "p <= PV(K)"
+    put_lower_european: "p >= max(0, PV(K) - S)"
+  arbitrage_from_parity:
+    detection: "Any violation of parity equation implies arbitrage"
+    construction: "Sell overpriced leg, buy underpriced; lock risk-free profit"
+  european_vs_american:
+    american_calls_no_div: "Equal value to European (no benefit to early exercise)"
+    american_calls_div: "May exceed European; early exercise can be optimal just before dividend"
+    american_puts: "Generally exceed European; early exercise beneficial when deep ITM"
+  validation:
+    pricing_required: "pricing_id present"
+    valid_form: "parity_form in allowed set"
+    positive_strike: "strike > 0"
+    positive_time: "time_to_expiry > 0"
+
+outcomes:
+  apply_put_call_parity:
+    priority: 1
+    description: Apply put-call parity and return implied prices or bounds
+    given:
+      - field: pricing_id
+        source: input
+        operator: exists
+      - field: parity_form
+        source: input
+        operator: in
+        value: [european_no_div, european_div, forward_based]
+      - field: strike
+        source: input
+        operator: gt
+        value: 0
+      - field: time_to_expiry
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: parity_engine
+      - action: emit_event
+        event: parity.applied
+  invalid_form:
+    priority: 10
+    description: Unsupported parity form
+    given:
+      - field: parity_form
+        source: input
+        operator: not_in
+        value: [european_no_div, european_div, forward_based]
+    then:
+      - action: emit_event
+        event: parity.application_rejected
+    error: PARITY_INVALID_FORM
+
+errors:
+  - code: PARITY_INVALID_FORM
+    status: 400
+    message: parity_form must be european_no_div, european_div, or forward_based
+
+events:
+  - name: parity.applied
+    payload: [pricing_id, implied_call, implied_put, arbitrage_detected]
+  - name: parity.application_rejected
+    payload: [pricing_id, reason_code]
+
+anti_patterns:
+  - rule: Do not apply European parity to American options
+    why: "Early-exercise feature breaks strict parity; use bounds, not equalities, for American"
+  - rule: Do not ignore discrete dividends in parity
+    why: "PV of dividends shifts the equality; mis-priced by amount equal to dividend PV"
+  - rule: Do not assume parity holds under short-sale restrictions
+    why: "One-sided friction biases bounds; parity becomes a band, not an equality, when shorting is costly"
+
+api:
+  http:
+    method: POST
+    path: /derivatives/options/parity
+  request:
+    schema:
+      pricing_id: string
+      parity_form: string
+      spot_price: number
+      strike: number
+      time_to_expiry: number
+  response:
+    success:
+      status: 200
+      schema:
+        pricing_id: string
+        implied_call: number
+        implied_put: number
+    errors:
+      - status: 400
+        error_code: PARITY_INVALID_FORM
+
+related:
+  - feature: options-contracts-features
+    type: required
+  - feature: binomial-option-pricing
+    type: required

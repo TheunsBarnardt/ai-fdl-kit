@@ -1,0 +1,148 @@
+# ============================================================
+# derivatives-arbitrage-replication — Feature Blueprint
+# Source: CFA LV1 2025 Vol 07 — Arbitrage, Replication, Risk-Neutrality
+# ============================================================
+
+feature: derivatives-arbitrage-replication
+version: "1.0.0"
+description: Apply the law of one price, arbitrage, and risk-neutral replication to price derivatives, and explain why identical payoffs must share a single price or arbitrage appears
+category: trading
+tags: [derivatives, arbitrage, law-of-one-price, risk-neutral, replication, cfa-level-1]
+aliases:
+  - law-of-one-price
+  - no-arbitrage-derivative-pricing
+  - risk-neutral-probability-deriv
+  - derivative-replicating-portfolio
+  - hedge-portfolio
+  - synthetic-instrument
+
+actors:
+  - id: arb_engine
+    name: Arbitrage & Replication Engine
+    type: system
+
+fields:
+  - name: pricing_id
+    type: text
+    required: true
+    label: Pricing identifier
+  - name: underlying_price
+    type: number
+    required: true
+    label: Current underlying price
+  - name: risk_free_rate
+    type: number
+    required: true
+    label: Risk-free rate (decimal)
+  - name: volatility
+    type: number
+    required: false
+    label: Volatility input (decimal)
+  - name: time_to_expiry
+    type: number
+    required: true
+    label: Time to expiry in years
+
+rules:
+  law_of_one_price:
+    # Source: Vol 7 foundational chapter
+    statement: "Two portfolios with identical payoffs must trade at the same price"
+    consequence: "Violations are riskless arbitrage opportunities"
+  arbitrage_conditions:
+    type_1: "Positive cash flow today with no future liability"
+    type_2: "Zero cash flow today with strictly positive future payoff"
+  replication:
+    idea: "Construct portfolio that replicates derivative payoff across states"
+    delta_hedge: "Dynamic position in underlying and cash"
+  risk_neutral_probability:
+    formula: "q = (1 + r - d) / (u - d)"
+    where: "u, d = up/down return multipliers"
+    interpretation: "Pricing measure under which expected return equals risk-free rate"
+  discounting:
+    rule: "Discount risk-neutral expected payoff at risk-free rate"
+    not: "Do not use real-world probabilities with real-world discount rate for arbitrage-free pricing"
+  hedging_and_pricing:
+    connection: "Ability to hedge implies unique arbitrage-free price"
+    incomplete_markets: "No unique hedge -> range of arbitrage-free prices"
+  validation:
+    pricing_required: "pricing_id present"
+    positive_time: "time_to_expiry > 0"
+
+outcomes:
+  price_via_replication:
+    priority: 1
+    description: Price a derivative by constructing replicating portfolio under no-arbitrage
+    given:
+      - field: pricing_id
+        source: input
+        operator: exists
+      - field: time_to_expiry
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: arb_engine
+      - action: emit_event
+        event: replication.priced
+  invalid_time:
+    priority: 10
+    description: Non-positive time to expiry
+    given:
+      - field: time_to_expiry
+        source: input
+        operator: lte
+        value: 0
+    then:
+      - action: emit_event
+        event: replication.pricing_rejected
+    error: REPL_INVALID_TIME
+
+errors:
+  - code: REPL_INVALID_TIME
+    status: 400
+    message: time_to_expiry must be positive
+
+events:
+  - name: replication.priced
+    payload: [pricing_id, replication_value, hedge_weights, implied_q]
+  - name: replication.pricing_rejected
+    payload: [pricing_id, reason_code]
+
+anti_patterns:
+  - rule: Do not assume no-arbitrage pricing holds with frictions unchecked
+    why: "Transaction costs, short-sale constraints, funding costs create bid-ask bands; arbitrage-free value is a midpoint not a quote"
+  - rule: Do not confuse risk-neutral probabilities with real-world probabilities
+    why: "Q-measure is for pricing, P-measure for risk management; mixing leads to mis-priced positions"
+  - rule: Do not expect replication to hold when the underlying cannot be traded
+    why: "Illiquid or unhedgeable underlyings break the replication logic; price bands widen and models fail"
+
+api:
+  http:
+    method: POST
+    path: /derivatives/replication/price
+  request:
+    schema:
+      pricing_id: string
+      underlying_price: number
+      risk_free_rate: number
+      volatility: number
+      time_to_expiry: number
+  response:
+    success:
+      status: 200
+      schema:
+        pricing_id: string
+        replication_value: number
+        hedge_weights: object
+    errors:
+      - status: 400
+        error_code: REPL_INVALID_TIME
+
+related:
+  - feature: binomial-option-pricing
+    type: required
+  - feature: options-put-call-parity
+    type: required
+  - feature: forward-futures-pricing
+    type: recommended

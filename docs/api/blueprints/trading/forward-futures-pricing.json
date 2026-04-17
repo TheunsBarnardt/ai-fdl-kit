@@ -1,0 +1,244 @@
+{
+  "feature": "forward-futures-pricing",
+  "version": "1.0.0",
+  "description": "Price forwards and futures using cost-of-carry, income/yield adjustments, storage costs, and convenience yield for financial and commodity underlyings",
+  "category": "trading",
+  "tags": [
+    "derivatives",
+    "forward-pricing",
+    "futures-pricing",
+    "cost-of-carry",
+    "convenience-yield",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "cost-of-carry",
+    "convenience-yield",
+    "forward-price-formula",
+    "futures-price",
+    "contango",
+    "backwardation"
+  ],
+  "actors": [
+    {
+      "id": "fwd_pricer",
+      "name": "Forward / Futures Pricer",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "pricing_id",
+      "type": "text",
+      "required": true,
+      "label": "Pricing identifier"
+    },
+    {
+      "name": "asset_type",
+      "type": "select",
+      "required": true,
+      "label": "equity | bond | currency | commodity"
+    },
+    {
+      "name": "spot_price",
+      "type": "number",
+      "required": true,
+      "label": "Spot price"
+    },
+    {
+      "name": "risk_free_rate",
+      "type": "number",
+      "required": true,
+      "label": "Risk-free rate (decimal)"
+    },
+    {
+      "name": "time_to_expiry",
+      "type": "number",
+      "required": true,
+      "label": "Time to expiry in years"
+    }
+  ],
+  "rules": {
+    "cost_of_carry": {
+      "general": "F0 = S0 * (1 + r - benefits + costs)^T",
+      "equity_div": "F0 = S0 * e^((r - q)*T) for continuous dividend yield",
+      "fx": "F0 = S0 * e^((r_domestic - r_foreign)*T)",
+      "commodity_storage": "F0 = S0 * e^((r + storage - convenience)*T)"
+    },
+    "contango_backwardation": {
+      "contango": "F > S; typical for costly-to-store commodities",
+      "backwardation": "F < S; supply shortage or convenience premium"
+    },
+    "value_of_forward_during_life": {
+      "long_value": "V_t = (F_t - F_0) * discount_factor_to_expiry",
+      "short_value": "Opposite sign"
+    },
+    "convergence": {
+      "rule": "F -> S as T -> 0 (no arbitrage)",
+      "basis": "F - S drifts toward zero at expiry"
+    },
+    "futures_vs_forward_pricing": {
+      "identical_when": "Rates deterministic and continuous compounding",
+      "differ_when": "Rates stochastic; covariance with underlying matters"
+    },
+    "no_arbitrage_check": {
+      "violation": "If F > cost-of-carry price: cash-and-carry arbitrage — buy spot, sell futures, carry",
+      "reverse": "If F < cost-of-carry price: reverse cash-and-carry — short spot, buy futures"
+    },
+    "validation": {
+      "pricing_required": "pricing_id present",
+      "valid_asset": "asset_type in allowed set",
+      "positive_time": "time_to_expiry > 0"
+    }
+  },
+  "outcomes": {
+    "price_forward_future": {
+      "priority": 1,
+      "description": "Compute arbitrage-free forward/futures price",
+      "given": [
+        {
+          "field": "pricing_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "asset_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "equity",
+            "bond",
+            "currency",
+            "commodity"
+          ]
+        },
+        {
+          "field": "spot_price",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        },
+        {
+          "field": "time_to_expiry",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "fwd_pricer"
+        },
+        {
+          "action": "emit_event",
+          "event": "forward.priced"
+        }
+      ]
+    },
+    "invalid_asset": {
+      "priority": 10,
+      "description": "Unsupported asset class",
+      "given": [
+        {
+          "field": "asset_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "equity",
+            "bond",
+            "currency",
+            "commodity"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "forward.pricing_rejected"
+        }
+      ],
+      "error": "FWD_PRICE_INVALID_ASSET"
+    }
+  },
+  "errors": [
+    {
+      "code": "FWD_PRICE_INVALID_ASSET",
+      "status": 400,
+      "message": "asset_type must be equity, bond, currency, or commodity"
+    }
+  ],
+  "events": [
+    {
+      "name": "forward.priced",
+      "payload": [
+        "pricing_id",
+        "asset_type",
+        "forward_price",
+        "basis"
+      ]
+    },
+    {
+      "name": "forward.pricing_rejected",
+      "payload": [
+        "pricing_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not price commodity futures without convenience yield",
+      "why": "Storage benefits of holding physical commodity reduce implied forward; ignoring leads to wrong carry signal"
+    },
+    {
+      "rule": "Do not assume contango persists",
+      "why": "Inventories adjust; steep contango invites arbitrage and flattens"
+    },
+    {
+      "rule": "Do not price FX forwards using nominal rates across compounding conventions",
+      "why": "Convert to consistent continuous or discrete compounding; day-count mismatch moves forward by basis points"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/derivatives/forwards/price"
+    },
+    "request": {
+      "schema": {
+        "pricing_id": "string",
+        "asset_type": "string",
+        "spot_price": "number",
+        "risk_free_rate": "number",
+        "time_to_expiry": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "pricing_id": "string",
+          "forward_price": "number",
+          "basis": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "FWD_PRICE_INVALID_ASSET"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "forwards-futures-contracts",
+      "type": "required"
+    },
+    {
+      "feature": "derivatives-arbitrage-replication",
+      "type": "required"
+    }
+  ]
+}

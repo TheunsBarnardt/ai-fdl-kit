@@ -1,0 +1,174 @@
+# ============================================================
+# swaps-contracts-features — Feature Blueprint
+# Source: CFA LV1 2025 Vol 07 — Module 2, Swaps
+# ============================================================
+
+feature: swaps-contracts-features
+version: "1.0.0"
+description: Characterise interest-rate, currency, equity, and credit-default swaps — notional, payment legs, reset frequency, and collateralisation — and describe how swaps transform cash-flow exposures
+category: trading
+tags: [derivatives, swaps, interest-rate-swap, currency-swap, equity-swap, cds, cfa-level-1]
+aliases:
+  - interest-rate-swap
+  - currency-swap
+  - equity-swap
+  - credit-default-swap
+  - plain-vanilla-swap
+  - swap-leg
+
+actors:
+  - id: swap_engine
+    name: Swap Contract Engine
+    type: system
+
+fields:
+  - name: swap_id
+    type: text
+    required: true
+    label: Swap identifier
+  - name: swap_family
+    type: select
+    required: true
+    label: ir_swap | currency_swap | equity_swap | credit_swap | commodity_swap | variance_swap
+  - name: notional
+    type: number
+    required: true
+    label: Notional amount
+  - name: payer_leg
+    type: select
+    required: false
+    label: fixed | floating | equity | credit_protection
+  - name: receiver_leg
+    type: select
+    required: false
+    label: fixed | floating | equity | credit_protection
+
+rules:
+  plain_vanilla_irs:
+    structure: "Fixed payer / fixed receiver vs floating leg"
+    reference: "SOFR, EURIBOR, TONAR"
+    reset: "Quarterly or semi-annual"
+    use: "Convert fixed debt to floating or vice versa"
+  currency_swap:
+    structure: "Exchange principal and interest in two currencies"
+    uses: "FX funding; hedge cross-currency debt"
+    settlement: "Principal exchanged at start and maturity"
+  equity_swap:
+    structure: "Pay fixed or floating; receive equity index return"
+    uses: "Synthetic equity exposure; avoid direct ownership taxes"
+  credit_default_swap:
+    structure: "Protection buyer pays premium; seller compensates on credit event"
+    index_cds: "CDX and iTraxx cover baskets"
+    uses: "Hedge credit exposure; express views on credit"
+  commodity_swap:
+    structure: "Fixed vs floating commodity price"
+    uses: "Corporate hedging of input/output prices"
+  variance_volatility_swap:
+    structure: "Pay fixed variance/vol; receive realised"
+    uses: "Trade volatility directly without delta risk"
+  counterparty_risk:
+    bilateral: "Subject to default of either party"
+    clearing: "CCPs standardise via margin and netting"
+    isda_master: "Industry standard documentation"
+  validation:
+    swap_required: "swap_id present"
+    valid_family: "swap_family in allowed set"
+    positive_notional: "notional > 0"
+
+outcomes:
+  record_swap:
+    priority: 1
+    description: Record swap structure and legs
+    given:
+      - field: swap_id
+        source: input
+        operator: exists
+      - field: swap_family
+        source: input
+        operator: in
+        value: [ir_swap, currency_swap, equity_swap, credit_swap, commodity_swap, variance_swap]
+      - field: notional
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: swap_engine
+      - action: emit_event
+        event: swap.recorded
+  invalid_family:
+    priority: 10
+    description: Unsupported swap family
+    given:
+      - field: swap_family
+        source: input
+        operator: not_in
+        value: [ir_swap, currency_swap, equity_swap, credit_swap, commodity_swap, variance_swap]
+    then:
+      - action: emit_event
+        event: swap.rejected
+    error: SWAP_INVALID_FAMILY
+  invalid_notional:
+    priority: 11
+    description: Non-positive notional
+    given:
+      - field: notional
+        source: input
+        operator: lte
+        value: 0
+    then:
+      - action: emit_event
+        event: swap.rejected
+    error: SWAP_INVALID_NOTIONAL
+
+errors:
+  - code: SWAP_INVALID_FAMILY
+    status: 400
+    message: swap_family must be one of the supported families
+  - code: SWAP_INVALID_NOTIONAL
+    status: 400
+    message: notional must be positive
+
+events:
+  - name: swap.recorded
+    payload: [swap_id, family, notional, payer_leg, receiver_leg]
+  - name: swap.rejected
+    payload: [swap_id, reason_code]
+
+anti_patterns:
+  - rule: Do not ignore CSA margin terms in swap pricing
+    why: "Collateral frequency and thresholds affect funding cost and effective swap rate; price includes CSA"
+  - rule: Do not treat swap notional as credit exposure
+    why: "Replacement cost is the risk metric; notional overstates and misleads credit lines"
+  - rule: Do not assume CDS pays par less recovery
+    why: "Auctions set recovery based on cheapest-to-deliver; settlement price can differ from recovery on actual bonds held"
+
+api:
+  http:
+    method: POST
+    path: /derivatives/swaps/record
+  request:
+    schema:
+      swap_id: string
+      swap_family: string
+      notional: number
+      payer_leg: string
+      receiver_leg: string
+  response:
+    success:
+      status: 201
+      schema:
+        swap_id: string
+        family: string
+        notional: number
+    errors:
+      - status: 400
+        error_code: SWAP_INVALID_FAMILY
+      - status: 400
+        error_code: SWAP_INVALID_NOTIONAL
+
+related:
+  - feature: swap-pricing-valuation
+    type: required
+  - feature: derivatives-instrument-features
+    type: recommended

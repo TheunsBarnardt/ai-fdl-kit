@@ -1,0 +1,285 @@
+{
+  "feature": "derivatives-instrument-features",
+  "version": "1.0.0",
+  "description": "Classify derivative instruments by underlying, venue (exchange vs OTC), settlement (physical vs cash), and contract standardisation, and distinguish forward commitments from contingent claims",
+  "category": "trading",
+  "tags": [
+    "derivatives",
+    "forward-commitment",
+    "contingent-claim",
+    "otc",
+    "exchange-traded",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "derivative-features",
+    "forward-commitment",
+    "contingent-claim",
+    "otc-derivative",
+    "exchange-traded-derivative",
+    "derivative-underlying"
+  ],
+  "actors": [
+    {
+      "id": "deriv_classifier",
+      "name": "Derivative Classifier",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "contract_id",
+      "type": "text",
+      "required": true,
+      "label": "Contract identifier"
+    },
+    {
+      "name": "instrument_family",
+      "type": "select",
+      "required": true,
+      "label": "forward | future | option | swap | credit_derivative | structured"
+    },
+    {
+      "name": "underlying_type",
+      "type": "select",
+      "required": true,
+      "label": "equity | fixed_income | currency | commodity | credit | volatility | weather"
+    },
+    {
+      "name": "venue",
+      "type": "select",
+      "required": true,
+      "label": "exchange | otc | cleared_otc"
+    },
+    {
+      "name": "settlement",
+      "type": "select",
+      "required": false,
+      "label": "physical | cash | netted"
+    }
+  ],
+  "rules": {
+    "derivative_definition": {
+      "value_derived_from": "Contract value is derived from an underlying asset or reference",
+      "zero_sum": "Gains to one party match losses to other"
+    },
+    "categories": {
+      "forward_commitments": "Both parties obliged — forwards, futures, swaps",
+      "contingent_claims": "One party pays for optionality — options, credit defaults"
+    },
+    "venue_distinction": {
+      "exchange_traded": "Standardised, cleared, margin required, transparent",
+      "otc": "Customised, bilateral, counterparty risk, less transparent",
+      "cleared_otc": "Negotiated OTC then cleared through CCP"
+    },
+    "standardisation_tradeoffs": {
+      "exchange": {
+        "pros": "Liquidity, price discovery, reduced counterparty risk",
+        "cons": "Less customisation"
+      },
+      "otc": {
+        "pros": "Tailor to exact exposure",
+        "cons": "Collateral complexity, liquidity risk"
+      }
+    },
+    "underlying_types": {
+      "financial": "Equity, rates, currency, credit, volatility",
+      "commodity": "Energy, metals, agriculture",
+      "alternative": "Weather, freight, inflation"
+    },
+    "validation": {
+      "contract_required": "contract_id present",
+      "valid_family": "instrument_family in allowed set",
+      "valid_venue": "venue in allowed set"
+    }
+  },
+  "outcomes": {
+    "classify_derivative": {
+      "priority": 1,
+      "description": "Produce structured classification of a derivative contract",
+      "given": [
+        {
+          "field": "contract_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "instrument_family",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "forward",
+            "future",
+            "option",
+            "swap",
+            "credit_derivative",
+            "structured"
+          ]
+        },
+        {
+          "field": "venue",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "exchange",
+            "otc",
+            "cleared_otc"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "deriv_classifier"
+        },
+        {
+          "action": "emit_event",
+          "event": "derivative.classified"
+        }
+      ]
+    },
+    "invalid_family": {
+      "priority": 10,
+      "description": "Unsupported family",
+      "given": [
+        {
+          "field": "instrument_family",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "forward",
+            "future",
+            "option",
+            "swap",
+            "credit_derivative",
+            "structured"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "derivative.classification_rejected"
+        }
+      ],
+      "error": "DERIV_INVALID_FAMILY"
+    },
+    "invalid_venue": {
+      "priority": 11,
+      "description": "Unsupported venue",
+      "given": [
+        {
+          "field": "venue",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "exchange",
+            "otc",
+            "cleared_otc"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "derivative.classification_rejected"
+        }
+      ],
+      "error": "DERIV_INVALID_VENUE"
+    }
+  },
+  "errors": [
+    {
+      "code": "DERIV_INVALID_FAMILY",
+      "status": 400,
+      "message": "instrument_family must be forward, future, option, swap, credit_derivative, or structured"
+    },
+    {
+      "code": "DERIV_INVALID_VENUE",
+      "status": 400,
+      "message": "venue must be exchange, otc, or cleared_otc"
+    }
+  ],
+  "events": [
+    {
+      "name": "derivative.classified",
+      "payload": [
+        "classification_id",
+        "contract_id",
+        "family",
+        "underlying",
+        "venue"
+      ]
+    },
+    {
+      "name": "derivative.classification_rejected",
+      "payload": [
+        "classification_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not treat cleared-OTC as fully centrally regulated",
+      "why": "CCP clearing transfers counterparty risk to CCP but does not harmonise all terms; bilateral margin schedules differ"
+    },
+    {
+      "rule": "Do not ignore basis risk when swapping exchange contract for custom OTC",
+      "why": "Standardised hedge rarely matches exposure exactly; basis and roll risk add to hedge cost"
+    },
+    {
+      "rule": "Do not conflate gross notional with economic exposure",
+      "why": "Gross notional inflates risk; net sensitivities (DV01, delta) reflect actual exposure"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/derivatives/classify"
+    },
+    "request": {
+      "schema": {
+        "contract_id": "string",
+        "instrument_family": "string",
+        "underlying_type": "string",
+        "venue": "string",
+        "settlement": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "classification_id": "string",
+          "family": "string",
+          "venue": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "DERIV_INVALID_FAMILY"
+        },
+        {
+          "status": 400,
+          "error_code": "DERIV_INVALID_VENUE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "forwards-futures-contracts",
+      "type": "recommended"
+    },
+    {
+      "feature": "options-contracts-features",
+      "type": "recommended"
+    },
+    {
+      "feature": "swaps-contracts-features",
+      "type": "recommended"
+    }
+  ]
+}

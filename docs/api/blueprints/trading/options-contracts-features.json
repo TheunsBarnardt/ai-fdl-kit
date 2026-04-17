@@ -1,0 +1,289 @@
+{
+  "feature": "options-contracts-features",
+  "version": "1.0.0",
+  "description": "Characterise call and put options by style (American, European, Bermudan), moneyness, intrinsic and time value, and compute payoff and profit diagrams at expiry",
+  "category": "trading",
+  "tags": [
+    "derivatives",
+    "options",
+    "call",
+    "put",
+    "moneyness",
+    "payoff",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "call-option",
+    "put-option",
+    "american-option",
+    "european-option",
+    "option-moneyness",
+    "option-payoff"
+  ],
+  "actors": [
+    {
+      "id": "option_engine",
+      "name": "Options Analytics Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "option_id",
+      "type": "text",
+      "required": true,
+      "label": "Option identifier"
+    },
+    {
+      "name": "option_type",
+      "type": "select",
+      "required": true,
+      "label": "call | put"
+    },
+    {
+      "name": "exercise_style",
+      "type": "select",
+      "required": true,
+      "label": "american | european | bermudan"
+    },
+    {
+      "name": "strike",
+      "type": "number",
+      "required": true,
+      "label": "Strike price"
+    },
+    {
+      "name": "spot_price",
+      "type": "number",
+      "required": false,
+      "label": "Current spot price"
+    },
+    {
+      "name": "premium",
+      "type": "number",
+      "required": false,
+      "label": "Option premium"
+    }
+  ],
+  "rules": {
+    "basic_payoffs": {
+      "call_at_expiry": "max(0, S - K)",
+      "put_at_expiry": "max(0, K - S)"
+    },
+    "profit_diagrams": {
+      "long_call": "Limited loss to premium; unlimited upside",
+      "short_call": "Limited gain to premium; unlimited loss",
+      "long_put": "Limited loss to premium; downside gain capped at strike",
+      "short_put": "Limited gain to premium; loss if spot falls"
+    },
+    "moneyness": {
+      "itm": "In-the-money: call S>K; put K>S",
+      "atm": "At-the-money: S close to K",
+      "otm": "Out-of-the-money: call S<K; put K<S"
+    },
+    "intrinsic_time_value": {
+      "intrinsic": "Max(0, S-K) for call; max(0, K-S) for put",
+      "time_value": "Premium - intrinsic value",
+      "decay": "Time value erodes toward expiry (theta)"
+    },
+    "exercise_styles": {
+      "european": "Exercise only at expiry",
+      "american": "Exercise any time before expiry",
+      "bermudan": "Exercise at specified dates"
+    },
+    "option_strategies": {
+      "covered_call": "Long stock + short call",
+      "protective_put": "Long stock + long put",
+      "collar": "Long stock + long put + short call",
+      "bull_call_spread": "Long lower-strike call + short higher-strike call",
+      "straddle": "Long call + long put same strike"
+    },
+    "validation": {
+      "option_required": "option_id present",
+      "valid_type": "option_type in [call, put]",
+      "valid_style": "exercise_style in [american, european, bermudan]",
+      "positive_strike": "strike > 0"
+    }
+  },
+  "outcomes": {
+    "compute_payoff": {
+      "priority": 1,
+      "description": "Compute payoff, intrinsic value, and profit at given spot",
+      "given": [
+        {
+          "field": "option_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "option_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "call",
+            "put"
+          ]
+        },
+        {
+          "field": "exercise_style",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "american",
+            "european",
+            "bermudan"
+          ]
+        },
+        {
+          "field": "strike",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "option_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "option.computed"
+        }
+      ]
+    },
+    "invalid_type": {
+      "priority": 10,
+      "description": "Unsupported option type",
+      "given": [
+        {
+          "field": "option_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "call",
+            "put"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "option.computation_rejected"
+        }
+      ],
+      "error": "OPT_INVALID_TYPE"
+    },
+    "invalid_strike": {
+      "priority": 11,
+      "description": "Non-positive strike",
+      "given": [
+        {
+          "field": "strike",
+          "source": "input",
+          "operator": "lte",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "option.computation_rejected"
+        }
+      ],
+      "error": "OPT_INVALID_STRIKE"
+    }
+  },
+  "errors": [
+    {
+      "code": "OPT_INVALID_TYPE",
+      "status": 400,
+      "message": "option_type must be call or put"
+    },
+    {
+      "code": "OPT_INVALID_STRIKE",
+      "status": 400,
+      "message": "strike must be positive"
+    }
+  ],
+  "events": [
+    {
+      "name": "option.computed",
+      "payload": [
+        "computation_id",
+        "option_id",
+        "payoff",
+        "intrinsic_value",
+        "time_value"
+      ]
+    },
+    {
+      "name": "option.computation_rejected",
+      "payload": [
+        "computation_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not treat short options as limited-risk",
+      "why": "Short calls have unlimited loss potential; short puts lose up to strike; position sizing must account for tail"
+    },
+    {
+      "rule": "Do not ignore early-exercise premium in American options",
+      "why": "Early exercise raises value of American calls on dividend-paying stocks and American puts in the money; valuation diverges from European"
+    },
+    {
+      "rule": "Do not collect premium without delta-hedging",
+      "why": "Selling naked options exposes to gamma and vega risks that move with market; hedge the greeks or size small"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/derivatives/options/compute"
+    },
+    "request": {
+      "schema": {
+        "option_id": "string",
+        "option_type": "string",
+        "exercise_style": "string",
+        "strike": "number",
+        "spot_price": "number",
+        "premium": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "computation_id": "string",
+          "payoff": "number",
+          "intrinsic_value": "number",
+          "time_value": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "OPT_INVALID_TYPE"
+        },
+        {
+          "status": 400,
+          "error_code": "OPT_INVALID_STRIKE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "options-put-call-parity",
+      "type": "required"
+    },
+    {
+      "feature": "binomial-option-pricing",
+      "type": "recommended"
+    }
+  ]
+}
