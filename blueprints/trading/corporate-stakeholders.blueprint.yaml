@@ -1,0 +1,154 @@
+# ============================================================
+# corporate-stakeholders — Feature Blueprint
+# Source: CFA LV1 2025 Vol 03 — Module 2, p.37-65
+# ============================================================
+
+feature: corporate-stakeholders
+version: "1.0.0"
+description: Identify corporate stakeholders — shareholders, lenders, managers, employees, customers, suppliers, government — and analyse conflicts of interest between their claims
+category: trading
+tags: [corporate-issuers, stakeholders, shareholders, creditors, principal-agent, conflicts-of-interest, cfa-level-1]
+aliases:
+  - stakeholder-analysis
+  - debt-vs-equity-claims
+  - principal-agent
+  - shareholder-vs-bondholder
+  - stakeholder-conflicts
+  - corporate-claims
+
+actors:
+  - id: stakeholder_analyst
+    name: Stakeholder Analyst
+    type: system
+
+fields:
+  - name: entity_id
+    type: text
+    required: true
+    label: Entity identifier
+  - name: stakeholder_type
+    type: select
+    required: true
+    label: shareholder | creditor | manager | employee | customer | supplier | government
+  - name: claim_priority
+    type: select
+    required: false
+    label: senior | subordinated | residual
+
+rules:
+  debt_vs_equity:
+    # Source: Vol 3, Module 2, p.39-46
+    debt: "Fixed contractual claim, senior, limited upside, limited downside participation"
+    equity: "Residual claim, last in liquidation, unlimited upside, full downside"
+  risk_return:
+    creditor_return: "Interest and principal — capped upside"
+    shareholder_return: "Dividends + capital gains — participates in all upside"
+    creditor_risk: "Default risk; recovery from collateral and seniority"
+    shareholder_risk: "Full operational and market risk"
+  stakeholder_conflicts:
+    shareholder_vs_creditor: "Asset substitution, dividend recapitalizations, leverage increase"
+    controlling_vs_minority: "Related-party transactions, tunnelling, disproportionate voting"
+    manager_vs_owner: "Agency costs — empire building, perks, short-termism"
+    shareholder_vs_employee: "Layoffs vs wage pressure vs profit sharing"
+  esg_considerations:
+    # Source: Vol 3, Module 2, p.55-62
+    environmental: "Climate risk, resource use, pollution"
+    social: "Labour standards, community impact, data protection"
+    governance: "Board independence, compensation alignment, transparency"
+  validation:
+    entity_required: "entity_id present"
+    valid_stakeholder: "stakeholder_type in allowed set"
+
+outcomes:
+  map_stakeholder_claim:
+    priority: 1
+    description: Map stakeholder to claim and conflicts
+    given:
+      - field: entity_id
+        source: input
+        operator: exists
+      - field: stakeholder_type
+        source: input
+        operator: in
+        value: [shareholder, creditor, manager, employee, customer, supplier, government]
+    then:
+      - action: call_service
+        target: stakeholder_analyst
+      - action: emit_event
+        event: stakeholder.mapped
+  invalid_stakeholder:
+    priority: 10
+    description: Unsupported stakeholder type
+    given:
+      - field: stakeholder_type
+        source: input
+        operator: not_in
+        value: [shareholder, creditor, manager, employee, customer, supplier, government]
+    then:
+      - action: emit_event
+        event: stakeholder.rejected
+    error: STK_INVALID_TYPE
+  missing_entity:
+    priority: 11
+    description: Entity id missing
+    given:
+      - field: entity_id
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: stakeholder.rejected
+    error: STK_ENTITY_MISSING
+
+errors:
+  - code: STK_INVALID_TYPE
+    status: 400
+    message: stakeholder_type must be from the allowed set
+  - code: STK_ENTITY_MISSING
+    status: 400
+    message: entity_id is required
+
+events:
+  - name: stakeholder.mapped
+    payload: [map_id, entity_id, stakeholder_type, claim_priority, conflict_flags]
+  - name: stakeholder.rejected
+    payload: [map_id, reason_code]
+
+anti_patterns:
+  - rule: Do not assume shareholder primacy applies globally
+    why: "Continental European, Japanese, and ESG frameworks explicitly weight broader stakeholders"
+  - rule: Do not ignore asset substitution risk for bondholders
+    why: "Leveraged firms can shift to riskier assets post-issuance; covenants and seniority mitigate but do not eliminate"
+  - rule: Do not price agency costs as zero
+    why: "Misaligned compensation and weak oversight materially reduce firm value; governance matters for cash-flow risk"
+  - rule: Do not treat ESG risks as purely reputational
+    why: "Regulatory, litigation, and stranded-asset risks translate directly into cash flow and cost of capital"
+
+api:
+  http:
+    method: POST
+    path: /corp/stakeholders/map
+  request:
+    schema:
+      entity_id: string
+      stakeholder_type: string
+      claim_priority: string
+  response:
+    success:
+      status: 200
+      schema:
+        map_id: string
+        stakeholder_type: string
+        claim_priority: string
+        conflict_flags: array
+    errors:
+      - status: 400
+        error_code: STK_INVALID_TYPE
+      - status: 400
+        error_code: STK_ENTITY_MISSING
+
+related:
+  - feature: corporate-organizational-forms
+    type: recommended
+  - feature: corporate-governance-mechanisms
+    type: recommended

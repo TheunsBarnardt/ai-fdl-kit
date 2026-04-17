@@ -1,0 +1,147 @@
+# ============================================================
+# corporate-organizational-forms — Feature Blueprint
+# Source: CFA LV1 2025 Vol 03 — Module 1, p.3-32
+# ============================================================
+
+feature: corporate-organizational-forms
+version: "1.0.0"
+description: Classify business organizational forms — sole proprietorship, partnership, limited company — and assess liability, taxation, and access to external financing implications
+category: trading
+tags: [corporate-issuers, organizational-form, legal-entity, sole-proprietorship, partnership, limited-company, cfa-level-1]
+aliases:
+  - business-legal-form
+  - sole-proprietorship
+  - general-partnership
+  - limited-partnership
+  - limited-liability-company
+  - corporation-structure
+
+actors:
+  - id: corp_analyst
+    name: Corporate Structure Analyst
+    type: system
+
+fields:
+  - name: entity_id
+    type: text
+    required: true
+    label: Entity identifier
+  - name: organizational_form
+    type: select
+    required: true
+    label: sole_trader | general_partnership | limited_partnership | limited_company
+
+rules:
+  forms:
+    sole_trader: "Single owner, unlimited liability, pass-through taxation"
+    general_partnership: "Multiple owners jointly and severally liable, pass-through tax"
+    limited_partnership: "General partners unlimited liability, limited partners liability capped"
+    limited_company: "Separate legal identity, limited liability, corporate taxation"
+  key_features:
+    legal_identity: "Limited companies are separate legal persons"
+    owner_manager_separation: "Pronounced in publicly listed corporations"
+    shareholder_liability: "Limited to invested capital in limited companies"
+    external_financing: "Corporations can issue equity and debt securities publicly"
+    taxation: "Double taxation for corporations; pass-through for partnerships and sole traders"
+  public_vs_private:
+    public: "Shares listed on exchange, subject to disclosure and reporting"
+    private: "Shares restricted, lower disclosure, less liquidity"
+  transitions:
+    ipo: "Private to public — listing process, underwriters, prospectus"
+    going_private: "Public to private — LBO, management buyout, acquisition"
+  validation:
+    entity_required: "entity_id present"
+    valid_form: "organizational_form in allowed set"
+
+outcomes:
+  classify_entity:
+    priority: 1
+    description: Identify organizational form and implications
+    given:
+      - field: entity_id
+        source: input
+        operator: exists
+      - field: organizational_form
+        source: input
+        operator: in
+        value: [sole_trader, general_partnership, limited_partnership, limited_company]
+    then:
+      - action: call_service
+        target: corp_analyst
+      - action: emit_event
+        event: corp.form_classified
+  invalid_form:
+    priority: 10
+    description: Unsupported organizational form
+    given:
+      - field: organizational_form
+        source: input
+        operator: not_in
+        value: [sole_trader, general_partnership, limited_partnership, limited_company]
+    then:
+      - action: emit_event
+        event: corp.form_rejected
+    error: CORP_INVALID_FORM
+  missing_entity:
+    priority: 11
+    description: Entity id missing
+    given:
+      - field: entity_id
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: corp.form_rejected
+    error: CORP_ENTITY_MISSING
+
+errors:
+  - code: CORP_INVALID_FORM
+    status: 400
+    message: organizational_form must be sole_trader, general_partnership, limited_partnership, or limited_company
+  - code: CORP_ENTITY_MISSING
+    status: 400
+    message: entity_id is required
+
+events:
+  - name: corp.form_classified
+    payload: [classification_id, entity_id, organizational_form, liability_type, tax_regime]
+  - name: corp.form_rejected
+    payload: [classification_id, reason_code]
+
+anti_patterns:
+  - rule: Do not assume all corporations face equal disclosure
+    why: "Private companies have minimal disclosure; public listing dramatically raises reporting burden"
+  - rule: Do not ignore tax regime differences
+    why: "Pass-through entities escape double taxation; structure choice can materially affect after-tax returns"
+  - rule: Do not conflate limited liability with operational immunity
+    why: "Shareholders remain exposed to reputational and regulatory actions despite capital protection"
+  - rule: Do not treat IPO as irreversible
+    why: "Going-private transactions via LBO and take-privates are a routine part of the corporate lifecycle"
+
+api:
+  http:
+    method: POST
+    path: /corp/entity/classify
+  request:
+    schema:
+      entity_id: string
+      organizational_form: string
+  response:
+    success:
+      status: 200
+      schema:
+        classification_id: string
+        organizational_form: string
+        liability_type: string
+        tax_regime: string
+    errors:
+      - status: 400
+        error_code: CORP_INVALID_FORM
+      - status: 400
+        error_code: CORP_ENTITY_MISSING
+
+related:
+  - feature: corporate-stakeholders
+    type: recommended
+  - feature: corporate-governance-mechanisms
+    type: recommended

@@ -1,0 +1,289 @@
+{
+  "feature": "working-capital-management",
+  "version": "1.0.0",
+  "description": "Measure cash conversion cycle, liquidity sources, drags and pulls on liquidity, and manage working capital components to optimise operational funding",
+  "category": "trading",
+  "tags": [
+    "corporate-issuers",
+    "working-capital",
+    "liquidity",
+    "cash-conversion-cycle",
+    "short-term-funding",
+    "treasury",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "cash-conversion-cycle",
+    "days-sales-outstanding",
+    "days-inventory-outstanding",
+    "days-payable-outstanding",
+    "liquidity-management",
+    "short-term-funding"
+  ],
+  "actors": [
+    {
+      "id": "treasury_analyst",
+      "name": "Treasury Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "entity_id",
+      "type": "text",
+      "required": true,
+      "label": "Entity identifier"
+    },
+    {
+      "name": "dso",
+      "type": "number",
+      "required": true,
+      "label": "Days sales outstanding"
+    },
+    {
+      "name": "dio",
+      "type": "number",
+      "required": true,
+      "label": "Days inventory outstanding"
+    },
+    {
+      "name": "dpo",
+      "type": "number",
+      "required": true,
+      "label": "Days payable outstanding"
+    },
+    {
+      "name": "current_ratio",
+      "type": "number",
+      "required": false,
+      "label": "Current assets / current liabilities"
+    }
+  ],
+  "rules": {
+    "cash_conversion_cycle": {
+      "formula": "CCC = DIO + DSO - DPO",
+      "interpretation": "Days from cash outlay on inventory to cash collection from customers",
+      "objective": "Lower CCC frees cash for deployment"
+    },
+    "liquidity_sources": {
+      "primary": [
+        "Cash and near-cash balances",
+        "Committed credit lines",
+        "Operating cash flow"
+      ],
+      "secondary": [
+        "Asset sales",
+        "Renegotiating debt terms",
+        "Emergency equity issuance"
+      ]
+    },
+    "drags_and_pulls": {
+      "drags": "Slow receivables, obsolete inventory, tight credit availability",
+      "pulls": "Fast payables, early payment discounts refused, capex spikes"
+    },
+    "ratios": {
+      "current_ratio": "CA / CL — overall liquidity cushion",
+      "quick_ratio": "(CA - inventory) / CL — liquid assets cover",
+      "cash_ratio": "(Cash + MS) / CL — strict cash cover"
+    },
+    "short_term_funding": {
+      "internal": "Stretching payables, accelerating receivables, inventory reduction",
+      "external": "Lines of credit, commercial paper, trade credit, factoring"
+    },
+    "validation": {
+      "entity_required": "entity_id present",
+      "dso_non_negative": "dso >= 0",
+      "dio_non_negative": "dio >= 0",
+      "dpo_non_negative": "dpo >= 0"
+    }
+  },
+  "outcomes": {
+    "compute_ccc": {
+      "priority": 1,
+      "description": "Compute cash conversion cycle and liquidity metrics",
+      "given": [
+        {
+          "field": "entity_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "dso",
+          "source": "input",
+          "operator": "gte",
+          "value": 0
+        },
+        {
+          "field": "dio",
+          "source": "input",
+          "operator": "gte",
+          "value": 0
+        },
+        {
+          "field": "dpo",
+          "source": "input",
+          "operator": "gte",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "treasury_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "treasury.ccc_computed"
+        }
+      ]
+    },
+    "invalid_inputs": {
+      "priority": 10,
+      "description": "Negative inputs",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "dso",
+              "source": "input",
+              "operator": "lt",
+              "value": 0
+            },
+            {
+              "field": "dio",
+              "source": "input",
+              "operator": "lt",
+              "value": 0
+            },
+            {
+              "field": "dpo",
+              "source": "input",
+              "operator": "lt",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "treasury.ccc_rejected"
+        }
+      ],
+      "error": "CCC_INVALID_INPUT"
+    },
+    "missing_entity": {
+      "priority": 11,
+      "description": "Entity id missing",
+      "given": [
+        {
+          "field": "entity_id",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "treasury.ccc_rejected"
+        }
+      ],
+      "error": "CCC_ENTITY_MISSING"
+    }
+  },
+  "errors": [
+    {
+      "code": "CCC_INVALID_INPUT",
+      "status": 400,
+      "message": "DSO, DIO, and DPO must be non-negative"
+    },
+    {
+      "code": "CCC_ENTITY_MISSING",
+      "status": 400,
+      "message": "entity_id is required"
+    }
+  ],
+  "events": [
+    {
+      "name": "treasury.ccc_computed",
+      "payload": [
+        "computation_id",
+        "entity_id",
+        "ccc_days",
+        "liquidity_grade",
+        "funding_gap"
+      ]
+    },
+    {
+      "name": "treasury.ccc_rejected",
+      "payload": [
+        "computation_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not treat lower CCC as always better",
+      "why": "Aggressive DPO extension damages supplier relationships; rock-bottom inventory raises stockout risk"
+    },
+    {
+      "rule": "Do not rely on current ratio alone for distressed firms",
+      "why": "Inventory may be unsellable and receivables uncollectible; focus on quick and cash ratios"
+    },
+    {
+      "rule": "Do not assume undrawn credit lines are always available",
+      "why": "Material Adverse Change (MAC) clauses and financial covenants can void access just when needed"
+    },
+    {
+      "rule": "Do not ignore seasonality",
+      "why": "Retailers, agribusinesses, and travel firms have wide intra-year swings that annual ratios mask"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/corp/working-capital/ccc"
+    },
+    "request": {
+      "schema": {
+        "entity_id": "string",
+        "dso": "number",
+        "dio": "number",
+        "dpo": "number",
+        "current_ratio": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "computation_id": "string",
+          "ccc_days": "number",
+          "liquidity_grade": "string",
+          "funding_gap": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "CCC_INVALID_INPUT"
+        },
+        {
+          "status": 400,
+          "error_code": "CCC_ENTITY_MISSING"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "capital-allocation-npv-irr",
+      "type": "recommended"
+    },
+    {
+      "feature": "corporate-capital-structure",
+      "type": "recommended"
+    }
+  ]
+}

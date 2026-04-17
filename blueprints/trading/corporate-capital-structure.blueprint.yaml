@@ -1,0 +1,183 @@
+# ============================================================
+# corporate-capital-structure — Feature Blueprint
+# Source: CFA LV1 2025 Vol 03 — Module 7, p.175-230
+# ============================================================
+
+feature: corporate-capital-structure
+version: "1.0.0"
+description: Determine optimal capital structure using Modigliani-Miller propositions, static trade-off theory, and pecking order theory — balancing tax shield, bankruptcy costs, and signalling
+category: trading
+tags: [corporate-issuers, capital-structure, modigliani-miller, wacc, leverage, tax-shield, cfa-level-1]
+aliases:
+  - mm-propositions
+  - static-trade-off
+  - pecking-order
+  - optimal-leverage
+  - cost-of-capital
+  - debt-equity-mix
+
+actors:
+  - id: capital_structure_analyst
+    name: Capital Structure Analyst
+    type: system
+
+fields:
+  - name: entity_id
+    type: text
+    required: true
+    label: Entity identifier
+  - name: debt_weight
+    type: number
+    required: true
+    label: D / (D + E)
+  - name: cost_of_debt
+    type: number
+    required: true
+    label: Pre-tax cost of debt (decimal)
+  - name: cost_of_equity
+    type: number
+    required: true
+    label: Cost of equity (decimal)
+  - name: tax_rate
+    type: number
+    required: true
+    label: Marginal corporate tax rate (decimal)
+
+rules:
+  wacc:
+    # Source: Vol 3, Module 7, p.178-182
+    formula: "WACC = (D/V) * r_d * (1 - t) + (E/V) * r_e"
+    interpretation: "Blended required return weighted by capital structure"
+  mm_without_taxes:
+    # Source: Vol 3, Module 7, p.194-196
+    proposition_1: "Firm value independent of capital structure"
+    proposition_2: "Cost of equity rises linearly with leverage"
+    assumptions: "No taxes, no bankruptcy costs, no agency costs, symmetric information"
+  mm_with_taxes:
+    proposition_1: "Value increases with debt by the tax shield: V_levered = V_unlevered + t * D"
+    proposition_2: "Cost of equity still rises with leverage but after-tax WACC falls"
+  static_trade_off:
+    benefit: "Interest tax shield raises firm value"
+    cost: "Expected bankruptcy / financial distress costs rise with leverage"
+    optimum: "Marginal tax benefit equals marginal distress cost"
+  pecking_order:
+    # Source: Vol 3, Module 7, p.205
+    ordering: "Internal funds -> debt -> equity"
+    rationale: "Asymmetric information penalises external equity issuance"
+  factors_influencing_structure:
+    # Source: Vol 3, Module 7, p.182-193
+    - "Business risk and cash flow stability"
+    - "Tax regime"
+    - "Agency costs and governance"
+    - "Asymmetric information and signalling"
+    - "Market conditions and investor demand"
+    - "Regulatory requirements"
+  validation:
+    entity_required: "entity_id present"
+    valid_weights: "0 <= debt_weight <= 1"
+    valid_rates: "all rates between 0 and 1"
+
+outcomes:
+  compute_wacc:
+    priority: 1
+    description: Compute after-tax WACC
+    given:
+      - field: entity_id
+        source: input
+        operator: exists
+      - field: debt_weight
+        source: input
+        operator: gte
+        value: 0
+      - field: debt_weight
+        source: input
+        operator: lte
+        value: 1
+    then:
+      - action: call_service
+        target: capital_structure_analyst
+      - action: emit_event
+        event: capital.wacc_computed
+  invalid_weights:
+    priority: 10
+    description: Debt weight out of range
+    given:
+      - any:
+          - field: debt_weight
+            source: input
+            operator: lt
+            value: 0
+          - field: debt_weight
+            source: input
+            operator: gt
+            value: 1
+    then:
+      - action: emit_event
+        event: capital.wacc_rejected
+    error: CS_INVALID_WEIGHT
+  missing_entity:
+    priority: 11
+    description: Entity id missing
+    given:
+      - field: entity_id
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: capital.wacc_rejected
+    error: CS_ENTITY_MISSING
+
+errors:
+  - code: CS_INVALID_WEIGHT
+    status: 400
+    message: debt_weight must lie between 0 and 1
+  - code: CS_ENTITY_MISSING
+    status: 400
+    message: entity_id is required
+
+events:
+  - name: capital.wacc_computed
+    payload: [computation_id, entity_id, wacc, tax_shield_value, distress_cost_estimate]
+  - name: capital.wacc_rejected
+    payload: [computation_id, reason_code]
+
+anti_patterns:
+  - rule: Do not assume MM without taxes holds in practice
+    why: "Real-world frictions (taxes, bankruptcy costs, agency costs) make capital structure value-relevant"
+  - rule: Do not maximise leverage to minimise WACC mechanically
+    why: "Beyond the optimum, distress costs and debt overhang raise WACC despite tax shield gains"
+  - rule: Do not ignore pecking-order signalling effects
+    why: "Equity issuance signals overvaluation; debt-then-equity sequencing preserves value"
+  - rule: Do not assume target leverage is immediately observable
+    why: "Firms move toward target slowly; current ratios can misstate long-run strategy"
+
+api:
+  http:
+    method: POST
+    path: /corp/capital-structure/wacc
+  request:
+    schema:
+      entity_id: string
+      debt_weight: number
+      cost_of_debt: number
+      cost_of_equity: number
+      tax_rate: number
+  response:
+    success:
+      status: 200
+      schema:
+        computation_id: string
+        wacc: number
+        tax_shield_value: number
+        distress_cost_estimate: number
+    errors:
+      - status: 400
+        error_code: CS_INVALID_WEIGHT
+      - status: 400
+        error_code: CS_ENTITY_MISSING
+
+related:
+  - feature: capital-allocation-npv-irr
+    type: recommended
+  - feature: corporate-stakeholders
+    type: recommended

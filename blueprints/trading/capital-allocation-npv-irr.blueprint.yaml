@@ -1,0 +1,190 @@
+# ============================================================
+# capital-allocation-npv-irr — Feature Blueprint
+# Source: CFA LV1 2025 Vol 03 — Module 6, p.135-173
+# ============================================================
+
+feature: capital-allocation-npv-irr
+version: "1.0.0"
+description: Rank capital investments using NPV, IRR, and ROIC; identify allocation principles and common pitfalls (IRR conflicts, sunk costs, optimistic projections)
+category: trading
+tags: [corporate-issuers, capital-allocation, npv, irr, roic, capital-budgeting, real-options, cfa-level-1]
+aliases:
+  - capital-budgeting
+  - project-evaluation
+  - net-present-value
+  - irr-capital-budgeting
+  - return-on-invested-capital
+  - real-options-valuation
+
+actors:
+  - id: capital_analyst
+    name: Capital Allocation Analyst
+    type: system
+
+fields:
+  - name: project_id
+    type: text
+    required: true
+    label: Project identifier
+  - name: cash_flows
+    type: json
+    required: true
+    label: Array of cash flows by period
+  - name: discount_rate
+    type: number
+    required: true
+    label: Required rate of return (decimal)
+  - name: invested_capital
+    type: number
+    required: false
+    label: Total invested capital for ROIC
+
+rules:
+  npv:
+    # Source: Vol 3, Module 6, p.147-150
+    formula: "NPV = sum_t CF_t / (1 + r)^t"
+    rule: "Accept if NPV > 0"
+    why_superior: "Measures value added in currency; handles unconventional cash flows"
+  irr:
+    # Source: Vol 3, Module 6, p.150-153
+    definition: "Discount rate that sets NPV to zero"
+    rule: "Accept if IRR > hurdle rate"
+    limitations:
+      - "Multiple IRRs with sign changes"
+      - "Reinvestment at IRR assumption"
+      - "Scale bias in ranking mutually exclusive projects"
+  roic:
+    # Source: Vol 3, Module 6, p.153-158
+    formula: "ROIC = NOPAT / Invested Capital"
+    compare_to: "WACC — value creation when ROIC > WACC"
+  project_types:
+    going_concern: "Maintenance capex to sustain operations"
+    regulatory_compliance: "Required by law; NPV often negative but mandatory"
+    expansion: "Growing existing business"
+    new_lines: "Higher risk, diversification"
+  allocation_principles:
+    # Source: Vol 3, Module 6, p.159
+    - "Incremental cash flows only"
+    - "Include opportunity costs and externalities"
+    - "Exclude sunk costs and financing costs"
+    - "Use after-tax cash flows"
+    - "Discount at project risk-adjusted rate"
+  pitfalls:
+    # Source: Vol 3, Module 6, p.159-162
+    - "Overly optimistic projections"
+    - "Internal politics biasing approvals"
+    - "Pet projects and empire building"
+    - "Failure to account for inflation consistently"
+    - "Template risk — reusing discount rates"
+  real_options:
+    # Source: Vol 3, Module 6, p.163-168
+    examples: "Timing, expansion, abandonment, switching inputs"
+    valuation: "Adds flexibility value on top of static NPV"
+  validation:
+    project_required: "project_id present"
+    discount_rate_valid: "0 < discount_rate < 1"
+    cash_flows_present: "cash_flows must exist"
+
+outcomes:
+  rank_project:
+    priority: 1
+    description: Compute NPV, IRR and recommendation
+    given:
+      - field: project_id
+        source: input
+        operator: exists
+      - field: discount_rate
+        source: input
+        operator: gt
+        value: 0
+      - field: cash_flows
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: capital_analyst
+      - action: emit_event
+        event: capital.project_ranked
+  invalid_rate:
+    priority: 10
+    description: Discount rate out of range
+    given:
+      - any:
+          - field: discount_rate
+            source: input
+            operator: lte
+            value: 0
+          - field: discount_rate
+            source: input
+            operator: gte
+            value: 1
+    then:
+      - action: emit_event
+        event: capital.project_rejected
+    error: CAP_INVALID_RATE
+  missing_cash_flows:
+    priority: 11
+    description: Cash flows missing
+    given:
+      - field: cash_flows
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: capital.project_rejected
+    error: CAP_CASH_FLOWS_MISSING
+
+errors:
+  - code: CAP_INVALID_RATE
+    status: 400
+    message: discount_rate must be strictly between 0 and 1
+  - code: CAP_CASH_FLOWS_MISSING
+    status: 400
+    message: cash_flows array is required
+
+events:
+  - name: capital.project_ranked
+    payload: [project_id, npv, irr, roic, recommendation]
+  - name: capital.project_rejected
+    payload: [project_id, reason_code]
+
+anti_patterns:
+  - rule: Do not rank mutually exclusive projects by IRR alone
+    why: "IRR ignores scale; NPV correctly identifies value-maximising choice"
+  - rule: Do not include sunk costs or financing interest in project CFs
+    why: "Sunk costs are irrelevant; financing effects are captured in the discount rate"
+  - rule: Do not use a firm-wide WACC for projects with different risk
+    why: "Divisional and project-specific risk premia are required to avoid bias toward risky projects"
+  - rule: Do not ignore real options value
+    why: "Staged investments, abandonment, and switching options can flip negative static NPVs to positive"
+
+api:
+  http:
+    method: POST
+    path: /corp/capital/rank
+  request:
+    schema:
+      project_id: string
+      cash_flows: object
+      discount_rate: number
+      invested_capital: number
+  response:
+    success:
+      status: 200
+      schema:
+        project_id: string
+        npv: number
+        irr: number
+        roic: number
+        recommendation: string
+    errors:
+      - status: 400
+        error_code: CAP_INVALID_RATE
+      - status: 400
+        error_code: CAP_CASH_FLOWS_MISSING
+
+related:
+  - feature: corporate-capital-structure
+    type: recommended
+  - feature: working-capital-management
+    type: recommended

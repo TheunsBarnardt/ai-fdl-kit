@@ -1,0 +1,152 @@
+# ============================================================
+# corporate-governance-mechanisms — Feature Blueprint
+# Source: CFA LV1 2025 Vol 03 — Module 3-4, p.67-95
+# ============================================================
+
+feature: corporate-governance-mechanisms
+version: "1.0.0"
+description: Catalog corporate governance mechanisms — reporting, voting, covenants, board oversight, regulation — and assess effectiveness in resolving stakeholder conflicts
+category: trading
+tags: [corporate-issuers, governance, board-oversight, covenants, shareholder-voting, esg-governance, cfa-level-1]
+aliases:
+  - governance-mechanisms
+  - board-of-directors
+  - shareholder-voting
+  - debt-covenants
+  - proxy-voting
+  - governance-risks
+
+actors:
+  - id: governance_analyst
+    name: Corporate Governance Analyst
+    type: system
+
+fields:
+  - name: entity_id
+    type: text
+    required: true
+    label: Entity identifier
+  - name: mechanism
+    type: select
+    required: true
+    label: reporting | shareholder_voting | creditor_covenant | board_oversight | employee | customer_supplier | regulatory
+
+rules:
+  mechanisms:
+    # Source: Vol 3, Module 3, p.77-84
+    reporting: "Periodic financial and non-financial disclosure — auditors, regulators, standards"
+    shareholder_voting: "Board elections, say on pay, major transactions, proxy"
+    creditor_covenants: "Affirmative and negative covenants in loan agreements; cross-default"
+    board_oversight: "Independent directors, committees, CEO succession, strategy oversight"
+    employee: "Collective bargaining, whistleblower protection, works councils"
+    customer_supplier: "Contracts, quality standards, sustainability audits"
+    regulatory: "Legal frameworks, enforcement, anti-corruption, market conduct"
+  board_structure:
+    independence: "Proportion of independent non-executive directors"
+    committees: "Audit, compensation, nominating, risk, ESG"
+    dual_role: "Chair and CEO separation reduces concentration of power"
+  governance_risks:
+    operational: "Fraud, poor strategy execution, reputational incidents"
+    legal_reputational: "Litigation, regulatory fines, consumer trust loss"
+    financial: "Mispricing of risk, funding cost shocks, distressed financing"
+  benefits:
+    - "Lower cost of capital"
+    - "Better strategic decisions"
+    - "Reduced likelihood of fraud"
+    - "Improved stakeholder trust"
+  validation:
+    entity_required: "entity_id present"
+    valid_mechanism: "mechanism in allowed set"
+
+outcomes:
+  evaluate_mechanism:
+    priority: 1
+    description: Evaluate governance mechanism coverage
+    given:
+      - field: entity_id
+        source: input
+        operator: exists
+      - field: mechanism
+        source: input
+        operator: in
+        value: [reporting, shareholder_voting, creditor_covenant, board_oversight, employee, customer_supplier, regulatory]
+    then:
+      - action: call_service
+        target: governance_analyst
+      - action: emit_event
+        event: governance.mechanism_evaluated
+  invalid_mechanism:
+    priority: 10
+    description: Unsupported mechanism
+    given:
+      - field: mechanism
+        source: input
+        operator: not_in
+        value: [reporting, shareholder_voting, creditor_covenant, board_oversight, employee, customer_supplier, regulatory]
+    then:
+      - action: emit_event
+        event: governance.mechanism_rejected
+    error: GOV_INVALID_MECHANISM
+  missing_entity:
+    priority: 11
+    description: Entity id missing
+    given:
+      - field: entity_id
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: governance.mechanism_rejected
+    error: GOV_ENTITY_MISSING
+
+errors:
+  - code: GOV_INVALID_MECHANISM
+    status: 400
+    message: mechanism must be from the allowed set
+  - code: GOV_ENTITY_MISSING
+    status: 400
+    message: entity_id is required
+
+events:
+  - name: governance.mechanism_evaluated
+    payload: [eval_id, entity_id, mechanism, coverage_score, residual_risk]
+  - name: governance.mechanism_rejected
+    payload: [eval_id, reason_code]
+
+anti_patterns:
+  - rule: Do not confuse compliance with effective governance
+    why: "Checklist compliance often coexists with weak culture; probe independence, incentives, and escalation quality"
+  - rule: Do not rely only on board independence count
+    why: "Directors can be nominally independent yet captured through long tenure or cross-board relationships"
+  - rule: Do not ignore creditor governance in leveraged firms
+    why: "Covenants and inter-creditor agreements drive outcomes when equity loses control in distress"
+  - rule: Do not treat governance as static
+    why: "Crises reveal governance gaps; track board refreshment, incidents, and restated accounts over time"
+
+api:
+  http:
+    method: POST
+    path: /corp/governance/evaluate
+  request:
+    schema:
+      entity_id: string
+      mechanism: string
+  response:
+    success:
+      status: 200
+      schema:
+        eval_id: string
+        mechanism: string
+        coverage_score: number
+        residual_risk: string
+    errors:
+      - status: 400
+        error_code: GOV_INVALID_MECHANISM
+      - status: 400
+        error_code: GOV_ENTITY_MISSING
+
+related:
+  - feature: corporate-stakeholders
+    type: required
+  - feature: corporate-organizational-forms
+    type: recommended
