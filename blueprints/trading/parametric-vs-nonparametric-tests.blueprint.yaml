@@ -1,0 +1,198 @@
+# ============================================================
+# parametric-vs-nonparametric-tests — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 8, p.242-244
+# ============================================================
+
+feature: parametric-vs-nonparametric-tests
+version: "1.0.0"
+description: Choose between parametric and nonparametric hypothesis tests based on distributional assumptions, outliers, rank-based data, and whether the hypothesis concerns a parameter
+category: trading
+tags: [quantitative-methods, hypothesis-testing, nonparametric, parametric, rank-tests, robust-statistics, cfa-level-1]
+aliases:
+  - nonparametric-tests
+  - parametric-tests
+  - rank-based-tests
+  - distribution-free-tests
+  - wilcoxon-test
+  - mann-whitney-test
+  - sign-test
+
+actors:
+  - id: inference_engine
+    name: Statistical Inference Engine
+    type: system
+
+fields:
+  - name: data_type
+    type: select
+    required: true
+    label: continuous | ordinal | nominal | ranked
+  - name: distributional_assumption_met
+    type: boolean
+    required: false
+    label: Whether parametric assumptions (normality, equal variance) are reasonable
+  - name: contains_outliers
+    type: boolean
+    required: false
+    label: Whether sample contains influential outliers
+  - name: hypothesis_concerns_parameter
+    type: boolean
+    required: false
+    label: True if H0 is about mean/variance/proportion; false for distributional shape / independence
+
+rules:
+  parametric_tests:
+    # Source: Vol 1, Module 8, p.242
+    definition: "Hypothesis tests about a population parameter that assume a specific distribution (usually normal)"
+    examples: "z-test, t-test, chi-square variance test, F-test, ANOVA"
+    strengths: "More powerful when assumptions are met; closed-form sampling distributions"
+    weaknesses: "Sensitive to violations — non-normality, outliers, unequal variances"
+  nonparametric_tests:
+    # Source: Vol 1, Module 8, p.242-243
+    definition: "Tests that either do not concern a parameter or make minimal distributional assumptions"
+    examples: "Sign test, Wilcoxon signed-rank, Mann-Whitney U, Kruskal-Wallis, Spearman rank correlation"
+    strengths: "Robust to outliers; work on ranks/ordinal data; distribution-free"
+    weaknesses: "Lower power when parametric assumptions DO hold; interpret results in terms of medians/distributions, not means"
+  when_to_use_nonparametric:
+    # Source: Vol 1, Module 8, p.243
+    assumption_violations: "Data are clearly non-normal, especially with small n"
+    outliers_present: "Influential outliers that cannot be removed"
+    rank_data: "Data provided in ordinal form (e.g., analyst ratings)"
+    non_parametric_hypothesis: "Testing distributional shape, independence, or randomness (e.g., chi-square of independence)"
+  parametric_counterparts_mapping:
+    # Source: Vol 1, Module 8, Exhibit
+    one_sample_t: {nonparametric: "Wilcoxon signed-rank test"}
+    two_sample_t: {nonparametric: "Mann-Whitney U test"}
+    paired_t: {nonparametric: "Wilcoxon signed-rank (on differences) or sign test"}
+    anova: {nonparametric: "Kruskal-Wallis test"}
+    pearson_correlation: {nonparametric: "Spearman rank correlation"}
+  investment_applications:
+    manager_ranking: "Spearman rho between sample ranks and benchmark ranks"
+    small_sample_performance: "Wilcoxon signed-rank to test whether alpha > 0 with n = 10"
+    survey_analysis: "Kruskal-Wallis for ordinal investor-satisfaction scores"
+    robust_event_studies: "Sign test of abnormal return direction around announcements"
+  validation:
+    appropriate_test_selected: "Parametric assumptions checked before parametric test use"
+    rank_ties_handled: "Nonparametric tests have tie-breaking rules (average ranks)"
+
+outcomes:
+  select_parametric:
+    priority: 1
+    description: Parametric test applicable
+    given:
+      - field: distributional_assumption_met
+        source: input
+        operator: eq
+        value: true
+      - field: contains_outliers
+        source: input
+        operator: eq
+        value: false
+      - field: hypothesis_concerns_parameter
+        source: input
+        operator: eq
+        value: true
+    then:
+      - action: call_service
+        target: inference_engine
+      - action: emit_event
+        event: inference.parametric_selected
+  select_nonparametric:
+    priority: 2
+    description: Nonparametric test appropriate
+    given:
+      - any:
+          - field: distributional_assumption_met
+            source: input
+            operator: eq
+            value: false
+          - field: contains_outliers
+            source: input
+            operator: eq
+            value: true
+          - field: data_type
+            source: input
+            operator: in
+            value: [ordinal, ranked, nominal]
+          - field: hypothesis_concerns_parameter
+            source: input
+            operator: eq
+            value: false
+    then:
+      - action: call_service
+        target: inference_engine
+      - action: emit_event
+        event: inference.nonparametric_selected
+  invalid_data_type:
+    priority: 10
+    description: Unsupported data type
+    given:
+      - field: data_type
+        source: input
+        operator: not_in
+        value: [continuous, ordinal, nominal, ranked]
+    then:
+      - action: emit_event
+        event: inference.test_selection_rejected
+    error: TEST_INVALID_DATA_TYPE
+
+errors:
+  - code: TEST_INVALID_DATA_TYPE
+    status: 400
+    message: Data type must be one of continuous, ordinal, nominal, ranked
+
+events:
+  - name: inference.parametric_selected
+    payload: [decision_id, recommended_test, rationale]
+  - name: inference.nonparametric_selected
+    payload: [decision_id, recommended_test, rationale]
+  - name: inference.test_selection_rejected
+    payload: [decision_id, reason_code]
+
+anti_patterns:
+  - rule: Do not automatically default to parametric tests because they are more common in training
+    why: "Financial returns frequently violate normality; blind parametric use on leptokurtic data yields understated tail risk and inflated t-statistics"
+  - rule: Do not switch to nonparametric ONLY because the parametric test rejects or fails to reject
+    why: "Pretest / pick-the-winner behavior distorts Type I error; specify the method based on assumption diagnostics BEFORE running either test"
+  - rule: Do not interpret nonparametric test results as statements about means
+    why: "Rank tests compare medians or stochastic ordering; reporting 'difference in means' from a Mann-Whitney U result is a common misstatement"
+  - rule: Do not assume nonparametric tests have no assumptions
+    why: "They are distribution-free, not assumption-free; most rank tests still assume independent observations and, for two-sample tests, similar shape"
+
+api:
+  http:
+    method: POST
+    path: /analytics/inference/select-test
+  request:
+    schema:
+      data_type: string
+      distributional_assumption_met: boolean
+      contains_outliers: boolean
+      hypothesis_concerns_parameter: boolean
+  response:
+    success:
+      status: 200
+      schema:
+        recommended_test: string
+        test_family: string
+        rationale: string
+    errors:
+      - status: 400
+        error_code: TEST_INVALID_DATA_TYPE
+
+extensions:
+  decision_guide:
+    # Source: Vol 1, Module 8, p.243
+    use_parametric_when: "Large sample from approximately normal population; no extreme outliers; hypothesis about mu or sigma"
+    use_nonparametric_when: "Small sample; clearly non-normal; ordinal/ranked data; hypothesis about independence or shape"
+  test_cross_reference:
+    location: tests_of_independence
+    note: "Chi-square test of independence is nonparametric and covered in parametric-nonparametric-tests-independence blueprint"
+
+related:
+  - feature: hypothesis-testing-framework
+    type: required
+  - feature: hypothesis-test-means
+    type: recommended
+  - feature: hypothesis-test-variance
+    type: recommended

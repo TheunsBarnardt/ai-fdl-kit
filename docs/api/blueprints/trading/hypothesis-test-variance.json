@@ -1,0 +1,319 @@
+{
+  "feature": "hypothesis-test-variance",
+  "version": "1.0.0",
+  "description": "Test hypotheses about population variances using the chi-square test for a single variance and the F-test for the ratio of two independent variances",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "hypothesis-testing",
+    "chi-square-test",
+    "f-test",
+    "variance-test",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "chi-square-variance-test",
+    "f-test",
+    "variance-ratio-test",
+    "single-variance-test",
+    "two-variance-test",
+    "levene-test",
+    "equality-of-variances"
+  ],
+  "actors": [
+    {
+      "id": "inference_engine",
+      "name": "Statistical Inference Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "scenario",
+      "type": "select",
+      "required": true,
+      "label": "single_variance | two_variance_ratio"
+    },
+    {
+      "name": "sample_1",
+      "type": "json",
+      "required": true,
+      "label": "Observations or summary stats (s^2, n) for sample 1"
+    },
+    {
+      "name": "sample_2",
+      "type": "json",
+      "required": false,
+      "label": "Sample 2 for variance ratio test"
+    },
+    {
+      "name": "hypothesized_variance",
+      "type": "number",
+      "required": false,
+      "label": "sigma_0^2 for single-variance test"
+    }
+  ],
+  "rules": {
+    "single_variance_test": {
+      "statistic": "chi_square = (n - 1) * s^2 / sigma_0^2",
+      "distribution": "Chi-square with n-1 degrees of freedom",
+      "assumptions": "Population is normally distributed",
+      "two_sided_rule": "Reject H0 if chi_square < chi_{1-alpha/2, n-1} OR chi_square > chi_{alpha/2, n-1}"
+    },
+    "two_variance_ratio_test": {
+      "statistic": "F = s_1^2 / s_2^2 (with s_1^2 >= s_2^2 by convention)",
+      "distribution": "F-distribution with (n_1 - 1, n_2 - 1) degrees of freedom",
+      "assumptions": "Samples from normally distributed populations; independent samples",
+      "convention": "Place larger sample variance in numerator to ensure F >= 1; use right-tail critical value"
+    },
+    "interpretation": {
+      "chi_square_sensitivity": "Chi-square test is sensitive to departures from normality",
+      "f_test_sensitivity": "F-test is also sensitive to non-normality; Levene's test is a robust alternative",
+      "non_symmetric_distributions": "Both chi-square and F are right-skewed; two-sided tests use asymmetric critical values"
+    },
+    "applications": {
+      "volatility_regime_change": "Test whether volatility in period 2 differs from period 1 (F-test)",
+      "risk_model_validation": "Chi-square test of whether realised variance equals model-implied variance",
+      "manager_risk_control": "Test whether fund stdev exceeds stated mandate",
+      "strategy_comparison": "F-test for equal risk between two trading strategies"
+    },
+    "validation": {
+      "sample_size": "n >= 2 per sample (n - 1 > 0)",
+      "variance_positive": "Sample variances must be strictly positive",
+      "normality_check": "Warn if data fail normality tests — test results unreliable"
+    }
+  },
+  "outcomes": {
+    "run_chi_square_test": {
+      "priority": 1,
+      "description": "Chi-square test for a single variance",
+      "given": [
+        {
+          "field": "scenario",
+          "source": "input",
+          "operator": "eq",
+          "value": "single_variance"
+        },
+        {
+          "field": "hypothesized_variance",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "inference_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "inference.variance_test_completed"
+        }
+      ]
+    },
+    "run_f_test": {
+      "priority": 2,
+      "description": "F-test for ratio of two variances",
+      "given": [
+        {
+          "field": "scenario",
+          "source": "input",
+          "operator": "eq",
+          "value": "two_variance_ratio"
+        },
+        {
+          "field": "sample_2",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "inference_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "inference.variance_test_completed"
+        }
+      ]
+    },
+    "invalid_scenario": {
+      "priority": 10,
+      "description": "Unsupported variance test scenario",
+      "given": [
+        {
+          "field": "scenario",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "single_variance",
+            "two_variance_ratio"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "inference.variance_test_rejected"
+        }
+      ],
+      "error": "VAR_TEST_INVALID_SCENARIO"
+    },
+    "insufficient_data": {
+      "priority": 11,
+      "description": "Sample data missing or sample size too small",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "sample_1",
+              "source": "input",
+              "operator": "not_exists"
+            },
+            {
+              "field": "sample_size_1",
+              "source": "computed",
+              "operator": "lt",
+              "value": 2
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "inference.variance_test_rejected"
+        }
+      ],
+      "error": "VAR_TEST_INSUFFICIENT_DATA"
+    }
+  },
+  "errors": [
+    {
+      "code": "VAR_TEST_INVALID_SCENARIO",
+      "status": 400,
+      "message": "Scenario must be single_variance or two_variance_ratio"
+    },
+    {
+      "code": "VAR_TEST_INSUFFICIENT_DATA",
+      "status": 400,
+      "message": "Each sample requires at least 2 observations"
+    }
+  ],
+  "events": [
+    {
+      "name": "inference.variance_test_completed",
+      "payload": [
+        "test_id",
+        "scenario",
+        "statistic",
+        "degrees_of_freedom",
+        "p_value",
+        "decision"
+      ]
+    },
+    {
+      "name": "inference.variance_test_rejected",
+      "payload": [
+        "test_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not apply the chi-square variance test to non-normal populations",
+      "why": "Chi-square test assumes normality; applying it to skewed or heavy-tailed data (e.g., financial returns) yields unreliable p-values. Use Levene's or bootstrap alternatives"
+    },
+    {
+      "rule": "Do not invert the F-ratio after computing if F < 1 and quote a left-tail p-value",
+      "why": "Convention is larger-variance numerator; manually inverting without recomputing critical values introduces sign and df confusion"
+    },
+    {
+      "rule": "Do not use the F-test when samples are paired or dependent",
+      "why": "F-test assumes independent samples; paired variance comparisons require Pitman-Morgan or bootstrap methods"
+    },
+    {
+      "rule": "Do not use the F-test as a preliminary check before the pooled t-test for equal variances",
+      "why": "Pretest bias: running the F-test and conditionally switching to Welch's t-test distorts overall Type I error. Use Welch's t-test unconditionally"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/inference/variance-test"
+    },
+    "request": {
+      "schema": {
+        "scenario": "string",
+        "sample_1": "array",
+        "sample_2": "array",
+        "hypothesized_variance": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "statistic": "number",
+          "degrees_of_freedom": "array",
+          "p_value": "number",
+          "decision": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "VAR_TEST_INVALID_SCENARIO"
+        },
+        {
+          "status": 400,
+          "error_code": "VAR_TEST_INSUFFICIENT_DATA"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "chi_square_example": {
+      "hypothesized_variance": 0.04,
+      "sample_variance": 0.0625,
+      "n": 25,
+      "chi_square": "(25 - 1) * 0.0625 / 0.04 = 37.5",
+      "df": 24,
+      "critical_chi_upper_0_025": 39.364,
+      "decision": "Fail to reject H0 at alpha = 0.05 two-sided"
+    },
+    "f_test_example": {
+      "sample_1": {
+        "s2": 0.09,
+        "n": 30
+      },
+      "sample_2": {
+        "s2": 0.04,
+        "n": 25
+      },
+      "f_stat": "0.09 / 0.04 = 2.25",
+      "df": [
+        29,
+        24
+      ],
+      "critical_f_0_025": 2.22,
+      "decision": "Reject H0 of equal variances at alpha = 0.05"
+    }
+  },
+  "related": [
+    {
+      "feature": "hypothesis-testing-framework",
+      "type": "required"
+    },
+    {
+      "feature": "hypothesis-test-means",
+      "type": "recommended"
+    },
+    {
+      "feature": "measures-of-dispersion",
+      "type": "recommended"
+    }
+  ]
+}

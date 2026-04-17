@@ -1,0 +1,376 @@
+{
+  "feature": "hypothesis-test-means",
+  "version": "1.0.0",
+  "description": "Test hypotheses about one or two population means using z-tests and t-tests — including paired comparisons — selecting based on variance knowledge and sample dependence",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "hypothesis-testing",
+    "t-test",
+    "z-test",
+    "paired-comparisons",
+    "means-comparison",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "t-test",
+    "z-test",
+    "mean-difference-test",
+    "paired-t-test",
+    "two-sample-t-test",
+    "pooled-variance-test",
+    "welch-test"
+  ],
+  "actors": [
+    {
+      "id": "inference_engine",
+      "name": "Statistical Inference Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "scenario",
+      "type": "select",
+      "required": true,
+      "label": "single_mean_known_sigma | single_mean_unknown_sigma | two_means_pooled | two_means_unequal_var | paired_comparison"
+    },
+    {
+      "name": "sample_1",
+      "type": "json",
+      "required": false,
+      "label": "Observations (or summary stats x_bar, s, n) for sample 1"
+    },
+    {
+      "name": "sample_2",
+      "type": "json",
+      "required": false,
+      "label": "Observations or summary stats for sample 2 (two-sample tests)"
+    },
+    {
+      "name": "paired_differences",
+      "type": "json",
+      "required": false,
+      "label": "Array of d_i = x_i - y_i for paired comparison test"
+    },
+    {
+      "name": "hypothesized_mean",
+      "type": "number",
+      "required": false,
+      "label": "mu_0 (single-sample) or hypothesized mean difference (two-sample)"
+    }
+  ],
+  "rules": {
+    "single_mean_known_sigma": {
+      "statistic": "Z = (X_bar - mu_0) / (sigma / sqrt(n))",
+      "distribution": "Standard normal N(0, 1)",
+      "use_when": "Sigma known OR n is very large regardless of distribution"
+    },
+    "single_mean_unknown_sigma": {
+      "statistic": "t = (X_bar - mu_0) / (s / sqrt(n))",
+      "distribution": "t with n-1 degrees of freedom",
+      "use_when": "Population approximately normal; sigma unknown (the usual case)"
+    },
+    "two_means_pooled": {
+      "statistic": "t = (X_bar_1 - X_bar_2 - D_0) / sqrt(s_p^2 * (1/n_1 + 1/n_2))",
+      "pooled_variance": "s_p^2 = ((n_1 - 1)*s_1^2 + (n_2 - 1)*s_2^2) / (n_1 + n_2 - 2)",
+      "degrees_of_freedom": "n_1 + n_2 - 2",
+      "assumptions": "Independent samples; equal population variances; approximately normal"
+    },
+    "two_means_unequal_variance": {
+      "statistic": "t = (X_bar_1 - X_bar_2 - D_0) / sqrt(s_1^2/n_1 + s_2^2/n_2)",
+      "degrees_of_freedom": "Satterthwaite approximation",
+      "use_when": "Independent samples; variances cannot be assumed equal"
+    },
+    "paired_comparisons": {
+      "statistic": "t = (d_bar - D_0) / (s_d / sqrt(n))",
+      "where": "d_i = x_i - y_i (paired differences); s_d = std dev of d's",
+      "degrees_of_freedom": "n - 1 (n = number of pairs)",
+      "use_when": "Observations are naturally paired (before/after, matched samples)"
+    },
+    "decision_making": {
+      "critical_values": "From z or t tables at alpha; two-sided uses alpha/2 per tail",
+      "p_value": "Probability under null of observing as extreme a statistic",
+      "reject_rule": "|statistic| > critical_value → reject H0"
+    },
+    "applications": {
+      "fund_manager_skill": "t-test whether alpha > 0 over history",
+      "strategy_comparison": "Two-sample t-test of returns for two trading systems",
+      "event_studies": "Paired test pre/post news announcement",
+      "backtesting": "Compare live vs simulated returns"
+    },
+    "validation": {
+      "sample_size_adequate": "n >= 2 per sample (n >= 30 preferable for CLT)",
+      "paired_lengths_match": "Paired samples must have equal length",
+      "positive_variance": "Denominator std dev > 0"
+    }
+  },
+  "outcomes": {
+    "run_single_mean_test": {
+      "priority": 1,
+      "description": "Z or t test for a single mean",
+      "given": [
+        {
+          "field": "scenario",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "single_mean_known_sigma",
+            "single_mean_unknown_sigma"
+          ]
+        },
+        {
+          "field": "sample_1",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "inference_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "inference.mean_test_completed"
+        }
+      ]
+    },
+    "run_two_sample_test": {
+      "priority": 2,
+      "description": "Two-sample t-test (pooled or Welch)",
+      "given": [
+        {
+          "field": "scenario",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "two_means_pooled",
+            "two_means_unequal_var"
+          ]
+        },
+        {
+          "field": "sample_1",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "sample_2",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "inference_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "inference.mean_test_completed"
+        }
+      ]
+    },
+    "run_paired_test": {
+      "priority": 3,
+      "description": "Paired-comparison t-test",
+      "given": [
+        {
+          "field": "scenario",
+          "source": "input",
+          "operator": "eq",
+          "value": "paired_comparison"
+        },
+        {
+          "field": "paired_differences",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "inference_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "inference.mean_test_completed"
+        }
+      ]
+    },
+    "invalid_scenario": {
+      "priority": 10,
+      "description": "Unknown or unsupported scenario",
+      "given": [
+        {
+          "field": "scenario",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "single_mean_known_sigma",
+            "single_mean_unknown_sigma",
+            "two_means_pooled",
+            "two_means_unequal_var",
+            "paired_comparison"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "inference.mean_test_rejected"
+        }
+      ],
+      "error": "MEAN_TEST_INVALID_SCENARIO"
+    },
+    "missing_inputs": {
+      "priority": 11,
+      "description": "Required samples missing for scenario",
+      "given": [
+        {
+          "all": [
+            {
+              "field": "sample_1",
+              "source": "input",
+              "operator": "not_exists"
+            },
+            {
+              "field": "paired_differences",
+              "source": "input",
+              "operator": "not_exists"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "inference.mean_test_rejected"
+        }
+      ],
+      "error": "MEAN_TEST_MISSING_DATA"
+    }
+  },
+  "errors": [
+    {
+      "code": "MEAN_TEST_INVALID_SCENARIO",
+      "status": 400,
+      "message": "Scenario must be one of the supported test types"
+    },
+    {
+      "code": "MEAN_TEST_MISSING_DATA",
+      "status": 400,
+      "message": "Sample data required for mean hypothesis test"
+    }
+  ],
+  "events": [
+    {
+      "name": "inference.mean_test_completed",
+      "payload": [
+        "test_id",
+        "scenario",
+        "statistic",
+        "p_value",
+        "degrees_of_freedom",
+        "decision"
+      ]
+    },
+    {
+      "name": "inference.mean_test_rejected",
+      "payload": [
+        "test_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use the pooled-variance t-test when population variances differ materially",
+      "why": "Pooling weights the wrong variance; Welch's t-test is safer default and loses very little power when variances happen to be equal"
+    },
+    {
+      "rule": "Do not use independent-sample tests on paired data",
+      "why": "Ignoring pairing inflates standard error and dramatically reduces power; paired t-test on d_i is correct when observations are matched"
+    },
+    {
+      "rule": "Do not apply parametric mean tests to heavy-tailed return distributions without checking normality",
+      "why": "Financial returns are often leptokurtic; t-test assumes normality. Use bootstrap or non-parametric alternatives for small-n tail-heavy data"
+    },
+    {
+      "rule": "Do not perform multiple pairwise t-tests without multiple-comparison correction",
+      "why": "Running 10 tests at alpha=0.05 gives ~40% chance of at least one false positive; use Tukey HSD or Bonferroni"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/inference/mean-test"
+    },
+    "request": {
+      "schema": {
+        "scenario": "string",
+        "sample_1": "array",
+        "sample_2": "array",
+        "paired_differences": "array",
+        "hypothesized_mean": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "statistic": "number",
+          "p_value": "number",
+          "degrees_of_freedom": "number",
+          "confidence_interval": "array",
+          "decision": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "MEAN_TEST_INVALID_SCENARIO"
+        },
+        {
+          "status": 400,
+          "error_code": "MEAN_TEST_MISSING_DATA"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "worked_example": {
+      "scenario": "single_mean_unknown_sigma",
+      "hypothesized_mean": 0.1,
+      "x_bar": 0.12,
+      "s": 0.18,
+      "n": 50,
+      "t_statistic": "(0.12 - 0.10) / (0.18 / sqrt(50)) = 0.786",
+      "degrees_of_freedom": 49,
+      "critical_t_0_025": 2.01,
+      "decision": "Fail to reject H0 at alpha=0.05"
+    },
+    "paired_example": {
+      "scenario": "paired_comparison",
+      "setup": "n=30 fund-benchmark return pairs",
+      "d_bar": 0.015,
+      "s_d": 0.04,
+      "t_statistic": "0.015 / (0.04 / sqrt(30)) = 2.053",
+      "decision": "Reject H0 of no outperformance at alpha=0.05 (t_crit = 2.045)"
+    }
+  },
+  "related": [
+    {
+      "feature": "hypothesis-testing-framework",
+      "type": "required"
+    },
+    {
+      "feature": "central-limit-theorem",
+      "type": "required"
+    },
+    {
+      "feature": "hypothesis-test-variance",
+      "type": "recommended"
+    }
+  ]
+}

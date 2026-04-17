@@ -1,0 +1,305 @@
+{
+  "feature": "correlation-significance-test",
+  "version": "1.0.0",
+  "description": "Test whether a population correlation coefficient differs from zero using the t-statistic for Pearson correlation or the analogous test for Spearman rank correlation",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "hypothesis-testing",
+    "correlation",
+    "pearson",
+    "spearman",
+    "rank-correlation",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "pearson-correlation-test",
+    "spearman-rank-test",
+    "correlation-t-test",
+    "rho-test",
+    "rank-correlation-test",
+    "correlation-significance"
+  ],
+  "actors": [
+    {
+      "id": "inference_engine",
+      "name": "Statistical Inference Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "sample_correlation",
+      "type": "number",
+      "required": true,
+      "label": "Observed sample correlation r (Pearson or Spearman)"
+    },
+    {
+      "name": "sample_size",
+      "type": "number",
+      "required": true,
+      "label": "n — number of paired observations"
+    },
+    {
+      "name": "test_variant",
+      "type": "select",
+      "required": false,
+      "label": "pearson (default) | spearman"
+    },
+    {
+      "name": "alternative",
+      "type": "select",
+      "required": false,
+      "label": "two_sided (default) | greater | less"
+    }
+  ],
+  "rules": {
+    "pearson_test_statistic": {
+      "statistic": "t = r * sqrt(n - 2) / sqrt(1 - r^2)",
+      "distribution": "t with n - 2 degrees of freedom",
+      "assumptions": "Both variables normally distributed"
+    },
+    "spearman_rank_correlation": {
+      "statistic_for_large_n": "Same t-formula with r = r_s (rank correlation)",
+      "alternative_small_n": "Compare r_s directly to tabulated critical values",
+      "use_when": "Data are ordinal, ranked, or non-normal"
+    },
+    "sample_size_sensitivity": {
+      "observation": "The same r can be insignificant at n=12 yet significant at n=32",
+      "power_growth": "Large-n tests detect tiny correlations with statistical significance that may not be economically meaningful",
+      "recommendation": "Always report both r and its confidence interval, not just the p-value"
+    },
+    "hypothesis_forms": {
+      "two_sided": "H0: rho = 0 vs Ha: rho != 0",
+      "one_sided_upper": "H0: rho <= 0 vs Ha: rho > 0",
+      "one_sided_lower": "H0: rho >= 0 vs Ha: rho < 0"
+    },
+    "applications": {
+      "factor_selection": "Test correlation between candidate factor and forward returns",
+      "portfolio_hedges": "Verify that hedge asset has significant negative correlation",
+      "analyst_accuracy": "Spearman test between forecast ranks and realised ranks",
+      "signal_generation": "Validate that a technical signal correlates with next-period returns"
+    },
+    "validation": {
+      "correlation_in_range": "-1 <= r <= 1",
+      "sample_size_adequate": "n >= 3 (need n - 2 > 0)",
+      "test_variant_known": "test_variant in {pearson, spearman}"
+    }
+  },
+  "outcomes": {
+    "run_pearson_test": {
+      "priority": 1,
+      "description": "t-test on Pearson r",
+      "given": [
+        {
+          "field": "test_variant",
+          "source": "input",
+          "operator": "eq",
+          "value": "pearson"
+        },
+        {
+          "field": "sample_correlation",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "sample_size",
+          "source": "input",
+          "operator": "gte",
+          "value": 3
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "inference_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "inference.correlation_test_completed"
+        }
+      ]
+    },
+    "run_spearman_test": {
+      "priority": 2,
+      "description": "Rank correlation test",
+      "given": [
+        {
+          "field": "test_variant",
+          "source": "input",
+          "operator": "eq",
+          "value": "spearman"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "inference_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "inference.correlation_test_completed"
+        }
+      ]
+    },
+    "insufficient_n": {
+      "priority": 10,
+      "description": "Sample size too small",
+      "given": [
+        {
+          "field": "sample_size",
+          "source": "input",
+          "operator": "lt",
+          "value": 3
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "inference.correlation_test_rejected"
+        }
+      ],
+      "error": "CORR_TEST_INSUFFICIENT_N"
+    },
+    "invalid_r": {
+      "priority": 11,
+      "description": "Correlation outside [-1, 1]",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "sample_correlation",
+              "source": "input",
+              "operator": "lt",
+              "value": -1
+            },
+            {
+              "field": "sample_correlation",
+              "source": "input",
+              "operator": "gt",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "inference.correlation_test_rejected"
+        }
+      ],
+      "error": "CORR_TEST_INVALID_R"
+    }
+  },
+  "errors": [
+    {
+      "code": "CORR_TEST_INSUFFICIENT_N",
+      "status": 400,
+      "message": "At least 3 observations required (need n - 2 > 0)"
+    },
+    {
+      "code": "CORR_TEST_INVALID_R",
+      "status": 400,
+      "message": "Correlation must lie in [-1, 1]"
+    }
+  ],
+  "events": [
+    {
+      "name": "inference.correlation_test_completed",
+      "payload": [
+        "test_id",
+        "test_variant",
+        "t_statistic",
+        "p_value",
+        "degrees_of_freedom",
+        "decision"
+      ]
+    },
+    {
+      "name": "inference.correlation_test_rejected",
+      "payload": [
+        "test_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not interpret a statistically significant correlation in a very large sample as economically meaningful",
+      "why": "Large n inflates power; r=0.05 can be significant with n=10000 yet carry no useful predictive content"
+    },
+    {
+      "rule": "Do not use the Pearson t-test with non-normal or heavy-tailed data",
+      "why": "Pearson assumes bivariate normality; tails and outliers distort both r and the t-distribution approximation. Use Spearman instead"
+    },
+    {
+      "rule": "Do not confuse correlation significance with causation",
+      "why": "A non-zero correlation only rules out chance; it says nothing about causal direction or confounding variables"
+    },
+    {
+      "rule": "Do not report only the p-value without r and its confidence interval",
+      "why": "p-value alone hides effect size; r=0.1 and r=0.9 can both be 'significant' at alpha=0.05 but carry very different economic meaning"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/inference/correlation-test"
+    },
+    "request": {
+      "schema": {
+        "sample_correlation": "number",
+        "sample_size": "number",
+        "test_variant": "string",
+        "alternative": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "t_statistic": "number",
+          "p_value": "number",
+          "degrees_of_freedom": "number",
+          "confidence_interval": "array",
+          "decision": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "CORR_TEST_INSUFFICIENT_N"
+        },
+        {
+          "status": 400,
+          "error_code": "CORR_TEST_INVALID_R"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "worked_example": {
+      "r": 0.35,
+      "n_small": 12,
+      "t_small": "0.35 * sqrt(10) / sqrt(1 - 0.1225) = 1.182",
+      "decision_small": "Fail to reject at alpha=0.05 (t_crit = 2.228)",
+      "n_large": 32,
+      "t_large": "0.35 * sqrt(30) / sqrt(1 - 0.1225) = 2.046",
+      "decision_large": "Reject at alpha=0.05 (t_crit = 2.042)"
+    }
+  },
+  "related": [
+    {
+      "feature": "covariance-correlation",
+      "type": "required"
+    },
+    {
+      "feature": "hypothesis-testing-framework",
+      "type": "required"
+    },
+    {
+      "feature": "parametric-vs-nonparametric-tests",
+      "type": "recommended"
+    }
+  ]
+}

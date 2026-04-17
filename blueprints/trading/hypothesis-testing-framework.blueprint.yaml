@@ -1,0 +1,226 @@
+# ============================================================
+# hypothesis-testing-framework — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 8, p.219-226
+# ============================================================
+
+feature: hypothesis-testing-framework
+version: "1.0.0"
+description: Conduct statistical hypothesis tests through the standard six-step framework — stating hypotheses, selecting test statistic, setting significance, deciding rule, computing, and concluding
+category: trading
+tags: [quantitative-methods, hypothesis-testing, statistical-inference, type-i-error, type-ii-error, power, p-value, cfa-level-1]
+aliases:
+  - hypothesis-testing
+  - null-hypothesis
+  - significance-test
+  - type-i-error
+  - type-ii-error
+  - statistical-power
+  - p-value-testing
+
+actors:
+  - id: inference_engine
+    name: Statistical Inference Engine
+    type: system
+
+fields:
+  - name: null_hypothesis
+    type: text
+    required: true
+    label: H0 — statement to test, typically equality or status quo
+  - name: alternative_hypothesis
+    type: text
+    required: true
+    label: Ha — the inequality (one-sided or two-sided) the analyst wishes to demonstrate
+  - name: significance_level
+    type: number
+    required: true
+    label: alpha — probability of Type I error (commonly 0.01, 0.05, 0.10)
+  - name: test_statistic_value
+    type: number
+    required: false
+    label: Computed test statistic from sample
+  - name: p_value
+    type: number
+    required: false
+    label: Probability of observing a test statistic at least as extreme as observed under H0
+  - name: test_type
+    type: select
+    required: false
+    label: two_sided | one_sided_upper | one_sided_lower
+
+rules:
+  six_step_process:
+    # Source: Vol 1, Module 8, Exhibit 1, p.220
+    step_1: "State the null (H0) and alternative (Ha) hypotheses — mutually exclusive and collectively exhaustive"
+    step_2: "Identify the appropriate test statistic and its sampling distribution"
+    step_3: "Specify the significance level (alpha)"
+    step_4: "State the decision rule (critical value region)"
+    step_5: "Collect data and calculate the test statistic"
+    step_6: "Make a decision: reject or fail to reject H0"
+  error_types:
+    # Source: Vol 1, Module 8, Exhibit 3, p.222
+    type_i: "Rejecting H0 when H0 is true (false positive); probability = alpha"
+    type_ii: "Failing to reject H0 when H0 is false (false negative); probability = beta"
+    power: "Probability of correctly rejecting a false H0; power = 1 - beta"
+  significance_and_decision:
+    critical_value_approach: "Reject H0 if |test_statistic| > critical_value_at_alpha"
+    p_value_approach: "Reject H0 if p_value < alpha"
+    equivalence: "Both approaches yield the same decision at a given alpha"
+  hypothesis_structure:
+    two_sided: "H0: theta = theta_0 vs Ha: theta != theta_0"
+    one_sided_upper: "H0: theta <= theta_0 vs Ha: theta > theta_0"
+    one_sided_lower: "H0: theta >= theta_0 vs Ha: theta < theta_0"
+    null_contains_equality: "H0 always includes the equality; Ha never does"
+  practical_guidance:
+    alpha_selection: "0.05 is convention; tighter alpha for costlier Type I, looser for costlier Type II"
+    sample_size: "Larger n increases power at fixed alpha"
+    effect_size: "Statistical significance != practical significance; always report magnitude"
+  applications:
+    manager_skill: "Test whether alpha != 0 (two-sided) or alpha > 0 (one-sided)"
+    risk_model_validation: "Test whether realized VaR breaches match predicted"
+    policy_changes: "Test whether mean returns differ pre/post policy announcement"
+  validation:
+    alpha_in_range: "0 < alpha < 1 (typically 0.001 <= alpha <= 0.20)"
+    hypotheses_mutually_exclusive: "H0 and Ha must not overlap"
+    test_type_defined: "Two-sided vs one-sided must be declared BEFORE seeing data"
+
+outcomes:
+  reject_null_critical_value:
+    priority: 1
+    description: Test statistic exceeds critical value — reject H0
+    given:
+      - field: test_statistic_exceeds_critical
+        source: computed
+        operator: eq
+        value: true
+    then:
+      - action: call_service
+        target: inference_engine
+      - action: emit_event
+        event: inference.null_rejected
+  reject_null_p_value:
+    priority: 2
+    description: p-value below alpha — reject H0
+    given:
+      - field: p_value
+        source: input
+        operator: lt
+        value: significance_level
+    then:
+      - action: call_service
+        target: inference_engine
+      - action: emit_event
+        event: inference.null_rejected
+  fail_to_reject:
+    priority: 3
+    description: Insufficient evidence — fail to reject H0
+    given:
+      - field: p_value
+        source: input
+        operator: gte
+        value: significance_level
+    then:
+      - action: emit_event
+        event: inference.null_not_rejected
+  invalid_significance_level:
+    priority: 10
+    description: alpha outside (0, 1)
+    given:
+      - any:
+          - field: significance_level
+            source: input
+            operator: lte
+            value: 0
+          - field: significance_level
+            source: input
+            operator: gte
+            value: 1
+    then:
+      - action: emit_event
+        event: inference.test_rejected
+    error: HYP_INVALID_ALPHA
+  missing_hypotheses:
+    priority: 11
+    description: Null or alternative missing
+    given:
+      - any:
+          - field: null_hypothesis
+            source: input
+            operator: not_exists
+          - field: alternative_hypothesis
+            source: input
+            operator: not_exists
+    then:
+      - action: emit_event
+        event: inference.test_rejected
+    error: HYP_MISSING_HYPOTHESES
+
+errors:
+  - code: HYP_INVALID_ALPHA
+    status: 400
+    message: Significance level alpha must be strictly between 0 and 1
+  - code: HYP_MISSING_HYPOTHESES
+    status: 400
+    message: Both null and alternative hypotheses must be specified
+
+events:
+  - name: inference.null_rejected
+    payload: [test_id, test_statistic, p_value, significance_level, decision]
+  - name: inference.null_not_rejected
+    payload: [test_id, test_statistic, p_value, significance_level, decision]
+  - name: inference.test_rejected
+    payload: [test_id, reason_code]
+
+anti_patterns:
+  - rule: Do not select the test type (one-sided vs two-sided) after observing the data
+    why: "Post-hoc sidedness selection doubles the effective Type I error rate; specify the alternative hypothesis before data collection"
+  - rule: Do not confuse 'failing to reject H0' with 'accepting H0'
+    why: "Failure to reject means insufficient evidence, not confirmation; the null may still be false with the power of the test too low to detect it"
+  - rule: Do not p-hack by running multiple tests and reporting only significant results
+    why: "Multiple testing inflates family-wise Type I error; apply Bonferroni or FDR corrections, or pre-register the hypothesis"
+  - rule: Do not equate statistical significance with economic significance
+    why: "Large samples produce significant p-values for trivially small effects; always report effect size and confidence interval alongside p-value"
+
+api:
+  http:
+    method: POST
+    path: /analytics/inference/hypothesis-test
+  request:
+    schema:
+      null_hypothesis: string
+      alternative_hypothesis: string
+      significance_level: number
+      test_statistic_value: number
+      p_value: number
+      test_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        decision: string
+        p_value: number
+        critical_value: number
+        power_estimate: number
+    errors:
+      - status: 400
+        error_code: HYP_INVALID_ALPHA
+      - status: 400
+        error_code: HYP_MISSING_HYPOTHESES
+
+extensions:
+  confusion_matrix:
+    # Source: Vol 1, Module 8, Exhibit 3, p.222
+    reject_true_null: "Type I error (probability alpha)"
+    reject_false_null: "Correct decision (probability 1 - beta = power)"
+    fail_true_null: "Correct decision (probability 1 - alpha = confidence)"
+    fail_false_null: "Type II error (probability beta)"
+
+related:
+  - feature: hypothesis-test-means
+    type: recommended
+  - feature: hypothesis-test-variance
+    type: recommended
+  - feature: parametric-vs-nonparametric-tests
+    type: recommended
+  - feature: central-limit-theorem
+    type: recommended

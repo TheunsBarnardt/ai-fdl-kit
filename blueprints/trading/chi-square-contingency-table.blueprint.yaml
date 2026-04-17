@@ -1,0 +1,195 @@
+# ============================================================
+# chi-square-contingency-table — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 9, p.255-263
+# ============================================================
+
+feature: chi-square-contingency-table
+version: "1.0.0"
+description: Test independence of two categorical variables using a chi-square contingency table — comparing observed joint frequencies against the frequencies expected under the null of independence
+category: trading
+tags: [quantitative-methods, hypothesis-testing, chi-square, contingency-table, independence-test, categorical-data, cfa-level-1]
+aliases:
+  - chi-square-independence
+  - contingency-table-test
+  - categorical-independence-test
+  - pearson-chi-square
+  - r-by-c-test
+  - two-way-chi-square
+
+actors:
+  - id: inference_engine
+    name: Statistical Inference Engine
+    type: system
+
+fields:
+  - name: contingency_table
+    type: json
+    required: true
+    label: r x c matrix of observed joint frequencies O_ij
+  - name: row_labels
+    type: json
+    required: false
+    label: Labels for rows (r categories of variable 1)
+  - name: column_labels
+    type: json
+    required: false
+    label: Labels for columns (c categories of variable 2)
+  - name: significance_level
+    type: number
+    required: false
+    label: alpha (default 0.05)
+
+rules:
+  core_formulas:
+    # Source: Vol 1, Module 9, p.256-258
+    expected_frequency: "E_ij = (row_total_i * column_total_j) / grand_total"
+    chi_square_statistic: "chi_square = sum_i sum_j [ (O_ij - E_ij)^2 / E_ij ]"
+    degrees_of_freedom: "df = (r - 1) * (c - 1)"
+    distribution: "Chi-square with (r-1)(c-1) degrees of freedom under H0 of independence"
+  hypotheses:
+    null: "H0: the two categorical variables are independent"
+    alternative: "Ha: the variables are NOT independent (i.e., associated)"
+  decision_rule:
+    reject_condition: "Reject H0 if chi_square > chi_square_critical_{alpha, (r-1)(c-1)}"
+    right_tail_only: "Chi-square test is always right-tailed"
+  expected_cell_size_rule:
+    # Source: Vol 1, Module 9, p.258-260
+    rule_of_thumb: "Every expected cell count >= 5 for chi-square approximation to hold"
+    fix_when_violated: "Combine sparse categories or use Fisher's exact test"
+  interpretation:
+    large_chi_square: "Observed and expected frequencies diverge; reject independence"
+    small_chi_square: "Observed closely matches expected; fail to reject independence"
+    effect_size: "Cramer's V = sqrt(chi_square / (n * min(r-1, c-1))) — 0 to 1, interprets as correlation"
+  investment_applications:
+    sector_and_return_class: "Test whether sector membership is independent of the return bucket (winner/loser/flat)"
+    rating_migrations: "Test independence between prior rating and subsequent rating change"
+    factor_exposures: "Test independence between style (value/growth) and risk bucket"
+    survey_analysis: "Test independence of wealth segment and risk tolerance"
+  validation:
+    table_dimensions: "r >= 2, c >= 2"
+    expected_frequencies_adequate: "All E_ij >= 5 (ideally); E_ij >= 1 as minimum"
+    positive_grand_total: "Sum of all cells > 0"
+
+outcomes:
+  run_chi_square_test:
+    priority: 1
+    description: Compute chi-square statistic and compare to critical value
+    given:
+      - field: contingency_table
+        source: input
+        operator: exists
+      - field: table_valid
+        source: computed
+        operator: eq
+        value: true
+    then:
+      - action: call_service
+        target: inference_engine
+      - action: emit_event
+        event: inference.independence_test_completed
+  low_expected_frequencies:
+    priority: 10
+    description: At least one expected cell is too sparse for chi-square approximation
+    given:
+      - field: min_expected_cell
+        source: computed
+        operator: lt
+        value: 5
+    then:
+      - action: emit_event
+        event: inference.independence_test_warning
+  table_malformed:
+    priority: 11
+    description: Contingency table is not a valid r x c matrix
+    given:
+      - field: table_valid
+        source: computed
+        operator: eq
+        value: false
+    then:
+      - action: emit_event
+        event: inference.independence_test_rejected
+    error: CHI_INDEP_TABLE_MALFORMED
+  missing_table:
+    priority: 12
+    description: Contingency table missing
+    given:
+      - field: contingency_table
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: inference.independence_test_rejected
+    error: CHI_INDEP_TABLE_MISSING
+
+errors:
+  - code: CHI_INDEP_TABLE_MALFORMED
+    status: 400
+    message: Contingency table must be a rectangular r x c matrix with non-negative counts
+  - code: CHI_INDEP_TABLE_MISSING
+    status: 400
+    message: Contingency table is required
+
+events:
+  - name: inference.independence_test_completed
+    payload: [test_id, chi_square, degrees_of_freedom, p_value, cramers_v, decision]
+  - name: inference.independence_test_warning
+    payload: [test_id, warning_message, min_expected_cell]
+  - name: inference.independence_test_rejected
+    payload: [test_id, reason_code]
+
+anti_patterns:
+  - rule: Do not apply the chi-square test of independence when expected cell counts are below 5
+    why: "The chi-square distribution is an approximation; sparse cells violate the approximation and produce unreliable p-values. Use Fisher's exact test instead"
+  - rule: Do not interpret a significant chi-square as indicating the DIRECTION of the association
+    why: "The test only rejects independence; it tells you NOTHING about which categories drive the dependence. Inspect residuals (O-E)/sqrt(E) for direction"
+  - rule: Do not use chi-square independence for paired categorical data
+    why: "McNemar's test is the correct choice for paired categorical data (e.g., rating migrations for the same firm over time)"
+  - rule: Do not conflate independence with homogeneity
+    why: "Chi-square independence tests joint distribution; chi-square homogeneity tests equal distributions across groups. Formulas match, interpretation differs"
+
+api:
+  http:
+    method: POST
+    path: /analytics/inference/chi-square-independence
+  request:
+    schema:
+      contingency_table: array
+      row_labels: array
+      column_labels: array
+      significance_level: number
+  response:
+    success:
+      status: 200
+      schema:
+        chi_square: number
+        degrees_of_freedom: number
+        p_value: number
+        cramers_v: number
+        decision: string
+        expected_frequencies: array
+    errors:
+      - status: 400
+        error_code: CHI_INDEP_TABLE_MALFORMED
+      - status: 400
+        error_code: CHI_INDEP_TABLE_MISSING
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 9, p.260-262 — fund style vs return bucket
+    table: [[30, 20, 10], [15, 25, 20], [5, 15, 25]]
+    row_totals: [60, 60, 45]
+    col_totals: [50, 60, 55]
+    grand_total: 165
+    degrees_of_freedom: 4
+    chi_square: "computed across 9 cells"
+    critical_0_05: 9.488
+    decision: "Reject H0 if chi_square > 9.488"
+
+related:
+  - feature: hypothesis-testing-framework
+    type: required
+  - feature: parametric-vs-nonparametric-tests
+    type: recommended
+  - feature: correlation-significance-test
+    type: recommended
