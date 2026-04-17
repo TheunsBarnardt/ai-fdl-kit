@@ -1,0 +1,96 @@
+feature: network-configuration-guide
+version: 1.0.0
+description: Network configuration requirements for JSE trading and market data connectivity including multicast routing and failover mechanisms
+category: trading
+tags: [connectivity, network, multicast, configuration, trading]
+
+fields:
+  - name: connection_topology
+    type: select
+    required: true
+    label: Network topology configuration
+    options:
+      - { value: "two_separate_routers", label: "Two Separate Routers" }
+      - { value: "single_router_dual_interfaces", label: "Single Router Dual Interfaces" }
+      - { value: "single_router_single_interface", label: "Single Router Single Interface" }
+
+  - name: tls_minimum_version
+    type: select
+    required: true
+    label: Minimum TLS version for secure connections
+    options:
+      - { value: "TLS 1.1", label: "TLS 1.1" }
+      - { value: "TLS 1.2", label: "TLS 1.2" }
+      - { value: "TLS 1.3", label: "TLS 1.3" }
+
+  - name: bgp_enabled
+    type: boolean
+    required: true
+    label: Enable BGP for automatic failover routing
+    default: true
+
+rules:
+  network_protocols:
+    private_order_trade_data: "TCP for private order and trade data delivery"
+    market_data_delivery: "UDP Multicast for real-time market data (Feed-A and Feed-B)"
+    routing_protocol: "BGP (Border Gateway Protocol) for automatic failover routing"
+
+  tls_security:
+    minimum_version: "TLS 1.1 or above required for FTPS connections"
+    prohibited_versions: "SSL 2.0, SSL 3.0, TLS 1.0 are prohibited"
+
+outcomes:
+  network_topology_selected:
+    priority: 1
+    given:
+      - field: connection_topology
+        source: input
+        operator: exists
+    then:
+      - action: emit_event
+        event: network.topology.configured
+        payload: [topology, timestamp]
+    result: "Network topology selected and ready for configuration"
+
+  network_configuration_complete:
+    priority: 10
+    given:
+      - field: connection_topology
+        source: input
+        operator: exists
+      - field: bgp_enabled
+        source: input
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: network.configuration.complete
+        payload: [topology, timestamp]
+    result: "All network configuration requirements satisfied"
+
+errors:
+  - code: NETWORK_CONFIG_INCOMPLETE
+    status: 400
+    message: "Network configuration parameters missing or invalid"
+
+  - code: TLS_VERSION_UNSUPPORTED
+    status: 400
+    message: "TLS version unsupported; minimum TLS 1.1 required"
+
+events:
+  - name: network.topology.configured
+    description: "Network topology configuration established"
+    payload: [topology, timestamp]
+
+  - name: network.configuration.complete
+    description: "All network configuration steps completed"
+    payload: [topology, timestamp]
+
+related:
+  - feature: client-connectivity-standards
+    type: required
+    reason: "Client network must comply with JSE standards"
+
+  - feature: connectivity-testing-lcon
+    type: required
+    reason: "Network must be tested via Live Connectivity Test"

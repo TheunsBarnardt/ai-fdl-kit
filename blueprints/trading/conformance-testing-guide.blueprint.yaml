@@ -1,0 +1,135 @@
+feature: conformance-testing-guide
+version: 1.0.0
+description: JSE trading and market data conformance testing including gateway failover, recovery service testing, and application compliance
+category: trading
+tags: [testing, conformance, validation, trading, market-data]
+
+fields:
+  - name: testing_type
+    type: select
+    required: true
+    label: Type of conformance testing
+    options:
+      - { value: "trading_gateway_failover", label: "Trading Gateway Failover" }
+      - { value: "post_trade_gateway_failover", label: "Post Trade Gateway Failover" }
+      - { value: "drop_copy_gateway_failover", label: "Drop Copy Gateway Failover" }
+      - { value: "native_gateway_failover", label: "Native Gateway Failover" }
+      - { value: "market_data_failover", label: "Market Data Failover" }
+      - { value: "replay_recovery_service", label: "Replay/Recovery Service" }
+      - { value: "reference_data_testing", label: "Reference Data Testing" }
+      - { value: "application_conformance", label: "Application Conformance" }
+
+  - name: market
+    type: select
+    required: true
+    label: Target market
+    options:
+      - { value: "jse", label: "JSE" }
+      - { value: "nsx", label: "NSX" }
+      - { value: "both", label: "Both JSE and NSX" }
+
+  - name: gateway_interface
+    type: select
+    required: true
+    label: Trading gateway interface
+    options:
+      - { value: "native_trading_gateway", label: "Native Trading Gateway" }
+      - { value: "fix_50_sp2_trading_gateway", label: "FIX 5.0 SP2 Trading Gateway" }
+      - { value: "post_trade_gateway_fix", label: "Post Trade Gateway (FIX)" }
+      - { value: "drop_copy_gateway_fix", label: "Drop Copy Gateway (FIX)" }
+
+  - name: client_can_detect_failure
+    type: boolean
+    required: true
+    label: Client application can detect gateway failure
+    default: false
+
+rules:
+  mandatory_testing:
+    trading_clients: "All applications connecting to production MUST pass mandatory testing"
+    interface_certification: "Clients MUST be certified for each interface used in production"
+    post_trade_mandatory: "Post Trade Gateway (FIX 5.0 SP2) MANDATORY for all trading"
+
+  gateway_failover_testing:
+    schedule: "Every Friday 15:00-15:45 SAST"
+    client_expectation: "Client MUST detect disconnection and reconnect to Secondary Gateway"
+
+outcomes:
+  testing_plan_created:
+    priority: 1
+    given:
+      - field: testing_type
+        source: input
+        operator: exists
+    then:
+      - action: emit_event
+        event: conformance.testing.plan.created
+        payload: [testing_type, market, timestamp]
+    result: "Conformance testing plan created"
+
+  gateway_failover_triggered:
+    priority: 2
+    given:
+      - field: testing_type
+        source: input
+        operator: in
+        value: [trading_gateway_failover, post_trade_gateway_failover]
+    then:
+      - action: emit_event
+        event: conformance.gateway.failover.triggered
+        payload: [gateway_interface, timestamp]
+    result: "Gateway failover test triggered"
+
+  application_conformance_passed:
+    priority: 10
+    given:
+      - field: testing_type
+        source: input
+        operator: exists
+      - field: market
+        source: input
+        operator: exists
+    then:
+      - action: emit_event
+        event: conformance.application.passed
+        payload: [market, timestamp]
+    result: "Application achieves conformance certification"
+
+errors:
+  - code: CONFORMANCE_GATEWAY_FAILOVER_FAILED
+    status: 500
+    message: "Gateway failover test failed; client did not detect or reconnect"
+
+  - code: CONFORMANCE_SEQUENCE_GAP_NOT_DETECTED
+    status: 500
+    message: "Client failed to detect market data sequence gap"
+
+  - code: CONFORMANCE_TEST_INCOMPLETE
+    status: 400
+    message: "Application did not complete all mandatory tests"
+
+events:
+  - name: conformance.testing.plan.created
+    description: "Conformance testing plan created"
+    payload: [testing_type, market, timestamp]
+
+  - name: conformance.gateway.failover.triggered
+    description: "Gateway failover test triggered"
+    payload: [gateway_interface, timestamp]
+
+  - name: conformance.application.passed
+    description: "All conformance tests passed"
+    payload: [market, timestamp]
+
+related:
+  - feature: connectivity-testing-lcon
+    type: required
+    reason: "LCON validates connectivity; conformance testing validates application behavior"
+
+  - feature: network-configuration-guide
+    type: required
+    reason: "Network must be configured before conformance testing"
+
+  - feature: client-connectivity-standards
+    type: required
+    reason: "Client must meet connectivity standards"

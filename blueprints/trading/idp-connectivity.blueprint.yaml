@@ -1,0 +1,178 @@
+feature: idp-connectivity
+version: 1.0.0
+description: JSE Information Delivery Portal (IDP) FTP connectivity for secure access to market data files
+category: trading
+tags: [connectivity, idp, ftp, data-delivery, market-data, ftps, sftp]
+
+fields:
+  - name: connection_protocol
+    type: select
+    required: true
+    label: File transfer protocol for IDP access
+    options:
+      - { value: "ftps_implicit_tls", label: "FTPS with Implicit TLS" }
+      - { value: "ftp_plaintext", label: "FTP (Plaintext)" }
+      - { value: "sftp", label: "SFTP" }
+
+  - name: environment
+    type: select
+    required: true
+    label: IDP server environment
+    options:
+      - { value: "production", label: "Production" }
+      - { value: "test", label: "Test" }
+
+  - name: network_access_method
+    type: select
+    required: true
+    label: Network access method
+    options:
+      - { value: "internet", label: "Internet" }
+      - { value: "jse_leased_line", label: "JSE Leased Line" }
+
+  - name: tls_minimum_version
+    type: select
+    required: true
+    label: Minimum TLS version for FTPS
+    options:
+      - { value: "TLS 1.1", label: "TLS 1.1" }
+      - { value: "TLS 1.2", label: "TLS 1.2" }
+      - { value: "TLS 1.3", label: "TLS 1.3" }
+
+  - name: username_type
+    type: select
+    required: true
+    label: Type of user account
+    options:
+      - { value: "company_level_service_account", label: "Company Level Service Account" }
+      - { value: "individual_user_account", label: "Individual User Account" }
+
+  - name: credentials_embedded
+    type: boolean
+    required: true
+    label: Credentials embedded in automation scripts
+    default: false
+
+rules:
+  protocol_support:
+    ftps_requirement: "FTPS (File Transfer Protocol with TLS) required for secure access"
+    ftps_port_production: "FTPS uses TCP port 990 for production IDP (passive mode)"
+    sftp_requirement: "SFTP supported for internet access only via TCP port 22"
+    tls_minimum_version: "TLS 1.1 minimum; TLS 1.0, SSL 2.0, SSL 3.0 prohibited"
+
+  authentication:
+    service_account_requirement: "Automated downloads MUST use company-level service account"
+    individual_user_account: "Manual downloads require individual user account for each person"
+    no_credential_sharing: "No sharing of credentials allowed between users"
+
+  credential_storage:
+    configuration_file_requirement: "Store service account credentials in configuration file"
+    never_embed_in_code: "MUST NOT embed credentials in automation scripts"
+
+outcomes:
+  idp_protocol_selected:
+    priority: 1
+    given:
+      - field: connection_protocol
+        source: input
+        operator: exists
+    then:
+      - action: emit_event
+        event: idp.protocol.selected
+        payload: [protocol, tls_version, port, timestamp]
+    result: "IDP connection protocol selected with appropriate security"
+
+  ftps_connection_configured:
+    priority: 2
+    given:
+      - field: connection_protocol
+        source: input
+        operator: eq
+        value: "ftps_implicit_tls"
+      - field: tls_minimum_version
+        source: input
+        operator: exists
+    then:
+      - action: emit_event
+        event: idp.ftps.configured
+        payload: [tls_version, port_990, timestamp]
+    result: "FTPS configured with implicit TLS on TCP port 990"
+
+  service_account_provisioned:
+    priority: 3
+    given:
+      - field: username_type
+        source: input
+        operator: eq
+        value: "company_level_service_account"
+      - field: credentials_embedded
+        source: input
+        operator: eq
+        value: false
+    then:
+      - action: emit_event
+        event: idp.service_account.provisioned
+        payload: [username, rotation_schedule_annual, timestamp]
+    result: "Service account provisioned for automated downloads"
+
+  idp_connectivity_established:
+    priority: 10
+    given:
+      - field: connection_protocol
+        source: input
+        operator: exists
+      - field: environment
+        source: input
+        operator: exists
+    then:
+      - action: emit_event
+        event: idp.connectivity.established
+        payload: [environment, protocol, timestamp]
+    result: "Complete IDP connectivity established with secure protocol"
+
+errors:
+  - code: IDP_PROTOCOL_NOT_SUPPORTED
+    status: 400
+    message: "Selected protocol not supported for this environment"
+
+  - code: IDP_TLS_VERSION_UNSUPPORTED
+    status: 400
+    message: "TLS version unsupported; minimum TLS 1.1 required"
+
+  - code: IDP_AUTHENTICATION_FAILED
+    status: 401
+    message: "IDP authentication failed; verify username and password"
+
+  - code: IDP_CONNECTION_FAILED
+    status: 500
+    message: "Unable to establish IDP connection"
+
+  - code: IDP_CREDENTIAL_EMBEDDED_IN_CODE
+    status: 400
+    message: "Credentials embedded in code; security risk; use configuration file"
+
+events:
+  - name: idp.protocol.selected
+    description: "IDP connection protocol selected"
+    payload: [protocol, tls_version, port, timestamp]
+
+  - name: idp.ftps.configured
+    description: "FTPS configured with implicit TLS"
+    payload: [tls_version, port_990, timestamp]
+
+  - name: idp.service_account.provisioned
+    description: "Service account created for automated downloads"
+    payload: [username, rotation_schedule_annual, timestamp]
+
+  - name: idp.connectivity.established
+    description: "Complete IDP connectivity established"
+    payload: [environment, protocol, timestamp]
+
+related:
+  - feature: network-configuration-guide
+    type: required
+    reason: "Network must support routing to IDP servers"
+
+  - feature: client-connectivity-standards
+    type: required
+    reason: "Client must meet JSE connectivity standards"
