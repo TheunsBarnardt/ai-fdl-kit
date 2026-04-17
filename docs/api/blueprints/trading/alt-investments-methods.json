@@ -1,0 +1,201 @@
+{
+  "feature": "alt-investments-methods",
+  "version": "1.0.0",
+  "description": "Compare fund investment, co-investment, and direct investment methods for accessing alternatives, contrasting diversification, fees, control, and required expertise",
+  "category": "trading",
+  "tags": [
+    "alternatives",
+    "fund-investment",
+    "co-investment",
+    "direct-investment",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "fund-of-funds-access",
+    "co-investment-method",
+    "direct-alt-investment",
+    "alt-access-routes",
+    "limited-partner-method",
+    "gp-lp-structure"
+  ],
+  "actors": [
+    {
+      "id": "alt_access_mgr",
+      "name": "Alt Access Manager",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "access_id",
+      "type": "text",
+      "required": true,
+      "label": "Access identifier"
+    },
+    {
+      "name": "method",
+      "type": "select",
+      "required": true,
+      "label": "fund | co_investment | direct"
+    },
+    {
+      "name": "investor_type",
+      "type": "select",
+      "required": true,
+      "label": "individual | institution"
+    }
+  ],
+  "rules": {
+    "fund_investment": {
+      "description": "Investor commits capital to a pooled vehicle run by a GP",
+      "pros": "Diversification, access to specialised managers, due diligence outsourced",
+      "cons": "Double fee drag (FoF), limited control, lock-ups, J-curve"
+    },
+    "co_investment": {
+      "description": "Invest alongside fund in a specific deal, usually fee-reduced",
+      "pros": "Lower fees, selective exposure, closer to manager",
+      "cons": "Concentration risk, requires in-house deal analysis"
+    },
+    "direct_investment": {
+      "description": "Investor purchases the asset or company directly",
+      "pros": "Full control, no intermediary fees, bespoke structuring",
+      "cons": "Requires scale, expertise, operational infrastructure"
+    },
+    "validation": {
+      "access_required": "access_id present",
+      "valid_method": "method in [fund, co_investment, direct]"
+    }
+  },
+  "outcomes": {
+    "select_access_method": {
+      "priority": 1,
+      "description": "Pick alt access method consistent with investor capability",
+      "given": [
+        {
+          "field": "access_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "method",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "fund",
+            "co_investment",
+            "direct"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "alt_access_mgr"
+        },
+        {
+          "action": "emit_event",
+          "event": "alt.access_selected"
+        }
+      ]
+    },
+    "invalid_method": {
+      "priority": 10,
+      "description": "Unsupported method",
+      "given": [
+        {
+          "field": "method",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "fund",
+            "co_investment",
+            "direct"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "alt.access_rejected"
+        }
+      ],
+      "error": "ALT_INVALID_METHOD"
+    }
+  },
+  "errors": [
+    {
+      "code": "ALT_INVALID_METHOD",
+      "status": 400,
+      "message": "method must be fund, co_investment, or direct"
+    }
+  ],
+  "events": [
+    {
+      "name": "alt.access_selected",
+      "payload": [
+        "access_id",
+        "method",
+        "investor_type"
+      ]
+    },
+    {
+      "name": "alt.access_rejected",
+      "payload": [
+        "access_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not direct-invest without internal sourcing and due diligence capacity",
+      "why": "Adverse selection is severe; deals shown to retail investors tend to be what funds declined"
+    },
+    {
+      "rule": "Do not over-allocate to fund-of-funds for alt exposure",
+      "why": "Double layer of fees can consume most of the illiquidity premium"
+    },
+    {
+      "rule": "Do not ignore commitment vs. funded capital difference",
+      "why": "Uncalled commitments create liquidity risk at capital calls; over-commitment strategies have blown up in stress"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/alt-investments/access"
+    },
+    "request": {
+      "schema": {
+        "access_id": "string",
+        "method": "string",
+        "investor_type": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "access_id": "string",
+          "method": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "ALT_INVALID_METHOD"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "alt-investments-features-categories",
+      "type": "required"
+    },
+    {
+      "feature": "alt-investments-ownership-compensation",
+      "type": "recommended"
+    }
+  ]
+}

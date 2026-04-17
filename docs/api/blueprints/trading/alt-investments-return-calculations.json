@@ -1,0 +1,226 @@
+{
+  "feature": "alt-investments-return-calculations",
+  "version": "1.0.0",
+  "description": "Compute alternative-investment returns using IRR, MOIC, DPI, RVPI, TVPI, and time-weighted returns with attention to committed vs. invested capital and cash-flow timing",
+  "category": "trading",
+  "tags": [
+    "alternatives",
+    "irr",
+    "moic",
+    "dpi",
+    "tvpi",
+    "performance-metrics",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "multiple-on-invested-capital",
+    "dpi-rvpi-tvpi",
+    "committed-vs-invested-capital",
+    "j-curve-effect",
+    "alt-money-weighted-return",
+    "private-fund-metrics"
+  ],
+  "actors": [
+    {
+      "id": "alt_return_calc",
+      "name": "Alt Return Calculator",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "calc_id",
+      "type": "text",
+      "required": true,
+      "label": "Calculation identifier"
+    },
+    {
+      "name": "metric",
+      "type": "select",
+      "required": true,
+      "label": "irr | moic | dpi | rvpi | tvpi | twr"
+    },
+    {
+      "name": "cash_flows",
+      "type": "json",
+      "required": true,
+      "label": "Array of dated cash flows"
+    }
+  ],
+  "rules": {
+    "irr": {
+      "definition": "Discount rate at which NPV of cash flows equals zero",
+      "suitability": "Private funds where GP controls timing",
+      "pitfalls": "Multiple or no solution when cash-flow signs change; reinvestment assumption at IRR"
+    },
+    "moic": {
+      "formula": "(Realised + Unrealised Value) / Invested Capital",
+      "interpretation": "Gross money multiple, ignores time"
+    },
+    "dpi": {
+      "formula": "Distributions Paid / Paid-In Capital",
+      "interpretation": "Realised multiple; cash already returned to LPs"
+    },
+    "rvpi": {
+      "formula": "Residual NAV / Paid-In Capital",
+      "interpretation": "Unrealised multiple; what is still in the fund"
+    },
+    "tvpi": {
+      "formula": "DPI + RVPI",
+      "interpretation": "Total value relative to paid-in capital"
+    },
+    "twr": {
+      "rule": "Geometric linking of subperiod returns removes cash-flow timing effects",
+      "use_case": "Hedge funds and liquid alts where investor controls timing"
+    },
+    "j_curve": {
+      "pattern": "Early negative IRR from fees and markdowns before exits; reverses as value realised"
+    },
+    "validation": {
+      "calc_required": "calc_id present",
+      "valid_metric": "metric in allowed set",
+      "cash_flows_provided": "cash_flows non-empty"
+    }
+  },
+  "outcomes": {
+    "compute_return": {
+      "priority": 1,
+      "description": "Compute selected return metric",
+      "given": [
+        {
+          "field": "calc_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "metric",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "irr",
+            "moic",
+            "dpi",
+            "rvpi",
+            "tvpi",
+            "twr"
+          ]
+        },
+        {
+          "field": "cash_flows",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "alt_return_calc"
+        },
+        {
+          "action": "emit_event",
+          "event": "alt.return_computed"
+        }
+      ]
+    },
+    "invalid_metric": {
+      "priority": 10,
+      "description": "Unsupported metric",
+      "given": [
+        {
+          "field": "metric",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "irr",
+            "moic",
+            "dpi",
+            "rvpi",
+            "tvpi",
+            "twr"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "alt.return_calc_rejected"
+        }
+      ],
+      "error": "RETURN_INVALID_METRIC"
+    }
+  },
+  "errors": [
+    {
+      "code": "RETURN_INVALID_METRIC",
+      "status": 400,
+      "message": "metric must be irr, moic, dpi, rvpi, tvpi, or twr"
+    }
+  ],
+  "events": [
+    {
+      "name": "alt.return_computed",
+      "payload": [
+        "calc_id",
+        "metric",
+        "value",
+        "cash_flow_count"
+      ]
+    },
+    {
+      "name": "alt.return_calc_rejected",
+      "payload": [
+        "calc_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not rely on IRR alone for ranking funds",
+      "why": "IRR is manipulable via early distributions or credit lines; pair with MOIC and TVPI"
+    },
+    {
+      "rule": "Do not compute TWR for lumpy private fund cash flows",
+      "why": "Infrequent valuations create misleading subperiod geometric averages"
+    },
+    {
+      "rule": "Do not ignore subscription-line financing impact on IRR",
+      "why": "Capital-call lines delay LP funding and inflate reported IRR while reducing LP net multiple"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/alt-investments/returns/compute"
+    },
+    "request": {
+      "schema": {
+        "calc_id": "string",
+        "metric": "string",
+        "cash_flows": "array"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "calc_id": "string",
+          "metric": "string",
+          "value": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "RETURN_INVALID_METRIC"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "alt-investments-performance-appraisal",
+      "type": "required"
+    }
+  ]
+}

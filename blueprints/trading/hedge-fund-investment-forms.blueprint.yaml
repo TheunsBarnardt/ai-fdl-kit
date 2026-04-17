@@ -1,0 +1,123 @@
+# ============================================================
+# hedge-fund-investment-forms — Feature Blueprint
+# Source: CFA LV1 2025 Vol 08 — Module 6, Investment Forms
+# ============================================================
+
+feature: hedge-fund-investment-forms
+version: "1.0.0"
+description: Access hedge funds directly (single-manager, master-feeder, side-pocket) or indirectly (fund-of-funds, UCITS liquid alts, alternative risk premia replication) with awareness of liquidity and fees
+category: trading
+tags: [hedge-funds, fund-of-funds, master-feeder, ucits-liquid-alt, replication, cfa-level-1]
+aliases:
+  - master-feeder-structure
+  - side-pocket-allocation
+  - hedge-fund-of-funds
+  - liquid-alternatives-ucits
+  - alternative-risk-premia
+  - hedge-fund-replication
+
+actors:
+  - id: hf_access_mgr
+    name: Hedge Fund Access Manager
+    type: system
+
+fields:
+  - name: hf_access_id
+    type: text
+    required: true
+    label: Access form identifier
+  - name: form
+    type: select
+    required: true
+    label: direct_single | master_feeder | side_pocket | fund_of_funds | liquid_alt | replication
+
+rules:
+  direct_forms:
+    single_manager: "LP in single fund; direct exposure, concentrated risk"
+    master_feeder: "Feeder funds (onshore/offshore) pool into master fund for operational efficiency"
+    side_pocket: "Illiquid positions segregated from redeeming investors"
+  indirect_forms:
+    fund_of_funds: "Portfolio of hedge funds; diversification, double layer of fees"
+    liquid_alt_ucits: "UCITS-compliant vehicles providing hedge fund strategies with daily liquidity"
+    alt_risk_premia: "Systematic replication of style factors; low fees, limited manager alpha"
+    replication: "Index-based tracking of hedge fund beta via factor exposures"
+  liquidity_terms:
+    lock_up: "Initial period with no redemptions"
+    gates: "Percentage redemption cap per period"
+    notice_period: "30-90 days notice typical"
+  validation:
+    access_required: "hf_access_id present"
+    valid_form: "form in allowed set"
+
+outcomes:
+  select_hf_form:
+    priority: 1
+    description: Select hedge fund access form
+    given:
+      - field: hf_access_id
+        source: input
+        operator: exists
+      - field: form
+        source: input
+        operator: in
+        value: [direct_single, master_feeder, side_pocket, fund_of_funds, liquid_alt, replication]
+    then:
+      - action: call_service
+        target: hf_access_mgr
+      - action: emit_event
+        event: hf.access_selected
+  invalid_form:
+    priority: 10
+    description: Unsupported access form
+    given:
+      - field: form
+        source: input
+        operator: not_in
+        value: [direct_single, master_feeder, side_pocket, fund_of_funds, liquid_alt, replication]
+    then:
+      - action: emit_event
+        event: hf.access_rejected
+    error: HF_INVALID_FORM
+
+errors:
+  - code: HF_INVALID_FORM
+    status: 400
+    message: form must be a supported hedge fund access form
+
+events:
+  - name: hf.access_selected
+    payload: [hf_access_id, form, liquidity_terms, net_fee_load]
+  - name: hf.access_rejected
+    payload: [hf_access_id, reason_code]
+
+anti_patterns:
+  - rule: Do not assume UCITS liquid alts replicate offshore performance
+    why: "UCITS leverage caps and daily liquidity force strategy constraints; net returns typically trail offshore by several percent"
+  - rule: Do not ignore side-pocket overhang in redemption planning
+    why: "Locked assets continue to accrue fees but cannot be exited; material LP impact when cycle turns"
+  - rule: Do not use fund-of-funds as sole hedge fund exposure for large allocators
+    why: "Double fee layer consumes alpha at scale; direct manager selection preferred above ~,100M"
+
+api:
+  http:
+    method: POST
+    path: /alt-investments/hf/access
+  request:
+    schema:
+      hf_access_id: string
+      form: string
+  response:
+    success:
+      status: 200
+      schema:
+        hf_access_id: string
+        form: string
+    errors:
+      - status: 400
+        error_code: HF_INVALID_FORM
+
+related:
+  - feature: hedge-fund-strategies
+    type: required
+  - feature: alt-investments-ownership-compensation
+    type: recommended

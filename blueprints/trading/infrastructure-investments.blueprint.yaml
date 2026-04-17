@@ -1,0 +1,134 @@
+# ============================================================
+# infrastructure-investments — Feature Blueprint
+# Source: CFA LV1 2025 Vol 08 — Module 4, Infrastructure
+# ============================================================
+
+feature: infrastructure-investments
+version: "1.0.0"
+description: Evaluate infrastructure investments by stage (greenfield vs. brownfield), category (economic, social), return profile, and diversification and inflation-hedging benefits
+category: trading
+tags: [infrastructure, greenfield, brownfield, ppp, cfa-level-1]
+aliases:
+  - greenfield-infrastructure
+  - brownfield-infrastructure
+  - economic-infrastructure
+  - social-infrastructure
+  - public-private-partnership
+  - ppp-project
+
+actors:
+  - id: infra_analyst
+    name: Infrastructure Analyst
+    type: system
+
+fields:
+  - name: infra_id
+    type: text
+    required: true
+    label: Infrastructure analysis identifier
+  - name: stage
+    type: select
+    required: true
+    label: greenfield | brownfield
+  - name: category
+    type: select
+    required: true
+    label: economic | social
+
+rules:
+  stages:
+    greenfield: "New construction; higher construction and demand risk, higher expected return"
+    brownfield: "Operating asset; lower risk, more predictable cash flow"
+  categories:
+    economic: "Transport, utilities, energy, communications — revenue-generating"
+    social: "Hospitals, schools, prisons — availability payments"
+  return_profile:
+    cash_yield_focus: "Long-duration stable cash flows; lower capital appreciation"
+    regulation_risk: "Regulated returns constrain upside; political risk in some jurisdictions"
+    inflation_linkage: "Many contracts index revenues to CPI — natural inflation hedge"
+  ppp_structures:
+    rule: "Private sector finances, builds, operates; public partner provides concession"
+  diversification:
+    benefit: "Low correlation with equities; matches long-duration liabilities for pension funds"
+  validation:
+    infra_required: "infra_id present"
+    valid_stage: "stage in [greenfield, brownfield]"
+    valid_category: "category in [economic, social]"
+
+outcomes:
+  analyse_infrastructure:
+    priority: 1
+    description: Analyse infrastructure investment
+    given:
+      - field: infra_id
+        source: input
+        operator: exists
+      - field: stage
+        source: input
+        operator: in
+        value: [greenfield, brownfield]
+      - field: category
+        source: input
+        operator: in
+        value: [economic, social]
+    then:
+      - action: call_service
+        target: infra_analyst
+      - action: emit_event
+        event: infra.analysed
+  invalid_stage:
+    priority: 10
+    description: Unsupported stage
+    given:
+      - field: stage
+        source: input
+        operator: not_in
+        value: [greenfield, brownfield]
+    then:
+      - action: emit_event
+        event: infra.analysis_rejected
+    error: INFRA_INVALID_STAGE
+
+errors:
+  - code: INFRA_INVALID_STAGE
+    status: 400
+    message: stage must be greenfield or brownfield
+
+events:
+  - name: infra.analysed
+    payload: [infra_id, stage, category, expected_yield, cash_flow_duration]
+  - name: infra.analysis_rejected
+    payload: [infra_id, reason_code]
+
+anti_patterns:
+  - rule: Do not assume infrastructure cash flows are recession-proof
+    why: "Toll roads and airports are highly cyclical; GDP-linked traffic demand impacts economic infra materially"
+  - rule: Do not ignore regulatory renegotiation risk
+    why: "Governments have retroactively cut tariffs; political risk is the dominant tail risk in infra equity"
+  - rule: Do not conflate greenfield and brownfield risk profiles
+    why: "Construction risk, financing risk, and demand ramp differ sharply — return expectations must reflect stage"
+
+api:
+  http:
+    method: POST
+    path: /alt-investments/infrastructure/analyse
+  request:
+    schema:
+      infra_id: string
+      stage: string
+      category: string
+  response:
+    success:
+      status: 200
+      schema:
+        infra_id: string
+        expected_yield: number
+    errors:
+      - status: 400
+        error_code: INFRA_INVALID_STAGE
+
+related:
+  - feature: real-estate-investments
+    type: recommended
+  - feature: alt-investments-features-categories
+    type: required

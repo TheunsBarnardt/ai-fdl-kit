@@ -1,0 +1,220 @@
+{
+  "feature": "private-equity-investments",
+  "version": "1.0.0",
+  "description": "Analyse private equity categories (buyout, venture, growth), investment characteristics, exit strategies, risk-return profile, and diversification benefits",
+  "category": "trading",
+  "tags": [
+    "private-equity",
+    "buyout",
+    "venture-capital",
+    "growth-equity",
+    "lbo",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "pe-buyout",
+    "venture-capital",
+    "growth-equity",
+    "leveraged-buyout",
+    "pe-exit-strategy",
+    "secondary-pe-sale"
+  ],
+  "actors": [
+    {
+      "id": "pe_analyst",
+      "name": "Private Equity Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "pe_id",
+      "type": "text",
+      "required": true,
+      "label": "Private equity analysis identifier"
+    },
+    {
+      "name": "pe_category",
+      "type": "select",
+      "required": true,
+      "label": "buyout | venture | growth | distressed"
+    },
+    {
+      "name": "target_stage",
+      "type": "select",
+      "required": false,
+      "label": "seed | early | late | mature"
+    }
+  ],
+  "rules": {
+    "categories": {
+      "buyout": "Acquire mature company, typically using leverage (LBO); improve operations",
+      "venture": "Invest in early-stage companies; seed, early-stage, late-stage sub-segments",
+      "growth": "Minority stakes in profitable companies to fund expansion",
+      "distressed": "Underperforming or bankrupt assets; turnaround or restructuring"
+    },
+    "investment_characteristics": {
+      "long_horizon": "5-10 year holding periods",
+      "illiquidity": "No public market; exits are control events",
+      "value_add": "Operational improvement, strategic repositioning, leverage"
+    },
+    "exit_strategies": {
+      "ipo": "Public offering — highest multiples in favourable markets",
+      "strategic_sale": "Sale to corporate buyer; control premium",
+      "secondary_sale": "Sale to another PE firm",
+      "recapitalisation": "Refinance to return capital; retain stake"
+    },
+    "risk_return": {
+      "dispersion": "Wide manager dispersion; top-quartile vs. median material",
+      "risk_sources": "Leverage risk, governance risk, vintage risk"
+    },
+    "diversification": {
+      "benefit": "Low correlation with public equity after unsmoothing, though beta >1 in stress"
+    },
+    "validation": {
+      "pe_required": "pe_id present",
+      "valid_category": "pe_category in [buyout, venture, growth, distressed]"
+    }
+  },
+  "outcomes": {
+    "analyse_pe": {
+      "priority": 1,
+      "description": "Analyse PE investment by category",
+      "given": [
+        {
+          "field": "pe_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "pe_category",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "buyout",
+            "venture",
+            "growth",
+            "distressed"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "pe_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "pe.analysed"
+        }
+      ]
+    },
+    "invalid_category": {
+      "priority": 10,
+      "description": "Unsupported PE category",
+      "given": [
+        {
+          "field": "pe_category",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "buyout",
+            "venture",
+            "growth",
+            "distressed"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "pe.analysis_rejected"
+        }
+      ],
+      "error": "PE_INVALID_CATEGORY"
+    }
+  },
+  "errors": [
+    {
+      "code": "PE_INVALID_CATEGORY",
+      "status": 400,
+      "message": "pe_category must be buyout, venture, growth, or distressed"
+    }
+  ],
+  "events": [
+    {
+      "name": "pe.analysed",
+      "payload": [
+        "pe_id",
+        "pe_category",
+        "expected_irr",
+        "hold_period",
+        "exit_route"
+      ]
+    },
+    {
+      "name": "pe.analysis_rejected",
+      "payload": [
+        "pe_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not ignore vintage-year effects",
+      "why": "PE returns cluster by vintage — entry valuation and exit environment drive outcomes; single-vintage allocation is a macro bet"
+    },
+    {
+      "rule": "Do not extrapolate top-quartile manager returns to the asset class",
+      "why": "Average manager underperforms public markets after fees; selection risk dominates"
+    },
+    {
+      "rule": "Do not assume LBO leverage is priced risk-free",
+      "why": "Credit spreads and covenant-lite terms shift risk onto equity in stress; look-through leverage matters"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/alt-investments/pe/analyse"
+    },
+    "request": {
+      "schema": {
+        "pe_id": "string",
+        "pe_category": "string",
+        "target_stage": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "pe_id": "string",
+          "expected_irr": "number",
+          "hold_period": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "PE_INVALID_CATEGORY"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "alt-investments-features-categories",
+      "type": "required"
+    },
+    {
+      "feature": "alt-investments-return-calculations",
+      "type": "required"
+    },
+    {
+      "feature": "private-debt-investments",
+      "type": "recommended"
+    }
+  ]
+}

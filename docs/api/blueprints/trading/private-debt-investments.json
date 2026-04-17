@@ -1,0 +1,214 @@
+{
+  "feature": "private-debt-investments",
+  "version": "1.0.0",
+  "description": "Evaluate private debt categories (direct lending, mezzanine, distressed, venture debt, unitranche) by seniority, yield, covenants, and risk-return and compare with private equity",
+  "category": "trading",
+  "tags": [
+    "private-debt",
+    "direct-lending",
+    "mezzanine",
+    "distressed-debt",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "direct-lending",
+    "mezzanine-debt",
+    "distressed-debt",
+    "venture-debt",
+    "unitranche-loan",
+    "private-credit"
+  ],
+  "actors": [
+    {
+      "id": "pd_analyst",
+      "name": "Private Debt Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "pd_id",
+      "type": "text",
+      "required": true,
+      "label": "Private debt analysis identifier"
+    },
+    {
+      "name": "pd_category",
+      "type": "select",
+      "required": true,
+      "label": "direct_lending | mezzanine | distressed | venture_debt | unitranche"
+    },
+    {
+      "name": "seniority",
+      "type": "select",
+      "required": true,
+      "label": "senior | subordinated | junior"
+    }
+  ],
+  "rules": {
+    "categories": {
+      "direct_lending": "Senior secured loans to middle-market companies, often floating-rate",
+      "mezzanine": "Junior debt with equity kickers (warrants); higher yield",
+      "distressed": "Debt of troubled issuers; loan-to-own or restructuring",
+      "venture_debt": "Loans to VC-backed startups; warrants for upside",
+      "unitranche": "Combined senior/subordinated in single instrument; simpler capital stack"
+    },
+    "risk_return": {
+      "direct_lending": "Steady cash yield 6-9%; credit risk moderate",
+      "mezzanine": "Total return 10-15% blending coupon and equity kickers",
+      "distressed": "Return dispersion high; requires restructuring expertise"
+    },
+    "covenants_and_structure": {
+      "covenant_lite": "Weakened investor protection; common in syndicated market",
+      "financial_maintenance": "Required in most private direct loans",
+      "security_package": "First lien typical for direct; junior liens for mezz"
+    },
+    "diversification_benefits": {
+      "floating_rate_hedge": "Direct lending provides rate sensitivity opposite of fixed-income duration",
+      "low_mark_to_market": "Appraisal-based NAVs dampen reported volatility"
+    },
+    "validation": {
+      "pd_required": "pd_id present",
+      "valid_category": "pd_category in allowed set",
+      "valid_seniority": "seniority in [senior, subordinated, junior]"
+    }
+  },
+  "outcomes": {
+    "analyse_private_debt": {
+      "priority": 1,
+      "description": "Analyse private debt position",
+      "given": [
+        {
+          "field": "pd_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "pd_category",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "direct_lending",
+            "mezzanine",
+            "distressed",
+            "venture_debt",
+            "unitranche"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "pd_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "pd.analysed"
+        }
+      ]
+    },
+    "invalid_category": {
+      "priority": 10,
+      "description": "Unsupported category",
+      "given": [
+        {
+          "field": "pd_category",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "direct_lending",
+            "mezzanine",
+            "distressed",
+            "venture_debt",
+            "unitranche"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "pd.analysis_rejected"
+        }
+      ],
+      "error": "PD_INVALID_CATEGORY"
+    }
+  },
+  "errors": [
+    {
+      "code": "PD_INVALID_CATEGORY",
+      "status": 400,
+      "message": "pd_category must be direct_lending, mezzanine, distressed, venture_debt, or unitranche"
+    }
+  ],
+  "events": [
+    {
+      "name": "pd.analysed",
+      "payload": [
+        "pd_id",
+        "pd_category",
+        "expected_yield",
+        "seniority",
+        "covenant_score"
+      ]
+    },
+    {
+      "name": "pd.analysis_rejected",
+      "payload": [
+        "pd_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not assume private debt is immune to default cycles",
+      "why": "Private credit has concentrated in cyclical middle market; stale marks mask realised losses until exit"
+    },
+    {
+      "rule": "Do not ignore covenant erosion in the unitranche market",
+      "why": "Covenant-lite and EBITDA add-backs inflate leverage metrics; true leverage at default exceeds reported"
+    },
+    {
+      "rule": "Do not conflate direct-lending yields with risk-free returns",
+      "why": "Illiquidity premium compensates real credit risk; benchmark against HY not treasuries"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/alt-investments/pd/analyse"
+    },
+    "request": {
+      "schema": {
+        "pd_id": "string",
+        "pd_category": "string",
+        "seniority": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "pd_id": "string",
+          "expected_yield": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "PD_INVALID_CATEGORY"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "private-equity-investments",
+      "type": "recommended"
+    },
+    {
+      "feature": "alt-investments-features-categories",
+      "type": "required"
+    }
+  ]
+}

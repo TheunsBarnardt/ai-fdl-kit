@@ -1,0 +1,213 @@
+{
+  "feature": "natural-resources-commodities",
+  "version": "1.0.0",
+  "description": "Invest in commodities through spot, futures, and equity of producers; decompose commodity futures total return into spot, collateral, and roll yield and address contango and backwardation",
+  "category": "trading",
+  "tags": [
+    "commodities",
+    "futures",
+    "contango",
+    "backwardation",
+    "roll-yield",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "commodity-futures-return",
+    "roll-yield",
+    "spot-yield",
+    "collateral-yield",
+    "commodity-spot-price",
+    "commodity-equity-exposure"
+  ],
+  "actors": [
+    {
+      "id": "commodity_analyst",
+      "name": "Commodity Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "commodity_id",
+      "type": "text",
+      "required": true,
+      "label": "Commodity analysis identifier"
+    },
+    {
+      "name": "access_method",
+      "type": "select",
+      "required": true,
+      "label": "spot | futures | producer_equity | commodity_etn"
+    },
+    {
+      "name": "curve_state",
+      "type": "select",
+      "required": false,
+      "label": "contango | backwardation | flat"
+    }
+  ],
+  "rules": {
+    "commodity_investment_forms": {
+      "spot": "Physical ownership — storage costs significant",
+      "futures": "Most common; rolling monthly contracts",
+      "producer_equity": "Stock of miners, oil majors — equity market beta dilutes pure commodity exposure",
+      "commodity_etn": "Exchange-traded notes tracking indices"
+    },
+    "futures_total_return": {
+      "components": "Spot return + collateral return + roll yield",
+      "roll_yield": "Gain (loss) from rolling contracts in backwardation (contango)",
+      "collateral_return": "Treasury yield on fully collateralised futures"
+    },
+    "curve_states": {
+      "contango": "Forward > spot — negative roll yield; common for costly-to-store commodities",
+      "backwardation": "Forward < spot — positive roll yield; signals supply shortage or high convenience yield"
+    },
+    "inflation_hedging": {
+      "mechanism": "Commodities correlate with unexpected inflation via raw-material price pass-through"
+    },
+    "diversification_benefit": {
+      "note": "Historically low correlation with equities over long horizons; correlation spikes in crises"
+    },
+    "validation": {
+      "commodity_required": "commodity_id present",
+      "valid_access": "access_method in allowed set"
+    }
+  },
+  "outcomes": {
+    "analyse_commodity": {
+      "priority": 1,
+      "description": "Analyse commodity investment and decompose return",
+      "given": [
+        {
+          "field": "commodity_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "access_method",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "spot",
+            "futures",
+            "producer_equity",
+            "commodity_etn"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "commodity_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "commodity.analysed"
+        }
+      ]
+    },
+    "invalid_access": {
+      "priority": 10,
+      "description": "Unsupported access method",
+      "given": [
+        {
+          "field": "access_method",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "spot",
+            "futures",
+            "producer_equity",
+            "commodity_etn"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "commodity.analysis_rejected"
+        }
+      ],
+      "error": "COMMODITY_INVALID_ACCESS"
+    }
+  },
+  "errors": [
+    {
+      "code": "COMMODITY_INVALID_ACCESS",
+      "status": 400,
+      "message": "access_method must be spot, futures, producer_equity, or commodity_etn"
+    }
+  ],
+  "events": [
+    {
+      "name": "commodity.analysed",
+      "payload": [
+        "commodity_id",
+        "access_method",
+        "spot_return",
+        "roll_yield",
+        "total_return"
+      ]
+    },
+    {
+      "name": "commodity.analysis_rejected",
+      "payload": [
+        "commodity_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not ignore roll yield when backtesting commodity indices",
+      "why": "Persistent contango can convert positive spot move into total return loss; the 2008 oil super-contango wiped out long-only investors"
+    },
+    {
+      "rule": "Do not use producer equities as pure commodity exposure",
+      "why": "Operational leverage, hedging, and equity beta dilute the commodity signal"
+    },
+    {
+      "rule": "Do not assume commodities always hedge inflation",
+      "why": "Disinflationary oil shocks decouple commodities from CPI; inflation hedge works on unexpected, demand-driven inflation"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/alt-investments/commodity/analyse"
+    },
+    "request": {
+      "schema": {
+        "commodity_id": "string",
+        "access_method": "string",
+        "curve_state": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "commodity_id": "string",
+          "total_return": "number",
+          "roll_yield": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "COMMODITY_INVALID_ACCESS"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "forward-futures-pricing",
+      "type": "required"
+    },
+    {
+      "feature": "farmland-timberland-investments",
+      "type": "recommended"
+    }
+  ]
+}

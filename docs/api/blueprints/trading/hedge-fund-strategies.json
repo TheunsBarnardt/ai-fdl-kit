@@ -1,0 +1,216 @@
+{
+  "feature": "hedge-fund-strategies",
+  "version": "1.0.0",
+  "description": "Classify hedge fund strategies (equity hedge, event-driven, relative value, opportunistic macro) and describe their return drivers, risks, and typical market-environment suitability",
+  "category": "trading",
+  "tags": [
+    "hedge-funds",
+    "equity-hedge",
+    "event-driven",
+    "relative-value",
+    "global-macro",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "equity-hedge-strategy",
+    "long-short-equity",
+    "event-driven-strategy",
+    "merger-arbitrage",
+    "distressed-securities",
+    "relative-value-strategy",
+    "global-macro-strategy",
+    "managed-futures-cta"
+  ],
+  "actors": [
+    {
+      "id": "hf_classifier",
+      "name": "Hedge Fund Strategy Classifier",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "strategy_id",
+      "type": "text",
+      "required": true,
+      "label": "Strategy identifier"
+    },
+    {
+      "name": "strategy_family",
+      "type": "select",
+      "required": true,
+      "label": "equity_hedge | event_driven | relative_value | opportunistic"
+    },
+    {
+      "name": "substrategy",
+      "type": "text",
+      "required": false,
+      "label": "Substrategy name"
+    }
+  ],
+  "rules": {
+    "equity_hedge": {
+      "long_short_equity": "Long undervalued / short overvalued equities; variable net exposure",
+      "market_neutral": "Zero market beta; alpha from stock selection",
+      "short_biased": "Net short; thrives in declining markets"
+    },
+    "event_driven": {
+      "merger_arbitrage": "Long target, short acquirer; profit on deal completion spread",
+      "distressed": "Long debt/equity of troubled issuers; restructuring profit",
+      "activist": "Take stake and force strategic/operational change",
+      "special_situations": "Spin-offs, carve-outs, index inclusions"
+    },
+    "relative_value": {
+      "fixed_income_arbitrage": "Exploit mis-pricings in yield curves and credit spreads",
+      "convertible_arbitrage": "Long convertible bond / short stock; vol and credit decomposition",
+      "volatility_arbitrage": "Trade implied vs. realised volatility"
+    },
+    "opportunistic_macro": {
+      "global_macro": "Top-down bets on rates, FX, equity indices, commodities",
+      "managed_futures_cta": "Systematic trend following across asset classes"
+    },
+    "risk_profile": {
+      "leverage_usage": "Relative value strategies often highly levered",
+      "tail_risk": "Event-driven and credit strategies exposed to default cycles"
+    },
+    "validation": {
+      "strategy_required": "strategy_id present",
+      "valid_family": "strategy_family in allowed set"
+    }
+  },
+  "outcomes": {
+    "classify_strategy": {
+      "priority": 1,
+      "description": "Classify hedge fund by strategy family",
+      "given": [
+        {
+          "field": "strategy_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "strategy_family",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "equity_hedge",
+            "event_driven",
+            "relative_value",
+            "opportunistic"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "hf_classifier"
+        },
+        {
+          "action": "emit_event",
+          "event": "hf.strategy_classified"
+        }
+      ]
+    },
+    "invalid_family": {
+      "priority": 10,
+      "description": "Unsupported strategy family",
+      "given": [
+        {
+          "field": "strategy_family",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "equity_hedge",
+            "event_driven",
+            "relative_value",
+            "opportunistic"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "hf.strategy_rejected"
+        }
+      ],
+      "error": "HF_INVALID_FAMILY"
+    }
+  },
+  "errors": [
+    {
+      "code": "HF_INVALID_FAMILY",
+      "status": 400,
+      "message": "strategy_family must be equity_hedge, event_driven, relative_value, or opportunistic"
+    }
+  ],
+  "events": [
+    {
+      "name": "hf.strategy_classified",
+      "payload": [
+        "strategy_id",
+        "strategy_family",
+        "substrategy",
+        "typical_leverage"
+      ]
+    },
+    {
+      "name": "hf.strategy_rejected",
+      "payload": [
+        "strategy_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not rely on historical Sharpe ratios for relative-value funds",
+      "why": "Smooth returns in benign periods hide tail risk; LTCM-style blow-ups are the defining risk of the strategy"
+    },
+    {
+      "rule": "Do not lump market-neutral and long-short equity together",
+      "why": "Market-neutral aims for zero beta; long-short can have 30-60% net exposure — very different risk profiles"
+    },
+    {
+      "rule": "Do not ignore capacity constraints in managed futures and vol arb",
+      "why": "Strategies crowd out as AUM scales; live Sharpe typically falls materially below back-tested"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/alt-investments/hf/classify"
+    },
+    "request": {
+      "schema": {
+        "strategy_id": "string",
+        "strategy_family": "string",
+        "substrategy": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "strategy_id": "string",
+          "strategy_family": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "HF_INVALID_FAMILY"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "hedge-fund-investment-forms",
+      "type": "recommended"
+    },
+    {
+      "feature": "alt-investments-features-categories",
+      "type": "required"
+    }
+  ]
+}

@@ -1,0 +1,174 @@
+# ============================================================
+# alt-investments-ownership-compensation — Feature Blueprint
+# Source: CFA LV1 2025 Vol 08 — Module 1, Ownership & Compensation
+# ============================================================
+
+feature: alt-investments-ownership-compensation
+version: "1.0.0"
+description: Describe limited-partnership structures, management fees, incentive fees, hurdle rates, high-water marks, clawbacks, and distribution waterfalls used in alternative funds
+category: trading
+tags: [alternatives, fee-structure, gp-lp, waterfall, carried-interest, cfa-level-1]
+aliases:
+  - two-and-twenty
+  - carried-interest
+  - hurdle-rate
+  - high-water-mark
+  - distribution-waterfall
+  - gp-clawback
+  - american-waterfall
+  - european-waterfall
+
+actors:
+  - id: fee_engine
+    name: Alt Fund Fee Engine
+    type: system
+
+fields:
+  - name: fee_calc_id
+    type: text
+    required: true
+    label: Fee calc identifier
+  - name: management_fee_rate
+    type: number
+    required: true
+    label: Management fee (decimal annual)
+  - name: incentive_fee_rate
+    type: number
+    required: true
+    label: Performance fee rate (decimal)
+  - name: hurdle_rate
+    type: number
+    required: false
+    label: Hurdle rate (decimal, may be zero)
+  - name: waterfall_type
+    type: select
+    required: true
+    label: american | european
+
+rules:
+  limited_partnership:
+    gp: "General partner manages the fund, unlimited liability"
+    lps: "Limited partners provide capital, liability capped at commitment"
+  management_fees:
+    typical: "1.5%-2% of committed or invested capital"
+    post_investment_period: "May step down to invested-only basis"
+  incentive_fees:
+    typical: "20% of profits above hurdle"
+    catch_up: "GP receives 100% of returns above hurdle until catch-up achieved"
+  hurdle_rate:
+    hard_hurdle: "Fee only on returns above hurdle"
+    soft_hurdle: "Once hurdle met, fee on all profits"
+  high_water_mark:
+    rule: "Incentive fees only charged on new highs; losses must be recovered first"
+  clawback:
+    rule: "GP returns excess carry if later performance disappoints"
+  waterfalls:
+    european: "Whole-of-fund — LPs get all committed capital plus hurdle before GP carry"
+    american: "Deal-by-deal — GP collects carry on each profitable exit"
+  validation:
+    calc_required: "fee_calc_id present"
+    valid_waterfall: "waterfall_type in [american, european]"
+    non_negative_rates: "management_fee_rate >= 0 and incentive_fee_rate >= 0"
+
+outcomes:
+  compute_fees:
+    priority: 1
+    description: Compute management and incentive fees with waterfall
+    given:
+      - field: fee_calc_id
+        source: input
+        operator: exists
+      - field: waterfall_type
+        source: input
+        operator: in
+        value: [american, european]
+      - field: management_fee_rate
+        source: input
+        operator: gte
+        value: 0
+    then:
+      - action: call_service
+        target: fee_engine
+      - action: emit_event
+        event: alt.fees_computed
+  invalid_waterfall:
+    priority: 10
+    description: Unknown waterfall type
+    given:
+      - field: waterfall_type
+        source: input
+        operator: not_in
+        value: [american, european]
+    then:
+      - action: emit_event
+        event: alt.fee_calc_rejected
+    error: FEE_INVALID_WATERFALL
+  invalid_rates:
+    priority: 11
+    description: Negative fee rates
+    given:
+      - any:
+          - field: management_fee_rate
+            source: input
+            operator: lt
+            value: 0
+          - field: incentive_fee_rate
+            source: input
+            operator: lt
+            value: 0
+    then:
+      - action: emit_event
+        event: alt.fee_calc_rejected
+    error: FEE_INVALID_RATES
+
+errors:
+  - code: FEE_INVALID_WATERFALL
+    status: 400
+    message: waterfall_type must be american or european
+  - code: FEE_INVALID_RATES
+    status: 400
+    message: fee rates must be non-negative
+
+events:
+  - name: alt.fees_computed
+    payload: [fee_calc_id, gross_return, net_return, gp_carry, lp_distributions]
+  - name: alt.fee_calc_rejected
+    payload: [fee_calc_id, reason_code]
+
+anti_patterns:
+  - rule: Do not ignore clawback exposure in American waterfalls
+    why: "Early deal-by-deal carry can over-distribute; GP owes money back if later deals lose — a real liability that distorts net IRR"
+  - rule: Do not compare hurdle rates without noting hard vs. soft and catch-up
+    why: "Economic impact differs materially; two funds with same headline 8% hurdle can net very different LP IRRs"
+  - rule: Do not base fees on NAV for illiquid funds
+    why: "NAV is stale/smoothed; GPs charging on NAV during drawdowns transfer value from LPs"
+
+api:
+  http:
+    method: POST
+    path: /alt-investments/fees/compute
+  request:
+    schema:
+      fee_calc_id: string
+      management_fee_rate: number
+      incentive_fee_rate: number
+      hurdle_rate: number
+      waterfall_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        fee_calc_id: string
+        net_return: number
+        gp_carry: number
+    errors:
+      - status: 400
+        error_code: FEE_INVALID_WATERFALL
+      - status: 400
+        error_code: FEE_INVALID_RATES
+
+related:
+  - feature: alt-investments-features-categories
+    type: required
+  - feature: alt-investments-methods
+    type: required

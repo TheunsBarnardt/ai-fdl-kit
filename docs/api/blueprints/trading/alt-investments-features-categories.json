@@ -1,0 +1,198 @@
+{
+  "feature": "alt-investments-features-categories",
+  "version": "1.0.0",
+  "description": "Classify alternative investments into private capital, real assets, and hedge funds, and contrast them with traditional equity and fixed income on liquidity, fees, and regulation",
+  "category": "trading",
+  "tags": [
+    "alternatives",
+    "private-capital",
+    "real-assets",
+    "hedge-funds",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "alternative-investment-features",
+    "alt-inv-categories",
+    "private-capital-category",
+    "real-assets-category",
+    "alternative-vs-traditional",
+    "alt-investment-taxonomy"
+  ],
+  "actors": [
+    {
+      "id": "alt_classifier",
+      "name": "Alt Investment Classifier",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "classification_id",
+      "type": "text",
+      "required": true,
+      "label": "Classification identifier"
+    },
+    {
+      "name": "category",
+      "type": "select",
+      "required": true,
+      "label": "private_capital | real_assets | hedge_funds"
+    },
+    {
+      "name": "subcategory",
+      "type": "text",
+      "required": false,
+      "label": "Subcategory (e.g., buyout, real_estate, macro)"
+    }
+  ],
+  "rules": {
+    "categories": {
+      "private_capital": "Private equity (buyout, venture, growth) and private debt",
+      "real_assets": "Real estate, infrastructure, natural resources, commodities",
+      "hedge_funds": "Pooled vehicles applying long/short, event-driven, macro, relative-value strategies"
+    },
+    "distinguishing_features": {
+      "illiquidity": "Long lock-ups, limited secondary market",
+      "high_fees": "Management and incentive fees; 2-and-20 common",
+      "low_correlation": "Diversification from traditional assets, subject to smoothing",
+      "specialised_skill": "Manager selection is a major driver of returns",
+      "regulatory_regime": "Typically accredited/qualified investors, lighter disclosure"
+    },
+    "validation": {
+      "classification_required": "classification_id present",
+      "valid_category": "category in allowed set"
+    }
+  },
+  "outcomes": {
+    "classify_alt_investment": {
+      "priority": 1,
+      "description": "Classify investment into alt category",
+      "given": [
+        {
+          "field": "classification_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "category",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "private_capital",
+            "real_assets",
+            "hedge_funds"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "alt_classifier"
+        },
+        {
+          "action": "emit_event",
+          "event": "alt.classified"
+        }
+      ]
+    },
+    "invalid_category": {
+      "priority": 10,
+      "description": "Unsupported alt category",
+      "given": [
+        {
+          "field": "category",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "private_capital",
+            "real_assets",
+            "hedge_funds"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "alt.classification_rejected"
+        }
+      ],
+      "error": "ALT_INVALID_CATEGORY"
+    }
+  },
+  "errors": [
+    {
+      "code": "ALT_INVALID_CATEGORY",
+      "status": 400,
+      "message": "category must be private_capital, real_assets, or hedge_funds"
+    }
+  ],
+  "events": [
+    {
+      "name": "alt.classified",
+      "payload": [
+        "classification_id",
+        "category",
+        "subcategory"
+      ]
+    },
+    {
+      "name": "alt.classification_rejected",
+      "payload": [
+        "classification_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not treat alternative investments as a single homogeneous asset class",
+      "why": "Risk drivers differ widely between private debt, hedge funds, and commodities; aggregating distorts portfolio construction"
+    },
+    {
+      "rule": "Do not assume reported NAVs are mark-to-market equivalents",
+      "why": "Private assets are typically appraisal-based with stale pricing; correlation and volatility are artificially low"
+    },
+    {
+      "rule": "Do not benchmark alts to public indexes without lag adjustment",
+      "why": "Smoothed returns understate true beta; unsmoothing or PME techniques are required"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/alt-investments/classify"
+    },
+    "request": {
+      "schema": {
+        "classification_id": "string",
+        "category": "string",
+        "subcategory": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "classification_id": "string",
+          "category": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "ALT_INVALID_CATEGORY"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "alt-investments-methods",
+      "type": "recommended"
+    },
+    {
+      "feature": "alt-investments-ownership-compensation",
+      "type": "recommended"
+    }
+  ]
+}

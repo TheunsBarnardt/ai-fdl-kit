@@ -1,0 +1,219 @@
+{
+  "feature": "real-estate-investments",
+  "version": "1.0.0",
+  "description": "Evaluate direct and indirect real estate investment structures, sources of return (income, appreciation), property sectors, and real estate diversification benefits",
+  "category": "trading",
+  "tags": [
+    "real-estate",
+    "reits",
+    "direct-property",
+    "commercial-real-estate",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "direct-real-estate",
+    "reit-investment",
+    "private-reit",
+    "real-estate-sectors",
+    "cre-investment",
+    "property-investment"
+  ],
+  "actors": [
+    {
+      "id": "re_analyst",
+      "name": "Real Estate Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "re_id",
+      "type": "text",
+      "required": true,
+      "label": "Real estate analysis identifier"
+    },
+    {
+      "name": "structure",
+      "type": "select",
+      "required": true,
+      "label": "direct | reit | private_reit | rempf | cmbs"
+    },
+    {
+      "name": "sector",
+      "type": "select",
+      "required": true,
+      "label": "residential | office | retail | industrial | hospitality | healthcare | data_center"
+    }
+  ],
+  "rules": {
+    "investment_structures": {
+      "direct": "Equity ownership of physical property; requires operational management",
+      "reit": "Public listed company owning property; tax pass-through if distribution rules met",
+      "private_reit": "Unlisted REIT; illiquid but less volatile NAV",
+      "real_estate_mutual_fund": "Pooled vehicle of listed REITs and property companies",
+      "cmbs": "Commercial mortgage-backed securities; debt exposure"
+    },
+    "sources_of_return": {
+      "income": "Rental yield less operating expenses",
+      "appreciation": "Capital value growth from rental uplift, yield compression",
+      "leverage_amplification": "Mortgage debt magnifies equity returns"
+    },
+    "sectors": {
+      "residential": "Apartments, single-family rentals — defensive",
+      "office": "Cyclical, tied to employment",
+      "retail": "Structurally challenged by e-commerce",
+      "industrial": "Logistics tailwind from e-commerce and nearshoring",
+      "hospitality": "Most cyclical; daily pricing",
+      "healthcare": "Demographics tailwind; regulated",
+      "data_center": "Digital infrastructure; long lease, high capex"
+    },
+    "diversification": {
+      "inflation_hedge": "Partial hedge via rent escalators and replacement cost",
+      "low_correlation_direct": "Direct RE has lower reported correlation; listed REITs correlate with equities"
+    },
+    "validation": {
+      "re_required": "re_id present",
+      "valid_structure": "structure in allowed set",
+      "valid_sector": "sector in allowed set"
+    }
+  },
+  "outcomes": {
+    "analyse_real_estate": {
+      "priority": 1,
+      "description": "Analyse real estate position",
+      "given": [
+        {
+          "field": "re_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "structure",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "direct",
+            "reit",
+            "private_reit",
+            "rempf",
+            "cmbs"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "re_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "re.analysed"
+        }
+      ]
+    },
+    "invalid_structure": {
+      "priority": 10,
+      "description": "Unsupported RE structure",
+      "given": [
+        {
+          "field": "structure",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "direct",
+            "reit",
+            "private_reit",
+            "rempf",
+            "cmbs"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "re.analysis_rejected"
+        }
+      ],
+      "error": "RE_INVALID_STRUCTURE"
+    }
+  },
+  "errors": [
+    {
+      "code": "RE_INVALID_STRUCTURE",
+      "status": 400,
+      "message": "structure must be direct, reit, private_reit, rempf, or cmbs"
+    }
+  ],
+  "events": [
+    {
+      "name": "re.analysed",
+      "payload": [
+        "re_id",
+        "structure",
+        "sector",
+        "income_yield",
+        "total_return"
+      ]
+    },
+    {
+      "name": "re.analysis_rejected",
+      "payload": [
+        "re_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not treat private real estate volatility as the true market volatility",
+      "why": "Quarterly appraisals smooth quotes by 40-60%; unsmoothed series shows equity-like volatility"
+    },
+    {
+      "rule": "Do not aggregate sector performance into one 'real estate' view",
+      "why": "Retail and office are structurally diverging from industrial and data centers; aggregate masks winners and losers"
+    },
+    {
+      "rule": "Do not use listed REIT yields as proxy for direct yields",
+      "why": "REIT yields include public-market equity premium; diverge materially from direct cap rates in stress"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/alt-investments/real-estate/analyse"
+    },
+    "request": {
+      "schema": {
+        "re_id": "string",
+        "structure": "string",
+        "sector": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "re_id": "string",
+          "income_yield": "number",
+          "total_return": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "RE_INVALID_STRUCTURE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "infrastructure-investments",
+      "type": "recommended"
+    },
+    {
+      "feature": "alt-investments-features-categories",
+      "type": "required"
+    }
+  ]
+}

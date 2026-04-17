@@ -1,0 +1,211 @@
+{
+  "feature": "farmland-timberland-investments",
+  "version": "1.0.0",
+  "description": "Invest in farmland and timberland for combined income from crop/lumber sales and land appreciation, with biological growth providing optionality on harvest timing",
+  "category": "trading",
+  "tags": [
+    "natural-resources",
+    "farmland",
+    "timberland",
+    "real-assets",
+    "biological-growth",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "timberland-investment",
+    "farmland-investment",
+    "biological-asset",
+    "raw-land-investment",
+    "agricultural-land",
+    "timber-harvest-option"
+  ],
+  "actors": [
+    {
+      "id": "land_analyst",
+      "name": "Land Investment Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "land_id",
+      "type": "text",
+      "required": true,
+      "label": "Land investment identifier"
+    },
+    {
+      "name": "land_type",
+      "type": "select",
+      "required": true,
+      "label": "farmland | timberland | raw_land"
+    },
+    {
+      "name": "region",
+      "type": "text",
+      "required": false,
+      "label": "Geographic region"
+    }
+  ],
+  "rules": {
+    "sources_of_return": {
+      "income": "Crop sales (row, permanent) or timber harvest",
+      "appreciation": "Land value growth",
+      "biological_growth": "Trees grow volume and value with age — defer-harvest optionality"
+    },
+    "farmland_specifics": {
+      "row_crops": "Annual rotation; price exposure to corn, soy, wheat",
+      "permanent_crops": "Nuts, fruits; longer horizon, higher capex",
+      "leasing": "Cash lease (fixed) or crop share (variable income)"
+    },
+    "timberland_specifics": {
+      "harvest_optionality": "Defer cutting in weak prices; value compounds via growth",
+      "species_mix": "Softwood vs. hardwood; end-market differs"
+    },
+    "inflation_hedging": {
+      "rule": "Both asset classes provide partial inflation hedge via commodity prices and land value"
+    },
+    "risks": {
+      "weather": "Droughts, storms, disease",
+      "commodity_prices": "Farm income sensitive to spot agricultural prices",
+      "political": "Land-use rules, export controls, water rights"
+    },
+    "validation": {
+      "land_required": "land_id present",
+      "valid_type": "land_type in [farmland, timberland, raw_land]"
+    }
+  },
+  "outcomes": {
+    "analyse_land": {
+      "priority": 1,
+      "description": "Analyse farmland or timberland investment",
+      "given": [
+        {
+          "field": "land_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "land_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "farmland",
+            "timberland",
+            "raw_land"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "land_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "land.analysed"
+        }
+      ]
+    },
+    "invalid_type": {
+      "priority": 10,
+      "description": "Unsupported land type",
+      "given": [
+        {
+          "field": "land_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "farmland",
+            "timberland",
+            "raw_land"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "land.analysis_rejected"
+        }
+      ],
+      "error": "LAND_INVALID_TYPE"
+    }
+  },
+  "errors": [
+    {
+      "code": "LAND_INVALID_TYPE",
+      "status": 400,
+      "message": "land_type must be farmland, timberland, or raw_land"
+    }
+  ],
+  "events": [
+    {
+      "name": "land.analysed",
+      "payload": [
+        "land_id",
+        "land_type",
+        "income_yield",
+        "appreciation",
+        "biological_growth"
+      ]
+    },
+    {
+      "name": "land.analysis_rejected",
+      "payload": [
+        "land_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not ignore water-rights risk in farmland",
+      "why": "Western US and drought-prone regions face binding water curtailment; land without secure rights loses value fast"
+    },
+    {
+      "rule": "Do not model timberland as pure commodity bet",
+      "why": "Biological growth decouples returns from timber spot prices over long horizons; harvest timing flexibility is a key source of alpha"
+    },
+    {
+      "rule": "Do not use listed timber REITs as proxy for direct timberland volatility",
+      "why": "Listed vehicles carry equity market beta; direct volatility is far lower due to biological growth buffer"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/alt-investments/land/analyse"
+    },
+    "request": {
+      "schema": {
+        "land_id": "string",
+        "land_type": "string",
+        "region": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "land_id": "string",
+          "total_return": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "LAND_INVALID_TYPE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "natural-resources-commodities",
+      "type": "recommended"
+    },
+    {
+      "feature": "alt-investments-features-categories",
+      "type": "required"
+    }
+  ]
+}

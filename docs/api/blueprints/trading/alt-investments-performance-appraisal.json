@@ -1,0 +1,212 @@
+{
+  "feature": "alt-investments-performance-appraisal",
+  "version": "1.0.0",
+  "description": "Appraise alternative-investment performance accounting for illiquidity, stale pricing, non-normal return distributions, benchmark selection, and comparability with traditional assets",
+  "category": "trading",
+  "tags": [
+    "alternatives",
+    "performance-appraisal",
+    "smoothing",
+    "benchmarks",
+    "pme",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "alt-performance-measurement",
+    "pme-comparison",
+    "public-market-equivalent",
+    "smoothing-adjustment",
+    "unsmoothed-returns",
+    "nav-stale-pricing"
+  ],
+  "actors": [
+    {
+      "id": "alt_perf_engine",
+      "name": "Alt Performance Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "appraisal_id",
+      "type": "text",
+      "required": true,
+      "label": "Appraisal identifier"
+    },
+    {
+      "name": "fund_type",
+      "type": "select",
+      "required": true,
+      "label": "private_equity | private_debt | real_estate | hedge_fund"
+    },
+    {
+      "name": "benchmark",
+      "type": "text",
+      "required": true,
+      "label": "Benchmark reference"
+    }
+  ],
+  "rules": {
+    "performance_challenges": {
+      "illiquidity": "Market prices unavailable; NAV relies on appraisals",
+      "non_normality": "Skewed, fat-tailed returns; mean-variance inadequate",
+      "survivorship_bias": "Failed funds drop out of indices inflating averages",
+      "backfill_bias": "New entrants backfill favourable history"
+    },
+    "comparability_traditional": {
+      "issue": "Public indices priced daily; alts appraisal-based — direct comparison overstates alts Sharpe",
+      "adjustment": "Unsmooth returns before comparing, or use PME techniques"
+    },
+    "pme_methods": {
+      "kaplan_schoar": "Sum of discounted distributions / sum of discounted contributions vs. public market",
+      "direct_alpha": "IRR of PE cash flows minus public-index IRR of same flows"
+    },
+    "appropriate_metrics": {
+      "irr": "Money-weighted for private funds (GP controls timing)",
+      "moic": "Multiple on invested capital; supplements IRR",
+      "twr": "Time-weighted for hedge funds where investor controls flows"
+    },
+    "validation": {
+      "appraisal_required": "appraisal_id present",
+      "valid_fund_type": "fund_type in allowed set"
+    }
+  },
+  "outcomes": {
+    "appraise_performance": {
+      "priority": 1,
+      "description": "Compute performance with illiquidity and bias adjustments",
+      "given": [
+        {
+          "field": "appraisal_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "fund_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "private_equity",
+            "private_debt",
+            "real_estate",
+            "hedge_fund"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "alt_perf_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "alt.performance_appraised"
+        }
+      ]
+    },
+    "invalid_fund_type": {
+      "priority": 10,
+      "description": "Unsupported fund type",
+      "given": [
+        {
+          "field": "fund_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "private_equity",
+            "private_debt",
+            "real_estate",
+            "hedge_fund"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "alt.performance_rejected"
+        }
+      ],
+      "error": "PERF_INVALID_FUND_TYPE"
+    }
+  },
+  "errors": [
+    {
+      "code": "PERF_INVALID_FUND_TYPE",
+      "status": 400,
+      "message": "fund_type must be private_equity, private_debt, real_estate, or hedge_fund"
+    }
+  ],
+  "events": [
+    {
+      "name": "alt.performance_appraised",
+      "payload": [
+        "appraisal_id",
+        "net_irr",
+        "moic",
+        "pme_ratio",
+        "benchmark_delta"
+      ]
+    },
+    {
+      "name": "alt.performance_rejected",
+      "payload": [
+        "appraisal_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not compute Sharpe ratios on appraisal-based NAVs uncritically",
+      "why": "Smoothed returns inflate Sharpe by suppressing variance; unsmooth first or the metric misleads"
+    },
+    {
+      "rule": "Do not use TWR for private equity funds",
+      "why": "TWR neutralises cash-flow timing that the GP deliberately chose; IRR reflects actual investor experience"
+    },
+    {
+      "rule": "Do not benchmark PE against an arbitrary public index",
+      "why": "Benchmark must match sector, leverage, and vintage; otherwise alpha is noise"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/alt-investments/performance/appraise"
+    },
+    "request": {
+      "schema": {
+        "appraisal_id": "string",
+        "fund_type": "string",
+        "benchmark": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "appraisal_id": "string",
+          "net_irr": "number",
+          "moic": "number",
+          "pme_ratio": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "PERF_INVALID_FUND_TYPE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "alt-investments-return-calculations",
+      "type": "required"
+    },
+    {
+      "feature": "alt-investments-features-categories",
+      "type": "required"
+    }
+  ]
+}
