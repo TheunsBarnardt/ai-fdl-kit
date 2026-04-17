@@ -1,0 +1,224 @@
+# ============================================================
+# covariance-correlation — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 3, p.118-126
+# ============================================================
+
+feature: covariance-correlation
+version: "1.0.0"
+description: Compute covariance and the Pearson correlation coefficient between two variables — key measures of linear co-movement underpinning portfolio construction and diversification
+category: trading
+tags: [quantitative-methods, descriptive-statistics, covariance, correlation, pearson, diversification, portfolio-math, cfa-level-1]
+aliases:
+  - covariance
+  - correlation
+  - pearson-correlation
+  - correlation-coefficient
+  - rho
+  - comovement
+  - association
+  - bivariate-statistic
+
+actors:
+  - id: statistics_engine
+    name: Statistical Analytics Engine
+    type: system
+
+fields:
+  - name: series_x
+    type: json
+    required: true
+    label: First variable's observations (e.g., asset X returns)
+  - name: series_y
+    type: json
+    required: true
+    label: Second variable's observations (e.g., asset Y returns)
+  - name: population_or_sample
+    type: select
+    required: false
+    label: sample (default, uses n-1) | population (uses N)
+
+rules:
+  core_formulas:
+    # Source: Vol 1, Module 3, Equations 9-10, p.119-120
+    sample_covariance: "s_xy = (1/(n-1)) * sum( (X_i - X_bar) * (Y_i - Y_bar) )"
+    population_covariance: "sigma_xy = (1/N) * sum( (X_i - mu_x) * (Y_i - mu_y) )"
+    pearson_correlation: "rho_xy = s_xy / (s_x * s_y)"
+    correlation_bounds: "-1 <= rho <= +1"
+  interpretation:
+    sign:
+      positive: "Variables tend to move in the same direction"
+      negative: "Variables tend to move in opposite directions"
+      zero: "No linear association (may still have non-linear association)"
+    magnitude:
+      weak: "|rho| < 0.3"
+      moderate: "0.3 <= |rho| < 0.7"
+      strong: "|rho| >= 0.7"
+  key_properties:
+    unit_free: "Correlation is dimensionless, allowing comparison across asset classes"
+    linear_only: "Measures linear association; can miss non-linear dependencies"
+    sensitive_to_outliers: "A single outlier can substantially distort rho"
+  portfolio_implications:
+    diversification: "rho < 1 reduces portfolio variance (Markowitz)"
+    perfect_negative: "rho = -1 allows full elimination of risk through hedging"
+    perfect_positive: "rho = +1 means no diversification benefit"
+  common_pitfalls:
+    correlation_not_causation: "Statistical association does not imply causal relationship"
+    spurious_correlation: "Third-variable effects produce correlations that vanish after controls"
+    non_stationarity: "Correlations change across regimes (e.g., bull vs bear markets)"
+    tail_correlation: "Correlation under normal conditions often underestimates crisis-time correlation"
+  validation:
+    same_length: "Series X and Y must have equal length"
+    minimum_sample: "n >= 2 for sample covariance (n-1 denominator)"
+    non_zero_stdevs: "Both s_x and s_y must be non-zero for correlation"
+
+outcomes:
+  compute_covariance:
+    priority: 1
+    description: Sample or population covariance
+    given:
+      - field: series_x
+        source: input
+        operator: exists
+      - field: series_y
+        source: input
+        operator: exists
+      - field: length_match
+        source: computed
+        operator: eq
+        value: true
+    then:
+      - action: call_service
+        target: statistics_engine
+      - action: emit_event
+        event: stats.covariance_calculated
+  compute_correlation:
+    priority: 2
+    description: Pearson correlation coefficient
+    given:
+      - field: series_x
+        source: input
+        operator: exists
+      - field: series_y
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: statistics_engine
+      - action: emit_event
+        event: stats.correlation_calculated
+  length_mismatch:
+    priority: 10
+    description: Series lengths differ
+    given:
+      - field: length_match
+        source: computed
+        operator: eq
+        value: false
+    then:
+      - action: emit_event
+        event: stats.correlation_rejected
+    error: CORR_LENGTH_MISMATCH
+  zero_std_dev:
+    priority: 11
+    description: Correlation undefined (constant series)
+    given:
+      - any:
+          - field: std_dev_x
+            source: computed
+            operator: eq
+            value: 0
+          - field: std_dev_y
+            source: computed
+            operator: eq
+            value: 0
+    then:
+      - action: emit_event
+        event: stats.correlation_rejected
+    error: CORR_UNDEFINED
+  insufficient_sample:
+    priority: 12
+    description: Fewer than 2 observations
+    given:
+      - field: sample_size
+        source: computed
+        operator: lt
+        value: 2
+    then:
+      - action: emit_event
+        event: stats.correlation_rejected
+    error: CORR_INSUFFICIENT_SAMPLE
+
+errors:
+  - code: CORR_LENGTH_MISMATCH
+    status: 400
+    message: Series X and Y must have the same length
+  - code: CORR_UNDEFINED
+    status: 422
+    message: Correlation undefined when either series has zero variance
+  - code: CORR_INSUFFICIENT_SAMPLE
+    status: 400
+    message: At least 2 observations required
+
+events:
+  - name: stats.covariance_calculated
+    payload: [dataset_id, covariance, sample_size]
+  - name: stats.correlation_calculated
+    payload: [dataset_id, correlation, covariance, std_dev_x, std_dev_y, sample_size]
+  - name: stats.correlation_rejected
+    payload: [dataset_id, reason_code]
+
+anti_patterns:
+  - rule: Do not interpret correlation as causation
+    why: "Classic confounding — ice cream sales correlate with drowning (summer is the latent cause); always check for a plausible causal mechanism before acting on correlation"
+  - rule: Do not compute a single unconditional correlation across regime changes
+    why: "Crisis correlations spike to 1; using a through-the-cycle correlation for stress scenarios materially understates tail risk"
+  - rule: Do not use Pearson correlation with non-linear relationships
+    why: "Pearson captures only linear dependence; Y = X^2 has rho = 0 despite perfect dependence. Use Spearman or mutual information for non-linear"
+  - rule: Do not ignore outliers when computing correlation
+    why: "A single extreme point can flip the sign of rho; always inspect the scatter plot before reporting correlation"
+
+api:
+  http:
+    method: POST
+    path: /analytics/stats/correlation
+  request:
+    schema:
+      series_x: array
+      series_y: array
+      population_or_sample: string
+  response:
+    success:
+      status: 200
+      schema:
+        correlation: number
+        covariance: number
+        std_dev_x: number
+        std_dev_y: number
+        sample_size: number
+        interpretation: string
+    errors:
+      - status: 400
+        error_code: CORR_LENGTH_MISMATCH
+      - status: 400
+        error_code: CORR_INSUFFICIENT_SAMPLE
+      - status: 422
+        error_code: CORR_UNDEFINED
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 3, p.120-122
+    scenario: "Annual returns of SPX and EAFE indices"
+    covariance: 0.00183
+    std_dev_x: 0.15
+    std_dev_y: 0.18
+    correlation: 0.068
+    interpretation: "Weak positive correlation"
+  portfolio_variance_reminder:
+    formula: "var(wX + (1-w)Y) = w^2 * var(X) + (1-w)^2 * var(Y) + 2*w*(1-w)*cov(X,Y)"
+    note: "Lower correlation → greater diversification benefit"
+
+related:
+  - feature: measures-of-dispersion
+    type: recommended
+  - feature: time-weighted-return
+    type: recommended

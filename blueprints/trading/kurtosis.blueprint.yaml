@@ -1,0 +1,200 @@
+# ============================================================
+# kurtosis — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 3, p.115-118
+# ============================================================
+
+feature: kurtosis
+version: "1.0.0"
+description: Compute kurtosis — the standardised fourth central moment — measuring the combined weight of the tails of a return distribution relative to its centre
+category: trading
+tags: [quantitative-methods, descriptive-statistics, kurtosis, excess-kurtosis, tail-risk, fat-tails, leptokurtic, cfa-level-1]
+aliases:
+  - sample-kurtosis
+  - excess-kurtosis
+  - fourth-moment
+  - leptokurtic
+  - platykurtic
+  - mesokurtic
+  - fat-tails
+  - tail-risk-metric
+
+actors:
+  - id: statistics_engine
+    name: Statistical Analytics Engine
+    type: system
+
+fields:
+  - name: observations
+    type: json
+    required: true
+    label: Array of numeric observations (returns)
+  - name: population_or_sample
+    type: select
+    required: false
+    label: sample (default) | population
+  - name: report_excess
+    type: boolean
+    required: false
+    label: Return excess kurtosis (= K - 3) rather than raw K (default true)
+
+rules:
+  core_formula:
+    # Source: Vol 1, Module 3, Equation 8, p.116
+    sample_kurtosis: "K_s = [ n(n+1) / ((n-1)(n-2)(n-3)) ] * sum( (X_i - X_bar)^4 / s^4 ) - [ 3(n-1)^2 / ((n-2)(n-3)) ]"
+    # Note: the above is the excess-kurtosis formulation used by Excel's KURT()
+    raw_kurtosis: "K = (1/n) * sum( (X_i - X_bar)^4 ) / s^4"
+    excess_kurtosis: "K_E = K - 3 (normal distribution has K=3, K_E=0)"
+  interpretation:
+    mesokurtic: "K_E ≈ 0 — normal-like tails"
+    leptokurtic: "K_E > 0 — fat tails, higher peak; more extreme events than normal"
+    platykurtic: "K_E < 0 — thin tails, flatter peak; fewer extreme events than normal"
+    thresholds:
+      significant: "K_E > 1.0 is economically meaningful; K_E > 3.0 is substantial"
+  market_realities:
+    equity_returns: "Daily equity returns are strongly leptokurtic (K_E often 3-10)"
+    monthly_returns: "Monthly returns less fat-tailed due to aggregation (central limit effect)"
+    hedge_funds: "Many strategies exhibit both negative skew AND high kurtosis"
+  practical_implications:
+    normal_var_understates_tail: "Using normal VaR with leptokurtic data underestimates tail loss probability"
+    risk_management: "Fat tails motivate CVaR, extreme value theory, stress testing"
+    options_pricing: "Black-Scholes assumes normality; empirical kurtosis → volatility smile/skew"
+  validation:
+    minimum_sample: "n >= 4 for sample kurtosis (formula denominators (n-2)(n-3))"
+    non_zero_std_dev: "s > 0"
+
+outcomes:
+  compute_sample_kurtosis:
+    priority: 1
+    description: Sample (excess) kurtosis
+    given:
+      - field: observations
+        source: input
+        operator: exists
+      - field: sample_size
+        source: computed
+        operator: gte
+        value: 4
+    then:
+      - action: call_service
+        target: statistics_engine
+      - action: emit_event
+        event: stats.kurtosis_calculated
+  compute_population_kurtosis:
+    priority: 2
+    description: Population kurtosis
+    given:
+      - field: population_or_sample
+        source: input
+        operator: eq
+        value: population
+    then:
+      - action: call_service
+        target: statistics_engine
+      - action: emit_event
+        event: stats.kurtosis_calculated
+  insufficient_sample:
+    priority: 10
+    description: Fewer than 4 observations
+    given:
+      - field: sample_size
+        source: computed
+        operator: lt
+        value: 4
+    then:
+      - action: emit_event
+        event: stats.kurtosis_rejected
+    error: KURTOSIS_INSUFFICIENT_SAMPLE
+  constant_series:
+    priority: 11
+    description: Standard deviation is zero
+    given:
+      - field: std_dev
+        source: computed
+        operator: eq
+        value: 0
+    then:
+      - action: emit_event
+        event: stats.kurtosis_rejected
+    error: KURTOSIS_UNDEFINED
+  empty_observations:
+    priority: 12
+    description: Empty dataset
+    given:
+      - field: observations
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: stats.kurtosis_rejected
+    error: KURTOSIS_EMPTY
+
+errors:
+  - code: KURTOSIS_EMPTY
+    status: 400
+    message: Observations array must not be empty
+  - code: KURTOSIS_INSUFFICIENT_SAMPLE
+    status: 400
+    message: Sample kurtosis requires at least 4 observations
+  - code: KURTOSIS_UNDEFINED
+    status: 422
+    message: Kurtosis is undefined when standard deviation is zero
+
+events:
+  - name: stats.kurtosis_calculated
+    payload: [dataset_id, kurtosis, excess_kurtosis, sample_size, interpretation]
+  - name: stats.kurtosis_rejected
+    payload: [dataset_id, reason_code]
+
+anti_patterns:
+  - rule: Do not confuse raw kurtosis with excess kurtosis in reporting
+    why: "Raw K=3 and excess K_E=0 describe the same distribution (normal); mislabelling causes large apparent discrepancies"
+  - rule: Do not rely on normal-distribution risk models when sample kurtosis is high
+    why: "Leptokurtic data (K_E > 2) makes normal VaR and Black-Scholes assumptions understate tail risk materially"
+  - rule: Do not compute kurtosis from fewer than 30 observations for inference
+    why: "Kurtosis estimators are extremely noisy at small n — a single outlier dominates the result"
+  - rule: Do not treat high kurtosis as a sign of data error
+    why: "Financial markets are genuinely fat-tailed; 'winsorising' high-K observations can remove legitimate tail risk information"
+
+api:
+  http:
+    method: POST
+    path: /analytics/stats/kurtosis
+  request:
+    schema:
+      observations: array
+      population_or_sample: string
+      report_excess: boolean
+  response:
+    success:
+      status: 200
+      schema:
+        kurtosis: number
+        excess_kurtosis: number
+        sample_size: number
+        interpretation: string
+    errors:
+      - status: 400
+        error_code: KURTOSIS_EMPTY
+      - status: 400
+        error_code: KURTOSIS_INSUFFICIENT_SAMPLE
+      - status: 422
+        error_code: KURTOSIS_UNDEFINED
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 3, p.117
+    scenario: "EAA Equity Index daily returns"
+    kurtosis: 5.63
+    excess_kurtosis: 2.63
+    interpretation: "Leptokurtic — fat tails; normal model understates tail risk"
+  asset_class_typical_kurtosis:
+    - {asset: US equity daily, typical_excess_K: 3-6, note: strongly leptokurtic}
+    - {asset: US equity monthly, typical_excess_K: 1-2, note: thinner tails}
+    - {asset: Treasury returns, typical_excess_K: 0-1, note: near-normal}
+    - {asset: HF monthly returns, typical_excess_K: 2-8, note: extreme tail risk}
+
+related:
+  - feature: measures-of-dispersion
+    type: recommended
+  - feature: skewness
+    type: recommended

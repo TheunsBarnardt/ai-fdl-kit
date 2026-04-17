@@ -1,0 +1,261 @@
+# ============================================================
+# measures-of-central-tendency — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 3, p.89-96
+# ============================================================
+
+feature: measures-of-central-tendency
+version: "1.0.0"
+description: Compute measures of central tendency — arithmetic mean, weighted mean, median, mode, trimmed mean, and winsorized mean — to summarise where a return distribution is centred
+category: trading
+tags: [quantitative-methods, descriptive-statistics, central-tendency, mean, median, mode, trimmed-mean, winsorized-mean, cfa-level-1]
+aliases:
+  - central-tendency
+  - sample-mean
+  - weighted-mean
+  - median
+  - mode
+  - trimmed-mean
+  - winsorized-mean
+  - robust-mean
+
+actors:
+  - id: statistics_engine
+    name: Statistical Analytics Engine
+    type: system
+
+fields:
+  - name: observations
+    type: json
+    required: true
+    label: Array of numeric observations (returns or values)
+  - name: measure
+    type: select
+    required: true
+    label: mean | weighted_mean | median | mode | trimmed_mean | winsorized_mean
+  - name: weights
+    type: json
+    required: false
+    label: Array of weights for weighted_mean (must match length and sum to 1)
+  - name: trim_percentage
+    type: number
+    required: false
+    label: Percentage trimmed from each tail for trimmed_mean (e.g., 0.025 = 5% trimmed)
+  - name: winsorize_percentage
+    type: number
+    required: false
+    label: Percentage winsorized from each tail for winsorized_mean
+
+rules:
+  core_formulas:
+    # Source: Vol 1, Module 3, p.90-95
+    sample_mean: "X_bar = (1/n) * sum(X_i)"
+    population_mean: "mu = (1/N) * sum(X_i)"
+    weighted_mean: "X_bar_w = sum(w_i * X_i), where sum(w_i) = 1"
+    median_odd_n: "Middle value after sorting when n is odd"
+    median_even_n: "Average of two middle values when n is even"
+    mode: "Most frequently occurring value; may be unimodal, bimodal, or multimodal"
+    trimmed_mean: "Arithmetic mean after removing lowest and highest p% of observations"
+    winsorized_mean: "Arithmetic mean after replacing lowest p% with p-th percentile and highest p% with (100-p)-th percentile"
+  properties:
+    # Source: Vol 1, Module 3, p.91-92
+    mean_deviations_sum_to_zero: "sum(X_i - X_bar) = 0"
+    median_minimises_MAD: "Median minimises sum of absolute deviations"
+    mean_minimises_SSD: "Mean minimises sum of squared deviations"
+  when_to_use:
+    arithmetic_mean: "Symmetric distributions; default measure when outliers are not a concern"
+    weighted_mean: "Portfolio returns where weights represent asset allocation"
+    median: "Skewed distributions; robust to outliers (e.g., CEO pay, home prices)"
+    mode: "Categorical/nominal data or identifying most common outcome"
+    trimmed_mean: "Distributions with suspected data errors in tails"
+    winsorized_mean: "Capping tail values without discarding observations"
+  validation:
+    non_empty: "observations array must be non-empty"
+    weights_match_length: "weights array length equals observations length"
+    weights_sum_to_one: "|sum(weights) - 1| < 1e-8 tolerance"
+    trim_range: "0 < trim_percentage < 0.5"
+
+outcomes:
+  compute_mean:
+    priority: 1
+    description: Arithmetic mean
+    given:
+      - field: measure
+        source: input
+        operator: eq
+        value: mean
+      - field: observations
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: statistics_engine
+      - action: emit_event
+        event: stats.central_tendency_calculated
+  compute_weighted_mean:
+    priority: 2
+    description: Weighted mean
+    given:
+      - field: measure
+        source: input
+        operator: eq
+        value: weighted_mean
+      - field: weights
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: statistics_engine
+      - action: emit_event
+        event: stats.central_tendency_calculated
+  compute_median:
+    priority: 3
+    description: Median
+    given:
+      - field: measure
+        source: input
+        operator: eq
+        value: median
+    then:
+      - action: call_service
+        target: statistics_engine
+      - action: emit_event
+        event: stats.central_tendency_calculated
+  compute_mode:
+    priority: 4
+    description: Mode (may be multimodal)
+    given:
+      - field: measure
+        source: input
+        operator: eq
+        value: mode
+    then:
+      - action: call_service
+        target: statistics_engine
+      - action: emit_event
+        event: stats.central_tendency_calculated
+  compute_trimmed:
+    priority: 5
+    description: Trimmed mean
+    given:
+      - field: measure
+        source: input
+        operator: eq
+        value: trimmed_mean
+      - field: trim_percentage
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: statistics_engine
+      - action: emit_event
+        event: stats.central_tendency_calculated
+  compute_winsorized:
+    priority: 6
+    description: Winsorized mean
+    given:
+      - field: measure
+        source: input
+        operator: eq
+        value: winsorized_mean
+    then:
+      - action: call_service
+        target: statistics_engine
+      - action: emit_event
+        event: stats.central_tendency_calculated
+  empty_observations:
+    priority: 10
+    description: Empty observations
+    given:
+      - field: observations
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: stats.central_tendency_rejected
+    error: CENTRAL_TENDENCY_EMPTY
+  invalid_weights:
+    priority: 11
+    description: Weights do not sum to 1 or wrong length
+    given:
+      - field: weights_valid
+        source: computed
+        operator: eq
+        value: false
+    then:
+      - action: emit_event
+        event: stats.central_tendency_rejected
+    error: CENTRAL_TENDENCY_INVALID_WEIGHTS
+
+errors:
+  - code: CENTRAL_TENDENCY_EMPTY
+    status: 400
+    message: Observations array must not be empty
+  - code: CENTRAL_TENDENCY_INVALID_WEIGHTS
+    status: 400
+    message: Weights must match observations length and sum to 1
+  - code: CENTRAL_TENDENCY_INVALID_TRIM
+    status: 400
+    message: Trim/winsorize percentage must be in (0, 0.5)
+
+events:
+  - name: stats.central_tendency_calculated
+    payload: [dataset_id, measure, value, sample_size]
+  - name: stats.central_tendency_rejected
+    payload: [dataset_id, reason_code]
+
+anti_patterns:
+  - rule: Do not report the arithmetic mean alone for heavily skewed distributions
+    why: "Outliers pull the mean away from the bulk of the data; always show median alongside for skewed distributions like hedge fund returns"
+  - rule: Do not apply trimmed/winsorized means without disclosing the trim percentage
+    why: "Results are sensitive to the trim level; 2.5% and 10% trims can produce meaningfully different answers"
+  - rule: Do not use mode for continuous data without binning
+    why: "Continuous observations rarely repeat exactly; mode only makes sense after grouping into bins or on discrete/categorical data"
+  - rule: Do not interpret bimodality as noise
+    why: "Two modes often reflect a genuine mixture of regimes (bull/bear, two customer segments); investigate rather than smooth over"
+
+api:
+  http:
+    method: POST
+    path: /analytics/stats/central-tendency
+  request:
+    schema:
+      observations: array
+      measure: string
+      weights: array
+      trim_percentage: number
+      winsorize_percentage: number
+  response:
+    success:
+      status: 200
+      schema:
+        measure: string
+        value: number
+        sample_size: number
+        modal_values: array
+    errors:
+      - status: 400
+        error_code: CENTRAL_TENDENCY_EMPTY
+      - status: 400
+        error_code: CENTRAL_TENDENCY_INVALID_WEIGHTS
+      - status: 400
+        error_code: CENTRAL_TENDENCY_INVALID_TRIM
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 3, p.93-95
+    scenario: "EAA Equity Index daily returns, n=1259; arithmetic mean vs trimmed vs winsorized"
+    arithmetic_mean: 0.0004
+    trimmed_mean_5pct: 0.0006
+    winsorized_mean_5pct: 0.0005
+    interpretation: "Trimmed and winsorized means higher than arithmetic mean → left-skewed tail"
+
+related:
+  - feature: arithmetic-mean-return
+    type: recommended
+  - feature: geometric-mean-return
+    type: recommended
+  - feature: quantiles-and-location
+    type: recommended
+  - feature: measures-of-dispersion
+    type: recommended
