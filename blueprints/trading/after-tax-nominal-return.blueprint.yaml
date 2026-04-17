@@ -1,0 +1,191 @@
+# ============================================================
+# after-tax-nominal-return — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 1, p.34
+# ============================================================
+
+feature: after-tax-nominal-return
+version: "1.0.0"
+description: Convert pre-tax nominal return to after-tax nominal return, accounting for income tax (on dividends/interest) and capital gains tax
+category: trading
+tags: [quantitative-methods, return-measures, tax, after-tax, cfa-level-1]
+aliases:
+  - after-tax-return
+  - post-tax-return
+  - tax-adjusted-return
+  - net-of-tax-return
+
+actors:
+  - id: performance_engine
+    name: Performance Measurement Engine
+    type: system
+  - id: investor
+    name: Taxable Investor
+    type: human
+
+fields:
+  - name: pre_tax_return
+    type: number
+    required: true
+    label: Pre-tax nominal return (decimal)
+  - name: income_yield
+    type: number
+    required: false
+    label: Income (dividend/coupon) component of pre-tax return
+  - name: capital_gain_yield
+    type: number
+    required: false
+    label: Capital gain component of pre-tax return
+  - name: income_tax_rate
+    type: number
+    required: true
+    label: Marginal tax rate on income (decimal)
+  - name: capital_gains_tax_rate
+    type: number
+    required: true
+    label: Tax rate on realised capital gains (decimal)
+  - name: realised
+    type: boolean
+    required: false
+    label: Whether capital gains are realised (taxable) or unrealised (deferred)
+
+rules:
+  core_formula_simple:
+    after_tax_nominal: "R_after_tax = R_pre_tax * (1 - t)"
+    # Used only when a single blended tax rate applies
+  core_formula_decomposed:
+    # Source: Vol 1, Module 1, p.34 — "Pre-tax nominal return reduced by taxes paid on income and realized capital gains"
+    after_tax: "R_after_tax = income_yield * (1 - t_income) + capital_gain_yield * (1 - t_cg * realised_indicator)"
+    unrealised_capital_gains: "If gains are unrealised (held), capital gains tax is deferred — effective rate 0 for the period"
+  jurisdictional_notes:
+    south_africa_popia: "SA CGT 2026: effective CGT rate for individuals approx 18% (40% inclusion × marginal); for companies approx 21.6%"
+    us_qualified_dividends: "Qualified dividends taxed at long-term CGT rate rather than ordinary income rate"
+    tax_deferred_accounts: "Returns in tax-deferred accounts (401k, TFSA, retirement annuity) apply zero tax until distribution"
+  validation:
+    tax_rates_in_range: "0 <= tax_rate <= 1"
+    component_sum: "If income_yield and capital_gain_yield provided, they should approximately sum to pre_tax_return"
+
+outcomes:
+  compute_after_tax:
+    priority: 1
+    description: Compute after-tax return using decomposed formula when components provided
+    given:
+      - field: pre_tax_return
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: performance_engine
+      - action: emit_event
+        event: return.after_tax_calculated
+  invalid_tax_rate:
+    priority: 10
+    description: Tax rate out of [0,1]
+    given:
+      - any:
+          - field: income_tax_rate
+            source: input
+            operator: lt
+            value: 0
+          - field: income_tax_rate
+            source: input
+            operator: gt
+            value: 1
+          - field: capital_gains_tax_rate
+            source: input
+            operator: lt
+            value: 0
+          - field: capital_gains_tax_rate
+            source: input
+            operator: gt
+            value: 1
+    then:
+      - action: emit_event
+        event: return.after_tax_rejected
+    error: AFTER_TAX_INVALID_RATE
+  missing_pre_tax:
+    priority: 11
+    description: Pre-tax return missing
+    given:
+      - field: pre_tax_return
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: return.after_tax_rejected
+    error: AFTER_TAX_MISSING_PRE_TAX
+
+errors:
+  - code: AFTER_TAX_INVALID_RATE
+    status: 400
+    message: Tax rates must be in the interval [0, 1]
+  - code: AFTER_TAX_MISSING_PRE_TAX
+    status: 400
+    message: Pre-tax return is required
+
+events:
+  - name: return.after_tax_calculated
+    payload: [portfolio_id, pre_tax_return, after_tax_return, income_tax_paid, cgt_paid, realised]
+  - name: return.after_tax_rejected
+    payload: [portfolio_id, reason_code]
+
+anti_patterns:
+  - rule: Do not apply capital gains tax on unrealised positions
+    why: "CGT is a realisation-event tax in most jurisdictions; applying it to unrealised gains overstates tax drag and misrepresents the investor's after-tax position"
+  - rule: Do not blend income tax and CGT into a single average rate without decomposition
+    why: "Income and capital gains are taxed at different rates; blending obscures the actual after-tax return for mixed-income portfolios"
+  - rule: Do not ignore tax-shield effects from losses
+    why: "Realised losses can offset gains (tax loss harvesting); omitting this overstates tax paid"
+  - rule: Do not quote after-tax returns without disclosing assumed tax rates and jurisdiction
+    why: "After-tax returns are investor-specific; quoting without the assumptions makes them misleading for comparison"
+
+api:
+  http:
+    method: POST
+    path: /analytics/returns/after-tax
+  request:
+    schema:
+      pre_tax_return: number
+      income_yield: number
+      capital_gain_yield: number
+      income_tax_rate: number
+      capital_gains_tax_rate: number
+      realised: boolean
+  response:
+    success:
+      status: 200
+      schema:
+        pre_tax_return: number
+        after_tax_return: number
+        income_tax_paid: number
+        capital_gains_tax_paid: number
+    errors:
+      - status: 400
+        error_code: AFTER_TAX_INVALID_RATE
+      - status: 400
+        error_code: AFTER_TAX_MISSING_PRE_TAX
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 1, p.34
+    scenario: "12% pre-tax: 3% income yield, 9% capital gain, income tax 30%, CGT 18%, gain realised"
+    inputs:
+      income_yield: 0.03
+      capital_gain_yield: 0.09
+      income_tax_rate: 0.30
+      capital_gains_tax_rate: 0.18
+      realised: true
+    computation: "0.03*(1-0.30) + 0.09*(1-0.18) = 0.021 + 0.0738 = 0.0948"
+    after_tax_return: 0.0948
+  planning_considerations:
+    - Tax-loss harvesting
+    - Asset location (place income assets in tax-deferred accounts)
+    - Holding period for long-term CGT rates
+    - Municipal/tax-exempt bonds for high-bracket investors
+
+related:
+  - feature: gross-net-return
+    type: recommended
+  - feature: real-return
+    type: recommended
+  - feature: holding-period-return
+    type: required

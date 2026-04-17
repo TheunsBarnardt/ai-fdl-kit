@@ -1,0 +1,313 @@
+{
+  "feature": "holding-period-return",
+  "version": "1.0.0",
+  "description": "Compute the holding period return (HPR) for a single investment over a specified holding period, combining price appreciation and income yield",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "return-measures",
+    "hpr",
+    "cfa-level-1",
+    "performance"
+  ],
+  "aliases": [
+    "hpr",
+    "total-return-single-period",
+    "period-return",
+    "single-period-return",
+    "price-and-income-return"
+  ],
+  "actors": [
+    {
+      "id": "analyst",
+      "name": "Investment Analyst",
+      "type": "human"
+    },
+    {
+      "id": "performance_engine",
+      "name": "Performance Measurement Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "beginning_price",
+      "type": "number",
+      "required": true,
+      "label": "Beginning Price (P0)"
+    },
+    {
+      "name": "ending_price",
+      "type": "number",
+      "required": true,
+      "label": "Ending Price (P1)"
+    },
+    {
+      "name": "income",
+      "type": "number",
+      "required": false,
+      "label": "Cash Income Received During Period (dividends, coupons, distributions)"
+    },
+    {
+      "name": "holding_period_days",
+      "type": "number",
+      "required": false,
+      "label": "Holding Period (days) — for annualization downstream"
+    },
+    {
+      "name": "currency",
+      "type": "text",
+      "required": false,
+      "label": "Currency ISO Code (e.g., USD, ZAR)"
+    }
+  ],
+  "rules": {
+    "core_formula": {
+      "hpr": "R = (P1 - P0 + I1) / P0",
+      "equivalent_form": "R = (P1 + I1) / P0 - 1",
+      "decomposition": "R = capital_gain_yield + income_yield where capital_gain_yield = (P1 - P0)/P0 and income_yield = I1/P0"
+    },
+    "sign_conventions": {
+      "positive_return": "R > 0 indicates gain",
+      "negative_return": "R < 0 indicates loss",
+      "total_loss": "R = -1.0 (-100%) indicates complete loss of principal"
+    },
+    "units": {
+      "expression": "Return expressed as decimal (0.05) and convertible to percentage (5.00%)"
+    },
+    "validation": {
+      "beginning_price_positive": "P0 must be > 0 — cannot compute return on zero-cost position",
+      "income_nonneg": "Income I1 must be >= 0; negative income is a fee, not income",
+      "ending_price_floor": "P1 must be >= 0 for long positions (bankruptcy floor)"
+    }
+  },
+  "outcomes": {
+    "compute_hpr": {
+      "priority": 1,
+      "description": "Calculate HPR when all inputs valid",
+      "given": [
+        {
+          "field": "beginning_price",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        },
+        {
+          "field": "ending_price",
+          "source": "input",
+          "operator": "gte",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "performance_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "return.hpr_calculated"
+        }
+      ]
+    },
+    "invalid_beginning_price": {
+      "priority": 10,
+      "description": "Beginning price missing, zero, or negative",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "beginning_price",
+              "source": "input",
+              "operator": "not_exists"
+            },
+            {
+              "field": "beginning_price",
+              "source": "input",
+              "operator": "lte",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.hpr_rejected"
+        }
+      ],
+      "error": "HPR_INVALID_BEGINNING_PRICE"
+    },
+    "invalid_ending_price": {
+      "priority": 11,
+      "description": "Ending price negative",
+      "given": [
+        {
+          "field": "ending_price",
+          "source": "input",
+          "operator": "lt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.hpr_rejected"
+        }
+      ],
+      "error": "HPR_INVALID_ENDING_PRICE"
+    },
+    "invalid_income": {
+      "priority": 12,
+      "description": "Income value is negative",
+      "given": [
+        {
+          "field": "income",
+          "source": "input",
+          "operator": "lt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.hpr_rejected"
+        }
+      ],
+      "error": "HPR_INVALID_INCOME"
+    }
+  },
+  "errors": [
+    {
+      "code": "HPR_INVALID_BEGINNING_PRICE",
+      "status": 400,
+      "message": "Beginning price must be greater than zero"
+    },
+    {
+      "code": "HPR_INVALID_ENDING_PRICE",
+      "status": 400,
+      "message": "Ending price cannot be negative"
+    },
+    {
+      "code": "HPR_INVALID_INCOME",
+      "status": 400,
+      "message": "Income must be non-negative; fees are handled separately"
+    }
+  ],
+  "events": [
+    {
+      "name": "return.hpr_calculated",
+      "payload": [
+        "instrument_id",
+        "hpr",
+        "capital_gain_yield",
+        "income_yield",
+        "beginning_price",
+        "ending_price",
+        "income"
+      ]
+    },
+    {
+      "name": "return.hpr_rejected",
+      "payload": [
+        "instrument_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not annualize an HPR by simple multiplication when holding period is not one year",
+      "why": "Multiplying a 1-month HPR by 12 ignores compounding; use the annualization formula (1+R)^(periods_per_year) - 1 instead"
+    },
+    {
+      "rule": "Do not compute HPR on positions where P0 was zero or a short-sale proceeds position",
+      "why": "The denominator (beginning cost basis) is undefined or inverted; use money-weighted return for cashflow-based positions"
+    },
+    {
+      "rule": "Do not confuse income yield with dividend yield quoted ex-ante",
+      "why": "HPR income component is actually received cash in the period; quoted dividend yield is forward-looking and may differ"
+    },
+    {
+      "rule": "Do not mix nominal and real inputs in one calculation",
+      "why": "If P0 is real-adjusted and P1 is nominal, the resulting HPR is meaningless"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/returns/holding-period"
+    },
+    "request": {
+      "schema": {
+        "beginning_price": "number",
+        "ending_price": "number",
+        "income": "number",
+        "currency": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "hpr": "number",
+          "capital_gain_yield": "number",
+          "income_yield": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "HPR_INVALID_BEGINNING_PRICE"
+        },
+        {
+          "status": 400,
+          "error_code": "HPR_INVALID_ENDING_PRICE"
+        },
+        {
+          "status": 400,
+          "error_code": "HPR_INVALID_INCOME"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "worked_example": {
+      "inputs": {
+        "beginning_price": 100,
+        "ending_price": 105,
+        "income": 2
+      },
+      "computation": "(105 - 100 + 2) / 100 = 0.07",
+      "hpr": 0.07,
+      "interpretation": "7% total return: 5% capital gain + 2% income yield"
+    },
+    "numerical_precision": {
+      "decimal_places": 6,
+      "rounding_mode": "half_even"
+    },
+    "use_cases": [
+      "Single-period performance attribution",
+      "Building block for multi-period return chaining",
+      "Input to arithmetic, geometric, and harmonic mean calculations"
+    ]
+  },
+  "related": [
+    {
+      "feature": "arithmetic-mean-return",
+      "type": "recommended"
+    },
+    {
+      "feature": "geometric-mean-return",
+      "type": "recommended"
+    },
+    {
+      "feature": "time-weighted-return",
+      "type": "recommended"
+    },
+    {
+      "feature": "annualized-return",
+      "type": "recommended"
+    }
+  ]
+}

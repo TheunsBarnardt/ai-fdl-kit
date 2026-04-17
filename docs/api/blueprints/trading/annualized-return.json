@@ -1,0 +1,317 @@
+{
+  "feature": "annualized-return",
+  "version": "1.0.0",
+  "description": "Convert a return earned over any period (days, weeks, months, quarters) into an equivalent annualized (compounded-to-one-year) rate",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "return-measures",
+    "annualization",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "annualised-return",
+    "annualization",
+    "effective-annual-return",
+    "ear",
+    "ear-conversion",
+    "convert-to-annual"
+  ],
+  "actors": [
+    {
+      "id": "performance_engine",
+      "name": "Performance Measurement Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "period_return",
+      "type": "number",
+      "required": true,
+      "label": "Return for the sub-annual period (decimal, e.g., 0.02 for 2%)"
+    },
+    {
+      "name": "period_length",
+      "type": "number",
+      "required": true,
+      "label": "Length of the observed period"
+    },
+    {
+      "name": "period_unit",
+      "type": "select",
+      "required": true,
+      "label": "Unit (days, weeks, months, quarters, years)"
+    },
+    {
+      "name": "day_count_basis",
+      "type": "select",
+      "required": false,
+      "label": "Day count basis when period_unit = days (ACT_365, ACT_360, 30_360)"
+    }
+  ],
+  "rules": {
+    "core_formula": {
+      "annualize": "R_annual = (1 + R_period)^c - 1",
+      "periods_per_year_days_365": "c = 365 / period_days (ACT/365)",
+      "periods_per_year_weeks": "c = 52 / period_weeks",
+      "periods_per_year_months": "c = 12 / period_months",
+      "periods_per_year_quarters": "c = 4 / period_quarters"
+    },
+    "non_annual_compounding": {
+      "formula": "EAR = (1 + r_stated/m)^m - 1 where m is compounding periods per year"
+    },
+    "sign_preservation": {
+      "negative_allowed": "If R_period < 0, the annualized return is also negative (with magnified compounding effect)",
+      "floor": "R_period must be > -1 else annualization is undefined"
+    },
+    "appropriate_use": {
+      "comparison": "Needed to compare investments with different measurement horizons",
+      "reporting_convention": "Regulatory and client reporting frequently require annualized returns"
+    },
+    "validation": {
+      "period_length_positive": "period_length > 0",
+      "return_above_total_loss": "period_return > -1",
+      "supported_units": "period_unit in {days, weeks, months, quarters, years}"
+    }
+  },
+  "outcomes": {
+    "compute_annualized": {
+      "priority": 1,
+      "description": "Annualize a valid sub-period return",
+      "given": [
+        {
+          "field": "period_return",
+          "source": "input",
+          "operator": "gt",
+          "value": -1
+        },
+        {
+          "field": "period_length",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "performance_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "return.annualized_calculated"
+        }
+      ]
+    },
+    "total_loss_input": {
+      "priority": 10,
+      "description": "period_return <= -100%",
+      "given": [
+        {
+          "field": "period_return",
+          "source": "input",
+          "operator": "lte",
+          "value": -1
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.annualized_rejected"
+        }
+      ],
+      "error": "ANNUALIZE_TOTAL_LOSS"
+    },
+    "invalid_period_length": {
+      "priority": 11,
+      "description": "Period length not strictly positive",
+      "given": [
+        {
+          "field": "period_length",
+          "source": "input",
+          "operator": "lte",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.annualized_rejected"
+        }
+      ],
+      "error": "ANNUALIZE_INVALID_PERIOD"
+    },
+    "unsupported_unit": {
+      "priority": 12,
+      "description": "period_unit not in supported set",
+      "given": [
+        {
+          "field": "period_unit",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "days",
+            "weeks",
+            "months",
+            "quarters",
+            "years"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.annualized_rejected"
+        }
+      ],
+      "error": "ANNUALIZE_UNSUPPORTED_UNIT"
+    }
+  },
+  "errors": [
+    {
+      "code": "ANNUALIZE_TOTAL_LOSS",
+      "status": 400,
+      "message": "Cannot annualize a return <= -100%"
+    },
+    {
+      "code": "ANNUALIZE_INVALID_PERIOD",
+      "status": 400,
+      "message": "Period length must be strictly positive"
+    },
+    {
+      "code": "ANNUALIZE_UNSUPPORTED_UNIT",
+      "status": 400,
+      "message": "Period unit must be one of days, weeks, months, quarters, years"
+    }
+  ],
+  "events": [
+    {
+      "name": "return.annualized_calculated",
+      "payload": [
+        "series_id",
+        "period_return",
+        "period_length",
+        "period_unit",
+        "annualized_return"
+      ]
+    },
+    {
+      "name": "return.annualized_rejected",
+      "payload": [
+        "series_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not annualize a return by simple multiplication (e.g., monthly * 12)",
+      "why": "Simple multiplication ignores compounding and overstates the annualized return; always use (1+R)^c - 1"
+    },
+    {
+      "rule": "Do not annualize very short-period returns blindly",
+      "why": "Annualizing a single-day return implies compounding 365 identical days — rarely realistic and overstates volatility and return"
+    },
+    {
+      "rule": "Do not annualize under conflicting day count conventions without disclosure",
+      "why": "ACT/365, ACT/360 and 30/360 produce different c values; mixing conventions produces misleading comparisons"
+    },
+    {
+      "rule": "Do not annualize returns containing dividend/coupon reinvestment assumptions that do not hold",
+      "why": "The compounding implicit in annualization presumes reinvestment at the same rate — flag if unrealistic"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/returns/annualize"
+    },
+    "request": {
+      "schema": {
+        "period_return": "number",
+        "period_length": "number",
+        "period_unit": "string",
+        "day_count_basis": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "annualized_return": "number",
+          "periods_per_year": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "ANNUALIZE_TOTAL_LOSS"
+        },
+        {
+          "status": 400,
+          "error_code": "ANNUALIZE_INVALID_PERIOD"
+        },
+        {
+          "status": 400,
+          "error_code": "ANNUALIZE_UNSUPPORTED_UNIT"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "worked_examples": {
+      "monthly": {
+        "period_return": 0.02,
+        "period_length": 1,
+        "period_unit": "months",
+        "annualized": "(1.02)^12 - 1 = 0.2682"
+      },
+      "quarterly": {
+        "period_return": 0.05,
+        "period_length": 1,
+        "period_unit": "quarters",
+        "annualized": "(1.05)^4 - 1 = 0.2155"
+      },
+      "days_100": {
+        "period_return": 0.03,
+        "period_length": 100,
+        "period_unit": "days",
+        "annualized": "(1.03)^(365/100) - 1 = 0.1121"
+      }
+    },
+    "day_count_conventions": [
+      {
+        "name": "ACT_365",
+        "periods_per_year": 365
+      },
+      {
+        "name": "ACT_360",
+        "periods_per_year": 360
+      },
+      {
+        "name": "30_360",
+        "periods_per_year": 360,
+        "note": "assume 30-day months"
+      }
+    ],
+    "ear_vs_apr": {
+      "apr_stated_rate": "r_stated (e.g., 12% APR with monthly compounding)",
+      "ear_effective_rate": "(1 + r_stated/m)^m - 1 (12% APR monthly → EAR 12.68%)"
+    }
+  },
+  "related": [
+    {
+      "feature": "holding-period-return",
+      "type": "required"
+    },
+    {
+      "feature": "geometric-mean-return",
+      "type": "recommended"
+    },
+    {
+      "feature": "continuously-compounded-return",
+      "type": "recommended"
+    }
+  ]
+}

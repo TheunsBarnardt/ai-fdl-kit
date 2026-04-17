@@ -1,0 +1,191 @@
+# ============================================================
+# leveraged-return — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 1, p.36-37
+# ============================================================
+
+feature: leveraged-return
+version: "1.0.0"
+description: Compute the return on a leveraged position — amplifying gains and losses through borrowed capital at a cost
+category: trading
+tags: [quantitative-methods, return-measures, leverage, margin, cfa-level-1]
+aliases:
+  - margin-return
+  - levered-return
+  - return-on-levered-portfolio
+  - borrowed-capital-return
+
+actors:
+  - id: performance_engine
+    name: Performance Measurement Engine
+    type: system
+  - id: margin_system
+    name: Margin / Prime Brokerage System
+    type: system
+
+fields:
+  - name: asset_return
+    type: number
+    required: true
+    label: Return on the underlying asset (decimal)
+  - name: equity_capital
+    type: number
+    required: true
+    label: Investor's own equity capital
+  - name: borrowed_capital
+    type: number
+    required: true
+    label: Amount borrowed
+  - name: borrowing_rate
+    type: number
+    required: true
+    label: Interest rate on borrowed capital (decimal, same period as asset_return)
+  - name: leverage_ratio
+    type: number
+    required: false
+    label: Total assets / equity (derived if not supplied)
+
+rules:
+  core_formula:
+    # Source: Vol 1, Module 1, p.36 — Leveraged Return
+    leveraged_return: "R_L = R_asset + (V_B / V_E) * (R_asset - r_D)"
+    # where V_B = borrowed, V_E = equity, r_D = borrowing rate
+    alternative_form: "R_L = (V_E + V_B) / V_E * R_asset - (V_B / V_E) * r_D"
+    leverage_ratio: "L = (V_E + V_B) / V_E = 1 + V_B/V_E"
+  amplification:
+    gains: "When R_asset > r_D, leverage amplifies gains"
+    losses: "When R_asset < r_D, leverage amplifies losses (including below cost of borrowing)"
+    break_even: "R_L = R_asset only when V_B = 0 (no leverage)"
+  margin_mechanics:
+    initial_margin: "Regulatory / broker-set minimum equity percentage at trade initiation"
+    maintenance_margin: "Ongoing minimum equity; breach triggers margin call"
+    margin_call: "If equity / total_value < maintenance_margin, investor must deposit funds or liquidate"
+  risk_considerations:
+    unbounded_loss: "Leveraged long can lose > 100% of equity if asset declines sharply"
+    cost_of_borrow_variable: "If r_D floats (e.g., SOFR + spread), leverage cost changes with rates"
+  validation:
+    non_negative_capital: "equity_capital > 0, borrowed_capital >= 0"
+    non_negative_borrowing_rate: "borrowing_rate >= 0"
+
+outcomes:
+  compute_leveraged:
+    priority: 1
+    description: Calculate leveraged return
+    given:
+      - field: equity_capital
+        source: input
+        operator: gt
+        value: 0
+      - field: borrowed_capital
+        source: input
+        operator: gte
+        value: 0
+    then:
+      - action: call_service
+        target: performance_engine
+      - action: emit_event
+        event: return.leveraged_calculated
+  zero_equity:
+    priority: 10
+    description: Equity capital zero or negative
+    given:
+      - field: equity_capital
+        source: input
+        operator: lte
+        value: 0
+    then:
+      - action: emit_event
+        event: return.leveraged_rejected
+    error: LEVERAGE_ZERO_EQUITY
+  negative_borrowing:
+    priority: 11
+    description: Negative borrowed capital or borrowing rate
+    given:
+      - any:
+          - field: borrowed_capital
+            source: input
+            operator: lt
+            value: 0
+          - field: borrowing_rate
+            source: input
+            operator: lt
+            value: 0
+    then:
+      - action: emit_event
+        event: return.leveraged_rejected
+    error: LEVERAGE_INVALID_INPUT
+
+errors:
+  - code: LEVERAGE_ZERO_EQUITY
+    status: 400
+    message: Equity capital must be strictly positive
+  - code: LEVERAGE_INVALID_INPUT
+    status: 400
+    message: Borrowed capital and borrowing rate must be non-negative
+
+events:
+  - name: return.leveraged_calculated
+    payload: [portfolio_id, asset_return, leverage_ratio, leveraged_return, borrowing_cost, margin_cushion]
+  - name: return.leveraged_rejected
+    payload: [portfolio_id, reason_code]
+
+anti_patterns:
+  - rule: Do not compute leveraged return without accounting for the cost of borrowing
+    why: "Ignoring borrowing cost overstates the true return delivered to equity holders"
+  - rule: Do not apply a single borrowing rate when the broker's rate schedule is tiered or floating
+    why: "Tiered (size-dependent) or floating (SOFR + spread) rates produce materially different borrowing costs — use the actual schedule"
+  - rule: Do not ignore margin call scenarios when projecting leveraged returns under stress
+    why: "A forced liquidation at market trough locks in losses that a deleveraged position would not experience"
+  - rule: Do not compare leveraged returns to unleveraged benchmarks without risk adjustment
+    why: "Leverage multiplies both return and volatility; Sharpe ratio should be approximately preserved under leverage — if not, something else is going on"
+
+api:
+  http:
+    method: POST
+    path: /analytics/returns/leveraged
+  request:
+    schema:
+      asset_return: number
+      equity_capital: number
+      borrowed_capital: number
+      borrowing_rate: number
+  response:
+    success:
+      status: 200
+      schema:
+        leveraged_return: number
+        leverage_ratio: number
+        borrowing_cost: number
+        amplification_factor: number
+    errors:
+      - status: 400
+        error_code: LEVERAGE_ZERO_EQUITY
+      - status: 400
+        error_code: LEVERAGE_INVALID_INPUT
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 1, p.36-37
+    scenario: "Investor puts up 000 equity, borrows 000 at 4%. Asset returns 10%"
+    inputs:
+      asset_return: 0.10
+      equity_capital: 1000
+      borrowed_capital: 1000
+      borrowing_rate: 0.04
+    computation: "0.10 + (1000/1000) * (0.10 - 0.04) = 0.16"
+    leveraged_return: 0.16
+    leverage_ratio: 2.0
+    interpretation: "2x leverage turns a 10% asset return into 16% equity return; a -10% asset return would produce -24% equity return"
+  stress_scenarios:
+    asset_minus_50pct:
+      leveraged_return: -1.04
+      interpretation: "50% loss on 2x leverage wipes out equity and creates debt to repay"
+    break_even_asset_return:
+      formula: "R_asset_breakeven = r_D * (V_B / (V_E + V_B))"
+
+related:
+  - feature: holding-period-return
+    type: required
+  - feature: gross-net-return
+    type: recommended
+  - feature: money-weighted-return
+    type: recommended

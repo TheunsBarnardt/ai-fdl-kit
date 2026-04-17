@@ -1,0 +1,297 @@
+{
+  "feature": "gross-net-return",
+  "version": "1.0.0",
+  "description": "Compute gross and net returns — differentiating the manager's gross performance from the investor's return after fees and expenses",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "return-measures",
+    "fees",
+    "net-of-fees",
+    "gross-of-fees",
+    "gips",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "net-of-fees-return",
+    "gross-of-fees-return",
+    "after-fees-return",
+    "manager-fees",
+    "performance-fees-adjustment"
+  ],
+  "actors": [
+    {
+      "id": "performance_engine",
+      "name": "Performance Measurement Engine",
+      "type": "system"
+    },
+    {
+      "id": "investor",
+      "name": "Investor / End Client",
+      "type": "human"
+    }
+  ],
+  "fields": [
+    {
+      "name": "gross_return",
+      "type": "number",
+      "required": true,
+      "label": "Gross return before management and performance fees (decimal)"
+    },
+    {
+      "name": "management_fee_rate",
+      "type": "number",
+      "required": false,
+      "label": "Management fee (annual %, expressed as decimal)"
+    },
+    {
+      "name": "performance_fee_rate",
+      "type": "number",
+      "required": false,
+      "label": "Performance fee (% of profit, expressed as decimal)"
+    },
+    {
+      "name": "expense_ratio",
+      "type": "number",
+      "required": false,
+      "label": "Fund operating expenses (decimal)"
+    },
+    {
+      "name": "trading_costs",
+      "type": "number",
+      "required": false,
+      "label": "Realised trading/execution costs (decimal)"
+    },
+    {
+      "name": "hurdle_rate",
+      "type": "number",
+      "required": false,
+      "label": "Performance fee hurdle (decimal); performance fee applies above this"
+    },
+    {
+      "name": "high_water_mark",
+      "type": "number",
+      "required": false,
+      "label": "High-water mark NAV; performance fee only applies above HWM"
+    }
+  ],
+  "rules": {
+    "gross_definition": {
+      "gross_return": "Return before deducting management fees, performance fees, and fund operating expenses; trading costs ARE typically included (netted)"
+    },
+    "net_definition": {
+      "net_return": "R_net = R_gross - management_fee - performance_fee - expense_ratio",
+      "simple_fee_model": "Approximation suitable for reporting; exact calculation depends on fee accrual rules"
+    },
+    "performance_fee_logic": {
+      "above_hurdle_only": "performance_fee = max(0, (R_gross - hurdle_rate)) * performance_fee_rate",
+      "high_water_mark": "Performance fee only applies when NAV exceeds prior HWM",
+      "catch_up_clauses": "Some fee structures include catch-up provisions; flag and defer to fee schedule"
+    },
+    "gips_requirement": {
+      "disclosure": "GIPS-compliant reporting requires both gross and net return disclosure for composites"
+    },
+    "appropriate_use": {
+      "manager_skill": "Gross return reflects investment decisions alone",
+      "investor_outcome": "Net return reflects what the end investor actually earns"
+    },
+    "validation": {
+      "non_negative_fees": "All fee rates must be >= 0",
+      "fees_not_exceeding_return": "Warn if total fees exceed gross return (negative net return is possible but flag)"
+    }
+  },
+  "outcomes": {
+    "compute_net_return": {
+      "priority": 1,
+      "description": "Compute net return given fees",
+      "given": [
+        {
+          "field": "gross_return",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "performance_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "return.net_calculated"
+        }
+      ]
+    },
+    "negative_fee_rate": {
+      "priority": 10,
+      "description": "A fee rate is negative",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "management_fee_rate",
+              "source": "input",
+              "operator": "lt",
+              "value": 0
+            },
+            {
+              "field": "performance_fee_rate",
+              "source": "input",
+              "operator": "lt",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.net_rejected"
+        }
+      ],
+      "error": "RETURN_NEGATIVE_FEE"
+    },
+    "missing_gross_return": {
+      "priority": 11,
+      "description": "Gross return not provided",
+      "given": [
+        {
+          "field": "gross_return",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.net_rejected"
+        }
+      ],
+      "error": "RETURN_MISSING_GROSS"
+    }
+  },
+  "errors": [
+    {
+      "code": "RETURN_NEGATIVE_FEE",
+      "status": 400,
+      "message": "Fee rates cannot be negative"
+    },
+    {
+      "code": "RETURN_MISSING_GROSS",
+      "status": 400,
+      "message": "Gross return is required to derive net return"
+    }
+  ],
+  "events": [
+    {
+      "name": "return.net_calculated",
+      "payload": [
+        "portfolio_id",
+        "gross_return",
+        "net_return",
+        "total_fees",
+        "management_fee",
+        "performance_fee",
+        "expense_ratio"
+      ]
+    },
+    {
+      "name": "return.net_rejected",
+      "payload": [
+        "portfolio_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not compare gross returns from one manager to net returns from another",
+      "why": "Comparing gross to net produces a biased comparison; always compare like-for-like (GIPS rule)"
+    },
+    {
+      "rule": "Do not approximate performance fees without regard to hurdle/HWM provisions",
+      "why": "Hurdle and HWM clauses can make simple percentage calculations significantly overstate fees"
+    },
+    {
+      "rule": "Do not omit trading costs from gross return calculations in public reporting",
+      "why": "Industry convention treats trading costs as part of investment decisions; including or excluding must be disclosed"
+    },
+    {
+      "rule": "Do not apply performance fees to a period with negative gross return",
+      "why": "Performance fees cannot be negative; clamp at zero"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/returns/net-of-fees"
+    },
+    "request": {
+      "schema": {
+        "gross_return": "number",
+        "management_fee_rate": "number",
+        "performance_fee_rate": "number",
+        "expense_ratio": "number",
+        "hurdle_rate": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "gross_return": "number",
+          "net_return": "number",
+          "total_fees": "number",
+          "fee_breakdown": {
+            "management_fee": "number",
+            "performance_fee": "number",
+            "expense_ratio": "number"
+          }
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "RETURN_NEGATIVE_FEE"
+        },
+        {
+          "status": 400,
+          "error_code": "RETURN_MISSING_GROSS"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "worked_example": {
+      "scenario": "Manager earns 12% gross; 2% management fee; 20% performance fee over 0% hurdle",
+      "inputs": {
+        "gross_return": 0.12,
+        "management_fee_rate": 0.02,
+        "performance_fee_rate": 0.2,
+        "hurdle_rate": 0
+      },
+      "computation": "mgmt_fee = 0.02\nperformance_fee = max(0, (0.12 - 0) * 0.20) = 0.024\nnet_return = 0.12 - 0.02 - 0.024 = 0.076\n",
+      "net_return": 0.076
+    },
+    "gips_required_disclosures": [
+      "Presence and amount of management fees",
+      "Calculation method for performance fees",
+      "Hurdle rate and HWM mechanics",
+      "Whether trading costs are gross or net"
+    ]
+  },
+  "related": [
+    {
+      "feature": "holding-period-return",
+      "type": "required"
+    },
+    {
+      "feature": "after-tax-nominal-return",
+      "type": "recommended"
+    },
+    {
+      "feature": "real-return",
+      "type": "recommended"
+    }
+  ]
+}

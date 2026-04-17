@@ -1,0 +1,295 @@
+{
+  "feature": "money-weighted-return",
+  "version": "1.0.0",
+  "description": "Calculate the money-weighted rate of return (internal rate of return) on a portfolio with external cash flows, reflecting both performance and investor timing",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "return-measures",
+    "irr",
+    "mwr",
+    "cash-flows",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "mwr",
+    "internal-rate-of-return",
+    "irr",
+    "dollar-weighted-return",
+    "investor-return"
+  ],
+  "actors": [
+    {
+      "id": "analyst",
+      "name": "Investment Analyst",
+      "type": "human"
+    },
+    {
+      "id": "performance_engine",
+      "name": "Performance Measurement Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "cash_flows",
+      "type": "json",
+      "required": true,
+      "label": "Array of signed cash flows, beginning with initial investment (negative outflow) at t=0"
+    },
+    {
+      "name": "cash_flow_dates",
+      "type": "json",
+      "required": false,
+      "label": "Optional dates aligned to cash_flows for irregular (XIRR) calculation"
+    },
+    {
+      "name": "periods_per_year",
+      "type": "number",
+      "required": false,
+      "label": "Compounding frequency for annualization (default 1)"
+    },
+    {
+      "name": "initial_guess",
+      "type": "number",
+      "required": false,
+      "label": "Initial IRR guess for numerical solver (default 0.10)"
+    }
+  ],
+  "rules": {
+    "core_definition": {
+      "mwr": "Rate r such that NPV(cash_flows, r) = 0",
+      "equation": "sum( CF_t / (1+r)^t ) = 0 for t = 0..T"
+    },
+    "solver_characteristics": {
+      "nonlinear": "Equation is polynomial in (1+r) of degree T; no closed form",
+      "newton_raphson": "Preferred method; converges quickly from reasonable initial guess",
+      "bisection_fallback": "Use when Newton-Raphson oscillates or diverges",
+      "multiple_roots": "Descartes' rule — up to (sign changes in CF) real roots; choose economically meaningful (typically unique > -1)"
+    },
+    "sign_convention": {
+      "outflows": "Negative (investor pays in)",
+      "inflows": "Positive (investor receives)",
+      "terminal_value": "Positive (final portfolio value as liquidating inflow)"
+    },
+    "appropriate_use": {
+      "investor_perspective": "MWR measures return earned by the specific investor given their timing of cash flows",
+      "not_comparable_across_managers": "Two managers with identical underlying performance can show different MWRs if their clients' cash flows differ — use TWR for manager comparison"
+    },
+    "validation": {
+      "min_two_flows": "At least two cash flows required (initial investment + terminal value)",
+      "sign_change": "At least one sign change required for a meaningful IRR",
+      "convergence_tolerance": "|NPV| <= 1e-8 within 100 iterations"
+    }
+  },
+  "outcomes": {
+    "compute_mwr": {
+      "priority": 1,
+      "description": "Solve for IRR when cash flow series valid",
+      "given": [
+        {
+          "field": "cash_flows",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "performance_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "return.mwr_calculated"
+        }
+      ]
+    },
+    "solver_non_convergence": {
+      "priority": 10,
+      "description": "Numerical solver fails to converge",
+      "given": [
+        {
+          "field": "cash_flows",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.mwr_failed"
+        }
+      ],
+      "error": "MWR_SOLVER_NON_CONVERGENT"
+    },
+    "no_sign_change": {
+      "priority": 11,
+      "description": "All cash flows same sign (no IRR exists)",
+      "given": [
+        {
+          "field": "cash_flows",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.mwr_failed"
+        }
+      ],
+      "error": "MWR_NO_SIGN_CHANGE"
+    },
+    "insufficient_flows": {
+      "priority": 12,
+      "description": "Fewer than two cash flows provided",
+      "given": [
+        {
+          "field": "cash_flows",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.mwr_failed"
+        }
+      ],
+      "error": "MWR_INSUFFICIENT_CASHFLOWS"
+    }
+  },
+  "errors": [
+    {
+      "code": "MWR_SOLVER_NON_CONVERGENT",
+      "status": 422,
+      "message": "Unable to converge to an IRR within tolerance; inspect cash flow sign pattern"
+    },
+    {
+      "code": "MWR_NO_SIGN_CHANGE",
+      "status": 400,
+      "message": "IRR undefined — cash flows must include at least one sign change"
+    },
+    {
+      "code": "MWR_INSUFFICIENT_CASHFLOWS",
+      "status": 400,
+      "message": "At least two cash flows (investment and terminal value) required"
+    }
+  ],
+  "events": [
+    {
+      "name": "return.mwr_calculated",
+      "payload": [
+        "portfolio_id",
+        "mwr",
+        "periodic_rate",
+        "annualized_rate",
+        "iterations",
+        "convergence_residual"
+      ]
+    },
+    {
+      "name": "return.mwr_failed",
+      "payload": [
+        "portfolio_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not report MWR when evaluating an investment manager's skill",
+      "why": "MWR conflates manager skill with investor's cash flow timing; use time-weighted-return for manager evaluation"
+    },
+    {
+      "rule": "Do not assume a unique IRR when there are multiple sign changes in the cash flow stream",
+      "why": "Descartes' rule permits multiple real roots; report all economically meaningful roots or switch to MIRR"
+    },
+    {
+      "rule": "Do not use MWR to rank mutually exclusive projects of different scale",
+      "why": "IRR ranking can contradict NPV ranking for projects with different scale or cash flow timing"
+    },
+    {
+      "rule": "Do not annualize MWR by multiplying a sub-period rate",
+      "why": "Annualization must compound: (1 + r_period)^periods_per_year - 1"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/returns/money-weighted"
+    },
+    "request": {
+      "schema": {
+        "cash_flows": "array<number>",
+        "cash_flow_dates": "array<date>",
+        "periods_per_year": "number",
+        "initial_guess": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "mwr": "number",
+          "annualized_mwr": "number",
+          "iterations": "integer",
+          "convergence_residual": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 422,
+          "error_code": "MWR_SOLVER_NON_CONVERGENT"
+        },
+        {
+          "status": 400,
+          "error_code": "MWR_NO_SIGN_CHANGE"
+        },
+        {
+          "status": 400,
+          "error_code": "MWR_INSUFFICIENT_CASHFLOWS"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "worked_example": {
+      "scenario": "Year 0: buy 1 share @ 0; Year 1: receive  dividend, buy 1 more share @ 0; Year 2: receive  dividend, sell 2 shares @ 5 each",
+      "cash_flows": [
+        -100,
+        -198,
+        244
+      ],
+      "computed_mwr": 0.0968,
+      "interpretation": "IRR ≈ 9.68% per year accounting for investor's purchase timing"
+    },
+    "solver_implementation": {
+      "preferred_method": "newton_raphson",
+      "max_iterations": 100,
+      "tolerance": 1e-8,
+      "fallback_bounds": [
+        -0.99,
+        10
+      ]
+    },
+    "comparison_to_twr": {
+      "twr_ignores_timing": "Time-weighted return neutralises cash flow timing — compares manager skill",
+      "mwr_includes_timing": "Money-weighted return measures what the investor actually earned"
+    }
+  },
+  "related": [
+    {
+      "feature": "time-weighted-return",
+      "type": "required"
+    },
+    {
+      "feature": "holding-period-return",
+      "type": "required"
+    },
+    {
+      "feature": "annualized-return",
+      "type": "recommended"
+    }
+  ]
+}

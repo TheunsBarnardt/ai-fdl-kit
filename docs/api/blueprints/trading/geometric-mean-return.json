@@ -1,0 +1,245 @@
+{
+  "feature": "geometric-mean-return",
+  "version": "1.0.0",
+  "description": "Compute the geometric mean (compound) return over multiple periods — the actual compound growth rate realised by a buy-and-hold investor",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "return-measures",
+    "compound-return",
+    "cagr",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "compound-return",
+    "compound-growth-rate",
+    "geometric-mean",
+    "cagr",
+    "compound-annual-growth-rate",
+    "time-weighted-single-period"
+  ],
+  "actors": [
+    {
+      "id": "performance_engine",
+      "name": "Performance Measurement Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "returns",
+      "type": "json",
+      "required": true,
+      "label": "Array of periodic returns (decimal, e.g., [0.05, -0.02, 0.08])"
+    },
+    {
+      "name": "return_frequency",
+      "type": "select",
+      "required": false,
+      "label": "Frequency (daily, monthly, quarterly, annual)"
+    }
+  ],
+  "rules": {
+    "core_formula": {
+      "geometric_mean": "R_G = [product(1 + R_t) for t=1..T]^(1/T) - 1",
+      "equivalent_log_form": "R_G = exp( (1/T) * sum(ln(1 + R_t)) ) - 1"
+    },
+    "properties": {
+      "compound_growth": "Reflects actual compound growth of a buy-and-hold investment",
+      "downward_relative_to_arithmetic": "R_G <= R_bar with equality only when all returns identical",
+      "volatility_drag": "Approximation: R_G ≈ R_bar - (sigma^2)/2"
+    },
+    "domain_constraints": {
+      "no_return_below_minus_one": "Each (1 + R_t) must be > 0; if any R_t <= -1 (total loss), geometric mean is undefined (-100%)"
+    },
+    "appropriate_use": {
+      "past_performance": "Preferred for reporting historical compound performance",
+      "backward_looking": "Describes realised compound growth, not expected future single-period return"
+    },
+    "validation": {
+      "non_empty": "At least one observation required",
+      "no_total_loss": "No observation may be <= -1.0 (else compound factor is zero or negative)"
+    }
+  },
+  "outcomes": {
+    "compute_geomean": {
+      "priority": 1,
+      "description": "Calculate geometric mean when all returns > -1",
+      "given": [
+        {
+          "field": "returns",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "performance_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "return.geometric_mean_calculated"
+        }
+      ]
+    },
+    "total_loss_observation": {
+      "priority": 10,
+      "description": "One or more returns are <= -100%",
+      "given": [
+        {
+          "field": "returns",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.geomean_rejected"
+        }
+      ],
+      "error": "GEOMEAN_TOTAL_LOSS"
+    },
+    "empty_returns": {
+      "priority": 11,
+      "description": "Empty returns array",
+      "given": [
+        {
+          "field": "returns",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.geomean_rejected"
+        }
+      ],
+      "error": "GEOMEAN_EMPTY_RETURNS"
+    }
+  },
+  "errors": [
+    {
+      "code": "GEOMEAN_TOTAL_LOSS",
+      "status": 400,
+      "message": "Geometric mean undefined when a return <= -100% (compound factor non-positive)"
+    },
+    {
+      "code": "GEOMEAN_EMPTY_RETURNS",
+      "status": 400,
+      "message": "Returns array must contain at least one observation"
+    }
+  ],
+  "events": [
+    {
+      "name": "return.geometric_mean_calculated",
+      "payload": [
+        "series_id",
+        "geometric_mean",
+        "observation_count",
+        "frequency",
+        "volatility_drag"
+      ]
+    },
+    {
+      "name": "return.geomean_rejected",
+      "payload": [
+        "series_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use geometric mean to forecast single-period expected return",
+      "why": "Geometric mean understates expected value for a single forward period; arithmetic mean is the unbiased expected-value estimator under i.i.d. assumption"
+    },
+    {
+      "rule": "Do not compute geometric mean when any period has a return of -100% or worse",
+      "why": "The compound product collapses to zero or becomes negative, making the Tth root undefined or complex"
+    },
+    {
+      "rule": "Do not annualize geometric mean by multiplying — you must compound",
+      "why": "Annualization is (1+R_G)^periods_per_year - 1, not R_G * periods_per_year"
+    },
+    {
+      "rule": "Do not report geometric mean alongside arithmetic mean without explaining the divergence",
+      "why": "The spread (R_bar - R_G) captures volatility drag; omitting context misleads on risk"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/returns/geometric-mean"
+    },
+    "request": {
+      "schema": {
+        "returns": "array<number>",
+        "return_frequency": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "geometric_mean": "number",
+          "arithmetic_mean": "number",
+          "volatility_drag": "number",
+          "observation_count": "integer"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "GEOMEAN_TOTAL_LOSS"
+        },
+        {
+          "status": 400,
+          "error_code": "GEOMEAN_EMPTY_RETURNS"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "worked_example": {
+      "inputs": {
+        "returns": [
+          0.15,
+          -0.05,
+          0.1,
+          0.2,
+          -0.1
+        ]
+      },
+      "computation": "[(1.15)(0.95)(1.10)(1.20)(0.90)]^(1/5) - 1 = (1.297)^0.2 - 1 ≈ 0.0535",
+      "geometric_mean": 0.0535,
+      "arithmetic_mean_comparison": 0.06,
+      "volatility_drag": 0.0065
+    },
+    "numerical_precision": {
+      "decimal_places": 6,
+      "rounding_mode": "half_even",
+      "log_form_preferred_when": "T is large or some (1+R_t) very close to 0, to avoid underflow"
+    }
+  },
+  "related": [
+    {
+      "feature": "holding-period-return",
+      "type": "required"
+    },
+    {
+      "feature": "arithmetic-mean-return",
+      "type": "recommended"
+    },
+    {
+      "feature": "time-weighted-return",
+      "type": "recommended"
+    },
+    {
+      "feature": "annualized-return",
+      "type": "recommended"
+    }
+  ]
+}

@@ -1,0 +1,211 @@
+# ============================================================
+# continuously-compounded-return — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 1, p.32-33
+# ============================================================
+
+feature: continuously-compounded-return
+version: "1.0.0"
+description: Compute the continuously compounded (log) return — preferred in quantitative finance for its additive properties over time
+category: trading
+tags: [quantitative-methods, return-measures, log-return, continuous-compounding, cfa-level-1]
+aliases:
+  - log-return
+  - ln-return
+  - continuous-return
+  - force-of-interest
+  - instantaneous-rate
+
+actors:
+  - id: performance_engine
+    name: Performance Measurement Engine
+    type: system
+
+fields:
+  - name: beginning_price
+    type: number
+    required: false
+    label: Beginning price (P0) — if computing from prices
+  - name: ending_price
+    type: number
+    required: false
+    label: Ending price (P1) — if computing from prices
+  - name: holding_period_return
+    type: number
+    required: false
+    label: Holding period return (R) — if converting from HPR
+  - name: conversion_direction
+    type: select
+    required: true
+    label: hpr_to_continuous or continuous_to_hpr or prices_to_continuous
+
+rules:
+  core_formulas:
+    from_prices: "r_c = ln(P1 / P0)"
+    from_hpr: "r_c = ln(1 + R)"
+    # Source: Vol 1, Module 1, p.32 — "The continuously compounded return is the natural logarithm of one plus the HPR"
+    inverse: "R = exp(r_c) - 1"
+  additivity_property:
+    multi_period: "r_c(0,T) = sum(r_c(t-1,t)) for t=1..T — log returns are time-additive"
+    # This is the key reason log returns are preferred in quantitative work
+    contrast_with_hpr: "HPRs compound multiplicatively, log returns sum additively"
+  distributional_properties:
+    lognormal_assumption: "If prices are lognormally distributed, log returns are normally distributed"
+    symmetric_around_zero: "Log returns can be symmetric; HPRs cannot be since R >= -1"
+  domain_constraints:
+    hpr_above_total_loss: "R > -1 required (ln of non-positive number undefined)"
+    prices_positive: "P0 > 0 and P1 > 0 required"
+  appropriate_use:
+    quantitative_modeling: "Preferred for GBM/Black-Scholes, volatility estimation, time-series modeling"
+    time_aggregation: "When summing returns across many sub-periods"
+
+outcomes:
+  from_prices:
+    priority: 1
+    description: Convert price pair to continuously compounded return
+    given:
+      - field: conversion_direction
+        source: input
+        operator: eq
+        value: prices_to_continuous
+      - field: beginning_price
+        source: input
+        operator: gt
+        value: 0
+      - field: ending_price
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: performance_engine
+      - action: emit_event
+        event: return.continuous_calculated
+  from_hpr:
+    priority: 2
+    description: Convert HPR to continuously compounded return
+    given:
+      - field: conversion_direction
+        source: input
+        operator: eq
+        value: hpr_to_continuous
+      - field: holding_period_return
+        source: input
+        operator: gt
+        value: -1
+    then:
+      - action: call_service
+        target: performance_engine
+      - action: emit_event
+        event: return.continuous_calculated
+  to_hpr:
+    priority: 3
+    description: Convert continuously compounded return back to HPR
+    given:
+      - field: conversion_direction
+        source: input
+        operator: eq
+        value: continuous_to_hpr
+    then:
+      - action: call_service
+        target: performance_engine
+      - action: emit_event
+        event: return.hpr_from_continuous_calculated
+  invalid_hpr:
+    priority: 10
+    description: HPR at or below -100%
+    given:
+      - field: holding_period_return
+        source: input
+        operator: lte
+        value: -1
+    then:
+      - action: emit_event
+        event: return.continuous_rejected
+    error: CONTINUOUS_INVALID_HPR
+  non_positive_price:
+    priority: 11
+    description: A price is zero or negative
+    given:
+      - any:
+          - field: beginning_price
+            source: input
+            operator: lte
+            value: 0
+          - field: ending_price
+            source: input
+            operator: lte
+            value: 0
+    then:
+      - action: emit_event
+        event: return.continuous_rejected
+    error: CONTINUOUS_INVALID_PRICE
+
+errors:
+  - code: CONTINUOUS_INVALID_HPR
+    status: 400
+    message: Continuously compounded return undefined when HPR <= -100%
+  - code: CONTINUOUS_INVALID_PRICE
+    status: 400
+    message: Prices must be strictly positive for log return calculation
+
+events:
+  - name: return.continuous_calculated
+    payload: [instrument_id, continuous_return, source_type]
+  - name: return.hpr_from_continuous_calculated
+    payload: [instrument_id, hpr, continuous_return]
+  - name: return.continuous_rejected
+    payload: [instrument_id, reason_code]
+
+anti_patterns:
+  - rule: Do not compound log returns multiplicatively
+    why: "Log returns are additive over time, not multiplicative — summing r_c values gives the total log return"
+  - rule: Do not mix HPRs and log returns in the same aggregation without conversion
+    why: "Different compounding semantics; mixing produces inconsistent aggregates"
+  - rule: Do not compute log returns on non-positive prices
+    why: "ln of zero is -infinity, ln of negative is complex; guard against bad market data"
+  - rule: Do not annualize a single-day log return by simple scaling for long-horizon forecasts
+    why: "Annualization by multiplication (r_c * 252) works for log returns only under i.i.d. assumption; verify before using"
+
+api:
+  http:
+    method: POST
+    path: /analytics/returns/continuous
+  request:
+    schema:
+      beginning_price: number
+      ending_price: number
+      holding_period_return: number
+      conversion_direction: string
+  response:
+    success:
+      status: 200
+      schema:
+        continuous_return: number
+        hpr_equivalent: number
+    errors:
+      - status: 400
+        error_code: CONTINUOUS_INVALID_HPR
+      - status: 400
+        error_code: CONTINUOUS_INVALID_PRICE
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 1, Example 13, p.32
+    hpr: 0.07
+    continuous: "ln(1.07) ≈ 0.0677"
+    interpretation: "7% HPR equals 6.77% continuously compounded"
+  additivity_example:
+    daily_log_returns: [0.001, -0.002, 0.003, 0.0005]
+    total_log_return: 0.0025
+    note: "Simply sum them — additive property"
+  annualization_under_iid:
+    formula: "r_c_annual = r_c_daily * 252 (trading days) or * 365 (calendar)"
+    assumption: "i.i.d. daily log returns"
+
+related:
+  - feature: holding-period-return
+    type: required
+  - feature: annualized-return
+    type: recommended
+  - feature: geometric-mean-return
+    type: recommended

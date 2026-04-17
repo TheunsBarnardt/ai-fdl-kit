@@ -1,0 +1,282 @@
+{
+  "feature": "real-return",
+  "version": "1.0.0",
+  "description": "Convert a nominal return to a real (inflation-adjusted) return using the Fisher relation — captures the change in purchasing power",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "return-measures",
+    "real-return",
+    "inflation",
+    "fisher",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "inflation-adjusted-return",
+    "fisher-real-return",
+    "purchasing-power-return",
+    "real-rate"
+  ],
+  "actors": [
+    {
+      "id": "performance_engine",
+      "name": "Performance Measurement Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "nominal_return",
+      "type": "number",
+      "required": true,
+      "label": "Nominal return for the period (decimal)"
+    },
+    {
+      "name": "inflation_rate",
+      "type": "number",
+      "required": true,
+      "label": "Inflation rate over the same period (decimal)"
+    },
+    {
+      "name": "formula_variant",
+      "type": "select",
+      "required": false,
+      "label": "exact (Fisher) or approximation (default exact)"
+    },
+    {
+      "name": "tax_adjustment",
+      "type": "select",
+      "required": false,
+      "label": "none | pre_tax_real | after_tax_real"
+    }
+  ],
+  "rules": {
+    "fisher_exact": {
+      "formula": "(1 + R_real) = (1 + R_nominal) / (1 + inflation)",
+      "solved": "R_real = (1 + R_nominal) / (1 + inflation) - 1"
+    },
+    "approximation": {
+      "formula": "R_real ≈ R_nominal - inflation",
+      "validity": "Accurate when both rates small; diverges at high inflation"
+    },
+    "three_way_decomposition": {
+      "formula": "(1 + R_real_after_tax) = (1 + R_nominal_pre_tax)*(1 - t) / (1 + inflation)"
+    },
+    "appropriate_use": {
+      "long_horizon": "Essential for long-horizon comparisons (retirement planning, endowments)",
+      "cross_country": "Required when comparing returns across economies with different inflation regimes",
+      "real_assets": "Inflation-indexed bonds quote real yield directly"
+    },
+    "validation": {
+      "inflation_above_total_deflation": "inflation > -1 required (else denominator non-positive)",
+      "reasonable_bounds": "Flag inflation > 100% or < -50% as data-quality warning"
+    }
+  },
+  "outcomes": {
+    "compute_real_return": {
+      "priority": 1,
+      "description": "Apply Fisher formula to compute real return",
+      "given": [
+        {
+          "field": "nominal_return",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "inflation_rate",
+          "source": "input",
+          "operator": "gt",
+          "value": -1
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "performance_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "return.real_calculated"
+        }
+      ]
+    },
+    "invalid_inflation": {
+      "priority": 10,
+      "description": "Inflation <= -100%",
+      "given": [
+        {
+          "field": "inflation_rate",
+          "source": "input",
+          "operator": "lte",
+          "value": -1
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.real_rejected"
+        }
+      ],
+      "error": "REAL_INVALID_INFLATION"
+    },
+    "missing_inputs": {
+      "priority": 11,
+      "description": "Missing required inputs",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "nominal_return",
+              "source": "input",
+              "operator": "not_exists"
+            },
+            {
+              "field": "inflation_rate",
+              "source": "input",
+              "operator": "not_exists"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.real_rejected"
+        }
+      ],
+      "error": "REAL_MISSING_INPUTS"
+    }
+  },
+  "errors": [
+    {
+      "code": "REAL_INVALID_INFLATION",
+      "status": 400,
+      "message": "Inflation rate must be strictly greater than -100%"
+    },
+    {
+      "code": "REAL_MISSING_INPUTS",
+      "status": 400,
+      "message": "Both nominal return and inflation rate are required"
+    }
+  ],
+  "events": [
+    {
+      "name": "return.real_calculated",
+      "payload": [
+        "portfolio_id",
+        "nominal_return",
+        "inflation_rate",
+        "real_return",
+        "method"
+      ]
+    },
+    {
+      "name": "return.real_rejected",
+      "payload": [
+        "portfolio_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use the approximation R_real ≈ R_nominal - inflation when either value is large",
+      "why": "Approximation error grows with the magnitude of the rates; always use Fisher exact for high-inflation economies (ZW, AR, TR)"
+    },
+    {
+      "rule": "Do not subtract inflation from after-tax return without re-applying Fisher",
+      "why": "The order of operations (tax then inflate vs inflate then tax) produces different results at the decimal level; use the combined formula"
+    },
+    {
+      "rule": "Do not mix inflation indices carelessly (CPI vs PPI vs core)",
+      "why": "Different baskets produce different real returns; disclose the index used"
+    },
+    {
+      "rule": "Do not compute real return using trailing CPI when forward-looking expected inflation is appropriate",
+      "why": "For ex-ante return forecasting, expected inflation is correct; trailing CPI is only correct for ex-post real return calculations"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/returns/real"
+    },
+    "request": {
+      "schema": {
+        "nominal_return": "number",
+        "inflation_rate": "number",
+        "formula_variant": "string",
+        "tax_adjustment": "string",
+        "tax_rate": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "real_return": "number",
+          "approximation_error": "number",
+          "method": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "REAL_INVALID_INFLATION"
+        },
+        {
+          "status": 400,
+          "error_code": "REAL_MISSING_INPUTS"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "worked_example": {
+      "scenario": "Nominal 8%, inflation 3%",
+      "inputs": {
+        "nominal_return": 0.08,
+        "inflation_rate": 0.03
+      },
+      "exact": "(1.08 / 1.03) - 1 = 0.0485",
+      "approximation": "0.08 - 0.03 = 0.05",
+      "approximation_error": 0.0015
+    },
+    "inflation_data_sources": [
+      {
+        "name": "CPI",
+        "purpose": "Consumer price basket — most common"
+      },
+      {
+        "name": "CPIX (SA)",
+        "purpose": "Consumer price ex-mortgage interest"
+      },
+      {
+        "name": "Core CPI",
+        "purpose": "Strips volatile food/energy"
+      },
+      {
+        "name": "PPI",
+        "purpose": "Producer price index"
+      },
+      {
+        "name": "GDP Deflator",
+        "purpose": "Economy-wide price level"
+      }
+    ]
+  },
+  "related": [
+    {
+      "feature": "holding-period-return",
+      "type": "required"
+    },
+    {
+      "feature": "after-tax-nominal-return",
+      "type": "recommended"
+    },
+    {
+      "feature": "gross-net-return",
+      "type": "recommended"
+    }
+  ]
+}

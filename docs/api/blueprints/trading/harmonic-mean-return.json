@@ -1,0 +1,221 @@
+{
+  "feature": "harmonic-mean-return",
+  "version": "1.0.0",
+  "description": "Compute the harmonic mean — used specifically for averaging ratios such as cost-per-share under dollar-cost averaging (DCA)",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "mean",
+    "harmonic",
+    "dollar-cost-averaging",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "harmonic-mean",
+    "dca-average-cost",
+    "cost-averaging-mean",
+    "reciprocal-mean"
+  ],
+  "actors": [
+    {
+      "id": "performance_engine",
+      "name": "Performance Measurement Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "values",
+      "type": "json",
+      "required": true,
+      "label": "Array of strictly positive values (e.g., prices paid per share in each purchase)"
+    },
+    {
+      "name": "application",
+      "type": "select",
+      "required": false,
+      "label": "Application context (dca_average_cost, pe_ratio_averaging, other)"
+    }
+  ],
+  "rules": {
+    "core_formula": {
+      "harmonic_mean": "H = T / sum(1/x_t) for t=1..T"
+    },
+    "properties": {
+      "inequality": "Harmonic Mean <= Geometric Mean <= Arithmetic Mean (all positive values)",
+      "equality": "All three equal only when all x_t identical"
+    },
+    "dca_application": {
+      "description": "When an investor buys a fixed dollar amount each period at varying prices, the average cost per share equals the harmonic mean of the purchase prices",
+      "formula": "average_cost_per_share = T / sum(1/P_t)"
+    },
+    "domain_constraints": {
+      "strictly_positive": "All x_t must be > 0; zero or negative values make the harmonic mean undefined"
+    },
+    "appropriate_use": {
+      "ratio_averaging": "Use when averaging rates/ratios where numerators are constant across periods",
+      "not_for_returns": "Do NOT use harmonic mean directly on return series — use arithmetic or geometric mean"
+    }
+  },
+  "outcomes": {
+    "compute_harmonic": {
+      "priority": 1,
+      "description": "Calculate harmonic mean for positive input series",
+      "given": [
+        {
+          "field": "values",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "performance_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "return.harmonic_mean_calculated"
+        }
+      ]
+    },
+    "non_positive_value": {
+      "priority": 10,
+      "description": "One or more values not strictly positive",
+      "given": [
+        {
+          "field": "values",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.harmonic_rejected"
+        }
+      ],
+      "error": "HARMONIC_NON_POSITIVE_VALUE"
+    },
+    "empty_values": {
+      "priority": 11,
+      "description": "Empty array",
+      "given": [
+        {
+          "field": "values",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.harmonic_rejected"
+        }
+      ],
+      "error": "HARMONIC_EMPTY_VALUES"
+    }
+  },
+  "errors": [
+    {
+      "code": "HARMONIC_NON_POSITIVE_VALUE",
+      "status": 400,
+      "message": "Harmonic mean requires strictly positive values"
+    },
+    {
+      "code": "HARMONIC_EMPTY_VALUES",
+      "status": 400,
+      "message": "Values array must contain at least one observation"
+    }
+  ],
+  "events": [
+    {
+      "name": "return.harmonic_mean_calculated",
+      "payload": [
+        "series_id",
+        "harmonic_mean",
+        "observation_count",
+        "application"
+      ]
+    },
+    {
+      "name": "return.harmonic_rejected",
+      "payload": [
+        "series_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not apply harmonic mean to a return series (R values, which can be negative)",
+      "why": "Harmonic mean is undefined for non-positive inputs and gives nonsensical results for returns; it applies to prices/ratios"
+    },
+    {
+      "rule": "Do not use harmonic mean when purchase amounts vary across periods",
+      "why": "Harmonic mean equals average cost per share only when the dollar amount invested per period is constant (true DCA)"
+    },
+    {
+      "rule": "Do not average ratios with arithmetic mean when denominators change",
+      "why": "For ratios such as P/E averaged across firms with different earnings, harmonic mean gives a more accurate aggregate"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/means/harmonic"
+    },
+    "request": {
+      "schema": {
+        "values": "array<number>",
+        "application": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "harmonic_mean": "number",
+          "observation_count": "integer"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "HARMONIC_NON_POSITIVE_VALUE"
+        },
+        {
+          "status": 400,
+          "error_code": "HARMONIC_EMPTY_VALUES"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "worked_example_dca": {
+      "scenario": "Investor buys ,000 of a stock each month at prices 10, 15, 20",
+      "prices": [
+        10,
+        15,
+        20
+      ],
+      "harmonic_mean": "3 / (1/10 + 1/15 + 1/20) = 3 / 0.2167 ≈ 13.85",
+      "arithmetic_mean_comparison": 15,
+      "interpretation": "Average cost per share under DCA is 13.85, less than arithmetic mean of prices"
+    },
+    "relationship": {
+      "ordering": "HM <= GM <= AM for positive values",
+      "when_to_use": "- Arithmetic: forecast single-period expected return\n- Geometric: realised compound growth\n- Harmonic: average of ratios with fixed numerators (DCA cost, P/E aggregation)\n"
+    }
+  },
+  "related": [
+    {
+      "feature": "arithmetic-mean-return",
+      "type": "recommended"
+    },
+    {
+      "feature": "geometric-mean-return",
+      "type": "recommended"
+    }
+  ]
+}

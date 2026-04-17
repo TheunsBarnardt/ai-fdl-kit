@@ -1,0 +1,258 @@
+{
+  "feature": "arithmetic-mean-return",
+  "version": "1.0.0",
+  "description": "Compute the arithmetic mean return of a return series — the simple average of periodic returns, used as an estimator of expected single-period return",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "return-measures",
+    "mean-return",
+    "cfa-level-1",
+    "performance",
+    "statistics"
+  ],
+  "aliases": [
+    "arithmetic-mean",
+    "simple-average-return",
+    "mean-periodic-return",
+    "expected-return-estimator",
+    "r-bar"
+  ],
+  "actors": [
+    {
+      "id": "analyst",
+      "name": "Investment Analyst",
+      "type": "human"
+    },
+    {
+      "id": "performance_engine",
+      "name": "Performance Measurement Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "returns",
+      "type": "json",
+      "required": true,
+      "label": "Array of periodic returns (decimals, e.g., [0.05, -0.02, 0.03])"
+    },
+    {
+      "name": "return_frequency",
+      "type": "select",
+      "required": false,
+      "label": "Frequency of observations (daily, monthly, quarterly, annual)"
+    },
+    {
+      "name": "data_quality_flags",
+      "type": "json",
+      "required": false,
+      "label": "Optional per-observation flags (e.g., adjusted, synthetic, stale)"
+    }
+  ],
+  "rules": {
+    "core_formula": {
+      "arithmetic_mean": "R_bar = (1/T) * sum(R_t) for t = 1..T",
+      "equal_weighting": "Each observation is weighted equally at 1/T"
+    },
+    "properties": {
+      "unbiased_estimator": "Under i.i.d. assumption, arithmetic mean is unbiased estimator of single-period expected return",
+      "upward_bias_multiperiod": "Overstates compound growth over multiple periods; use geometric mean for compound growth",
+      "sensitivity_to_outliers": "Highly sensitive to extreme values; consider trimmed or winsorized mean for robustness"
+    },
+    "appropriate_use": {
+      "forward_looking": "Use arithmetic mean when estimating expected return for a single future period",
+      "sample_size": "Requires T >= 1; statistical reliability improves with larger T"
+    },
+    "validation": {
+      "non_empty": "returns array must contain at least 1 observation",
+      "numeric": "All entries must be finite numbers; reject NaN/Infinity",
+      "reasonable_bounds": "Flag entries < -1.0 for long positions (loss > 100% impossible without leverage)"
+    }
+  },
+  "outcomes": {
+    "compute_mean": {
+      "priority": 1,
+      "description": "Calculate arithmetic mean when inputs valid",
+      "given": [
+        {
+          "field": "returns",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "performance_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "return.arithmetic_mean_calculated"
+        }
+      ]
+    },
+    "empty_returns": {
+      "priority": 10,
+      "description": "Returns array missing or empty",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "returns",
+              "source": "input",
+              "operator": "not_exists"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.mean_rejected"
+        }
+      ],
+      "error": "MEAN_EMPTY_RETURNS"
+    },
+    "invalid_return_value": {
+      "priority": 11,
+      "description": "Contains non-finite value (NaN, Infinity)",
+      "given": [
+        {
+          "field": "returns",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "return.mean_rejected"
+        }
+      ],
+      "error": "MEAN_INVALID_OBSERVATION"
+    }
+  },
+  "errors": [
+    {
+      "code": "MEAN_EMPTY_RETURNS",
+      "status": 400,
+      "message": "Returns array must contain at least one observation"
+    },
+    {
+      "code": "MEAN_INVALID_OBSERVATION",
+      "status": 400,
+      "message": "Returns must be finite numeric values"
+    }
+  ],
+  "events": [
+    {
+      "name": "return.arithmetic_mean_calculated",
+      "payload": [
+        "series_id",
+        "arithmetic_mean",
+        "observation_count",
+        "frequency"
+      ]
+    },
+    {
+      "name": "return.mean_rejected",
+      "payload": [
+        "series_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use arithmetic mean to summarise multi-period compound performance",
+      "why": "Arithmetic mean overstates geometric (compound) growth due to Jensen's inequality; use geometric-mean-return instead"
+    },
+    {
+      "rule": "Do not apply arithmetic mean when returns are highly skewed without reporting robust alternatives",
+      "why": "A single outlier can shift the mean substantially; report median or trimmed mean alongside for skewed distributions"
+    },
+    {
+      "rule": "Do not report arithmetic mean without its standard error or confidence interval for forecasting",
+      "why": "Point estimate without dispersion misleads the consumer about precision"
+    },
+    {
+      "rule": "Do not mix returns of different frequencies in one mean",
+      "why": "Combining daily and monthly returns in one arithmetic mean is dimensionally incoherent"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/returns/arithmetic-mean"
+    },
+    "request": {
+      "schema": {
+        "returns": "array<number>",
+        "return_frequency": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "arithmetic_mean": "number",
+          "observation_count": "integer",
+          "standard_error": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "MEAN_EMPTY_RETURNS"
+        },
+        {
+          "status": 400,
+          "error_code": "MEAN_INVALID_OBSERVATION"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "worked_example": {
+      "inputs": {
+        "returns": [
+          0.15,
+          -0.05,
+          0.1,
+          0.2,
+          -0.1
+        ]
+      },
+      "computation": "(0.15 - 0.05 + 0.10 + 0.20 - 0.10) / 5 = 0.06",
+      "arithmetic_mean": 0.06,
+      "interpretation": "6% simple average per period"
+    },
+    "relationship_to_other_means": {
+      "inequality": "Arithmetic Mean >= Geometric Mean >= Harmonic Mean (when all values positive)",
+      "equality_condition": "Equality holds only when all observations are identical"
+    },
+    "numerical_precision": {
+      "decimal_places": 6,
+      "rounding_mode": "half_even"
+    }
+  },
+  "related": [
+    {
+      "feature": "holding-period-return",
+      "type": "required"
+    },
+    {
+      "feature": "geometric-mean-return",
+      "type": "recommended"
+    },
+    {
+      "feature": "harmonic-mean-return",
+      "type": "recommended"
+    },
+    {
+      "feature": "annualized-return",
+      "type": "recommended"
+    }
+  ]
+}
