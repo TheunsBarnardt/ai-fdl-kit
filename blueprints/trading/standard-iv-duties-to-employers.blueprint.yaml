@@ -1,0 +1,121 @@
+# ============================================================
+# standard-iv-duties-to-employers — Feature Blueprint
+# Source: CFA LV1 2025 Vol 10 — Module 3, Standard IV
+# ============================================================
+
+feature: standard-iv-duties-to-employers
+version: "1.0.0"
+description: Apply Standard IV (Duties to Employers) — Loyalty, Additional Compensation Arrangements, and Responsibilities of Supervisors — to employment and managerial situations
+category: trading
+tags: [ethics, standard-iv, duties-to-employer, supervisor-responsibility, cfa-level-1]
+aliases:
+  - standard-iv-a-loyalty
+  - standard-iv-b-additional-compensation
+  - standard-iv-c-supervisor-responsibilities
+  - duties-to-employer
+  - whistleblowing-exception
+
+actors:
+  - id: standard_iv_reviewer
+    name: Standard IV Reviewer
+    type: human
+
+fields:
+  - name: case_id
+    type: text
+    required: true
+    label: Case identifier
+  - name: substandard
+    type: select
+    required: true
+    label: iv_a | iv_b | iv_c
+
+rules:
+  iv_a_loyalty:
+    rule: "Act for benefit of employer; do not deprive employer of advantage of skills and abilities; no confidential info disclosure"
+    whistleblowing_exception: "May disclose to authorities when employer violations harm clients or market"
+    leaving_employer: "No solicitation of clients until departure; no taking of files or client lists"
+  iv_b_additional_compensation:
+    rule: "Disclose in writing all additional compensation arrangements that may create conflict"
+    consent_required: "Obtain written consent from employer"
+  iv_c_supervisor_responsibilities:
+    rule: "Make reasonable efforts to detect and prevent violations by those under supervision"
+    inadequate_system: "Must decline supervisory role if compliance system inadequate"
+    delegation: "Supervisor remains responsible even when delegating"
+  recommended_procedures:
+    compliance_program: "Written policies, training, monitoring, enforcement"
+    investigation: "Prompt and thorough when violation suspected"
+  validation:
+    case_required: "case_id present"
+    valid_substandard: "substandard in [iv_a, iv_b, iv_c]"
+
+outcomes:
+  review_standard_iv:
+    priority: 1
+    description: Review conduct under Standard IV
+    given:
+      - field: case_id
+        source: input
+        operator: exists
+      - field: substandard
+        source: input
+        operator: in
+        value: [iv_a, iv_b, iv_c]
+    then:
+      - action: call_service
+        target: standard_iv_reviewer
+      - action: emit_event
+        event: standard_iv.reviewed
+  invalid_substandard:
+    priority: 10
+    description: Unsupported substandard
+    given:
+      - field: substandard
+        source: input
+        operator: not_in
+        value: [iv_a, iv_b, iv_c]
+    then:
+      - action: emit_event
+        event: standard_iv.review_rejected
+    error: STD_IV_INVALID_SUBSTANDARD
+
+errors:
+  - code: STD_IV_INVALID_SUBSTANDARD
+    status: 400
+    message: substandard must be iv_a, iv_b, or iv_c
+
+events:
+  - name: standard_iv.reviewed
+    payload: [case_id, substandard, compliant, recommended_action]
+  - name: standard_iv.review_rejected
+    payload: [case_id, reason_code]
+
+anti_patterns:
+  - rule: Do not take client lists or proprietary material on leaving an employer
+    why: "Standard IV(A) treats such takings as misappropriation; memory-based solicitation is separately prohibited"
+  - rule: Do not accept referral compensation without disclosure
+    why: "Standard IV(B) requires disclosure to employer; conflicts must be transparent even when deemed minor"
+  - rule: Do not accept supervisory role over employees in jurisdictions with no compliance program
+    why: "Standard IV(C) requires decline; accepting means holding the bag for violations the supervisor cannot prevent"
+
+api:
+  http:
+    method: POST
+    path: /ethics/standard-iv/review
+  request:
+    schema:
+      case_id: string
+      substandard: string
+  response:
+    success:
+      status: 200
+      schema:
+        case_id: string
+        compliant: boolean
+    errors:
+      - status: 400
+        error_code: STD_IV_INVALID_SUBSTANDARD
+
+related:
+  - feature: cfa-code-of-ethics
+    type: required

@@ -1,0 +1,204 @@
+{
+  "feature": "gips-compliance-fundamentals",
+  "version": "1.0.0",
+  "description": "Describe the Global Investment Performance Standards — who can claim compliance, benefits of compliance, fundamentals of compliance, and key verification and presentation requirements",
+  "category": "trading",
+  "tags": [
+    "ethics",
+    "gips",
+    "performance-standards",
+    "composite-presentation",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "gips-standards",
+    "gips-compliance",
+    "performance-presentation-standard",
+    "gips-verification",
+    "firm-wide-compliance",
+    "gips-fundamentals"
+  ],
+  "actors": [
+    {
+      "id": "gips_assessor",
+      "name": "GIPS Compliance Assessor",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "firm_id",
+      "type": "text",
+      "required": true,
+      "label": "Firm identifier"
+    },
+    {
+      "name": "compliance_status",
+      "type": "select",
+      "required": true,
+      "label": "compliant | non_compliant | pending_verification"
+    }
+  ],
+  "rules": {
+    "purpose": {
+      "fair_representation": "Ethical, voluntary global standard for presenting performance",
+      "comparability": "Prospective clients can compare firms on like-for-like basis"
+    },
+    "who_can_claim": {
+      "firm_wide": "Only at firm level; individual portfolios cannot claim GIPS compliance",
+      "applicability": "Investment management firms managing assets for third parties"
+    },
+    "benefits": {
+      "marketing": "Distinguish from non-compliant competitors",
+      "controls": "Strengthens internal controls and data quality",
+      "global_acceptance": "Portable to prospective clients worldwide"
+    },
+    "fundamentals_of_compliance": {
+      "input_data": "Fair value, accrual accounting, consistent valuation",
+      "calculation_methodology": "Time-weighted returns, subperiod linking, geometric compounding",
+      "composites": "All fee-paying discretionary portfolios in at least one composite",
+      "disclosures": "Provide required disclosures in each presentation",
+      "presentation_and_reporting": "Meet minimum reporting and statistic requirements"
+    },
+    "verification": {
+      "optional_third_party": "Independent verifier attests to firm-wide compliance",
+      "composite_specific": "Additional performance examination on individual composites"
+    },
+    "validation": {
+      "firm_required": "firm_id present",
+      "valid_status": "compliance_status in allowed set"
+    }
+  },
+  "outcomes": {
+    "assess_gips_compliance": {
+      "priority": 1,
+      "description": "Assess GIPS compliance status",
+      "given": [
+        {
+          "field": "firm_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "compliance_status",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "compliant",
+            "non_compliant",
+            "pending_verification"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "gips_assessor"
+        },
+        {
+          "action": "emit_event",
+          "event": "gips.assessed"
+        }
+      ]
+    },
+    "invalid_status": {
+      "priority": 10,
+      "description": "Unsupported compliance status",
+      "given": [
+        {
+          "field": "compliance_status",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "compliant",
+            "non_compliant",
+            "pending_verification"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "gips.assessment_rejected"
+        }
+      ],
+      "error": "GIPS_INVALID_STATUS"
+    }
+  },
+  "errors": [
+    {
+      "code": "GIPS_INVALID_STATUS",
+      "status": 400,
+      "message": "compliance_status must be compliant, non_compliant, or pending_verification"
+    }
+  ],
+  "events": [
+    {
+      "name": "gips.assessed",
+      "payload": [
+        "firm_id",
+        "compliance_status",
+        "gaps",
+        "verification_recommended"
+      ]
+    },
+    {
+      "name": "gips.assessment_rejected",
+      "payload": [
+        "firm_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not claim compliance at composite or product level",
+      "why": "GIPS applies firm-wide; partial compliance claims misrepresent the standard"
+    },
+    {
+      "rule": "Do not selectively present top-performing composite to win mandates",
+      "why": "Cherry-picking defeats the comparability purpose; GIPS requires consistent composite discipline"
+    },
+    {
+      "rule": "Do not treat GIPS verification as certifying individual composite accuracy",
+      "why": "Verification tests firm-wide processes; composite-specific examination is a separate engagement"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/ethics/gips/assess"
+    },
+    "request": {
+      "schema": {
+        "firm_id": "string",
+        "compliance_status": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "firm_id": "string",
+          "compliance_status": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "GIPS_INVALID_STATUS"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "gips-composites-requirements",
+      "type": "required"
+    },
+    {
+      "feature": "standard-iii-duties-to-clients",
+      "type": "recommended"
+    }
+  ]
+}

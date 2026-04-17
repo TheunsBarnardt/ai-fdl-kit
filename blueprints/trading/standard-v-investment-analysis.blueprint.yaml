@@ -1,0 +1,123 @@
+# ============================================================
+# standard-v-investment-analysis — Feature Blueprint
+# Source: CFA LV1 2025 Vol 10 — Module 3, Standard V
+# ============================================================
+
+feature: standard-v-investment-analysis
+version: "1.0.0"
+description: Apply Standard V (Investment Analysis, Recommendations, and Actions) — Diligence & Reasonable Basis, Communication with Clients, and Record Retention — to research and recommendations
+category: trading
+tags: [ethics, standard-v, diligence, communication, record-retention, cfa-level-1]
+aliases:
+  - standard-v-a-diligence
+  - standard-v-b-communication
+  - standard-v-c-record-retention
+  - reasonable-basis-recommendations
+  - research-communication-standard
+
+actors:
+  - id: standard_v_reviewer
+    name: Standard V Reviewer
+    type: human
+
+fields:
+  - name: case_id
+    type: text
+    required: true
+    label: Case identifier
+  - name: substandard
+    type: select
+    required: true
+    label: v_a | v_b | v_c
+
+rules:
+  v_a_diligence_reasonable_basis:
+    rule: "Exercise diligence, independence, thoroughness; have reasonable and adequate basis for recommendations"
+    third_party_research: "Assess quality and independence before relying"
+    group_research: "OK to rely on group opinion even when individual disagrees, provided reasonable basis"
+  v_b_communication_with_clients:
+    distinguish: "Separate fact from opinion in reports"
+    risks_and_limitations: "Disclose significant limitations, basic characteristics, investment process"
+    material_changes: "Prompt communication of process changes"
+  v_c_record_retention:
+    rule: "Maintain records supporting analysis, recommendations, investment action, client communications"
+    typical_duration: "7 years minimum recommended"
+    firm_ownership: "Records belong to firm; take copies only with permission"
+  recommended_procedures:
+    research_policy: "Written policy on reasonable basis standards"
+    review: "Peer review of recommendations"
+    archival: "Systematic records storage and retrieval"
+  validation:
+    case_required: "case_id present"
+    valid_substandard: "substandard in [v_a, v_b, v_c]"
+
+outcomes:
+  review_standard_v:
+    priority: 1
+    description: Review conduct under Standard V
+    given:
+      - field: case_id
+        source: input
+        operator: exists
+      - field: substandard
+        source: input
+        operator: in
+        value: [v_a, v_b, v_c]
+    then:
+      - action: call_service
+        target: standard_v_reviewer
+      - action: emit_event
+        event: standard_v.reviewed
+  invalid_substandard:
+    priority: 10
+    description: Unsupported substandard
+    given:
+      - field: substandard
+        source: input
+        operator: not_in
+        value: [v_a, v_b, v_c]
+    then:
+      - action: emit_event
+        event: standard_v.review_rejected
+    error: STD_V_INVALID_SUBSTANDARD
+
+errors:
+  - code: STD_V_INVALID_SUBSTANDARD
+    status: 400
+    message: substandard must be v_a, v_b, or v_c
+
+events:
+  - name: standard_v.reviewed
+    payload: [case_id, substandard, compliant, recommended_action]
+  - name: standard_v.review_rejected
+    payload: [case_id, reason_code]
+
+anti_patterns:
+  - rule: Do not rely on third-party research without vetting
+    why: "Standard V(A) requires reasonable basis; undocumented reliance fails the diligence test"
+  - rule: Do not blur fact and opinion in research reports
+    why: "Readers interpret unlabeled projections as facts; V(B) requires explicit separation"
+  - rule: Do not delete internal analysis records on portfolio unwind
+    why: "V(C) requires retention of supporting material for a reasonable period — 7 years is standard practice"
+
+api:
+  http:
+    method: POST
+    path: /ethics/standard-v/review
+  request:
+    schema:
+      case_id: string
+      substandard: string
+  response:
+    success:
+      status: 200
+      schema:
+        case_id: string
+        compliant: boolean
+    errors:
+      - status: 400
+        error_code: STD_V_INVALID_SUBSTANDARD
+
+related:
+  - feature: cfa-code-of-ethics
+    type: required

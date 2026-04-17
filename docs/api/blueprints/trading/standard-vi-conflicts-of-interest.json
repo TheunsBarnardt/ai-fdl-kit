@@ -1,0 +1,199 @@
+{
+  "feature": "standard-vi-conflicts-of-interest",
+  "version": "1.0.0",
+  "description": "Apply Standard VI (Conflicts of Interest) — Disclosure of Conflicts, Priority of Transactions, and Referral Fees — to manage real and potential conflicts between clients, employer, and self",
+  "category": "trading",
+  "tags": [
+    "ethics",
+    "standard-vi",
+    "conflicts-of-interest",
+    "priority-of-transactions",
+    "referral-fees",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "standard-vi-a-disclosure",
+    "standard-vi-b-priority-transactions",
+    "standard-vi-c-referral-fees",
+    "conflict-disclosure-standard",
+    "personal-trading-priority",
+    "referral-fee-disclosure"
+  ],
+  "actors": [
+    {
+      "id": "standard_vi_reviewer",
+      "name": "Standard VI Reviewer",
+      "type": "human"
+    }
+  ],
+  "fields": [
+    {
+      "name": "case_id",
+      "type": "text",
+      "required": true,
+      "label": "Case identifier"
+    },
+    {
+      "name": "substandard",
+      "type": "select",
+      "required": true,
+      "label": "vi_a | vi_b | vi_c"
+    }
+  ],
+  "rules": {
+    "vi_a_disclosure_of_conflicts": {
+      "rule": "Full and fair disclosure of all matters that reasonably could impair independence or interfere with duties to clients/employer",
+      "plain_language": "Disclosure must be prominent and understandable"
+    },
+    "vi_b_priority_of_transactions": {
+      "rule": "Investment transactions for clients and employer take priority over personal transactions",
+      "allowed_personal": "After client interests served; avoid front-running",
+      "ipo_restrictions": "Members/candidates typically restricted from new issues"
+    },
+    "vi_c_referral_fees": {
+      "rule": "Disclose to employer, clients, prospective clients all consideration from referrals",
+      "form": "Written disclosure before engagement"
+    },
+    "recommended_procedures": {
+      "compliance_program": "Blackout periods, pre-clearance for personal trades",
+      "disclosure_templates": "Standardised written disclosures with confirmations"
+    },
+    "common_violations": {
+      "undisclosed_ownership": "Analyst holds stock being recommended",
+      "family_accounts": "Personal trade via family account to avoid restrictions",
+      "soft_referral": "Unrecorded kickback for client introduction"
+    },
+    "validation": {
+      "case_required": "case_id present",
+      "valid_substandard": "substandard in [vi_a, vi_b, vi_c]"
+    }
+  },
+  "outcomes": {
+    "review_standard_vi": {
+      "priority": 1,
+      "description": "Review conduct under Standard VI",
+      "given": [
+        {
+          "field": "case_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "substandard",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "vi_a",
+            "vi_b",
+            "vi_c"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "standard_vi_reviewer"
+        },
+        {
+          "action": "emit_event",
+          "event": "standard_vi.reviewed"
+        }
+      ]
+    },
+    "invalid_substandard": {
+      "priority": 10,
+      "description": "Unsupported substandard",
+      "given": [
+        {
+          "field": "substandard",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "vi_a",
+            "vi_b",
+            "vi_c"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "standard_vi.review_rejected"
+        }
+      ],
+      "error": "STD_VI_INVALID_SUBSTANDARD"
+    }
+  },
+  "errors": [
+    {
+      "code": "STD_VI_INVALID_SUBSTANDARD",
+      "status": 400,
+      "message": "substandard must be vi_a, vi_b, or vi_c"
+    }
+  ],
+  "events": [
+    {
+      "name": "standard_vi.reviewed",
+      "payload": [
+        "case_id",
+        "substandard",
+        "compliant",
+        "recommended_action"
+      ]
+    },
+    {
+      "name": "standard_vi.review_rejected",
+      "payload": [
+        "case_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not disclose conflicts in fine-print legalese",
+      "why": "Disclosure must be prominent and understandable; buried disclosure fails VI(A)"
+    },
+    {
+      "rule": "Do not use family accounts to bypass personal trading rules",
+      "why": "Beneficial ownership doctrine treats family trades as personal under VI(B); enforcement routinely lifts the veil"
+    },
+    {
+      "rule": "Do not characterise referral fees as 'gifts' to avoid disclosure",
+      "why": "Form does not override substance; any consideration tied to referrals triggers VI(C)"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/ethics/standard-vi/review"
+    },
+    "request": {
+      "schema": {
+        "case_id": "string",
+        "substandard": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "case_id": "string",
+          "compliant": "boolean"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "STD_VI_INVALID_SUBSTANDARD"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "cfa-code-of-ethics",
+      "type": "required"
+    }
+  ]
+}

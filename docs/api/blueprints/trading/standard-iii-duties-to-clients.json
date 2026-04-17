@@ -1,0 +1,209 @@
+{
+  "feature": "standard-iii-duties-to-clients",
+  "version": "1.0.0",
+  "description": "Apply Standard III (Duties to Clients) — Loyalty Prudence & Care, Fair Dealing, Suitability, Performance Presentation, and Preservation of Confidentiality — to client interactions",
+  "category": "trading",
+  "tags": [
+    "ethics",
+    "standard-iii",
+    "fiduciary",
+    "suitability",
+    "confidentiality",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "standard-iii-a-loyalty",
+    "standard-iii-b-fair-dealing",
+    "standard-iii-c-suitability",
+    "standard-iii-d-performance-presentation",
+    "standard-iii-e-confidentiality",
+    "fiduciary-duty-standard"
+  ],
+  "actors": [
+    {
+      "id": "standard_iii_reviewer",
+      "name": "Standard III Reviewer",
+      "type": "human"
+    }
+  ],
+  "fields": [
+    {
+      "name": "case_id",
+      "type": "text",
+      "required": true,
+      "label": "Case identifier"
+    },
+    {
+      "name": "substandard",
+      "type": "select",
+      "required": true,
+      "label": "iii_a | iii_b | iii_c | iii_d | iii_e"
+    }
+  ],
+  "rules": {
+    "iii_a_loyalty_prudence_care": {
+      "rule": "Act for the benefit of clients; place client interests before employer or personal",
+      "soft_dollars": "Use solely for client benefit; disclose arrangements"
+    },
+    "iii_b_fair_dealing": {
+      "rule": "Deal fairly and objectively with all clients in recommendations, investment action, and advice",
+      "premium_services": "Allowed if disclosed and available to all qualified clients"
+    },
+    "iii_c_suitability": {
+      "requirement": "IPS based investigation of financial situation, objectives, constraints",
+      "ongoing": "Review suitability as circumstances change"
+    },
+    "iii_d_performance_presentation": {
+      "rule": "Fair, accurate, complete presentation of performance",
+      "no_misrepresentation": "Include fees, composite definitions, benchmarks"
+    },
+    "iii_e_preservation_confidentiality": {
+      "rule": "Keep client information confidential unless illegality, law requires, client permits"
+    },
+    "recommended_procedures": {
+      "written_ips": "Maintain updated IPS for each client",
+      "trading_priorities": "Fair allocation of trades across clients",
+      "performance_gips": "Align with GIPS for presentation"
+    },
+    "validation": {
+      "case_required": "case_id present",
+      "valid_substandard": "substandard in [iii_a, iii_b, iii_c, iii_d, iii_e]"
+    }
+  },
+  "outcomes": {
+    "review_standard_iii": {
+      "priority": 1,
+      "description": "Review conduct under Standard III",
+      "given": [
+        {
+          "field": "case_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "substandard",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "iii_a",
+            "iii_b",
+            "iii_c",
+            "iii_d",
+            "iii_e"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "standard_iii_reviewer"
+        },
+        {
+          "action": "emit_event",
+          "event": "standard_iii.reviewed"
+        }
+      ]
+    },
+    "invalid_substandard": {
+      "priority": 10,
+      "description": "Unsupported substandard",
+      "given": [
+        {
+          "field": "substandard",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "iii_a",
+            "iii_b",
+            "iii_c",
+            "iii_d",
+            "iii_e"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "standard_iii.review_rejected"
+        }
+      ],
+      "error": "STD_III_INVALID_SUBSTANDARD"
+    }
+  },
+  "errors": [
+    {
+      "code": "STD_III_INVALID_SUBSTANDARD",
+      "status": 400,
+      "message": "substandard must be iii_a, iii_b, iii_c, iii_d, or iii_e"
+    }
+  ],
+  "events": [
+    {
+      "name": "standard_iii.reviewed",
+      "payload": [
+        "case_id",
+        "substandard",
+        "compliant",
+        "recommended_action"
+      ]
+    },
+    {
+      "name": "standard_iii.review_rejected",
+      "payload": [
+        "case_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not interpret 'best execution' as cheapest only",
+      "why": "III(A) requires total-cost analysis — price, speed, fill rate; rebate-chasing can harm clients"
+    },
+    {
+      "rule": "Do not present composite returns without including terminated accounts",
+      "why": "Omitting terminated (often poor-performing) accounts constitutes misrepresentation under III(D)"
+    },
+    {
+      "rule": "Do not disclose client information to third parties without consent",
+      "why": "III(E) applies beyond employment; confidentiality continues after client relationship ends"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/ethics/standard-iii/review"
+    },
+    "request": {
+      "schema": {
+        "case_id": "string",
+        "substandard": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "case_id": "string",
+          "compliant": "boolean"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "STD_III_INVALID_SUBSTANDARD"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "cfa-code-of-ethics",
+      "type": "required"
+    },
+    {
+      "feature": "investment-policy-statement-ips",
+      "type": "recommended"
+    }
+  ]
+}
