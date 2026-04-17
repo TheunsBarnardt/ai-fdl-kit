@@ -1,0 +1,170 @@
+# ============================================================
+# trade-restrictions-tariffs — Feature Blueprint
+# Source: CFA LV1 2025 Vol 02 — Module 6, p.199-215
+# ============================================================
+
+feature: trade-restrictions-tariffs
+version: "1.0.0"
+description: Model welfare impact of tariffs, quotas, export subsidies, and voluntary export restraints on consumer surplus, producer surplus, government revenue, and deadweight loss
+category: trading
+tags: [economics, international-trade, tariff, quota, export-subsidy, deadweight-loss, cfa-level-1]
+aliases:
+  - tariff-analysis
+  - import-quota
+  - export-subsidy
+  - voluntary-export-restraint
+  - trade-protection
+  - trade-barriers
+
+actors:
+  - id: trade_restriction_engine
+    name: Trade Restriction Engine
+    type: system
+
+fields:
+  - name: scenario_id
+    type: text
+    required: true
+    label: Scenario identifier
+  - name: restriction_type
+    type: select
+    required: true
+    label: tariff | quota | export_subsidy | ver
+  - name: size
+    type: number
+    required: true
+    label: Magnitude (percent or units)
+  - name: country_size
+    type: select
+    required: false
+    label: small | large
+
+rules:
+  tariff:
+    # Source: Vol 2, Module 6, p.200-205
+    mechanism: "Tax on imports raises domestic price to world price + tariff"
+    small_country: "Consumer surplus falls; producer surplus and tariff revenue rise; net deadweight loss"
+    large_country: "Can improve terms of trade enough to offset DWL (optimal tariff)"
+  quota:
+    # Source: Vol 2, Module 6, p.205-208
+    mechanism: "Quantitative limit on imports"
+    effect: "Same domestic price effect as equivalent tariff but rents accrue to licence holders"
+    license_allocation: "Determines whether government or foreign exporters capture the rents"
+  export_subsidy:
+    # Source: Vol 2, Module 6, p.208-210
+    mechanism: "Government pays producers per unit exported"
+    effect: "Domestic price rises toward world + subsidy; consumer surplus falls, producer surplus rises, government pays subsidy, net DWL"
+  voluntary_export_restraint:
+    # Source: Vol 2, Module 6, p.210-212
+    mechanism: "Exporting country voluntarily caps exports"
+    rents: "Accrue to foreign exporters (worse for importing country than tariff)"
+  motivations:
+    protect_infant_industry: "Shelter developing sectors until competitive"
+    national_security: "Food, energy, defence"
+    retaliation: "Response to partner restrictions"
+    revenue: "Historical rationale in developing economies"
+  validation:
+    scenario_required: "scenario_id present"
+    valid_type: "restriction_type in {tariff, quota, export_subsidy, ver}"
+    size_non_negative: "size >= 0"
+
+outcomes:
+  compute_welfare_impact:
+    priority: 1
+    description: Compute CS, PS, revenue, and DWL effects
+    given:
+      - field: scenario_id
+        source: input
+        operator: exists
+      - field: restriction_type
+        source: input
+        operator: in
+        value: [tariff, quota, export_subsidy, ver]
+      - field: size
+        source: input
+        operator: gte
+        value: 0
+    then:
+      - action: call_service
+        target: trade_restriction_engine
+      - action: emit_event
+        event: trade.restriction_analyzed
+  invalid_type:
+    priority: 10
+    description: Unsupported restriction type
+    given:
+      - field: restriction_type
+        source: input
+        operator: not_in
+        value: [tariff, quota, export_subsidy, ver]
+    then:
+      - action: emit_event
+        event: trade.restriction_rejected
+    error: RESTRICT_INVALID_TYPE
+  invalid_size:
+    priority: 11
+    description: Negative magnitude
+    given:
+      - field: size
+        source: input
+        operator: lt
+        value: 0
+    then:
+      - action: emit_event
+        event: trade.restriction_rejected
+    error: RESTRICT_INVALID_SIZE
+
+errors:
+  - code: RESTRICT_INVALID_TYPE
+    status: 400
+    message: restriction_type must be tariff, quota, export_subsidy, or ver
+  - code: RESTRICT_INVALID_SIZE
+    status: 400
+    message: size must be non-negative
+
+events:
+  - name: trade.restriction_analyzed
+    payload: [scenario_id, restriction_type, consumer_surplus_change, producer_surplus_change, revenue, deadweight_loss]
+  - name: trade.restriction_rejected
+    payload: [scenario_id, reason_code]
+
+anti_patterns:
+  - rule: Do not assume tariffs always raise net welfare for a large country
+    why: "Optimal tariff exists only when partners do not retaliate; trade wars destroy the gain"
+  - rule: Do not equate quotas and tariffs without considering rent allocation
+    why: "Quotas often transfer rents to foreign exporters (VER); tariffs keep revenue domestic"
+  - rule: Do not treat export subsidies as free stimulus
+    why: "Fiscal cost plus DWL mean subsidies are generally welfare-reducing outside strategic sectors"
+  - rule: Do not overlook retaliation risk
+    why: "Unilateral restrictions often trigger counter-measures that amplify welfare losses"
+
+api:
+  http:
+    method: POST
+    path: /macro/trade/restriction
+  request:
+    schema:
+      scenario_id: string
+      restriction_type: string
+      size: number
+      country_size: string
+  response:
+    success:
+      status: 200
+      schema:
+        scenario_id: string
+        consumer_surplus_change: number
+        producer_surplus_change: number
+        revenue: number
+        deadweight_loss: number
+    errors:
+      - status: 400
+        error_code: RESTRICT_INVALID_TYPE
+      - status: 400
+        error_code: RESTRICT_INVALID_SIZE
+
+related:
+  - feature: international-trade-framework
+    type: required
+  - feature: trading-blocs-agreements
+    type: recommended

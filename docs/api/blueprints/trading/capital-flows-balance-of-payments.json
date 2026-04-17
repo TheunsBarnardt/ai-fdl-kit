@@ -1,0 +1,251 @@
+{
+  "feature": "capital-flows-balance-of-payments",
+  "version": "1.0.0",
+  "description": "Decompose the balance of payments into current, capital, and financial accounts and analyse how capital flows interact with savings, investment, and the exchange rate",
+  "category": "trading",
+  "tags": [
+    "economics",
+    "macroeconomics",
+    "balance-of-payments",
+    "current-account",
+    "capital-account",
+    "savings-investment",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "balance-of-payments",
+    "current-account",
+    "capital-account",
+    "financial-account",
+    "twin-deficits",
+    "savings-investment-identity"
+  ],
+  "actors": [
+    {
+      "id": "bop_analyst",
+      "name": "Balance of Payments Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "jurisdiction",
+      "type": "text",
+      "required": true,
+      "label": "Country"
+    },
+    {
+      "name": "current_account_pct_gdp",
+      "type": "number",
+      "required": true,
+      "label": "Current account balance as percent of GDP"
+    },
+    {
+      "name": "capital_account_pct_gdp",
+      "type": "number",
+      "required": false,
+      "label": "Capital account balance as percent of GDP"
+    },
+    {
+      "name": "financial_account_pct_gdp",
+      "type": "number",
+      "required": false,
+      "label": "Financial account balance as percent of GDP"
+    },
+    {
+      "name": "reserves_change_pct_gdp",
+      "type": "number",
+      "required": false,
+      "label": "Official reserve asset change"
+    }
+  ],
+  "rules": {
+    "accounts": {
+      "current_account": "Trade in goods/services + primary income (wages, investment income) + secondary income (transfers)",
+      "capital_account": "Capital transfers and non-produced non-financial assets (usually small)",
+      "financial_account": "Direct investment, portfolio investment, other investment, reserves"
+    },
+    "identity": {
+      "formula": "CA + KA + FA = 0 (with reserves and errors & omissions)",
+      "interpretation": "Trade deficit is financed by net foreign asset purchases (FA surplus)"
+    },
+    "savings_investment": {
+      "identity": "CA = S - I (national savings minus investment)",
+      "surplus_country": "S > I -> capital exporter",
+      "deficit_country": "I > S -> capital importer"
+    },
+    "twin_deficits": {
+      "mechanism": "Fiscal deficit (G > T) lowers national savings -> wider CA deficit"
+    },
+    "hot_money_risk": {
+      "characteristic": "Short-term portfolio flows reverse quickly",
+      "vulnerability": "Rising external financing needs increase FX and rates risk"
+    },
+    "applications": {
+      "fx_forecasting": "Persistent CA deficits often weaken currency over medium term",
+      "sovereign_analysis": "Rising external debt + CA deficit -> sovereign risk premium rises",
+      "equity_macro": "Net exporters benefit from global demand; importers from domestic demand"
+    },
+    "validation": {
+      "jurisdiction_required": "jurisdiction present",
+      "bop_reasonable": "|current_account_pct_gdp| <= 50"
+    }
+  },
+  "outcomes": {
+    "assess_external_position": {
+      "priority": 1,
+      "description": "Assess sustainability of external position",
+      "given": [
+        {
+          "field": "jurisdiction",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "current_account_pct_gdp",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "bop_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "bop.position_assessed"
+        }
+      ]
+    },
+    "unsustainable_deficit": {
+      "priority": 2,
+      "description": "Deficit financed by unstable flows",
+      "given": [
+        {
+          "field": "unsustainable_flag",
+          "source": "computed",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "bop.sustainability_warning"
+        }
+      ]
+    },
+    "missing_jurisdiction": {
+      "priority": 10,
+      "description": "Jurisdiction missing",
+      "given": [
+        {
+          "field": "jurisdiction",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "bop.assessment_rejected"
+        }
+      ],
+      "error": "BOP_JURISDICTION_MISSING"
+    }
+  },
+  "errors": [
+    {
+      "code": "BOP_JURISDICTION_MISSING",
+      "status": 400,
+      "message": "jurisdiction is required"
+    }
+  ],
+  "events": [
+    {
+      "name": "bop.position_assessed",
+      "payload": [
+        "assessment_id",
+        "jurisdiction",
+        "current_account",
+        "financing_mix",
+        "sustainability_flag"
+      ]
+    },
+    {
+      "name": "bop.sustainability_warning",
+      "payload": [
+        "assessment_id",
+        "reason"
+      ]
+    },
+    {
+      "name": "bop.assessment_rejected",
+      "payload": [
+        "assessment_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not treat current account deficits as inherently bad",
+      "why": "Emerging economies importing capital for productive investment can grow faster; context matters"
+    },
+    {
+      "rule": "Do not ignore the financing mix",
+      "why": "FDI-financed deficits are far more stable than those financed by short-term portfolio flows"
+    },
+    {
+      "rule": "Do not assume twin deficits always hold",
+      "why": "Private savings changes can offset fiscal deficits (partial Ricardian effect)"
+    },
+    {
+      "rule": "Do not use nominal CA figures across countries without scaling",
+      "why": "CA-to-GDP allows cross-country comparison; nominal levels mislead"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/macro/bop/assess"
+    },
+    "request": {
+      "schema": {
+        "jurisdiction": "string",
+        "current_account_pct_gdp": "number",
+        "capital_account_pct_gdp": "number",
+        "financial_account_pct_gdp": "number",
+        "reserves_change_pct_gdp": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "assessment_id": "string",
+          "financing_mix": "object",
+          "sustainability_flag": "boolean",
+          "external_risk_score": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "BOP_JURISDICTION_MISSING"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "exchange-rate-regimes",
+      "type": "recommended"
+    },
+    {
+      "feature": "fiscal-deficits-debt",
+      "type": "recommended"
+    }
+  ]
+}

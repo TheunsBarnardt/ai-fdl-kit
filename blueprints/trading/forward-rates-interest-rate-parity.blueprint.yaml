@@ -1,0 +1,185 @@
+# ============================================================
+# forward-rates-interest-rate-parity — Feature Blueprint
+# Source: CFA LV1 2025 Vol 02 — Module 8, Forward rates and IRP
+# ============================================================
+
+feature: forward-rates-interest-rate-parity
+version: "1.0.0"
+description: Price FX forward rates using covered interest rate parity, interpret forward points, and evaluate covered vs uncovered IRP implications for carry trades
+category: trading
+tags: [economics, foreign-exchange, forward-rate, interest-rate-parity, carry-trade, covered-irp, cfa-level-1]
+aliases:
+  - covered-interest-rate-parity
+  - uncovered-interest-rate-parity
+  - fx-forward-irp
+  - forward-points
+  - carry-trade-irp
+  - irp-no-arbitrage
+
+actors:
+  - id: fx_forward_engine
+    name: FX Forward Engine
+    type: system
+
+fields:
+  - name: pair
+    type: text
+    required: true
+    label: Currency pair (base/quote)
+  - name: spot
+    type: number
+    required: true
+    label: Spot exchange rate
+  - name: base_rate
+    type: number
+    required: true
+    label: Base currency interest rate (decimal)
+  - name: quote_rate
+    type: number
+    required: true
+    label: Quote currency interest rate (decimal)
+  - name: tenor_days
+    type: number
+    required: true
+    label: Tenor in days
+
+rules:
+  covered_interest_rate_parity:
+    # Source: Vol 2, Module 8
+    formula: "F = S * (1 + r_quote * t/360) / (1 + r_base * t/360)"
+    interpretation: "No-arbitrage forward rate such that hedged returns equalise across currencies"
+  forward_premium_discount:
+    premium: "Base currency forward > spot when base interest rate < quote rate"
+    discount: "Base currency forward < spot when base rate > quote rate"
+  forward_points:
+    definition: "F - S, typically quoted in pips"
+    scaling: "Points scale with tenor and rate differential"
+  uncovered_interest_rate_parity:
+    claim: "Expected spot = forward -> high-yield currency expected to depreciate"
+    evidence: "Empirically weak at short horizons — the forward puzzle / carry premium"
+  carry_trade:
+    mechanism: "Borrow low-yield, invest high-yield, absorb FX risk"
+    risk: "Crashes during risk-off episodes; skewed return distribution"
+  day_count:
+    money_market: "Actual/360 for most currencies; Actual/365 for GBP, AUD, NZD"
+  validation:
+    tenor_positive: "tenor_days > 0"
+    spot_positive: "spot > 0"
+    pair_required: "pair present"
+
+outcomes:
+  compute_forward:
+    priority: 1
+    description: Compute arbitrage-free forward rate
+    given:
+      - field: pair
+        source: input
+        operator: exists
+      - field: spot
+        source: input
+        operator: gt
+        value: 0
+      - field: tenor_days
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: fx_forward_engine
+      - action: emit_event
+        event: fx.forward_computed
+  invalid_tenor:
+    priority: 10
+    description: Non-positive tenor
+    given:
+      - field: tenor_days
+        source: input
+        operator: lte
+        value: 0
+    then:
+      - action: emit_event
+        event: fx.forward_rejected
+    error: FWD_INVALID_TENOR
+  invalid_spot:
+    priority: 11
+    description: Non-positive spot
+    given:
+      - field: spot
+        source: input
+        operator: lte
+        value: 0
+    then:
+      - action: emit_event
+        event: fx.forward_rejected
+    error: FWD_INVALID_SPOT
+  missing_pair:
+    priority: 12
+    description: Pair missing
+    given:
+      - field: pair
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: fx.forward_rejected
+    error: FWD_PAIR_MISSING
+
+errors:
+  - code: FWD_INVALID_TENOR
+    status: 400
+    message: tenor_days must be positive
+  - code: FWD_INVALID_SPOT
+    status: 400
+    message: spot must be positive
+  - code: FWD_PAIR_MISSING
+    status: 400
+    message: pair is required
+
+events:
+  - name: fx.forward_computed
+    payload: [forward_id, pair, spot, forward, forward_points, premium_or_discount]
+  - name: fx.forward_rejected
+    payload: [forward_id, reason_code]
+
+anti_patterns:
+  - rule: Do not conflate uncovered IRP with covered IRP
+    why: "Covered IRP is a no-arbitrage identity enforced by markets; uncovered IRP is an expectations hypothesis, empirically weak"
+  - rule: Do not ignore day-count conventions
+    why: "Mixing Act/360 with Act/365 mis-prices forwards for GBP, AUD, NZD and biases carry calculations"
+  - rule: Do not assume carry-trade returns are mean-reverting
+    why: "Crash risk means realised Sharpe hides tail losses; size positions with regime sensitivity"
+  - rule: Do not apply IRP across currencies with capital controls
+    why: "Controls break no-arbitrage; onshore vs offshore forwards can diverge substantially"
+
+api:
+  http:
+    method: POST
+    path: /fx/forward
+  request:
+    schema:
+      pair: string
+      spot: number
+      base_rate: number
+      quote_rate: number
+      tenor_days: number
+  response:
+    success:
+      status: 200
+      schema:
+        forward_id: string
+        forward: number
+        forward_points: number
+        premium_or_discount: string
+    errors:
+      - status: 400
+        error_code: FWD_INVALID_TENOR
+      - status: 400
+        error_code: FWD_INVALID_SPOT
+      - status: 400
+        error_code: FWD_PAIR_MISSING
+
+related:
+  - feature: fx-quotes-cross-rates
+    type: required
+  - feature: exchange-rate-regimes
+    type: recommended

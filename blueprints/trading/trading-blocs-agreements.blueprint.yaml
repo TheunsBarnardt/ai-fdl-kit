@@ -1,0 +1,152 @@
+# ============================================================
+# trading-blocs-agreements — Feature Blueprint
+# Source: CFA LV1 2025 Vol 02 — Module 6, p.215-230
+# ============================================================
+
+feature: trading-blocs-agreements
+version: "1.0.0"
+description: Classify trading blocs and free trade agreements by depth of integration — FTA, customs union, common market, economic union, monetary union — and assess trade creation vs diversion
+category: trading
+tags: [economics, trading-blocs, free-trade-agreement, customs-union, common-market, monetary-union, cfa-level-1]
+aliases:
+  - free-trade-agreement
+  - customs-union
+  - common-market
+  - economic-union
+  - monetary-union
+  - regional-integration
+
+actors:
+  - id: bloc_analyst
+    name: Trading Bloc Analyst
+    type: system
+
+fields:
+  - name: bloc_id
+    type: text
+    required: true
+    label: Bloc or agreement identifier
+  - name: integration_level
+    type: select
+    required: true
+    label: fta | customs_union | common_market | economic_union | monetary_union
+
+rules:
+  levels_of_integration:
+    # Source: Vol 2, Module 6, p.216-220
+    fta: "Eliminate internal tariffs; members keep own external tariffs"
+    customs_union: "FTA + common external tariff"
+    common_market: "Customs union + free movement of labour and capital"
+    economic_union: "Common market + harmonised economic policies"
+    monetary_union: "Economic union + common currency"
+  trade_effects:
+    # Source: Vol 2, Module 6, p.220-225
+    trade_creation: "Shift from high-cost domestic to low-cost member producer — welfare gain"
+    trade_diversion: "Shift from low-cost non-member to higher-cost member producer — welfare loss"
+    net_effect: "Welfare impact depends on relative magnitudes"
+  examples:
+    eu: "Monetary union (eurozone) + common market for non-euro members"
+    nafta_usmca: "Free trade agreement"
+    mercosur: "Customs union with internal exceptions"
+    asean: "Free trade agreement with deepening services coverage"
+  applications:
+    equity_sector_exposure: "Manufacturers gain market access but face intra-bloc competition"
+    fx_analysis: "Monetary unions eliminate intra-bloc FX but concentrate regional risk"
+    supply_chain: "Common rules-of-origin reshape production networks"
+  validation:
+    bloc_required: "bloc_id present"
+    valid_integration: "integration_level in allowed set"
+
+outcomes:
+  classify_bloc:
+    priority: 1
+    description: Assign integration level and assess trade creation / diversion
+    given:
+      - field: bloc_id
+        source: input
+        operator: exists
+      - field: integration_level
+        source: input
+        operator: in
+        value: [fta, customs_union, common_market, economic_union, monetary_union]
+    then:
+      - action: call_service
+        target: bloc_analyst
+      - action: emit_event
+        event: bloc.classified
+  invalid_level:
+    priority: 10
+    description: Unsupported integration level
+    given:
+      - field: integration_level
+        source: input
+        operator: not_in
+        value: [fta, customs_union, common_market, economic_union, monetary_union]
+    then:
+      - action: emit_event
+        event: bloc.classification_rejected
+    error: BLOC_INVALID_LEVEL
+  missing_bloc:
+    priority: 11
+    description: Bloc id missing
+    given:
+      - field: bloc_id
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: bloc.classification_rejected
+    error: BLOC_ID_MISSING
+
+errors:
+  - code: BLOC_INVALID_LEVEL
+    status: 400
+    message: integration_level must be fta, customs_union, common_market, economic_union, or monetary_union
+  - code: BLOC_ID_MISSING
+    status: 400
+    message: bloc_id is required
+
+events:
+  - name: bloc.classified
+    payload: [classification_id, bloc_id, integration_level, trade_creation, trade_diversion]
+  - name: bloc.classification_rejected
+    payload: [classification_id, reason_code]
+
+anti_patterns:
+  - rule: Do not treat monetary union as only upside
+    why: "Members lose independent monetary policy and face asymmetric shock vulnerability (e.g., eurozone periphery 2010-12)"
+  - rule: Do not assume trade creation dominates diversion
+    why: "Preferential arrangements can divert trade from efficient non-members; empirical effects vary"
+  - rule: Do not ignore rules-of-origin complexity
+    why: "Administrative costs of certifying origin can offset the tariff advantage for small producers"
+  - rule: Do not extrapolate EU experience to every union
+    why: "EU-style institutions took decades; shallow blocs often stall before deeper integration"
+
+api:
+  http:
+    method: POST
+    path: /macro/trade/bloc
+  request:
+    schema:
+      bloc_id: string
+      integration_level: string
+  response:
+    success:
+      status: 200
+      schema:
+        classification_id: string
+        integration_level: string
+        trade_creation: number
+        trade_diversion: number
+        net_welfare: number
+    errors:
+      - status: 400
+        error_code: BLOC_INVALID_LEVEL
+      - status: 400
+        error_code: BLOC_ID_MISSING
+
+related:
+  - feature: international-trade-framework
+    type: required
+  - feature: trade-restrictions-tariffs
+    type: recommended

@@ -1,0 +1,284 @@
+{
+  "feature": "geopolitical-risk-types",
+  "version": "1.0.0",
+  "description": "Categorize geopolitical risk by velocity (event, exogenous, thematic) and assess its investment impact via likelihood, velocity, and portfolio effect",
+  "category": "trading",
+  "tags": [
+    "economics",
+    "geopolitics",
+    "risk-analysis",
+    "event-risk",
+    "exogenous-risk",
+    "thematic-risk",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "geopolitical-risk",
+    "event-risk",
+    "exogenous-shock",
+    "thematic-risk",
+    "geopolitical-risk-velocity",
+    "portfolio-geopolitical-risk"
+  ],
+  "actors": [
+    {
+      "id": "geo_risk_analyst",
+      "name": "Geopolitical Risk Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "scenario_id",
+      "type": "text",
+      "required": true,
+      "label": "Risk scenario identifier"
+    },
+    {
+      "name": "risk_type",
+      "type": "select",
+      "required": true,
+      "label": "event | exogenous | thematic"
+    },
+    {
+      "name": "likelihood",
+      "type": "number",
+      "required": false,
+      "label": "Probability (0 to 1)"
+    },
+    {
+      "name": "velocity",
+      "type": "select",
+      "required": false,
+      "label": "high | medium | low"
+    },
+    {
+      "name": "portfolio_impact",
+      "type": "json",
+      "required": false,
+      "label": "Expected P&L impact across asset classes"
+    }
+  ],
+  "rules": {
+    "risk_types": {
+      "event_risk": "Discrete, scheduled events — elections, referenda, summits",
+      "exogenous_risk": "Sudden unexpected shocks — war, coup, terror attack, natural disaster",
+      "thematic_risk": "Slow-building structural shifts — climate, demographics, deglobalization"
+    },
+    "assessment_dimensions": {
+      "likelihood": "Probability the risk materialises",
+      "velocity": "Speed with which it affects markets",
+      "breadth": "How broadly it transmits (local, regional, global)",
+      "persistence": "How long the impact lasts"
+    },
+    "manifestations": {
+      "direct": "Asset price moves, flight to quality, FX gaps",
+      "indirect": "Supply chain disruption, input cost shocks, regulatory change",
+      "correlation_spike": "Risk assets reprice together during crises"
+    },
+    "investment_response": {
+      "hedges": "Options, CDS, safe-haven FX, commodity overlays",
+      "diversification": "Multi-region, multi-sector exposure",
+      "liquidity_buffer": "Maintain cash for redeployment"
+    },
+    "validation": {
+      "valid_risk_type": "risk_type in {event, exogenous, thematic}",
+      "valid_likelihood": "0 <= likelihood <= 1 when provided"
+    }
+  },
+  "outcomes": {
+    "score_risk": {
+      "priority": 1,
+      "description": "Classify risk and assign portfolio actions",
+      "given": [
+        {
+          "field": "scenario_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "risk_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "event",
+            "exogenous",
+            "thematic"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "geo_risk_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "geopolitics.risk_scored"
+        }
+      ]
+    },
+    "high_impact_warning": {
+      "priority": 2,
+      "description": "Flag high likelihood + high velocity risks",
+      "given": [
+        {
+          "field": "risk_flag",
+          "source": "computed",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "geopolitics.risk_warning"
+        }
+      ]
+    },
+    "invalid_type": {
+      "priority": 10,
+      "description": "Unsupported risk type",
+      "given": [
+        {
+          "field": "risk_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "event",
+            "exogenous",
+            "thematic"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "geopolitics.risk_rejected"
+        }
+      ],
+      "error": "GEO_RISK_INVALID_TYPE"
+    },
+    "missing_scenario": {
+      "priority": 11,
+      "description": "Scenario missing",
+      "given": [
+        {
+          "field": "scenario_id",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "geopolitics.risk_rejected"
+        }
+      ],
+      "error": "GEO_RISK_SCENARIO_MISSING"
+    }
+  },
+  "errors": [
+    {
+      "code": "GEO_RISK_INVALID_TYPE",
+      "status": 400,
+      "message": "risk_type must be event, exogenous, or thematic"
+    },
+    {
+      "code": "GEO_RISK_SCENARIO_MISSING",
+      "status": 400,
+      "message": "scenario_id is required"
+    }
+  ],
+  "events": [
+    {
+      "name": "geopolitics.risk_scored",
+      "payload": [
+        "score_id",
+        "risk_type",
+        "likelihood",
+        "velocity",
+        "recommended_action"
+      ]
+    },
+    {
+      "name": "geopolitics.risk_warning",
+      "payload": [
+        "score_id",
+        "reason",
+        "suggested_hedges"
+      ]
+    },
+    {
+      "name": "geopolitics.risk_rejected",
+      "payload": [
+        "score_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not hedge every thematic risk",
+      "why": "Thematic risks unfold over years; continuous hedging bleeds carry without protection"
+    },
+    {
+      "rule": "Do not equate likelihood with impact",
+      "why": "High-likelihood / low-impact events do not justify the same response as tail-risk scenarios"
+    },
+    {
+      "rule": "Do not treat event risk as priced just because it is scheduled",
+      "why": "Even scheduled events (elections) surprise markets; implied vol may not fully price outcome"
+    },
+    {
+      "rule": "Do not assume past geopolitical correlations hold",
+      "why": "Regimes shift — sanctions, reserve composition, and trade patterns can invalidate prior beta estimates"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/macro/geopolitics/risk"
+    },
+    "request": {
+      "schema": {
+        "scenario_id": "string",
+        "risk_type": "string",
+        "likelihood": "number",
+        "velocity": "string",
+        "portfolio_impact": "object"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "score_id": "string",
+          "composite_score": "number",
+          "recommended_action": "string",
+          "suggested_hedges": "array"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "GEO_RISK_INVALID_TYPE"
+        },
+        {
+          "status": 400,
+          "error_code": "GEO_RISK_SCENARIO_MISSING"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "geopolitical-analysis-framework",
+      "type": "required"
+    },
+    {
+      "feature": "international-trade-framework",
+      "type": "recommended"
+    }
+  ]
+}

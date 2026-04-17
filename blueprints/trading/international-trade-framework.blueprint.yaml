@@ -1,0 +1,172 @@
+# ============================================================
+# international-trade-framework — Feature Blueprint
+# Source: CFA LV1 2025 Vol 02 — Module 6, p.195-210
+# ============================================================
+
+feature: international-trade-framework
+version: "1.0.0"
+description: Evaluate benefits and costs of international trade using absolute advantage, Ricardian comparative advantage, and Heckscher-Ohlin factor endowments
+category: trading
+tags: [economics, international-trade, comparative-advantage, ricardian, heckscher-ohlin, trade-theory, cfa-level-1]
+aliases:
+  - trade-theory
+  - comparative-advantage
+  - absolute-advantage
+  - ricardian-trade
+  - heckscher-ohlin
+  - factor-endowments
+
+actors:
+  - id: trade_analyst
+    name: International Trade Analyst
+    type: system
+
+fields:
+  - name: scenario_id
+    type: text
+    required: true
+    label: Trade scenario identifier
+  - name: model
+    type: select
+    required: true
+    label: ricardian | heckscher_ohlin | absolute
+  - name: country_a_inputs
+    type: json
+    required: false
+    label: Labour or capital productivity for country A
+  - name: country_b_inputs
+    type: json
+    required: false
+    label: Labour or capital productivity for country B
+
+rules:
+  benefits_of_trade:
+    # Source: Vol 2, Module 6, p.196-198
+    - "Gains from specialization"
+    - "Greater variety and lower prices"
+    - "Economies of scale"
+    - "Faster technology diffusion"
+    - "Higher total output and consumption"
+  costs_of_trade:
+    - "Job displacement in uncompetitive sectors"
+    - "Income inequality shifts"
+    - "Terms-of-trade losses for small economies"
+    - "Dependency on foreign supply chains"
+  absolute_advantage:
+    # Source: Vol 2, Module 6, p.198-200
+    concept: "Produce a good using fewer inputs than another country"
+    limitation: "Absolute advantage is not necessary for beneficial trade"
+  ricardian_model:
+    # Source: Vol 2, Module 6, p.200-203
+    assumption: "Labour is the only factor; constant returns to scale"
+    conclusion: "Countries should specialise where opportunity cost is lowest"
+    gains: "Both countries consume beyond their PPF by trading"
+  heckscher_ohlin_model:
+    # Source: Vol 2, Module 6, p.203-206
+    factors: "Labour and capital"
+    conclusion: "Countries export goods that intensively use their abundant factor"
+    distributional_impact: "Stolper-Samuelson — abundant factor gains, scarce factor loses"
+  applications:
+    equity_sector_analysis: "Capital-abundant economies export capital-intensive goods"
+    currency_analysis: "Trade balance flows drive FX over medium horizons"
+    supply_chain_risk: "Reshoring / friend-shoring alters comparative advantage"
+  validation:
+    scenario_required: "scenario_id present"
+    valid_model: "model in {ricardian, heckscher_ohlin, absolute}"
+
+outcomes:
+  analyze_trade_scenario:
+    priority: 1
+    description: Apply trade model to the scenario
+    given:
+      - field: scenario_id
+        source: input
+        operator: exists
+      - field: model
+        source: input
+        operator: in
+        value: [ricardian, heckscher_ohlin, absolute]
+    then:
+      - action: call_service
+        target: trade_analyst
+      - action: emit_event
+        event: trade.scenario_analyzed
+  invalid_model:
+    priority: 10
+    description: Unsupported trade model
+    given:
+      - field: model
+        source: input
+        operator: not_in
+        value: [ricardian, heckscher_ohlin, absolute]
+    then:
+      - action: emit_event
+        event: trade.scenario_rejected
+    error: TRADE_INVALID_MODEL
+  missing_scenario:
+    priority: 11
+    description: Scenario missing
+    given:
+      - field: scenario_id
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: trade.scenario_rejected
+    error: TRADE_SCENARIO_MISSING
+
+errors:
+  - code: TRADE_INVALID_MODEL
+    status: 400
+    message: model must be ricardian, heckscher_ohlin, or absolute
+  - code: TRADE_SCENARIO_MISSING
+    status: 400
+    message: scenario_id is required
+
+events:
+  - name: trade.scenario_analyzed
+    payload: [scenario_id, model, specialization, gains_from_trade]
+  - name: trade.scenario_rejected
+    payload: [scenario_id, reason_code]
+
+anti_patterns:
+  - rule: Do not require absolute advantage for trade gains
+    why: "Ricardo showed that comparative advantage alone suffices; specialising by opportunity cost raises welfare"
+  - rule: Do not ignore distributional effects
+    why: "Aggregate gains mask winners and losers; Stolper-Samuelson predicts scarce-factor losses"
+  - rule: Do not assume factor endowments are static
+    why: "Human capital, technology, and capital stock evolve; long-horizon models must update inputs"
+  - rule: Do not apply frictionless trade models to policy-constrained flows
+    why: "Tariffs, quotas, and subsidies distort outcomes; use augmented models for real-world analysis"
+
+api:
+  http:
+    method: POST
+    path: /macro/trade/analyze
+  request:
+    schema:
+      scenario_id: string
+      model: string
+      country_a_inputs: object
+      country_b_inputs: object
+  response:
+    success:
+      status: 200
+      schema:
+        scenario_id: string
+        specialization_pattern: object
+        gains_from_trade: number
+        terms_of_trade: number
+    errors:
+      - status: 400
+        error_code: TRADE_INVALID_MODEL
+      - status: 400
+        error_code: TRADE_SCENARIO_MISSING
+
+related:
+  - feature: trade-restrictions-tariffs
+    type: recommended
+  - feature: trading-blocs-agreements
+    type: recommended
+  - feature: geopolitical-risk-types
+    type: recommended

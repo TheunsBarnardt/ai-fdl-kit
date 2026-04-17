@@ -1,0 +1,168 @@
+# ============================================================
+# fx-quotes-cross-rates — Feature Blueprint
+# Source: CFA LV1 2025 Vol 02 — Module 8, FX quotes and cross rates
+# ============================================================
+
+feature: fx-quotes-cross-rates
+version: "1.0.0"
+description: Interpret direct and indirect FX quotes, convert between base/quote currencies, compute cross rates, and apply bid-ask spreads to client-side execution
+category: trading
+tags: [economics, foreign-exchange, fx-quote, cross-rate, bid-ask, spot-rate, cfa-level-1]
+aliases:
+  - fx-quote-conventions
+  - direct-quote
+  - indirect-quote
+  - cross-rate
+  - bid-ask-spread
+  - spot-fx
+
+actors:
+  - id: fx_pricing_engine
+    name: FX Pricing Engine
+    type: system
+
+fields:
+  - name: pair
+    type: text
+    required: true
+    label: Currency pair (e.g., EUR/USD)
+  - name: bid
+    type: number
+    required: true
+    label: Market bid price
+  - name: ask
+    type: number
+    required: true
+    label: Market ask price
+  - name: notional
+    type: number
+    required: false
+    label: Trade notional in base currency
+
+rules:
+  quote_conventions:
+    pair_notation: "base/quote — 1 unit of base currency expressed in quote currency"
+    direct_quote: "Domestic currency per unit of foreign (e.g., USD per EUR for a US investor)"
+    indirect_quote: "Foreign currency per unit of domestic"
+  bid_ask_mechanics:
+    bid: "Dealer buys base at bid (client sells base at bid)"
+    ask: "Dealer sells base at ask (client buys base at ask)"
+    spread: "ask - bid; wider for EM, illiquid pairs, volatile conditions"
+    client_side: "Client always transacts at the worse side of the spread"
+  cross_rate_formula:
+    # Cross rate for A/C via common currency B
+    via_common_currency: "A/C = A/B * B/C"
+    inverse: "C/A = 1 / (A/B * B/C)"
+  cross_with_bid_ask:
+    # When using bid/ask quotes, take the worse side
+    calculation: "Cross bid = bid(A/B) * bid(B/C); cross ask = ask(A/B) * ask(B/C)"
+  triangular_arbitrage:
+    opportunity: "If market cross != implied cross beyond spread, arbitrage exists"
+  validation:
+    pair_required: "pair present"
+    valid_prices: "0 < bid <= ask"
+
+outcomes:
+  compute_cross_rate:
+    priority: 1
+    description: Produce bid/ask quotes for client execution
+    given:
+      - field: pair
+        source: input
+        operator: exists
+      - field: bid
+        source: input
+        operator: gt
+        value: 0
+      - field: ask
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: fx_pricing_engine
+      - action: emit_event
+        event: fx.quote_computed
+  invalid_prices:
+    priority: 10
+    description: Bid/ask inconsistent
+    given:
+      - any:
+          - field: bid
+            source: input
+            operator: lte
+            value: 0
+          - field: ask
+            source: input
+            operator: lte
+            value: 0
+    then:
+      - action: emit_event
+        event: fx.quote_rejected
+    error: FX_INVALID_PRICE
+  missing_pair:
+    priority: 11
+    description: Currency pair missing
+    given:
+      - field: pair
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: fx.quote_rejected
+    error: FX_PAIR_MISSING
+
+errors:
+  - code: FX_INVALID_PRICE
+    status: 400
+    message: bid and ask must be positive
+  - code: FX_PAIR_MISSING
+    status: 400
+    message: pair is required
+
+events:
+  - name: fx.quote_computed
+    payload: [quote_id, pair, bid, ask, mid, spread_bps]
+  - name: fx.quote_rejected
+    payload: [quote_id, reason_code]
+
+anti_patterns:
+  - rule: Do not use midpoint for executable pricing
+    why: "Clients trade at bid or ask, not mid; P&L estimates using mid understate true cost"
+  - rule: Do not invert a quote by flipping bid and ask directly
+    why: "The inverse pair reverses which side the client trades; invert and swap sides: 1/ask becomes new bid"
+  - rule: Do not apply cross-rate math to quotes with different quote conventions
+    why: "Mixing direct and indirect notations produces incorrect cross rates; standardise first"
+  - rule: Do not ignore widening spreads around data releases
+    why: "Liquidity providers widen quotes around NFP/CPI; stress-test execution costs under realistic spreads"
+
+api:
+  http:
+    method: POST
+    path: /fx/quote
+  request:
+    schema:
+      pair: string
+      bid: number
+      ask: number
+      notional: number
+  response:
+    success:
+      status: 200
+      schema:
+        quote_id: string
+        bid: number
+        ask: number
+        mid: number
+        spread_bps: number
+    errors:
+      - status: 400
+        error_code: FX_INVALID_PRICE
+      - status: 400
+        error_code: FX_PAIR_MISSING
+
+related:
+  - feature: forward-rates-interest-rate-parity
+    type: recommended
+  - feature: exchange-rate-regimes
+    type: recommended

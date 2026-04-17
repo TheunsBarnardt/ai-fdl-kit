@@ -1,0 +1,151 @@
+# ============================================================
+# exchange-rate-regimes — Feature Blueprint
+# Source: CFA LV1 2025 Vol 02 — Module 7, FX regimes
+# ============================================================
+
+feature: exchange-rate-regimes
+version: "1.0.0"
+description: Classify FX regimes along the IMF spectrum — dollarization, currency board, fixed peg, crawling peg, managed float, free float — and trace their monetary policy implications
+category: trading
+tags: [economics, foreign-exchange, exchange-rate-regime, currency-board, fixed-peg, floating-rate, cfa-level-1]
+aliases:
+  - fx-regime
+  - currency-regime
+  - fixed-exchange-rate
+  - floating-exchange-rate
+  - currency-board
+  - crawling-peg
+
+actors:
+  - id: fx_regime_analyst
+    name: FX Regime Analyst
+    type: system
+
+fields:
+  - name: jurisdiction
+    type: text
+    required: true
+    label: Country
+  - name: regime
+    type: select
+    required: true
+    label: dollarization | monetary_union | currency_board | fixed_peg | crawling_peg | managed_float | free_float
+
+rules:
+  regime_spectrum:
+    # Ordered most rigid -> most flexible
+    dollarization: "Foreign currency is legal tender — no domestic monetary policy"
+    monetary_union: "Shared currency with other members (e.g., euro)"
+    currency_board: "Domestic currency backed 1:1 by foreign reserves at a fixed rate"
+    fixed_peg: "Central bank pegs to another currency or basket with narrow band"
+    crawling_peg: "Peg that adjusts on a pre-announced schedule"
+    managed_float: "Floats but central bank intervenes to smooth volatility"
+    free_float: "Market-determined rate; minimal intervention"
+  trilemma:
+    # Impossible trinity
+    statement: "A country cannot simultaneously have fixed FX, free capital mobility, and independent monetary policy"
+    implication: "Regime choice trades off one of the three"
+  advantages_disadvantages:
+    fixed_adv: "Price stability, import-discipline, anchor for inflation expectations"
+    fixed_disadv: "Surrenders monetary independence; vulnerable to speculative attack"
+    float_adv: "Buffer for shocks, retains monetary independence"
+    float_disadv: "Volatility, imported inflation via depreciation"
+  applications:
+    emerging_markets: "Often managed floats with occasional interventions"
+    crisis_dynamics: "Fixed regimes can break under capital flight (e.g., GBP 1992, Thai baht 1997)"
+  validation:
+    jurisdiction_required: "jurisdiction present"
+    valid_regime: "regime in allowed set"
+
+outcomes:
+  classify_regime:
+    priority: 1
+    description: Map regime to monetary policy implications
+    given:
+      - field: jurisdiction
+        source: input
+        operator: exists
+      - field: regime
+        source: input
+        operator: in
+        value: [dollarization, monetary_union, currency_board, fixed_peg, crawling_peg, managed_float, free_float]
+    then:
+      - action: call_service
+        target: fx_regime_analyst
+      - action: emit_event
+        event: fx.regime_classified
+  invalid_regime:
+    priority: 10
+    description: Unsupported regime
+    given:
+      - field: regime
+        source: input
+        operator: not_in
+        value: [dollarization, monetary_union, currency_board, fixed_peg, crawling_peg, managed_float, free_float]
+    then:
+      - action: emit_event
+        event: fx.regime_rejected
+    error: FX_INVALID_REGIME
+  missing_jurisdiction:
+    priority: 11
+    description: Jurisdiction missing
+    given:
+      - field: jurisdiction
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: fx.regime_rejected
+    error: FX_JURISDICTION_MISSING
+
+errors:
+  - code: FX_INVALID_REGIME
+    status: 400
+    message: regime must be a valid IMF exchange rate regime
+  - code: FX_JURISDICTION_MISSING
+    status: 400
+    message: jurisdiction is required
+
+events:
+  - name: fx.regime_classified
+    payload: [classification_id, jurisdiction, regime, monetary_independence, fx_flexibility]
+  - name: fx.regime_rejected
+    payload: [classification_id, reason_code]
+
+anti_patterns:
+  - rule: Do not assume a peg is permanent
+    why: "Pegs break under persistent imbalances; cost of defending can exceed benefits"
+  - rule: Do not treat managed float interventions as transparent
+    why: "Central banks rarely disclose intervention thresholds; positioning must tolerate ambiguity"
+  - rule: Do not ignore the trilemma
+    why: "Policy choices that ignore the impossible trinity trigger crises; analyse regime consistency"
+  - rule: Do not apply free-float FX models to pegged economies
+    why: "Volatility compression under a peg biases risk metrics; regime shifts need stress tests"
+
+api:
+  http:
+    method: POST
+    path: /macro/fx/regime
+  request:
+    schema:
+      jurisdiction: string
+      regime: string
+  response:
+    success:
+      status: 200
+      schema:
+        classification_id: string
+        regime: string
+        monetary_independence: string
+        fx_flexibility: string
+    errors:
+      - status: 400
+        error_code: FX_INVALID_REGIME
+      - status: 400
+        error_code: FX_JURISDICTION_MISSING
+
+related:
+  - feature: capital-flows-balance-of-payments
+    type: recommended
+  - feature: monetary-policy-framework
+    type: recommended

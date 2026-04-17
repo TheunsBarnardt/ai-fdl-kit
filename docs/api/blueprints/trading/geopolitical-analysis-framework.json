@@ -1,0 +1,264 @@
+{
+  "feature": "geopolitical-analysis-framework",
+  "version": "1.0.0",
+  "description": "Classify state and non-state actors along cooperation/competition and globalization/nationalism axes to frame geopolitical analysis of investment impacts",
+  "category": "trading",
+  "tags": [
+    "economics",
+    "geopolitics",
+    "state-actors",
+    "globalization",
+    "nationalism",
+    "cooperation",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "geopolitics-framework",
+    "state-non-state-actors",
+    "cooperation-competition",
+    "globalization-nationalism",
+    "geopolitical-archetypes",
+    "geopolitical-analysis"
+  ],
+  "actors": [
+    {
+      "id": "geopolitics_analyst",
+      "name": "Geopolitics Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "country_id",
+      "type": "text",
+      "required": true,
+      "label": "Country / actor identifier"
+    },
+    {
+      "name": "cooperation_axis",
+      "type": "select",
+      "required": true,
+      "label": "cooperation | competition"
+    },
+    {
+      "name": "openness_axis",
+      "type": "select",
+      "required": true,
+      "label": "globalization | nationalism"
+    }
+  ],
+  "rules": {
+    "actor_types": {
+      "state_actors": "Sovereign governments setting foreign, trade, and security policy",
+      "non_state_actors": "Multinationals, NGOs, supranationals, armed groups, individuals with global influence"
+    },
+    "cooperation_vs_competition": {
+      "cooperation": "Countries align on rules, trade, standards — lowers transaction costs",
+      "competition": "Countries pursue conflicting objectives — raises risk premia"
+    },
+    "globalization_vs_nationalism": {
+      "globalization": "Open flows of goods, capital, labour, data across borders",
+      "nationalism": "Priority on domestic interests, protectionism, migration limits"
+    },
+    "four_archetypes": {
+      "globalization_cooperation": "Multilateralism — WTO, EU single market style",
+      "globalization_competition": "Open rivalry — race for standards, economic statecraft",
+      "nationalism_cooperation": "Regional blocs with inward focus — e.g., selective alliances",
+      "nationalism_competition": "Autarky / confrontation — trade wars, sanctions, deglobalization"
+    },
+    "tools_of_geopolitics": {
+      "national_security": "Military, intelligence, cyber",
+      "economic": "Sanctions, tariffs, export controls, capital controls",
+      "financial": "SWIFT access, reserve currency, IMF / World Bank"
+    },
+    "validation": {
+      "country_required": "country_id present",
+      "valid_axes": "both axes specified from allowed set"
+    }
+  },
+  "outcomes": {
+    "classify_actor": {
+      "priority": 1,
+      "description": "Place actor in the four-quadrant framework",
+      "given": [
+        {
+          "field": "country_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "cooperation_axis",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "cooperation",
+            "competition"
+          ]
+        },
+        {
+          "field": "openness_axis",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "globalization",
+            "nationalism"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "geopolitics_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "geopolitics.actor_classified"
+        }
+      ]
+    },
+    "invalid_axis": {
+      "priority": 10,
+      "description": "Unsupported axis value",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "cooperation_axis",
+              "source": "input",
+              "operator": "not_in",
+              "value": [
+                "cooperation",
+                "competition"
+              ]
+            },
+            {
+              "field": "openness_axis",
+              "source": "input",
+              "operator": "not_in",
+              "value": [
+                "globalization",
+                "nationalism"
+              ]
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "geopolitics.classification_rejected"
+        }
+      ],
+      "error": "GEO_INVALID_AXIS"
+    },
+    "missing_country": {
+      "priority": 11,
+      "description": "Country missing",
+      "given": [
+        {
+          "field": "country_id",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "geopolitics.classification_rejected"
+        }
+      ],
+      "error": "GEO_COUNTRY_MISSING"
+    }
+  },
+  "errors": [
+    {
+      "code": "GEO_INVALID_AXIS",
+      "status": 400,
+      "message": "axis values must come from the allowed set"
+    },
+    {
+      "code": "GEO_COUNTRY_MISSING",
+      "status": 400,
+      "message": "country_id is required"
+    }
+  ],
+  "events": [
+    {
+      "name": "geopolitics.actor_classified",
+      "payload": [
+        "classification_id",
+        "country_id",
+        "archetype",
+        "recommended_stance"
+      ]
+    },
+    {
+      "name": "geopolitics.classification_rejected",
+      "payload": [
+        "classification_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not treat geopolitical archetypes as static",
+      "why": "Countries move across quadrants over decades; regimes change and alliances shift"
+    },
+    {
+      "rule": "Do not reduce geopolitics to military conflict alone",
+      "why": "Economic and financial statecraft (sanctions, export controls) are dominant modern tools"
+    },
+    {
+      "rule": "Do not ignore non-state actors",
+      "why": "Multinationals, supranationals, and armed groups often drive outcomes states cannot control"
+    },
+    {
+      "rule": "Do not assume cooperation implies friendship",
+      "why": "Transactional cooperation can coexist with strategic rivalry; frame by interests, not sentiment"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/macro/geopolitics/classify"
+    },
+    "request": {
+      "schema": {
+        "country_id": "string",
+        "cooperation_axis": "string",
+        "openness_axis": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "classification_id": "string",
+          "archetype": "string",
+          "recommended_stance": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "GEO_INVALID_AXIS"
+        },
+        {
+          "status": 400,
+          "error_code": "GEO_COUNTRY_MISSING"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "geopolitical-risk-types",
+      "type": "recommended"
+    },
+    {
+      "feature": "international-trade-framework",
+      "type": "recommended"
+    }
+  ]
+}
