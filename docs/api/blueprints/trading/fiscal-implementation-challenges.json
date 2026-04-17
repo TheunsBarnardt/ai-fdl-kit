@@ -1,0 +1,249 @@
+{
+  "feature": "fiscal-implementation-challenges",
+  "version": "1.0.0",
+  "description": "Identify practical constraints on fiscal policy — recognition, legislative, and impact lags, political economy, and crowding-out effects — that limit its effectiveness",
+  "category": "trading",
+  "tags": [
+    "economics",
+    "macroeconomics",
+    "fiscal-lags",
+    "political-economy",
+    "crowding-out",
+    "fiscal-limits",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "fiscal-policy-lags",
+    "recognition-lag",
+    "action-lag",
+    "impact-lag",
+    "crowding-out",
+    "political-business-cycle"
+  ],
+  "actors": [
+    {
+      "id": "fiscal_analyst",
+      "name": "Fiscal Implementation Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "proposal_id",
+      "type": "text",
+      "required": true,
+      "label": "Policy proposal identifier"
+    },
+    {
+      "name": "lag_estimates",
+      "type": "json",
+      "required": false,
+      "label": "Estimated recognition, action, and impact lags (months)"
+    },
+    {
+      "name": "political_context",
+      "type": "select",
+      "required": false,
+      "label": "unified_government | divided_government | coalition | election_year"
+    }
+  ],
+  "rules": {
+    "three_lags": {
+      "recognition_lag": "Time to detect that the economy needs stimulus or tightening",
+      "action_lag": "Time to pass legislation / execute policy",
+      "impact_lag": "Time for policy to transmit to aggregate demand"
+    },
+    "typical_duration": {
+      "recognition_lag": "3-6 months after the turning point",
+      "action_lag": "Several months to 1-2 years depending on legislative process",
+      "impact_lag": "6-18 months for spending to feed through"
+    },
+    "political_economy": {
+      "procyclical_temptation": "Politicians favour stimulus in good times to attract votes",
+      "structural_vs_cyclical_confusion": "Temporary revenue booms misread as permanent",
+      "electoral_cycle": "Pre-election stimulus distorts timing",
+      "vetoes_and_coalitions": "Multi-party systems add delay"
+    },
+    "crowding_out": {
+      "mechanism": "Fiscal deficits -> higher interest rates -> lower private investment",
+      "open_economy": "Higher rates attract capital -> currency appreciation -> net exports fall",
+      "limit_during_slack": "Crowding out is minimal when slack is high and rates are pinned low"
+    },
+    "difficulties": [
+      "Measurement errors in real-time data",
+      "Political constraints on raising taxes or cutting spending",
+      "Coordination with monetary policy",
+      "Structural vs cyclical misidentification",
+      "Debt sustainability constraints"
+    ],
+    "applications": {
+      "rates_trading": "Anticipate Treasury issuance shifts from large fiscal plans",
+      "equity_factor_exposure": "Infrastructure spending benefits specific sectors with long impact lag",
+      "currency": "Pro-cyclical fiscal stance weakens currency via twin deficits"
+    },
+    "validation": {
+      "proposal_id_present": "proposal_id required"
+    }
+  },
+  "outcomes": {
+    "assess_implementation_risk": {
+      "priority": 1,
+      "description": "Rate lag and political risks of a fiscal proposal",
+      "given": [
+        {
+          "field": "proposal_id",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "fiscal_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "fiscal.implementation_assessed"
+        }
+      ]
+    },
+    "high_implementation_risk": {
+      "priority": 2,
+      "description": "Long lags or political friction likely",
+      "given": [
+        {
+          "field": "high_risk_flag",
+          "source": "computed",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "fiscal.implementation_warning"
+        }
+      ]
+    },
+    "missing_proposal": {
+      "priority": 10,
+      "description": "Proposal id missing",
+      "given": [
+        {
+          "field": "proposal_id",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "fiscal.assessment_rejected"
+        }
+      ],
+      "error": "FISCAL_PROPOSAL_MISSING"
+    }
+  },
+  "errors": [
+    {
+      "code": "FISCAL_PROPOSAL_MISSING",
+      "status": 400,
+      "message": "proposal_id is required"
+    }
+  ],
+  "events": [
+    {
+      "name": "fiscal.implementation_assessed",
+      "payload": [
+        "proposal_id",
+        "total_lag_months",
+        "political_risk_score",
+        "crowding_out_estimate"
+      ]
+    },
+    {
+      "name": "fiscal.implementation_warning",
+      "payload": [
+        "proposal_id",
+        "warning_message"
+      ]
+    },
+    {
+      "name": "fiscal.assessment_rejected",
+      "payload": [
+        "proposal_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not assume announced fiscal stimulus equals actual stimulus",
+      "why": "Implementation lags, reappropriation, and political compromises often shrink headline numbers materially"
+    },
+    {
+      "rule": "Do not ignore crowding-out when rates are above the zero lower bound",
+      "why": "Above ZLB, deficits meaningfully lift rates; standard closed-economy multipliers overstate impact"
+    },
+    {
+      "rule": "Do not use historical lag estimates in a changed policy environment",
+      "why": "Digital disbursement, automatic stabilisers, and central bank financing have shortened some historical lags"
+    },
+    {
+      "rule": "Do not disregard the political business cycle in mature democracies",
+      "why": "Pre-election stimulus and post-election consolidation distort timing and magnitude of multipliers"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/macro/fiscal/implementation"
+    },
+    "request": {
+      "schema": {
+        "proposal_id": "string",
+        "lag_estimates": "object",
+        "political_context": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "proposal_id": "string",
+          "total_lag_months": "number",
+          "political_risk_score": "number",
+          "crowding_out_estimate": "number",
+          "recommendations": "array"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "FISCAL_PROPOSAL_MISSING"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "lag_taxonomy": {
+      "inside_lag": "Recognition + action (time to decide and enact)",
+      "outside_lag": "Impact lag (time for effect to materialise)",
+      "total_lag": "Inside + outside"
+    }
+  },
+  "related": [
+    {
+      "feature": "fiscal-policy-framework",
+      "type": "required"
+    },
+    {
+      "feature": "fiscal-deficits-debt",
+      "type": "required"
+    },
+    {
+      "feature": "monetary-policy-framework",
+      "type": "recommended"
+    }
+  ]
+}

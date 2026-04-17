@@ -1,0 +1,278 @@
+{
+  "feature": "fiscal-policy-framework",
+  "version": "1.0.0",
+  "description": "Use government spending and taxation as a fiscal policy instrument — including discretionary and automatic stabilisers — to influence aggregate demand, employment, and inflation",
+  "category": "trading",
+  "tags": [
+    "economics",
+    "macroeconomics",
+    "fiscal-policy",
+    "government-spending",
+    "taxation",
+    "automatic-stabilisers",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "government-fiscal-instruments",
+    "discretionary-fiscal-policy",
+    "automatic-stabilisers",
+    "fiscal-stance",
+    "keynesian-fiscal",
+    "counter-cyclical-fiscal"
+  ],
+  "actors": [
+    {
+      "id": "fiscal_engine",
+      "name": "Fiscal Policy Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "jurisdiction",
+      "type": "text",
+      "required": true,
+      "label": "Country or monetary union"
+    },
+    {
+      "name": "policy_tool",
+      "type": "select",
+      "required": true,
+      "label": "government_spending | direct_tax | indirect_tax | transfer_payment | automatic_stabiliser"
+    },
+    {
+      "name": "change_amount",
+      "type": "number",
+      "required": false,
+      "label": "Proposed change in currency units or percent of GDP"
+    },
+    {
+      "name": "cycle_phase",
+      "type": "select",
+      "required": false,
+      "label": "recovery | expansion | slowdown | recession"
+    }
+  ],
+  "rules": {
+    "objectives": [
+      "Stabilise aggregate demand and smooth the business cycle",
+      "Influence employment and inflation",
+      "Redistribute income and wealth",
+      "Fund public goods and provide safety nets"
+    ],
+    "fiscal_stance": {
+      "expansionary": "Higher spending and/or lower taxes — stimulates AD",
+      "contractionary": "Lower spending and/or higher taxes — restrains AD",
+      "neutral": "Structural deficit unchanged after adjusting for cycle"
+    },
+    "tools": {
+      "direct_taxes": "Income, corporate, capital gains, payroll — slow to adjust",
+      "indirect_taxes": "VAT, excise duties — quick to adjust",
+      "government_spending": "Goods, services, public investment, transfers",
+      "transfer_payments": "Unemployment benefits, welfare, pensions"
+    },
+    "automatic_stabilisers": {
+      "definition": "Fiscal features that moderate cycles without new legislation",
+      "examples": "Progressive income tax, unemployment insurance, means-tested benefits",
+      "mechanism": "Rise in recessions, fall in expansions — dampens AD swings"
+    },
+    "discretionary_vs_automatic": {
+      "discretionary": "Requires new legislation; subject to lags",
+      "automatic": "Kicks in with the cycle; no legislative delay"
+    },
+    "applications": {
+      "equity_sector_bets": "Infrastructure spending lifts industrials and materials",
+      "credit_positioning": "Fiscal expansion widens supply of sovereigns -> spreads/curve",
+      "currency": "Large fiscal deficits can weaken currency via rising rates and supply"
+    },
+    "validation": {
+      "jurisdiction_present": "jurisdiction required",
+      "valid_tool": "policy_tool in {government_spending, direct_tax, indirect_tax, transfer_payment, automatic_stabiliser}"
+    }
+  },
+  "outcomes": {
+    "evaluate_fiscal_action": {
+      "priority": 1,
+      "description": "Assess a proposed fiscal policy change",
+      "given": [
+        {
+          "field": "jurisdiction",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "policy_tool",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "government_spending",
+            "direct_tax",
+            "indirect_tax",
+            "transfer_payment",
+            "automatic_stabiliser"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "fiscal_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "fiscal.action_evaluated"
+        }
+      ]
+    },
+    "invalid_tool": {
+      "priority": 10,
+      "description": "Unsupported fiscal tool",
+      "given": [
+        {
+          "field": "policy_tool",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "government_spending",
+            "direct_tax",
+            "indirect_tax",
+            "transfer_payment",
+            "automatic_stabiliser"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "fiscal.action_rejected"
+        }
+      ],
+      "error": "FISCAL_INVALID_TOOL"
+    },
+    "missing_jurisdiction": {
+      "priority": 11,
+      "description": "Jurisdiction missing",
+      "given": [
+        {
+          "field": "jurisdiction",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "fiscal.action_rejected"
+        }
+      ],
+      "error": "FISCAL_JURISDICTION_MISSING"
+    }
+  },
+  "errors": [
+    {
+      "code": "FISCAL_INVALID_TOOL",
+      "status": 400,
+      "message": "policy_tool must be one of government_spending, direct_tax, indirect_tax, transfer_payment, automatic_stabiliser"
+    },
+    {
+      "code": "FISCAL_JURISDICTION_MISSING",
+      "status": 400,
+      "message": "jurisdiction is required"
+    }
+  ],
+  "events": [
+    {
+      "name": "fiscal.action_evaluated",
+      "payload": [
+        "action_id",
+        "jurisdiction",
+        "policy_tool",
+        "estimated_impact",
+        "fiscal_stance"
+      ]
+    },
+    {
+      "name": "fiscal.action_rejected",
+      "payload": [
+        "action_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not treat all tax cuts as equally stimulative",
+      "why": "Tax cuts to high-income households boost savings more than consumption; lower-income transfers have much higher marginal propensity to spend"
+    },
+    {
+      "rule": "Do not ignore the fiscal multiplier's dependence on cycle phase",
+      "why": "Multipliers are larger at the zero lower bound and in recessions than in full-employment expansions"
+    },
+    {
+      "rule": "Do not use current deficit levels as a sufficient measure of fiscal stance",
+      "why": "Headline deficits include cyclical components; the structural or cyclically adjusted deficit is the correct stance measure"
+    },
+    {
+      "rule": "Do not assume fiscal stimulus is always expansionary in the long run",
+      "why": "Expected tax hikes or crowding-out of private investment can offset short-run stimulus (Ricardian equivalence)"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/macro/fiscal/evaluate"
+    },
+    "request": {
+      "schema": {
+        "jurisdiction": "string",
+        "policy_tool": "string",
+        "change_amount": "number",
+        "cycle_phase": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "action_id": "string",
+          "fiscal_stance": "string",
+          "estimated_impact": "object"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "FISCAL_INVALID_TOOL"
+        },
+        {
+          "status": 400,
+          "error_code": "FISCAL_JURISDICTION_MISSING"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "advantages_disadvantages": {
+      "direct_tax_adv": "Progressive; collects from capacity to pay",
+      "direct_tax_disadv": "Discourages labour/investment; slow to adjust",
+      "indirect_tax_adv": "Easy to implement and vary",
+      "indirect_tax_disadv": "Regressive",
+      "spending_adv": "Can target specific regions or sectors",
+      "spending_disadv": "Political allocation; slower to implement"
+    }
+  },
+  "related": [
+    {
+      "feature": "fiscal-deficits-debt",
+      "type": "recommended"
+    },
+    {
+      "feature": "fiscal-multiplier",
+      "type": "recommended"
+    },
+    {
+      "feature": "fiscal-implementation-challenges",
+      "type": "recommended"
+    }
+  ]
+}

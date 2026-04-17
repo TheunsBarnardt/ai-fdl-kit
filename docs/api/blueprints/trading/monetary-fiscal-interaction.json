@@ -1,0 +1,268 @@
+{
+  "feature": "monetary-fiscal-interaction",
+  "version": "1.0.0",
+  "description": "Classify the combined stance of monetary and fiscal policy and assess the interaction effects on aggregate demand, interest rates, the currency, and inflation",
+  "category": "trading",
+  "tags": [
+    "economics",
+    "macroeconomics",
+    "policy-mix",
+    "monetary-fiscal",
+    "policy-interaction",
+    "coordination",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "policy-mix",
+    "monetary-fiscal-coordination",
+    "combined-policy-stance",
+    "policy-interaction-effects",
+    "fiscal-dominance",
+    "loose-tight-policy"
+  ],
+  "actors": [
+    {
+      "id": "policy_mix_analyst",
+      "name": "Policy Mix Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "jurisdiction",
+      "type": "text",
+      "required": true,
+      "label": "Country or monetary union"
+    },
+    {
+      "name": "monetary_stance",
+      "type": "select",
+      "required": true,
+      "label": "expansionary | neutral | contractionary"
+    },
+    {
+      "name": "fiscal_stance",
+      "type": "select",
+      "required": true,
+      "label": "expansionary | neutral | contractionary"
+    }
+  ],
+  "rules": {
+    "four_quadrants": {
+      "loose_loose": "Both expansionary — strong AD boost, weak currency, rising rates eventually",
+      "loose_monetary_tight_fiscal": "Private sector led — exports aided, currency weakens, lower rates",
+      "tight_monetary_loose_fiscal": "Public sector led — strong currency, higher rates, crowding out risk",
+      "tight_tight": "Both contractionary — disinflation, recession risk"
+    },
+    "fiscal_dominance": {
+      "definition": "Large deficits force monetary accommodation, undermining inflation control",
+      "signal": "Central bank cannot raise rates without triggering debt crisis"
+    },
+    "market_implications": {
+      "equities": "Loose/loose typically supports equities until inflation bites",
+      "bonds": "Tight monetary + loose fiscal -> curve steepens, term premia widen",
+      "fx": "Tight monetary + loose fiscal -> currency strengthens (short run)"
+    },
+    "validation": {
+      "jurisdiction_required": "jurisdiction present",
+      "valid_stances": "monetary_stance and fiscal_stance in allowed set"
+    }
+  },
+  "outcomes": {
+    "classify_policy_mix": {
+      "priority": 1,
+      "description": "Assign quadrant and derive market implications",
+      "given": [
+        {
+          "field": "jurisdiction",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "monetary_stance",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "expansionary",
+            "neutral",
+            "contractionary"
+          ]
+        },
+        {
+          "field": "fiscal_stance",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "expansionary",
+            "neutral",
+            "contractionary"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "policy_mix_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "policy.mix_classified"
+        }
+      ]
+    },
+    "invalid_stance": {
+      "priority": 10,
+      "description": "Unsupported stance value",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "monetary_stance",
+              "source": "input",
+              "operator": "not_in",
+              "value": [
+                "expansionary",
+                "neutral",
+                "contractionary"
+              ]
+            },
+            {
+              "field": "fiscal_stance",
+              "source": "input",
+              "operator": "not_in",
+              "value": [
+                "expansionary",
+                "neutral",
+                "contractionary"
+              ]
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "policy.mix_rejected"
+        }
+      ],
+      "error": "POLICY_MIX_INVALID_STANCE"
+    },
+    "missing_jurisdiction": {
+      "priority": 11,
+      "description": "Jurisdiction missing",
+      "given": [
+        {
+          "field": "jurisdiction",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "policy.mix_rejected"
+        }
+      ],
+      "error": "POLICY_MIX_JURISDICTION_MISSING"
+    }
+  },
+  "errors": [
+    {
+      "code": "POLICY_MIX_INVALID_STANCE",
+      "status": 400,
+      "message": "stances must be expansionary, neutral, or contractionary"
+    },
+    {
+      "code": "POLICY_MIX_JURISDICTION_MISSING",
+      "status": 400,
+      "message": "jurisdiction is required"
+    }
+  ],
+  "events": [
+    {
+      "name": "policy.mix_classified",
+      "payload": [
+        "mix_id",
+        "jurisdiction",
+        "quadrant",
+        "fx_bias",
+        "rates_bias",
+        "equity_bias"
+      ]
+    },
+    {
+      "name": "policy.mix_rejected",
+      "payload": [
+        "mix_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not treat monetary and fiscal policy as independent",
+      "why": "The combined stance determines macroeconomic outcomes; ignoring interaction overstates the effect of either alone"
+    },
+    {
+      "rule": "Do not overlook fiscal dominance risk in high-debt regimes",
+      "why": "Where deficits are large, central banks may be forced to monetise, undermining inflation anchoring"
+    },
+    {
+      "rule": "Do not apply textbook quadrants without checking global spillovers",
+      "why": "In small open economies, foreign policy mixes dominate domestic outcomes via capital flows"
+    },
+    {
+      "rule": "Do not equate short-run market effects with long-run outcomes",
+      "why": "Currency and rate effects can reverse once inflation or growth expectations adjust"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/macro/policy-mix/classify"
+    },
+    "request": {
+      "schema": {
+        "jurisdiction": "string",
+        "monetary_stance": "string",
+        "fiscal_stance": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "mix_id": "string",
+          "quadrant": "string",
+          "fx_bias": "string",
+          "rates_bias": "string",
+          "equity_bias": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "POLICY_MIX_INVALID_STANCE"
+        },
+        {
+          "status": 400,
+          "error_code": "POLICY_MIX_JURISDICTION_MISSING"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "monetary-policy-framework",
+      "type": "required"
+    },
+    {
+      "feature": "fiscal-policy-framework",
+      "type": "required"
+    },
+    {
+      "feature": "business-cycle-phases",
+      "type": "recommended"
+    }
+  ]
+}

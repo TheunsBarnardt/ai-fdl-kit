@@ -1,0 +1,241 @@
+{
+  "feature": "inflation-targeting",
+  "version": "1.0.0",
+  "description": "Evaluate an inflation-targeting monetary regime — explicit target, transparency, credibility, and conditions for effective transmission to inflation expectations",
+  "category": "trading",
+  "tags": [
+    "economics",
+    "macroeconomics",
+    "inflation-targeting",
+    "credibility",
+    "central-bank",
+    "expectations",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "inflation-target-regime",
+    "explicit-inflation-target",
+    "flexible-inflation-targeting",
+    "price-stability-mandate",
+    "central-bank-credibility",
+    "expectations-anchor"
+  ],
+  "actors": [
+    {
+      "id": "inflation_analyst",
+      "name": "Inflation Regime Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "jurisdiction",
+      "type": "text",
+      "required": true,
+      "label": "Central bank jurisdiction"
+    },
+    {
+      "name": "target_rate",
+      "type": "number",
+      "required": true,
+      "label": "Explicit inflation target (percent)"
+    },
+    {
+      "name": "tolerance_band",
+      "type": "number",
+      "required": false,
+      "label": "Symmetric tolerance around target (percent)"
+    },
+    {
+      "name": "horizon_months",
+      "type": "number",
+      "required": false,
+      "label": "Medium-term horizon over which target applies"
+    }
+  ],
+  "rules": {
+    "regime_features": {
+      "explicit_target": "Publicly announced numerical inflation target",
+      "central_bank_independence": "Operational freedom to set policy tools",
+      "transparency": "Regular reports, minutes, forecasts",
+      "accountability": "Assessed against the announced target",
+      "credibility": "Track record of hitting target anchors expectations"
+    },
+    "conditions_for_success": [
+      "Well-developed financial system",
+      "Flexible exchange rate",
+      "No fiscal dominance",
+      "Quality inflation data",
+      "Effective transmission via banking sector"
+    ],
+    "comparison_to_alternatives": {
+      "monetary_aggregate_targeting": "Targets money supply growth — weak when money demand unstable",
+      "exchange_rate_targeting": "Peg to anchor currency — surrenders monetary independence",
+      "nominal_gdp_targeting": "Targets nominal spending — less common in practice"
+    },
+    "validation": {
+      "target_positive": "target_rate > 0",
+      "jurisdiction_required": "jurisdiction present"
+    }
+  },
+  "outcomes": {
+    "evaluate_regime": {
+      "priority": 1,
+      "description": "Score credibility and effectiveness of an inflation-targeting regime",
+      "given": [
+        {
+          "field": "jurisdiction",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "target_rate",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "inflation_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "inflation.regime_evaluated"
+        }
+      ]
+    },
+    "invalid_target": {
+      "priority": 10,
+      "description": "Target must be positive",
+      "given": [
+        {
+          "field": "target_rate",
+          "source": "input",
+          "operator": "lte",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "inflation.regime_rejected"
+        }
+      ],
+      "error": "INFL_INVALID_TARGET"
+    },
+    "missing_jurisdiction": {
+      "priority": 11,
+      "description": "Jurisdiction missing",
+      "given": [
+        {
+          "field": "jurisdiction",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "inflation.regime_rejected"
+        }
+      ],
+      "error": "INFL_JURISDICTION_MISSING"
+    }
+  },
+  "errors": [
+    {
+      "code": "INFL_INVALID_TARGET",
+      "status": 400,
+      "message": "target_rate must be greater than zero"
+    },
+    {
+      "code": "INFL_JURISDICTION_MISSING",
+      "status": 400,
+      "message": "jurisdiction is required"
+    }
+  ],
+  "events": [
+    {
+      "name": "inflation.regime_evaluated",
+      "payload": [
+        "evaluation_id",
+        "jurisdiction",
+        "target_rate",
+        "credibility_score",
+        "expectations_anchor"
+      ]
+    },
+    {
+      "name": "inflation.regime_rejected",
+      "payload": [
+        "evaluation_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not assume an announced target alone anchors expectations",
+      "why": "Credibility must be earned; markets price untested regimes with wider inflation premia"
+    },
+    {
+      "rule": "Do not ignore exchange rate regime constraints",
+      "why": "Fixed or heavily managed currencies undermine inflation targeting by surrendering rate control"
+    },
+    {
+      "rule": "Do not use a single point target without a tolerance band",
+      "why": "Small deviations can look like failures; symmetric bands acknowledge forecast error and supply shocks"
+    },
+    {
+      "rule": "Do not pursue low inflation at any cost",
+      "why": "Flexible inflation targeting balances inflation with output stability; strict targeting amplifies real volatility"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/macro/inflation/regime"
+    },
+    "request": {
+      "schema": {
+        "jurisdiction": "string",
+        "target_rate": "number",
+        "tolerance_band": "number",
+        "horizon_months": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "evaluation_id": "string",
+          "credibility_score": "number",
+          "expectations_anchor": "boolean",
+          "recommendations": "array"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "INFL_INVALID_TARGET"
+        },
+        {
+          "status": 400,
+          "error_code": "INFL_JURISDICTION_MISSING"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "monetary-policy-framework",
+      "type": "required"
+    },
+    {
+      "feature": "business-cycle-phases",
+      "type": "recommended"
+    }
+  ]
+}

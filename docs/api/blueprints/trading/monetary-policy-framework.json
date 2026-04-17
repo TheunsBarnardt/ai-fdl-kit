@@ -1,0 +1,284 @@
+{
+  "feature": "monetary-policy-framework",
+  "version": "1.0.0",
+  "description": "Execute central bank monetary policy using open market operations, policy rate, reserve requirements, and standing facilities to meet inflation and financial stability objectives",
+  "category": "trading",
+  "tags": [
+    "economics",
+    "macroeconomics",
+    "monetary-policy",
+    "central-bank",
+    "policy-rate",
+    "open-market-operations",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "central-bank-operations",
+    "policy-rate-setting",
+    "open-market-operations",
+    "reserve-requirement",
+    "monetary-transmission",
+    "central-bank-toolkit"
+  ],
+  "actors": [
+    {
+      "id": "central_bank",
+      "name": "Central Bank Operations Desk",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "jurisdiction",
+      "type": "text",
+      "required": true,
+      "label": "Monetary authority jurisdiction"
+    },
+    {
+      "name": "tool",
+      "type": "select",
+      "required": true,
+      "label": "policy_rate | open_market_ops | reserve_requirement | standing_facility | asset_purchases"
+    },
+    {
+      "name": "policy_stance",
+      "type": "select",
+      "required": false,
+      "label": "expansionary | neutral | contractionary"
+    },
+    {
+      "name": "action_amount",
+      "type": "number",
+      "required": false,
+      "label": "Change in rate or balance sheet amount"
+    }
+  ],
+  "rules": {
+    "objectives": {
+      "price_stability": "Core mandate — keep inflation near target (commonly 2 percent)",
+      "full_employment": "Dual mandate in the US",
+      "financial_stability": "Safeguard the banking system and smooth market functioning",
+      "exchange_rate_stability": "Where applicable, anchor the currency"
+    },
+    "primary_tools": {
+      "policy_rate": "Target short-term interbank rate (e.g., federal funds rate)",
+      "open_market_operations": "Buy/sell securities to adjust bank reserves",
+      "reserve_requirement": "Fraction of deposits banks must hold at the central bank",
+      "standing_facilities": "Permanent overnight borrowing/lending windows",
+      "unconventional": "Large-scale asset purchases (QE), yield-curve control, forward guidance"
+    },
+    "transmission_mechanism": {
+      "interest_rate_channel": "Policy rate -> bank lending rates -> consumption and investment",
+      "asset_price_channel": "Rate changes -> bond, equity, and housing valuations",
+      "exchange_rate_channel": "Rate changes -> capital flows -> FX -> net exports",
+      "credit_channel": "Balance-sheet strength and bank lending capacity",
+      "expectations_channel": "Forward guidance anchors future rate path and inflation expectations"
+    },
+    "inflation_targeting": {
+      "credibility": "Transparent target anchors expectations",
+      "independence": "Insulates policy from short-run political pressure",
+      "accountability": "Clear metric to judge central bank performance"
+    },
+    "central_bank_independence": {
+      "operational_independence": "Freedom to set policy tools",
+      "target_independence": "Freedom to set target",
+      "transparency": "Publishing minutes, forecasts, decision rationale"
+    },
+    "limitations": {
+      "zero_lower_bound": "Rates cannot be cut much below zero",
+      "long_variable_lags": "12-24 months for full transmission",
+      "supply_shocks": "Monetary policy cannot offset supply-side inflation without recession risk",
+      "banking_transmission": "Weak bank balance sheets impair transmission"
+    },
+    "validation": {
+      "jurisdiction_required": "jurisdiction present",
+      "valid_tool": "tool in {policy_rate, open_market_ops, reserve_requirement, standing_facility, asset_purchases}"
+    }
+  },
+  "outcomes": {
+    "execute_policy_action": {
+      "priority": 1,
+      "description": "Implement monetary policy action",
+      "given": [
+        {
+          "field": "jurisdiction",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "tool",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "policy_rate",
+            "open_market_ops",
+            "reserve_requirement",
+            "standing_facility",
+            "asset_purchases"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "central_bank"
+        },
+        {
+          "action": "emit_event",
+          "event": "monetary.action_executed"
+        }
+      ]
+    },
+    "invalid_tool": {
+      "priority": 10,
+      "description": "Unsupported monetary tool",
+      "given": [
+        {
+          "field": "tool",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "policy_rate",
+            "open_market_ops",
+            "reserve_requirement",
+            "standing_facility",
+            "asset_purchases"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "monetary.action_rejected"
+        }
+      ],
+      "error": "MONETARY_INVALID_TOOL"
+    },
+    "missing_jurisdiction": {
+      "priority": 11,
+      "description": "Jurisdiction missing",
+      "given": [
+        {
+          "field": "jurisdiction",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "monetary.action_rejected"
+        }
+      ],
+      "error": "MONETARY_JURISDICTION_MISSING"
+    }
+  },
+  "errors": [
+    {
+      "code": "MONETARY_INVALID_TOOL",
+      "status": 400,
+      "message": "tool must be policy_rate, open_market_ops, reserve_requirement, standing_facility, or asset_purchases"
+    },
+    {
+      "code": "MONETARY_JURISDICTION_MISSING",
+      "status": 400,
+      "message": "jurisdiction is required"
+    }
+  ],
+  "events": [
+    {
+      "name": "monetary.action_executed",
+      "payload": [
+        "action_id",
+        "jurisdiction",
+        "tool",
+        "change",
+        "expected_transmission"
+      ]
+    },
+    {
+      "name": "monetary.action_rejected",
+      "payload": [
+        "action_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not assume monetary policy can offset large supply shocks without growth costs",
+      "why": "Tightening into supply-side inflation reduces employment and output; central banks face a genuine trade-off"
+    },
+    {
+      "rule": "Do not ignore the zero lower bound",
+      "why": "Below ZLB, conventional rate cuts lose force; policy must pivot to QE, forward guidance, or fiscal coordination"
+    },
+    {
+      "rule": "Do not treat all central banks as equally credible",
+      "why": "Independence and track record vary; markets price differently for high-credibility vs low-credibility regimes"
+    },
+    {
+      "rule": "Do not conflate price-level control with financial stability",
+      "why": "Low inflation can coexist with asset bubbles; macroprudential tools often needed alongside rates"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/macro/monetary/execute"
+    },
+    "request": {
+      "schema": {
+        "jurisdiction": "string",
+        "tool": "string",
+        "policy_stance": "string",
+        "action_amount": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "action_id": "string",
+          "tool": "string",
+          "change": "number",
+          "expected_transmission": "array"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "MONETARY_INVALID_TOOL"
+        },
+        {
+          "status": 400,
+          "error_code": "MONETARY_JURISDICTION_MISSING"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "contractionary_vs_expansionary": {
+      "contractionary": "Raise rate, sell securities, increase RR, tighten standing facilities",
+      "expansionary": "Cut rate, buy securities, lower RR, loosen standing facilities"
+    },
+    "policy_interaction_with_fiscal": {
+      "consistent": "Both expansionary or both contractionary -> large impact",
+      "opposed": "Conflicting policies mute each other (e.g., loose fiscal + tight monetary)"
+    }
+  },
+  "related": [
+    {
+      "feature": "fiscal-policy-framework",
+      "type": "recommended"
+    },
+    {
+      "feature": "credit-cycles",
+      "type": "recommended"
+    },
+    {
+      "feature": "business-cycle-phases",
+      "type": "recommended"
+    }
+  ]
+}

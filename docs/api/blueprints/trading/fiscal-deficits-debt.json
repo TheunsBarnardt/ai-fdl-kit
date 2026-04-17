@@ -1,0 +1,273 @@
+{
+  "feature": "fiscal-deficits-debt",
+  "version": "1.0.0",
+  "description": "Measure government deficits and national debt — distinguishing cyclical from structural components — and evaluate sustainability using debt-to-GDP dynamics and interest burden",
+  "category": "trading",
+  "tags": [
+    "economics",
+    "macroeconomics",
+    "fiscal-deficit",
+    "national-debt",
+    "debt-sustainability",
+    "structural-balance",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "budget-deficit",
+    "national-debt",
+    "structural-deficit",
+    "debt-to-gdp",
+    "debt-sustainability",
+    "sovereign-fiscal-health"
+  ],
+  "actors": [
+    {
+      "id": "fiscal_analyst",
+      "name": "Fiscal Sustainability Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "jurisdiction",
+      "type": "text",
+      "required": true,
+      "label": "Country or monetary union"
+    },
+    {
+      "name": "fiscal_balance_pct_gdp",
+      "type": "number",
+      "required": true,
+      "label": "Fiscal balance as percent of GDP (negative = deficit)"
+    },
+    {
+      "name": "debt_to_gdp",
+      "type": "number",
+      "required": true,
+      "label": "Gross public debt as percent of GDP"
+    },
+    {
+      "name": "average_interest_rate",
+      "type": "number",
+      "required": false,
+      "label": "Weighted average interest rate on outstanding debt"
+    },
+    {
+      "name": "real_growth_rate",
+      "type": "number",
+      "required": false,
+      "label": "Real GDP growth rate (percent)"
+    },
+    {
+      "name": "primary_balance",
+      "type": "number",
+      "required": false,
+      "label": "Primary balance (excluding interest) as percent of GDP"
+    }
+  ],
+  "rules": {
+    "deficit_definitions": {
+      "headline_deficit": "Total government spending minus revenue",
+      "primary_deficit": "Excludes interest payments",
+      "structural_deficit": "Cyclically adjusted — what deficit would be at full employment",
+      "cyclical_deficit": "Headline minus structural"
+    },
+    "debt_dynamics": {
+      "debt_to_gdp_change": "delta d = (r - g) * d + primary_deficit",
+      "stabilising_primary_balance": "PB* = (r - g) * d / 100",
+      "sustainability_condition": "Primary balance at least (r - g) * d / 100",
+      "favourable_regime": "g > r -> debt/GDP declines even with modest primary deficits"
+    },
+    "burden_of_debt": {
+      "interest_burden": "Interest as percent of revenue indicates debt service capacity",
+      "crowding_out": "High public debt can crowd out private investment via higher rates",
+      "intergenerational_transfer": "Future taxpayers bear cost of today's deficits"
+    },
+    "ricardian_equivalence": {
+      "claim": "Rational agents save more today to offset future tax rises -> deficits don't stimulate",
+      "caveats": "Empirically weak — liquidity constraints and myopic agents blunt the mechanism"
+    },
+    "applications": {
+      "sovereign_rating": "Rating agencies weight debt/GDP, primary balance, and growth",
+      "fx_forecasting": "Twin deficits (fiscal + current account) often weaken currency",
+      "bond_allocation": "High debt/GDP -> steeper yield curve and wider spreads"
+    },
+    "validation": {
+      "jurisdiction_required": "jurisdiction present",
+      "debt_non_negative": "debt_to_gdp >= 0",
+      "reasonable_values": "|fiscal_balance_pct_gdp| <= 50"
+    }
+  },
+  "outcomes": {
+    "assess_fiscal_health": {
+      "priority": 1,
+      "description": "Compute sustainability metrics",
+      "given": [
+        {
+          "field": "jurisdiction",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "debt_to_gdp",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "fiscal_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "fiscal.health_assessed"
+        }
+      ]
+    },
+    "unsustainable_trajectory": {
+      "priority": 2,
+      "description": "Debt dynamics imply rising debt/GDP indefinitely",
+      "given": [
+        {
+          "field": "unsustainable_flag",
+          "source": "computed",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "fiscal.sustainability_warning"
+        }
+      ]
+    },
+    "missing_debt_data": {
+      "priority": 10,
+      "description": "Debt-to-GDP missing",
+      "given": [
+        {
+          "field": "debt_to_gdp",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "fiscal.assessment_rejected"
+        }
+      ],
+      "error": "FISCAL_DEBT_MISSING"
+    }
+  },
+  "errors": [
+    {
+      "code": "FISCAL_DEBT_MISSING",
+      "status": 400,
+      "message": "debt_to_gdp is required"
+    }
+  ],
+  "events": [
+    {
+      "name": "fiscal.health_assessed",
+      "payload": [
+        "assessment_id",
+        "jurisdiction",
+        "debt_to_gdp",
+        "primary_balance",
+        "stabilising_pb",
+        "sustainability_flag"
+      ]
+    },
+    {
+      "name": "fiscal.sustainability_warning",
+      "payload": [
+        "assessment_id",
+        "jurisdiction",
+        "debt_to_gdp",
+        "gap"
+      ]
+    },
+    {
+      "name": "fiscal.assessment_rejected",
+      "payload": [
+        "assessment_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not compare headline deficits across countries without cycle adjustment",
+      "why": "Differences may reflect cyclical position rather than underlying stance; use structural deficits"
+    },
+    {
+      "rule": "Do not treat low current interest rates as permanent when projecting sustainability",
+      "why": "Rates can rise sharply; stress-test debt dynamics under higher-rate scenarios"
+    },
+    {
+      "rule": "Do not ignore implicit debt (pensions, healthcare) when judging fiscal space",
+      "why": "Off-balance-sheet liabilities can dwarf headline debt in ageing economies"
+    },
+    {
+      "rule": "Do not assume developing-country debt limits equal developed-country limits",
+      "why": "Currency composition, investor base, and convertibility constraints mean emerging markets face tighter ceilings"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/macro/fiscal/assess"
+    },
+    "request": {
+      "schema": {
+        "jurisdiction": "string",
+        "fiscal_balance_pct_gdp": "number",
+        "debt_to_gdp": "number",
+        "average_interest_rate": "number",
+        "real_growth_rate": "number",
+        "primary_balance": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "assessment_id": "string",
+          "stabilising_primary_balance": "number",
+          "sustainability_flag": "boolean",
+          "debt_trajectory": "array"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "FISCAL_DEBT_MISSING"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "debt_dynamics_example": {
+      "r": 3,
+      "g": 1.5,
+      "d": 100,
+      "stabilising_pb": "(3 - 1.5) * 100 / 100 = 1.5% of GDP",
+      "current_pb": -2,
+      "gap": 3.5,
+      "note": "Requires fiscal tightening of 3.5 pp of GDP to stabilise debt"
+    }
+  },
+  "related": [
+    {
+      "feature": "fiscal-policy-framework",
+      "type": "required"
+    },
+    {
+      "feature": "fiscal-implementation-challenges",
+      "type": "recommended"
+    }
+  ]
+}

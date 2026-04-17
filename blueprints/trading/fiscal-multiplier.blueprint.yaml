@@ -1,0 +1,184 @@
+# ============================================================
+# fiscal-multiplier — Feature Blueprint
+# Source: CFA LV1 2025 Vol 02 — Module 3, p.96-98
+# ============================================================
+
+feature: fiscal-multiplier
+version: "1.0.0"
+description: Estimate the impact of changes in government spending or taxes on aggregate output using the simple Keynesian multiplier and the balanced-budget multiplier
+category: trading
+tags: [economics, macroeconomics, fiscal-multiplier, mpc, balanced-budget, keynesian, cfa-level-1]
+aliases:
+  - keynesian-multiplier
+  - balanced-budget-multiplier
+  - spending-multiplier
+  - tax-multiplier
+  - marginal-propensity-to-consume
+  - mpc-mps
+
+actors:
+  - id: fiscal_engine
+    name: Fiscal Multiplier Engine
+    type: system
+
+fields:
+  - name: scenario_id
+    type: text
+    required: true
+    label: Scenario identifier
+  - name: marginal_propensity_to_consume
+    type: number
+    required: true
+    label: MPC (0 to 1)
+  - name: tax_rate
+    type: number
+    required: false
+    label: Average marginal tax rate
+  - name: shock
+    type: json
+    required: true
+    label: "Fiscal shock: delta_spending and/or delta_tax"
+
+rules:
+  simple_spending_multiplier:
+    # Source: Vol 2, Module 3, Eq 3, p.96
+    formula: "k = 1 / (1 - MPC * (1 - t))"
+    interpretation: "A 1 unit increase in G raises GDP by k units"
+  tax_multiplier:
+    formula: "k_T = -MPC / (1 - MPC * (1 - t))"
+    interpretation: "Absolute value smaller than the spending multiplier because part of tax cut is saved"
+  balanced_budget_multiplier:
+    # Source: Vol 2, Module 3, p.97
+    formula: "k_BB = (1 - MPC) / (1 - MPC * (1 - t))"
+    key_result: "Even when spending and taxes rise by equal amounts, output still expands (classic Haavelmo result)"
+  factors_amplifying_or_dampening:
+    amplify:
+      - "High MPC (low savings rate)"
+      - "Zero lower bound on rates (no monetary offset)"
+      - "Recession / slack capacity"
+      - "Stimulus aimed at liquidity-constrained households"
+    dampen:
+      - "Crowding out of private investment via higher rates"
+      - "Imports leaking demand abroad (open economy)"
+      - "Ricardian households saving in anticipation of taxes"
+      - "Full employment (supply constraints)"
+  applications:
+    scenario_modelling: "Compare stimulus packages using multiplier ranges"
+    nowcasting_gdp: "Incorporate announced fiscal actions into near-term GDP forecasts"
+    credit_analysis: "Larger multipliers imply bigger revenue recovery for banks"
+  validation:
+    valid_mpc: "0 < MPC < 1"
+    valid_tax_rate: "0 <= tax_rate < 1"
+    shock_present: "shock must exist"
+
+outcomes:
+  compute_multiplier:
+    priority: 1
+    description: Calculate spending and tax multipliers for the given economy
+    given:
+      - field: marginal_propensity_to_consume
+        source: input
+        operator: gt
+        value: 0
+      - field: marginal_propensity_to_consume
+        source: input
+        operator: lt
+        value: 1
+      - field: shock
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: fiscal_engine
+      - action: emit_event
+        event: fiscal.multiplier_computed
+  invalid_mpc:
+    priority: 10
+    description: MPC outside (0, 1)
+    given:
+      - any:
+          - field: marginal_propensity_to_consume
+            source: input
+            operator: lte
+            value: 0
+          - field: marginal_propensity_to_consume
+            source: input
+            operator: gte
+            value: 1
+    then:
+      - action: emit_event
+        event: fiscal.multiplier_rejected
+    error: MULT_INVALID_MPC
+  missing_shock:
+    priority: 11
+    description: Shock scenario missing
+    given:
+      - field: shock
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: fiscal.multiplier_rejected
+    error: MULT_SHOCK_MISSING
+
+errors:
+  - code: MULT_INVALID_MPC
+    status: 400
+    message: MPC must lie strictly between 0 and 1
+  - code: MULT_SHOCK_MISSING
+    status: 400
+    message: shock scenario is required
+
+events:
+  - name: fiscal.multiplier_computed
+    payload: [scenario_id, spending_multiplier, tax_multiplier, balanced_budget_multiplier, gdp_impact]
+  - name: fiscal.multiplier_rejected
+    payload: [scenario_id, reason_code]
+
+anti_patterns:
+  - rule: Do not use a single textbook multiplier across all cycle phases
+    why: "Empirical multipliers range from 0.5 in booms to 2.0+ at the zero lower bound; context matters"
+  - rule: Do not apply closed-economy multipliers to small open economies
+    why: "Import leakage substantially dampens domestic impact; use open-economy formulas"
+  - rule: Do not assume the balanced-budget multiplier has no deadweight cost
+    why: "Higher taxes still distort labour/investment; the aggregate demand boost hides microeconomic costs"
+  - rule: Do not rely on multipliers to judge long-run welfare
+    why: "Multipliers measure short-run demand effects, not supply-side growth or debt service burdens"
+
+api:
+  http:
+    method: POST
+    path: /macro/fiscal/multiplier
+  request:
+    schema:
+      scenario_id: string
+      marginal_propensity_to_consume: number
+      tax_rate: number
+      shock: object
+  response:
+    success:
+      status: 200
+      schema:
+        spending_multiplier: number
+        tax_multiplier: number
+        balanced_budget_multiplier: number
+        gdp_impact: number
+    errors:
+      - status: 400
+        error_code: MULT_INVALID_MPC
+      - status: 400
+        error_code: MULT_SHOCK_MISSING
+
+extensions:
+  worked_example:
+    mpc: 0.8
+    tax_rate: 0.2
+    spending_multiplier: "1 / (1 - 0.8 * 0.8) = 1 / 0.36 = 2.778"
+    tax_multiplier: "-0.8 / 0.36 = -2.222"
+    balanced_budget_multiplier: "(1 - 0.8) / 0.36 = 0.556"
+
+related:
+  - feature: fiscal-policy-framework
+    type: required
+  - feature: fiscal-deficits-debt
+    type: recommended
