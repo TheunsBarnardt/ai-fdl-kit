@@ -1,0 +1,175 @@
+# ============================================================
+# positions-leverage-margin — Feature Blueprint
+# Source: CFA LV1 2025 Vol 05 — Module 1, Positions & Leverage
+# ============================================================
+
+feature: positions-leverage-margin
+version: "1.0.0"
+description: Compute returns on long, short, and leveraged positions including margin requirements, maintenance calls, and the leverage ratio effect on equity returns
+category: trading
+tags: [equity, leverage, margin, short-selling, returns, cfa-level-1]
+aliases:
+  - long-position
+  - short-sale
+  - margin-buying
+  - leveraged-position-return
+  - maintenance-margin-call
+  - margin-call
+
+actors:
+  - id: position_service
+    name: Position & Leverage Service
+    type: system
+
+fields:
+  - name: position_id
+    type: text
+    required: true
+    label: Position identifier
+  - name: direction
+    type: select
+    required: true
+    label: long | short
+  - name: purchase_price
+    type: number
+    required: true
+    label: Entry price
+  - name: initial_margin
+    type: number
+    required: true
+    label: Initial margin fraction (decimal)
+  - name: maintenance_margin
+    type: number
+    required: true
+    label: Maintenance margin fraction (decimal)
+
+rules:
+  long_vs_short:
+    long: "Own the asset; profit if price rises"
+    short: "Borrow and sell; profit if price falls; pay dividends and borrow fee"
+  leverage_ratio:
+    formula: "Position value / equity invested"
+    effect: "Amplifies gains and losses; small price moves move equity substantially"
+  margin_mechanics:
+    initial_margin: "Equity required at trade inception (e.g., 50 percent)"
+    maintenance_margin: "Minimum equity ratio ongoing (e.g., 25 percent)"
+    call_price_long: "P0 * (1 - initial_margin) / (1 - maintenance_margin)"
+    call_price_short: "P0 * (1 + initial_margin) / (1 + maintenance_margin)"
+  leveraged_return:
+    formula: "Return / initial_margin - borrowing_cost * (1 - initial_margin) / initial_margin"
+    risk: "Same magnitude on the downside; full loss possible with low margins"
+  short_sale_considerations:
+    dividends: "Short seller pays dividends to lender"
+    rebate: "Lender returns part of short-sale proceeds interest"
+    recall_risk: "Lender may recall shares; force cover at unfavourable price"
+  validation:
+    position_required: "position_id present"
+    valid_direction: "direction in [long, short]"
+    valid_margins: "0 < initial_margin <= 1 and 0 < maintenance_margin < initial_margin"
+
+outcomes:
+  compute_position_economics:
+    priority: 1
+    description: Compute leveraged return and margin-call price
+    given:
+      - field: position_id
+        source: input
+        operator: exists
+      - field: direction
+        source: input
+        operator: in
+        value: [long, short]
+      - field: initial_margin
+        source: input
+        operator: gt
+        value: 0
+      - field: maintenance_margin
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: position_service
+      - action: emit_event
+        event: position.computed
+  invalid_direction:
+    priority: 10
+    description: Direction not long or short
+    given:
+      - field: direction
+        source: input
+        operator: not_in
+        value: [long, short]
+    then:
+      - action: emit_event
+        event: position.computation_rejected
+    error: POS_INVALID_DIRECTION
+  invalid_margin:
+    priority: 11
+    description: Margin parameters inconsistent
+    given:
+      - any:
+          - field: initial_margin
+            source: input
+            operator: lte
+            value: 0
+          - field: maintenance_margin
+            source: input
+            operator: lte
+            value: 0
+    then:
+      - action: emit_event
+        event: position.computation_rejected
+    error: POS_INVALID_MARGIN
+
+errors:
+  - code: POS_INVALID_DIRECTION
+    status: 400
+    message: direction must be long or short
+  - code: POS_INVALID_MARGIN
+    status: 400
+    message: initial_margin and maintenance_margin must be positive fractions
+
+events:
+  - name: position.computed
+    payload: [position_id, leveraged_return, call_price, equity]
+  - name: position.computation_rejected
+    payload: [position_id, reason_code]
+
+anti_patterns:
+  - rule: Do not ignore borrowing costs when computing leveraged returns
+    why: "Interest on borrowed margin directly reduces realised equity return; net of costs is the honest metric"
+  - rule: Do not assume short-sale profits are symmetric with long gains
+    why: "Losses on shorts are theoretically unlimited; dividend payments and borrow fees also drag"
+  - rule: Do not trade close to maintenance margin in volatile instruments
+    why: "Small intraday moves trigger margin calls and forced liquidation at the worst prices"
+
+api:
+  http:
+    method: POST
+    path: /positions/compute
+  request:
+    schema:
+      position_id: string
+      direction: string
+      purchase_price: number
+      initial_margin: number
+      maintenance_margin: number
+  response:
+    success:
+      status: 200
+      schema:
+        position_id: string
+        leveraged_return: number
+        call_price: number
+    errors:
+      - status: 400
+        error_code: POS_INVALID_DIRECTION
+      - status: 400
+        error_code: POS_INVALID_MARGIN
+
+related:
+  - feature: order-types-execution
+    type: recommended
+  - feature: financial-markets-functions
+    type: recommended

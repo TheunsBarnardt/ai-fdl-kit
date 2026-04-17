@@ -1,0 +1,143 @@
+# ============================================================
+# enterprise-value-asset-based — Feature Blueprint
+# Source: CFA LV1 2025 Vol 05 — Module 8, EV and Asset-Based Valuation
+# ============================================================
+
+feature: enterprise-value-asset-based
+version: "1.0.0"
+description: Value firms using enterprise-value multiples (EV/EBITDA, EV/Sales, EV/Invested Capital) and asset-based methods, including when each is appropriate
+category: trading
+tags: [equity, valuation, enterprise-value, ev-ebitda, asset-based, cfa-level-1]
+aliases:
+  - enterprise-value-multiple
+  - ev-ebitda
+  - ev-sales
+  - asset-based-valuation
+  - liquidation-value
+  - replacement-cost
+
+actors:
+  - id: ev_engine
+    name: Enterprise Value & Asset Valuation Service
+    type: system
+
+fields:
+  - name: valuation_id
+    type: text
+    required: true
+    label: Valuation identifier
+  - name: method
+    type: select
+    required: true
+    label: ev_ebitda | ev_sales | ev_ic | asset_based
+  - name: equity_market_cap
+    type: number
+    required: false
+    label: Equity market capitalisation
+  - name: net_debt
+    type: number
+    required: false
+    label: Debt minus cash
+
+rules:
+  enterprise_value:
+    formula: "EV = equity market cap + debt + preferred + minority interest - cash"
+    intuition: "Price a buyer pays for the whole firm, independent of capital structure"
+  ev_multiples:
+    ev_ebitda: "Capital-structure-neutral; useful for cross-firm"
+    ev_sales: "When earnings are negative; stable across cycles"
+    ev_ic: "Return profile; complement to ROIC"
+  asset_based_methods:
+    going_concern: "Net asset value = fair assets - fair liabilities"
+    liquidation: "Orderly or forced liquidation proceeds"
+    replacement_cost: "Cost to reproduce the firm's assets"
+  suitable_cases:
+    asset_based_best_for:
+      - "Financial firms where assets are liquid and market-marked"
+      - "Natural resource firms with appraised reserves"
+      - "Holding companies with marketable holdings"
+    poor_fit:
+      - "Service firms with large intangible value"
+      - "Brand-driven businesses"
+  comparisons:
+    vs_dcf: "Multiples give relative value; DCF gives absolute"
+    vs_ddm: "EV works for debt-heavy firms where DDM struggles"
+  validation:
+    valuation_required: "valuation_id present"
+    valid_method: "method in allowed set"
+
+outcomes:
+  value_firm_via_ev:
+    priority: 1
+    description: Compute enterprise or asset-based value
+    given:
+      - field: valuation_id
+        source: input
+        operator: exists
+      - field: method
+        source: input
+        operator: in
+        value: [ev_ebitda, ev_sales, ev_ic, asset_based]
+    then:
+      - action: call_service
+        target: ev_engine
+      - action: emit_event
+        event: ev.valued
+  invalid_method:
+    priority: 10
+    description: Unsupported method
+    given:
+      - field: method
+        source: input
+        operator: not_in
+        value: [ev_ebitda, ev_sales, ev_ic, asset_based]
+    then:
+      - action: emit_event
+        event: ev.valuation_rejected
+    error: EV_INVALID_METHOD
+
+errors:
+  - code: EV_INVALID_METHOD
+    status: 400
+    message: method must be ev_ebitda, ev_sales, ev_ic, or asset_based
+
+events:
+  - name: ev.valued
+    payload: [valuation_id, method, implied_enterprise_value, implied_equity_value]
+  - name: ev.valuation_rejected
+    payload: [valuation_id, reason_code]
+
+anti_patterns:
+  - rule: Do not apply EV/EBITDA to financial firms
+    why: "Banks and insurers have liabilities that are operating, not financing; EV construct breaks down"
+  - rule: Do not use asset-based valuation on intangibles-heavy firms
+    why: "Brands, IP, network effects are understated on balance sheets; asset-based yields misleadingly low values"
+  - rule: Do not ignore off-balance-sheet items when computing net debt
+    why: "Operating leases (pre-IFRS16), pension deficits, contingent liabilities belong in debt for EV calculation"
+
+api:
+  http:
+    method: POST
+    path: /equity/valuation/ev
+  request:
+    schema:
+      valuation_id: string
+      method: string
+      equity_market_cap: number
+      net_debt: number
+  response:
+    success:
+      status: 200
+      schema:
+        valuation_id: string
+        enterprise_value: number
+        equity_value: number
+    errors:
+      - status: 400
+        error_code: EV_INVALID_METHOD
+
+related:
+  - feature: equity-valuation-multiples
+    type: recommended
+  - feature: equity-valuation-ddm
+    type: recommended

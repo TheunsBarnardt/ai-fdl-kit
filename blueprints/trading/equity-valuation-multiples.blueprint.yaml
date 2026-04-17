@@ -1,0 +1,165 @@
+# ============================================================
+# equity-valuation-multiples — Feature Blueprint
+# Source: CFA LV1 2025 Vol 05 — Module 8, Price Multiples
+# ============================================================
+
+feature: equity-valuation-multiples
+version: "1.0.0"
+description: Value equity with price multiples — P/E, P/B, P/S, P/CF — using method of comparables and reconcile multiples with present-value fundamentals
+category: trading
+tags: [equity, valuation, price-multiples, comparables, pe-ratio, cfa-level-1]
+aliases:
+  - price-earnings-ratio
+  - price-book-ratio
+  - price-sales-ratio
+  - price-cashflow-ratio
+  - method-of-comparables
+  - justified-multiple
+
+actors:
+  - id: multiples_engine
+    name: Multiples Valuation Service
+    type: system
+
+fields:
+  - name: valuation_id
+    type: text
+    required: true
+    label: Valuation identifier
+  - name: multiple_type
+    type: select
+    required: true
+    label: pe | pb | ps | pcf | peg
+  - name: basis
+    type: select
+    required: true
+    label: trailing | forward | normalised
+
+rules:
+  multiples_definitions:
+    pe: "Price / earnings per share"
+    pb: "Price / book value per share"
+    ps: "Price / sales per share"
+    pcf: "Price / operating cash flow per share"
+    peg: "PE / expected growth rate"
+  justified_multiples:
+    # Link to fundamentals
+    pe_justified: "(1 - retention) * (1 + g) / (r - g)"
+    pb_justified: "(ROE - g) / (r - g)"
+    ps_justified: "Net margin * (1 - retention) * (1 + g) / (r - g)"
+  trailing_vs_forward:
+    trailing: "Historical 12 months"
+    forward: "Next 12 months; reflects expectations"
+    normalised: "Average through cycle"
+  method_of_comparables:
+    steps:
+      - "Select peer group"
+      - "Compute multiple for peers"
+      - "Apply median or mean to target"
+      - "Adjust for differences in growth, risk, margins"
+    caveats: "Peers must be genuinely comparable; stale multiples mislead"
+  earnings_quality:
+    concerns: "One-time items, different accounting, buybacks distort EPS"
+    normalisation: "Strip non-recurring; use comprehensive income where helpful"
+  cross_section:
+    interpretation: "Multiples reflect fundamentals (growth, risk, payout); differences flag mispricing or differing prospects"
+  validation:
+    valuation_required: "valuation_id present"
+    valid_multiple: "multiple_type in allowed set"
+    valid_basis: "basis in allowed set"
+
+outcomes:
+  value_equity_via_multiples:
+    priority: 1
+    description: Compute multiple-based value and justified multiple
+    given:
+      - field: valuation_id
+        source: input
+        operator: exists
+      - field: multiple_type
+        source: input
+        operator: in
+        value: [pe, pb, ps, pcf, peg]
+      - field: basis
+        source: input
+        operator: in
+        value: [trailing, forward, normalised]
+    then:
+      - action: call_service
+        target: multiples_engine
+      - action: emit_event
+        event: multiples.valued
+  invalid_multiple:
+    priority: 10
+    description: Unsupported multiple
+    given:
+      - field: multiple_type
+        source: input
+        operator: not_in
+        value: [pe, pb, ps, pcf, peg]
+    then:
+      - action: emit_event
+        event: multiples.valuation_rejected
+    error: MULT_INVALID_TYPE
+  invalid_basis:
+    priority: 11
+    description: Unsupported basis
+    given:
+      - field: basis
+        source: input
+        operator: not_in
+        value: [trailing, forward, normalised]
+    then:
+      - action: emit_event
+        event: multiples.valuation_rejected
+    error: MULT_INVALID_BASIS
+
+errors:
+  - code: MULT_INVALID_TYPE
+    status: 400
+    message: multiple_type must be pe, pb, ps, pcf, or peg
+  - code: MULT_INVALID_BASIS
+    status: 400
+    message: basis must be trailing, forward, or normalised
+
+events:
+  - name: multiples.valued
+    payload: [valuation_id, multiple_type, implied_value, peer_median]
+  - name: multiples.valuation_rejected
+    payload: [valuation_id, reason_code]
+
+anti_patterns:
+  - rule: Do not compare P/E across firms with different leverage
+    why: "Leverage distorts earnings; EV/EBITDA neutralises capital structure better than P/E for cross-firm work"
+  - rule: Do not use trailing multiples for cyclical peaks
+    why: "Trough earnings yield high PEs that look cheap; normalise through the cycle to avoid value traps"
+  - rule: Do not ignore accounting differences in cross-border peer groups
+    why: "IFRS vs GAAP, depreciation methods, capitalisation policies shift reported earnings and book values"
+
+api:
+  http:
+    method: POST
+    path: /equity/valuation/multiples
+  request:
+    schema:
+      valuation_id: string
+      multiple_type: string
+      basis: string
+  response:
+    success:
+      status: 200
+      schema:
+        valuation_id: string
+        implied_value: number
+        peer_median: number
+    errors:
+      - status: 400
+        error_code: MULT_INVALID_TYPE
+      - status: 400
+        error_code: MULT_INVALID_BASIS
+
+related:
+  - feature: equity-valuation-ddm
+    type: recommended
+  - feature: enterprise-value-asset-based
+    type: recommended

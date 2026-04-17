@@ -1,0 +1,232 @@
+{
+  "feature": "primary-secondary-markets",
+  "version": "1.0.0",
+  "description": "Distinguish primary issuance (IPO, seasoned offering, private placement) from secondary trading venues and evaluate call, continuous, quote-driven, and order-driven execution mechanisms",
+  "category": "trading",
+  "tags": [
+    "equity",
+    "ipo",
+    "primary-market",
+    "secondary-market",
+    "exchange-structure",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "initial-public-offering",
+    "seasoned-equity-offering",
+    "private-placement",
+    "call-market",
+    "continuous-market",
+    "quote-driven-market",
+    "order-driven-market"
+  ],
+  "actors": [
+    {
+      "id": "issuance_service",
+      "name": "Primary Market Service",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "text",
+      "required": true,
+      "label": "Issuance or venue identifier"
+    },
+    {
+      "name": "market_type",
+      "type": "select",
+      "required": true,
+      "label": "primary_ipo | primary_seo | primary_private | secondary_exchange | secondary_otc | secondary_ats"
+    },
+    {
+      "name": "execution_mechanism",
+      "type": "select",
+      "required": false,
+      "label": "call | continuous | quote_driven | order_driven | brokered"
+    },
+    {
+      "name": "underwriting_type",
+      "type": "select",
+      "required": false,
+      "label": "firm_commitment | best_efforts | auction | shelf"
+    }
+  ],
+  "rules": {
+    "primary_transactions": {
+      "ipo": "First sale of shares to public; set by underwriters via book-building",
+      "seo": "Additional shares by listed issuer; dilutes existing holders",
+      "private_placement": "Sale to qualified investors; no public registration",
+      "shelf_registration": "Pre-register and draw down over time",
+      "rights_offering": "Existing shareholders receive rights to subscribe pro rata"
+    },
+    "underwriting": {
+      "firm_commitment": "Underwriter buys whole issue; bears unsold risk",
+      "best_efforts": "Underwriter acts as agent; issuer bears unsold risk",
+      "auction": "Dutch auction determines clearing price"
+    },
+    "secondary_structures": {
+      "call_market": "Orders accumulated and crossed at single auction time",
+      "continuous_market": "Orders match continuously during session",
+      "quote_driven": "Dealers post bid/ask; investors trade against dealer",
+      "order_driven": "Orders match based on price-time priority",
+      "brokered_market": "Dealer finds counterparty for illiquid instruments"
+    },
+    "well_functioning_markets": {
+      "liquidity": "Low bid-ask spreads, depth, resilience",
+      "informational_efficiency": "Prices reflect available information",
+      "operational_efficiency": "Low transaction costs",
+      "allocational_efficiency": "Capital flows to most productive uses"
+    },
+    "regulation_objectives": [
+      "Protect unsophisticated investors",
+      "Ensure fair, orderly, efficient markets",
+      "Facilitate capital formation",
+      "Prevent fraud and manipulation"
+    ],
+    "validation": {
+      "event_required": "event_id present",
+      "valid_market_type": "market_type in allowed set"
+    }
+  },
+  "outcomes": {
+    "classify_market_event": {
+      "priority": 1,
+      "description": "Record and classify a primary issuance or secondary venue",
+      "given": [
+        {
+          "field": "event_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "market_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "primary_ipo",
+            "primary_seo",
+            "primary_private",
+            "secondary_exchange",
+            "secondary_otc",
+            "secondary_ats"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "issuance_service"
+        },
+        {
+          "action": "emit_event",
+          "event": "market_event.classified"
+        }
+      ]
+    },
+    "invalid_market_type": {
+      "priority": 10,
+      "description": "Unsupported market type",
+      "given": [
+        {
+          "field": "market_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "primary_ipo",
+            "primary_seo",
+            "primary_private",
+            "secondary_exchange",
+            "secondary_otc",
+            "secondary_ats"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "market_event.rejected"
+        }
+      ],
+      "error": "MKT_EVENT_INVALID_TYPE"
+    }
+  },
+  "errors": [
+    {
+      "code": "MKT_EVENT_INVALID_TYPE",
+      "status": 400,
+      "message": "market_type must be one of the supported primary/secondary categories"
+    }
+  ],
+  "events": [
+    {
+      "name": "market_event.classified",
+      "payload": [
+        "event_id",
+        "market_type",
+        "execution_mechanism"
+      ]
+    },
+    {
+      "name": "market_event.rejected",
+      "payload": [
+        "event_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not assume IPO allocations are random",
+      "why": "Underwriters favour long-term institutional clients; retail often receives over-subscribed deals that under-perform"
+    },
+    {
+      "rule": "Do not conflate OTC and unregulated",
+      "why": "OTC markets have rules, disclosure, and oversight — just different structure from exchanges"
+    },
+    {
+      "rule": "Do not ignore lock-up expiries after IPO",
+      "why": "Insider selling post-lock-up drives supply shocks; integrate into IPO post-trade models"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/markets/events"
+    },
+    "request": {
+      "schema": {
+        "event_id": "string",
+        "market_type": "string",
+        "execution_mechanism": "string",
+        "underwriting_type": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 201,
+        "schema": {
+          "event_id": "string",
+          "market_type": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "MKT_EVENT_INVALID_TYPE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "financial-markets-functions",
+      "type": "recommended"
+    },
+    {
+      "feature": "order-types-execution",
+      "type": "recommended"
+    }
+  ]
+}

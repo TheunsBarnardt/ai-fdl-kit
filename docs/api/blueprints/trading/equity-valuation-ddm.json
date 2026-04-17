@@ -1,0 +1,266 @@
+{
+  "feature": "equity-valuation-ddm",
+  "version": "1.0.0",
+  "description": "Value equity with dividend discount models — single-stage Gordon growth, two-stage, three-stage, H-model — and determine when each fits a firm's growth pattern",
+  "category": "trading",
+  "tags": [
+    "equity",
+    "valuation",
+    "ddm",
+    "gordon-growth",
+    "multistage",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "ddm-valuation-variants",
+    "gordon-growth-valuation",
+    "multistage-dividend-model",
+    "two-stage-ddm-valuation",
+    "h-model-valuation",
+    "fcfe-valuation"
+  ],
+  "actors": [
+    {
+      "id": "ddm_engine",
+      "name": "Dividend Discount Valuation Service",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "valuation_id",
+      "type": "text",
+      "required": true,
+      "label": "Valuation identifier"
+    },
+    {
+      "name": "model_variant",
+      "type": "select",
+      "required": true,
+      "label": "gordon | two_stage | three_stage | h_model | fcfe"
+    },
+    {
+      "name": "cost_of_equity",
+      "type": "number",
+      "required": true,
+      "label": "Required return on equity (decimal)"
+    },
+    {
+      "name": "terminal_growth",
+      "type": "number",
+      "required": true,
+      "label": "Long-run growth rate (decimal)"
+    }
+  ],
+  "rules": {
+    "gordon_growth": {
+      "formula": "V0 = D1 / (r - g)",
+      "constraint": "g < r and g constant in perpetuity",
+      "sensitivity": "Very sensitive to r - g; small changes swing value materially"
+    },
+    "two_stage_model": {
+      "formula": "PV of high-growth dividends + terminal value at end of high-growth",
+      "use_case": "Firm with finite high-growth horizon"
+    },
+    "three_stage_model": {
+      "phases": "Initial, transition with linearly declining growth, terminal"
+    },
+    "h_model": {
+      "formula": "V0 = D0*(1+g_L)/(r-g_L) + D0*H*(g_H - g_L)/(r - g_L)",
+      "interpretation": "Approximates linear fade from g_H to g_L over 2H years"
+    },
+    "preferred_stock": {
+      "formula": "V0 = D / r when non-callable, non-convertible, perpetual"
+    },
+    "fcfe_model": {
+      "formula": "PV of Free Cash Flow to Equity discounted at cost of equity",
+      "preferred_when": "Dividends not paid or differ from capacity"
+    },
+    "dividend_capacity": {
+      "formula": "Sustainable growth = ROE * (1 - payout)",
+      "interpretation": "Higher retention and ROE support higher growth"
+    },
+    "validation": {
+      "valuation_required": "valuation_id present",
+      "valid_variant": "model_variant in allowed set",
+      "g_less_than_r": "terminal_growth < cost_of_equity"
+    }
+  },
+  "outcomes": {
+    "value_equity_via_ddm": {
+      "priority": 1,
+      "description": "Compute intrinsic value under chosen DDM variant",
+      "given": [
+        {
+          "field": "valuation_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "model_variant",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "gordon",
+            "two_stage",
+            "three_stage",
+            "h_model",
+            "fcfe"
+          ]
+        },
+        {
+          "field": "cost_of_equity",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "ddm_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "ddm.valued"
+        }
+      ]
+    },
+    "invalid_variant": {
+      "priority": 10,
+      "description": "Unsupported DDM variant",
+      "given": [
+        {
+          "field": "model_variant",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "gordon",
+            "two_stage",
+            "three_stage",
+            "h_model",
+            "fcfe"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "ddm.valuation_rejected"
+        }
+      ],
+      "error": "DDM_INVALID_VARIANT"
+    },
+    "invalid_growth": {
+      "priority": 11,
+      "description": "Terminal growth exceeds cost of equity",
+      "given": [
+        {
+          "field": "terminal_growth",
+          "source": "input",
+          "operator": "gte",
+          "value": "cost_of_equity"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "ddm.valuation_rejected"
+        }
+      ],
+      "error": "DDM_GROWTH_EXCEEDS_RATE"
+    }
+  },
+  "errors": [
+    {
+      "code": "DDM_INVALID_VARIANT",
+      "status": 400,
+      "message": "model_variant must be gordon, two_stage, three_stage, h_model, or fcfe"
+    },
+    {
+      "code": "DDM_GROWTH_EXCEEDS_RATE",
+      "status": 400,
+      "message": "terminal_growth must be strictly less than cost_of_equity"
+    }
+  ],
+  "events": [
+    {
+      "name": "ddm.valued",
+      "payload": [
+        "valuation_id",
+        "variant",
+        "intrinsic_value",
+        "implied_upside"
+      ]
+    },
+    {
+      "name": "ddm.valuation_rejected",
+      "payload": [
+        "valuation_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not apply Gordon growth to firms with lumpy or zero dividends",
+      "why": "Model requires stable payout ratio; use FCFE or multistage where payout pattern differs"
+    },
+    {
+      "rule": "Do not pick terminal growth above long-run GDP",
+      "why": "Sustained above-GDP growth implies firm eventually consumes the economy; cap terminal g at nominal GDP"
+    },
+    {
+      "rule": "Do not ignore sensitivity of DDM to r and g",
+      "why": "Small r - g shifts cause large valuation swings; always publish sensitivity tables"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/equity/valuation/ddm"
+    },
+    "request": {
+      "schema": {
+        "valuation_id": "string",
+        "model_variant": "string",
+        "cost_of_equity": "number",
+        "terminal_growth": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "valuation_id": "string",
+          "intrinsic_value": "number",
+          "upside": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "DDM_INVALID_VARIANT"
+        },
+        {
+          "status": 400,
+          "error_code": "DDM_GROWTH_EXCEEDS_RATE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "equity-return-roe",
+      "type": "required"
+    },
+    {
+      "feature": "equity-valuation-multiples",
+      "type": "recommended"
+    },
+    {
+      "feature": "enterprise-value-asset-based",
+      "type": "recommended"
+    }
+  ]
+}

@@ -1,0 +1,144 @@
+# ============================================================
+# equity-securities-types — Feature Blueprint
+# Source: CFA LV1 2025 Vol 05 — Module 4, Overview of Equity Securities
+# ============================================================
+
+feature: equity-securities-types
+version: "1.0.0"
+description: Classify common and preferred equity variants — voting, participating, cumulative, convertible, callable, putable — and capture their cash-flow and control rights
+category: trading
+tags: [equity, common-stock, preferred-stock, convertible, shareholder-rights, cfa-level-1]
+aliases:
+  - common-shares
+  - preferred-shares
+  - cumulative-preferred
+  - participating-preferred
+  - convertible-preferred
+  - callable-preferred
+
+actors:
+  - id: equity_taxonomist
+    name: Equity Securities Classifier
+    type: system
+
+fields:
+  - name: security_id
+    type: text
+    required: true
+    label: Security identifier
+  - name: equity_type
+    type: select
+    required: true
+    label: common | preferred
+  - name: features
+    type: multiselect
+    required: false
+    label: voting | cumulative | participating | convertible | callable | putable
+  - name: dividend_rate
+    type: number
+    required: false
+    label: Stated dividend rate for preferred (decimal)
+
+rules:
+  common_shares:
+    residual_claim: "Last in line for assets and earnings"
+    voting_rights: "One share one vote (typical); may have dual-class"
+    dividends: "Discretionary, paid after debt and preferred"
+  preferred_shares:
+    cumulative: "Unpaid dividends accumulate; must be paid before common dividends"
+    participating: "Receive extra dividends when common exceeds threshold"
+    convertible: "Convert to common at pre-set ratio"
+    callable: "Issuer can redeem at call price"
+    putable: "Holder can force redemption"
+  voting_variants:
+    statutory: "One vote per share per director"
+    cumulative: "Votes can be concentrated on one nominee"
+    dual_class: "Super-voting shares retained by founders"
+  non_domestic_access:
+    direct_investing: "Buy on foreign exchange; FX and settlement risk"
+    depository_receipts:
+      sponsored_adr: "Issuer-backed ADR; levels I-III increase disclosure"
+      unsponsored_adr: "No issuer cooperation; limited voting"
+      gdr: "Global DR, often traded in London/Luxembourg"
+  risk_return:
+    # Vol 5 Module 4
+    risk: "Standard deviation of returns; preferred less volatile than common"
+    return: "Price change plus dividends; currency effects for ADR/GDR"
+  validation:
+    security_required: "security_id present"
+    valid_type: "equity_type in [common, preferred]"
+
+outcomes:
+  classify_equity_security:
+    priority: 1
+    description: Record classification and features of an equity security
+    given:
+      - field: security_id
+        source: input
+        operator: exists
+      - field: equity_type
+        source: input
+        operator: in
+        value: [common, preferred]
+    then:
+      - action: call_service
+        target: equity_taxonomist
+      - action: emit_event
+        event: equity_security.classified
+  invalid_type:
+    priority: 10
+    description: Unsupported equity type
+    given:
+      - field: equity_type
+        source: input
+        operator: not_in
+        value: [common, preferred]
+    then:
+      - action: emit_event
+        event: equity_security.classification_rejected
+    error: EQ_INVALID_TYPE
+
+errors:
+  - code: EQ_INVALID_TYPE
+    status: 400
+    message: equity_type must be common or preferred
+
+events:
+  - name: equity_security.classified
+    payload: [security_id, equity_type, features]
+  - name: equity_security.classification_rejected
+    payload: [security_id, reason_code]
+
+anti_patterns:
+  - rule: Do not treat preferred dividends as risk-free
+    why: "Preferreds rank above common but below debt; non-cumulative issues can skip dividends without default"
+  - rule: Do not ignore dual-class voting in governance models
+    why: "Founders with super-voting retain control indefinitely; minority shareholders have limited influence"
+  - rule: Do not compare ADR returns without adjusting for FX and reference asset
+    why: "ADR price reflects underlying plus currency; performance attribution requires both components"
+
+api:
+  http:
+    method: POST
+    path: /equity/securities/classify
+  request:
+    schema:
+      security_id: string
+      equity_type: string
+      features: array
+      dividend_rate: number
+  response:
+    success:
+      status: 200
+      schema:
+        security_id: string
+        equity_type: string
+    errors:
+      - status: 400
+        error_code: EQ_INVALID_TYPE
+
+related:
+  - feature: private-public-equity
+    type: recommended
+  - feature: equity-return-roe
+    type: recommended

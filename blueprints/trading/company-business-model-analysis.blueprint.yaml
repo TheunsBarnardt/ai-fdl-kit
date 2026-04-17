@@ -1,0 +1,146 @@
+# ============================================================
+# company-business-model-analysis — Feature Blueprint
+# Source: CFA LV1 2025 Vol 05 — Module 5, Company Analysis Past & Present
+# ============================================================
+
+feature: company-business-model-analysis
+version: "1.0.0"
+description: Characterise a company's business model, revenue drivers, pricing power, and cost structure to assess operating profitability and working-capital intensity
+category: trading
+tags: [equity, business-model, revenue-analysis, operating-costs, pricing-power, cfa-level-1]
+aliases:
+  - revenue-drivers
+  - pricing-power-analysis
+  - top-down-revenue
+  - bottom-up-revenue
+  - fixed-variable-costs
+  - business-model-canvas
+
+actors:
+  - id: company_analyst
+    name: Company Business-Model Analyst
+    type: system
+
+fields:
+  - name: entity_id
+    type: text
+    required: true
+    label: Entity identifier
+  - name: industry_code
+    type: text
+    required: false
+    label: GICS or ICB code
+  - name: revenue_model
+    type: select
+    required: false
+    label: transactional | subscription | licensing | usage | advertising | asset_based
+  - name: cost_structure
+    type: select
+    required: false
+    label: fixed_heavy | variable_heavy | mixed
+
+rules:
+  business_model_elements:
+    # Source: Vol 5, Module 5
+    who: "Target customer segments"
+    what: "Value proposition and product/service"
+    how: "Channels, operations, cost structure"
+    why: "Competitive moat and economics"
+    where_when: "Geography and timing"
+  revenue_drivers:
+    volume: "Units x price"
+    mix: "Higher-margin share of mix"
+    pricing_power: "Elasticity and willingness to pay"
+    growth_sources: "New customers, wallet share, geographies, products"
+  revenue_approaches:
+    top_down: "Macro -> industry -> company share"
+    bottom_up: "Unit-level build from stores, products, or customers"
+    hybrid: "Combine both for cross-check"
+  cost_classifications:
+    fixed: "Rent, salaries, depreciation — don't scale with output"
+    variable: "COGS components — scale with output"
+    natural: "By nature — labour, materials, energy"
+    functional: "By activity — manufacturing, selling, G&A"
+  operating_profitability:
+    gross_margin: "Pricing power and input cost discipline"
+    operating_margin: "Scale and SG&A efficiency"
+    operating_leverage: "Change in operating income per 1 percent change in revenue"
+  working_capital_metrics:
+    dso: "Days sales outstanding"
+    dio: "Days inventory on hand"
+    dpo: "Days payables outstanding"
+    ccc: "DSO + DIO - DPO"
+  validation:
+    entity_required: "entity_id present"
+    valid_revenue_model: "revenue_model in allowed set or null"
+
+outcomes:
+  profile_business_model:
+    priority: 1
+    description: Produce a business-model and revenue profile
+    given:
+      - field: entity_id
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: company_analyst
+      - action: emit_event
+        event: business_model.profiled
+  missing_entity:
+    priority: 10
+    description: Entity missing
+    given:
+      - field: entity_id
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: business_model.rejected
+    error: BM_ENTITY_MISSING
+
+errors:
+  - code: BM_ENTITY_MISSING
+    status: 400
+    message: entity_id is required
+
+events:
+  - name: business_model.profiled
+    payload: [profile_id, entity_id, revenue_model, operating_leverage]
+  - name: business_model.rejected
+    payload: [profile_id, reason_code]
+
+anti_patterns:
+  - rule: Do not extrapolate past revenue growth without decomposing volume vs price
+    why: "Price-driven growth is less durable than volume growth in competitive industries; decomposition reveals fragility"
+  - rule: Do not treat SG&A as fully variable
+    why: "Much of SG&A is semi-fixed; revenue declines do not yield proportional cost relief in the short run"
+  - rule: Do not ignore working-capital swings in cyclical firms
+    why: "CCC expansion at the top of a cycle ties up cash and amplifies drawdowns; monitor DSO, DIO, DPO trends"
+
+api:
+  http:
+    method: POST
+    path: /equity/business-model/profile
+  request:
+    schema:
+      entity_id: string
+      industry_code: string
+      revenue_model: string
+      cost_structure: string
+  response:
+    success:
+      status: 200
+      schema:
+        profile_id: string
+        revenue_model: string
+        operating_leverage: number
+    errors:
+      - status: 400
+        error_code: BM_ENTITY_MISSING
+
+related:
+  - feature: industry-competitive-analysis
+    type: required
+  - feature: company-forecasting-model
+    type: recommended

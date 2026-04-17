@@ -1,0 +1,276 @@
+{
+  "feature": "company-forecasting-model",
+  "version": "1.0.0",
+  "description": "Forecast company financials — revenue, operating costs, working capital, capital investment — using top-down, bottom-up, and hybrid methods with scenario analysis",
+  "category": "trading",
+  "tags": [
+    "equity",
+    "forecasting",
+    "scenario-analysis",
+    "financial-modeling",
+    "revenue-projection",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "revenue-forecasting",
+    "cost-forecasting",
+    "forecast-horizon",
+    "scenario-forecast",
+    "hybrid-forecast",
+    "capital-investment-forecast"
+  ],
+  "actors": [
+    {
+      "id": "forecaster",
+      "name": "Company Forecasting Service",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "model_id",
+      "type": "text",
+      "required": true,
+      "label": "Forecast model identifier"
+    },
+    {
+      "name": "entity_id",
+      "type": "text",
+      "required": true,
+      "label": "Entity identifier"
+    },
+    {
+      "name": "approach",
+      "type": "select",
+      "required": true,
+      "label": "top_down | bottom_up | hybrid"
+    },
+    {
+      "name": "horizon_years",
+      "type": "number",
+      "required": true,
+      "label": "Forecast horizon in years"
+    }
+  ],
+  "rules": {
+    "forecast_objects": {
+      "regular_disclosures": "Revenue, margins, capex, working capital",
+      "avoid_invisibles": "Do not forecast items not reported or unstable"
+    },
+    "approaches": {
+      "top_down": "Macro -> industry -> company",
+      "bottom_up": "Store/unit/SKU -> company",
+      "hybrid": "Bottom-up for near years, top-down for terminal"
+    },
+    "horizon_selection": {
+      "factors": "Business cycle, visibility, analyst purpose",
+      "typical": "3-5 explicit years; then fade to terminal"
+    },
+    "revenue_projection": {
+      "unit_based": "Price x volume by segment",
+      "growth_decay": "High growth fades to GDP-consistent terminal",
+      "market_share": "Industry growth x share trend"
+    },
+    "cost_projection": {
+      "cogs": "Gross margin stable or drift to peer median",
+      "sga": "Scale with revenue, fixed component",
+      "tax": "Statutory rate adjusted for permanent differences"
+    },
+    "working_capital_projection": {
+      "method": "Days-based (DSO/DIO/DPO) linked to revenue and COGS",
+      "cyclical": "Allow widening in downturns"
+    },
+    "capex_and_depreciation": {
+      "maintenance_capex": "Replaces worn assets; approximates depreciation",
+      "growth_capex": "Drives future revenue expansion"
+    },
+    "scenario_analysis": {
+      "base": "Most probable path",
+      "bull": "Upside given favourable assumptions",
+      "bear": "Stress case with adverse conditions"
+    },
+    "validation": {
+      "model_required": "model_id present",
+      "valid_approach": "approach in allowed set",
+      "positive_horizon": "horizon_years > 0"
+    }
+  },
+  "outcomes": {
+    "generate_forecast": {
+      "priority": 1,
+      "description": "Build multi-year forecast under chosen approach",
+      "given": [
+        {
+          "field": "model_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "entity_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "approach",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "top_down",
+            "bottom_up",
+            "hybrid"
+          ]
+        },
+        {
+          "field": "horizon_years",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "forecaster"
+        },
+        {
+          "action": "emit_event",
+          "event": "forecast.generated"
+        }
+      ]
+    },
+    "invalid_approach": {
+      "priority": 10,
+      "description": "Unsupported approach",
+      "given": [
+        {
+          "field": "approach",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "top_down",
+            "bottom_up",
+            "hybrid"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "forecast.rejected"
+        }
+      ],
+      "error": "FORECAST_INVALID_APPROACH"
+    },
+    "invalid_horizon": {
+      "priority": 11,
+      "description": "Horizon non-positive",
+      "given": [
+        {
+          "field": "horizon_years",
+          "source": "input",
+          "operator": "lte",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "forecast.rejected"
+        }
+      ],
+      "error": "FORECAST_INVALID_HORIZON"
+    }
+  },
+  "errors": [
+    {
+      "code": "FORECAST_INVALID_APPROACH",
+      "status": 400,
+      "message": "approach must be top_down, bottom_up, or hybrid"
+    },
+    {
+      "code": "FORECAST_INVALID_HORIZON",
+      "status": 400,
+      "message": "horizon_years must be positive"
+    }
+  ],
+  "events": [
+    {
+      "name": "forecast.generated",
+      "payload": [
+        "model_id",
+        "entity_id",
+        "approach",
+        "horizon_years",
+        "scenarios"
+      ]
+    },
+    {
+      "name": "forecast.rejected",
+      "payload": [
+        "model_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not extrapolate near-term growth into perpetuity",
+      "why": "Firm growth above GDP forever implies the firm eventually dominates the economy; fade to sustainable terminal"
+    },
+    {
+      "rule": "Do not fix margins to history without cost-driver analysis",
+      "why": "Input prices, wage inflation, and mix shifts move margins; anchor to drivers not to averages"
+    },
+    {
+      "rule": "Do not omit scenarios for cyclical businesses",
+      "why": "Single-point forecasts hide downside; publish bull/base/bear with probability weights"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/forecast/generate"
+    },
+    "request": {
+      "schema": {
+        "model_id": "string",
+        "entity_id": "string",
+        "approach": "string",
+        "horizon_years": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "model_id": "string",
+          "scenarios": "array"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "FORECAST_INVALID_APPROACH"
+        },
+        {
+          "status": 400,
+          "error_code": "FORECAST_INVALID_HORIZON"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "company-business-model-analysis",
+      "type": "required"
+    },
+    {
+      "feature": "industry-competitive-analysis",
+      "type": "required"
+    },
+    {
+      "feature": "equity-valuation-ddm",
+      "type": "recommended"
+    }
+  ]
+}

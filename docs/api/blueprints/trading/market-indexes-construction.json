@@ -1,0 +1,240 @@
+{
+  "feature": "market-indexes-construction",
+  "version": "1.0.0",
+  "description": "Construct, weight, and rebalance security market indexes (price, equal, market-cap, float-adjusted, fundamental) and compute single- and multi-period index returns",
+  "category": "trading",
+  "tags": [
+    "equity",
+    "indexes",
+    "benchmark",
+    "weighting",
+    "rebalancing",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "index-construction",
+    "index-weighting",
+    "price-weighted-index",
+    "market-cap-weighted-index",
+    "equal-weighted-index",
+    "fundamental-weighted-index",
+    "index-rebalancing"
+  ],
+  "actors": [
+    {
+      "id": "index_engine",
+      "name": "Index Construction Service",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "index_id",
+      "type": "text",
+      "required": true,
+      "label": "Index identifier"
+    },
+    {
+      "name": "weighting_method",
+      "type": "select",
+      "required": true,
+      "label": "price | equal | market_cap | float_adjusted | fundamental"
+    },
+    {
+      "name": "constituents",
+      "type": "json",
+      "required": true,
+      "label": "List of constituents with price, shares, float factor"
+    },
+    {
+      "name": "divisor",
+      "type": "number",
+      "required": false,
+      "label": "Current index divisor"
+    }
+  ],
+  "rules": {
+    "single_period_return": {
+      "formula": "(Index_end - Index_start + Income) / Index_start"
+    },
+    "weighting_methods": {
+      "price": "Weight_i = P_i / sum(P)",
+      "equal": "Weight_i = 1/N; requires frequent rebalancing",
+      "market_cap": "Weight_i = P_i * S_i / sum(P*S); introduces large-cap bias",
+      "float_adjusted": "Use float-adjusted shares to reflect investable universe",
+      "fundamental": "Weight by revenue, earnings, book value, or dividends"
+    },
+    "biases": {
+      "price_weighted": "Overweights high-price shares regardless of size; split-sensitive",
+      "market_cap": "Overweights overvalued firms; momentum bias",
+      "fundamental": "Tilts to value; contrarian to momentum"
+    },
+    "rebalancing": {
+      "schedule": "Quarterly or semi-annual; reduces drift",
+      "reconstitution": "Add/remove constituents per index rules",
+      "drift": "Equal-weight drifts fastest; cap-weight has lowest drift"
+    },
+    "uses_of_indexes": [
+      "Market sentiment gauge",
+      "Proxy for asset class returns",
+      "Benchmark for active managers",
+      "Basis for index funds and ETFs",
+      "Input to systematic risk models"
+    ],
+    "index_types": {
+      "broad_market": "Large portion of market (S&P 500, MSCI ACWI)",
+      "multi_market": "Global / regional composites",
+      "sector": "Industry or sector slices",
+      "style": "Value/growth, size tilts",
+      "fixed_income": "Issuer, duration, credit buckets",
+      "alternatives": "Commodity (GSCI), REIT, hedge fund"
+    },
+    "validation": {
+      "index_required": "index_id present",
+      "valid_method": "weighting_method in allowed set"
+    }
+  },
+  "outcomes": {
+    "compute_index_value": {
+      "priority": 1,
+      "description": "Compute index level and return for a period",
+      "given": [
+        {
+          "field": "index_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "weighting_method",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "price",
+            "equal",
+            "market_cap",
+            "float_adjusted",
+            "fundamental"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "index_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "index.computed"
+        }
+      ]
+    },
+    "invalid_method": {
+      "priority": 10,
+      "description": "Unsupported weighting method",
+      "given": [
+        {
+          "field": "weighting_method",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "price",
+            "equal",
+            "market_cap",
+            "float_adjusted",
+            "fundamental"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "index.computation_rejected"
+        }
+      ],
+      "error": "INDEX_INVALID_METHOD"
+    }
+  },
+  "errors": [
+    {
+      "code": "INDEX_INVALID_METHOD",
+      "status": 400,
+      "message": "weighting_method must be price, equal, market_cap, float_adjusted, or fundamental"
+    }
+  ],
+  "events": [
+    {
+      "name": "index.computed",
+      "payload": [
+        "index_id",
+        "level",
+        "period_return",
+        "divisor"
+      ]
+    },
+    {
+      "name": "index.computation_rejected",
+      "payload": [
+        "index_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not benchmark a small-cap manager against an S&P 500 index",
+      "why": "Style and size mismatches inflate perceived alpha; use style-matched benchmark"
+    },
+    {
+      "rule": "Do not ignore float adjustment in emerging markets",
+      "why": "Large state-owned or insider blocks distort cap weights and investable capacity"
+    },
+    {
+      "rule": "Do not compare returns across indexes with different reinvestment assumptions",
+      "why": "Total-return and price-return indexes diverge materially with dividends; match the series before comparing"
+    },
+    {
+      "rule": "Do not rebalance an equal-weight portfolio infrequently",
+      "why": "Drift creates unintended tilts; equal-weight benefits require disciplined rebalancing"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/indexes/compute"
+    },
+    "request": {
+      "schema": {
+        "index_id": "string",
+        "weighting_method": "string",
+        "constituents": "object",
+        "divisor": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "index_id": "string",
+          "level": "number",
+          "period_return": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "INDEX_INVALID_METHOD"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "market-efficiency-forms",
+      "type": "recommended"
+    },
+    {
+      "feature": "financial-markets-functions",
+      "type": "recommended"
+    }
+  ]
+}

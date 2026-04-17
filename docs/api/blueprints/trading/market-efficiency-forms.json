@@ -1,0 +1,222 @@
+{
+  "feature": "market-efficiency-forms",
+  "version": "1.0.0",
+  "description": "Distinguish weak, semi-strong, and strong forms of market efficiency, test joint hypotheses with event studies, and reconcile market value with intrinsic value",
+  "category": "trading",
+  "tags": [
+    "equity",
+    "market-efficiency",
+    "emh",
+    "fundamental-analysis",
+    "technical-analysis",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "efficient-market-hypothesis",
+    "weak-form-efficiency",
+    "semi-strong-efficiency",
+    "strong-form-efficiency",
+    "intrinsic-value",
+    "event-study"
+  ],
+  "actors": [
+    {
+      "id": "efficiency_tester",
+      "name": "Market Efficiency Service",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "test_id",
+      "type": "text",
+      "required": true,
+      "label": "Efficiency test identifier"
+    },
+    {
+      "name": "form_under_test",
+      "type": "select",
+      "required": true,
+      "label": "weak | semi_strong | strong"
+    },
+    {
+      "name": "abnormal_returns",
+      "type": "json",
+      "required": false,
+      "label": "Cumulative abnormal return series"
+    },
+    {
+      "name": "information_set",
+      "type": "select",
+      "required": false,
+      "label": "historical_prices | public | all_including_private"
+    }
+  ],
+  "rules": {
+    "efficiency_definition": {
+      "price_reflects": "Prices fully reflect all relevant information",
+      "speed_of_adjustment": "New information incorporated quickly",
+      "abnormal_returns": "Consistent above-market returns impossible after adjusting for risk"
+    },
+    "forms_of_efficiency": {
+      "weak": "Past prices and volumes — technical analysis cannot produce abnormal returns",
+      "semi_strong": "All public information — fundamental analysis of public data insufficient",
+      "strong": "All information including private — insiders also cannot profit"
+    },
+    "factors_affecting_efficiency": [
+      "Number of participants and analysts",
+      "Information availability and disclosure",
+      "Limits to arbitrage (short-sale costs, capital constraints)",
+      "Transaction and information costs"
+    ],
+    "intrinsic_vs_market_value": {
+      "intrinsic": "Present value of expected future cash flows at appropriate discount rate",
+      "market": "Observed transaction price",
+      "equilibrium": "Active investors drive market toward intrinsic value"
+    },
+    "implications": {
+      "fundamental_analysis": "Helpful when market less than semi-strong efficient",
+      "technical_analysis": "Only useful if weak form fails",
+      "portfolio_management": "In efficient markets, favour passive indexing"
+    },
+    "validation": {
+      "test_required": "test_id present",
+      "valid_form": "form_under_test in allowed set"
+    }
+  },
+  "outcomes": {
+    "evaluate_efficiency_form": {
+      "priority": 1,
+      "description": "Test a form of market efficiency against observed returns",
+      "given": [
+        {
+          "field": "test_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "form_under_test",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "weak",
+            "semi_strong",
+            "strong"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "efficiency_tester"
+        },
+        {
+          "action": "emit_event",
+          "event": "efficiency.evaluated"
+        }
+      ]
+    },
+    "invalid_form": {
+      "priority": 10,
+      "description": "Unsupported efficiency form",
+      "given": [
+        {
+          "field": "form_under_test",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "weak",
+            "semi_strong",
+            "strong"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "efficiency.evaluation_rejected"
+        }
+      ],
+      "error": "EFF_INVALID_FORM"
+    }
+  },
+  "errors": [
+    {
+      "code": "EFF_INVALID_FORM",
+      "status": 400,
+      "message": "form_under_test must be weak, semi_strong, or strong"
+    }
+  ],
+  "events": [
+    {
+      "name": "efficiency.evaluated",
+      "payload": [
+        "test_id",
+        "form",
+        "verdict",
+        "confidence"
+      ]
+    },
+    {
+      "name": "efficiency.evaluation_rejected",
+      "payload": [
+        "test_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not treat EMH as all-or-nothing",
+      "why": "Markets are more or less efficient along a spectrum; micro-caps, emerging markets less efficient than large-cap developed"
+    },
+    {
+      "rule": "Do not interpret one anomaly as evidence against EMH",
+      "why": "EMH tests are joint tests with the chosen asset-pricing model; anomalies may reflect model mis-specification"
+    },
+    {
+      "rule": "Do not abandon fundamental analysis because markets are efficient",
+      "why": "Analyst effort is what keeps markets efficient; the process rewards marginal improvements even when average alpha is zero"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/efficiency/test"
+    },
+    "request": {
+      "schema": {
+        "test_id": "string",
+        "form_under_test": "string",
+        "abnormal_returns": "object",
+        "information_set": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "test_id": "string",
+          "verdict": "string",
+          "confidence": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "EFF_INVALID_FORM"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "market-anomalies-behavioral",
+      "type": "recommended"
+    },
+    {
+      "feature": "equity-valuation-ddm",
+      "type": "recommended"
+    }
+  ]
+}

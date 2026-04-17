@@ -1,0 +1,145 @@
+# ============================================================
+# private-public-equity — Feature Blueprint
+# Source: CFA LV1 2025 Vol 05 — Modules 5-6, Private vs Public Equity
+# ============================================================
+
+feature: private-public-equity
+version: "1.0.0"
+description: Compare private and public equity along liquidity, disclosure, governance, and valuation axes, and describe exit routes including IPO, trade sale, secondary, and dividend recap
+category: trading
+tags: [equity, private-equity, public-equity, liquidity, disclosure, cfa-level-1]
+aliases:
+  - private-equity-securities
+  - public-equity-securities
+  - venture-capital-stage
+  - leveraged-buyout-stage
+  - pe-exit-routes
+  - private-investment
+
+actors:
+  - id: pe_analyst
+    name: Private-Public Equity Analyst
+    type: system
+
+fields:
+  - name: holding_id
+    type: text
+    required: true
+    label: Holding identifier
+  - name: venue
+    type: select
+    required: true
+    label: public | private
+  - name: private_stage
+    type: select
+    required: false
+    label: seed | venture | growth | buyout
+  - name: expected_exit
+    type: select
+    required: false
+    label: ipo | trade_sale | secondary | dividend_recap
+
+rules:
+  public_characteristics:
+    liquidity: "Continuous market; price discovery"
+    disclosure: "Regulated periodic reporting"
+    governance: "Minority shareholder protections, proxy votes"
+    valuation: "Market price observable"
+  private_characteristics:
+    liquidity: "Illiquid; lock-ups; secondary market limited"
+    disclosure: "Negotiated; confidential"
+    governance: "Board control, protective provisions"
+    valuation: "Model-based; stale marks"
+  private_stages:
+    seed: "Idea and team formation"
+    venture: "Early revenue and product-market fit"
+    growth: "Scaling with unit economics proven"
+    buyout: "Mature cash flow; leverage-driven"
+  exit_routes:
+    ipo: "Public listing; underwritten distribution"
+    trade_sale: "Sale to strategic acquirer"
+    secondary: "Sale to another PE fund or LP buyer"
+    dividend_recap: "Return capital via leveraged dividend without sale"
+  liquidity_discount:
+    # Source: Vol 5, Module 6
+    magnitude: "Private equity typically trades at 10-30 percent discount to public comparables"
+    drivers: "Illiquidity, valuation uncertainty, governance risk"
+  validation:
+    holding_required: "holding_id present"
+    valid_venue: "venue in [public, private]"
+
+outcomes:
+  classify_private_public:
+    priority: 1
+    description: Classify equity holding and infer expected exit if private
+    given:
+      - field: holding_id
+        source: input
+        operator: exists
+      - field: venue
+        source: input
+        operator: in
+        value: [public, private]
+    then:
+      - action: call_service
+        target: pe_analyst
+      - action: emit_event
+        event: equity_venue.classified
+  invalid_venue:
+    priority: 10
+    description: Unsupported venue
+    given:
+      - field: venue
+        source: input
+        operator: not_in
+        value: [public, private]
+    then:
+      - action: emit_event
+        event: equity_venue.rejected
+    error: PE_INVALID_VENUE
+
+errors:
+  - code: PE_INVALID_VENUE
+    status: 400
+    message: venue must be public or private
+
+events:
+  - name: equity_venue.classified
+    payload: [holding_id, venue, stage, expected_exit]
+  - name: equity_venue.rejected
+    payload: [holding_id, reason_code]
+
+anti_patterns:
+  - rule: Do not mark private positions at last-round price indefinitely
+    why: "Stale marks mask drawdowns; use comparable multiples and milestones to true up"
+  - rule: Do not assume all IPO exits are voluntary
+    why: "Fund life cycles force exits at suboptimal times; track fund age and LP pressure"
+  - rule: Do not compare public and private IRRs without vintage adjustment
+    why: "PE IRRs are time-weighted by commitment, not continuous; public market equivalents (PME) needed for apples-to-apples"
+
+api:
+  http:
+    method: POST
+    path: /equity/holdings/classify
+  request:
+    schema:
+      holding_id: string
+      venue: string
+      private_stage: string
+      expected_exit: string
+  response:
+    success:
+      status: 200
+      schema:
+        holding_id: string
+        venue: string
+        liquidity_band: string
+    errors:
+      - status: 400
+        error_code: PE_INVALID_VENUE
+
+related:
+  - feature: equity-securities-types
+    type: recommended
+  - feature: primary-secondary-markets
+    type: recommended

@@ -1,0 +1,142 @@
+# ============================================================
+# financial-markets-functions — Feature Blueprint
+# Source: CFA LV1 2025 Vol 05 — Module 1, Market Organization
+# ============================================================
+
+feature: financial-markets-functions
+version: "1.0.0"
+description: Classify financial market functions, asset types, and intermediaries that connect savers to borrowers, transfer risk, and facilitate price discovery
+category: trading
+tags: [equity, market-structure, intermediaries, asset-classes, cfa-level-1]
+aliases:
+  - market-functions
+  - financial-intermediaries
+  - asset-classification
+  - market-participants-roles
+  - savers-borrowers
+  - price-discovery-function
+
+actors:
+  - id: market_taxonomist
+    name: Market Classification Service
+    type: system
+
+fields:
+  - name: instrument_id
+    type: text
+    required: true
+    label: Instrument identifier
+  - name: asset_class
+    type: select
+    required: true
+    label: equity | fixed_income | currency | commodity | real_asset | derivative
+  - name: maturity
+    type: select
+    required: false
+    label: money_market | capital_market
+  - name: issuer_type
+    type: select
+    required: false
+    label: public | private | government | supranational
+
+rules:
+  market_functions:
+    # Source: Vol 5, Module 1 — six core functions
+    save: "Help savers move purchasing power forward in time"
+    borrow: "Allow borrowers to bring future income forward"
+    raise_equity: "Firms raise capital by selling ownership"
+    manage_risk: "Hedge via derivatives and diversification"
+    exchange: "Currency and commodity exchange between parties"
+    utility: "Provide liquidity, price discovery, information"
+  asset_classifications:
+    by_maturity: "Money market < 1 year; capital market > 1 year"
+    by_claim: "Debt (fixed claim) vs equity (residual claim)"
+    by_trading: "Public (exchanges/OTC) vs private (direct)"
+    by_underlying: "Spot vs derivative contract"
+  intermediaries:
+    brokers_dealers: "Match buyers/sellers; dealers trade from own book"
+    exchanges_atss: "Organised venues; ATS/dark pools match without displayed quotes"
+    clearing_houses: "Central counterparty — novation, margin, settlement"
+    custodians: "Hold securities on behalf of owners"
+    banks_insurance: "Provide credit, risk transfer, liquidity"
+    investment_advisers: "Pooled and managed accounts"
+    arbitrageurs: "Exploit price differences across venues"
+  validation:
+    asset_required: "instrument_id present"
+    valid_asset_class: "asset_class in allowed set"
+
+outcomes:
+  classify_instrument:
+    priority: 1
+    description: Classify instrument along asset-class and market axes
+    given:
+      - field: instrument_id
+        source: input
+        operator: exists
+      - field: asset_class
+        source: input
+        operator: in
+        value: [equity, fixed_income, currency, commodity, real_asset, derivative]
+    then:
+      - action: call_service
+        target: market_taxonomist
+      - action: emit_event
+        event: market.classified
+  invalid_asset_class:
+    priority: 10
+    description: Asset class outside allowed set
+    given:
+      - field: asset_class
+        source: input
+        operator: not_in
+        value: [equity, fixed_income, currency, commodity, real_asset, derivative]
+    then:
+      - action: emit_event
+        event: market.classification_rejected
+    error: MARKET_INVALID_ASSET_CLASS
+
+errors:
+  - code: MARKET_INVALID_ASSET_CLASS
+    status: 400
+    message: asset_class must be one of the allowed classes
+
+events:
+  - name: market.classified
+    payload: [classification_id, instrument_id, asset_class, maturity_band]
+  - name: market.classification_rejected
+    payload: [classification_id, reason_code]
+
+anti_patterns:
+  - rule: Do not conflate ATSs with exchanges
+    why: "ATSs operate without self-regulatory powers and often offer non-displayed liquidity — transparency differs materially"
+  - rule: Do not assume central counterparty removes risk
+    why: "CCPs concentrate risk; margin and default funds are not infinite"
+  - rule: Do not treat commodities and real assets as interchangeable
+    why: "Commodities are fungible and storable; real assets (real estate, infrastructure) are not"
+
+api:
+  http:
+    method: POST
+    path: /markets/instrument/classify
+  request:
+    schema:
+      instrument_id: string
+      asset_class: string
+      maturity: string
+      issuer_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        classification_id: string
+        asset_class: string
+        market_type: string
+    errors:
+      - status: 400
+        error_code: MARKET_INVALID_ASSET_CLASS
+
+related:
+  - feature: positions-leverage-margin
+    type: recommended
+  - feature: market-indexes-construction
+    type: recommended

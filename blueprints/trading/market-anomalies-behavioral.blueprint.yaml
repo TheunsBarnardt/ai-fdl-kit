@@ -1,0 +1,140 @@
+# ============================================================
+# market-anomalies-behavioral — Feature Blueprint
+# Source: CFA LV1 2025 Vol 05 — Module 3, Anomalies & Behavioral Finance
+# ============================================================
+
+feature: market-anomalies-behavioral
+version: "1.0.0"
+description: Catalog time-series and cross-sectional market anomalies, identify behavioral biases, and assess when apparent anomalies persist or fade under scrutiny
+category: trading
+tags: [equity, behavioral-finance, anomalies, biases, cfa-level-1]
+aliases:
+  - time-series-anomaly
+  - cross-sectional-anomaly
+  - january-effect
+  - momentum-anomaly
+  - value-anomaly
+  - behavioral-bias
+
+actors:
+  - id: anomaly_scanner
+    name: Anomaly & Behavioral Analytics
+    type: system
+
+fields:
+  - name: scan_id
+    type: text
+    required: true
+    label: Anomaly scan identifier
+  - name: anomaly_category
+    type: select
+    required: true
+    label: time_series | cross_sectional | other
+  - name: bias_hypothesis
+    type: select
+    required: false
+    label: loss_aversion | herding | overconfidence | information_cascade | anchoring | availability
+
+rules:
+  time_series_anomalies:
+    january_effect: "Positive excess returns early January; smaller firms strongest"
+    overreaction: "Past losers outperform past winners over 3-5 years"
+    momentum: "3-12 month winners continue; momentum factor"
+    weekend_effect: "Monday returns historically negative vs Friday"
+  cross_sectional_anomalies:
+    size_effect: "Small-cap firms outperform large, risk-adjusted"
+    value_effect: "Low P/B or P/E firms outperform growth"
+    accruals: "Firms with high accruals under-perform"
+  other_anomalies:
+    closed_end_discount: "Funds trade at persistent discount to NAV"
+    earnings_surprise_drift: "Post-earnings-announcement drift in direction of surprise"
+    ipo_long_run: "IPOs under-perform seasoned peers for 3-5 years"
+  behavioral_biases:
+    loss_aversion: "Losses weighted ~2x gains; disposition effect"
+    herding: "Following crowd into or out of positions"
+    overconfidence: "Over-estimating skill, under-estimating variance"
+    information_cascade: "Ignoring private info to follow public actions"
+    representativeness: "Treating recent pattern as representative of future"
+    anchoring: "Over-weighting first data point"
+    mental_accounting: "Treating money differently by source or label"
+  anomaly_robustness:
+    concerns: "Data mining, survivorship, transaction costs often explain"
+    persistence: "Some anomalies (momentum, value) persist out of sample"
+    implementation: "After costs and capacity, alpha often shrinks or disappears"
+  validation:
+    scan_required: "scan_id present"
+    valid_category: "anomaly_category in allowed set"
+
+outcomes:
+  scan_anomaly:
+    priority: 1
+    description: Scan returns data for named anomaly or behavioral pattern
+    given:
+      - field: scan_id
+        source: input
+        operator: exists
+      - field: anomaly_category
+        source: input
+        operator: in
+        value: [time_series, cross_sectional, other]
+    then:
+      - action: call_service
+        target: anomaly_scanner
+      - action: emit_event
+        event: anomaly.scanned
+  invalid_category:
+    priority: 10
+    description: Unsupported anomaly category
+    given:
+      - field: anomaly_category
+        source: input
+        operator: not_in
+        value: [time_series, cross_sectional, other]
+    then:
+      - action: emit_event
+        event: anomaly.scan_rejected
+    error: ANOMALY_INVALID_CATEGORY
+
+errors:
+  - code: ANOMALY_INVALID_CATEGORY
+    status: 400
+    message: anomaly_category must be time_series, cross_sectional, or other
+
+events:
+  - name: anomaly.scanned
+    payload: [scan_id, category, effect_size, significance]
+  - name: anomaly.scan_rejected
+    payload: [scan_id, reason_code]
+
+anti_patterns:
+  - rule: Do not chase an anomaly after it is widely published
+    why: "Arbitrage tends to reduce or eliminate anomalies once they become well known; hot reports are late signals"
+  - rule: Do not ignore transaction costs and capacity
+    why: "Small-stock anomalies evaporate once scaled; modelled alpha is not investable alpha"
+  - rule: Do not treat behavioral biases as trading signals without risk management
+    why: "Individual bias-driven mispricings can persist arbitrarily long; position sizing and stops are required"
+
+api:
+  http:
+    method: POST
+    path: /anomalies/scan
+  request:
+    schema:
+      scan_id: string
+      anomaly_category: string
+      bias_hypothesis: string
+  response:
+    success:
+      status: 200
+      schema:
+        scan_id: string
+        findings: array
+    errors:
+      - status: 400
+        error_code: ANOMALY_INVALID_CATEGORY
+
+related:
+  - feature: market-efficiency-forms
+    type: required
+  - feature: equity-valuation-multiples
+    type: recommended

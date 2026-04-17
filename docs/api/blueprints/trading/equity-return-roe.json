@@ -1,0 +1,256 @@
+{
+  "feature": "equity-return-roe",
+  "version": "1.0.0",
+  "description": "Compute accounting return on equity and cost of equity, decompose ROE using DuPont analysis, and reconcile book value with intrinsic equity value",
+  "category": "trading",
+  "tags": [
+    "equity",
+    "roe",
+    "cost-of-equity",
+    "dupont",
+    "intrinsic-value",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "return-on-equity",
+    "accounting-roe",
+    "cost-of-common-equity",
+    "roe-dupont",
+    "book-value-equity",
+    "required-return-equity"
+  ],
+  "actors": [
+    {
+      "id": "roe_analyst",
+      "name": "Return-on-Equity Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "entity_id",
+      "type": "text",
+      "required": true,
+      "label": "Entity identifier"
+    },
+    {
+      "name": "net_income",
+      "type": "number",
+      "required": true,
+      "label": "Net income available to common"
+    },
+    {
+      "name": "avg_equity",
+      "type": "number",
+      "required": true,
+      "label": "Average shareholders equity"
+    },
+    {
+      "name": "risk_free_rate",
+      "type": "number",
+      "required": false,
+      "label": "Risk-free rate (decimal)"
+    },
+    {
+      "name": "beta",
+      "type": "number",
+      "required": false,
+      "label": "Equity beta"
+    },
+    {
+      "name": "equity_premium",
+      "type": "number",
+      "required": false,
+      "label": "Equity risk premium (decimal)"
+    }
+  ],
+  "rules": {
+    "roe_basic": {
+      "formula": "Net income / average common equity"
+    },
+    "dupont_three_factor": {
+      "formula": "(NI/Sales) * (Sales/Assets) * (Assets/Equity)",
+      "interpretation": "Margin x turnover x leverage"
+    },
+    "dupont_five_factor": {
+      "formula": "(NI/EBT) * (EBT/EBIT) * (EBIT/Sales) * (Sales/Assets) * (Assets/Equity)",
+      "interpretation": "Tax burden x interest burden x operating margin x turnover x leverage"
+    },
+    "cost_of_equity_methods": {
+      "capm": "Rf + beta * equity_risk_premium",
+      "ddm_implied": "Dividend/Price + g",
+      "bond_yield_plus": "Bond yield + equity risk premium (approx 3-5 percent)"
+    },
+    "required_return_uses": [
+      "Discount rate for DDM, FCFE",
+      "Hurdle rate in capital budgeting",
+      "Benchmark for ROE sustainability"
+    ],
+    "value_creation": {
+      "condition": "ROE > cost of equity -> economic profit",
+      "signal": "Persistent spread indicates franchise value"
+    },
+    "validation": {
+      "entity_required": "entity_id present",
+      "positive_equity": "avg_equity > 0"
+    }
+  },
+  "outcomes": {
+    "compute_roe_and_ke": {
+      "priority": 1,
+      "description": "Compute ROE decomposition and cost of equity",
+      "given": [
+        {
+          "field": "entity_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "avg_equity",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "roe_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "roe.computed"
+        }
+      ]
+    },
+    "invalid_equity": {
+      "priority": 10,
+      "description": "Equity non-positive",
+      "given": [
+        {
+          "field": "avg_equity",
+          "source": "input",
+          "operator": "lte",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "roe.computation_rejected"
+        }
+      ],
+      "error": "ROE_INVALID_EQUITY"
+    },
+    "missing_entity": {
+      "priority": 11,
+      "description": "Entity missing",
+      "given": [
+        {
+          "field": "entity_id",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "roe.computation_rejected"
+        }
+      ],
+      "error": "ROE_ENTITY_MISSING"
+    }
+  },
+  "errors": [
+    {
+      "code": "ROE_INVALID_EQUITY",
+      "status": 400,
+      "message": "avg_equity must be positive"
+    },
+    {
+      "code": "ROE_ENTITY_MISSING",
+      "status": 400,
+      "message": "entity_id is required"
+    }
+  ],
+  "events": [
+    {
+      "name": "roe.computed",
+      "payload": [
+        "computation_id",
+        "entity_id",
+        "roe",
+        "cost_of_equity",
+        "economic_spread"
+      ]
+    },
+    {
+      "name": "roe.computation_rejected",
+      "payload": [
+        "computation_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use ROE alone to rank firms with different leverage",
+      "why": "High ROE can be driven by leverage, not operations; decompose via DuPont and compare operating margin x turnover"
+    },
+    {
+      "rule": "Do not apply CAPM to highly cyclical firms without adjustment",
+      "why": "Historical beta understates risk for firms with operating leverage swings; use unlevered beta with pro-forma leverage"
+    },
+    {
+      "rule": "Do not assume ROE is sustainable",
+      "why": "Accounting ROE can be inflated by buybacks, write-offs, or one-time gains; normalise before projecting"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/equity/roe/compute"
+    },
+    "request": {
+      "schema": {
+        "entity_id": "string",
+        "net_income": "number",
+        "avg_equity": "number",
+        "risk_free_rate": "number",
+        "beta": "number",
+        "equity_premium": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "computation_id": "string",
+          "roe": "number",
+          "cost_of_equity": "number",
+          "economic_spread": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "ROE_INVALID_EQUITY"
+        },
+        {
+          "status": 400,
+          "error_code": "ROE_ENTITY_MISSING"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "equity-valuation-ddm",
+      "type": "required"
+    },
+    {
+      "feature": "fsa-ratio-analysis",
+      "type": "required"
+    }
+  ]
+}

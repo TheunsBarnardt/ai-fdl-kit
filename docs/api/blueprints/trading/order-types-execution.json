@@ -1,0 +1,296 @@
+{
+  "feature": "order-types-execution",
+  "version": "1.0.0",
+  "description": "Classify and validate trading orders — market, limit, stop, stop-limit — along with validity and clearing instructions that govern execution behaviour",
+  "category": "trading",
+  "tags": [
+    "equity",
+    "orders",
+    "market-microstructure",
+    "execution",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "market-order",
+    "limit-order",
+    "stop-order",
+    "stop-limit-order",
+    "order-time-in-force-exec",
+    "order-validity-instruction"
+  ],
+  "actors": [
+    {
+      "id": "order_validator",
+      "name": "Order Validation Service",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "order_id",
+      "type": "text",
+      "required": true,
+      "label": "Order identifier"
+    },
+    {
+      "name": "side",
+      "type": "select",
+      "required": true,
+      "label": "buy | sell"
+    },
+    {
+      "name": "order_type",
+      "type": "select",
+      "required": true,
+      "label": "market | limit | stop | stop_limit"
+    },
+    {
+      "name": "limit_price",
+      "type": "number",
+      "required": false,
+      "label": "Limit price (required for limit / stop_limit)"
+    },
+    {
+      "name": "stop_price",
+      "type": "number",
+      "required": false,
+      "label": "Stop trigger price (required for stop / stop_limit)"
+    },
+    {
+      "name": "time_in_force",
+      "type": "select",
+      "required": true,
+      "label": "day | gtc | ioc | fok | gtd"
+    }
+  ],
+  "rules": {
+    "order_types": {
+      "market": "Execute immediately at best available price; price uncertain",
+      "limit": "Execute at limit price or better; execution uncertain",
+      "stop": "Becomes market when stop triggered; used to cut losses",
+      "stop_limit": "Becomes limit when stop triggered; both price and execution uncertain"
+    },
+    "time_in_force": {
+      "day": "Cancels at end of trading day",
+      "gtc": "Good till cancelled",
+      "ioc": "Immediate-or-cancel; partial fills allowed",
+      "fok": "Fill-or-kill; complete or cancel",
+      "gtd": "Good till date"
+    },
+    "execution_instructions": {
+      "all_or_none": "No partial fills",
+      "iceberg": "Hide quantity; display only a tip",
+      "hidden": "Not displayed in book"
+    },
+    "clearing_instructions": {
+      "normal": "Standard T+2 settlement",
+      "cash": "Same-day settlement",
+      "next_day": "T+1"
+    },
+    "validation": {
+      "order_required": "order_id present",
+      "valid_type": "order_type in allowed set",
+      "limit_price_for_limit": "limit_price required when order_type in [limit, stop_limit]",
+      "stop_price_for_stop": "stop_price required when order_type in [stop, stop_limit]"
+    }
+  },
+  "outcomes": {
+    "validate_order": {
+      "priority": 1,
+      "description": "Accept a well-formed order for routing",
+      "given": [
+        {
+          "field": "order_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "side",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "buy",
+            "sell"
+          ]
+        },
+        {
+          "field": "order_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "market",
+            "limit",
+            "stop",
+            "stop_limit"
+          ]
+        },
+        {
+          "field": "time_in_force",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "day",
+            "gtc",
+            "ioc",
+            "fok",
+            "gtd"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "order_validator"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.accepted"
+        }
+      ]
+    },
+    "invalid_type": {
+      "priority": 10,
+      "description": "Unsupported order type",
+      "given": [
+        {
+          "field": "order_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "market",
+            "limit",
+            "stop",
+            "stop_limit"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "order.rejected"
+        }
+      ],
+      "error": "ORDER_INVALID_TYPE"
+    },
+    "missing_limit_price": {
+      "priority": 11,
+      "description": "Limit or stop-limit order missing limit price",
+      "given": [
+        {
+          "all": [
+            {
+              "field": "order_type",
+              "source": "input",
+              "operator": "in",
+              "value": [
+                "limit",
+                "stop_limit"
+              ]
+            },
+            {
+              "field": "limit_price",
+              "source": "input",
+              "operator": "not_exists"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "order.rejected"
+        }
+      ],
+      "error": "ORDER_MISSING_LIMIT_PRICE"
+    }
+  },
+  "errors": [
+    {
+      "code": "ORDER_INVALID_TYPE",
+      "status": 400,
+      "message": "order_type must be market, limit, stop, or stop_limit"
+    },
+    {
+      "code": "ORDER_MISSING_LIMIT_PRICE",
+      "status": 400,
+      "message": "limit_price is required for limit and stop_limit orders"
+    }
+  ],
+  "events": [
+    {
+      "name": "order.accepted",
+      "payload": [
+        "order_id",
+        "side",
+        "order_type",
+        "time_in_force"
+      ]
+    },
+    {
+      "name": "order.rejected",
+      "payload": [
+        "order_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not place market orders in thin markets",
+      "why": "Slippage on illiquid names can be catastrophic; use limit orders to cap execution price"
+    },
+    {
+      "rule": "Do not convert stop to stop-limit without understanding gap risk",
+      "why": "Stop-limit may not execute if price gaps past limit; stop becomes market and guarantees execution"
+    },
+    {
+      "rule": "Do not leave GTC orders unmonitored across corporate actions",
+      "why": "Splits and dividends may leave stale prices and unintended executions after ex-date adjustments"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/orders/submit"
+    },
+    "request": {
+      "schema": {
+        "order_id": "string",
+        "side": "string",
+        "order_type": "string",
+        "limit_price": "number",
+        "stop_price": "number",
+        "time_in_force": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 201,
+        "schema": {
+          "order_id": "string",
+          "status": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "ORDER_INVALID_TYPE"
+        },
+        {
+          "status": 400,
+          "error_code": "ORDER_MISSING_LIMIT_PRICE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "financial-markets-functions",
+      "type": "recommended"
+    },
+    {
+      "feature": "positions-leverage-margin",
+      "type": "recommended"
+    }
+  ]
+}
