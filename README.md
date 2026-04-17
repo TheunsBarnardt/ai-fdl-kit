@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/ai-fdl-kit"><img src="https://img.shields.io/npm/v/ai-fdl-kit.svg?color=cb3837&label=npm" alt="npm"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="MIT"></a>
-  <a href="blueprints/"><img src="https://img.shields.io/badge/blueprints-530-blue" alt="Blueprints"></a>
+  <a href="blueprints/"><img src="https://img.shields.io/badge/blueprints-546-blue" alt="Blueprints"></a>
   <a href="https://theunsbarnardt.github.io/ai-fdl-kit/"><img src="https://img.shields.io/badge/docs-github_pages-green.svg" alt="Docs"></a>
 </p>
 
@@ -104,7 +104,7 @@ You only talk to Bob. **The crew is invisible.**
 
 | Role | Job |
 |------|-----|
-| **Scout** | Find matching blueprints in the 530+ catalog |
+| **Scout** | Find matching blueprints in the 546+ catalog |
 | **Surveyor** | Identify gaps + recommend solutions |
 | **Sketcher** | Build interactive prototype UI |
 | **Builder** | Generate production code |
@@ -275,7 +275,7 @@ Then in Claude Code:
 
 ## The Blueprints: 380+ Patterns
 
-FDL ships with 530+ battle-tested blueprints encoding architectural patterns:
+FDL ships with 546+ battle-tested blueprints encoding architectural patterns:
 
 | Category | Examples | Count |
 |----------|----------|-------|
