@@ -1,0 +1,243 @@
+{
+  "feature": "connectivity-testing-lcon",
+  "version": "1.0.0",
+  "description": "JSE Live Connectivity Test (LCON) process for validating client infrastructure changes and trading enablements",
+  "category": "trading",
+  "tags": [
+    "testing",
+    "connectivity",
+    "lcon",
+    "validation",
+    "trading",
+    "conformance"
+  ],
+  "fields": [
+    {
+      "name": "lcon_type",
+      "type": "select",
+      "required": true,
+      "label": "Type of Live Connectivity Test",
+      "options": [
+        {
+          "value": "new_comp_id_new_ip",
+          "label": "New Comp ID & New IP"
+        },
+        {
+          "value": "existing_comp_id_new_ip",
+          "label": "Existing Comp ID & New IP"
+        },
+        {
+          "value": "network_supported_changes",
+          "label": "Network Supported Changes"
+        },
+        {
+          "value": "new_trading_firm",
+          "label": "New Trading Firm"
+        },
+        {
+          "value": "new_trader_group",
+          "label": "New Trader Group"
+        },
+        {
+          "value": "new_software",
+          "label": "New Software"
+        }
+      ]
+    },
+    {
+      "name": "support_level",
+      "type": "select",
+      "required": true,
+      "label": "Support level for LCON",
+      "options": [
+        {
+          "value": "supported",
+          "label": "Supported (Thursday 18:00-20:00, 72h notice)"
+        },
+        {
+          "value": "unsupported",
+          "label": "Unsupported (24h notice, limited support)"
+        }
+      ]
+    },
+    {
+      "name": "gateway_type",
+      "type": "select",
+      "required": true,
+      "label": "Gateway interface being tested",
+      "options": [
+        {
+          "value": "native_trading",
+          "label": "Native Trading"
+        },
+        {
+          "value": "fix_trading",
+          "label": "FIX Trading"
+        },
+        {
+          "value": "drop_copy",
+          "label": "Drop Copy"
+        },
+        {
+          "value": "post_trade",
+          "label": "Post Trade"
+        },
+        {
+          "value": "market_data",
+          "label": "Market Data"
+        }
+      ]
+    },
+    {
+      "name": "hours_notice_provided",
+      "type": "number",
+      "required": true,
+      "label": "Hours of notice provided"
+    }
+  ],
+  "rules": {
+    "lcon_requirement": {
+      "mandatory_on_changes": "LCON mandatory when infrastructure or enablement changes made"
+    },
+    "supported_lcon_scheduling": {
+      "window": "Thursday 18:00-20:00 SAST",
+      "notice_period_schedule": "Minimum 72 hours notice required"
+    },
+    "unsupported_lcon_scheduling": {
+      "window": "Monday-Friday 06:30-19:00 SAST",
+      "notice_period": "Minimum 24 hours notice required"
+    }
+  },
+  "outcomes": {
+    "lcon_request_validated": {
+      "priority": 1,
+      "given": [
+        {
+          "field": "lcon_type",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "lcon.request.validated",
+          "payload": [
+            "lcon_type",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "LCON request passes validation"
+    },
+    "supported_lcon_scheduled": {
+      "priority": 2,
+      "given": [
+        {
+          "field": "support_level",
+          "source": "input",
+          "operator": "eq",
+          "value": "supported"
+        },
+        {
+          "field": "hours_notice_provided",
+          "source": "input",
+          "operator": "gte",
+          "value": 72
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "lcon.scheduled",
+          "payload": [
+            "support_level",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "Supported LCON scheduled for Thursday"
+    },
+    "lcon_successful": {
+      "priority": 10,
+      "given": [
+        {
+          "field": "lcon_type",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "lcon.successful",
+          "payload": [
+            "tested_gateways",
+            "timestamp"
+          ]
+        }
+      ],
+      "result": "LCON complete; enablements ready for production"
+    }
+  },
+  "errors": [
+    {
+      "code": "LCON_INSUFFICIENT_NOTICE",
+      "status": 400,
+      "message": "Insufficient notice; supported requires 72h, unsupported requires 24h"
+    },
+    {
+      "code": "LCON_GATEWAY_LOGIN_FAILED",
+      "status": 500,
+      "message": "Failed to establish login with correct IP and Comp-ID"
+    },
+    {
+      "code": "LCON_MULTICAST_RECEIPT_FAILED",
+      "status": 500,
+      "message": "Failed to confirm Multicast receipt on subscribed channels"
+    }
+  ],
+  "events": [
+    {
+      "name": "lcon.request.validated",
+      "description": "LCON request validated",
+      "payload": [
+        "lcon_type",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "lcon.scheduled",
+      "description": "LCON scheduled",
+      "payload": [
+        "support_level",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "lcon.successful",
+      "description": "LCON test complete",
+      "payload": [
+        "tested_gateways",
+        "timestamp"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "network-configuration-guide",
+      "type": "required",
+      "reason": "Network must be configured before LCON"
+    },
+    {
+      "feature": "client-connectivity-standards",
+      "type": "required",
+      "reason": "Client must meet connectivity standards"
+    },
+    {
+      "feature": "conformance-testing-guide",
+      "type": "recommended",
+      "reason": "LCON validates connectivity; conformance tests validate functionality"
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+feature: inflation-indexed-bond-pricing
+version: 1.0.0
+description: |
+  Pricing methodology for inflation-linked bonds with CPI-adjusted principals.
+  Supports linear CPI interpolation for settlement dates between published months.
+category: trading
+tags: [bonds, inflation, cpi, inflation-indexed, real-yield]
+
+fields:
+  - name: settlement_date
+    type: date
+    required: true
+    label: Settlement Date
+
+  - name: maturity_date
+    type: date
+    required: true
+    label: Maturity Date
+
+  - name: coupon_percentage
+    type: number
+    required: true
+    label: Real Coupon Rate
+
+  - name: reference_cpi
+    type: number
+    required: true
+    label: Reference CPI
+
+  - name: settlement_cpi
+    type: number
+    required: true
+    label: Settlement CPI
+
+rules:
+  pricing:
+    indexed_principal: |
+      Indexed_Principal = Nominal × (Settlement_CPI / Reference_CPI)
+
+    cpi_interpolation: |
+      Settlement_CPI = CPI(m) + [(CPI(m+1) - CPI(m)) × fraction_of_month]
+
+outcomes:
+  iilb_priced:
+    description: Calculate inflation-indexed bond price with CPI adjustment
+    given:
+      - field: settlement_cpi
+        source: input
+        operator: exists
+      - field: reference_cpi
+        source: input
+        operator: exists
+    then:
+      - action: set_field
+        target: indexed_principal
+        value: "nominal × (settlement_cpi / reference_cpi)"
+      - action: set_field
+        target: all_in_price
+        value: "GCH formula on indexed principal"
+      - action: emit_event
+        event: iilb.price.calculated
+        payload: [settlement_cpi, indexed_principal]
+    result: Inflation-indexed bond priced
+
+errors:
+  - code: INVALID_CPI
+    status: 400
+    message: CPI values must be positive
+
+related:
+  - feature: bond-pricing-models
+    type: required

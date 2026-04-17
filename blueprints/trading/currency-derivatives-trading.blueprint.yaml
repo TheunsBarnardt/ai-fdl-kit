@@ -1,0 +1,194 @@
+feature: currency-derivatives-trading
+version: 1.0.0
+description: FX derivatives trading with forwards, swaps, options, close-out auctions
+category: trading
+tags:
+  - derivatives
+  - fx
+  - currency
+related:
+  - type: required
+    feature: derivatives-market-overview
+
+fields:
+  - name: currency_pair
+    type: text
+    required: true
+    label: Currency pair (USDZAR, EURZAR)
+  - name: contract_code
+    type: text
+    required: true
+    label: Contract code
+  - name: contract_type
+    type: select
+    required: true
+    label: Type
+    options:
+      - value: F
+        label: Future
+      - value: Y
+        label: Option
+      - value: S
+        label: Forward
+      - value: W
+        label: Swap
+  - name: expiry_date
+    type: date
+    required: true
+    label: Expiry date
+  - name: forward_rate
+    type: number
+    required: false
+    label: Forward rate
+  - name: notional_amount
+    type: number
+    required: true
+    label: Notional amount
+  - name: order_type
+    type: select
+    required: true
+    label: Order type
+    options:
+      - value: LIMIT
+        label: Limit
+      - value: MARKET
+        label: Market
+  - name: settlement_type
+    type: select
+    required: true
+    label: Settlement method
+    options:
+      - value: CASH
+        label: Cash
+      - value: SPOT
+        label: Spot (physical delivery)
+
+rules:
+  trading:
+    fxm_sessions: |
+      Continuous 08:00-17:00 SAST. Opening auction 07:50-08:00.
+      FX close out auction mandatory at 17:00 each business day.
+      Volatility auctions on price circuit breaker.
+    forward_trading: |
+      Quoted as outright rate (spot + forward points). Tenor basis: SP, TN, 1W-12M+.
+      Settlement via banking (SWIFT, local nostro). T+n settlement per tenor.
+    fx_swap_trading: |
+      Buy spot + sell forward (or reverse). Near leg T+0, far leg T+n.
+      Basis quoted as swap points. Interest differential accrued per spec.
+    option_trading: |
+      European style FX options. Calls and puts on forwards/spot.
+      Strike in exchange rate. Exercise at expiry if ITM; automatic settlement.
+    close_out_auction: |
+      Daily 17:00 FX close out. Finalizes day's positions. EOD rates published 17:15.
+      Spot rates published 10:00, 11:30, EOD. All used for daily MTM.
+
+errors:
+  - code: CURRENCY_PAIR_NOT_SUPPORTED
+    status: 400
+    message: Currency pair not actively traded
+  - code: INVALID_TENOR
+    status: 400
+    message: Settlement tenor not available
+  - code: FX_SETTLEMENT_FAILED
+    status: 500
+    message: Banking system failed to settle FX delivery
+  - code: CLOSE_OUT_AUCTION_FAILED
+    status: 500
+    message: FX close out auction engine error
+
+events:
+  - name: order.submitted
+    payload: [order_id, currency_pair, amount]
+  - name: forward.initiated
+    payload: [forward_id, pair, rate, tenor]
+  - name: swap.initiated
+    payload: [swap_id, near_leg, far_leg]
+  - name: settlement.spot_initiated
+    payload: [settlement_id, amount, rate]
+  - name: close_out_auction.ended
+    payload: [currency_pair, close_out_rate]
+
+outcomes:
+  fx_forward_order_insert:
+    priority: 1
+    name: fx_forward_order_insert
+    given:
+      - field: currency_pair
+        source: input
+        operator: in
+        value: ["USDZAR", "EURZAR", "GBPZAR"]
+      - field: notional_amount
+        source: input
+        operator: gt
+        value: 0
+      - field: forward_rate
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: create_record
+        type: active_order
+        payload: [currency_pair, notional_amount, forward_rate]
+      - action: emit_event
+        event: order.submitted
+    result: FX forward order accepted in order book
+
+  fx_swap_initiation:
+    priority: 2
+    name: fx_swap_initiation
+    given:
+      - field: contract_type
+        source: input
+        operator: eq
+        value: W
+      - field: notional_amount
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: create_record
+        type: swap_near_leg
+      - action: create_record
+        type: swap_far_leg
+      - action: emit_event
+        event: swap.initiated
+    result: Swap created; both legs queued for settlement
+
+  fx_close_out_auction_uncross:
+    priority: 5
+    name: fx_close_out_auction_uncross
+    given:
+      - field: market_session
+        source: system
+        operator: eq
+        value: FX_CLOSE_OUT
+      - field: uncross_price
+        source: computed
+        operator: exists
+    then:
+      - action: set_field
+        target: eod_settlement_price
+        value: uncross_price
+      - action: emit_event
+        event: close_out_auction.ended
+    result: FX close out auction determines EOD rates; positions marked to market
+
+  banking_settlement_confirmed:
+    priority: 9
+    name: banking_settlement_confirmed
+    given:
+      - field: settlement_status
+        source: db
+        operator: eq
+        value: initiated
+      - field: banking_confirmation
+        source: input
+        operator: exists
+    then:
+      - action: transition_state
+        field: settlement_status
+        from: initiated
+        to: confirmed
+      - action: emit_event
+        event: settlement.spot_initiated
+    result: Settlement confirmed; proceeds to completion on settlement date

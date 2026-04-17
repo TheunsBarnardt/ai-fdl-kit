@@ -1,0 +1,168 @@
+feature: interest-rate-derivatives-trading
+version: 1.0.0
+description: Interest rate derivatives trading with NUTRON API, conformance, and settlement
+category: trading
+tags:
+  - derivatives
+  - fixed-income
+related:
+  - type: required
+    feature: derivatives-market-overview
+
+fields:
+  - name: contract_code
+    type: text
+    required: true
+    label: Contract code
+  - name: contract_type
+    type: select
+    required: true
+    label: Type
+    options:
+      - value: F
+        label: Future
+      - value: Y
+        label: Option
+      - value: S
+        label: Spot
+  - name: expiry_date
+    type: date
+    required: true
+    label: Expiry date
+  - name: position_quantity
+    type: number
+    required: true
+    label: Quantity
+  - name: order_price
+    type: number
+    required: true
+    label: Price
+  - name: order_type
+    type: select
+    required: true
+    label: Order type
+    options:
+      - value: LIMIT
+        label: Limit
+      - value: MARKET
+        label: Market
+      - value: IOC
+        label: Immediate or Cancel
+  - name: tif
+    type: select
+    required: true
+    label: Time in force
+    options:
+      - value: DAY
+        label: Day
+      - value: GTC
+        label: Good till cancelled
+  - name: settlement_type
+    type: select
+    required: true
+    label: Settlement method
+    options:
+      - value: CASH
+        label: Cash
+      - value: PHYSICAL
+        label: Physical delivery
+
+rules:
+  trading:
+    session_management: |
+      Continuous 08:00-17:00 SAST. Opening auction 07:50-08:00. Closing auction at EOD.
+      Volatility auctions triggered by circuit breaker. Normal book continuous session.
+      Reported trading allowed; must match within bands. Trade negotiation sessions available.
+    order_insert: |
+      Order insert (msg 56) with contract code, quantity, price, TIF, order type.
+      Validation checks: contract exists, quantity > 0, price valid, margin sufficient.
+    price_controls: |
+      Circuit breaker at tolerance threshold from dynamic reference price.
+      Static ref = previous close; dynamic ref updated throughout day.
+      Price bands enforce minimum tick size and maximum lot size.
+    settlement: |
+      Futures: Daily MTM settlement to margin account. Options: Physical or cash settlement.
+      Repo: T+0 or T+n per agreement; collateral transfer via banking system.
+
+errors:
+  - code: ORDER_VALIDATION_FAILED
+    status: 400
+    message: Order parameters violate market rules
+  - code: INSUFFICIENT_MARGIN
+    status: 403
+    message: Account margin below required threshold
+  - code: CONTRACT_NOT_FOUND
+    status: 404
+    message: Requested contract does not exist
+  - code: CIRCUIT_BREAKER_TRIGGERED
+    status: 503
+    message: Trading halted; volatility auction in progress
+
+events:
+  - name: order.submitted
+    payload: [order_id, contract_code, quantity]
+  - name: order.accepted
+    payload: [order_id, status]
+  - name: order.filled
+    payload: [order_id, filled_quantity, price]
+  - name: trade.executed
+    payload: [trade_id, contract_code, quantity, price]
+  - name: settlement.marked_to_market
+    payload: [position_id, mtm_price, pnl]
+
+outcomes:
+  order_insert_success:
+    priority: 1
+    name: order_insert_success
+    given:
+      - field: contract_code
+        source: input
+        operator: exists
+      - field: position_quantity
+        source: input
+        operator: gt
+        value: 0
+      - field: order_price
+        source: input
+        operator: gte
+        value: 0
+    then:
+      - action: create_record
+        type: active_order
+        payload: [contract_code, position_quantity, order_price]
+      - action: emit_event
+        event: order.accepted
+    result: Order accepted; active in order book
+
+  circuit_breaker_halt:
+    priority: 2
+    name: circuit_breaker_halt
+    given:
+      - field: price_change_pct
+        source: computed
+        operator: gte
+        value: circuit_breaker_tolerance
+    then:
+      - action: emit_event
+        event: circuit_breaker.triggered
+    error: CIRCUIT_BREAKER_TRIGGERED
+    result: Volatility auction initiated
+
+  order_fill_on_match:
+    priority: 10
+    name: order_fill_on_match
+    given:
+      - field: order_status
+        source: db
+        operator: eq
+        value: active
+      - field: incoming_trade_price
+        source: input
+        operator: eq
+        value: order_price
+    then:
+      - action: emit_event
+        event: order.filled
+      - action: create_record
+        type: trade
+    result: Order matched and filled; trade recorded

@@ -1,0 +1,673 @@
+feature: regulation-28-compliance
+version: 1.0.0
+description: "Prudential investment-limit compliance monitoring for SA retirement funds under Pension Funds Act Regulation 28."
+category: trading
+
+tags:
+  - compliance
+  - regulatory
+  - south-africa
+  - pension-funds
+  - investment-limits
+  - fsca
+  - popia
+  - regulation-28
+
+aliases:
+  - reg-28
+  - reg28
+  - regulation-28
+  - pension-fund-investment-limits
+  - prudential-investment-limits
+  - retirement-fund-compliance
+  - fsca-reg-28
+  - pension-funds-act-reg-28
+
+# Regulation 28 (GN R.183, GG 34070, 1 March 2011, as amended) prescribes
+# prudential investment limits for retirement funds registered under the
+# Pension Funds Act, 1956. This blueprint models the compliance-monitoring,
+# breach-detection, and FSCA-reporting feature set.
+
+fields:
+  - name: fund_id
+    type: text
+    required: true
+    label: Retirement Fund ID
+    # FSCA-registered fund identifier (e.g., 12/8/XXXX reference).
+    validation:
+      - type: pattern
+        value: "^[0-9]{2}/[0-9]+/[0-9]+$"
+        message: "Fund ID must match FSCA registration format."
+  - name: reporting_date
+    type: date
+    required: true
+    label: Valuation / Reporting Date
+    # Point-in-time date for which holdings are evaluated (month- or quarter-end).
+  - name: total_fund_value
+    type: number
+    required: true
+    label: Total Fair Value of Fund Assets (ZAR)
+    # Aggregate fair value of all assets after look-through, in Rands.
+    validation:
+      - type: min
+        value: 0
+        message: "Total fund value cannot be negative."
+  - name: holdings
+    type: json
+    required: true
+    label: Holdings Snapshot
+    # Array of holdings with asset_class, sub_class, issuer_id, fair_value_zar,
+    # jurisdiction, listed flag, credit_rating, look_through_source.
+  - name: reporting_period
+    type: select
+    required: true
+    label: Reporting Period
+    options:
+      - { value: monthly, label: Monthly }
+      - { value: quarterly, label: Quarterly }
+      - { value: annual, label: Annual }
+  - name: breach_type
+    type: select
+    required: false
+    label: Breach Type (if any)
+    # Active = fund-initiated; passive = market-movement driven.
+    options:
+      - { value: none, label: None }
+      - { value: active, label: Active }
+      - { value: passive, label: Passive }
+  - name: remediation_plan_id
+    type: text
+    required: false
+    label: Remediation Plan Reference
+    # Plan ID for correcting a breach, approved by the board of trustees.
+  - name: esg_assessment
+    type: rich_text
+    required: true
+    label: ESG / Sustainability Assessment
+    # Documents ESG and climate-risk considerations per reg 28(2)(c)(ix).
+
+rules:
+  regulatory:
+    - "MUST: Apply asset-class fair-value caps measured after look-through into collective investment schemes, pooled vehicles, and linked-policy wrappers."
+    - "MUST: Cap equity exposure at 75% of total fund value (listed + unlisted combined)."
+    - "MUST: Cap immovable property exposure at 25% of total fund value."
+    - "MUST: Cap foreign (offshore) asset exposure at 45% of total fund value, per National Treasury and FSCA direction."
+    - "MUST: Cap African assets outside South Africa at 10% of total fund value, included within the 45% offshore limit."
+    - "MUST: Cap hedge-fund exposure at 10% of total fund value."
+    - "MUST: Cap private-equity exposure at 15% of total fund value."
+    - "MUST: Cap commodities (including gold) at 10% of total fund value."
+    - "MUST: Prohibit direct investment in crypto assets (0% cap) per FSCA guidance under Regulation 28."
+    - "MUST: Enforce issuer concentration limits — max 5% per unlisted issuer, 10% per listed non-SOE issuer, 15% for SOE issuers, 25% for South African government debt per instrument category."
+    - "MUST: Enforce bank-deposit limits — max 25% per top-four bank, 10% per other bank, per deposit-taking counterparty."
+    - "MUST: Review the Investment Policy Statement at least annually and document how Reg 28 compliance is monitored."
+    - "MUST: Document sustainability (ESG) considerations in every material investment decision per reg 28(2)(c)(ix)."
+    - "MUST: Report breaches to the FSCA and the fund's board of trustees per FSCA-prescribed template and timeline."
+    - "SHOULD: Distinguish active from passive breaches — remediation urgency differs."
+    - "SHOULD: Apply the prudent person principle — investments must be liquid enough to meet benefit obligations."
+    - "SHOULD: Monitor compliance continuously; do not rely on quarter-end snapshots alone."
+    - "MAY: Apply stricter internal limits than Reg 28 minimums where trustees deem prudent."
+  security:
+    - "MUST: Restrict write access to holdings data to authorised fund administrators and principal officers only."
+    - "MUST: Log every limit calculation, breach determination, and FSCA submission to an immutable audit trail."
+    - "MUST: Treat member-level information as personal information under POPIA — regulatory returns are fund-level only, never per-member."
+    - "MUST: Encrypt holdings and valuation data at rest and in transit (TLS 1.2+ minimum)."
+    - "SHOULD: Require dual-control (maker-checker) for breach remediation approvals and FSCA submissions."
+    - "SHOULD: Sign FSCA submissions with the fund's digital certificate."
+  data_integrity:
+    - "MUST: Reject holdings snapshots whose constituent fair values do not reconcile to total_fund_value within 0.01% tolerance."
+    - "MUST: Apply look-through valuation to all pooled vehicles — no opaque CIS allocation may count toward limit calculation."
+    - "MUST: Use fair value (IFRS 13) — reject cost-basis valuations for Reg 28 reporting."
+    - "SHOULD: Version every holdings snapshot so historical compliance can be re-computed."
+
+outcomes:
+  compliant_snapshot:
+    priority: 10
+    description: "Fund satisfies all Reg 28 caps for the reporting date; recorded for audit."
+    given:
+      - fund holdings snapshot is complete
+      - all asset-class exposures are within prescribed caps after look-through
+      - all issuer concentration limits are within prescribed caps
+      - holdings fair values reconcile to total_fund_value
+      - ESG assessment is present and non-empty
+    then:
+      - action: set_field
+        target: compliance_status
+        value: compliant
+      - action: emit_event
+        event: reg28.snapshot.compliant
+        payload: [fund_id, reporting_date, total_fund_value]
+      - action: create_record
+        type: audit_log
+        target: compliance_audit_log
+    result: Fund is Reg 28 compliant for the reporting date; snapshot recorded to audit trail.
+
+  active_breach_detected:
+    priority: 2
+    description: "Fund-initiated breach of a prudential limit — highest remediation urgency."
+    error: REG28_ACTIVE_BREACH
+    transaction: true
+    given:
+      - field: breach_type
+        source: computed
+        operator: eq
+        value: active
+      - any:
+          - field: equity_pct
+            source: computed
+            operator: gt
+            value: 75
+          - field: property_pct
+            source: computed
+            operator: gt
+            value: 25
+          - field: foreign_pct
+            source: computed
+            operator: gt
+            value: 45
+          - field: africa_ex_sa_pct
+            source: computed
+            operator: gt
+            value: 10
+          - field: hedge_fund_pct
+            source: computed
+            operator: gt
+            value: 10
+          - field: private_equity_pct
+            source: computed
+            operator: gt
+            value: 15
+          - field: crypto_pct
+            source: computed
+            operator: gt
+            value: 0
+    then:
+      - action: set_field
+        target: compliance_status
+        value: active_breach
+      - action: emit_event
+        event: reg28.breach.active
+        payload: [fund_id, reporting_date, breached_limit, exposure_pct, cap_pct]
+      - action: notify
+        channel: email
+        target: principal_officer
+      - action: notify
+        channel: email
+        target: board_of_trustees
+      - action: notify
+        channel: email
+        target: fsca
+      - action: create_record
+        type: breach
+        target: breach_register
+    result: Active breach flagged; remediation plan required within FSCA-prescribed timeline.
+
+  passive_breach_detected:
+    priority: 3
+    description: "Market-driven breach — remediation allowed within reasonable period."
+    error: REG28_PASSIVE_BREACH
+    given:
+      - field: breach_type
+        source: computed
+        operator: eq
+        value: passive
+    then:
+      - action: set_field
+        target: compliance_status
+        value: passive_breach
+      - action: emit_event
+        event: reg28.breach.passive
+        payload: [fund_id, reporting_date, breached_limit, exposure_pct, cap_pct, cause]
+      - action: notify
+        channel: email
+        target: principal_officer
+      - action: create_record
+        type: breach
+        target: breach_register
+    result: Passive breach logged; remediation plan must bring exposure within cap within a reasonable period.
+
+  issuer_concentration_breach:
+    priority: 4
+    description: "Single-issuer or counterparty limit exceeded."
+    error: REG28_ISSUER_CONCENTRATION
+    given:
+      - field: issuer_concentration_breach
+        source: computed
+        operator: eq
+        value: true
+    then:
+      - action: set_field
+        target: compliance_status
+        value: concentration_breach
+      - action: emit_event
+        event: reg28.breach.concentration
+        payload: [fund_id, reporting_date, issuer_id, exposure_pct, cap_pct]
+      - action: notify
+        channel: email
+        target: principal_officer
+      - action: create_record
+        type: breach
+        target: breach_register
+    result: Issuer/counterparty limit exceeded; concentration risk flagged for remediation.
+
+  reconciliation_failure:
+    priority: 1
+    description: "Rejects snapshots whose fair values do not reconcile to total fund value."
+    error: REG28_RECONCILIATION_FAILED
+    given:
+      - field: reconciliation_variance_pct
+        source: computed
+        operator: gt
+        value: 0.01
+    then:
+      - action: emit_event
+        event: reg28.snapshot.rejected
+        payload: [fund_id, reporting_date, variance_pct]
+    result: Snapshot rejected; correct holdings data before re-running compliance.
+
+  look_through_unavailable:
+    priority: 5
+    description: "Opaque pooled vehicles prevent accurate limit computation."
+    error: REG28_LOOK_THROUGH_MISSING
+    given:
+      - field: opaque_holdings_count
+        source: computed
+        operator: gt
+        value: 0
+    then:
+      - action: emit_event
+        event: reg28.lookthrough.missing
+        payload: [fund_id, reporting_date, opaque_holdings]
+    result: Look-through data missing; compliance cannot be computed until resolved.
+
+  quarterly_report_filed:
+    priority: 20
+    description: "Form 28 filed with FSCA for the quarter."
+    given:
+      - field: reporting_period
+        source: input
+        operator: eq
+        value: quarterly
+      - compliance snapshot is in compliant or remediated state
+    then:
+      - action: call_service
+        target: fsca_submission_service
+      - action: emit_event
+        event: reg28.report.filed
+        payload: [fund_id, reporting_date, submission_reference]
+      - action: create_record
+        type: submission
+        target: fsca_submission_log
+    result: Form 28 filed with FSCA; submission reference captured for audit.
+
+  remediation_plan_approved:
+    priority: 15
+    description: "Board has approved a breach remediation plan; execution tracked to closure."
+    given:
+      - a breach is in open state
+      - remediation plan has been tabled to the board of trustees
+      - board has approved the plan
+    then:
+      - action: set_field
+        target: breach_status
+        value: remediation_in_progress
+      - action: emit_event
+        event: reg28.remediation.approved
+        payload: [fund_id, breach_id, remediation_plan_id, target_resolution_date]
+    result: Remediation plan recorded; execution tracked until breach resolved.
+
+actors:
+  - id: principal_officer
+    name: Principal Officer
+    type: human
+    description: Accountable for fund operations and regulatory compliance under s.8 of the Pension Funds Act.
+    role: governance
+  - id: board_of_trustees
+    name: Board of Trustees
+    type: human
+    description: Fiduciary oversight; approves IPS, breach remediation, and ESG policy.
+    role: governance
+  - id: fund_administrator
+    name: Fund Administrator
+    type: human
+    description: Maintains holdings data, runs daily compliance checks, prepares returns.
+    role: operations
+  - id: investment_manager
+    name: Investment Manager
+    type: external
+    description: Manages assets within mandate; must operate within Reg 28 limits.
+    role: investment
+  - id: fsca
+    name: Financial Sector Conduct Authority
+    type: external
+    description: Regulator; receives Form 28 submissions and breach notifications.
+    role: regulator
+  - id: compliance_engine
+    name: Reg 28 Compliance Engine
+    type: system
+    description: Computes limits, detects breaches, generates audit logs and returns.
+    role: automation
+
+states:
+  field: compliance_status
+  values:
+    - value: pending
+      initial: true
+      description: Snapshot received, not yet evaluated.
+    - value: compliant
+      description: All limits satisfied.
+    - value: active_breach
+      description: Fund-initiated breach of a prescribed cap.
+    - value: passive_breach
+      description: Market-driven breach of a prescribed cap.
+    - value: concentration_breach
+      description: Issuer or counterparty concentration limit exceeded.
+    - value: remediation_in_progress
+      description: Breach acknowledged, plan approved, execution under way.
+    - value: remediated
+      terminal: true
+      description: Exposures brought back within caps; breach closed.
+    - value: rejected
+      terminal: true
+      description: Snapshot rejected (reconciliation or look-through failure).
+  transitions:
+    - from: pending
+      to: compliant
+      actor: compliance_engine
+      condition: all limits within caps
+    - from: pending
+      to: active_breach
+      actor: compliance_engine
+      condition: trustee-initiated breach detected
+    - from: pending
+      to: passive_breach
+      actor: compliance_engine
+      condition: market-movement breach detected
+    - from: pending
+      to: concentration_breach
+      actor: compliance_engine
+      condition: issuer limit exceeded
+    - from: pending
+      to: rejected
+      actor: compliance_engine
+      condition: reconciliation or look-through failure
+    - from: active_breach
+      to: remediation_in_progress
+      actor: board_of_trustees
+      condition: remediation plan approved
+    - from: passive_breach
+      to: remediation_in_progress
+      actor: board_of_trustees
+      condition: remediation plan approved
+    - from: concentration_breach
+      to: remediation_in_progress
+      actor: board_of_trustees
+      condition: remediation plan approved
+    - from: remediation_in_progress
+      to: remediated
+      actor: compliance_engine
+      condition: exposures back within caps for two consecutive valuation dates
+
+sla:
+  active_breach_notification:
+    max_duration: 48h
+    escalation: "principal_officer notifies FSCA within FSCA-prescribed window"
+    description: "Active breaches must be communicated to the board and FSCA promptly."
+  quarterly_report_submission:
+    max_duration: 30d
+    escalation: "late submission triggers FSCA enforcement"
+    description: "Form 28 must be submitted within the FSCA-prescribed period after quarter-end."
+  breach_remediation:
+    max_duration: 12m
+    escalation: "prolonged breach escalated to FSCA for directive"
+    description: "Breaches should be remediated within a reasonable period."
+
+flows:
+  daily_compliance_check:
+    description: Daily look-through compliance computation for a fund.
+    actor: fund_administrator
+    steps:
+      - Ingest latest holdings from administration and asset-manager feeds.
+      - Apply look-through to all CIS, pooled, and wrapper vehicles.
+      - Reconcile holdings fair values to total fund value.
+      - Compute asset-class exposures and compare to caps.
+      - Compute issuer/counterparty concentrations and compare to caps.
+      - Classify any breach as active or passive.
+      - Emit events and persist compliance snapshot.
+      - Notify principal officer of any breach.
+
+  quarterly_fsca_return:
+    description: Prepare and submit Form 28 to the FSCA.
+    actor: principal_officer
+    steps:
+      - Lock the quarter-end compliance snapshot.
+      - Reviewer (maker-checker) verifies caps, concentrations, and ESG narrative.
+      - Principal officer digitally signs the return.
+      - Submit to FSCA via the prescribed electronic channel.
+      - Capture submission reference in the audit log.
+
+  breach_remediation:
+    description: Close out a Reg 28 breach.
+    actor: board_of_trustees
+    steps:
+      - Fund administrator prepares remediation plan with target dates and rebalancing actions.
+      - Investment committee reviews and recommends to the board.
+      - Board approves the plan and records minutes.
+      - Investment manager executes rebalancing within approved mandate.
+      - Compliance engine re-runs checks daily until two consecutive compliant snapshots.
+      - Breach closed; audit log finalised.
+
+errors:
+  - code: REG28_ACTIVE_BREACH
+    status: 409
+    message: The fund has breached a Regulation 28 prudential limit. Remediation required.
+  - code: REG28_PASSIVE_BREACH
+    status: 409
+    message: A Regulation 28 limit has been exceeded due to market movement. Remediation plan required.
+  - code: REG28_ISSUER_CONCENTRATION
+    status: 409
+    message: Issuer or counterparty concentration limit exceeded.
+  - code: REG28_RECONCILIATION_FAILED
+    status: 422
+    message: Holdings do not reconcile to total fund value; snapshot rejected.
+  - code: REG28_LOOK_THROUGH_MISSING
+    status: 422
+    message: Look-through data missing for one or more pooled vehicles.
+  - code: REG28_UNAUTHORISED
+    status: 403
+    message: Caller is not authorised to submit or view Reg 28 data for this fund.
+  - code: REG28_SUBMISSION_FAILED
+    status: 503
+    message: FSCA submission service is unavailable; please retry.
+
+events:
+  - name: reg28.snapshot_compliant
+    description: A valuation snapshot satisfies all limits.
+    payload: [fund_id, reporting_date, total_fund_value]
+  - name: reg28.snapshot_rejected
+    description: A snapshot failed reconciliation or look-through.
+    payload: [fund_id, reporting_date, reason]
+  - name: reg28.breach_active
+    description: A trustee/fund-initiated breach was detected.
+    payload: [fund_id, reporting_date, breached_limit, exposure_pct, cap_pct]
+  - name: reg28.breach_passive
+    description: A market-driven breach was detected.
+    payload: [fund_id, reporting_date, breached_limit, exposure_pct, cap_pct, cause]
+  - name: reg28.breach_concentration
+    description: An issuer/counterparty concentration limit was exceeded.
+    payload: [fund_id, reporting_date, issuer_id, exposure_pct, cap_pct]
+  - name: reg28.lookthrough_missing
+    description: Look-through data missing for one or more pooled vehicles.
+    payload: [fund_id, reporting_date, opaque_holdings]
+  - name: reg28.report_filed
+    description: Quarterly Form 28 was submitted to FSCA.
+    payload: [fund_id, reporting_date, submission_reference]
+  - name: reg28.remediation_approved
+    description: Board approved a breach remediation plan.
+    payload: [fund_id, breach_id, remediation_plan_id, target_resolution_date]
+
+api:
+  http:
+    method: POST
+    path: /api/reg28/snapshots
+  request:
+    content_type: application/json
+    schema:
+      type: object
+      required: [fund_id, reporting_date, total_fund_value, holdings, reporting_period, esg_assessment]
+      properties:
+        fund_id: { type: string }
+        reporting_date: { type: string, format: date }
+        total_fund_value: { type: number, minimum: 0 }
+        holdings: { type: array }
+        reporting_period: { type: string, enum: [monthly, quarterly, annual] }
+        esg_assessment: { type: string }
+  response:
+    success:
+      status: 201
+      content_type: application/json
+      schema:
+        type: object
+        properties:
+          snapshot_id: { type: string }
+          compliance_status: { type: string }
+          breaches: { type: array }
+    errors:
+      - status: 409
+        error_code: REG28_ACTIVE_BREACH
+      - status: 409
+        error_code: REG28_PASSIVE_BREACH
+      - status: 409
+        error_code: REG28_ISSUER_CONCENTRATION
+      - status: 422
+        error_code: REG28_RECONCILIATION_FAILED
+      - status: 422
+        error_code: REG28_LOOK_THROUGH_MISSING
+      - status: 403
+        error_code: REG28_UNAUTHORISED
+      - status: 503
+        error_code: REG28_SUBMISSION_FAILED
+
+anti_patterns:
+  - rule: "Do not compute limits on top-level CIS allocations without look-through."
+    why: "A balanced CIS may contain >75% equity; ignoring look-through hides real equity exposure and produces false-positive compliance."
+  - rule: "Do not treat passive breaches as non-events."
+    why: "Reg 28 requires a remediation plan for passive breaches within a reasonable period, not indefinite tolerance."
+  - rule: "Do not hard-code the 45% offshore cap as 30%."
+    why: "National Treasury raised the cap in 2022; stale thresholds produce false breaches and wasted remediation effort."
+  - rule: "Do not classify crypto assets under 'other' to bypass the 0% cap."
+    why: "FSCA guidance treats crypto as prohibited under Reg 28; misclassification is a reportable governance failure."
+  - rule: "Do not expose member-level PII in FSCA returns."
+    why: "Form 28 is a fund-level return; member data inclusion breaches POPIA and the purpose-specification principle."
+  - rule: "Do not rely on month-end snapshots alone."
+    why: "Prudent-person duty requires continuous monitoring; intra-month trustee-action breaches are still active breaches."
+  - rule: "Do not let the investment manager self-certify compliance without independent reconciliation."
+    why: "Maker-checker separation is required for regulatory returns; self-certification invalidates the audit trail."
+  - rule: "Do not omit the ESG / sustainability narrative from the IPS and snapshots."
+    why: "Reg 28(2)(c)(ix) mandates sustainability consideration; absence is itself a compliance failure."
+  - rule: "Do not use cost basis instead of fair value for limit calculations."
+    why: "Reg 28 measures exposures on fair value (IFRS 13); cost basis understates risk and misstates compliance."
+  - rule: "Do not treat SOE debt as sovereign debt for concentration limits."
+    why: "SOE issuer cap (15%) is distinct from government debt cap (25% per instrument category); conflating the two breaches concentration rules."
+
+related:
+  - feature: popia-compliance
+    type: required
+    reason: Member and beneficiary data processed by the fund is personal information under POPIA.
+  - feature: broker-portfolio-management
+    type: recommended
+    reason: Portfolio valuation data feeds the Reg 28 compliance engine.
+  - feature: bond-pricing-models
+    type: recommended
+    reason: Fair-value pricing for fixed-income instruments used in limit calculations.
+  - feature: data-retention-policies
+    type: recommended
+    reason: Audit logs and compliance snapshots have statutory retention requirements.
+  - feature: document-management
+    type: optional
+    reason: Storage of IPS, board minutes, remediation plans, and FSCA submission proofs.
+
+ui_hints:
+  layout: dashboard
+  primary_views:
+    - Compliance dashboard showing asset-class caps as bar charts with current exposure vs limit.
+    - Issuer concentration heatmap highlighting counterparties near or above caps.
+    - Breach register with status, age, and remediation progress.
+    - Quarterly return preview with maker-checker sign-off panel.
+  accessibility:
+    - All charts must have tabular fallback views for screen-reader users.
+    - Colour-blind-safe palette for cap-status indicators (do not rely on red/green alone).
+
+agi:
+  goals:
+    - id: ensure_continuous_compliance
+      description: Continuously ensure the fund's portfolio satisfies Regulation 28 prudential limits.
+      success_metrics:
+        - metric: undetected_active_breaches
+          target: "0"
+          measurement: "Count of active breaches discovered outside the compliance engine per quarter."
+        - metric: on_time_fsca_submissions
+          target: "100%"
+          measurement: "Percentage of quarterly Form 28 filings submitted before FSCA deadline."
+        - metric: mean_time_to_detect_passive_breach
+          target: "< 24h"
+          measurement: "Hours between market-movement breach and engine flag."
+      constraints:
+        - type: regulatory
+          description: "All determinations must comply with Pension Funds Act s.36 and Reg 28 as amended."
+          negotiable: false
+        - type: security
+          description: "Member personal information must never leave POPIA-compliant processing boundary."
+          negotiable: false
+  autonomy:
+    level: supervised
+    human_checkpoints:
+      - Board approval of the Investment Policy Statement and any material change thereto.
+      - Board approval of every breach remediation plan.
+      - Principal officer sign-off on every Form 28 submission.
+      - Trustee review of the ESG / sustainability narrative at least annually.
+    escalation_triggers:
+      - "active_breach_detected == true"
+      - "concentration_breach_detected == true"
+      - "reconciliation_variance_pct > 0.01"
+  safety:
+    action_permissions:
+      - action: compute_exposures
+        permission: autonomous
+      - action: flag_breach
+        permission: autonomous
+      - action: draft_remediation_plan
+        permission: supervised
+      - action: submit_fsca_return
+        permission: human_required
+      - action: execute_rebalancing_trades
+        permission: human_required
+      - action: amend_investment_policy_statement
+        permission: human_required
+      - action: reclassify_holding
+        permission: human_required
+      - action: suppress_breach
+        permission: human_required
+  explainability:
+    log_decisions: true
+    reasoning_depth: full
+    audit_events:
+      - decision: breach_classification
+        must_log: [fund_id, reporting_date, breached_limit, exposure_pct, cap_pct, classification, inputs_hash]
+      - decision: fsca_submission
+        must_log: [fund_id, reporting_date, submission_reference, signer, timestamp]
+      - decision: remediation_approval
+        must_log: [fund_id, breach_id, plan_id, approver, target_resolution_date]
+  coordination:
+    protocol: pub_sub
+    exposes:
+      - capability: reg28_compliance_check
+        contract: "Accepts a holdings snapshot; returns compliance_status and breach list."
+      - capability: reg28_quarterly_return
+        contract: "Accepts a locked snapshot; returns FSCA submission reference."
+    consumes:
+      - capability: portfolio_valuation
+        from: broker-portfolio-management
+        fallback: fail
+      - capability: fixed_income_pricing
+        from: bond-pricing-models
+        fallback: fail

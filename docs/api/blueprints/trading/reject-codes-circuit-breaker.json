@@ -1,0 +1,218 @@
+{
+  "feature": "reject-codes-circuit-breaker",
+  "version": "1.0",
+  "category": "trading",
+  "tags": [
+    "error-handling",
+    "order-validation",
+    "circuit-breaker",
+    "release-7.8"
+  ],
+  "description": "New reject code 1227 for IOC (Immediate-or-Cancel) and FOK (Fill-or-Kill) orders that expire\ndue to circuit breaker threshold breaches. Ensures clear feedback to traders when orders are\nrejected due to circuit breaker activation in equity, equity derivative, and currency\nderivative markets. Introduced in JSE Release 7.8.\n",
+  "actors": [
+    {
+      "id": "trading_participant",
+      "name": "Trading Participant",
+      "type": "human"
+    },
+    {
+      "id": "jse_trading_system",
+      "name": "JSE Trading System",
+      "type": "system"
+    }
+  ],
+  "outcomes": [
+    {
+      "name": "ioc_fok_order_circuit_breaker_breach",
+      "description": "IOC/FOK order expires and reject code 1227 sent when circuit breaker threshold breached",
+      "priority": 1,
+      "given": [
+        {
+          "field": "order_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "IOC",
+            "FOK"
+          ]
+        },
+        {
+          "field": "circuit_breaker_threshold_breached",
+          "source": "system",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "reject_code",
+          "value": 1227
+        }
+      ]
+    },
+    {
+      "name": "native_protocol_reject_code_1227",
+      "description": "Native protocol users receive reject code 1227 in Execution Report Reject Code field",
+      "priority": 2,
+      "given": [
+        {
+          "field": "protocol_type",
+          "source": "system",
+          "operator": "eq",
+          "value": "NATIVE"
+        },
+        {
+          "field": "reject_reason",
+          "source": "system",
+          "operator": "eq",
+          "value": "CIRCUIT_BREAKER_BREACH"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "order.rejection_sent",
+          "payload": [
+            "order_id",
+            "reject_code"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "fix_protocol_reject_code_tag_103",
+      "description": "FIX protocol users receive reject code 1227 in Tag 103 (OrdRejReason)",
+      "priority": 3,
+      "given": [
+        {
+          "field": "protocol_type",
+          "source": "system",
+          "operator": "eq",
+          "value": "FIX"
+        },
+        {
+          "field": "reject_reason",
+          "source": "system",
+          "operator": "eq",
+          "value": "CIRCUIT_BREAKER_BREACH"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "order.rejection_sent",
+          "payload": [
+            "order_id",
+            "reject_code"
+          ]
+        }
+      ]
+    }
+  ],
+  "fields": [
+    {
+      "name": "order_id",
+      "type": "token",
+      "required": true
+    },
+    {
+      "name": "order_type",
+      "type": "select",
+      "required": true,
+      "options": [
+        "MARKET",
+        "LIMIT",
+        "IOC",
+        "FOK",
+        "DAY",
+        "GTT",
+        "GTC",
+        "GTD",
+        "STOP",
+        "STOP_LIMIT"
+      ]
+    },
+    {
+      "name": "reject_code",
+      "type": "number",
+      "required": true
+    },
+    {
+      "name": "circuit_breaker_threshold_breached",
+      "type": "boolean",
+      "required": true
+    },
+    {
+      "name": "protocol_type",
+      "type": "select",
+      "required": true,
+      "options": [
+        "NATIVE",
+        "FIX"
+      ]
+    },
+    {
+      "name": "market",
+      "type": "select",
+      "required": true,
+      "options": [
+        "EQM",
+        "EDM",
+        "FXM"
+      ]
+    },
+    {
+      "name": "order_status",
+      "type": "select",
+      "required": true,
+      "options": [
+        "submitted",
+        "expired",
+        "rejected",
+        "executed"
+      ]
+    },
+    {
+      "name": "reject_reason",
+      "type": "select",
+      "required": true,
+      "options": [
+        "CIRCUIT_BREAKER_BREACH",
+        "INSUFFICIENT_FUNDS",
+        "INVALID_PRICE",
+        "OTHER"
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": "REJECT_CODE_1227_CIRCUIT_BREAKER",
+      "message": "IOC/FOK order rejected: Circuit breaker threshold breached",
+      "severity": "error"
+    }
+  ],
+  "related": [
+    {
+      "feature": "circuit-breaker-system",
+      "type": "required"
+    },
+    {
+      "feature": "order-validation",
+      "type": "required"
+    },
+    {
+      "feature": "ioc-fok-orders",
+      "type": "required"
+    }
+  ],
+  "notes": [
+    "Code 1227 specific to IOC/FOK orders expiring due to circuit breaker activation",
+    "Available via both NATIVE and FIX protocols",
+    "Native protocol: Execution Report field Reject Code = 1227",
+    "FIX protocol: Tag 103 OrdRejReason = 1227",
+    "Introduced in JSE Release 7.8",
+    "Applies to EQM, EDM, and FXM markets",
+    "Source: JSE Release 7.8 Document, October 2025"
+  ]
+}

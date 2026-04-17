@@ -1,0 +1,192 @@
+{
+  "feature": "native-trading-gateway-enhanced",
+  "version": "1.0.0",
+  "description": "Enhanced Native Trading Gateway protocol for derivative instrument trading with multi-leg order support and advanced quote management",
+  "category": "trading",
+  "tags": [
+    "native-protocol",
+    "derivatives",
+    "order-management",
+    "execution-reporting"
+  ],
+  "rules": {
+    "protocol_specification": {
+      "binary_format": "Binary little-endian protocol optimized for low-latency trading",
+      "session_based": "Client authentication via CompID and password required before trading",
+      "dual_channels": "Real-time channel for orders and execution; recovery channel for historical messages",
+      "heartbeat_requirement": "Bidirectional heartbeat exchange maintains session liveness"
+    },
+    "message_validation": {
+      "two_layer_validation": "Level 1: format validation; Level 2: business rule validation",
+      "required_fields_enforcement": "Missing required fields result in Reject message with error code"
+    },
+    "order_handling": {
+      "order_types": "Market, Limit, Stop, Cross orders; User-defined strategies",
+      "time_in_force": "DAY, GTC, IOC, FOK",
+      "order_operations": "Submit, cancel, cancel/replace, mass cancel operations"
+    },
+    "recovery": {
+      "missed_message_request": "Client sends Missed Message Request specifying sequence range",
+      "message_replay": "Server streams historical messages in original sequence order"
+    }
+  },
+  "fields": [
+    {
+      "name": "client_order_id",
+      "type": "text",
+      "required": true,
+      "label": "Client order reference"
+    },
+    {
+      "name": "instrument_id",
+      "type": "text",
+      "required": true,
+      "label": "Instrument security identifier"
+    },
+    {
+      "name": "order_side",
+      "type": "select",
+      "required": true,
+      "label": "Trade direction",
+      "options": [
+        {
+          "value": "BUY",
+          "label": "Buy"
+        },
+        {
+          "value": "SELL",
+          "label": "Sell"
+        }
+      ]
+    },
+    {
+      "name": "order_quantity",
+      "type": "number",
+      "required": true,
+      "label": "Order quantity in contracts"
+    },
+    {
+      "name": "order_type",
+      "type": "select",
+      "required": true,
+      "label": "Order type",
+      "options": [
+        {
+          "value": "MARKET",
+          "label": "Market"
+        },
+        {
+          "value": "LIMIT",
+          "label": "Limit"
+        },
+        {
+          "value": "STOP",
+          "label": "Stop"
+        }
+      ]
+    },
+    {
+      "name": "price",
+      "type": "number",
+      "required": false,
+      "label": "Limit price per contract"
+    }
+  ],
+  "outcomes": {
+    "validation": {
+      "priority": 1,
+      "description": "Validates message format and data types",
+      "given": [
+        "Order message received"
+      ],
+      "then": [
+        "Check format and data types",
+        "Verify required fields"
+      ],
+      "result": "Message accepted or rejected"
+    },
+    "execution": {
+      "priority": 5,
+      "description": "Order matches liquidity and executes",
+      "given": [
+        "Validation passes",
+        "Liquidity available"
+      ],
+      "then": [
+        "Execute against counterparty",
+        "Send Execution Report"
+      ],
+      "result": "Trade executed"
+    }
+  },
+  "errors": [
+    {
+      "code": "INVALID_MESSAGE",
+      "status": 400,
+      "message": "Message format validation failed"
+    },
+    {
+      "code": "SESSION_NOT_ESTABLISHED",
+      "status": 401,
+      "message": "Client not authenticated"
+    },
+    {
+      "code": "INSTRUMENT_NOT_FOUND",
+      "status": 404,
+      "message": "Unknown instrument"
+    },
+    {
+      "code": "SYSTEM_UNAVAILABLE",
+      "status": 503,
+      "message": "Gateway temporarily unavailable"
+    }
+  ],
+  "events": [
+    {
+      "name": "order.submitted",
+      "payload": [
+        "client_order_id",
+        "instrument_id"
+      ]
+    },
+    {
+      "name": "order.filled",
+      "payload": [
+        "order_id",
+        "cum_qty"
+      ]
+    },
+    {
+      "name": "order.rejected",
+      "payload": [
+        "client_order_id",
+        "reject_code"
+      ]
+    }
+  ],
+  "extensions": {
+    "message_types": {
+      "administrative": [
+        "LOGON",
+        "LOGOUT",
+        "HEARTBEAT",
+        "REJECT"
+      ],
+      "orders": [
+        "NEW_ORDER",
+        "ORDER_CANCEL_REQUEST",
+        "ORDER_CANCEL_REPLACE_REQUEST"
+      ],
+      "responses": [
+        "EXECUTION_REPORT",
+        "ORDER_CANCEL_REJECT"
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "client-failure-recovery",
+      "type": "required"
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+feature: drop-copy-gateway-fix
+version: 1.0.0
+description: Drop Copy Gateway providing FIX 5.0 SP2 protocol for near-real-time trade stream dissemination
+category: trading
+tags:
+  - fix-protocol
+  - drop-copy
+  - trade-dissemination
+
+rules:
+  protocol:
+    fix_version: "FIX 5.0 Service Pack 2"
+    direction: "Server-to-client (receive-only)"
+    message_format: "Binary FIXT-formatted messages"
+
+  trade_reporting:
+    message_type: "Execution Report with full party details"
+    timing: "Near real-time delivery"
+    completeness: "All executed trades disseminated"
+
+fields:
+  - name: execution_id
+    type: text
+    required: true
+    label: Execution identifier
+
+  - name: order_id
+    type: text
+    required: true
+    label: Order ID
+
+  - name: instrument_id
+    type: text
+    required: true
+    label: Security identifier
+
+  - name: side
+    type: select
+    required: true
+    label: Trade direction
+    options:
+      - value: BUY
+        label: "Buy"
+      - value: SELL
+        label: "Sell"
+
+  - name: execution_qty
+    type: number
+    required: true
+    label: Executed quantity
+
+  - name: execution_price
+    type: number
+    required: true
+    label: Execution price
+
+outcomes:
+  trade_execution:
+    priority: 1
+    description: "Trade matches on exchange"
+    given:
+      - "Buy and sell orders match"
+    then:
+      - "Generate Execution Report"
+    result: "Trade available for dissemination"
+
+  trade_dissemination:
+    priority: 5
+    description: "Trade reported to subscribers"
+    given:
+      - "Execution Report generated"
+    then:
+      - "Send to drop copy clients"
+    result: "Trade delivered"
+
+errors:
+  - code: CONNECTION_FAILED
+    status: 500
+    message: Cannot establish connection
+
+  - code: HEARTBEAT_TIMEOUT
+    status: 503
+    message: No heartbeat from counterparty
+
+  - code: RECOVERY_UNAVAILABLE
+    status: 503
+    message: Recovery channel unavailable
+
+events:
+  - name: trade.executed
+    payload: [execution_id, order_id, side]
+
+  - name: trade.disseminated
+    payload: [execution_id]
+
+extensions:
+  message_types:
+    administrative: [LOGON, LOGOUT, HEARTBEAT]
+    trading: [EXECUTION_REPORT]
+
+related:
+  - feature: client-failure-recovery
+    type: required

@@ -1,0 +1,371 @@
+feature: reported-trade-commissions
+version: 1.0.0
+description: Charge commissions to counterparty trading members in reported trades via reference fields and matching requirements.
+category: trading
+tags: [commission, trade-matching, counterparty, post-trade, financial-services]
+
+aliases:
+  - commission-charging
+  - counterparty-commission
+  - off-book-commission
+  - commission-reference-matching
+  - reported-trade-commission-settlement
+
+fields:
+  - name: client_reference
+    type: text
+    required: true
+    label: Client Reference
+    placeholder: "PRSXXXTMT01"
+    validation:
+      - type: required
+        message: "Client reference is required"
+      - type: pattern
+        value: "^[A-Z0-9]{3,20}$"
+        message: "Client reference must be member/branch code (alphanumeric 3-20 chars)"
+
+  - name: commission_reference
+    type: token
+    required: true
+    label: Commission Reference
+    placeholder: "M8zplwlre6"
+    validation:
+      - type: required
+        message: "Commission reference is required"
+      - type: pattern
+        value: "^[A-Za-z0-9_-]{1,50}$"
+        message: "Commission reference must be unique trade identifier (alphanumeric 1-50 chars)"
+
+  - name: commission_amount
+    type: number
+    required: true
+    label: Commission Amount
+    validation:
+      - type: required
+        message: "Commission amount is required"
+      - type: min
+        value: 0.01
+        message: "Commission amount must be greater than zero"
+
+  - name: trade_id
+    type: token
+    required: true
+    label: Trade ID
+    validation:
+      - type: required
+        message: "Trade ID is required"
+      - type: pattern
+        value: "^[A-Za-z0-9_-]+$"
+        message: "Trade ID must be a valid system identifier"
+
+  - name: initiating_member
+    type: text
+    required: true
+    label: Initiating Trading Member
+    placeholder: "CRCXXXTMT01"
+    validation:
+      - type: required
+        message: "Initiating member code is required"
+      - type: pattern
+        value: "^[A-Z0-9]{3,20}$"
+        message: "Member code must be alphanumeric 3-20 characters"
+
+  - name: counterparty_member
+    type: text
+    required: true
+    label: Counterparty Trading Member
+    placeholder: "ABMXXXTMT01"
+    validation:
+      - type: required
+        message: "Counterparty member code is required"
+      - type: pattern
+        value: "^[A-Z0-9]{3,20}$"
+        message: "Member code must be alphanumeric 3-20 characters"
+
+  - name: commission_scenario
+    type: select
+    required: true
+    label: Commission Scenario
+    options:
+      - value: broker-to-both-parties
+        label: "Broker charges both own client and counterparty"
+      - value: inter-dealer-give-up
+        label: "Inter-dealer broker charges on give-up"
+      - value: executing-broker-client-give-up
+        label: "Executing broker charges on client give-up"
+    validation:
+      - type: required
+        message: "Commission scenario is required"
+      - type: oneOf
+        value: [broker-to-both-parties, inter-dealer-give-up, executing-broker-client-give-up]
+        message: "Select a valid commission scenario"
+
+  - name: trade_system_match_id
+    type: token
+    required: true
+    label: Trading System Match ID
+    placeholder: "M8zplwlre6"
+    validation:
+      - type: required
+        message: "Trade system match ID is required"
+      - type: pattern
+        value: "^[A-Za-z0-9_-]{1,50}$"
+        message: "Trade system match ID must be unique identifier"
+
+  - name: buy_leg_trade_id
+    type: token
+    required: false
+    label: Buy Leg Trade ID
+    validation:
+      - type: pattern
+        value: "^[A-Za-z0-9_-]+$"
+        message: "Buy leg trade ID must be a valid identifier if provided"
+
+  - name: sell_leg_trade_id
+    type: token
+    required: false
+    label: Sell Leg Trade ID
+    validation:
+      - type: pattern
+        value: "^[A-Za-z0-9_-]+$"
+        message: "Sell leg trade ID must be a valid identifier if provided"
+
+  - name: currency
+    type: select
+    required: true
+    label: Currency
+    options:
+      - value: ZAR
+        label: "South African Rand"
+      - value: USD
+        label: "US Dollar"
+      - value: EUR
+        label: "Euro"
+      - value: GBP
+        label: "British Pound"
+    validation:
+      - type: required
+        message: "Currency is required"
+      - type: oneOf
+        value: [ZAR, USD, EUR, GBP]
+        message: "Select a valid currency"
+
+rules:
+  commission_charging_rules:
+    member_must_have_counterparty_code: "Counterparty code must exist in JSE counterparty codes file"
+    client_reference_identifies_member: "ClientReference field must contain counterparty member or branch code"
+    commission_reference_identifies_trade: "CommissionReference must identify the unique trade common to buy and sell legs"
+    trade_system_validation: "Trade identifier must be from Trading System (APE Tag 1003) or RTC TradingSystemMatchID"
+    reference_field_alignment: "Reference fields must be aligned across front-end solutions for efficient processing"
+
+  trade_matching_requirements:
+    both_legs_must_match: "Buy and sell legs must reference same trading system match ID"
+    symbol_must_match: "Instrument symbol must match between counterparties"
+    trade_size_must_match: "Trade size must match between counterparties"
+    trade_price_must_match: "Trade price must match between counterparties"
+    trade_subtype_must_match: "Trade sub type must match between counterparties"
+    trade_date_time_must_match: "Date and time trade was agreed must match between counterparties"
+
+  commission_scenario_rules:
+    broker_to_both_parties: "Member brokers deal between own client and another member, charging commissions to both"
+    inter_dealer_give_up: "Inter-dealer broker executes on behalf of member, charges commission when giving up trade"
+    executing_broker_client_give_up: "Executing broker gives up trade to client member, charges commission; two variations exist"
+
+  give_up_mechanism:
+    assign_mechanism_preferred: "Give-ups should be achieved through assign mechanism in deal management when possible"
+    reported_trade_fallback: "Reported trade may be used for give-up if executing broker cannot wait for counterparty acceptance"
+    negotiated_trade_restriction: "Executing broker using negotiated trade can effect give-up via reported trade only as fallback"
+
+  eod_processing:
+    clearing_member_processing: "Clearing members must process commissions at EOD using reference fields"
+    counterparty_recognition: "Reference fields must enable counterparty to recognize and process commission"
+    commission_message_format: "Commission entry message must contain properly populated clientReference and commissionReference"
+
+outcomes:
+  commission_charged_successfully:
+    priority: 1
+    description: Commission successfully charged to counterparty in reported trade
+    given:
+      - field: client_reference
+        source: input
+        operator: matches
+        value: "^[A-Z0-9]{3,20}$"
+        description: Client reference matches counterparty member code format
+      - field: commission_reference
+        source: input
+        operator: matches
+        value: "^[A-Za-z0-9_-]{1,50}$"
+        description: Commission reference matches trade identifier format
+      - field: trade_system_match_id
+        source: db
+        operator: exists
+        description: Trade exists in trading system with matching ID
+      - all:
+          - field: buy_leg_trade_id
+            source: db
+            operator: exists
+          - field: sell_leg_trade_id
+            source: db
+            operator: exists
+          - field: trade_system_match_id
+            source: db
+            operator: eq
+            value: matched_on_both_legs
+            description: Both trade legs reference same trading system match ID
+      - field: commission_amount
+        source: input
+        operator: gt
+        value: 0
+        description: Commission amount is positive
+    then:
+      - action: create_record
+        type: commission
+        target: commission_entry
+        description: "Create commission entry for counterparty"
+      - action: emit_event
+        event: commission.charged
+        payload: [initiating_member, counterparty_member, commission_amount, commission_reference, timestamp]
+      - action: set_field
+        target: commission_status
+        value: "submitted"
+        description: "Mark commission as submitted"
+    transaction: true
+
+  commission_rejected_invalid_client_reference:
+    priority: 2
+    error: INVALID_CLIENT_REFERENCE
+    description: Client reference does not match counterparty member code format
+    given:
+      - field: client_reference
+        source: input
+        operator: neq
+        value: "^[A-Z0-9]{3,20}$"
+    then:
+      - action: emit_event
+        event: commission.rejected
+        payload: [commission_reference, error_code, timestamp]
+      - action: set_field
+        target: commission_status
+        value: "rejected"
+
+  commission_rejected_invalid_reference:
+    priority: 3
+    error: INVALID_COMMISSION_REFERENCE
+    description: Commission reference does not reference valid trade identifier
+    given:
+      - field: trade_system_match_id
+        source: db
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: commission.rejected
+        payload: [commission_reference, error_code, timestamp]
+
+  trade_leg_mismatch:
+    priority: 4
+    error: TRADE_LEGS_MISMATCH
+    description: Buy and sell legs do not reference same trading system match ID
+    given:
+      - any:
+          - field: buy_leg_trade_id
+            source: db
+            operator: not_exists
+          - field: sell_leg_trade_id
+            source: db
+            operator: not_exists
+    then:
+      - action: emit_event
+        event: commission.rejected
+        payload: [commission_reference, error_code, timestamp]
+
+  commission_zero_or_negative:
+    priority: 5
+    error: INVALID_COMMISSION_AMOUNT
+    description: Commission amount must be positive
+    given:
+      - field: commission_amount
+        source: input
+        operator: lte
+        value: 0
+    then:
+      - action: emit_event
+        event: commission.rejected
+        payload: [commission_reference, error_code, timestamp]
+
+errors:
+  - code: INVALID_CLIENT_REFERENCE
+    status: 422
+    message: "Client reference does not match counterparty member code format (required: alphanumeric 3-20 chars)"
+  - code: INVALID_COMMISSION_REFERENCE
+    status: 422
+    message: "Commission reference does not identify a valid trade; verify trading system match ID exists"
+  - code: TRADE_LEGS_MISMATCH
+    status: 409
+    message: "Buy and sell legs of the trade do not reference the same trading system match ID"
+  - code: INVALID_COMMISSION_AMOUNT
+    status: 422
+    message: "Commission amount must be greater than zero"
+  - code: MEMBER_NOT_AUTHORIZED
+    status: 403
+    message: "Initiating member not authorized to charge commission to counterparty"
+  - code: COUNTERPARTY_NOT_FOUND
+    status: 404
+    message: "Counterparty member code not found in JSE counterparty codes file"
+  - code: TRADE_NOT_FOUND
+    status: 404
+    message: "Trade with specified identifier not found in trading system"
+  - code: COMMISSION_ALREADY_SUBMITTED
+    status: 409
+    message: "Commission has already been submitted for this trade"
+  - code: EOD_PROCESSING_ERROR
+    status: 500
+    message: "Error adding commission to EOD processing batch"
+
+events:
+  - name: commission.charged
+    description: Commission successfully charged to counterparty
+    payload: [initiating_member, counterparty_member, commission_amount, commission_reference, timestamp]
+
+  - name: commission.rejected
+    description: Commission submission rejected
+    payload: [commission_reference, error_code, error_message, timestamp]
+
+  - name: commission.acknowledged
+    description: Counterparty acknowledged commission receipt
+    payload: [commission_reference, counterparty_member, acknowledged_at]
+
+  - name: commission.settled
+    description: Commission settled at EOD
+    payload: [commission_reference, settlement_time, final_amount]
+
+related:
+  - feature: trade-matching
+    type: required
+  - feature: off-book-reported-trades
+    type: required
+  - feature: eod-commission-settlement
+    type: recommended
+  - feature: member-code-validation
+    type: required
+  - feature: popia-compliance
+    type: required
+
+extensions:
+  member_broker_scenario:
+    description: Member brokers deal between own client and another member
+    commission_to_own_client: true
+    commission_to_other_member: true
+    initiating_member_is_broker: true
+
+  inter_dealer_scenario:
+    description: Inter-dealer broker executes on behalf of trading member
+    initiating_member_is_broker: true
+    charges_on_give_up: true
+    give_up_method: assign_or_reported_trade
+
+  executing_broker_scenario:
+    description: Executing broker gives up trade to client's member
+    initiating_member_is_executor: true
+    charges_on_give_up: true
+    execution_variation_direct_order: "Client places order directly with executor"
+    execution_variation_outsourced: "Client's member outsources execution to executor"

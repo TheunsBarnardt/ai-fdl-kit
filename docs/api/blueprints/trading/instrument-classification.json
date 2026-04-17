@@ -1,0 +1,759 @@
+{
+  "feature": "instrument-classification",
+  "version": "1.0.0",
+  "description": "Classifies derivative and cash instruments traded on exchanges, including futures, options, bonds, equities, and structured products with trading rules and characteristics.",
+  "category": "trading",
+  "tags": [
+    "instruments",
+    "classification",
+    "derivatives",
+    "bonds",
+    "equities",
+    "structured-products",
+    "reference-data"
+  ],
+  "aliases": [
+    "instrument-types",
+    "derivative-classification",
+    "security-types",
+    "trading-instruments",
+    "instrument-taxonomy"
+  ],
+  "actors": [
+    {
+      "id": "market_data_provider",
+      "name": "Market Data Provider",
+      "type": "system"
+    },
+    {
+      "id": "trading_system",
+      "name": "Trading System",
+      "type": "system"
+    },
+    {
+      "id": "market_participant",
+      "name": "Market Participant",
+      "type": "external"
+    },
+    {
+      "id": "exchange_authority",
+      "name": "Exchange Authority",
+      "type": "system"
+    },
+    {
+      "id": "clearing_house",
+      "name": "Clearing House",
+      "type": "external"
+    }
+  ],
+  "fields": [
+    {
+      "name": "instrument_type_code",
+      "type": "text",
+      "required": true,
+      "label": "Instrument Type Code"
+    },
+    {
+      "name": "instrument_name",
+      "type": "text",
+      "required": true,
+      "label": "Instrument Name"
+    },
+    {
+      "name": "contract_code",
+      "type": "text",
+      "required": false,
+      "label": "Contract Code"
+    },
+    {
+      "name": "isin",
+      "type": "text",
+      "required": false,
+      "label": "ISIN"
+    },
+    {
+      "name": "underlying_asset",
+      "type": "text",
+      "required": false,
+      "label": "Underlying Asset"
+    },
+    {
+      "name": "expiry_date",
+      "type": "date",
+      "required": false,
+      "label": "Expiry Date"
+    },
+    {
+      "name": "strike_price",
+      "type": "number",
+      "required": false,
+      "label": "Strike Price"
+    },
+    {
+      "name": "contract_size",
+      "type": "number",
+      "required": false,
+      "label": "Contract Size"
+    },
+    {
+      "name": "settlement_type",
+      "type": "select",
+      "required": false,
+      "label": "Settlement Type"
+    },
+    {
+      "name": "trading_currency",
+      "type": "text",
+      "required": false,
+      "label": "Trading Currency"
+    },
+    {
+      "name": "market_segment",
+      "type": "select",
+      "required": false,
+      "label": "Market Segment"
+    }
+  ],
+  "rules": {
+    "equity_derivatives": {
+      "futures_single_stock": "Single stock futures settled physically or cash",
+      "futures_index": "Index futures on JSE indices with mini and standard sizes",
+      "options_equity": "Equity options with American or European exercise",
+      "options_index": "Index options with standard strike intervals",
+      "warrant_equity": "Call and put warrants on single stocks",
+      "cfds_equity": "Margined contracts settled in cash"
+    },
+    "fixed_income_instruments": {
+      "vanilla_bonds": "Fixed coupon bonds with semi-annual payments",
+      "floating_rate_notes": "Coupon linked to floating rate index (JIBAR-based)",
+      "amortising_bonds": "Nominal reducing over time with quarterly reductions",
+      "inflation_linked": "Principal and coupon adjusted for CPI",
+      "commercial_paper": "Short-term money market paper issued at discount",
+      "perpetuities": "Instruments with no maturity date",
+      "credit_linked_notes": "Bonds with embedded credit derivatives",
+      "convertible_bonds": "Bonds convertible into equity at specified price"
+    },
+    "structured_products": {
+      "equity_structured_notes": "Debt instruments financing equity purchases",
+      "callable_bonds": "Issuer has redemption right before maturity",
+      "putable_bonds": "Bondholder has sell-back right before maturity",
+      "basket_products": "Underlying comprises multiple assets",
+      "exotic_options": "Non-standard options on stocks or indices"
+    },
+    "currency_derivatives": {
+      "currency_futures": "Futures on currency pairs (USDZAR, etc.)",
+      "currency_options": "Options on currency pairs",
+      "currency_cfds": "Margined currency contracts",
+      "quanto_derivatives": "Derivatives with embedded FX conversion"
+    },
+    "reference_data_requirements": {
+      "contract_code_format": "Alphanumeric format derived from expiry, underlying, settlement",
+      "isin_requirement": "All tradable instruments assigned unique ISIN",
+      "tick_structure": "Defined tick sizes by price range",
+      "settlement_period": "T+3 for equities; T+0 to T+2 for derivatives",
+      "market_segments": "Main Board, AltX, BOND, Derivatives, Warrant"
+    }
+  },
+  "states": {
+    "field": "instrument_status",
+    "values": [
+      {
+        "status": "new",
+        "description": "Instrument created in reference data",
+        "initial": true
+      },
+      {
+        "status": "pre_listing",
+        "description": "Awaiting approval or opening"
+      },
+      {
+        "status": "active_trading",
+        "description": "Trading in normal order books"
+      },
+      {
+        "status": "suspended",
+        "description": "Trading suspended"
+      },
+      {
+        "status": "delisted",
+        "description": "Removed from exchange",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "new",
+        "to": "pre_listing",
+        "actor": "exchange_authority",
+        "condition": "Reference data complete and trading parameters defined",
+        "description": "Instrument ready for opening"
+      },
+      {
+        "from": "pre_listing",
+        "to": "active_trading",
+        "actor": "trading_system",
+        "condition": "Opening date reached",
+        "description": "Instrument begins trading"
+      },
+      {
+        "from": "active_trading",
+        "to": "suspended",
+        "actor": "exchange_authority",
+        "condition": "Corporate action or compliance issue",
+        "description": "Trading halted"
+      },
+      {
+        "from": "suspended",
+        "to": "active_trading",
+        "actor": "trading_system",
+        "condition": "Suspension reason resolved",
+        "description": "Trading resumed"
+      },
+      {
+        "from": "active_trading",
+        "to": "delisted",
+        "actor": "exchange_authority",
+        "condition": "Expiry date reached or regulatory delisting",
+        "description": "Instrument delisted"
+      }
+    ]
+  },
+  "sla": {
+    "reference_data_publication": {
+      "max_duration": "1 day",
+      "description": "Reference data updated daily and distributed"
+    },
+    "contract_code_assignment": {
+      "max_duration": "1 day",
+      "description": "Contract codes assigned within one day of instrument creation"
+    }
+  },
+  "outcomes": {
+    "instrument_created": {
+      "priority": 1,
+      "description": "New instrument created and added to reference data system",
+      "given": [
+        "New instrument approved for listing",
+        {
+          "field": "instrument_type_code",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "underlying_asset",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "contract_size",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "instrument_master_data",
+          "target": "instruments",
+          "fields": [
+            "instrument_type_code",
+            "instrument_name",
+            "underlying_asset",
+            "contract_size"
+          ]
+        },
+        {
+          "action": "transition_state",
+          "field": "instrument_status",
+          "from": "new",
+          "to": "pre_listing"
+        },
+        {
+          "action": "emit_event",
+          "event": "instrument.created",
+          "payload": [
+            "instrument_type_code",
+            "underlying_asset"
+          ]
+        }
+      ],
+      "result": "Instrument created in reference data",
+      "error": "INSTRUMENT_CREATED"
+    },
+    "contract_code_assigned": {
+      "priority": 2,
+      "description": "Contract code generated and published to market participants",
+      "given": [
+        "Instrument in pre_listing status",
+        "All contract code components available",
+        {
+          "any": [
+            {
+              "field": "instrument_type_code",
+              "source": "db",
+              "operator": "matches",
+              "value": "FUTURE|OPTION"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "contract_code_registry",
+          "target": "contract_codes",
+          "fields": [
+            "instrument_type_code",
+            "contract_code",
+            "expiry_date"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "contract_code.assigned",
+          "payload": [
+            "contract_code",
+            "isin"
+          ]
+        }
+      ],
+      "result": "Contract code generated and published",
+      "error": "CONTRACT_CODE_ASSIGNED"
+    },
+    "trading_parameters_configured": {
+      "priority": 3,
+      "description": "Trading parameters including tick size and price limits configured",
+      "given": [
+        "Instrument in pre_listing status",
+        {
+          "field": "contract_size",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "trading_parameters.configured",
+          "payload": [
+            "instrument_type_code"
+          ]
+        },
+        {
+          "action": "notify",
+          "actor": "market_participant",
+          "channel": "email",
+          "message": "Trading parameters published for new instrument"
+        }
+      ],
+      "result": "Trading parameters configured",
+      "error": "TRADING_PARAMETERS_CONFIGURED"
+    },
+    "instrument_trading_opened": {
+      "priority": 4,
+      "description": "Instrument opened for trading in specified market segment",
+      "given": [
+        "Instrument in pre_listing status",
+        "Opening date reached",
+        "All approvals obtained"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "instrument_status",
+          "from": "pre_listing",
+          "to": "active_trading"
+        },
+        {
+          "action": "emit_event",
+          "event": "instrument.trading_opened",
+          "payload": [
+            "instrument_type_code",
+            "market_segment"
+          ]
+        }
+      ],
+      "result": "Instrument begins trading",
+      "error": "INSTRUMENT_TRADING_OPENED"
+    },
+    "corporate_action_declared": {
+      "priority": 5,
+      "description": "Corporate action declared and reference data updated with ex-markers",
+      "given": [
+        "Instrument is active_trading",
+        "Corporate action declared",
+        {
+          "any": [
+            {
+              "field": "corporate_action_type",
+              "source": "input",
+              "operator": "matches",
+              "value": "dividend|rights|bonus"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "corporate_action.declared",
+          "payload": [
+            "instrument_type_code",
+            "ex_date"
+          ]
+        }
+      ],
+      "result": "Corporate action reference data updated",
+      "error": "CORPORATE_ACTION_DECLARED"
+    },
+    "instrument_suspended": {
+      "priority": 6,
+      "description": "Trading suspended for corporate action processing or compliance",
+      "given": [
+        "Instrument is active_trading",
+        "Corporate action ex-date reached"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "instrument_status",
+          "from": "active_trading",
+          "to": "suspended"
+        },
+        {
+          "action": "emit_event",
+          "event": "instrument.suspended",
+          "payload": [
+            "instrument_type_code"
+          ]
+        }
+      ],
+      "result": "Trading suspended for corporate action",
+      "error": "INSTRUMENT_SUSPENDED"
+    },
+    "instrument_trading_resumed": {
+      "priority": 7,
+      "description": "Trading resumed after suspension or corporate action processing",
+      "given": [
+        "Instrument is suspended",
+        "Suspension reason resolved"
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "instrument_status",
+          "from": "suspended",
+          "to": "active_trading"
+        },
+        {
+          "action": "emit_event",
+          "event": "instrument.trading_resumed",
+          "payload": [
+            "instrument_type_code"
+          ]
+        }
+      ],
+      "result": "Trading resumed",
+      "error": "INSTRUMENT_TRADING_RESUMED"
+    },
+    "instrument_expired": {
+      "priority": 8,
+      "description": "Instrument delisted after expiry date reached and final settlement completed",
+      "given": [
+        "Instrument is active_trading",
+        "Expiry date has been reached",
+        {
+          "field": "instrument_type_code",
+          "source": "db",
+          "operator": "matches",
+          "value": "FUTURE|OPTION|WARRANT"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "instrument_status",
+          "from": "active_trading",
+          "to": "delisted"
+        },
+        {
+          "action": "emit_event",
+          "event": "instrument.expired",
+          "payload": [
+            "instrument_type_code",
+            "expiry_date"
+          ]
+        }
+      ],
+      "result": "Instrument delisted after expiry",
+      "error": "INSTRUMENT_EXPIRED"
+    }
+  },
+  "errors": [
+    {
+      "code": "INSTRUMENT_CREATED",
+      "status": 409,
+      "message": "Instrument created and added to reference data"
+    },
+    {
+      "code": "CONTRACT_CODE_ASSIGNED",
+      "status": 409,
+      "message": "Contract code generated and published"
+    },
+    {
+      "code": "TRADING_PARAMETERS_CONFIGURED",
+      "status": 409,
+      "message": "Trading parameters configured"
+    },
+    {
+      "code": "INSTRUMENT_TRADING_OPENED",
+      "status": 409,
+      "message": "Instrument opened for trading"
+    },
+    {
+      "code": "CORPORATE_ACTION_DECLARED",
+      "status": 422,
+      "message": "Corporate action declared"
+    },
+    {
+      "code": "INSTRUMENT_SUSPENDED",
+      "status": 423,
+      "message": "Trading suspended"
+    },
+    {
+      "code": "INSTRUMENT_TRADING_RESUMED",
+      "status": 409,
+      "message": "Trading resumed"
+    },
+    {
+      "code": "INSTRUMENT_EXPIRED",
+      "status": 409,
+      "message": "Instrument expired and delisted"
+    }
+  ],
+  "events": [
+    {
+      "name": "instrument.created",
+      "payload": [
+        "instrument_type_code",
+        "underlying_asset",
+        "contract_size"
+      ]
+    },
+    {
+      "name": "contract_code.assigned",
+      "payload": [
+        "contract_code",
+        "isin",
+        "instrument_type_code"
+      ]
+    },
+    {
+      "name": "trading_parameters.configured",
+      "payload": [
+        "instrument_type_code",
+        "tick_size",
+        "contract_size"
+      ]
+    },
+    {
+      "name": "instrument.trading_opened",
+      "payload": [
+        "instrument_type_code",
+        "opening_date",
+        "market_segment"
+      ]
+    },
+    {
+      "name": "corporate_action.declared",
+      "payload": [
+        "instrument_type_code",
+        "ex_date",
+        "record_date"
+      ]
+    },
+    {
+      "name": "instrument.suspended",
+      "payload": [
+        "instrument_type_code",
+        "suspension_date",
+        "reason"
+      ]
+    },
+    {
+      "name": "instrument.trading_resumed",
+      "payload": [
+        "instrument_type_code",
+        "resumption_date"
+      ]
+    },
+    {
+      "name": "instrument.expired",
+      "payload": [
+        "instrument_type_code",
+        "expiry_date",
+        "settlement_type"
+      ]
+    }
+  ],
+  "extensions": {
+    "instrument_types": {
+      "SFS": {
+        "code": "SFS",
+        "name": "Single Stock Futures",
+        "characteristics": [
+          "Physical or cash settlement",
+          "Monthly/Quarterly expiry"
+        ],
+        "listing_requirements": [
+          "Underlying must be liquid JSE-listed equity",
+          "Minimum notional value"
+        ]
+      },
+      "IFS": {
+        "code": "IFS",
+        "name": "Index Futures",
+        "characteristics": [
+          "Cash-settled",
+          "Quarterly expiry",
+          "Standard and Mini sizes available"
+        ],
+        "listing_requirements": [
+          "Available on all major JSE indices"
+        ]
+      },
+      "EQO": {
+        "code": "EQO",
+        "name": "Equity Options",
+        "characteristics": [
+          "European or American exercise",
+          "Strike intervals vary by price",
+          "Monthly expiry"
+        ],
+        "listing_requirements": [
+          "Underlying security must be sufficiently liquid"
+        ]
+      },
+      "IXO": {
+        "code": "IXO",
+        "name": "Index Options",
+        "characteristics": [
+          "European exercise",
+          "Strike intervals 50-250 points",
+          "Monthly/Quarterly"
+        ],
+        "listing_requirements": [
+          "Available on JSE indices"
+        ]
+      },
+      "WNT": {
+        "code": "WNT",
+        "name": "Warrants",
+        "characteristics": [
+          "Call and Put types",
+          "Issuer-defined strikes and ratios",
+          "Months to years maturity"
+        ],
+        "listing_requirements": [
+          "Warrant issuer must be approved financial institution"
+        ]
+      },
+      "BND": {
+        "code": "BND",
+        "name": "Vanilla Bonds",
+        "characteristics": [
+          "Fixed coupon semi-annual",
+          "Fixed maturity date",
+          "T+1 or T+3 settlement"
+        ],
+        "listing_requirements": [
+          "Financial statements required",
+          "Prospectus/listing particulars"
+        ]
+      },
+      "FRN": {
+        "code": "FRN",
+        "name": "Floating Rate Notes",
+        "characteristics": [
+          "Coupon linked to JIBAR plus spread",
+          "Quarterly/semi-annual reset",
+          "Medium-term maturity"
+        ],
+        "listing_requirements": [
+          "Issuer creditworthiness assessment required"
+        ]
+      },
+      "CPI": {
+        "code": "CPI",
+        "name": "Inflation-Linked Bonds",
+        "characteristics": [
+          "Principal and coupon indexed to CPI",
+          "Real yield fixed",
+          "Medium to long-term"
+        ],
+        "listing_requirements": [
+          "Financial statements and inflation history"
+        ]
+      },
+      "CP": {
+        "code": "CP",
+        "name": "Commercial Paper",
+        "characteristics": [
+          "Short-term less than 365 days",
+          "Issued at discount",
+          "Money market segment"
+        ],
+        "listing_requirements": [
+          "May be unrated or rated"
+        ]
+      }
+    },
+    "reference_data_files": {
+      "InstrumentsEquity": {
+        "csv_file": "InstrumentsEquity.csv",
+        "content": "Equities and preference shares with description and sector",
+        "frequency": "Daily"
+      },
+      "InstrumentsFuture": {
+        "csv_file": "InstrumentsFuture.csv",
+        "content": "All futures contracts with underlying and settlement details",
+        "frequency": "Daily"
+      },
+      "InstrumentsOption": {
+        "csv_file": "InstrumentsOption.csv",
+        "content": "Equity and index options with strike and expiry data",
+        "frequency": "Daily"
+      },
+      "WarrantsDetail": {
+        "csv_file": "WarrantsDetail.csv",
+        "content": "Warrant specifications including strike, ratio, and issuer",
+        "frequency": "Daily"
+      },
+      "CorporateActionIndicator": {
+        "csv_file": "CorporateActionIndicatorTable.csv",
+        "content": "Ex-markers and annotations per instrument",
+        "frequency": "Daily"
+      },
+      "TickStructures": {
+        "csv_file": "TickStructureEntries.csv",
+        "content": "Tick sizes per price range by instrument",
+        "frequency": "Daily"
+      }
+    }
+  },
+  "related": [
+    {
+      "feature": "listings-requirements",
+      "type": "required"
+    },
+    {
+      "feature": "settlement-and-clearing",
+      "type": "recommended"
+    },
+    {
+      "feature": "market-data-dissemination",
+      "type": "recommended"
+    }
+  ]
+}

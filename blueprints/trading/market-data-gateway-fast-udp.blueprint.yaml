@@ -1,0 +1,65 @@
+feature: market-data-gateway-fast-udp
+version: 1.0.0
+description: Real-time market data via FAST UDP multicast with TCP recovery and replay channels.
+category: trading
+
+fields:
+  - name: instrument_id
+    type: text
+    required: true
+    label: Security ID
+
+rules:
+  delivery:
+    multicast: "Real-time UDP multicast feeds A and B"
+    recovery: "TCP recovery channel for trade history and snapshots"
+    replay: "TCP replay channel for message recovery"
+
+outcomes:
+  logon_successful:
+    priority: 1
+    description: "Client successfully authenticates"
+    given:
+      - field: credentials_valid
+        source: request
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: session.established
+        payload: [user_id]
+    result: "Session active"
+
+  market_data_published:
+    priority: 2
+    description: "Market data updates published"
+    given:
+      - field: data_available
+        source: system
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: market.data_published
+        payload: [security_id]
+    result: "Data disseminated"
+
+errors:
+  - code: AUTH_FAILED
+    status: 401
+    message: "Authentication failed"
+  - code: SESSION_ERROR
+    status: 500
+    message: "Session error"
+
+events:
+  - name: session.established
+    payload: [user_id]
+  - name: market.data_published
+    payload: [security_id]
+
+actors:
+  - id: client
+    name: Client
+    type: human
+    description: "Market data subscriber"

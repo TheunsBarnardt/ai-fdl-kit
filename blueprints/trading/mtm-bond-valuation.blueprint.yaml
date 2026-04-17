@@ -1,0 +1,91 @@
+feature: mtm-bond-valuation
+version: 1.0.0
+description: |
+  Mark-to-market bond valuation framework for daily portfolio accounting.
+  Establishes pricing hierarchy, accrued interest conventions, and rounding rules.
+category: trading
+tags: [bonds, valuation, mark-to-market, mtm, portfolio, accounting]
+
+fields:
+  - name: valuation_date
+    type: date
+    required: true
+    label: Valuation Date
+
+  - name: bond_isin
+    type: text
+    required: true
+    label: Bond ISIN
+
+  - name: quoted_clean_price
+    type: number
+    required: false
+    label: Quoted Clean Price
+
+  - name: bid_price
+    type: number
+    required: false
+    label: Bid Price
+
+  - name: ask_price
+    type: number
+    required: false
+    label: Ask Price
+
+rules:
+  pricing:
+    pricing_hierarchy: |
+      1. Recent trade quotes (last N hours)
+      2. Bid-ask spread midpoint
+      3. Derived from yield curve
+      4. Benchmark spread assumption
+      5. Previous close price
+
+    accrued_interest_calculation: |
+      Accrued = (Days_Since_Last_Coupon / 365) × Annual_Coupon
+
+outcomes:
+  bond_valued:
+    description: Mark bond-to-market using pricing hierarchy and accrued interest
+    given:
+      - field: valuation_date
+        source: input
+        operator: exists
+      - field: bond_isin
+        source: input
+        operator: exists
+    then:
+      - action: set_field
+        target: mtm_clean_price
+        value: "from pricing hierarchy"
+      - action: set_field
+        target: accrued_interest
+        value: "calculated per A/365"
+      - action: set_field
+        target: all_in_price
+        value: "clean_price + accrued_interest"
+      - action: emit_event
+        event: bond.mtm.valued
+        payload: [valuation_date, bond_isin, mtm_clean_price]
+    result: Bond marked-to-market
+
+  portfolio_aggregated:
+    description: Aggregate daily MTM valuations across portfolio
+    given:
+      - field: valuation_date
+        source: input
+        operator: exists
+    then:
+      - action: emit_event
+        event: portfolio.mtm.complete
+        payload: [valuation_date]
+    result: Portfolio MTM valuation completed
+
+errors:
+  - code: NO_PRICING_DATA
+    status: 400
+    message: No quoted prices available for bond
+
+related:
+  - feature: bond-pricing-models
+    type: required

@@ -1,0 +1,61 @@
+feature: regulatory-news-feed-fast
+version: 1.0.0
+description: Real-time regulatory news via FAST UDP multicast with TCP replay.
+category: trading
+
+fields:
+  - name: news_id
+    type: text
+    required: true
+    label: News ID
+
+rules:
+  delivery:
+    multicast: "Real-time UDP multicast feeds"
+    replay: "TCP replay channel"
+
+outcomes:
+  logon_successful:
+    priority: 1
+    description: "Client authenticates"
+    given:
+      - field: credentials_valid
+        source: request
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: session.established
+        payload: [user_id]
+    result: "Session active"
+
+  news_published:
+    priority: 2
+    description: "News published"
+    given:
+      - field: news_available
+        source: system
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: news.published
+        payload: [news_id]
+    result: "News disseminated"
+
+errors:
+  - code: AUTH_FAILED
+    status: 401
+    message: "Authentication failed"
+
+events:
+  - name: session.established
+    payload: [user_id]
+  - name: news.published
+    payload: [news_id]
+
+actors:
+  - id: client
+    name: Client
+    type: human
+    description: "Regulatory news subscriber"

@@ -1,0 +1,64 @@
+feature: indices-feed-fast-udp
+version: 1.0.0
+description: Real-time indices via FAST UDP multicast with TCP replay from FTSE.
+category: trading
+
+fields:
+  - name: index_id
+    type: text
+    required: true
+    label: Index Symbol
+
+rules:
+  delivery:
+    multicast: "Real-time UDP multicast"
+    replay: "TCP replay channel"
+
+outcomes:
+  logon_successful:
+    priority: 1
+    description: "Client authenticates"
+    given:
+      - field: credentials_valid
+        source: request
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: session.established
+        payload: [user_id]
+    result: "Session active"
+
+  index_updated:
+    priority: 2
+    description: "Index value updated"
+    given:
+      - field: index_data_available
+        source: system
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: index.updated
+        payload: [index_id]
+    result: "Index refresh published"
+
+errors:
+  - code: AUTH_FAILED
+    status: 401
+    message: "Authentication failed"
+  - code: LOGON_LIMIT
+    status: 429
+    message: "Login limit exceeded"
+
+events:
+  - name: session.established
+    payload: [user_id]
+  - name: index.updated
+    payload: [index_id]
+
+actors:
+  - id: client
+    name: Client
+    type: human
+    description: "Indices subscriber"

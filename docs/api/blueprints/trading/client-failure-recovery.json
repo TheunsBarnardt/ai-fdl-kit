@@ -1,0 +1,207 @@
+{
+  "feature": "client-failure-recovery",
+  "version": "1.0.0",
+  "description": "Systematic procedures for detecting and recovering from client or gateway failures with message replay and order state resynchronization",
+  "category": "trading",
+  "tags": [
+    "failure-recovery",
+    "session-management",
+    "message-replay"
+  ],
+  "rules": {
+    "failure_detection": {
+      "connection_loss": "TCP connection terminated or timeout detected",
+      "heartbeat_timeout": "No heartbeat response within configured interval",
+      "automatic_detection": "System detects loss automatically"
+    },
+    "recovery_procedures": {
+      "phase_1": "Client establishes new TCP connection to gateway",
+      "phase_2": "Client sends Logon with CompID and credentials",
+      "phase_3": "Client connects to recovery channel",
+      "phase_4": "Client requests missed messages via Missed Message Request",
+      "phase_5": "Server replays messages in sequence order",
+      "phase_6": "Client reconciles order and execution state"
+    },
+    "message_handling": {
+      "sequence_numbering": "All messages numbered for gap detection",
+      "retention_policy": "Messages retained for 5-7 days typically",
+      "replay_order": "Missed messages in original sequence"
+    }
+  },
+  "fields": [
+    {
+      "name": "failure_type",
+      "type": "select",
+      "required": true,
+      "label": "Failure category",
+      "options": [
+        {
+          "value": "CONNECTION_LOST",
+          "label": "Connection lost"
+        },
+        {
+          "value": "HEARTBEAT_TIMEOUT",
+          "label": "Heartbeat timeout"
+        },
+        {
+          "value": "GATEWAY_UNAVAILABLE",
+          "label": "Gateway unavailable"
+        }
+      ]
+    },
+    {
+      "name": "detection_timestamp",
+      "type": "datetime",
+      "required": true,
+      "label": "Failure detected at"
+    },
+    {
+      "name": "last_sequence_number",
+      "type": "number",
+      "required": true,
+      "label": "Last received sequence"
+    },
+    {
+      "name": "messages_missed",
+      "type": "number",
+      "required": false,
+      "label": "Count of missed messages"
+    },
+    {
+      "name": "orders_affected",
+      "type": "number",
+      "required": false,
+      "label": "Orders with state changes"
+    }
+  ],
+  "outcomes": {
+    "failure_detection": {
+      "priority": 1,
+      "description": "System detects connection loss or heartbeat timeout",
+      "given": [
+        "TCP disconnection"
+      ],
+      "then": [
+        "Mark session disconnected",
+        "Queue subsequent messages"
+      ],
+      "result": "System ready for reconnection"
+    },
+    "client_reconnection": {
+      "priority": 5,
+      "description": "Client reconnects and authenticates",
+      "given": [
+        "New connection initiated"
+      ],
+      "then": [
+        "Authenticate client",
+        "Establish session"
+      ],
+      "result": "Client authenticated"
+    },
+    "message_recovery": {
+      "priority": 8,
+      "description": "Client retrieves missed messages",
+      "given": [
+        "Client on recovery channel"
+      ],
+      "then": [
+        "Stream missed messages in sequence"
+      ],
+      "result": "Client receives historical messages"
+    },
+    "state_resync": {
+      "priority": 10,
+      "description": "Client reconciles state with server",
+      "given": [
+        "All messages retrieved"
+      ],
+      "then": [
+        "Validate order and execution state"
+      ],
+      "result": "Full resynchronization complete"
+    }
+  },
+  "errors": [
+    {
+      "code": "RECOVERY_UNAVAILABLE",
+      "status": 503,
+      "message": "Recovery channel unavailable"
+    },
+    {
+      "code": "MESSAGE_QUEUE_EXPIRED",
+      "status": 410,
+      "message": "Requested messages older than retention period"
+    },
+    {
+      "code": "SEQUENCE_GAP",
+      "status": 409,
+      "message": "Gap in message sequence detected"
+    },
+    {
+      "code": "STATE_MISMATCH",
+      "status": 409,
+      "message": "Client state does not match server"
+    },
+    {
+      "code": "SYSTEM_SUSPENDED",
+      "status": 503,
+      "message": "System or partition suspended"
+    }
+  ],
+  "events": [
+    {
+      "name": "failure.detected",
+      "payload": [
+        "failure_type",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "session.established",
+      "payload": [
+        "client_id"
+      ]
+    },
+    {
+      "name": "recovery.initiated",
+      "payload": [
+        "start_seq",
+        "end_seq"
+      ]
+    },
+    {
+      "name": "recovery.complete",
+      "payload": [
+        "client_id"
+      ]
+    },
+    {
+      "name": "reconciliation.required",
+      "payload": [
+        "discrepancy_type"
+      ]
+    }
+  ],
+  "extensions": {
+    "failure_scenarios": {
+      "client_connection_loss": "Network or client crash",
+      "gateway_outage": "Gateway or internal failure",
+      "site_failure": "Datacenter-level outage"
+    }
+  },
+  "related": [
+    {
+      "feature": "native-trading-gateway-enhanced",
+      "type": "required"
+    },
+    {
+      "feature": "native-trading-gateway-basic",
+      "type": "required"
+    },
+    {
+      "feature": "drop-copy-gateway-fix",
+      "type": "recommended"
+    }
+  ]
+}

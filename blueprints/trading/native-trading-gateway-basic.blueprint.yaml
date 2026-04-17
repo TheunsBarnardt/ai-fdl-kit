@@ -1,0 +1,111 @@
+feature: native-trading-gateway-basic
+version: 1.0.0
+description: Basic Native Trading Gateway protocol for standard equity order submission and execution tracking
+category: trading
+tags:
+  - native-protocol
+  - equity-orders
+
+rules:
+  protocol:
+    binary_format: "Binary little-endian protocol"
+    session_based: "Client authentication via CompID and password"
+    heartbeat_requirement: "Periodic heartbeat maintains session"
+
+  order_handling:
+    order_types: "Market and Limit orders"
+    time_in_force: "DAY, GTC, IOC, FOK"
+
+fields:
+  - name: client_order_id
+    type: text
+    required: true
+    label: Client order reference
+
+  - name: instrument_id
+    type: text
+    required: true
+    label: Instrument identifier
+
+  - name: order_side
+    type: select
+    required: true
+    label: Order direction
+    options:
+      - value: BUY
+        label: "Buy"
+      - value: SELL
+        label: "Sell"
+
+  - name: order_quantity
+    type: number
+    required: true
+    label: Order quantity
+
+  - name: order_type
+    type: select
+    required: true
+    label: Order type
+    options:
+      - value: MARKET
+        label: "Market"
+      - value: LIMIT
+        label: "Limit"
+
+  - name: price
+    type: number
+    required: false
+    label: Limit price
+
+outcomes:
+  validation:
+    priority: 1
+    description: "Validates message format"
+    given:
+      - "Order received"
+    then:
+      - "Check format and data types"
+    result: "Accepted or rejected"
+
+  execution:
+    priority: 5
+    description: "Order executes against liquidity"
+    given:
+      - "Validation passes"
+    then:
+      - "Execute trade"
+    result: "Trade executed"
+
+errors:
+  - code: INVALID_MESSAGE
+    status: 400
+    message: Message format validation failed
+
+  - code: SESSION_NOT_ESTABLISHED
+    status: 401
+    message: Client not authenticated
+
+  - code: INSTRUMENT_NOT_FOUND
+    status: 404
+    message: Unknown instrument
+
+  - code: SYSTEM_UNAVAILABLE
+    status: 503
+    message: Gateway unavailable
+
+events:
+  - name: order.submitted
+    payload: [client_order_id]
+
+  - name: order.filled
+    payload: [order_id]
+
+extensions:
+  message_types:
+    administrative: [LOGON, LOGOUT, HEARTBEAT]
+    orders: [NEW_ORDER, ORDER_CANCEL_REQUEST]
+    responses: [EXECUTION_REPORT]
+
+related:
+  - feature: client-failure-recovery
+    type: required

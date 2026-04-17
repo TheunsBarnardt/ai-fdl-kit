@@ -1,0 +1,78 @@
+feature: buy-sell-back-pricing
+version: 1.0.0
+description: |
+  Repo agreement (buy-sell-back) pricing combining bond valuation with
+  repo interest accrual over repurchase term.
+category: trading
+tags: [bonds, repo, buy-sell-back, repurchase-agreement, money-market]
+
+fields:
+  - name: bond_isin
+    type: text
+    required: true
+    label: Bond ISIN
+
+  - name: sale_date
+    type: date
+    required: true
+    label: Sale Date
+
+  - name: repurchase_date
+    type: date
+    required: true
+    label: Repurchase Date
+
+  - name: sale_yield
+    type: number
+    required: true
+    label: Yield at Sale
+
+  - name: repo_rate
+    type: number
+    required: true
+    label: Daily Repo Rate
+
+rules:
+  pricing:
+    sale_price_calculation: |
+      Sale_All_In = Sale_Clean + Sale_Accrued
+
+    repo_interest: |
+      Repo_Interest = Sale_All_In × Repo_Rate × Term_Days / 365
+
+    repurchase_price: |
+      Repurchase_All_In = Sale_All_In + Repo_Interest
+
+outcomes:
+  repo_priced:
+    description: Price repo agreement with bond valuation and daily interest
+    given:
+      - field: sale_date
+        source: input
+        operator: exists
+      - field: repurchase_date
+        source: input
+        operator: exists
+      - field: repo_rate
+        source: input
+        operator: exists
+    then:
+      - action: set_field
+        target: repo_interest_amount
+        value: "calculated from rate and term"
+      - action: set_field
+        target: repurchase_price
+        value: "sale_price + repo_interest"
+      - action: emit_event
+        event: repo.agreement.priced
+        payload: [sale_date, repurchase_date, repo_rate, repurchase_price]
+    result: Buy-sell-back agreement priced
+
+errors:
+  - code: INVALID_DATES
+    status: 400
+    message: Repurchase date must be after sale date
+
+related:
+  - feature: bond-pricing-models
+    type: required

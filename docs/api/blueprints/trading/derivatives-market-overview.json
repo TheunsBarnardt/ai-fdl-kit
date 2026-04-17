@@ -1,0 +1,345 @@
+{
+  "feature": "derivatives-market-overview",
+  "version": "1.0.0",
+  "description": "Derivatives trading market infrastructure, sessions, settlement, and conformance",
+  "category": "trading",
+  "tags": [
+    "derivatives",
+    "market-structure",
+    "regulatory"
+  ],
+  "related": [
+    {
+      "type": "required",
+      "feature": "interest-rate-derivatives-trading"
+    },
+    {
+      "type": "required",
+      "feature": "currency-derivatives-trading"
+    }
+  ],
+  "fields": [
+    {
+      "name": "market_segment",
+      "type": "select",
+      "required": true,
+      "label": "Market segment",
+      "options": [
+        {
+          "value": "IRD",
+          "label": "Interest Rate Derivatives"
+        },
+        {
+          "value": "EDM",
+          "label": "Equity Derivatives"
+        },
+        {
+          "value": "FXM",
+          "label": "Currency Derivatives"
+        },
+        {
+          "value": "CDM",
+          "label": "Commodity Derivatives"
+        }
+      ]
+    },
+    {
+      "name": "trading_member_type",
+      "type": "select",
+      "required": true,
+      "label": "Member type",
+      "options": [
+        {
+          "value": "TRADING_MEMBER",
+          "label": "Trading Member"
+        },
+        {
+          "value": "CLEARING_MEMBER",
+          "label": "Clearing Member"
+        },
+        {
+          "value": "INFO_SUBSCRIBER",
+          "label": "Information Subscriber"
+        }
+      ]
+    },
+    {
+      "name": "compid",
+      "type": "text",
+      "required": true,
+      "label": "Firm CompID"
+    },
+    {
+      "name": "instrument_type",
+      "type": "select",
+      "required": true,
+      "label": "Instrument type",
+      "options": [
+        {
+          "value": "FUTURE",
+          "label": "Future"
+        },
+        {
+          "value": "OPTION",
+          "label": "Option"
+        },
+        {
+          "value": "FORWARD",
+          "label": "Forward"
+        },
+        {
+          "value": "SWAP",
+          "label": "Swap"
+        }
+      ]
+    },
+    {
+      "name": "session_type",
+      "type": "select",
+      "required": true,
+      "label": "Session type",
+      "options": [
+        {
+          "value": "CONTINUOUS",
+          "label": "Continuous"
+        },
+        {
+          "value": "AUCTION",
+          "label": "Auction"
+        },
+        {
+          "value": "NEGOTIATION",
+          "label": "Negotiation"
+        },
+        {
+          "value": "REPORTED",
+          "label": "Reported"
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "market_structure": {
+      "segments": "Interest Rate Derivatives (IRD): Futures, options, repos on fixed income.\nEquity Derivatives (EDM): Stock/index options and futures.\nCurrency Derivatives (FXM): FX forwards, swaps, options.\nCommodity Derivatives (CDM): Agricultural, metals, energy contracts.\n",
+      "firm_structure": "Trading Members have multiple principals/dealers. CompID per gateway.\nClearing Members clear and settle; manage client accounts.\nInformation Subscribers have read-only market data access.\n",
+      "sessions": "Normal book continuous 08:00-17:00 SAST, Mon-Fri (excl. holidays).\nOpening auction 07:50-08:00. Closing auction at market end.\nVolatility auctions triggered by circuit breaker. Reported trading allowed.\n"
+    },
+    "settlement": {
+      "post_trade": "Trade routed to STRATE with leg details. Trade leg IDs issued.\nSettlement reconciliation T+0 via SWIFT or local banking.\n",
+      "futures": "Daily MTM settlement. Variation margin posted to margin account.\nSettlement price from closing auction or last continuous trade.\n",
+      "options": "Exercise triggers settlement (physical or cash). Assignment automatic if ITM.\n",
+      "forwards_swaps": "Forwards settle T+n via banking. Swaps settle near leg T+0, far leg T+n.\nInterest differential accrued per contract terms.\n",
+      "repos": "Classic repo: 2 parties. Triparty: 3 parties with agent.\nT+0 settlement. Collateral transfer; interest accrued per terms.\n",
+      "margin": "Initial margin per spec. Variation margin daily for futures.\nInterest on initial margin accrued per account agreement.\n"
+    },
+    "conformance": {
+      "mandatory": "All production trading software must pass conformance.\nTrading members, clearing members, information subscribers.\nModifications to conformed software trigger re-conformance.\n",
+      "testing": "CTS (Customer Testing Service) environment. Weekly slots Tue-Thu.\nComplete within one business day. JSE support 07:00-19:00 SAST.\nResults 24-48 hours post-completion.\n",
+      "scenarios": "Logon/logout, order insert/cancel/amend, auction participation.\nReported trade submission, repo initiation/edit, mark-to-market.\n",
+      "report": "Conformance Test Report (CTR) documents scope of functionality tested.\nClient completes self-conformance before JSE slot.\nJSE analyst signs off pass/fail. Valid until software modification.\n"
+    }
+  },
+  "errors": [
+    {
+      "code": "MARKET_NOT_OPEN",
+      "status": 503,
+      "message": "Trading market is not currently open"
+    },
+    {
+      "code": "CONFORMANCE_REQUIRED",
+      "status": 403,
+      "message": "Software must pass conformance testing before production"
+    },
+    {
+      "code": "TRADING_MEMBER_NOT_AUTHORIZED",
+      "status": 403,
+      "message": "Member not authorized for market segment"
+    },
+    {
+      "code": "INSTRUMENT_NOT_ACTIVE",
+      "status": 404,
+      "message": "Instrument not actively traded or expired"
+    },
+    {
+      "code": "SETTLEMENT_SYSTEM_ERROR",
+      "status": 500,
+      "message": "Settlement system (STRATE) unavailable"
+    }
+  ],
+  "events": [
+    {
+      "name": "session.opened",
+      "payload": [
+        "market_segment",
+        "session_type",
+        "time"
+      ]
+    },
+    {
+      "name": "session.closed",
+      "payload": [
+        "market_segment",
+        "time"
+      ]
+    },
+    {
+      "name": "auction.started",
+      "payload": [
+        "instrument",
+        "type"
+      ]
+    },
+    {
+      "name": "auction.ended",
+      "payload": [
+        "instrument",
+        "uncross_price"
+      ]
+    },
+    {
+      "name": "circuit_breaker.triggered",
+      "payload": [
+        "instrument",
+        "reference_price"
+      ]
+    },
+    {
+      "name": "conformance.passed",
+      "payload": [
+        "member_code",
+        "sign_off_date"
+      ]
+    },
+    {
+      "name": "trade.validated",
+      "payload": [
+        "trade_id",
+        "leg_ids"
+      ]
+    },
+    {
+      "name": "settlement.initiated",
+      "payload": [
+        "settlement_id",
+        "amount"
+      ]
+    },
+    {
+      "name": "margin_call.issued",
+      "payload": [
+        "member_code",
+        "deficit"
+      ]
+    }
+  ],
+  "outcomes": {
+    "market_session_open": {
+      "priority": 1,
+      "name": "market_session_open",
+      "given": [
+        {
+          "field": "current_time",
+          "source": "system",
+          "operator": "gte",
+          "value": "session_start_time"
+        },
+        {
+          "field": "jse_business_day",
+          "source": "system",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "market_status",
+          "from": "closed",
+          "to": "open"
+        },
+        {
+          "action": "emit_event",
+          "event": "session.opened"
+        }
+      ],
+      "result": "Trading session opened; orders accepted"
+    },
+    "circuit_breaker_triggered": {
+      "priority": 2,
+      "name": "circuit_breaker_triggered",
+      "given": [
+        {
+          "field": "price_change_pct",
+          "source": "computed",
+          "operator": "gte",
+          "value": "tolerance_threshold"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "circuit_breaker.triggered"
+        }
+      ],
+      "result": "Volatility auction initiated; trading halted"
+    },
+    "closing_auction_settlement": {
+      "priority": 5,
+      "name": "closing_auction_settlement",
+      "given": [
+        {
+          "field": "session_status",
+          "source": "system",
+          "operator": "eq",
+          "value": "CLOSING"
+        },
+        {
+          "field": "uncross_price",
+          "source": "computed",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "eod_settlement_price",
+          "value": "uncross_price"
+        },
+        {
+          "action": "emit_event",
+          "event": "auction.ended"
+        }
+      ],
+      "result": "EOD settlement prices published; market closed"
+    },
+    "conformance_passed": {
+      "priority": 9,
+      "name": "conformance_passed",
+      "given": [
+        {
+          "field": "all_scenarios_passed",
+          "source": "input",
+          "operator": "eq",
+          "value": true
+        },
+        {
+          "field": "conformance_report_submitted",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "conformance_status",
+          "value": "PASSED"
+        },
+        {
+          "action": "emit_event",
+          "event": "conformance.passed"
+        }
+      ],
+      "result": "Conformance sign-off complete; production access enabled"
+    }
+  }
+}
