@@ -1,0 +1,711 @@
+{
+  "feature": "equity-market-trading-overview",
+  "version": "1.0.0",
+  "description": "Equity market structure, participants, trading sessions, order settlement, risk management, and circuit breaker rules for spot equity trading.\n",
+  "category": "trading",
+  "tags": [
+    "equity",
+    "market-operations",
+    "settlement",
+    "risk-management",
+    "circuit-breakers"
+  ],
+  "aliases": [
+    "spot-equity-trading",
+    "market-structure",
+    "equity-trading-rules",
+    "settlement-operations",
+    "market-conformance",
+    "trading-sessions",
+    "participant-types",
+    "equity-risk-management"
+  ],
+  "actors": [
+    {
+      "id": "trading_member",
+      "name": "Trading Member",
+      "type": "human",
+      "role": "broker"
+    },
+    {
+      "id": "trader",
+      "name": "Trader",
+      "type": "human",
+      "role": "trading"
+    },
+    {
+      "id": "settlement_participant",
+      "name": "Settlement Participant",
+      "type": "human",
+      "role": "settlement"
+    },
+    {
+      "id": "market_operations",
+      "name": "Market Operations",
+      "type": "system"
+    },
+    {
+      "id": "risk_management_system",
+      "name": "Risk Management System",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "market_segment",
+      "type": "select",
+      "required": true,
+      "label": "Market Segment",
+      "options": [
+        {
+          "value": "main_board",
+          "label": "Main Board"
+        },
+        {
+          "value": "altx",
+          "label": "AltX"
+        },
+        {
+          "value": "fledgling",
+          "label": "Fledgling"
+        }
+      ]
+    },
+    {
+      "name": "trading_session_type",
+      "type": "select",
+      "required": true,
+      "label": "Trading Session Type",
+      "options": [
+        {
+          "value": "pre_open",
+          "label": "Pre-open"
+        },
+        {
+          "value": "opening_auction",
+          "label": "Opening Auction"
+        },
+        {
+          "value": "continuous",
+          "label": "Continuous"
+        },
+        {
+          "value": "closing_auction",
+          "label": "Closing Auction"
+        }
+      ]
+    },
+    {
+      "name": "session_state",
+      "type": "select",
+      "required": false,
+      "label": "Session State",
+      "options": [
+        {
+          "value": "closed",
+          "label": "Closed"
+        },
+        {
+          "value": "open",
+          "label": "Open"
+        },
+        {
+          "value": "halted",
+          "label": "Halted"
+        }
+      ]
+    },
+    {
+      "name": "trading_halt_reason",
+      "type": "text",
+      "required": false,
+      "label": "Trading Halt Reason"
+    },
+    {
+      "name": "circuit_breaker_level",
+      "type": "number",
+      "required": false,
+      "label": "Circuit Breaker Level"
+    },
+    {
+      "name": "halt_duration_minutes",
+      "type": "number",
+      "required": false,
+      "label": "Halt Duration"
+    },
+    {
+      "name": "settlement_cycle",
+      "type": "text",
+      "required": false,
+      "label": "Settlement Cycle"
+    },
+    {
+      "name": "issuer_code",
+      "type": "text",
+      "required": false,
+      "label": "Issuer Code"
+    },
+    {
+      "name": "opening_price",
+      "type": "number",
+      "required": false,
+      "label": "Opening Price"
+    },
+    {
+      "name": "reference_price",
+      "type": "number",
+      "required": false,
+      "label": "Reference Price"
+    }
+  ],
+  "rules": {
+    "trading_sessions": {
+      "only_licensed_members_trade": "Only licensed trading members and their authorized traders may submit orders",
+      "session_hours_enforced": "Trading can only occur during designated session hours",
+      "one_continuous_session": "Main Board operates one continuous session",
+      "session_isolation": "Each trading session maintains independent order book state"
+    },
+    "order_handling": {
+      "all_orders_validated": "All orders must be validated for format, size, and member authorization",
+      "order_routing": "Orders are routed through central order book and matched by price/time priority",
+      "no_guaranteed_execution": "Order submission does not guarantee execution",
+      "order_cancellation_allowed": "Orders may be cancelled before execution"
+    },
+    "settlement": {
+      "settlement_mandatory": "All executed trades must settle within defined settlement cycle",
+      "three_party_settlement": "Settlement involves buyer, seller, and central settlement authority",
+      "free_of_payment_prohibition": "No trades settle without simultaneous exchange of cash and securities",
+      "settlement_fail_consequences": "Failed settlements incur penalties and member discipline"
+    },
+    "risk_controls": {
+      "circuit_breakers_monitored": "Price-based circuit breakers halt trading on extreme movements",
+      "trading_halts_enforced": "Trading halts triggered by regulatory action or extreme price moves",
+      "position_limits_enforced": "Member position limits prevent excessive concentration risk",
+      "margin_requirements_checked": "Margin calls issued if member capital falls below minimum"
+    },
+    "conformance": {
+      "rules_updated_regularly": "Trading rules updated and distributed to all members",
+      "member_education_required": "Members must educate traders on rules before authorization",
+      "compliance_monitoring": "Exchange monitors trades for manipulation and regulatory violations",
+      "reporting_to_regulator": "Exchange reports daily trading data and breaches to authorities"
+    }
+  },
+  "outcomes": {
+    "session_opened": {
+      "priority": 1,
+      "description": "Trading session opens at designated time",
+      "given": [
+        {
+          "field": "trading_session_type",
+          "source": "system",
+          "operator": "exists"
+        },
+        {
+          "field": "session_state",
+          "source": "system",
+          "operator": "eq",
+          "value": "closed"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "session_state",
+          "from": "closed",
+          "to": "open"
+        },
+        {
+          "action": "emit_event",
+          "event": "trading.session.opened",
+          "payload": [
+            "trading_session_type",
+            "session_start_time"
+          ]
+        }
+      ],
+      "error": "SESSION_OPEN_FAILED"
+    },
+    "order_accepted": {
+      "priority": 2,
+      "description": "Valid order from authorized trader accepted into order book",
+      "given": [
+        {
+          "field": "session_state",
+          "source": "system",
+          "operator": "eq",
+          "value": "open"
+        },
+        {
+          "field": "trader_authorized",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        },
+        {
+          "field": "order_valid",
+          "source": "system",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "order",
+          "target": "orders"
+        },
+        {
+          "action": "emit_event",
+          "event": "order.submitted",
+          "payload": [
+            "order_id",
+            "trader_id",
+            "security_code",
+            "quantity",
+            "price"
+          ]
+        }
+      ],
+      "error": "ORDER_REJECTED"
+    },
+    "order_matched": {
+      "priority": 3,
+      "description": "Buy and sell orders matched at same price",
+      "given": [
+        {
+          "field": "buy_order_exists",
+          "source": "system",
+          "operator": "exists"
+        },
+        {
+          "field": "sell_order_exists",
+          "source": "system",
+          "operator": "exists"
+        },
+        {
+          "field": "price_match",
+          "source": "computed",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "trade",
+          "target": "trades"
+        },
+        {
+          "action": "emit_event",
+          "event": "trade.executed",
+          "payload": [
+            "trade_id",
+            "buy_order_id",
+            "sell_order_id",
+            "quantity",
+            "price"
+          ]
+        }
+      ],
+      "error": "MATCHING_FAILED"
+    },
+    "circuit_breaker_triggered": {
+      "priority": 4,
+      "description": "Price movement exceeds threshold; trading halted",
+      "given": [
+        {
+          "field": "price_movement_percent",
+          "source": "computed",
+          "operator": "gt",
+          "value": "circuit_breaker_level"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "session_state",
+          "from": "open",
+          "to": "halted"
+        },
+        {
+          "action": "emit_event",
+          "event": "trading.halted",
+          "payload": [
+            "security_code",
+            "halt_reason",
+            "halt_start_time"
+          ]
+        },
+        {
+          "action": "notify",
+          "channel": "system",
+          "message": "Circuit breaker triggered; trading halted"
+        }
+      ],
+      "error": "CIRCUIT_BREAKER_FAILED"
+    },
+    "trading_halt_resumed": {
+      "priority": 5,
+      "description": "Trading resumes after halt duration expires",
+      "given": [
+        {
+          "field": "halt_duration_elapsed",
+          "source": "system",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "session_state",
+          "from": "halted",
+          "to": "open"
+        },
+        {
+          "action": "emit_event",
+          "event": "trading.resumed",
+          "payload": [
+            "security_code",
+            "resumption_time",
+            "resumption_price"
+          ]
+        }
+      ],
+      "error": "RESUMPTION_FAILED"
+    },
+    "trade_settlement_initiated": {
+      "priority": 6,
+      "description": "Executed trade sent to settlement system for clearing",
+      "given": [
+        {
+          "field": "trade_executed",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        },
+        {
+          "field": "settlement_cycle_day",
+          "source": "system",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "settlement.initiated",
+          "payload": [
+            "trade_id",
+            "settlement_date",
+            "buyer_account",
+            "seller_account",
+            "quantity",
+            "value"
+          ]
+        }
+      ],
+      "error": "SETTLEMENT_NOT_INITIATED"
+    },
+    "session_closed": {
+      "priority": 10,
+      "description": "Trading session ends at designated close time",
+      "given": [
+        {
+          "field": "session_state",
+          "source": "system",
+          "operator": "eq",
+          "value": "open"
+        },
+        {
+          "field": "session_close_time_reached",
+          "source": "system",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "session_state",
+          "from": "open",
+          "to": "closed"
+        },
+        {
+          "action": "emit_event",
+          "event": "trading.session.closed",
+          "payload": [
+            "session_end_time",
+            "final_price",
+            "total_volume"
+          ]
+        },
+        {
+          "action": "emit_event",
+          "event": "trading.session.statistics",
+          "payload": [
+            "total_trades",
+            "total_volume",
+            "session_high",
+            "session_low"
+          ]
+        }
+      ],
+      "error": "SESSION_CLOSE_FAILED"
+    }
+  },
+  "errors": [
+    {
+      "code": "SESSION_OPEN_FAILED",
+      "status": 500,
+      "message": "Unable to open trading session; contact market operations"
+    },
+    {
+      "code": "ORDER_REJECTED",
+      "status": 422,
+      "message": "Order rejected due to validation failure or market conditions"
+    },
+    {
+      "code": "MATCHING_FAILED",
+      "status": 500,
+      "message": "Order matching engine error; please resubmit order"
+    },
+    {
+      "code": "CIRCUIT_BREAKER_FAILED",
+      "status": 503,
+      "message": "Circuit breaker system failure; trading halted pending resolution"
+    },
+    {
+      "code": "RESUMPTION_FAILED",
+      "status": 500,
+      "message": "Unable to resume trading; contact market operations"
+    },
+    {
+      "code": "SETTLEMENT_NOT_INITIATED",
+      "status": 500,
+      "message": "Trade settlement could not be initiated; clearing unavailable"
+    },
+    {
+      "code": "SESSION_CLOSE_FAILED",
+      "status": 500,
+      "message": "Unable to close trading session; contact market operations"
+    },
+    {
+      "code": "UNAUTHORIZED_TRADER",
+      "status": 403,
+      "message": "Trader not authorized to submit orders"
+    },
+    {
+      "code": "SESSION_NOT_OPEN",
+      "status": 409,
+      "message": "Trading session is not currently open; orders cannot be submitted"
+    }
+  ],
+  "events": [
+    {
+      "name": "trading.session.opened",
+      "payload": [
+        "trading_session_type",
+        "session_start_time",
+        "session_date"
+      ]
+    },
+    {
+      "name": "trading.session.closed",
+      "payload": [
+        "session_end_time",
+        "final_price",
+        "total_volume",
+        "session_date"
+      ]
+    },
+    {
+      "name": "trading.session.statistics",
+      "payload": [
+        "total_trades",
+        "total_volume",
+        "session_high",
+        "session_low",
+        "session_date"
+      ]
+    },
+    {
+      "name": "order.submitted",
+      "payload": [
+        "order_id",
+        "trader_id",
+        "security_code",
+        "quantity",
+        "price",
+        "order_type",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "order.cancelled",
+      "payload": [
+        "order_id",
+        "trader_id",
+        "security_code",
+        "reason",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "trade.executed",
+      "payload": [
+        "trade_id",
+        "buy_order_id",
+        "sell_order_id",
+        "quantity",
+        "price",
+        "execution_time"
+      ]
+    },
+    {
+      "name": "trading.halted",
+      "payload": [
+        "security_code",
+        "halt_reason",
+        "halt_start_time",
+        "expected_resumption"
+      ]
+    },
+    {
+      "name": "trading.resumed",
+      "payload": [
+        "security_code",
+        "resumption_time",
+        "resumption_price"
+      ]
+    },
+    {
+      "name": "settlement.initiated",
+      "payload": [
+        "trade_id",
+        "settlement_date",
+        "buyer_account",
+        "seller_account",
+        "quantity",
+        "value"
+      ]
+    }
+  ],
+  "extensions": {
+    "market_segments": {
+      "main_board": "Primary listing segment for established securities",
+      "altx": "Alternative exchange segment for emerging growth securities",
+      "fledgling": "Development segment for emerging companies"
+    },
+    "trading_session_types": {
+      "pre_open": "Early session for order entry and discovery",
+      "opening_auction": "Opening auction to establish opening price",
+      "continuous": "Main continuous trading session with live price discovery",
+      "closing_auction": "Final auction to establish closing price",
+      "post_close": "After-hours trading session for limited participants"
+    },
+    "circuit_breaker_levels": {
+      "level_1": "5% price movement triggers 10-minute trading halt",
+      "level_2": "10% price movement triggers 20-minute trading halt",
+      "level_3": "15% price movement triggers end-of-day trading halt"
+    },
+    "halt_reasons": {
+      "price_circuit_breaker": "Trading halted due to circuit breaker threshold",
+      "regulatory_halt": "Trading halted by regulatory authority",
+      "news_event": "Trading halted pending news release or announcement",
+      "technical_issue": "Trading halted due to technical system failure",
+      "market_wide_halt": "Market-wide trading suspension"
+    }
+  },
+  "states": {
+    "session_state": {
+      "field": "session_state",
+      "initial": "closed",
+      "terminal": "closed",
+      "values": [
+        {
+          "status": "closed"
+        },
+        {
+          "status": "pre_open"
+        },
+        {
+          "status": "opening_auction"
+        },
+        {
+          "status": "open"
+        },
+        {
+          "status": "halted"
+        },
+        {
+          "status": "closing_auction"
+        }
+      ],
+      "transitions": [
+        {
+          "from": "closed",
+          "to": "pre_open",
+          "actor": "market_operations"
+        },
+        {
+          "from": "pre_open",
+          "to": "opening_auction",
+          "actor": "market_operations"
+        },
+        {
+          "from": "opening_auction",
+          "to": "open",
+          "actor": "market_operations"
+        },
+        {
+          "from": "open",
+          "to": "halted",
+          "actor": "risk_management_system"
+        },
+        {
+          "from": "halted",
+          "to": "open",
+          "actor": "market_operations"
+        },
+        {
+          "from": "open",
+          "to": "closing_auction",
+          "actor": "market_operations"
+        },
+        {
+          "from": "closing_auction",
+          "to": "closed",
+          "actor": "market_operations"
+        }
+      ]
+    }
+  },
+  "sla": {
+    "settlement_initiation": {
+      "max_duration": "30s",
+      "scope": "Time from trade execution to settlement initiation"
+    },
+    "trading_resumption": {
+      "max_duration": "5m",
+      "scope": "Time to resume trading after circuit breaker halt"
+    }
+  },
+  "related": [
+    {
+      "feature": "order-types-attributes-management",
+      "type": "required"
+    },
+    {
+      "feature": "popia-compliance",
+      "type": "required"
+    },
+    {
+      "feature": "trading-surveillance",
+      "type": "recommended"
+    },
+    {
+      "feature": "member-risk-management",
+      "type": "recommended"
+    }
+  ]
+}

@@ -1,0 +1,676 @@
+feature: order-types-attributes-management
+version: 1.0.0
+description: >
+  Equity market order types (Market, Limit, Stop, Stop-Limit), order attributes,
+  modifiers, lifecycle (submission to execution/cancellation), and execution rules.
+category: trading
+tags:
+  - order-management
+  - order-types
+  - order-lifecycle
+  - execution-rules
+  - price-time-priority
+aliases:
+  - order-submission
+  - order-execution
+  - order-types-and-attributes
+  - order-management-system
+  - execution-rules
+  - order-lifecycle-management
+  - time-in-force
+  - order-modifiers
+
+actors:
+  - id: trader
+    name: Trader
+    type: human
+    role: trading
+
+  - id: trading_member
+    name: Trading Member
+    type: human
+    role: broker
+
+  - id: order_book_engine
+    name: Order Book Engine
+    type: system
+
+  - id: market_operations
+    name: Market Operations
+    type: system
+
+fields:
+  - name: order_type
+    type: select
+    required: true
+    label: Order Type
+    options:
+      - value: market
+        label: Market
+      - value: limit
+        label: Limit
+      - value: stop
+        label: Stop
+      - value: stop_limit
+        label: Stop-Limit
+      - value: iceberg
+        label: Iceberg
+
+  - name: side
+    type: select
+    required: true
+    label: Side
+    options:
+      - value: buy
+        label: Buy
+      - value: sell
+        label: Sell
+
+  - name: quantity
+    type: number
+    required: true
+    label: Quantity
+
+  - name: limit_price
+    type: number
+    required: false
+    label: Limit Price
+
+  - name: stop_price
+    type: number
+    required: false
+    label: Stop Price
+
+  - name: time_in_force
+    type: select
+    required: true
+    label: Time-In-Force
+    options:
+      - value: day
+        label: Day
+      - value: ioc
+        label: IOC
+      - value: fok
+        label: FOK
+      - value: gtc
+        label: GTC
+
+  - name: order_validity_date
+    type: date
+    required: false
+    label: Validity Date
+
+  - name: iceberg_visible_quantity
+    type: number
+    required: false
+    label: Iceberg Visible Quantity
+
+  - name: all_or_none
+    type: boolean
+    required: false
+    label: All-Or-None
+
+  - name: minimum_execution_quantity
+    type: number
+    required: false
+    label: Minimum Execution Quantity
+
+  - name: order_status
+    type: select
+    required: false
+    label: Order Status
+    options:
+      - value: pending
+        label: Pending
+      - value: active
+        label: Active
+      - value: partially_filled
+        label: Partially Filled
+      - value: filled
+        label: Filled
+      - value: cancelled
+        label: Cancelled
+      - value: rejected
+        label: Rejected
+
+  - name: filled_quantity
+    type: number
+    required: false
+    label: Filled Quantity
+
+  - name: average_fill_price
+    type: number
+    required: false
+    label: Average Fill Price
+
+  - name: order_submission_time
+    type: datetime
+    required: false
+    label: Submission Time
+
+  - name: order_acceptance_time
+    type: datetime
+    required: false
+    label: Acceptance Time
+
+rules:
+  order_submission:
+    trader_authorization_required: "Trader must be authorized by trading member before submitting"
+    order_format_validation: "All orders validated for correct format, required fields, value ranges"
+    member_pre_validation: "Trading member system may pre-validate orders before market submission"
+    duplicate_order_allowed: "Duplicate orders permitted; exchange does not detect or prevent"
+
+  order_types:
+    market_order_fills_immediately: "Market order matches against best available; no price guarantee"
+    limit_order_waits_for_price: "Limit order waits in book until matching price available"
+    stop_order_inactive_until_triggered: "Stop order inactive until reference price triggers"
+    stop_limit_combines_stops_and_limits: "Stop-Limit order becomes Limit when stop triggered"
+    iceberg_reveals_progressively: "Iceberg order reveals disclosed quantity progressively"
+
+  execution_rules:
+    price_time_priority: "Orders matched by best price, then by time of submission"
+    no_price_improvement: "Orders match at posted price; no price improvement beyond book"
+    partial_execution_allowed: "Orders may execute partially over multiple trades"
+    execution_as_available: "Execution occurs only if matching quantity available"
+
+  time_in_force:
+    day_expires_at_session_close: "Day orders automatically cancelled at session end"
+    ioc_cancels_unmatched_immediately: "IOC orders cancel unfilled portion immediately"
+    fok_all_or_nothing: "FOK orders reject if full quantity cannot match immediately"
+    gtc_persists_until_cancelled: "GTC orders persist until explicitly cancelled"
+    gtc_default_one_month: "GTC orders default to 30-day validity if not specified"
+
+  order_attributes:
+    aon_prevents_partial_fills: "All-Or-None orders reject if full quantity not available"
+    meo_minimum_threshold: "Minimum Execution Quantity orders reject unless minimum filled"
+    iceberg_not_shown_to_market: "Iceberg hidden quantity not visible in order book depth"
+    disclosed_quantity_required: "Iceberg orders must specify disclosed quantity greater than zero"
+
+  order_lifecycle:
+    rejected_orders_not_in_book: "Rejected orders do not enter order book"
+    cancelled_orders_removed_from_book: "Cancelled orders immediately removed from book"
+    pending_orders_queued_for_acceptance: "Pending orders queued; not yet in live order book"
+    filled_orders_removed_from_book: "Fully executed orders automatically removed from book"
+
+  amendments_and_cancellations:
+    amendment_not_supported: "Orders may not be amended; must cancel and resubmit"
+    cancellation_anytime_before_execution: "Orders may be cancelled before execution"
+    cancellation_immediate_effect: "Order cancellations take immediate effect"
+    cancel_reject_not_allowed: "Cancellation requests must succeed atomically"
+
+outcomes:
+  order_submitted:
+    priority: 1
+    description: "Trader submits valid order to exchange"
+    given:
+      - field: order_type
+        source: input
+        operator: exists
+      - field: trader_authorized
+        source: db
+        operator: eq
+        value: true
+      - field: quantity
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: create_record
+        type: order
+        target: orders
+      - action: emit_event
+        event: order.submitted
+        payload: [order_id, trader_id, security_code, quantity, order_type, limit_price]
+    error: ORDER_SUBMISSION_FAILED
+
+  order_accepted:
+    priority: 2
+    description: "Order passes validation and enters order book"
+    given:
+      - field: order_valid
+        source: system
+        operator: eq
+        value: true
+      - field: session_state
+        source: db
+        operator: eq
+        value: open
+    then:
+      - action: set_field
+        target: order_status
+        value: active
+      - action: set_field
+        target: order_acceptance_time
+        value: current_timestamp
+      - action: emit_event
+        event: order.accepted
+        payload: [order_id, order_acceptance_time, queue_position]
+    error: ORDER_ACCEPTANCE_FAILED
+
+  market_order_executed:
+    priority: 3
+    description: "Market order immediately matched against best available orders"
+    given:
+      - field: order_type
+        source: db
+        operator: eq
+        value: market
+      - field: matching_quantity
+        source: system
+        operator: gte
+        value: order_quantity
+    then:
+      - action: create_record
+        type: trade
+        target: trades
+      - action: set_field
+        target: order_status
+        value: filled
+      - action: set_field
+        target: filled_quantity
+        value: order_quantity
+      - action: emit_event
+        event: order.filled
+        payload: [order_id, execution_price, filled_quantity, execution_time]
+    error: MARKET_ORDER_REJECTED
+
+  limit_order_queued:
+    priority: 4
+    description: "Limit order placed in book awaiting matching price"
+    given:
+      - field: order_type
+        source: db
+        operator: eq
+        value: limit
+      - field: limit_price
+        source: input
+        operator: exists
+    then:
+      - action: emit_event
+        event: order.queued
+        payload: [order_id, limit_price, position_in_queue]
+    error: LIMIT_ORDER_REJECTED
+
+  limit_order_partially_filled:
+    priority: 5
+    description: "Limit order executes against multiple trades"
+    given:
+      - field: order_type
+        source: db
+        operator: eq
+        value: limit
+      - field: matching_quantity
+        source: system
+        operator: gt
+        value: 0
+      - field: matching_quantity
+        source: system
+        operator: lt
+        value: remaining_quantity
+    then:
+      - action: set_field
+        target: filled_quantity
+        value: filled_quantity + matching_quantity
+      - action: emit_event
+        event: order.partially_filled
+        payload: [order_id, filled_quantity, remaining_quantity, execution_price]
+    error: PARTIAL_FILL_FAILED
+
+  stop_order_triggered:
+    priority: 6
+    description: "Stop order activated when reference price reaches stop price"
+    given:
+      - field: order_type
+        source: db
+        operator: eq
+        value: stop
+      - field: reference_price
+        source: system
+        operator: exists
+    then:
+      - action: transition_state
+        field: order_status
+        from: pending
+        to: active
+      - action: emit_event
+        event: order.triggered
+        payload: [order_id, trigger_price, activated_as_market_order]
+    error: STOP_ORDER_TRIGGER_FAILED
+
+  stop_limit_order_activated:
+    priority: 7
+    description: "Stop-Limit order becomes limit order when stop price triggered"
+    given:
+      - field: order_type
+        source: db
+        operator: eq
+        value: stop_limit
+      - field: reference_price
+        source: system
+        operator: exists
+    then:
+      - action: transition_state
+        field: order_status
+        from: pending
+        to: active
+      - action: emit_event
+        event: order.activated_as_limit
+        payload: [order_id, stop_price, limit_price]
+    error: STOP_LIMIT_ACTIVATION_FAILED
+
+  iceberg_order_refreshed:
+    priority: 8
+    description: "Iceberg order reveals next batch when displayed quantity filled"
+    given:
+      - field: order_type
+        source: db
+        operator: eq
+        value: iceberg
+      - field: disclosed_quantity_filled
+        source: system
+        operator: eq
+        value: true
+      - field: remaining_hidden_quantity
+        source: system
+        operator: gt
+        value: 0
+    then:
+      - action: emit_event
+        event: order.batch_revealed
+        payload: [order_id, new_displayed_quantity]
+    error: ICEBERG_REFRESH_FAILED
+
+  order_cancelled:
+    priority: 9
+    description: "Trader or trading member cancels open order"
+    given:
+      - any:
+          - field: order_status
+            source: db
+            operator: eq
+            value: pending
+          - field: order_status
+            source: db
+            operator: eq
+            value: active
+          - field: order_status
+            source: db
+            operator: eq
+            value: partially_filled
+      - field: cancellation_request
+        source: input
+        operator: exists
+    then:
+      - action: transition_state
+        field: order_status
+        from: active
+        to: cancelled
+      - action: emit_event
+        event: order.cancelled
+        payload: [order_id, cancelled_quantity, cancellation_time, cancellation_reason]
+    error: CANCELLATION_FAILED
+
+  order_expired:
+    priority: 10
+    description: "GTC order reaches expiration date and is automatically removed"
+    given:
+      - field: time_in_force
+        source: db
+        operator: eq
+        value: gtc
+      - field: expiration_date
+        source: db
+        operator: exists
+      - field: current_date
+        source: system
+        operator: gt
+        value: expiration_date
+    then:
+      - action: transition_state
+        field: order_status
+        from: active
+        to: cancelled
+      - action: emit_event
+        event: order.expired
+        payload: [order_id, expiration_date, remaining_quantity]
+    error: EXPIRATION_FAILED
+
+  day_order_cancelled_at_close:
+    priority: 11
+    description: "Day orders automatically cancelled at trading session end"
+    given:
+      - field: time_in_force
+        source: db
+        operator: eq
+        value: day
+      - field: session_state
+        source: system
+        operator: eq
+        value: closed
+      - any:
+          - field: order_status
+            source: db
+            operator: eq
+            value: pending
+          - field: order_status
+            source: db
+            operator: eq
+            value: active
+          - field: order_status
+            source: db
+            operator: eq
+            value: partially_filled
+    then:
+      - action: transition_state
+        field: order_status
+        from: active
+        to: cancelled
+      - action: emit_event
+        event: order.cancelled
+        payload: [order_id, cancellation_reason: "session_close"]
+    error: DAY_ORDER_CANCELLATION_FAILED
+
+  ioc_order_cancelled:
+    priority: 12
+    description: "IOC order cancels unfilled portion immediately after matching"
+    given:
+      - field: time_in_force
+        source: db
+        operator: eq
+        value: ioc
+      - field: matching_complete
+        source: system
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: order.cancelled
+        payload: [order_id, cancelled_quantity, cancellation_reason: "ioc_no_fill"]
+    error: IOC_CANCELLATION_FAILED
+
+  fok_order_rejected:
+    priority: 13
+    description: "FOK order rejected if full quantity not immediately available"
+    given:
+      - field: time_in_force
+        source: db
+        operator: eq
+        value: fok
+      - field: matching_quantity
+        source: system
+        operator: lt
+        value: order_quantity
+    then:
+      - action: set_field
+        target: order_status
+        value: rejected
+      - action: emit_event
+        event: order.rejected
+        payload: [order_id, rejection_reason: "fok_not_filled"]
+    error: FOK_REJECTION_FAILED
+
+  aon_order_rejected:
+    priority: 14
+    description: "All-Or-None order rejected if full quantity not available"
+    given:
+      - field: all_or_none
+        source: db
+        operator: eq
+        value: true
+      - field: matching_quantity
+        source: system
+        operator: lt
+        value: order_quantity
+    then:
+      - action: set_field
+        target: order_status
+        value: rejected
+      - action: emit_event
+        event: order.rejected
+        payload: [order_id, rejection_reason: "aon_not_satisfied"]
+    error: AON_REJECTION_FAILED
+
+errors:
+  - code: ORDER_SUBMISSION_FAILED
+    status: 422
+    message: "Order submission failed validation; check order type, quantity, and prices"
+
+  - code: ORDER_ACCEPTANCE_FAILED
+    status: 503
+    message: "Order book system unavailable; order could not be accepted"
+
+  - code: MARKET_ORDER_REJECTED
+    status: 422
+    message: "Market order rejected; insufficient matching quantity available"
+
+  - code: LIMIT_ORDER_REJECTED
+    status: 422
+    message: "Limit order rejected; limit price outside acceptable range"
+
+  - code: PARTIAL_FILL_FAILED
+    status: 500
+    message: "Partial fill processing error; please contact market operations"
+
+  - code: STOP_ORDER_TRIGGER_FAILED
+    status: 500
+    message: "Stop order trigger system error; order may not activate as expected"
+
+  - code: STOP_LIMIT_ACTIVATION_FAILED
+    status: 500
+    message: "Stop-Limit order activation failed; order not converted to limit order"
+
+  - code: ICEBERG_REFRESH_FAILED
+    status: 500
+    message: "Iceberg order batch reveal failed; next quantity not displayed"
+
+  - code: CANCELLATION_FAILED
+    status: 500
+    message: "Order cancellation could not be processed; please try again"
+
+  - code: EXPIRATION_FAILED
+    status: 500
+    message: "GTC order expiration processing failed"
+
+  - code: DAY_ORDER_CANCELLATION_FAILED
+    status: 500
+    message: "Day order end-of-session cancellation failed"
+
+  - code: IOC_CANCELLATION_FAILED
+    status: 500
+    message: "IOC order immediate cancellation failed"
+
+  - code: FOK_REJECTION_FAILED
+    status: 500
+    message: "FOK order all-or-nothing check failed"
+
+  - code: AON_REJECTION_FAILED
+    status: 500
+    message: "All-Or-None order validation failed"
+
+  - code: TRADER_NOT_AUTHORIZED
+    status: 403
+    message: "Trader not authorized to submit orders"
+
+  - code: INVALID_ORDER_TYPE
+    status: 400
+    message: "Order type not recognized; use Market, Limit, Stop, Stop-Limit, or Iceberg"
+
+  - code: INVALID_TIME_IN_FORCE
+    status: 400
+    message: "Time-In-Force not recognized; use Day, IOC, FOK, or GTC"
+
+events:
+  - name: order.submitted
+    payload: [order_id, trader_id, security_code, quantity, order_type, limit_price, stop_price, time_in_force]
+
+  - name: order.accepted
+    payload: [order_id, order_acceptance_time, queue_position, security_code]
+
+  - name: order.queued
+    payload: [order_id, limit_price, position_in_queue, time_in_queue]
+
+  - name: order.triggered
+    payload: [order_id, trigger_price, activated_as_market_order, trigger_time]
+
+  - name: order.activated_as_limit
+    payload: [order_id, stop_price, limit_price, activation_time]
+
+  - name: order.batch_revealed
+    payload: [order_id, new_displayed_quantity, remaining_hidden_quantity]
+
+  - name: order.filled
+    payload: [order_id, execution_price, filled_quantity, execution_time, average_fill_price]
+
+  - name: order.partially_filled
+    payload: [order_id, filled_quantity, remaining_quantity, execution_price, partial_fill_time]
+
+  - name: order.cancelled
+    payload: [order_id, cancelled_quantity, cancellation_time, cancellation_reason, user_id]
+
+  - name: order.expired
+    payload: [order_id, expiration_date, remaining_quantity, expiration_time]
+
+  - name: order.rejected
+    payload: [order_id, rejection_reason, rejected_time, detail_message]
+
+extensions:
+  order_types:
+    market: "Immediate execution at best available market price"
+    limit: "Execution only at specified price or better"
+    stop: "Inactive until price reaches stop; then executes as market"
+    stop_limit: "Inactive until stop price reached; then becomes limit"
+    iceberg: "Large order displayed in batches; hidden quantity revealed progressively"
+
+  time_in_force_options:
+    day: "Valid only during current session; auto-cancelled at close"
+    ioc: "Immediate-Or-Cancel: executes immediately or cancels unfilled"
+    fok: "Fill-Or-Kill: entire order must fill immediately or entire order rejected"
+    gtc: "Good-Till-Cancel: persists until cancelled or reaches expiration"
+
+  order_attributes:
+    all_or_none: "Order can only execute if entire quantity fills"
+    minimum_execution_quantity: "Order only executes if minimum quantity can be filled"
+    iceberg: "Hidden order revealed in disclosed batches as trades execute"
+    reserve: "Disclosed quantity displayed; additional hidden reserve"
+
+  order_statuses:
+    pending: "Order submitted; awaiting acceptance"
+    active: "Order in order book; eligible for matching"
+    partially_filled: "Order partially executed; remainder waiting"
+    filled: "Order completely executed"
+    cancelled: "Order cancelled; no further matching"
+    rejected: "Order rejected; never entered order book"
+    expired: "GTC order reached expiration date"
+
+related:
+  - feature: equity-market-trading-overview
+    type: required
+
+  - feature: popia-compliance
+    type: required
+
+  - feature: trading-surveillance
+    type: recommended
+
+  - feature: member-risk-management
+    type: recommended
