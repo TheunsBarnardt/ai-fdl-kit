@@ -1,0 +1,234 @@
+# ============================================================
+# implied-return-implied-growth-equity — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 2, p.65-69
+# ============================================================
+
+feature: implied-return-implied-growth-equity
+version: "1.0.0"
+description: Invert the dividend discount model — solve for the implied required return or implied dividend growth rate embedded in a stock's market price
+category: trading
+tags: [quantitative-methods, time-value-of-money, equity, implied-return, implied-growth, ddm-inverse, cfa-level-1]
+aliases:
+  - implied-equity-return
+  - implied-growth-rate
+  - ddm-inverse
+  - justified-pe-inverse
+  - implied-required-return
+
+actors:
+  - id: pricing_engine
+    name: Equity Valuation Engine
+    type: system
+
+fields:
+  - name: solve_for
+    type: select
+    required: true
+    label: required_return | growth_rate
+  - name: current_price
+    type: number
+    required: true
+    label: Observed market price (P0)
+  - name: next_dividend
+    type: number
+    required: false
+    label: Expected next-period dividend D1
+  - name: current_dividend
+    type: number
+    required: false
+    label: Most recent dividend D0
+  - name: growth_rate
+    type: number
+    required: false
+    label: Assumed growth rate (supply if solving for required_return)
+  - name: required_return
+    type: number
+    required: false
+    label: Assumed required return (supply if solving for growth_rate)
+  - name: forward_pe
+    type: number
+    required: false
+    label: Forward price-to-earnings ratio (alternative input path)
+  - name: payout_ratio
+    type: number
+    required: false
+    label: Dividend payout ratio b (decimal)
+
+rules:
+  core_formulas:
+    # Source: Vol 1, Module 2, Equations 19-24, p.65-69
+    implied_return_constant_growth: "r = D1 / P0 + g"
+    implied_growth_constant_growth: "g = r - D1 / P0"
+    implied_from_pe: "r - g = payout_ratio / forward_pe"
+    dividend_yield: "D1 / P0"
+    capital_gain_yield: "g (equal to dividend growth under Gordon)"
+  interpretation:
+    return_decomposition: "Required return decomposes into dividend yield + long-term growth"
+    market_implied_view: "The solved g or r is the market's consensus expectation embedded in price"
+  validation:
+    positive_price: "current_price > 0"
+    non_negative_dividend: "next_dividend >= 0"
+    g_less_than_r: "Derived growth must be strictly less than required return (else Gordon undefined)"
+    payout_range: "0 < payout_ratio <= 1"
+
+outcomes:
+  solve_required_return:
+    priority: 1
+    description: Solve r given price, D1, and growth
+    given:
+      - field: solve_for
+        source: input
+        operator: eq
+        value: required_return
+      - field: current_price
+        source: input
+        operator: gt
+        value: 0
+      - field: growth_rate
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: pricing_engine
+      - action: emit_event
+        event: pricing.equity_implied_r_calculated
+  solve_implied_growth:
+    priority: 2
+    description: Solve g given price, D1, and required return
+    given:
+      - field: solve_for
+        source: input
+        operator: eq
+        value: growth_rate
+      - field: current_price
+        source: input
+        operator: gt
+        value: 0
+      - field: required_return
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: pricing_engine
+      - action: emit_event
+        event: pricing.equity_implied_g_calculated
+  solve_via_pe:
+    priority: 3
+    description: Derive r-g spread from forward P/E and payout
+    given:
+      - field: forward_pe
+        source: input
+        operator: gt
+        value: 0
+      - field: payout_ratio
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: pricing_engine
+      - action: emit_event
+        event: pricing.equity_implied_r_calculated
+  derived_g_ge_r:
+    priority: 10
+    description: Implied g exceeds r — violates Gordon assumption
+    given:
+      - field: solver_status
+        source: computed
+        operator: eq
+        value: g_ge_r
+    then:
+      - action: emit_event
+        event: pricing.equity_implied_rejected
+    error: EQUITY_IMPLIED_G_GE_R
+  missing_inputs:
+    priority: 11
+    description: Required inputs missing
+    given:
+      - any:
+          - field: solve_for
+            source: input
+            operator: not_exists
+          - field: current_price
+            source: input
+            operator: lte
+            value: 0
+    then:
+      - action: emit_event
+        event: pricing.equity_implied_rejected
+    error: EQUITY_IMPLIED_MISSING_INPUTS
+
+errors:
+  - code: EQUITY_IMPLIED_G_GE_R
+    status: 422
+    message: Implied growth rate meets or exceeds required return — DDM assumption violated
+  - code: EQUITY_IMPLIED_MISSING_INPUTS
+    status: 400
+    message: solve_for target and current_price are required
+
+events:
+  - name: pricing.equity_implied_r_calculated
+    payload: [instrument_id, current_price, implied_required_return, dividend_yield, growth_assumption]
+  - name: pricing.equity_implied_g_calculated
+    payload: [instrument_id, current_price, implied_growth_rate, dividend_yield, required_return_assumption]
+  - name: pricing.equity_implied_rejected
+    payload: [instrument_id, reason_code]
+
+anti_patterns:
+  - rule: Do not interpret implied growth as a forecast — it is an equilibrium condition
+    why: "Implied g is what growth would have to be to justify the price; it is not a prediction but a reverse-engineered consistency check"
+  - rule: Do not mix D0 and D1 when computing dividend yield
+    why: "Forward yield uses D1; trailing yield uses D0 — the required-return formula uses D1/P0 (forward)"
+  - rule: Do not extrapolate stage-one implied growth across the full DDM horizon
+    why: "High-growth firms' implied short-term g typically exceeds sustainable long-run g; use multi-stage for analysis"
+  - rule: Do not compute implied return without disclosing the payout / growth assumption
+    why: "Implied return is model-dependent; without stating g or payout_ratio the number is not reproducible"
+
+api:
+  http:
+    method: POST
+    path: /analytics/equity/implied
+  request:
+    schema:
+      solve_for: string
+      current_price: number
+      next_dividend: number
+      current_dividend: number
+      growth_rate: number
+      required_return: number
+      forward_pe: number
+      payout_ratio: number
+  response:
+    success:
+      status: 200
+      schema:
+        implied_required_return: number
+        implied_growth_rate: number
+        dividend_yield: number
+        r_minus_g: number
+    errors:
+      - status: 400
+        error_code: EQUITY_IMPLIED_MISSING_INPUTS
+      - status: 422
+        error_code: EQUITY_IMPLIED_G_GE_R
+
+extensions:
+  worked_example_r:
+    # Source: Vol 1, Module 2, p.66
+    scenario: "P0 = USD120, D1 = USD4.00, g = 5%"
+    computation: "4/120 + 0.05 = 0.0333 + 0.05 = 0.0833"
+    implied_return: 0.0833
+  worked_example_g:
+    scenario: "P0 = USD50, D1 = USD2.00, r = 10%"
+    computation: "0.10 - 2/50 = 0.10 - 0.04 = 0.06"
+    implied_growth: 0.06
+  worked_example_pe:
+    # Source: Vol 1, Module 2, p.67-68 — Coca-Cola
+    scenario: "Forward P/E 28, payout 70%"
+    r_minus_g: "0.70 / 28 = 0.025 = 2.5%"
+
+related:
+  - feature: equity-present-value
+    type: required
+  - feature: implied-return-fixed-income
+    type: recommended

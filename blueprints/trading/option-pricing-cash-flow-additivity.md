@@ -1,0 +1,101 @@
+<!-- AUTO-GENERATED FROM option-pricing-cash-flow-additivity.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Option Pricing Cash Flow Additivity
+
+> Price a European option in a one-period binomial model via the cash-flow-additivity replication approach — a portfolio of underlying plus risk-free bond that matches the option payoff
+
+**Category:** Trading · **Version:** 1.0.0 · **Tags:** quantitative-methods · time-value-of-money · options · binomial · replication · no-arbitrage · cfa-level-1
+
+## What this does
+
+Price a European option in a one-period binomial model via the cash-flow-additivity replication approach — a portfolio of underlying plus risk-free bond that matches the option payoff
+
+Specifies 5 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **option_type** *(select, required)* — call | put
+- **underlying_price** *(number, required)* — Current underlying asset price (S0)
+- **strike_price** *(number, required)* — Option strike price (K)
+- **up_factor** *(number, required)* — Up-state multiplier (u > 1), so S_up = S0 * u
+- **down_factor** *(number, required)* — Down-state multiplier (d < 1), so S_down = S0 * d
+- **risk_free_rate** *(number, required)* — Periodic risk-free rate (decimal)
+- **periods** *(number, optional)* — Number of periods (default 1 for one-period model)
+
+## What must be true
+
+- **core_formulas → payoffs → call_up:** c_u = max(S0 * u - K, 0)
+- **core_formulas → payoffs → call_down:** c_d = max(S0 * d - K, 0)
+- **core_formulas → payoffs → put_up:** p_u = max(K - S0 * u, 0)
+- **core_formulas → payoffs → put_down:** p_d = max(K - S0 * d, 0)
+- **core_formulas → hedge_ratio_call:** h = (c_u - c_d) / (S0 * u - S0 * d)
+- **core_formulas → hedge_ratio_put:** h = (p_u - p_d) / (S0 * u - S0 * d) [negative for puts]
+- **core_formulas → replicating_portfolio_value:** V_0 = h * S0 + B, where B = PV of risk-free bond needed
+- **core_formulas → risk_neutral_probability:** pi = (1 + r - d) / (u - d)
+- **core_formulas → risk_neutral_price_call:** c_0 = (pi * c_u + (1 - pi) * c_d) / (1 + r)
+- **core_formulas → risk_neutral_price_put:** p_0 = (pi * p_u + (1 - pi) * p_d) / (1 + r)
+- **core_formulas → put_call_parity:** c_0 - p_0 = S0 - K / (1 + r)^t
+- **no_arbitrage_constraint → rule:** d < (1 + r) < u, otherwise arbitrage exists
+- **no_arbitrage_constraint → interpretation:** Risk-free growth must lie strictly between the down and up state growth
+- **replication_principle → method:** Construct a portfolio of h shares and a bond whose payoff matches the option in both states; by cash flow additivity, option price = portfolio cost
+- **replication_principle → why:** Eliminates the need to know actual (real-world) probabilities
+- **validation → up_greater_down:** up_factor > down_factor
+- **validation → no_arbitrage_bounds:** down_factor < (1 + risk_free_rate) < up_factor
+- **validation → positive_underlying:** underlying_price > 0
+- **validation → non_negative_strike:** strike_price >= 0
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Price Call** — when option_type eq "call"; up_factor gt "down_factor", then call service; emit pricing.option_calculated. _Why: Price a European call via replication._
+- **Price Put** — when option_type eq "put"; up_factor gt "down_factor", then call service; emit pricing.option_calculated. _Why: Price a European put via replication._
+
+**❌ Failure paths**
+
+- **Arbitrage Bounds Violated** — when down_factor gte "risk_free_rate_plus_one" OR up_factor lte "risk_free_rate_plus_one", then emit pricing.option_rejected. _Why: No-arbitrage constraint violated._ *(error: `OPTION_ARBITRAGE_BOUNDS`)*
+- **Invalid Factors** — when up_factor lte "down_factor", then emit pricing.option_rejected. _Why: Up factor not greater than down factor._ *(error: `OPTION_INVALID_FACTORS`)*
+- **Invalid Underlying** — when underlying_price lte 0 OR strike_price lt 0, then emit pricing.option_rejected. _Why: Underlying or strike not valid._ *(error: `OPTION_INVALID_UNDERLYING`)*
+
+## Errors it can return
+
+- `OPTION_ARBITRAGE_BOUNDS` — No-arbitrage requires d < (1 + r) < u
+- `OPTION_INVALID_FACTORS` — Up factor must be strictly greater than down factor
+- `OPTION_INVALID_UNDERLYING` — Underlying price must be positive; strike must be non-negative
+
+## Events
+
+**`pricing.option_calculated`**
+  Payload: `instrument_id`, `option_type`, `underlying_price`, `strike_price`, `up_factor`, `down_factor`, `risk_free_rate`, `option_value`, `hedge_ratio`, `risk_neutral_probability`
+
+**`pricing.option_rejected`**
+  Payload: `instrument_id`, `reason_code`
+
+## Connects to
+
+- **cash-flow-additivity** *(required)*
+- **fixed-income-present-value** *(recommended)*
+- **forward-exchange-rate-no-arbitrage** *(recommended)*
+
+## Quality fitness 🟢 86/100
+
+Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
+
+| Dimension | Score | Points |
+|-----------|-------|--------|
+| Description | `██████████` | 10/10 |
+| Rules | `██████████` | 10/10 |
+| Outcomes | `███████████████████████░░` | 23/25 |
+| Structured conditions | `██████████` | 10/10 |
+| Error binding | `██████████` | 10/10 |
+| Field validation | `██████░░░░` | 6/10 |
+| Relationships | `███████░░░` | 7/10 |
+| Events | `█████` | 5/5 |
+| AGI readiness | `░░░░░` | 0/5 |
+| Simplicity | `█████` | 5/5 |
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/trading/option-pricing-cash-flow-additivity/) · **Spec source:** [`option-pricing-cash-flow-additivity.blueprint.yaml`](./option-pricing-cash-flow-additivity.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

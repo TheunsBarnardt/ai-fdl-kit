@@ -1,0 +1,374 @@
+{
+  "feature": "option-pricing-cash-flow-additivity",
+  "version": "1.0.0",
+  "description": "Price a European option in a one-period binomial model via the cash-flow-additivity replication approach — a portfolio of underlying plus risk-free bond that matches the option payoff",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "time-value-of-money",
+    "options",
+    "binomial",
+    "replication",
+    "no-arbitrage",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "binomial-option-pricing",
+    "one-period-binomial",
+    "replicating-portfolio",
+    "risk-neutral-pricing",
+    "call-pricing",
+    "put-pricing",
+    "option-replication"
+  ],
+  "actors": [
+    {
+      "id": "derivatives_engine",
+      "name": "Derivatives Pricing Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "option_type",
+      "type": "select",
+      "required": true,
+      "label": "call | put"
+    },
+    {
+      "name": "underlying_price",
+      "type": "number",
+      "required": true,
+      "label": "Current underlying asset price (S0)"
+    },
+    {
+      "name": "strike_price",
+      "type": "number",
+      "required": true,
+      "label": "Option strike price (K)"
+    },
+    {
+      "name": "up_factor",
+      "type": "number",
+      "required": true,
+      "label": "Up-state multiplier (u > 1), so S_up = S0 * u"
+    },
+    {
+      "name": "down_factor",
+      "type": "number",
+      "required": true,
+      "label": "Down-state multiplier (d < 1), so S_down = S0 * d"
+    },
+    {
+      "name": "risk_free_rate",
+      "type": "number",
+      "required": true,
+      "label": "Periodic risk-free rate (decimal)"
+    },
+    {
+      "name": "periods",
+      "type": "number",
+      "required": false,
+      "label": "Number of periods (default 1 for one-period model)"
+    }
+  ],
+  "rules": {
+    "core_formulas": {
+      "payoffs": {
+        "call_up": "c_u = max(S0 * u - K, 0)",
+        "call_down": "c_d = max(S0 * d - K, 0)",
+        "put_up": "p_u = max(K - S0 * u, 0)",
+        "put_down": "p_d = max(K - S0 * d, 0)"
+      },
+      "hedge_ratio_call": "h = (c_u - c_d) / (S0 * u - S0 * d)",
+      "hedge_ratio_put": "h = (p_u - p_d) / (S0 * u - S0 * d)  [negative for puts]",
+      "replicating_portfolio_value": "V_0 = h * S0 + B, where B = PV of risk-free bond needed",
+      "risk_neutral_probability": "pi = (1 + r - d) / (u - d)",
+      "risk_neutral_price_call": "c_0 = (pi * c_u + (1 - pi) * c_d) / (1 + r)",
+      "risk_neutral_price_put": "p_0 = (pi * p_u + (1 - pi) * p_d) / (1 + r)",
+      "put_call_parity": "c_0 - p_0 = S0 - K / (1 + r)^t"
+    },
+    "no_arbitrage_constraint": {
+      "rule": "d < (1 + r) < u, otherwise arbitrage exists",
+      "interpretation": "Risk-free growth must lie strictly between the down and up state growth"
+    },
+    "replication_principle": {
+      "method": "Construct a portfolio of h shares and a bond whose payoff matches the option in both states; by cash flow additivity, option price = portfolio cost",
+      "why": "Eliminates the need to know actual (real-world) probabilities"
+    },
+    "validation": {
+      "up_greater_down": "up_factor > down_factor",
+      "no_arbitrage_bounds": "down_factor < (1 + risk_free_rate) < up_factor",
+      "positive_underlying": "underlying_price > 0",
+      "non_negative_strike": "strike_price >= 0"
+    }
+  },
+  "outcomes": {
+    "price_call": {
+      "priority": 1,
+      "description": "Price a European call via replication",
+      "given": [
+        {
+          "field": "option_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "call"
+        },
+        {
+          "field": "up_factor",
+          "source": "input",
+          "operator": "gt",
+          "value": "down_factor"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "derivatives_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "pricing.option_calculated"
+        }
+      ]
+    },
+    "price_put": {
+      "priority": 2,
+      "description": "Price a European put via replication",
+      "given": [
+        {
+          "field": "option_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "put"
+        },
+        {
+          "field": "up_factor",
+          "source": "input",
+          "operator": "gt",
+          "value": "down_factor"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "derivatives_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "pricing.option_calculated"
+        }
+      ]
+    },
+    "arbitrage_bounds_violated": {
+      "priority": 10,
+      "description": "No-arbitrage constraint violated",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "down_factor",
+              "source": "input",
+              "operator": "gte",
+              "value": "risk_free_rate_plus_one"
+            },
+            {
+              "field": "up_factor",
+              "source": "input",
+              "operator": "lte",
+              "value": "risk_free_rate_plus_one"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "pricing.option_rejected"
+        }
+      ],
+      "error": "OPTION_ARBITRAGE_BOUNDS"
+    },
+    "invalid_factors": {
+      "priority": 11,
+      "description": "Up factor not greater than down factor",
+      "given": [
+        {
+          "field": "up_factor",
+          "source": "input",
+          "operator": "lte",
+          "value": "down_factor"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "pricing.option_rejected"
+        }
+      ],
+      "error": "OPTION_INVALID_FACTORS"
+    },
+    "invalid_underlying": {
+      "priority": 12,
+      "description": "Underlying or strike not valid",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "underlying_price",
+              "source": "input",
+              "operator": "lte",
+              "value": 0
+            },
+            {
+              "field": "strike_price",
+              "source": "input",
+              "operator": "lt",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "pricing.option_rejected"
+        }
+      ],
+      "error": "OPTION_INVALID_UNDERLYING"
+    }
+  },
+  "errors": [
+    {
+      "code": "OPTION_ARBITRAGE_BOUNDS",
+      "status": 422,
+      "message": "No-arbitrage requires d < (1 + r) < u"
+    },
+    {
+      "code": "OPTION_INVALID_FACTORS",
+      "status": 400,
+      "message": "Up factor must be strictly greater than down factor"
+    },
+    {
+      "code": "OPTION_INVALID_UNDERLYING",
+      "status": 400,
+      "message": "Underlying price must be positive; strike must be non-negative"
+    }
+  ],
+  "events": [
+    {
+      "name": "pricing.option_calculated",
+      "payload": [
+        "instrument_id",
+        "option_type",
+        "underlying_price",
+        "strike_price",
+        "up_factor",
+        "down_factor",
+        "risk_free_rate",
+        "option_value",
+        "hedge_ratio",
+        "risk_neutral_probability"
+      ]
+    },
+    {
+      "name": "pricing.option_rejected",
+      "payload": [
+        "instrument_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use real-world probabilities to price options in the binomial model",
+      "why": "The replicating portfolio eliminates probability — use risk-neutral pi, not subjective probability; using real-world p yields the wrong price"
+    },
+    {
+      "rule": "Do not price American options with the European one-period formula",
+      "why": "American options may be optimally exercised early; requires backward induction with exercise vs continuation at each node"
+    },
+    {
+      "rule": "Do not assume put-call parity holds without adjusting for dividends",
+      "why": "Dividend-paying underlying requires PV of expected dividends in the parity relation; bare parity overprices calls and underprices puts"
+    },
+    {
+      "rule": "Do not ignore the no-arbitrage bound d < 1+r < u",
+      "why": "If violated, a riskless arbitrage exists in the underlying alone; the binomial model is ill-defined"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/derivatives/option-binomial"
+    },
+    "request": {
+      "schema": {
+        "option_type": "string",
+        "underlying_price": "number",
+        "strike_price": "number",
+        "up_factor": "number",
+        "down_factor": "number",
+        "risk_free_rate": "number",
+        "periods": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "option_value": "number",
+          "hedge_ratio": "number",
+          "risk_neutral_probability": "number",
+          "payoff_up": "number",
+          "payoff_down": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 422,
+          "error_code": "OPTION_ARBITRAGE_BOUNDS"
+        },
+        {
+          "status": 400,
+          "error_code": "OPTION_INVALID_FACTORS"
+        },
+        {
+          "status": 400,
+          "error_code": "OPTION_INVALID_UNDERLYING"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "worked_example_call": {
+      "scenario": "S0=50, K=50, u=1.20, d=0.80, r=5%, European call",
+      "payoffs": "c_u = 10, c_d = 0",
+      "hedge_ratio": "h = (10 - 0) / (60 - 40) = 0.50",
+      "risk_neutral_pi": "(1.05 - 0.80) / (1.20 - 0.80) = 0.625",
+      "option_value": "(0.625 * 10 + 0.375 * 0) / 1.05 = 5.95",
+      "call_value": 5.95
+    },
+    "put_call_parity_check": {
+      "scenario": "Same inputs",
+      "put_value": "c + K/(1+r) - S = 5.95 + 50/1.05 - 50 = 3.57"
+    },
+    "replication_interpretation": {
+      "statement": "Buy 0.5 shares, borrow PV of K - c_d = 50/1.05 ≈ 47.62 → net cost = 0.5*50 - 47.62 = -22.62; adjust hedge"
+    }
+  },
+  "related": [
+    {
+      "feature": "cash-flow-additivity",
+      "type": "required"
+    },
+    {
+      "feature": "fixed-income-present-value",
+      "type": "recommended"
+    },
+    {
+      "feature": "forward-exchange-rate-no-arbitrage",
+      "type": "recommended"
+    }
+  ]
+}

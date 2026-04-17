@@ -1,0 +1,212 @@
+# ============================================================
+# forward-exchange-rate-no-arbitrage — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 2, p.74-76
+# ============================================================
+
+feature: forward-exchange-rate-no-arbitrage
+version: "1.0.0"
+description: Compute the no-arbitrage forward exchange rate between two currencies via covered interest rate parity — using cash flow additivity across currency-specific risk-free investments
+category: trading
+tags: [quantitative-methods, time-value-of-money, fx, forward-fx, covered-interest-parity, no-arbitrage, cfa-level-1]
+aliases:
+  - covered-interest-parity
+  - cip
+  - forward-fx
+  - fx-forward
+  - forward-exchange-rate
+  - no-arbitrage-fx
+  - currency-forward
+
+actors:
+  - id: fx_engine
+    name: FX Pricing Engine
+    type: system
+
+fields:
+  - name: spot_rate
+    type: number
+    required: true
+    label: Spot exchange rate quoted as price_currency per base_currency (e.g., USD/EUR)
+  - name: base_currency_rate
+    type: number
+    required: true
+    label: Risk-free rate in the base (quoted) currency (decimal, annualised)
+  - name: price_currency_rate
+    type: number
+    required: true
+    label: Risk-free rate in the price currency (decimal, annualised)
+  - name: tenor_years
+    type: number
+    required: true
+    label: Forward tenor in years
+  - name: compounding
+    type: select
+    required: false
+    label: discrete | continuous (default discrete)
+  - name: day_count
+    type: select
+    required: false
+    label: ACT/360 | ACT/365 | 30/360 (default ACT/360)
+
+rules:
+  core_formula:
+    # Source: Vol 1, Module 2, p.74-75 — Covered interest rate parity
+    discrete: "F = S * (1 + r_price)^T / (1 + r_base)^T"
+    continuous: "F = S * exp((r_price - r_base) * T)"
+    quotation_convention: "F, S quoted in units of price_currency per 1 unit of base_currency"
+  points_representation:
+    formula: "forward_points = F - S"
+    annualised_basis: "Often quoted as (F - S) / S expressed in basis points or pips"
+  interpretation:
+    higher_base_rate_discounted: "If r_base > r_price, base currency trades at a forward discount (F < S)"
+    higher_price_rate_premium: "If r_price > r_base, base currency trades at a forward premium (F > S)"
+    no_arbitrage: "Any deviation from CIP is an arbitrage — borrow cheap currency, lend dear currency, lock forward"
+  practical_deviations:
+    frictions: "Transaction costs, capital controls, and credit risk cause small observable CIP deviations"
+    post_2008: "Funding basis (cross-currency basis swap) has been persistently non-zero since 2008"
+  validation:
+    positive_spot: "spot_rate > 0"
+    positive_tenor: "tenor_years > 0"
+    rates_above_negative_one: "both rates > -1"
+
+outcomes:
+  compute_forward_rate:
+    priority: 1
+    description: Apply CIP to compute forward
+    given:
+      - field: spot_rate
+        source: input
+        operator: gt
+        value: 0
+      - field: tenor_years
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: fx_engine
+      - action: emit_event
+        event: fx.forward_calculated
+  invalid_spot:
+    priority: 10
+    description: Spot rate not positive
+    given:
+      - field: spot_rate
+        source: input
+        operator: lte
+        value: 0
+    then:
+      - action: emit_event
+        event: fx.forward_rejected
+    error: FX_FORWARD_INVALID_SPOT
+  invalid_rate:
+    priority: 11
+    description: A rate is at or below -100%
+    given:
+      - any:
+          - field: base_currency_rate
+            source: input
+            operator: lte
+            value: -1
+          - field: price_currency_rate
+            source: input
+            operator: lte
+            value: -1
+    then:
+      - action: emit_event
+        event: fx.forward_rejected
+    error: FX_FORWARD_INVALID_RATE
+  missing_inputs:
+    priority: 12
+    description: Required inputs missing
+    given:
+      - any:
+          - field: spot_rate
+            source: input
+            operator: not_exists
+          - field: tenor_years
+            source: input
+            operator: not_exists
+          - field: base_currency_rate
+            source: input
+            operator: not_exists
+          - field: price_currency_rate
+            source: input
+            operator: not_exists
+    then:
+      - action: emit_event
+        event: fx.forward_rejected
+    error: FX_FORWARD_MISSING_INPUTS
+
+errors:
+  - code: FX_FORWARD_INVALID_SPOT
+    status: 400
+    message: Spot rate must be strictly positive
+  - code: FX_FORWARD_INVALID_RATE
+    status: 400
+    message: Both currency interest rates must be strictly greater than -100%
+  - code: FX_FORWARD_MISSING_INPUTS
+    status: 400
+    message: spot_rate, tenor_years, and both currency rates are required
+
+events:
+  - name: fx.forward_calculated
+    payload: [pair, spot_rate, base_currency_rate, price_currency_rate, tenor_years, forward_rate, forward_points]
+  - name: fx.forward_rejected
+    payload: [pair, reason_code]
+
+anti_patterns:
+  - rule: Do not invert the quote convention when plugging into the CIP formula
+    why: "r_price and r_base must match the quote direction (price/base); swapping them flips the forward the wrong way"
+  - rule: Do not use domestic money-market rates with different day-count conventions side-by-side
+    why: "USD uses ACT/360, GBP uses ACT/365 — using them raw without day-count alignment introduces small but systematic error"
+  - rule: Do not ignore the cross-currency basis for post-2008 pricing
+    why: "CIP has broken down persistently; cross-currency basis swap spreads add a non-zero wedge that must be included for accurate pricing"
+  - rule: Do not apply CIP to currencies with capital controls
+    why: "Non-deliverable forwards (NDFs) can diverge from CIP because the onshore risk-free rate is not accessible to foreign investors"
+
+api:
+  http:
+    method: POST
+    path: /analytics/fx/forward-rate
+  request:
+    schema:
+      spot_rate: number
+      base_currency_rate: number
+      price_currency_rate: number
+      tenor_years: number
+      compounding: string
+      day_count: string
+  response:
+    success:
+      status: 200
+      schema:
+        forward_rate: number
+        forward_points: number
+        premium_discount: string
+    errors:
+      - status: 400
+        error_code: FX_FORWARD_INVALID_SPOT
+      - status: 400
+        error_code: FX_FORWARD_INVALID_RATE
+      - status: 400
+        error_code: FX_FORWARD_MISSING_INPUTS
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 2, p.75-76
+    scenario: "USD/EUR spot 1.10, USD rate 5%, EUR rate 3%, T=1"
+    computation: "1.10 * 1.05 / 1.03 = 1.1214"
+    forward: 1.1214
+    interpretation: "EUR at forward premium because USD rate > EUR rate"
+  continuous_example:
+    scenario: "Same inputs, continuous"
+    computation: "1.10 * exp((0.05 - 0.03) * 1) = 1.1222"
+
+related:
+  - feature: cash-flow-additivity
+    type: required
+  - feature: implied-forward-rates
+    type: recommended
+  - feature: fixed-income-present-value
+    type: recommended

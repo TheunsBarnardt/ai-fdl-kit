@@ -1,0 +1,282 @@
+# ============================================================
+# fixed-income-present-value — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 2, p.46-55
+# ============================================================
+
+feature: fixed-income-present-value
+version: "1.0.0"
+description: Compute the present value of a fixed-income instrument (discount bond, coupon bond, level-payment/annuity loan) given its promised cash flows and market discount rate
+category: trading
+tags: [quantitative-methods, time-value-of-money, fixed-income, bond-pricing, present-value, cfa-level-1]
+aliases:
+  - bond-pv
+  - bond-price
+  - discount-bond-pv
+  - coupon-bond-pv
+  - level-payment-pv
+  - annuity-pv
+  - zero-coupon-pv
+  - bond-present-value
+
+actors:
+  - id: pricing_engine
+    name: Fixed-Income Pricing Engine
+    type: system
+
+fields:
+  - name: bond_type
+    type: select
+    required: true
+    label: discount | coupon | level_payment (annuity) | perpetuity
+  - name: face_value
+    type: number
+    required: false
+    label: Face / par value (FV) — required for discount and coupon bonds
+  - name: coupon_payment
+    type: number
+    required: false
+    label: Periodic coupon PMT — required for coupon bonds
+  - name: level_payment
+    type: number
+    required: false
+    label: Level periodic payment A — required for level-payment loans
+  - name: periods
+    type: number
+    required: false
+    label: Number of compounding periods t (integer) — not required for perpetuity
+  - name: discount_rate
+    type: number
+    required: true
+    label: Market discount rate per period (decimal)
+  - name: periodicity
+    type: select
+    required: false
+    label: annual | semiannual | quarterly | monthly (default annual)
+  - name: compounding
+    type: select
+    required: false
+    label: discrete | continuous (default discrete)
+
+rules:
+  core_formulas:
+    # Source: Vol 1, Module 2, Equations 1-8, p.46-54
+    future_to_present_discrete: "PV = FV / (1 + r)^t"
+    future_to_present_continuous: "PV = FV * e^(-r*t)"
+    discount_bond: "PV = FV / (1 + r)^t"
+    coupon_bond: "PV = sum_{i=1..N}[ PMT / (1+r)^i ] + FV / (1+r)^N"
+    level_payment_loan: "PV = A * [1 - (1+r)^(-t)] / r"
+    perpetuity: "PV = PMT / r"
+    growing_perpetuity: "PV = PMT1 / (r - g), requires r > g"
+  periodicity_adjustment:
+    # Source: Vol 1, Module 2, p.53-54 — semiannual convention
+    rule: "Periodic rate = annual_ytm / periods_per_year; number of periods = years * periods_per_year"
+    example: "5% semi-annual YTM, 4-year bond: r_period = 0.025, t = 8"
+  price_yield_inverse:
+    principle: "Bond price and YTM move inversely; higher r reduces PV"
+  premium_discount_par:
+    par: "PV = FV when coupon rate = market discount rate"
+    premium: "PV > FV when coupon rate > market discount rate"
+    discount: "PV < FV when coupon rate < market discount rate"
+  accretion_pull_to_par:
+    # Source: Vol 1, Module 2, p.48-49
+    rule: "If interest rate is positive, PV accretes toward FV as time passes (t → 0)"
+  validation:
+    non_negative_face: "face_value >= 0"
+    positive_periods: "periods > 0 (except perpetuity)"
+    rate_above_negative_one: "discount_rate > -1"
+    perpetuity_positive_rate: "discount_rate > 0 for perpetuity (else PV unbounded)"
+
+outcomes:
+  price_discount_bond:
+    priority: 1
+    description: Discount (zero-coupon) bond present value
+    given:
+      - field: bond_type
+        source: input
+        operator: eq
+        value: discount
+      - field: face_value
+        source: input
+        operator: gt
+        value: 0
+      - field: periods
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: pricing_engine
+      - action: emit_event
+        event: pricing.fi_pv_calculated
+  price_coupon_bond:
+    priority: 2
+    description: Coupon bond present value
+    given:
+      - field: bond_type
+        source: input
+        operator: eq
+        value: coupon
+      - field: coupon_payment
+        source: input
+        operator: gte
+        value: 0
+      - field: periods
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: pricing_engine
+      - action: emit_event
+        event: pricing.fi_pv_calculated
+  price_level_payment:
+    priority: 3
+    description: Level-payment (amortising) loan present value
+    given:
+      - field: bond_type
+        source: input
+        operator: eq
+        value: level_payment
+      - field: level_payment
+        source: input
+        operator: gt
+        value: 0
+      - field: periods
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: pricing_engine
+      - action: emit_event
+        event: pricing.fi_pv_calculated
+  price_perpetuity:
+    priority: 4
+    description: Perpetuity present value
+    given:
+      - field: bond_type
+        source: input
+        operator: eq
+        value: perpetuity
+      - field: coupon_payment
+        source: input
+        operator: gt
+        value: 0
+      - field: discount_rate
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: pricing_engine
+      - action: emit_event
+        event: pricing.fi_pv_calculated
+  invalid_rate:
+    priority: 10
+    description: Discount rate <= -100%
+    given:
+      - field: discount_rate
+        source: input
+        operator: lte
+        value: -1
+    then:
+      - action: emit_event
+        event: pricing.fi_pv_rejected
+    error: FI_PV_INVALID_RATE
+  missing_inputs:
+    priority: 11
+    description: Required inputs missing for bond type
+    given:
+      - any:
+          - field: bond_type
+            source: input
+            operator: not_exists
+          - field: discount_rate
+            source: input
+            operator: not_exists
+    then:
+      - action: emit_event
+        event: pricing.fi_pv_rejected
+    error: FI_PV_MISSING_INPUTS
+
+errors:
+  - code: FI_PV_INVALID_RATE
+    status: 400
+    message: Discount rate must be greater than -100%
+  - code: FI_PV_MISSING_INPUTS
+    status: 400
+    message: Bond type and discount rate are required
+  - code: FI_PV_INVALID_BOND_TYPE
+    status: 400
+    message: Unknown bond_type; must be discount, coupon, level_payment, or perpetuity
+
+events:
+  - name: pricing.fi_pv_calculated
+    payload: [instrument_id, bond_type, face_value, coupon_payment, periods, discount_rate, present_value]
+  - name: pricing.fi_pv_rejected
+    payload: [instrument_id, reason_code]
+
+anti_patterns:
+  - rule: Do not apply an annual YTM to semi-annual compounding periods without rate conversion
+    why: "Using the annual rate against a semi-annual period count overstates the discount; always scale r and t consistently"
+  - rule: Do not use the perpetuity formula when r ≤ g (growing perpetuity)
+    why: "The PV is mathematically undefined/infinite when growth meets or exceeds the discount rate; the formula breaks down"
+  - rule: Do not price a coupon bond with discrete-compounding formula if the YTM is quoted on a continuous basis
+    why: "Continuous YTM requires PV = FV * e^(-r*t); mixing conventions produces a small but real pricing error"
+  - rule: Do not ignore day-count conventions (30/360, ACT/ACT, ACT/360) for between-coupon pricing
+    why: "Clean vs dirty price differs by accrued interest; real-world trades settle on dirty price — disclose the convention"
+
+api:
+  http:
+    method: POST
+    path: /analytics/fixed-income/present-value
+  request:
+    schema:
+      bond_type: string
+      face_value: number
+      coupon_payment: number
+      level_payment: number
+      periods: number
+      discount_rate: number
+      periodicity: string
+      compounding: string
+  response:
+    success:
+      status: 200
+      schema:
+        present_value: number
+        bond_type: string
+        premium_discount_par: string
+    errors:
+      - status: 400
+        error_code: FI_PV_INVALID_RATE
+      - status: 400
+        error_code: FI_PV_MISSING_INPUTS
+      - status: 400
+        error_code: FI_PV_INVALID_BOND_TYPE
+
+extensions:
+  worked_example_discount:
+    # Source: Vol 1, Module 2, Example 1, p.48
+    scenario: "Indian government STRIP, FV INR100, YTM 6.70%, t=20"
+    computation: "100 / 1.067^20 = 27.33"
+    pv: 27.33
+  worked_example_coupon:
+    # Source: Vol 1, Module 2, p.53
+    scenario: "EUR100 par, 2% annual coupon, 5 years, r=2%"
+    pv: 100.00
+    interpretation: "Priced at par when coupon = discount rate"
+  worked_example_level_payment:
+    scenario: "30-year mortgage, PV=USD200k, annual r=5.25%, monthly payments (t=360)"
+    periodic_rate: 0.004375
+    A_formula: "A = PV * r / [1 - (1+r)^(-t)]"
+
+related:
+  - feature: equity-present-value
+    type: recommended
+  - feature: implied-return-fixed-income
+    type: recommended
+  - feature: holding-period-return
+    type: recommended
+  - feature: bond-pricing-models
+    type: recommended

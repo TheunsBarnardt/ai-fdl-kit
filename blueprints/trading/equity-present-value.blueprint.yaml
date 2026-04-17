@@ -1,0 +1,264 @@
+# ============================================================
+# equity-present-value — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 2, p.55-60
+# ============================================================
+
+feature: equity-present-value
+version: "1.0.0"
+description: Compute the present value of an equity instrument via the Dividend Discount Model — supporting no-growth, constant growth (Gordon), and multi-stage (changing growth) variants
+category: trading
+tags: [quantitative-methods, time-value-of-money, equity, ddm, gordon-growth, dividend-discount-model, cfa-level-1]
+aliases:
+  - ddm
+  - dividend-discount-model
+  - gordon-growth-model
+  - stock-pv
+  - equity-valuation
+  - stock-intrinsic-value
+  - multi-stage-ddm
+
+actors:
+  - id: pricing_engine
+    name: Equity Valuation Engine
+    type: system
+
+fields:
+  - name: growth_pattern
+    type: select
+    required: true
+    label: no_growth | constant_growth | multi_stage
+  - name: current_dividend
+    type: number
+    required: false
+    label: Most recent dividend D0
+  - name: next_dividend
+    type: number
+    required: false
+    label: Expected next-period dividend D1
+  - name: required_return
+    type: number
+    required: true
+    label: Required rate of return r (decimal)
+  - name: growth_rate
+    type: number
+    required: false
+    label: Constant long-term growth rate g (decimal)
+  - name: dividend_schedule
+    type: json
+    required: false
+    label: Array of {period, dividend, growth} for multi-stage DDM
+  - name: terminal_growth
+    type: number
+    required: false
+    label: Terminal steady-state growth rate for multi-stage model
+  - name: terminal_period
+    type: number
+    required: false
+    label: Period at which terminal value is computed
+  - name: earnings_per_share
+    type: number
+    required: false
+    label: Earnings per share (for P/E justification)
+  - name: payout_ratio
+    type: number
+    required: false
+    label: Dividend payout ratio b (decimal)
+
+rules:
+  core_formulas:
+    # Source: Vol 1, Module 2, Equations 9-24, p.55-60
+    no_growth: "PV = D / r"
+    gordon_constant: "PV = D1 / (r - g), requires r > g"
+    gordon_from_d0: "PV = D0 * (1 + g) / (r - g)"
+    multi_stage: "PV = sum_{t=1..N}[ Dt / (1+r)^t ] + TV_N / (1+r)^N; TV_N = D_{N+1} / (r - g_terminal)"
+    justified_forward_pe: "P/E1 = payout_ratio / (r - g)"
+  growth_assumption_types:
+    no_growth: "Preferred share; perpetual flat dividend"
+    constant: "Mature company with stable payout"
+    multi_stage: "High-growth company transitioning to steady state"
+  required_return_components:
+    formula: "r = dividend_yield + capital_gain_yield = D1/P + g"
+  validation:
+    r_gt_g: "required_return > growth_rate for constant-growth DDM (else PV undefined)"
+    non_negative_dividends: "current_dividend >= 0, next_dividend >= 0"
+    terminal_rgtG: "required_return > terminal_growth for multi-stage"
+    payout_in_range: "0 <= payout_ratio <= 1"
+
+outcomes:
+  price_no_growth:
+    priority: 1
+    description: Zero-growth perpetuity (preferred share)
+    given:
+      - field: growth_pattern
+        source: input
+        operator: eq
+        value: no_growth
+      - field: next_dividend
+        source: input
+        operator: gt
+        value: 0
+      - field: required_return
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: pricing_engine
+      - action: emit_event
+        event: pricing.equity_pv_calculated
+  price_constant_growth:
+    priority: 2
+    description: Constant-growth (Gordon) DDM
+    given:
+      - field: growth_pattern
+        source: input
+        operator: eq
+        value: constant_growth
+    then:
+      - action: call_service
+        target: pricing_engine
+      - action: emit_event
+        event: pricing.equity_pv_calculated
+  price_multi_stage:
+    priority: 3
+    description: Multi-stage (changing growth) DDM
+    given:
+      - field: growth_pattern
+        source: input
+        operator: eq
+        value: multi_stage
+      - field: dividend_schedule
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: pricing_engine
+      - action: emit_event
+        event: pricing.equity_pv_calculated
+  growth_meets_or_exceeds_return:
+    priority: 10
+    description: Growth rate at or above required return — PV undefined
+    given:
+      - all:
+          - field: growth_pattern
+            source: input
+            operator: eq
+            value: constant_growth
+          - field: growth_rate
+            source: input
+            operator: gte
+            value: required_return
+    then:
+      - action: emit_event
+        event: pricing.equity_pv_rejected
+    error: EQUITY_PV_G_GE_R
+  negative_dividend:
+    priority: 11
+    description: Dividend is negative
+    given:
+      - any:
+          - field: current_dividend
+            source: input
+            operator: lt
+            value: 0
+          - field: next_dividend
+            source: input
+            operator: lt
+            value: 0
+    then:
+      - action: emit_event
+        event: pricing.equity_pv_rejected
+    error: EQUITY_PV_NEGATIVE_DIVIDEND
+  missing_inputs:
+    priority: 12
+    description: Required inputs missing
+    given:
+      - any:
+          - field: growth_pattern
+            source: input
+            operator: not_exists
+          - field: required_return
+            source: input
+            operator: not_exists
+    then:
+      - action: emit_event
+        event: pricing.equity_pv_rejected
+    error: EQUITY_PV_MISSING_INPUTS
+
+errors:
+  - code: EQUITY_PV_G_GE_R
+    status: 400
+    message: Growth rate must be strictly less than required return for Gordon model
+  - code: EQUITY_PV_NEGATIVE_DIVIDEND
+    status: 400
+    message: Dividends must be non-negative
+  - code: EQUITY_PV_MISSING_INPUTS
+    status: 400
+    message: growth_pattern and required_return are required
+
+events:
+  - name: pricing.equity_pv_calculated
+    payload: [instrument_id, growth_pattern, present_value, required_return, growth_rate]
+  - name: pricing.equity_pv_rejected
+    payload: [instrument_id, reason_code]
+
+anti_patterns:
+  - rule: Do not apply the Gordon growth model to high-growth or cyclical companies
+    why: "Constant-growth assumption breaks when dividend growth exceeds long-term GDP growth; use multi-stage DDM instead"
+  - rule: Do not set g equal to the firm's historical earnings growth for the terminal phase
+    why: "Terminal growth must be sustainable — typically at or below long-run nominal GDP growth; historical rates are usually too high"
+  - rule: Do not use DDM for firms that pay no dividends
+    why: "DDM requires dividends; use free-cash-flow models (FCFE, FCFF) or residual income for non-dividend payers"
+  - rule: Do not confuse D0 (most recent) with D1 (next period) in the Gordon formula
+    why: "PV = D1 / (r - g), not D0 / (r - g); must apply growth factor (1+g) when only D0 is known"
+
+api:
+  http:
+    method: POST
+    path: /analytics/equity/present-value
+  request:
+    schema:
+      growth_pattern: string
+      current_dividend: number
+      next_dividend: number
+      required_return: number
+      growth_rate: number
+      dividend_schedule: array
+      terminal_growth: number
+      terminal_period: number
+  response:
+    success:
+      status: 200
+      schema:
+        present_value: number
+        growth_pattern: string
+        terminal_value: number
+    errors:
+      - status: 400
+        error_code: EQUITY_PV_G_GE_R
+      - status: 400
+        error_code: EQUITY_PV_NEGATIVE_DIVIDEND
+      - status: 400
+        error_code: EQUITY_PV_MISSING_INPUTS
+
+extensions:
+  worked_example_gordon:
+    # Source: Vol 1, Module 2, p.58
+    scenario: "D1 = GBP1.50, r = 8%, g = 3.5%"
+    computation: "1.50 / (0.08 - 0.035) = 33.33"
+    pv: 33.33
+  worked_example_justified_pe:
+    # Source: Vol 1, Module 2, p.58-59
+    scenario: "payout = 0.70, r = 9%, g = 4.5%"
+    forward_pe: "0.70 / (0.09 - 0.045) = 15.56"
+  multi_stage_example:
+    scenario: "Stage 1: 10% growth for 3 years; Stage 2: 4% terminal"
+    formula: "Sum year-1 to year-3 PVs + TV_3 = D_4 / (r - 0.04), discount TV to today"
+
+related:
+  - feature: fixed-income-present-value
+    type: recommended
+  - feature: implied-return-implied-growth-equity
+    type: recommended
+  - feature: holding-period-return
+    type: recommended

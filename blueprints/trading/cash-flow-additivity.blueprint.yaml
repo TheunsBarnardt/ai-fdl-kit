@@ -1,0 +1,196 @@
+# ============================================================
+# cash-flow-additivity — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 2, p.69-71
+# ============================================================
+
+feature: cash-flow-additivity
+version: "1.0.0"
+description: Apply the cash flow additivity principle — the value of combined cash flow streams equals the sum of their present values, underpinning the no-arbitrage condition in asset pricing
+category: trading
+tags: [quantitative-methods, time-value-of-money, no-arbitrage, cash-flow-additivity, replication, cfa-level-1]
+aliases:
+  - additivity-principle
+  - no-arbitrage-pricing
+  - replication-principle
+  - value-additivity
+  - arbitrage-free
+
+actors:
+  - id: pricing_engine
+    name: Pricing / Valuation Engine
+    type: system
+  - id: arbitrage_monitor
+    name: Arbitrage Detection Service
+    type: system
+
+fields:
+  - name: cash_flow_streams
+    type: json
+    required: true
+    label: Array of cash flow streams; each stream is an array of {period, amount}
+  - name: discount_rate
+    type: number
+    required: true
+    label: Common discount rate (or term structure) used to evaluate each stream
+  - name: evaluation_date
+    type: date
+    required: false
+    label: Common evaluation point (defaults to t=0)
+  - name: tolerance
+    type: number
+    required: false
+    label: Absolute tolerance for no-arbitrage comparison (default 1e-6)
+
+rules:
+  core_principle:
+    # Source: Vol 1, Module 2, p.69
+    statement: "If two portfolios produce the same cash flows at the same times, they must have the same value today — otherwise arbitrage exists"
+    mathematical: "PV(A + B) = PV(A) + PV(B) when evaluated at same time with same discount function"
+  no_arbitrage_condition:
+    # Source: Vol 1, Module 2, p.70
+    rule: "Price(Portfolio_1) == Price(Portfolio_2) if cash flows are identical in amount and timing"
+    violation_implies_arbitrage: "Any price difference is a risk-free profit opportunity; arbitrage forces prices back into line"
+  applications:
+    - name: Implied forward rates
+      mechanism: "Long-dated bond = rolling sequence of shorter bonds"
+    - name: Forward exchange rates
+      mechanism: "Covered interest parity — two currencies, two rates"
+    - name: Option pricing
+      mechanism: "Replicating portfolio of bond + underlying yields option payoff"
+    - name: Bond stripping
+      mechanism: "Coupon bond = portfolio of zero-coupon bonds"
+  preconditions:
+    same_timing: "Cash flows must occur at identical dates to be directly additive"
+    same_discount_function: "All streams must be discounted using a consistent term structure"
+    frictionless_markets: "No transaction costs, no bid-ask spread, unlimited borrowing at risk-free rate"
+  violation_detection:
+    arbitrage_flag: "|PV(stream_1) - PV(stream_2)| > tolerance → arbitrage present"
+    triangulation: "Combine three instruments to detect cross-market mispricing"
+  validation:
+    non_empty_streams: "cash_flow_streams must contain at least two streams"
+    aligned_periods: "Cash flow dates must be representable as comparable periods"
+
+outcomes:
+  evaluate_streams:
+    priority: 1
+    description: Compute PV of each stream and the combined PV
+    given:
+      - field: cash_flow_streams
+        source: input
+        operator: exists
+      - field: discount_rate
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: pricing_engine
+      - action: emit_event
+        event: pricing.additivity_calculated
+  detect_arbitrage:
+    priority: 2
+    description: Compare PV of two economically equivalent streams
+    given:
+      - field: arbitrage_check
+        source: input
+        operator: eq
+        value: true
+    then:
+      - action: call_service
+        target: arbitrage_monitor
+      - action: emit_event
+        event: pricing.arbitrage_evaluated
+  arbitrage_detected:
+    priority: 3
+    description: PVs differ beyond tolerance
+    given:
+      - field: pv_delta
+        source: computed
+        operator: gt
+        value: tolerance
+    then:
+      - action: emit_event
+        event: pricing.arbitrage_detected
+  missing_streams:
+    priority: 10
+    description: Insufficient streams supplied
+    given:
+      - field: cash_flow_streams
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: pricing.additivity_rejected
+    error: ADDITIVITY_MISSING_STREAMS
+
+errors:
+  - code: ADDITIVITY_MISSING_STREAMS
+    status: 400
+    message: At least one cash flow stream must be provided
+  - code: ADDITIVITY_INCOMPATIBLE_DATES
+    status: 400
+    message: Cash flow dates cannot be aligned to a common schedule
+
+events:
+  - name: pricing.additivity_calculated
+    payload: [evaluation_date, stream_count, total_pv, individual_pvs]
+  - name: pricing.arbitrage_evaluated
+    payload: [stream_1_pv, stream_2_pv, pv_delta, arbitrage_present]
+  - name: pricing.arbitrage_detected
+    payload: [stream_1_pv, stream_2_pv, pv_delta, recommended_action]
+  - name: pricing.additivity_rejected
+    payload: [reason_code]
+
+anti_patterns:
+  - rule: Do not add cash flows that occur at different dates without first discounting them
+    why: "Additivity applies only at a common evaluation point; adding nominal amounts across time conflates dollars of different values"
+  - rule: Do not ignore transaction costs and bid-ask spreads in real-world arbitrage checks
+    why: "Academic no-arbitrage is frictionless; a 5bp 'arbitrage' that costs 10bp to execute is not an arbitrage"
+  - rule: Do not apply a single discount rate across currencies
+    why: "Each currency has its own risk-free curve; combining currencies requires forward FX (covered interest parity)"
+  - rule: Do not assume additivity holds across non-linear payoffs (options) without replication
+    why: "Option payoffs are convex; value the replicating portfolio, not the nominal payoff sum"
+
+api:
+  http:
+    method: POST
+    path: /analytics/no-arbitrage/additivity
+  request:
+    schema:
+      cash_flow_streams: array
+      discount_rate: number
+      evaluation_date: string
+      tolerance: number
+      arbitrage_check: boolean
+  response:
+    success:
+      status: 200
+      schema:
+        individual_pvs: array
+        total_pv: number
+        arbitrage_present: boolean
+        pv_delta: number
+    errors:
+      - status: 400
+        error_code: ADDITIVITY_MISSING_STREAMS
+      - status: 400
+        error_code: ADDITIVITY_INCOMPATIBLE_DATES
+
+extensions:
+  worked_example_stripping:
+    scenario: "3-year annual 5% coupon, FV=100, r=5% → PV = 100"
+    equivalence: "Sum of PVs of 5, 5, 5, 100 discounted at 5% = 100"
+    interpretation: "Coupon bond = portfolio of zero-coupon bonds"
+  worked_example_arbitrage:
+    # Source: Vol 1, Module 2, p.70
+    scenario: "Bond A prices at 102, synthetic replication via strips prices at 101"
+    action: "Buy synthetic (101), sell bond (102), lock in 1.00 risk-free"
+
+related:
+  - feature: fixed-income-present-value
+    type: required
+  - feature: implied-forward-rates
+    type: recommended
+  - feature: forward-exchange-rate-no-arbitrage
+    type: recommended
+  - feature: option-pricing-cash-flow-additivity
+    type: recommended

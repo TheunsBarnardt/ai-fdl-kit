@@ -1,0 +1,384 @@
+{
+  "feature": "implied-return-fixed-income",
+  "version": "1.0.0",
+  "description": "Solve for the implied return (yield-to-maturity, YTM) of a fixed-income instrument given its current price and promised cash flows",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "time-value-of-money",
+    "fixed-income",
+    "ytm",
+    "implied-return",
+    "root-finding",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "ytm",
+    "yield-to-maturity",
+    "implied-yield",
+    "bond-irr",
+    "discount-bond-yield"
+  ],
+  "actors": [
+    {
+      "id": "pricing_engine",
+      "name": "Fixed-Income Pricing Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "bond_type",
+      "type": "select",
+      "required": true,
+      "label": "discount | coupon | level_payment"
+    },
+    {
+      "name": "present_value",
+      "type": "number",
+      "required": true,
+      "label": "Observed market price (PV)"
+    },
+    {
+      "name": "face_value",
+      "type": "number",
+      "required": false,
+      "label": "Face / par value (FV)"
+    },
+    {
+      "name": "coupon_payment",
+      "type": "number",
+      "required": false,
+      "label": "Periodic coupon PMT"
+    },
+    {
+      "name": "level_payment",
+      "type": "number",
+      "required": false,
+      "label": "Level periodic payment"
+    },
+    {
+      "name": "periods",
+      "type": "number",
+      "required": true,
+      "label": "Number of remaining periods"
+    },
+    {
+      "name": "initial_guess",
+      "type": "number",
+      "required": false,
+      "label": "Optional starting estimate for root-finder (default 0.05)"
+    },
+    {
+      "name": "tolerance",
+      "type": "number",
+      "required": false,
+      "label": "Convergence tolerance (default 1e-8)"
+    }
+  ],
+  "rules": {
+    "core_formulas": {
+      "discount_bond_closed_form": "r = (FV / PV)^(1/t) - 1",
+      "coupon_bond_solve": "Solve numerically: PV = sum_{i=1..N}[ PMT / (1+r)^i ] + FV / (1+r)^N",
+      "level_payment_solve": "Solve numerically: PV = A * [1 - (1+r)^(-t)] / r"
+    },
+    "root_finding": {
+      "methods": [
+        {
+          "name": "Newton-Raphson",
+          "rationale": "Quadratic convergence; well-behaved for monotonic PV(r)"
+        },
+        {
+          "name": "bisection",
+          "rationale": "Guaranteed convergence; use when derivative unstable"
+        },
+        {
+          "name": "secant",
+          "rationale": "Derivative-free; widely used in spreadsheet RATE() implementations"
+        }
+      ],
+      "monotonicity": "PV is strictly decreasing in r — a unique positive solution exists when PV < sum of undiscounted cash flows"
+    },
+    "rate_conversion": {
+      "semiannual_to_annual_bey": "Bond-equivalent yield (BEY) = periodic rate * 2 (US Treasury convention)",
+      "effective_annual": "EAY = (1 + periodic_rate)^periods_per_year - 1"
+    },
+    "interpretation": {
+      "premium_coupon_gt_ytm": "Bond priced above par → coupon rate > YTM",
+      "discount_coupon_lt_ytm": "Bond priced below par → coupon rate < YTM"
+    },
+    "validation": {
+      "positive_pv": "present_value > 0",
+      "positive_periods": "periods > 0",
+      "cash_flow_sanity": "If face_value + sum(coupons) < price, no positive YTM exists"
+    }
+  },
+  "outcomes": {
+    "implied_discount_yield": {
+      "priority": 1,
+      "description": "Closed-form for discount bond",
+      "given": [
+        {
+          "field": "bond_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "discount"
+        },
+        {
+          "field": "present_value",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        },
+        {
+          "field": "face_value",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "pricing_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "pricing.fi_ytm_calculated"
+        }
+      ]
+    },
+    "implied_coupon_yield": {
+      "priority": 2,
+      "description": "Numeric solve for coupon bond",
+      "given": [
+        {
+          "field": "bond_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "coupon"
+        },
+        {
+          "field": "present_value",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        },
+        {
+          "field": "coupon_payment",
+          "source": "input",
+          "operator": "gte",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "pricing_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "pricing.fi_ytm_calculated"
+        }
+      ]
+    },
+    "implied_level_payment_rate": {
+      "priority": 3,
+      "description": "Numeric solve for amortising loan rate",
+      "given": [
+        {
+          "field": "bond_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "level_payment"
+        },
+        {
+          "field": "level_payment",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "pricing_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "pricing.fi_ytm_calculated"
+        }
+      ]
+    },
+    "solver_non_convergence": {
+      "priority": 10,
+      "description": "Root finder failed to converge",
+      "given": [
+        {
+          "field": "solver_status",
+          "source": "computed",
+          "operator": "eq",
+          "value": "diverged"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "pricing.fi_ytm_rejected"
+        }
+      ],
+      "error": "FI_YTM_SOLVER_FAILED"
+    },
+    "invalid_inputs": {
+      "priority": 11,
+      "description": "Price or periods missing / invalid",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "present_value",
+              "source": "input",
+              "operator": "lte",
+              "value": 0
+            },
+            {
+              "field": "periods",
+              "source": "input",
+              "operator": "lte",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "pricing.fi_ytm_rejected"
+        }
+      ],
+      "error": "FI_YTM_INVALID_INPUTS"
+    }
+  },
+  "errors": [
+    {
+      "code": "FI_YTM_SOLVER_FAILED",
+      "status": 422,
+      "message": "Implied yield solver failed to converge within tolerance"
+    },
+    {
+      "code": "FI_YTM_INVALID_INPUTS",
+      "status": 400,
+      "message": "Price and periods must be strictly positive"
+    },
+    {
+      "code": "FI_YTM_NO_SOLUTION",
+      "status": 422,
+      "message": "No real YTM exists for the given cash flows and price"
+    }
+  ],
+  "events": [
+    {
+      "name": "pricing.fi_ytm_calculated",
+      "payload": [
+        "instrument_id",
+        "bond_type",
+        "present_value",
+        "ytm",
+        "iterations"
+      ]
+    },
+    {
+      "name": "pricing.fi_ytm_rejected",
+      "payload": [
+        "instrument_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not quote a periodic rate when the market convention is an annualised yield",
+      "why": "BEY for US Treasuries multiplies periodic by 2; EAY compounds — mixing them misstates returns by tens of basis points"
+    },
+    {
+      "rule": "Do not assume reinvestment at YTM when computing realised return",
+      "why": "YTM is an ex-ante promised yield assuming flat reinvestment; realised return depends on actual reinvestment rates"
+    },
+    {
+      "rule": "Do not use YTM for callable bonds without computing yield-to-call and yield-to-worst",
+      "why": "YTM ignores the issuer's call option; YTW is the more conservative investor-relevant measure"
+    },
+    {
+      "rule": "Do not iterate the solver without a convergence guard and iteration cap",
+      "why": "Pathological inputs can cause infinite loops; always cap iterations and return a diagnostic on failure"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/fixed-income/implied-return"
+    },
+    "request": {
+      "schema": {
+        "bond_type": "string",
+        "present_value": "number",
+        "face_value": "number",
+        "coupon_payment": "number",
+        "level_payment": "number",
+        "periods": "number",
+        "initial_guess": "number",
+        "tolerance": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "ytm": "number",
+          "iterations": "number",
+          "solver": "string",
+          "premium_discount_par": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "FI_YTM_INVALID_INPUTS"
+        },
+        {
+          "status": 422,
+          "error_code": "FI_YTM_SOLVER_FAILED"
+        },
+        {
+          "status": 422,
+          "error_code": "FI_YTM_NO_SOLUTION"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "worked_example_discount": {
+      "scenario": "PV = INR22.68224, FV = INR100, t = 20",
+      "computation": "(100/22.68224)^(1/20) - 1 = 0.077 = 7.70%",
+      "ytm": 0.077
+    },
+    "worked_example_coupon": {
+      "scenario": "PV = 93.091, FV = 100, PMT = 5, t = 5",
+      "ytm_approx": 0.069
+    }
+  },
+  "related": [
+    {
+      "feature": "fixed-income-present-value",
+      "type": "required"
+    },
+    {
+      "feature": "implied-return-implied-growth-equity",
+      "type": "recommended"
+    },
+    {
+      "feature": "money-weighted-return",
+      "type": "recommended"
+    }
+  ]
+}
