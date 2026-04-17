@@ -1,0 +1,289 @@
+{
+  "feature": "long-lived-assets-accounting",
+  "version": "1.0.0",
+  "description": "Account for long-lived assets — acquisition, depreciation/amortisation, impairment, revaluation, derecognition — across IFRS and US GAAP frameworks",
+  "category": "trading",
+  "tags": [
+    "financial-statement-analysis",
+    "long-lived-assets",
+    "depreciation",
+    "amortisation",
+    "impairment",
+    "capitalisation",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "depreciation-methods",
+    "amortisation",
+    "impairment-testing",
+    "capitalised-interest",
+    "asset-revaluation",
+    "derecognition"
+  ],
+  "actors": [
+    {
+      "id": "lla_analyst",
+      "name": "Long-Lived Asset Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "asset_id",
+      "type": "text",
+      "required": true,
+      "label": "Asset identifier"
+    },
+    {
+      "name": "cost",
+      "type": "number",
+      "required": true,
+      "label": "Original cost"
+    },
+    {
+      "name": "useful_life_years",
+      "type": "number",
+      "required": true,
+      "label": "Estimated useful life (years)"
+    },
+    {
+      "name": "salvage_value",
+      "type": "number",
+      "required": false,
+      "label": "Salvage / residual value"
+    },
+    {
+      "name": "depreciation_method",
+      "type": "select",
+      "required": true,
+      "label": "straight_line | declining_balance | units_of_production"
+    }
+  ],
+  "rules": {
+    "capitalisation_rules": {
+      "acquisition": "Include purchase price + transport, installation, testing",
+      "capitalised_interest": "Interest during construction capitalised (IFRS and US GAAP)",
+      "development_costs": "IFRS capitalises if criteria met; US GAAP expenses except software"
+    },
+    "depreciation_methods": {
+      "straight_line": "(Cost - salvage) / useful life",
+      "declining_balance": "Rate * beginning net book value — accelerated",
+      "units_of_production": "(Cost - salvage) * units produced / total expected units"
+    },
+    "impairment": {
+      "ifrs_trigger": "Recoverable amount (max of fair value less costs and value-in-use) < carrying amount",
+      "gaap_trigger_two_step": "Undiscounted CF test first; then write down to fair value",
+      "reversal": "IFRS allows impairment reversal (except goodwill); US GAAP does not"
+    },
+    "revaluation_model": {
+      "ifrs_option": "Carry at fair value; gains to OCI / revaluation surplus",
+      "us_gaap": "Not permitted for PP&E or intangibles"
+    },
+    "derecognition": {
+      "sale_or_disposal": "Remove asset and accumulated depreciation; recognise gain/loss",
+      "disclosure": "Major disposals require separate reporting under IFRS 5"
+    },
+    "ratio_impact": {
+      "shorter_life": "Higher depreciation -> lower net income, lower assets, higher turnover",
+      "impairment_charge": "One-time hit to earnings; lowers asset base going forward"
+    },
+    "validation": {
+      "asset_required": "asset_id present",
+      "positive_cost": "cost > 0",
+      "positive_life": "useful_life_years > 0",
+      "valid_method": "depreciation_method in allowed set"
+    }
+  },
+  "outcomes": {
+    "compute_depreciation": {
+      "priority": 1,
+      "description": "Compute periodic depreciation and net book value",
+      "given": [
+        {
+          "field": "asset_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "cost",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        },
+        {
+          "field": "useful_life_years",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        },
+        {
+          "field": "depreciation_method",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "straight_line",
+            "declining_balance",
+            "units_of_production"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "lla_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "lla.depreciation_computed"
+        }
+      ]
+    },
+    "invalid_inputs": {
+      "priority": 10,
+      "description": "Invalid inputs",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "cost",
+              "source": "input",
+              "operator": "lte",
+              "value": 0
+            },
+            {
+              "field": "useful_life_years",
+              "source": "input",
+              "operator": "lte",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "lla.computation_rejected"
+        }
+      ],
+      "error": "LLA_INVALID_INPUTS"
+    },
+    "invalid_method": {
+      "priority": 11,
+      "description": "Unsupported depreciation method",
+      "given": [
+        {
+          "field": "depreciation_method",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "straight_line",
+            "declining_balance",
+            "units_of_production"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "lla.computation_rejected"
+        }
+      ],
+      "error": "LLA_INVALID_METHOD"
+    }
+  },
+  "errors": [
+    {
+      "code": "LLA_INVALID_INPUTS",
+      "status": 400,
+      "message": "cost and useful_life_years must be positive"
+    },
+    {
+      "code": "LLA_INVALID_METHOD",
+      "status": 400,
+      "message": "depreciation_method must be straight_line, declining_balance, or units_of_production"
+    }
+  ],
+  "events": [
+    {
+      "name": "lla.depreciation_computed",
+      "payload": [
+        "computation_id",
+        "asset_id",
+        "periodic_depreciation",
+        "accumulated_depreciation",
+        "net_book_value"
+      ]
+    },
+    {
+      "name": "lla.computation_rejected",
+      "payload": [
+        "computation_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not compare firms using different depreciation methods without adjustment",
+      "why": "Accelerated methods front-load expense; peer comparisons need normalisation"
+    },
+    {
+      "rule": "Do not ignore impairment reversals when modelling IFRS firms",
+      "why": "Reversals flow through earnings and boost reported profitability relative to US GAAP peers"
+    },
+    {
+      "rule": "Do not capitalise costs to smooth earnings",
+      "why": "Aggressive capitalisation of routine maintenance distorts both income and asset quality"
+    },
+    {
+      "rule": "Do not assume useful life matches tax life",
+      "why": "Tax depreciation often accelerated; book-tax differences drive deferred taxes and analyst confusion"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/fsa/long-lived-asset/depreciate"
+    },
+    "request": {
+      "schema": {
+        "asset_id": "string",
+        "cost": "number",
+        "useful_life_years": "number",
+        "salvage_value": "number",
+        "depreciation_method": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "computation_id": "string",
+          "periodic_depreciation": "number",
+          "accumulated_depreciation": "number",
+          "net_book_value": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "LLA_INVALID_INPUTS"
+        },
+        {
+          "status": 400,
+          "error_code": "LLA_INVALID_METHOD"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "fsa-balance-sheet",
+      "type": "required"
+    },
+    {
+      "feature": "fsa-income-statement",
+      "type": "recommended"
+    }
+  ]
+}

@@ -1,0 +1,258 @@
+{
+  "feature": "fsa-cash-flow",
+  "version": "1.0.0",
+  "description": "Analyse cash flow statements — CFO, CFI, CFF — using direct and indirect methods, convert indirect to direct, and derive free cash flow and cash flow ratios",
+  "category": "trading",
+  "tags": [
+    "financial-statement-analysis",
+    "cash-flow-statement",
+    "cfo",
+    "free-cash-flow",
+    "direct-indirect-method",
+    "fcff",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "statement-of-cash-flows",
+    "cash-flow-from-operations",
+    "direct-method-cfo",
+    "indirect-method-cfo",
+    "free-cash-flow",
+    "fcff-fcfe"
+  ],
+  "actors": [
+    {
+      "id": "cf_analyst",
+      "name": "Cash Flow Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "entity_id",
+      "type": "text",
+      "required": true,
+      "label": "Entity identifier"
+    },
+    {
+      "name": "period",
+      "type": "text",
+      "required": true,
+      "label": "Reporting period"
+    },
+    {
+      "name": "cfo",
+      "type": "number",
+      "required": true,
+      "label": "Cash flow from operations"
+    },
+    {
+      "name": "cfi",
+      "type": "number",
+      "required": false,
+      "label": "Cash flow from investing"
+    },
+    {
+      "name": "cff",
+      "type": "number",
+      "required": false,
+      "label": "Cash flow from financing"
+    },
+    {
+      "name": "capex",
+      "type": "number",
+      "required": false,
+      "label": "Capital expenditures"
+    }
+  ],
+  "rules": {
+    "cfo_methods": {
+      "direct_method": "Reports cash receipts from customers and cash paid to suppliers/employees",
+      "indirect_method": "Starts from net income; adjusts for non-cash items and working capital changes",
+      "conversion": "Indirect to direct: restate each line using changes in related receivables/payables"
+    },
+    "classification": {
+      "cfo_ifrs_flexibility": "Interest and dividends paid/received can be CFO or CFF/CFI under IFRS",
+      "cfo_gaap_rigid": "US GAAP requires interest paid and interest/dividends received in CFO"
+    },
+    "free_cash_flow": {
+      "fcff": "CFO + interest * (1 - t) - capex",
+      "fcfe": "CFO - capex + net borrowing",
+      "interpretation": "Cash available to equity holders after reinvestment and debt service"
+    },
+    "cash_flow_ratios": {
+      "cfo_to_revenue": "CFO / revenue — cash earnings quality",
+      "cfo_to_current_liabilities": "CFO / CL — short-term coverage",
+      "cfo_to_debt": "CFO / total debt — debt service capacity",
+      "interest_coverage_cash": "(CFO + interest + taxes) / interest"
+    },
+    "sources_uses_analysis": {
+      "positive_cfo_indicator": "Mature business with strong cash generation",
+      "negative_cfo_growth": "Growth firms may show negative CFO during scaling",
+      "cff_as_funding": "Persistent negative CFO + positive CFF signals dependency on external funding"
+    },
+    "validation": {
+      "entity_required": "entity_id present",
+      "period_required": "period present"
+    }
+  },
+  "outcomes": {
+    "analyze_cash_flow": {
+      "priority": 1,
+      "description": "Produce CFO quality, FCF, and cash flow ratios",
+      "given": [
+        {
+          "field": "entity_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "period",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "cfo",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "cf_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "cf.analyzed"
+        }
+      ]
+    },
+    "missing_inputs": {
+      "priority": 10,
+      "description": "Required inputs missing",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "entity_id",
+              "source": "input",
+              "operator": "not_exists"
+            },
+            {
+              "field": "period",
+              "source": "input",
+              "operator": "not_exists"
+            },
+            {
+              "field": "cfo",
+              "source": "input",
+              "operator": "not_exists"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "cf.analysis_rejected"
+        }
+      ],
+      "error": "CF_MISSING_INPUTS"
+    }
+  },
+  "errors": [
+    {
+      "code": "CF_MISSING_INPUTS",
+      "status": 400,
+      "message": "entity_id, period, and cfo are required"
+    }
+  ],
+  "events": [
+    {
+      "name": "cf.analyzed",
+      "payload": [
+        "analysis_id",
+        "entity_id",
+        "period",
+        "fcff",
+        "fcfe",
+        "cfo_to_revenue",
+        "cfo_to_debt"
+      ]
+    },
+    {
+      "name": "cf.analysis_rejected",
+      "payload": [
+        "analysis_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not treat strong CFO as proof of earnings quality alone",
+      "why": "One-time working capital releases and aggressive factoring can flatter CFO; inspect trend and composition"
+    },
+    {
+      "rule": "Do not compare FCF across firms without consistent capex classification",
+      "why": "Some classify maintenance capex only; others full capex — produce apples-to-apples before ranking"
+    },
+    {
+      "rule": "Do not ignore IFRS/GAAP classification differences",
+      "why": "Interest and dividend placement between CFO and CFF/CFI affects CFO margins and ratios materially"
+    },
+    {
+      "rule": "Do not convert indirect to direct without receivables/payables detail",
+      "why": "Required accruals schedule is often missing; estimates may understate cash collection risk"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/fsa/cash-flow/analyze"
+    },
+    "request": {
+      "schema": {
+        "entity_id": "string",
+        "period": "string",
+        "cfo": "number",
+        "cfi": "number",
+        "cff": "number",
+        "capex": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "analysis_id": "string",
+          "fcff": "number",
+          "fcfe": "number",
+          "cfo_to_revenue": "number",
+          "cfo_to_debt": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "CF_MISSING_INPUTS"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "fsa-framework",
+      "type": "required"
+    },
+    {
+      "feature": "fsa-income-statement",
+      "type": "recommended"
+    },
+    {
+      "feature": "fsa-balance-sheet",
+      "type": "recommended"
+    }
+  ]
+}

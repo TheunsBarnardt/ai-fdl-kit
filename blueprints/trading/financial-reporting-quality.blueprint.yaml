@@ -1,0 +1,168 @@
+# ============================================================
+# financial-reporting-quality — Feature Blueprint
+# Source: CFA LV1 2025 Vol 04 — Financial reporting quality
+# ============================================================
+
+feature: financial-reporting-quality
+version: "1.0.0"
+description: Assess financial reporting quality along a spectrum from high quality to outright fraud using the quality-of-earnings and quality-of-reporting lens
+category: trading
+tags: [financial-statement-analysis, reporting-quality, earnings-quality, aggressive-accounting, fraud-risk, beneish, cfa-level-1]
+aliases:
+  - earnings-quality
+  - quality-of-reporting
+  - aggressive-accounting
+  - conservative-accounting
+  - beneish-m-score
+  - red-flags
+
+actors:
+  - id: quality_analyst
+    name: Reporting Quality Analyst
+    type: system
+
+fields:
+  - name: entity_id
+    type: text
+    required: true
+    label: Entity identifier
+  - name: period
+    type: text
+    required: true
+    label: Reporting period
+  - name: signals
+    type: json
+    required: false
+    label: Quantitative and qualitative red-flag inputs
+
+rules:
+  quality_spectrum:
+    # Source: Vol 4, Reporting quality module
+    high_quality: "GAAP compliant, decision-useful, sustainable earnings"
+    low_quality: "GAAP compliant but with biased choices"
+    non_compliant: "Not GAAP compliant but may be material or intentional"
+    fraud: "Intentional misrepresentation"
+  motivations_to_distort:
+    - "Meet analyst expectations"
+    - "Earn compensation targets"
+    - "Avoid covenant breach"
+    - "Support equity issuance"
+    - "Tax minimisation (biases opposite direction)"
+  common_techniques:
+    revenue_recognition: "Bill-and-hold, channel stuffing, gross vs net, upfront vs deferred"
+    expense_recognition: "Capitalising opex, delaying impairments, under-reserving warranties"
+    non_recurring_items: "Smoothing via reclassification to/from non-recurring"
+    off_balance_sheet: "VIEs, factoring, repo 105, non-consolidated JVs"
+  red_flags:
+    - "Accruals growing faster than earnings"
+    - "CFO diverging from net income"
+    - "Low effective tax rate vs peers"
+    - "Frequent non-recurring items"
+    - "Management churn, auditor switch"
+  analytical_tools:
+    beneish_m_score: "Composite score flagging earnings manipulation likelihood"
+    accruals_ratio: "(NI - CFO - CFI) / avg total assets"
+    altman_z_score: "Bankruptcy risk complement"
+  conditions_for_fraud:
+    # Fraud triangle
+    incentive: "Pressure to meet targets"
+    opportunity: "Weak controls and oversight"
+    rationalisation: "Culture that tolerates manipulation"
+  validation:
+    entity_required: "entity_id present"
+    period_required: "period present"
+
+outcomes:
+  score_reporting_quality:
+    priority: 1
+    description: Produce quality score and red-flag list
+    given:
+      - field: entity_id
+        source: input
+        operator: exists
+      - field: period
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: quality_analyst
+      - action: emit_event
+        event: quality.scored
+  high_risk_flag:
+    priority: 2
+    description: Elevated manipulation or fraud risk
+    given:
+      - field: high_risk_flag
+        source: computed
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: quality.warning
+  missing_inputs:
+    priority: 10
+    description: Entity or period missing
+    given:
+      - any:
+          - field: entity_id
+            source: input
+            operator: not_exists
+          - field: period
+            source: input
+            operator: not_exists
+    then:
+      - action: emit_event
+        event: quality.rejected
+    error: QUALITY_MISSING_INPUTS
+
+errors:
+  - code: QUALITY_MISSING_INPUTS
+    status: 400
+    message: entity_id and period are required
+
+events:
+  - name: quality.scored
+    payload: [score_id, entity_id, period, composite_score, red_flags]
+  - name: quality.warning
+    payload: [score_id, reason]
+  - name: quality.rejected
+    payload: [score_id, reason_code]
+
+anti_patterns:
+  - rule: Do not equate GAAP compliance with high-quality reporting
+    why: "Compliant statements can still mask economic reality via aggressive choices within allowed latitude"
+  - rule: Do not rely on a single red-flag indicator
+    why: "Composite evidence matters; single-metric alarms produce false positives and miss coordinated manipulation"
+  - rule: Do not ignore culture and governance signals
+    why: "Fraud triangle evidence (incentives, opportunity, rationalisation) often precedes numerical anomalies"
+  - rule: Do not dismiss restatements as technical
+    why: "Material restatements change prior-period ratios and often signal ongoing control weaknesses"
+
+api:
+  http:
+    method: POST
+    path: /fsa/quality/score
+  request:
+    schema:
+      entity_id: string
+      period: string
+      signals: object
+  response:
+    success:
+      status: 200
+      schema:
+        score_id: string
+        composite_score: number
+        quality_band: string
+        red_flags: array
+    errors:
+      - status: 400
+        error_code: QUALITY_MISSING_INPUTS
+
+related:
+  - feature: fsa-framework
+    type: required
+  - feature: fsa-income-statement
+    type: recommended
+  - feature: fsa-cash-flow
+    type: recommended

@@ -1,0 +1,274 @@
+{
+  "feature": "bonds-leases-accounting",
+  "version": "1.0.0",
+  "description": "Account for non-current liabilities — bond issuance at par/premium/discount, effective interest method, debt covenants, and lease capitalisation under IFRS 16 and ASC 842",
+  "category": "trading",
+  "tags": [
+    "financial-statement-analysis",
+    "non-current-liabilities",
+    "bonds-payable",
+    "leases",
+    "ifrs-16",
+    "effective-interest",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "bonds-payable",
+    "effective-interest-method",
+    "premium-discount-amortisation",
+    "finance-lease",
+    "operating-lease",
+    "bond-covenants"
+  ],
+  "actors": [
+    {
+      "id": "ncl_analyst",
+      "name": "Non-Current Liabilities Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "entity_id",
+      "type": "text",
+      "required": true,
+      "label": "Entity identifier"
+    },
+    {
+      "name": "instrument_type",
+      "type": "select",
+      "required": true,
+      "label": "bond | finance_lease | operating_lease"
+    },
+    {
+      "name": "face_value",
+      "type": "number",
+      "required": false,
+      "label": "Bond face value"
+    },
+    {
+      "name": "coupon_rate",
+      "type": "number",
+      "required": false,
+      "label": "Coupon rate (decimal)"
+    },
+    {
+      "name": "market_rate",
+      "type": "number",
+      "required": false,
+      "label": "Market yield at issuance (decimal)"
+    },
+    {
+      "name": "lease_term_years",
+      "type": "number",
+      "required": false,
+      "label": "Lease term in years"
+    }
+  ],
+  "rules": {
+    "bond_issuance": {
+      "at_par": "Coupon rate equals market rate",
+      "at_premium": "Coupon rate above market rate -> proceeds > face",
+      "at_discount": "Coupon rate below market rate -> proceeds < face"
+    },
+    "effective_interest_method": {
+      "interest_expense": "Beginning carrying amount x market rate at issuance",
+      "coupon_payment": "Face value x coupon rate",
+      "amortisation": "Difference between interest expense and coupon payment",
+      "carrying_amount_trajectory": "Premium amortises down; discount amortises up to par at maturity"
+    },
+    "debt_covenants": {
+      "affirmative": "Must do — maintain ratios, audit, insurance",
+      "negative": "Must not — issue more senior debt, sell assets, pay dividends above cap",
+      "breach_consequences": "Acceleration, higher rates, restricted operations"
+    },
+    "lease_accounting": {
+      "ifrs16": "Lessee capitalises all leases > 12 months — ROU asset and lease liability",
+      "asc842": "Lessee distinguishes finance vs operating; both on balance sheet but P&L pattern differs",
+      "operating_lease_expense": "Single straight-line expense",
+      "finance_lease_expense": "Front-loaded: depreciation + interest"
+    },
+    "derecognition": {
+      "early_redemption": "Gain/loss = carrying amount - cash paid",
+      "modification": "Substantive change -> derecognise old, recognise new"
+    },
+    "validation": {
+      "entity_required": "entity_id present",
+      "valid_type": "instrument_type in allowed set"
+    }
+  },
+  "outcomes": {
+    "account_for_instrument": {
+      "priority": 1,
+      "description": "Compute amortisation schedule and P&L impact",
+      "given": [
+        {
+          "field": "entity_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "instrument_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "bond",
+            "finance_lease",
+            "operating_lease"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "ncl_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "ncl.computed"
+        }
+      ]
+    },
+    "invalid_type": {
+      "priority": 10,
+      "description": "Unsupported instrument type",
+      "given": [
+        {
+          "field": "instrument_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "bond",
+            "finance_lease",
+            "operating_lease"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "ncl.computation_rejected"
+        }
+      ],
+      "error": "NCL_INVALID_TYPE"
+    },
+    "missing_entity": {
+      "priority": 11,
+      "description": "Entity missing",
+      "given": [
+        {
+          "field": "entity_id",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "ncl.computation_rejected"
+        }
+      ],
+      "error": "NCL_ENTITY_MISSING"
+    }
+  },
+  "errors": [
+    {
+      "code": "NCL_INVALID_TYPE",
+      "status": 400,
+      "message": "instrument_type must be bond, finance_lease, or operating_lease"
+    },
+    {
+      "code": "NCL_ENTITY_MISSING",
+      "status": 400,
+      "message": "entity_id is required"
+    }
+  ],
+  "events": [
+    {
+      "name": "ncl.computed",
+      "payload": [
+        "computation_id",
+        "entity_id",
+        "instrument_type",
+        "interest_expense",
+        "carrying_amount"
+      ]
+    },
+    {
+      "name": "ncl.computation_rejected",
+      "payload": [
+        "computation_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use straight-line amortisation for bonds issued at discount or premium",
+      "why": "Effective interest method is required for accurate interest expense; straight-line misstates both P&L and carrying amount"
+    },
+    {
+      "rule": "Do not ignore debt covenants when projecting equity cash flows",
+      "why": "Covenant breach can trigger acceleration; dividends and share buybacks may be restricted"
+    },
+    {
+      "rule": "Do not treat operating-lease off-balance-sheet disclosures as ancient history",
+      "why": "Pre-2019 operating leases were off-BS; comparatives need IFRS 16 capitalisation adjustment"
+    },
+    {
+      "rule": "Do not assume bond carrying amount equals fair value",
+      "why": "Amortised cost accounting and market value diverge when yields move; use fair-value disclosures for valuation"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/fsa/ncl/account"
+    },
+    "request": {
+      "schema": {
+        "entity_id": "string",
+        "instrument_type": "string",
+        "face_value": "number",
+        "coupon_rate": "number",
+        "market_rate": "number",
+        "lease_term_years": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "computation_id": "string",
+          "interest_expense": "number",
+          "carrying_amount": "number",
+          "amortisation": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "NCL_INVALID_TYPE"
+        },
+        {
+          "status": 400,
+          "error_code": "NCL_ENTITY_MISSING"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "fsa-balance-sheet",
+      "type": "required"
+    },
+    {
+      "feature": "fsa-income-statement",
+      "type": "required"
+    },
+    {
+      "feature": "corporate-capital-structure",
+      "type": "recommended"
+    }
+  ]
+}

@@ -1,0 +1,171 @@
+# ============================================================
+# inventory-accounting — Feature Blueprint
+# Source: CFA LV1 2025 Vol 04 — Module 10, Inventories
+# ============================================================
+
+feature: inventory-accounting
+version: "1.0.0"
+description: Apply FIFO, LIFO, and weighted-average cost-flow methods to compute COGS and ending inventory, convert LIFO to FIFO, and evaluate the impact on ratios and valuation
+category: trading
+tags: [financial-statement-analysis, inventory, fifo, lifo, weighted-average, lifo-reserve, cfa-level-1]
+aliases:
+  - inventory-cost-methods
+  - fifo-method
+  - lifo-method
+  - weighted-average-cost
+  - lifo-reserve
+  - lower-of-cost-or-nrv
+
+actors:
+  - id: inventory_analyst
+    name: Inventory Accounting Analyst
+    type: system
+
+fields:
+  - name: entity_id
+    type: text
+    required: true
+    label: Entity identifier
+  - name: method
+    type: select
+    required: true
+    label: fifo | lifo | weighted_average | specific_identification
+  - name: beginning_inventory
+    type: number
+    required: true
+    label: Beginning inventory at cost
+  - name: purchases
+    type: json
+    required: true
+    label: Period purchases with quantity and unit cost
+  - name: units_sold
+    type: number
+    required: true
+    label: Units sold during period
+
+rules:
+  cost_flow_methods:
+    fifo: "First-in, first-out — COGS reflects oldest costs, ending inventory reflects newest"
+    lifo: "Last-in, first-out — COGS reflects newest costs, ending inventory reflects oldest (US GAAP only)"
+    weighted_average: "Average cost per unit applied to COGS and ending inventory"
+    specific_identification: "Used for unique items (vehicles, real estate)"
+  inflation_effects:
+    rising_prices_fifo: "Higher ending inventory, lower COGS, higher gross profit and taxes"
+    rising_prices_lifo: "Lower ending inventory, higher COGS, lower gross profit and taxes"
+    lifo_liquidation: "Selling below production -> old low costs flow through, inflating margins"
+  lifo_reserve:
+    definition: "FIFO inventory - LIFO inventory"
+    conversion:
+      inventory_to_fifo: "LIFO inventory + LIFO reserve"
+      cogs_to_fifo: "LIFO COGS - change in LIFO reserve"
+  valuation_adjustments:
+    ifrs: "Lower of cost or net realisable value (NRV)"
+    us_gaap: "Lower of cost or NRV (for FIFO and WA); lower of cost or market (LIFO)"
+    reversals: "IFRS allows reversal; US GAAP does not"
+  ratio_impact:
+    inventory_turnover: "LIFO firms show higher turnover (lower inventory)"
+    gross_margin: "FIFO firms show higher margins in inflation"
+  validation:
+    entity_required: "entity_id present"
+    valid_method: "method in allowed set"
+    units_non_negative: "units_sold >= 0"
+
+outcomes:
+  compute_cogs_inventory:
+    priority: 1
+    description: Compute COGS and ending inventory under chosen method
+    given:
+      - field: entity_id
+        source: input
+        operator: exists
+      - field: method
+        source: input
+        operator: in
+        value: [fifo, lifo, weighted_average, specific_identification]
+      - field: units_sold
+        source: input
+        operator: gte
+        value: 0
+    then:
+      - action: call_service
+        target: inventory_analyst
+      - action: emit_event
+        event: inventory.computed
+  invalid_method:
+    priority: 10
+    description: Unsupported inventory method
+    given:
+      - field: method
+        source: input
+        operator: not_in
+        value: [fifo, lifo, weighted_average, specific_identification]
+    then:
+      - action: emit_event
+        event: inventory.computation_rejected
+    error: INV_INVALID_METHOD
+  missing_entity:
+    priority: 11
+    description: Entity missing
+    given:
+      - field: entity_id
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: inventory.computation_rejected
+    error: INV_ENTITY_MISSING
+
+errors:
+  - code: INV_INVALID_METHOD
+    status: 400
+    message: method must be fifo, lifo, weighted_average, or specific_identification
+  - code: INV_ENTITY_MISSING
+    status: 400
+    message: entity_id is required
+
+events:
+  - name: inventory.computed
+    payload: [computation_id, entity_id, method, cogs, ending_inventory, lifo_reserve_change]
+  - name: inventory.computation_rejected
+    payload: [computation_id, reason_code]
+
+anti_patterns:
+  - rule: Do not compare LIFO US firms against FIFO IFRS firms without adjustment
+    why: "Use LIFO reserve to restate to FIFO; otherwise ratios and margins are not comparable"
+  - rule: Do not ignore LIFO liquidation gains
+    why: "Selling old, low-cost inventory inflates gross profit temporarily; strip from sustainable earnings"
+  - rule: Do not carry inventory above NRV
+    why: "IFRS and US GAAP both require write-down; failing to do so overstates assets and future margins"
+  - rule: Do not treat inventory turnover in isolation
+    why: "High turnover can reflect stockouts and lost sales; pair with gross margin and sales growth"
+
+api:
+  http:
+    method: POST
+    path: /fsa/inventory/compute
+  request:
+    schema:
+      entity_id: string
+      method: string
+      beginning_inventory: number
+      purchases: object
+      units_sold: number
+  response:
+    success:
+      status: 200
+      schema:
+        computation_id: string
+        cogs: number
+        ending_inventory: number
+        gross_profit: number
+    errors:
+      - status: 400
+        error_code: INV_INVALID_METHOD
+      - status: 400
+        error_code: INV_ENTITY_MISSING
+
+related:
+  - feature: fsa-balance-sheet
+    type: required
+  - feature: fsa-income-statement
+    type: recommended

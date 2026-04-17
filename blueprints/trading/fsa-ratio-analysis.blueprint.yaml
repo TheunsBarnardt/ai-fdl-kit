@@ -1,0 +1,193 @@
+# ============================================================
+# fsa-ratio-analysis — Feature Blueprint
+# Source: CFA LV1 2025 Vol 04 — Module 9, Ratio analysis
+# ============================================================
+
+feature: fsa-ratio-analysis
+version: "1.0.0"
+description: Apply activity, liquidity, solvency, profitability, and valuation ratios with DuPont decomposition to compare firm performance across peers and time
+category: trading
+tags: [financial-statement-analysis, ratio-analysis, dupont, activity-ratios, solvency-ratios, profitability, cfa-level-1]
+aliases:
+  - financial-ratios
+  - dupont-decomposition
+  - activity-ratios
+  - solvency-ratios
+  - profitability-ratios
+  - valuation-ratios
+
+actors:
+  - id: ratio_engine
+    name: Financial Ratio Engine
+    type: system
+
+fields:
+  - name: entity_id
+    type: text
+    required: true
+    label: Entity identifier
+  - name: period
+    type: text
+    required: true
+    label: Reporting period
+  - name: revenue
+    type: number
+    required: true
+    label: Revenue
+  - name: net_income
+    type: number
+    required: true
+    label: Net income
+  - name: total_assets
+    type: number
+    required: true
+    label: Total assets
+  - name: total_equity
+    type: number
+    required: true
+    label: Total equity
+
+rules:
+  activity_ratios:
+    # Turnover speed
+    inventory_turnover: "COGS / avg inventory"
+    receivables_turnover: "Revenue / avg receivables"
+    payables_turnover: "Purchases / avg payables"
+    total_asset_turnover: "Revenue / avg total assets"
+  liquidity_ratios:
+    current_ratio: "CA / CL"
+    quick_ratio: "(CA - inventory) / CL"
+    cash_ratio: "(Cash + MS) / CL"
+    defensive_interval: "(Cash + MS + receivables) / daily cash expenses"
+  solvency_ratios:
+    debt_to_assets: "Total debt / total assets"
+    debt_to_equity: "Total debt / total equity"
+    financial_leverage: "Avg total assets / avg total equity"
+    interest_coverage: "EBIT / interest expense"
+  profitability_ratios:
+    gross_margin: "Gross profit / revenue"
+    operating_margin: "Operating income / revenue"
+    net_margin: "Net income / revenue"
+    roa: "Net income / avg total assets"
+    roe: "Net income / avg equity"
+  dupont_decomposition:
+    # Source: Vol 4, Module 9
+    three_step_roe: "ROE = net margin x asset turnover x financial leverage"
+    five_step_roe: "ROE = tax burden x interest burden x EBIT margin x asset turnover x leverage"
+    use: "Isolate driver of ROE change — operations vs financing"
+  valuation_ratios:
+    pe: "Price / EPS"
+    pb: "Price / book value per share"
+    ps: "Price / sales per share"
+    ev_ebitda: "Enterprise value / EBITDA"
+  validation:
+    entity_required: "entity_id present"
+    positive_totals: "total_assets > 0 and total_equity > 0"
+
+outcomes:
+  compute_ratios:
+    priority: 1
+    description: Compute full ratio set with DuPont
+    given:
+      - field: entity_id
+        source: input
+        operator: exists
+      - field: total_assets
+        source: input
+        operator: gt
+        value: 0
+      - field: total_equity
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: ratio_engine
+      - action: emit_event
+        event: ratio.computed
+  invalid_totals:
+    priority: 10
+    description: Non-positive totals
+    given:
+      - any:
+          - field: total_assets
+            source: input
+            operator: lte
+            value: 0
+          - field: total_equity
+            source: input
+            operator: lte
+            value: 0
+    then:
+      - action: emit_event
+        event: ratio.rejected
+    error: RATIO_INVALID_TOTAL
+  missing_entity:
+    priority: 11
+    description: Entity id missing
+    given:
+      - field: entity_id
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: ratio.rejected
+    error: RATIO_ENTITY_MISSING
+
+errors:
+  - code: RATIO_INVALID_TOTAL
+    status: 400
+    message: total_assets and total_equity must be positive
+  - code: RATIO_ENTITY_MISSING
+    status: 400
+    message: entity_id is required
+
+events:
+  - name: ratio.computed
+    payload: [computation_id, entity_id, period, roe, roa, leverage, dupont_breakdown]
+  - name: ratio.rejected
+    payload: [computation_id, reason_code]
+
+anti_patterns:
+  - rule: Do not compare ratios across industries without normalisation
+    why: "Capital intensity, margin structure, and working capital cycles differ; cross-industry rankings mislead"
+  - rule: Do not rely on year-end balances for turnover ratios
+    why: "Use averages; year-end snapshots distort when balances move with seasonality or acquisitions"
+  - rule: Do not ignore negative-equity firms in ROE
+    why: "ROE is meaningless when equity is negative due to buybacks or losses; use ROIC instead"
+  - rule: Do not treat DuPont decomposition as causal
+    why: "Components are arithmetic identities; changes require qualitative validation before attribution"
+
+api:
+  http:
+    method: POST
+    path: /fsa/ratios/compute
+  request:
+    schema:
+      entity_id: string
+      period: string
+      revenue: number
+      net_income: number
+      total_assets: number
+      total_equity: number
+  response:
+    success:
+      status: 200
+      schema:
+        computation_id: string
+        roe: number
+        roa: number
+        dupont_breakdown: object
+    errors:
+      - status: 400
+        error_code: RATIO_INVALID_TOTAL
+      - status: 400
+        error_code: RATIO_ENTITY_MISSING
+
+related:
+  - feature: fsa-income-statement
+    type: required
+  - feature: fsa-balance-sheet
+    type: required
+  - feature: fsa-cash-flow
+    type: recommended

@@ -1,0 +1,285 @@
+{
+  "feature": "fsa-income-statement",
+  "version": "1.0.0",
+  "description": "Analyse income statements — revenue/expense recognition, non-recurring items, basic and diluted EPS, common-size ratios — applying IFRS 15 / ASC 606 five-step model",
+  "category": "trading",
+  "tags": [
+    "financial-statement-analysis",
+    "income-statement",
+    "revenue-recognition",
+    "eps",
+    "ifrs-15",
+    "expense-recognition",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "profit-and-loss",
+    "revenue-recognition-five-step",
+    "diluted-eps",
+    "basic-eps",
+    "common-size-income-statement",
+    "non-recurring-items"
+  ],
+  "actors": [
+    {
+      "id": "is_analyst",
+      "name": "Income Statement Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "entity_id",
+      "type": "text",
+      "required": true,
+      "label": "Entity identifier"
+    },
+    {
+      "name": "period",
+      "type": "text",
+      "required": true,
+      "label": "Reporting period"
+    },
+    {
+      "name": "revenue",
+      "type": "number",
+      "required": true,
+      "label": "Revenue"
+    },
+    {
+      "name": "net_income",
+      "type": "number",
+      "required": true,
+      "label": "Net income"
+    },
+    {
+      "name": "weighted_avg_shares",
+      "type": "number",
+      "required": false,
+      "label": "Weighted average shares outstanding"
+    }
+  ],
+  "rules": {
+    "revenue_recognition_five_step": {
+      "step1": "Identify contract with customer",
+      "step2": "Identify performance obligations",
+      "step3": "Determine transaction price",
+      "step4": "Allocate price to performance obligations",
+      "step5": "Recognise revenue when performance obligation satisfied"
+    },
+    "expense_recognition": {
+      "matching_principle": "Expenses matched to related revenues",
+      "capitalize_vs_expense": "Capitalise if future benefit, else expense",
+      "depreciation_methods": "Straight-line, declining balance, units-of-production"
+    },
+    "non_recurring_items": {
+      "unusual_or_infrequent": "Present separately within continuing operations",
+      "discontinued_operations": "Net of tax, separate line",
+      "accounting_changes": "Retrospective application generally required"
+    },
+    "eps": {
+      "basic_eps": "(Net income - preferred dividends) / weighted avg common shares",
+      "diluted_eps_convertible": "If-converted method for convertible securities",
+      "diluted_eps_options": "Treasury stock method for options and warrants",
+      "antidilutive_exclusion": "Exclude securities that would increase EPS"
+    },
+    "common_size": {
+      "technique": "Each line as percent of revenue",
+      "use": "Compare across firms and periods"
+    },
+    "key_ratios": {
+      "gross_margin": "Gross profit / revenue",
+      "operating_margin": "Operating income / revenue",
+      "net_margin": "Net income / revenue"
+    },
+    "validation": {
+      "entity_required": "entity_id present",
+      "period_required": "period present",
+      "revenue_non_negative": "revenue >= 0"
+    }
+  },
+  "outcomes": {
+    "analyze_income_statement": {
+      "priority": 1,
+      "description": "Produce margins, EPS, and common-size analysis",
+      "given": [
+        {
+          "field": "entity_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "period",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "revenue",
+          "source": "input",
+          "operator": "gte",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "is_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "is.analyzed"
+        }
+      ]
+    },
+    "invalid_revenue": {
+      "priority": 10,
+      "description": "Negative revenue",
+      "given": [
+        {
+          "field": "revenue",
+          "source": "input",
+          "operator": "lt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "is.analysis_rejected"
+        }
+      ],
+      "error": "IS_INVALID_REVENUE"
+    },
+    "missing_inputs": {
+      "priority": 11,
+      "description": "Entity or period missing",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "entity_id",
+              "source": "input",
+              "operator": "not_exists"
+            },
+            {
+              "field": "period",
+              "source": "input",
+              "operator": "not_exists"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "is.analysis_rejected"
+        }
+      ],
+      "error": "IS_MISSING_INPUTS"
+    }
+  },
+  "errors": [
+    {
+      "code": "IS_INVALID_REVENUE",
+      "status": 400,
+      "message": "revenue must be non-negative"
+    },
+    {
+      "code": "IS_MISSING_INPUTS",
+      "status": 400,
+      "message": "entity_id and period are required"
+    }
+  ],
+  "events": [
+    {
+      "name": "is.analyzed",
+      "payload": [
+        "analysis_id",
+        "entity_id",
+        "period",
+        "gross_margin",
+        "operating_margin",
+        "net_margin",
+        "basic_eps",
+        "diluted_eps"
+      ]
+    },
+    {
+      "name": "is.analysis_rejected",
+      "payload": [
+        "analysis_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not ignore non-recurring items when forecasting",
+      "why": "Forecasts must use sustainable earnings; mixing one-time gains into run-rate biases projections"
+    },
+    {
+      "rule": "Do not include antidilutive securities in diluted EPS",
+      "why": "They would increase EPS; only dilutive securities decrease EPS and belong in the calculation"
+    },
+    {
+      "rule": "Do not compare margins across industries without care",
+      "why": "Capital-intensive and asset-light businesses have structurally different margin profiles"
+    },
+    {
+      "rule": "Do not conflate revenue recognition timing with cash collection",
+      "why": "Revenue can be booked before cash arrives; accruals and contract assets need separate analysis"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/fsa/income-statement/analyze"
+    },
+    "request": {
+      "schema": {
+        "entity_id": "string",
+        "period": "string",
+        "revenue": "number",
+        "net_income": "number",
+        "weighted_avg_shares": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "analysis_id": "string",
+          "gross_margin": "number",
+          "operating_margin": "number",
+          "net_margin": "number",
+          "basic_eps": "number",
+          "diluted_eps": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "IS_INVALID_REVENUE"
+        },
+        {
+          "status": 400,
+          "error_code": "IS_MISSING_INPUTS"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "fsa-framework",
+      "type": "required"
+    },
+    {
+      "feature": "fsa-balance-sheet",
+      "type": "recommended"
+    },
+    {
+      "feature": "fsa-cash-flow",
+      "type": "recommended"
+    }
+  ]
+}

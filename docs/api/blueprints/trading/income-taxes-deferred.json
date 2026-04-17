@@ -1,0 +1,274 @@
+{
+  "feature": "income-taxes-deferred",
+  "version": "1.0.0",
+  "description": "Reconcile accounting and taxable income, compute deferred tax assets/liabilities from temporary differences, and apply valuation allowances and rate-change adjustments",
+  "category": "trading",
+  "tags": [
+    "financial-statement-analysis",
+    "income-tax",
+    "deferred-tax-asset",
+    "deferred-tax-liability",
+    "temporary-difference",
+    "effective-tax-rate",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "deferred-tax-accounting",
+    "dta-dtl",
+    "temporary-difference",
+    "permanent-difference",
+    "effective-tax-rate",
+    "valuation-allowance"
+  ],
+  "actors": [
+    {
+      "id": "tax_analyst",
+      "name": "Tax Accounting Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "entity_id",
+      "type": "text",
+      "required": true,
+      "label": "Entity identifier"
+    },
+    {
+      "name": "pretax_income",
+      "type": "number",
+      "required": true,
+      "label": "Accounting pretax income"
+    },
+    {
+      "name": "taxable_income",
+      "type": "number",
+      "required": true,
+      "label": "Taxable income per tax return"
+    },
+    {
+      "name": "statutory_rate",
+      "type": "number",
+      "required": true,
+      "label": "Statutory tax rate (decimal)"
+    }
+  ],
+  "rules": {
+    "temporary_differences": {
+      "definition": "Differences between carrying amount and tax base that reverse over time",
+      "examples": [
+        "Depreciation timing",
+        "Warranty reserves",
+        "Unrealised gains/losses"
+      ]
+    },
+    "permanent_differences": {
+      "definition": "Never reverse — do not create DTA/DTL",
+      "examples": [
+        "Tax-exempt interest",
+        "Non-deductible entertainment",
+        "Fines and penalties"
+      ]
+    },
+    "dta_dtl_creation": {
+      "dtl": "Taxable income < accounting income (e.g., accelerated tax depreciation)",
+      "dta": "Taxable income > accounting income (e.g., warranty accruals)"
+    },
+    "valuation_allowance": {
+      "condition": "Reduce DTA when recovery is more likely than not (US GAAP) / probable (IFRS) to fail",
+      "impact": "Boosts effective tax rate when recorded; reverses boost realizability"
+    },
+    "rate_change_effect": {
+      "formula": "DTA/DTL = temporary difference x enacted future rate",
+      "rate_cut": "Cuts DTA and DTL; one-time hit or gain in earnings"
+    },
+    "effective_tax_rate": {
+      "formula": "Tax expense / pretax income",
+      "drivers": "Mix of permanent differences, foreign rates, valuation allowances, rate changes"
+    },
+    "disclosure_requirements": {
+      "reconciliation": "Statutory vs effective rate reconciliation",
+      "components": "Current and deferred components of tax expense"
+    },
+    "validation": {
+      "entity_required": "entity_id present",
+      "valid_rate": "0 < statutory_rate < 1"
+    }
+  },
+  "outcomes": {
+    "compute_deferred_tax": {
+      "priority": 1,
+      "description": "Compute tax expense with deferred adjustments",
+      "given": [
+        {
+          "field": "entity_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "statutory_rate",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        },
+        {
+          "field": "statutory_rate",
+          "source": "input",
+          "operator": "lt",
+          "value": 1
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "tax_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "tax.computed"
+        }
+      ]
+    },
+    "invalid_rate": {
+      "priority": 10,
+      "description": "Rate out of range",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "statutory_rate",
+              "source": "input",
+              "operator": "lte",
+              "value": 0
+            },
+            {
+              "field": "statutory_rate",
+              "source": "input",
+              "operator": "gte",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "tax.rejected"
+        }
+      ],
+      "error": "TAX_INVALID_RATE"
+    },
+    "missing_entity": {
+      "priority": 11,
+      "description": "Entity missing",
+      "given": [
+        {
+          "field": "entity_id",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "tax.rejected"
+        }
+      ],
+      "error": "TAX_ENTITY_MISSING"
+    }
+  },
+  "errors": [
+    {
+      "code": "TAX_INVALID_RATE",
+      "status": 400,
+      "message": "statutory_rate must be strictly between 0 and 1"
+    },
+    {
+      "code": "TAX_ENTITY_MISSING",
+      "status": 400,
+      "message": "entity_id is required"
+    }
+  ],
+  "events": [
+    {
+      "name": "tax.computed",
+      "payload": [
+        "computation_id",
+        "entity_id",
+        "current_tax",
+        "deferred_tax",
+        "effective_rate"
+      ]
+    },
+    {
+      "name": "tax.rejected",
+      "payload": [
+        "computation_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not equate effective tax rate with sustainable tax rate",
+      "why": "One-off items (rate changes, valuation allowance adjustments) distort single-year effective rates"
+    },
+    {
+      "rule": "Do not value DTA without testing recoverability",
+      "why": "Without sufficient future taxable income, DTA cannot be realised; valuation allowance required"
+    },
+    {
+      "rule": "Do not ignore indefinite-lived DTLs",
+      "why": "DTLs on goodwill or non-amortising intangibles may never reverse; some analysts treat as equity"
+    },
+    {
+      "rule": "Do not conflate permanent and temporary differences",
+      "why": "Only temporaries create DTA/DTL; permanents affect effective rate but not deferred accounts"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/fsa/tax/compute"
+    },
+    "request": {
+      "schema": {
+        "entity_id": "string",
+        "pretax_income": "number",
+        "taxable_income": "number",
+        "statutory_rate": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "computation_id": "string",
+          "current_tax": "number",
+          "deferred_tax": "number",
+          "effective_rate": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "TAX_INVALID_RATE"
+        },
+        {
+          "status": 400,
+          "error_code": "TAX_ENTITY_MISSING"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "fsa-balance-sheet",
+      "type": "required"
+    },
+    {
+      "feature": "fsa-income-statement",
+      "type": "required"
+    }
+  ]
+}

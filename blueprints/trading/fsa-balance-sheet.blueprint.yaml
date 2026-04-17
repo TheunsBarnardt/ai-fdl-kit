@@ -1,0 +1,175 @@
+# ============================================================
+# fsa-balance-sheet — Feature Blueprint
+# Source: CFA LV1 2025 Vol 04 — Module 5, p.91-122
+# ============================================================
+
+feature: fsa-balance-sheet
+version: "1.0.0"
+description: Analyse balance sheets — intangibles, goodwill, financial instruments, non-current liabilities, deferred taxes — using ratios and common-size analysis to assess structure
+category: trading
+tags: [financial-statement-analysis, balance-sheet, goodwill, intangibles, deferred-tax, liquidity-ratio, cfa-level-1]
+aliases:
+  - statement-of-financial-position
+  - goodwill-analysis
+  - intangible-assets
+  - current-ratio-analysis
+  - common-size-balance-sheet
+  - deferred-tax-liability
+
+actors:
+  - id: bs_analyst
+    name: Balance Sheet Analyst
+    type: system
+
+fields:
+  - name: entity_id
+    type: text
+    required: true
+    label: Entity identifier
+  - name: period
+    type: text
+    required: true
+    label: Reporting period
+  - name: current_assets
+    type: number
+    required: true
+    label: Current assets
+  - name: current_liabilities
+    type: number
+    required: true
+    label: Current liabilities
+  - name: total_assets
+    type: number
+    required: true
+    label: Total assets
+  - name: total_equity
+    type: number
+    required: true
+    label: Total equity
+
+rules:
+  intangibles:
+    # Source: Vol 4, Module 5, p.92-99
+    identifiable: "Patents, trademarks, software — amortised or tested for impairment"
+    unidentifiable: "Goodwill — tested annually for impairment, not amortised under IFRS or US GAAP"
+    internally_generated: "Mostly expensed; development costs capitalised under IFRS if criteria met"
+  financial_instruments:
+    # Source: Vol 4, Module 5, p.99-104
+    amortised_cost: "Hold-to-maturity debt; measured at amortised cost"
+    fvtpl: "Fair value through P&L — trading"
+    fvoci: "Fair value through OCI — equity investments, available-for-sale debt"
+  non_current_liabilities:
+    long_term_debt: "Bonds, loans; carried at amortised cost"
+    deferred_tax_liabilities: "Temporary differences between book and tax base"
+  key_ratios:
+    current_ratio: "Current assets / current liabilities"
+    quick_ratio: "(CA - inventory) / CL"
+    debt_to_equity: "Total debt / total equity"
+    financial_leverage: "Total assets / total equity"
+  common_size:
+    technique: "Each line as percent of total assets (assets) or total equity+liabilities (credit side)"
+    use: "Reveals structural shifts and peer differences"
+  validation:
+    entity_required: "entity_id present"
+    balance_sheet_identity: "total_assets must be positive"
+    equity_present: "total_equity must be specified"
+
+outcomes:
+  analyze_balance_sheet:
+    priority: 1
+    description: Compute structural and liquidity ratios
+    given:
+      - field: entity_id
+        source: input
+        operator: exists
+      - field: total_assets
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: bs_analyst
+      - action: emit_event
+        event: bs.analyzed
+  invalid_total_assets:
+    priority: 10
+    description: Total assets non-positive
+    given:
+      - field: total_assets
+        source: input
+        operator: lte
+        value: 0
+    then:
+      - action: emit_event
+        event: bs.analysis_rejected
+    error: BS_INVALID_ASSETS
+  missing_entity:
+    priority: 11
+    description: Entity missing
+    given:
+      - field: entity_id
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: bs.analysis_rejected
+    error: BS_ENTITY_MISSING
+
+errors:
+  - code: BS_INVALID_ASSETS
+    status: 400
+    message: total_assets must be positive
+  - code: BS_ENTITY_MISSING
+    status: 400
+    message: entity_id is required
+
+events:
+  - name: bs.analyzed
+    payload: [analysis_id, entity_id, period, current_ratio, quick_ratio, leverage, intangibles_pct]
+  - name: bs.analysis_rejected
+    payload: [analysis_id, reason_code]
+
+anti_patterns:
+  - rule: Do not treat book value of goodwill as economic value
+    why: "Goodwill reflects historical purchase premia and may be impaired even without writedown; test against observable multiples"
+  - rule: Do not include restricted cash in liquidity ratios
+    why: "Restricted balances cannot settle obligations; exclude from quick and current ratio numerators"
+  - rule: Do not ignore off-balance-sheet items
+    why: "Operating leases (pre-IFRS 16), receivables facilities, and VIEs alter leverage materially"
+  - rule: Do not assume deferred tax liabilities will reverse
+    why: "Indefinite-lived asset differences may never reverse; treat as equity-like by some analysts"
+
+api:
+  http:
+    method: POST
+    path: /fsa/balance-sheet/analyze
+  request:
+    schema:
+      entity_id: string
+      period: string
+      current_assets: number
+      current_liabilities: number
+      total_assets: number
+      total_equity: number
+  response:
+    success:
+      status: 200
+      schema:
+        analysis_id: string
+        current_ratio: number
+        quick_ratio: number
+        debt_to_equity: number
+        financial_leverage: number
+    errors:
+      - status: 400
+        error_code: BS_INVALID_ASSETS
+      - status: 400
+        error_code: BS_ENTITY_MISSING
+
+related:
+  - feature: fsa-framework
+    type: required
+  - feature: fsa-income-statement
+    type: recommended
+  - feature: fsa-cash-flow
+    type: recommended
