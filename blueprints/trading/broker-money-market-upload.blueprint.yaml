@@ -1,0 +1,1537 @@
+feature: broker-money-market-upload
+version: 1.0.0
+description: Daily bulk upload of money market investments, cash movements, journals and memo transactions from external broker systems via fixed-width card-code records.
+category: trading
+aliases:
+  - money-market-upload
+  - mm-bulk-upload
+  - ncd-cd-upload
+  - money-market-bulk
+  - mm-trade-upload
+tags:
+  - money-market
+  - bulk-upload
+  - fixed-width
+  - investments
+  - ncd
+  - deposits
+  - back-office
+related:
+  - feature: broker-money-market
+    type: extends
+actors:
+  - id: upload_broker
+    name: Upload Broker
+    type: external
+    description: Broker running an external money-market system submitting daily batch files.
+  - id: back_office_system
+    name: Back-Office Settlement System
+    type: system
+    description: Downstream ledger that consumes validated money-market transactions.
+  - id: business_support
+    name: Business Support
+    type: human
+    description: Operations team resolving rejected transactions and reconciliation breaks.
+  - id: upload_engine
+    name: Upload Processor
+    type: system
+    description: Validation, processing and reporting module for money-market batches.
+fields:
+  - name: broker_code
+    type: text
+    required: true
+    label: Broker Code
+    validation:
+      - type: pattern
+        value: ^[0-9]{3}$
+        message: Broker Code failed pattern validation
+  - name: processing_date
+    type: date
+    required: true
+    label: Processing Date
+  - name: machine_date
+    type: datetime
+    required: true
+    label: File Generation Date
+  - name: system_id
+    type: text
+    required: true
+    label: Broker System Identifier
+  - name: card_code
+    type: select
+    required: true
+    label: Record Card Code
+    options:
+      - value: "70"
+        label: Header
+      - value: "72"
+        label: Investment
+      - value: "73"
+        label: Cash Receipt
+      - value: "74"
+        label: Cash Payment
+      - value: "75"
+        label: Journal
+      - value: "76"
+        label: Interest Rate Change (MR)
+      - value: "77"
+        label: DTI Change (MD)
+      - value: "78"
+        label: Turn Percentage (MT)
+      - value: "79"
+        label: Total Management Fee (MF)
+      - value: "80"
+        label: Maturity Date Change (MM)
+      - value: "99"
+        label: Trailer
+  - name: instrument_type
+    type: select
+    required: false
+    label: Money Market Instrument Type
+    options:
+      - value: NCD
+        label: Negotiable Certificate of Deposit
+      - value: CD
+        label: Certificate of Deposit
+      - value: TB
+        label: Treasury Bill
+      - value: BA
+        label: Banker's Acceptance
+      - value: REPO
+        label: Repurchase Agreement
+      - value: RREPO
+        label: Reverse Repurchase Agreement
+      - value: CALL
+        label: Call Deposit
+      - value: FIX
+        label: Fixed Deposit
+  - name: investment_type
+    type: select
+    required: false
+    label: Investment Type
+    options:
+      - value: F
+        label: Fixed
+      - value: C
+        label: Call
+  - name: invest_no
+    type: text
+    required: false
+    label: Broker Unique Investment Number
+    validation:
+      - type: pattern
+        value: ^[A-Z0-9]{1,9}$
+        message: Broker Unique Investment Number failed pattern validation
+  - name: account_code
+    type: text
+    required: true
+    label: Client Account Code
+    validation:
+      - type: pattern
+        value: ^[0-9]{7}$
+        message: Client Account Code failed pattern validation
+  - name: balance_code
+    type: text
+    required: true
+    label: Balance Code
+    validation:
+      - type: pattern
+        value: ^[A-Z0-9]{2}$
+        message: Balance Code failed pattern validation
+  - name: notional_amount
+    type: number
+    required: false
+    label: Notional / Capital Amount
+  - name: balance
+    type: number
+    required: false
+    label: Investment Balance
+  - name: bank_rate
+    type: number
+    required: false
+    label: Bank Quoted Rate (Yield)
+  - name: turn_rate
+    type: number
+    required: false
+    label: Turn Rate
+  - name: client_rate
+    type: number
+    required: false
+    label: Net Client Rate
+  - name: term_days
+    type: number
+    required: false
+    label: Term in Days
+  - name: effective_date
+    type: date
+    required: false
+    label: Effective Date
+  - name: maturity_date
+    type: date
+    required: false
+    label: Maturity Date
+  - name: counterparty_account
+    type: text
+    required: false
+    label: Borrower / Counterparty Account
+  - name: cash_alpha
+    type: text
+    required: false
+    label: Money Market Cash Alpha
+  - name: narrative
+    type: text
+    required: false
+    label: Statement Narrative
+  - name: record_count
+    type: number
+    required: false
+    label: Trailer Record Count
+  - name: journal_balance
+    type: number
+    required: false
+    label: Trailer Journal Balance
+  - name: batch_id
+    type: text
+    required: false
+    label: Upload Batch Identifier
+  - name: day_count_convention
+    type: select
+    required: false
+    label: Day Count Convention
+    options:
+      - value: ACT_365
+        label: Actual/365
+      - value: ACT_360
+        label: Actual/360
+  - name: settlement_basis
+    type: select
+    required: false
+    label: Settlement Basis
+    options:
+      - value: T0
+        label: Same-day (T+0)
+      - value: T1
+        label: Next business day (T+1)
+rules:
+  general:
+    rule_1: Every batch must begin with a card-code 70 header and end with a card-code 99 trailer; missing either rejects the whole file.
+    rule_2: Header processing date must equal the run date of the back-office system or the entire batch is rejected.
+    rule_3: Trailer record count must equal the number of data records between header and trailer; mismatches reject the batch.
+    rule_4: Trailer journal balance must sum to zero; non-zero balances are accepted but flagged on the exception report.
+    rule_5: All fields use display format only — packed data, HIGH values and LOW values are prohibited.
+    rule_6: Unused alphanumeric fields must contain spaces; unused numeric fields must contain zeros.
+    rule_7: A header and trailer must be sent every business day even when there are no transactions in between.
+    rule_8: Money-market transactions must be loaded on a separate data set from any other financial upload stream.
+    rule_9: Transactions against lender ('C') or borrower ('CB') account types may only affect money-market balance codes.
+    rule_10: Broker code, client account codes, balance codes and GL account codes must be pre-loaded before upload.
+    rule_11: Fixed deposits submitted more than once before maturity, or with capital differing from balance, are flagged as possible early terminations.
+    rule_12: Investments must be uploaded daily with end-of-day status for any instrument that changed during the day; take-on uploads include all instruments regardless of movement.
+    rule_13: Memo transactions (MR/MD/MT/MF/MM) carry a zero amount; the narrative conveys the change detail.
+    rule_14: Interest accrues on actual/365 day count for call and fixed deposits unless the spec overrides at instrument level.
+    rule_15: Yield is quoted as bank rate; net client rate equals bank rate minus turn rate.
+    rule_16: Maturity value for discount instruments (NCD, CD, TB, BA) is computed from notional, yield and term; repos settle at agreed repurchase price.
+    rule_17: Day-end investment snapshots are retained in an audit store for regulatory reconstruction.
+    rule_18: Rejected transactions remain the broker's responsibility to correct and resubmit the next business day.
+errors:
+  - code: MM_UPLOAD_HEADER_MISSING
+    status: 422
+    message: Upload batch is missing the required header record.
+  - code: MM_UPLOAD_TRAILER_MISSING
+    status: 422
+    message: Upload batch is missing the required trailer record.
+  - code: MM_UPLOAD_PROCESSING_DATE_MISMATCH
+    status: 422
+    message: Header processing date does not match the current run date.
+  - code: MM_UPLOAD_RECORD_COUNT_MISMATCH
+    status: 422
+    message: Trailer record count does not match the number of data records in the batch.
+  - code: MM_UPLOAD_INVALID_BROKER
+    status: 403
+    message: Broker code is not registered for money-market upload.
+  - code: MM_UPLOAD_INVALID_ACCOUNT
+    status: 422
+    message: Client account code is not loaded for this broker.
+  - code: MM_UPLOAD_INVALID_BALANCE_CODE
+    status: 422
+    message: Balance code is not valid for the supplied account type.
+  - code: MM_UPLOAD_BAD_FORMAT
+    status: 422
+    message: Record contains packed data, HIGH values, LOW values or malformed fields.
+  - code: MM_UPLOAD_DUPLICATE_FIXED_DEPOSIT
+    status: 409
+    message: Fixed deposit submitted more than once before maturity.
+  - code: MM_UPLOAD_CAPITAL_MISMATCH
+    status: 409
+    message: Fixed deposit balance differs from original capital amount.
+  - code: MM_UPLOAD_JOURNAL_IMBALANCE
+    status: 422
+    message: Journal entries do not comply with double-entry rules.
+  - code: MM_UPLOAD_BATCH_REJECTED
+    status: 422
+    message: Upload batch rejected during validation; see exception report.
+  - code: MM_UPLOAD_RECON_BREAK
+    status: 409
+    message: Reconciliation break detected between broker and back-office balances.
+events:
+  - name: mm.upload.batch.received
+    payload:
+      - batch_id
+      - broker_code
+      - processing_date
+      - record_count
+  - name: mm.upload.batch.validated
+    payload:
+      - batch_id
+      - broker_code
+      - processing_date
+      - record_count
+  - name: mm.upload.batch.rejected
+    payload:
+      - batch_id
+      - broker_code
+      - processing_date
+      - reason
+  - name: mm.upload.transaction.accepted
+    payload:
+      - batch_id
+      - card_code
+      - account_code
+      - invest_no
+  - name: mm.upload.transaction.rejected
+    payload:
+      - batch_id
+      - card_code
+      - account_code
+      - reason
+  - name: mm.upload.investment.booked
+    payload:
+      - invest_no
+      - account_code
+      - instrument_type
+      - notional_amount
+      - maturity_date
+  - name: mm.upload.yield.calculated
+    payload:
+      - invest_no
+      - bank_rate
+      - turn_rate
+      - client_rate
+  - name: mm.upload.maturity.scheduled
+    payload:
+      - invest_no
+      - account_code
+      - maturity_date
+      - maturity_value
+  - name: mm.upload.reconciliation.break
+    payload:
+      - batch_id
+      - broker_code
+      - journal_balance
+outcomes:
+  upload_mm_trade_batch:
+    priority: 1
+    description: Broker submits a daily money-market batch file and the upload engine validates header/trailer then queues records for processing.
+    given:
+      - field: card_code
+        source: input
+        operator: eq
+        value: "70"
+      - field: broker_code
+        source: input
+        operator: exists
+      - field: processing_date
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: mm_upload_batch
+        fields:
+          - batch_id
+          - broker_code
+          - processing_date
+          - machine_date
+          - system_id
+      - action: emit_event
+        event: mm.upload.batch.received
+  validate_mm_trade:
+    priority: 2
+    description: Each record is validated against broker/account/balance masters and format rules; bad records are routed to the rejection report.
+    given:
+      - any:
+          - field: broker_code
+            source: db
+            operator: not_exists
+          - field: account_code
+            source: db
+            operator: not_exists
+          - field: balance_code
+            source: db
+            operator: not_exists
+    then:
+      - action: emit_event
+        event: mm.upload.transaction.rejected
+      - action: create_record
+        type: mm_upload_rejection
+        fields:
+          - batch_id
+          - card_code
+          - account_code
+          - reason
+    error: MM_UPLOAD_BATCH_REJECTED
+  calculate_yield:
+    priority: 3
+    description: For each investment record (card 72) derive net client rate from bank rate minus turn rate using the configured day-count convention.
+    given:
+      - field: card_code
+        source: input
+        operator: eq
+        value: "72"
+      - field: bank_rate
+        source: input
+        operator: exists
+    then:
+      - action: set_field
+        target: client_rate
+        value: computed_bank_minus_turn
+      - action: emit_event
+        event: mm.upload.yield.calculated
+  calculate_maturity_value:
+    priority: 4
+    description: Compute maturity value for discount instruments (NCD, CD, TB, BA) and repurchase price for repos using notional, yield and term days on actual/365.
+    given:
+      - field: card_code
+        source: input
+        operator: eq
+        value: "72"
+      - field: maturity_date
+        source: input
+        operator: exists
+      - field: notional_amount
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: set_field
+        target: maturity_value
+        value: computed_from_notional_rate_term
+      - action: emit_event
+        event: mm.upload.investment.booked
+  schedule_maturity_processing:
+    priority: 5
+    description: Register a maturity event so the back office auto-processes redemption, interest accrual and capital return on the maturity date.
+    given:
+      - field: maturity_date
+        source: input
+        operator: gte
+        value: processing_date
+    then:
+      - action: create_record
+        type: mm_maturity_schedule
+        fields:
+          - invest_no
+          - account_code
+          - maturity_date
+          - maturity_value
+      - action: emit_event
+        event: mm.upload.maturity.scheduled
+  reconcile_against_back_office:
+    priority: 6
+    description: Trailer journal balance and per-investment balances are reconciled with the back-office ledger; discrepancies raise exception reports.
+    given:
+      - field: journal_balance
+        source: input
+        operator: neq
+        value: 0
+    then:
+      - action: notify
+        channel: email
+        target: business_support
+      - action: emit_event
+        event: mm.upload.reconciliation.break
+      - action: create_record
+        type: mm_reconciliation_exception
+        fields:
+          - batch_id
+          - broker_code
+          - journal_balance
+    error: MM_UPLOAD_RECON_BREAK
+  process_accepted_batch:
+    priority: 7
+    description: Validated batches feed the cash-receipt, cash-payment and journal functions; investments are written to the MM investment store and day-end snapshot retained in audit.
+    given:
+      - field: batch_id
+        source: db
+        operator: exists
+      - field: record_count
+        source: input
+        operator: gte
+        value: 0
+    then:
+      - action: call_service
+        target: back_office_post_cash_and_journals
+      - action: create_record
+        type: mm_investment_snapshot
+        fields:
+          - invest_no
+          - account_code
+          - balance
+          - bank_rate
+          - maturity_date
+      - action: emit_event
+        event: mm.upload.batch.validated
+extensions:
+  day_count:
+    default: ACT_365
+    supported:
+      - ACT_365
+      - ACT_360
+  settlement:
+    default: T0
+    supported:
+      - T0
+      - T1
+  interest_accrual:
+    basis: actual_365
+    posting: daily
+    capitalisation: at_maturity_for_fixed
+  mm_instrument_types:
+    NCD: Negotiable Certificate of Deposit (discount)
+    CD: Certificate of Deposit (interest-bearing)
+    TB: Treasury Bill (discount)
+    BA: Banker's Acceptance (discount)
+    REPO: Repurchase Agreement (sell and buy back)
+    RREPO: Reverse Repurchase Agreement (buy and sell back)
+    CALL: Call Deposit (variable rate, on demand)
+    FIX: Fixed Deposit (term, fixed rate)
+  record_type_map:
+    "70": Header
+    "72": Investment
+    "73": Cash Receipt (CR)
+    "74": Cash Payment (CP)
+    "75": Journal (J / IM for interest payable)
+    "76": Memo - Interest Rate Change (MR)
+    "77": Memo - DTI Change (MD)
+    "78": Memo - Turn Percentage (MT)
+    "79": Memo - Total Management Fee (MF)
+    "80": Memo - Maturity Date Change (MM)
+    "99": Trailer
+  record_layouts:
+    "70":
+      description: Header record - first record in every batch.
+      fields:
+        - name: CARD_CDE
+          start: 1
+          length: 2
+          end: 2
+          type: numeric
+        - name: FILLER_1
+          start: 3
+          length: 1
+          end: 3
+          type: alpha
+        - name: BRK_CDE
+          start: 4
+          length: 3
+          end: 6
+          type: numeric
+        - name: FILLER_2
+          start: 7
+          length: 1
+          end: 7
+          type: alpha
+        - name: MACHINE_DTE
+          start: 8
+          length: 8
+          end: 15
+          type: numeric
+        - name: FILLER_3
+          start: 16
+          length: 1
+          end: 16
+          type: alpha
+        - name: MACHINE_TME
+          start: 17
+          length: 8
+          end: 24
+          type: numeric
+        - name: FILLER_4
+          start: 25
+          length: 1
+          end: 25
+          type: alpha
+        - name: DATE
+          start: 26
+          length: 8
+          end: 33
+          type: numeric
+        - name: FILLER_5
+          start: 34
+          length: 1
+          end: 34
+          type: alpha
+        - name: SYSTEM_ID
+          start: 35
+          length: 4
+          end: 38
+          type: alpha
+        - name: FILLER_6
+          start: 39
+          length: 212
+          end: 250
+          type: alpha
+    "72":
+      description: Investment record - one end-of-day snapshot per changed investment.
+      fields:
+        - name: CARD_CDE
+          start: 1
+          length: 2
+          end: 2
+          type: numeric
+        - name: BRK_CDE
+          start: 3
+          length: 3
+          end: 5
+          type: numeric
+        - name: DATE
+          start: 6
+          length: 8
+          end: 13
+          type: numeric
+        - name: SEQ_NO
+          start: 14
+          length: 7
+          end: 20
+          type: numeric
+        - name: EFF_DATE
+          start: 21
+          length: 8
+          end: 28
+          type: numeric
+        - name: MAT_DET
+          start: 29
+          length: 8
+          end: 36
+          type: numeric
+        - name: ACC_CDE
+          start: 37
+          length: 7
+          end: 43
+          type: numeric
+        - name: BRK_ACC
+          start: 44
+          length: 7
+          end: 50
+          type: alpha
+        - name: REF_NO
+          start: 51
+          length: 17
+          end: 67
+          type: alpha
+        - name: BAL_CDE
+          start: 68
+          length: 2
+          end: 69
+          type: alpha
+        - name: INV_TYP
+          start: 70
+          length: 2
+          end: 71
+          type: alpha
+        - name: INT_RATE
+          start: 72
+          length: 9
+          end: 80
+          type: numeric
+        - name: TRN_RATE
+          start: 81
+          length: 9
+          end: 89
+          type: numeric
+        - name: CLNT_RATE
+          start: 90
+          length: 9
+          end: 98
+          type: numeric
+        - name: CAP_AMT
+          start: 99
+          length: 15
+          end: 113
+          type: numeric
+        - name: SIGN_BAL
+          start: 114
+          length: 1
+          end: 114
+          type: alpha
+        - name: BALANCE
+          start: 115
+          length: 15
+          end: 129
+          type: numeric
+        - name: BRW_ACC_CDE
+          start: 130
+          length: 7
+          end: 136
+          type: numeric
+        - name: BRW_BAL_CDE
+          start: 137
+          length: 2
+          end: 138
+          type: alpha
+        - name: INV_NO
+          start: 139
+          length: 9
+          end: 147
+          type: alpha
+        - name: NARRATIVE
+          start: 148
+          length: 40
+          end: 187
+          type: alpha
+        - name: FILLER
+          start: 188
+          length: 63
+          end: 250
+          type: alpha
+    "73":
+      description: Cash Receipt (CR) - funds received from client or DTI, including interest received.
+      fields:
+        - name: CARD_CDE
+          start: 1
+          length: 2
+          end: 2
+          type: numeric
+        - name: BRK_CDE
+          start: 3
+          length: 3
+          end: 5
+          type: numeric
+        - name: DATE
+          start: 6
+          length: 8
+          end: 13
+          type: numeric
+        - name: SEQ_NO
+          start: 14
+          length: 7
+          end: 20
+          type: numeric
+        - name: DEP_NO
+          start: 21
+          length: 7
+          end: 27
+          type: numeric
+        - name: CASH_ALPHA
+          start: 28
+          length: 2
+          end: 29
+          type: alpha
+        - name: AGE_DATE
+          start: 30
+          length: 8
+          end: 37
+          type: numeric
+        - name: ACC_CDE
+          start: 38
+          length: 7
+          end: 44
+          type: numeric
+        - name: BAL_CDE
+          start: 45
+          length: 2
+          end: 46
+          type: alpha
+        - name: DES_CDE
+          start: 47
+          length: 2
+          end: 48
+          type: alpha
+        - name: AMOUNT
+          start: 49
+          length: 13
+          end: 61
+          type: numeric
+        - name: NARRATIVE
+          start: 62
+          length: 40
+          end: 101
+          type: alpha
+        - name: BRN_CDE
+          start: 102
+          length: 2
+          end: 103
+          type: alpha
+        - name: PAR_CDE
+          start: 104
+          length: 2
+          end: 105
+          type: alpha
+        - name: INVEST_NO
+          start: 106
+          length: 9
+          end: 114
+          type: alpha
+        - name: RG_CDE
+          start: 115
+          length: 2
+          end: 116
+          type: alpha
+        - name: FILLER
+          start: 117
+          length: 134
+          end: 250
+          type: alpha
+    "74":
+      description: Cash Payment (CP) - funds paid by broker to client or DTI.
+      fields:
+        - name: CARD_CDE
+          start: 1
+          length: 2
+          end: 2
+          type: numeric
+        - name: BRK_CDE
+          start: 3
+          length: 3
+          end: 5
+          type: numeric
+        - name: DATE
+          start: 6
+          length: 8
+          end: 13
+          type: numeric
+        - name: SEQ_NO
+          start: 14
+          length: 7
+          end: 20
+          type: numeric
+        - name: CHEQ_NO
+          start: 21
+          length: 7
+          end: 27
+          type: numeric
+        - name: CASH_ALPHA
+          start: 28
+          length: 2
+          end: 29
+          type: alpha
+        - name: AGE_DATE
+          start: 30
+          length: 8
+          end: 37
+          type: numeric
+        - name: ACC_CDE
+          start: 38
+          length: 7
+          end: 44
+          type: numeric
+        - name: BAL_CDE
+          start: 45
+          length: 2
+          end: 46
+          type: alpha
+        - name: DES_CDE
+          start: 47
+          length: 2
+          end: 48
+          type: alpha
+        - name: AMOUNT
+          start: 49
+          length: 13
+          end: 61
+          type: numeric
+        - name: NARRATIVE
+          start: 62
+          length: 40
+          end: 101
+          type: alpha
+        - name: BRN_CDE
+          start: 102
+          length: 2
+          end: 103
+          type: alpha
+        - name: PAR_CDE
+          start: 104
+          length: 2
+          end: 105
+          type: alpha
+        - name: INVEST_NO
+          start: 106
+          length: 9
+          end: 114
+          type: alpha
+        - name: RG_CDE
+          start: 115
+          length: 2
+          end: 116
+          type: alpha
+        - name: PAYEE
+          start: 117
+          length: 40
+          end: 156
+          type: alpha
+        - name: FILLER
+          start: 157
+          length: 94
+          end: 250
+          type: alpha
+    "75":
+      description: Journal (J / IM) - double-entry journal including interest payable journals.
+      fields:
+        - name: CARD_CDE
+          start: 1
+          length: 2
+          end: 2
+          type: numeric
+        - name: BRK_CDE
+          start: 3
+          length: 3
+          end: 5
+          type: numeric
+        - name: DATE
+          start: 6
+          length: 8
+          end: 13
+          type: numeric
+        - name: SEQ_NO
+          start: 14
+          length: 7
+          end: 20
+          type: numeric
+        - name: AGE_DATE
+          start: 21
+          length: 8
+          end: 28
+          type: numeric
+        - name: REF_NO
+          start: 29
+          length: 6
+          end: 34
+          type: alpha
+        - name: ACC_CDE
+          start: 35
+          length: 7
+          end: 41
+          type: numeric
+        - name: BAL_CDE
+          start: 42
+          length: 2
+          end: 43
+          type: numeric
+        - name: DES_CDE
+          start: 44
+          length: 2
+          end: 45
+          type: alpha
+        - name: SIGN
+          start: 46
+          length: 1
+          end: 46
+          type: alpha
+        - name: AMOUNT
+          start: 47
+          length: 13
+          end: 59
+          type: numeric
+        - name: NARRATIVE
+          start: 60
+          length: 40
+          end: 99
+          type: alpha
+        - name: BRN_CDE
+          start: 100
+          length: 2
+          end: 101
+          type: alpha
+        - name: PAR_CDE
+          start: 102
+          length: 2
+          end: 103
+          type: alpha
+        - name: INVEST_NO
+          start: 104
+          length: 9
+          end: 112
+          type: alpha
+        - name: RG_CDE
+          start: 113
+          length: 2
+          end: 114
+          type: alpha
+        - name: FILLER
+          start: 115
+          length: 136
+          end: 250
+          type: alpha
+    "76":
+      description: Memo - Interest Rate Change (MR). Zero amount; narrative carries new rate.
+      fields:
+        - name: CARD_CDE
+          start: 1
+          length: 2
+          end: 2
+          type: numeric
+        - name: BRK_CDE
+          start: 3
+          length: 3
+          end: 5
+          type: numeric
+        - name: DATE
+          start: 6
+          length: 8
+          end: 13
+          type: numeric
+        - name: SEQ_NO
+          start: 14
+          length: 7
+          end: 20
+          type: numeric
+        - name: AGE_DATE
+          start: 21
+          length: 8
+          end: 28
+          type: numeric
+        - name: REF_NO
+          start: 29
+          length: 6
+          end: 34
+          type: alpha
+        - name: ACC_CDE
+          start: 35
+          length: 7
+          end: 41
+          type: numeric
+        - name: BAL_CDE
+          start: 42
+          length: 2
+          end: 43
+          type: numeric
+        - name: DES_CDE
+          start: 44
+          length: 2
+          end: 45
+          type: alpha
+        - name: SIGN
+          start: 46
+          length: 1
+          end: 46
+          type: alpha
+        - name: AMOUNT
+          start: 47
+          length: 13
+          end: 59
+          type: numeric
+        - name: NARRATIVE
+          start: 60
+          length: 40
+          end: 99
+          type: alpha
+        - name: BRN_CDE
+          start: 100
+          length: 2
+          end: 101
+          type: alpha
+        - name: PAR_CDE
+          start: 102
+          length: 2
+          end: 103
+          type: alpha
+        - name: INVEST_NO
+          start: 104
+          length: 9
+          end: 112
+          type: alpha
+        - name: RG_CDE
+          start: 113
+          length: 2
+          end: 114
+          type: alpha
+        - name: FILLER
+          start: 115
+          length: 136
+          end: 250
+          type: alpha
+    "77":
+      description: Memo - DTI Change (MD). Same layout as 76; narrative = 'yy/mm/dd funds trf to xxx'.
+      fields:
+        - name: CARD_CDE
+          start: 1
+          length: 2
+          end: 2
+          type: numeric
+        - name: BRK_CDE
+          start: 3
+          length: 3
+          end: 5
+          type: numeric
+        - name: DATE
+          start: 6
+          length: 8
+          end: 13
+          type: numeric
+        - name: SEQ_NO
+          start: 14
+          length: 7
+          end: 20
+          type: numeric
+        - name: AGE_DATE
+          start: 21
+          length: 8
+          end: 28
+          type: numeric
+        - name: REF_NO
+          start: 29
+          length: 6
+          end: 34
+          type: alpha
+        - name: ACC_CDE
+          start: 35
+          length: 7
+          end: 41
+          type: numeric
+        - name: BAL_CDE
+          start: 42
+          length: 2
+          end: 43
+          type: numeric
+        - name: DES_CDE
+          start: 44
+          length: 2
+          end: 45
+          type: alpha
+        - name: SIGN
+          start: 46
+          length: 1
+          end: 46
+          type: alpha
+        - name: AMOUNT
+          start: 47
+          length: 13
+          end: 59
+          type: numeric
+        - name: NARRATIVE
+          start: 60
+          length: 40
+          end: 99
+          type: alpha
+        - name: BRN_CDE
+          start: 100
+          length: 2
+          end: 101
+          type: alpha
+        - name: PAR_CDE
+          start: 102
+          length: 2
+          end: 103
+          type: alpha
+        - name: INVEST_NO
+          start: 104
+          length: 9
+          end: 112
+          type: alpha
+        - name: RG_CDE
+          start: 113
+          length: 2
+          end: 114
+          type: alpha
+        - name: FILLER
+          start: 115
+          length: 136
+          end: 250
+          type: alpha
+    "78":
+      description: Memo - Turn Percentage (MT). Narrative = 'Average (or actual) turn 99.99'.
+      fields:
+        - name: CARD_CDE
+          start: 1
+          length: 2
+          end: 2
+          type: numeric
+        - name: BRK_CDE
+          start: 3
+          length: 3
+          end: 5
+          type: numeric
+        - name: DATE
+          start: 6
+          length: 8
+          end: 13
+          type: numeric
+        - name: SEQ_NO
+          start: 14
+          length: 7
+          end: 20
+          type: numeric
+        - name: AGE_DATE
+          start: 21
+          length: 8
+          end: 28
+          type: numeric
+        - name: REF_NO
+          start: 29
+          length: 6
+          end: 34
+          type: alpha
+        - name: ACC_CDE
+          start: 35
+          length: 7
+          end: 41
+          type: numeric
+        - name: BAL_CDE
+          start: 42
+          length: 2
+          end: 43
+          type: numeric
+        - name: DES_CDE
+          start: 44
+          length: 2
+          end: 45
+          type: alpha
+        - name: SIGN
+          start: 46
+          length: 1
+          end: 46
+          type: alpha
+        - name: AMOUNT
+          start: 47
+          length: 13
+          end: 59
+          type: numeric
+        - name: NARRATIVE
+          start: 60
+          length: 40
+          end: 99
+          type: alpha
+        - name: BRN_CDE
+          start: 100
+          length: 2
+          end: 101
+          type: alpha
+        - name: PAR_CDE
+          start: 102
+          length: 2
+          end: 103
+          type: alpha
+        - name: INVEST_NO
+          start: 104
+          length: 9
+          end: 112
+          type: alpha
+        - name: RG_CDE
+          start: 113
+          length: 2
+          end: 114
+          type: alpha
+        - name: FILLER
+          start: 115
+          length: 136
+          end: 250
+          type: alpha
+    "79":
+      description: Memo - Total Management Fee (MF). Narrative = 'Total Management Fee 9(13).99'.
+      fields:
+        - name: CARD_CDE
+          start: 1
+          length: 2
+          end: 2
+          type: numeric
+        - name: BRK_CDE
+          start: 3
+          length: 3
+          end: 5
+          type: numeric
+        - name: DATE
+          start: 6
+          length: 8
+          end: 13
+          type: numeric
+        - name: SEQ_NO
+          start: 14
+          length: 7
+          end: 20
+          type: numeric
+        - name: AGE_DATE
+          start: 21
+          length: 8
+          end: 28
+          type: numeric
+        - name: REF_NO
+          start: 29
+          length: 6
+          end: 34
+          type: alpha
+        - name: ACC_CDE
+          start: 35
+          length: 7
+          end: 41
+          type: numeric
+        - name: BAL_CDE
+          start: 42
+          length: 2
+          end: 43
+          type: numeric
+        - name: DES_CDE
+          start: 44
+          length: 2
+          end: 45
+          type: alpha
+        - name: SIGN
+          start: 46
+          length: 1
+          end: 46
+          type: alpha
+        - name: AMOUNT
+          start: 47
+          length: 13
+          end: 59
+          type: numeric
+        - name: NARRATIVE
+          start: 60
+          length: 40
+          end: 99
+          type: alpha
+        - name: BRN_CDE
+          start: 100
+          length: 2
+          end: 101
+          type: alpha
+        - name: PAR_CDE
+          start: 102
+          length: 2
+          end: 103
+          type: alpha
+        - name: INVEST_NO
+          start: 104
+          length: 9
+          end: 112
+          type: alpha
+        - name: RG_CDE
+          start: 113
+          length: 2
+          end: 114
+          type: alpha
+        - name: FILLER
+          start: 115
+          length: 136
+          end: 250
+          type: alpha
+    "80":
+      description: Memo - Maturity Date Change (MM). Narrative = 'New Maturity Date yy/mm/dd'.
+      fields:
+        - name: CARD_CDE
+          start: 1
+          length: 2
+          end: 2
+          type: numeric
+        - name: BRK_CDE
+          start: 3
+          length: 3
+          end: 5
+          type: numeric
+        - name: DATE
+          start: 6
+          length: 8
+          end: 13
+          type: numeric
+        - name: SEQ_NO
+          start: 14
+          length: 7
+          end: 20
+          type: numeric
+        - name: AGE_DATE
+          start: 21
+          length: 8
+          end: 28
+          type: numeric
+        - name: REF_NO
+          start: 29
+          length: 6
+          end: 34
+          type: alpha
+        - name: ACC_CDE
+          start: 35
+          length: 7
+          end: 41
+          type: numeric
+        - name: BAL_CDE
+          start: 42
+          length: 2
+          end: 43
+          type: numeric
+        - name: DES_CDE
+          start: 44
+          length: 2
+          end: 45
+          type: alpha
+        - name: SIGN
+          start: 46
+          length: 1
+          end: 46
+          type: alpha
+        - name: AMOUNT
+          start: 47
+          length: 13
+          end: 59
+          type: numeric
+        - name: NARRATIVE
+          start: 60
+          length: 40
+          end: 99
+          type: alpha
+        - name: BRN_CDE
+          start: 100
+          length: 2
+          end: 101
+          type: alpha
+        - name: PAR_CDE
+          start: 102
+          length: 2
+          end: 103
+          type: alpha
+        - name: INVEST_NO
+          start: 104
+          length: 9
+          end: 112
+          type: alpha
+        - name: RG_CDE
+          start: 113
+          length: 2
+          end: 114
+          type: alpha
+        - name: FILLER
+          start: 115
+          length: 136
+          end: 250
+          type: alpha
+    "99":
+      description: Trailer record - last record in every batch with control totals.
+      fields:
+        - name: CARD_CDE
+          start: 1
+          length: 2
+          end: 2
+          type: numeric
+        - name: FILLER_1
+          start: 3
+          length: 1
+          end: 3
+          type: alpha
+        - name: BRK_CDE
+          start: 4
+          length: 3
+          end: 6
+          type: numeric
+        - name: FILLER_2
+          start: 7
+          length: 1
+          end: 7
+          type: alpha
+        - name: MACHINE_DTE
+          start: 8
+          length: 8
+          end: 15
+          type: numeric
+        - name: FILLER_3
+          start: 16
+          length: 1
+          end: 16
+          type: alpha
+        - name: MACHINE_TME
+          start: 17
+          length: 8
+          end: 24
+          type: numeric
+        - name: FILLER_4
+          start: 25
+          length: 1
+          end: 25
+          type: alpha
+        - name: REC_CNT
+          start: 26
+          length: 7
+          end: 32
+          type: numeric
+        - name: FILLER_5
+          start: 33
+          length: 1
+          end: 33
+          type: alpha
+        - name: JNL_SIGN
+          start: 34
+          length: 1
+          end: 34
+          type: alpha
+        - name: FILLER_6
+          start: 35
+          length: 1
+          end: 35
+          type: alpha
+        - name: JNL_BAL
+          start: 36
+          length: 13
+          end: 48
+          type: numeric
+        - name: FILLER_7
+          start: 49
+          length: 202
+          end: 250
+          type: alpha
+  transaction_code_map:
+    "72":
+      trans_code: INV
+      desig_code: null
+      description: Investment
+    "73":
+      trans_code: CR
+      desig_code: null
+      description: Cash receipt
+    "74":
+      trans_code: CP
+      desig_code: null
+      description: Cash payment
+    "76":
+      trans_code: MR
+      desig_code: null
+      description: Interest rate change
+    "77":
+      trans_code: MD
+      desig_code: null
+      description: DTI change
+    "78":
+      trans_code: MT
+      desig_code: null
+      description: Turn rate
+    "79":
+      trans_code: MF
+      desig_code: null
+      description: Total management fee
+    "80":
+      trans_code: MM
+      desig_code: null
+      description: Maturity date change
+    75_IM:
+      trans_code: J
+      desig_code: IM
+      description: Interest payable journal
+    75_J:
+      trans_code: J
+      desig_code: null
+      description: Any other journal
+  reports:
+    upload_summary: Daily report showing closing balance per investment plus all accepted transactions.
+    rejection_report: Daily report (PCOMPR equivalent) listing rejected transactions for broker resubmission.
+    statements:
+      types:
+        - all_transactions
+        - balance_only
+        - consolidated
+      disclosure_options:
+        - rand
+        - rate
+        - message
+        - balance_only
+  pre_requisites:
+    - Broker MM indicator set to 'U' for upload brokers on broker master.
+    - Account type 'CB' loaded for borrower accounts.
+    - Lender ('C') and borrower ('CB') accounts created with MM indicator 'Y' and mandate date recorded.
+    - Money-market balance codes loaded (one per investment for lenders; fixed and call minimum for borrowers).
+    - Money-market cash alpha banking account configured with a system default.
+    - Money-market GL accounts configured for interest paid, client control, borrower control, MM turn and VAT on MM fee.

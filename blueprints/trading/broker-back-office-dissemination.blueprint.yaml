@@ -1,17 +1,14 @@
 # ============================================================
 # Broker Back-Office Data Dissemination — Feature Blueprint
-# FDL v0.1.0 | Blueprint v1.0.0
-# ============================================================
-# Extracted from: Broker Dissemination Specification v1.28
 # Fixed-width card code dissemination of back-office data
 # covering accounts, balances, movements, deals, scrip,
 # portfolio holdings, SLB, corporate actions, and elective
-# events from central back-office system to broker firms
+# events from central back-office system to broker firms.
 # ============================================================
 
 feature: broker-back-office-dissemination
-version: 1.0.0
-description: Back-office data dissemination from central broker administration to member firms via fixed-width card code records (accounts, balances, deals, scrip, GL, SLB, elective events)
+version: 1.1.0
+description: End-of-day back-office dissemination from central broker admin to member firms via fixed-width card code records (accounts, balances, deals, scrip, GL, SLB, elective events)
 category: trading
 tags:
   - back-office
@@ -267,10 +264,11 @@ rules:
     - "MUST: Allocate General Ledger data to separate dataset from other disseminated data"
     - "MUST: Allow end users to select which card codes to download per dataset"
   format:
-    - "MUST: Use fixed-width card code record format"
+    - "MUST: Use fixed-width card code record format, 173 characters per record, blank filled"
     - "MUST: Start every dissemination file with Header record (Card Code 000)"
     - "MUST: End every dissemination file with Trailer record (Card Code 999)"
     - "MUST: Include layout version number in each record"
+    - "MUST: Multiply balance amounts by 100 and represent as whole numbers with leading sign (+, -, space)"
   access_control:
     - "MUST: Verify user has relevant access before scheduling dissemination"
     - "MUST: Allow dissemination to member firms and authorized service providers"
@@ -278,6 +276,9 @@ rules:
     - "MUST: Support frozen elective event file download via online request process"
     - "MUST: Require email address setup before frozen file access"
     - "MUST: Provide Header (000), Event Detail (071), Account Detail (072), and Trailer (999) records in frozen file"
+  zero_balance_exclusion:
+    - "MUST: Support excluding zero balances for card codes 90 and 91 when requested"
+    - "MUST: Support excluding zero GL balances for card code 75 when requested"
 errors:
   - code: DISSEM_ACCESS_DENIED
     status: 403
@@ -319,12 +320,38 @@ outcomes:
       - action: emit_event
         event: broker_dissem.schedule.created
     error: DISSEM_INVALID_SCHEDULE
-  generate_eod_dissemination_file:
+  schedule_dissemination:
     priority: 2
+    description: Persist dissemination run parameters per broker including layout selection flags
+    given:
+      - field: run_parameters
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: dissemination_run
+        fields:
+          - broker_code
+          - branch_partner_codes
+          - portfolio_indicator
+          - fatca_flag
+          - fupd_flag
+          - ac7_flag
+          - layout_selection_flags
+          - dataset
+      - action: emit_event
+        event: broker_dissem.run.scheduled
+  generate_eod_dissemination_file:
+    priority: 3
     description: EOD batch generates dissemination file per scheduled request
     given:
-      - EOD batch process triggered
-      - scheduled dissemination request exists
+      - field: eod_batch
+        source: system
+        operator: eq
+        value: running
+      - field: scheduled_request
+        source: db
+        operator: exists
     then:
       - action: create_record
         type: dissemination_file
@@ -339,8 +366,61 @@ outcomes:
       - action: emit_event
         event: broker_dissem.file.generated
     error: DISSEM_FROZEN_FILE_UNAVAILABLE
+  generate_header_record:
+    priority: 4
+    description: Write Header record (Card Code 000) as the first record of every dissemination file with machine date, machine time, and batch run date
+    given:
+      - field: file_opened
+        source: system
+        operator: eq
+        value: true
+    then:
+      - action: create_record
+        type: header_record
+        fields:
+          - card_code
+          - machine_date
+          - machine_time
+          - batch_date
+      - action: emit_event
+        event: broker_dissem.header.written
+  generate_trailer_record:
+    priority: 5
+    description: Write Trailer record (Card Code 999) as the last record with total record count and batch run date
+    given:
+      - field: file_closing
+        source: system
+        operator: eq
+        value: true
+    then:
+      - action: create_record
+        type: trailer_record
+        fields:
+          - card_code
+          - machine_date
+          - machine_time
+          - record_count
+          - batch_date
+      - action: emit_event
+        event: broker_dissem.trailer.written
+  full_vs_updates_only:
+    priority: 6
+    description: User selects full dataset download or only records changed on the day, per card code family
+    given:
+      - field: download_mode
+        source: input
+        operator: in
+        value:
+          - full
+          - updates_only
+    then:
+      - action: set_field
+        target: delta_mode
+        value: updates_only
+      - action: emit_event
+        event: broker_dissem.mode.selected
   download_full_vs_changes:
-    priority: 3
+    priority: 7
     description: User selects full download or changes-only based on data type
     given:
       - field: download_mode
@@ -355,8 +435,22 @@ outcomes:
         value: changes
       - action: emit_event
         event: broker_dissem.mode.selected
+  exclude_zero_balances:
+    priority: 8
+    description: When exclusion flag is set, omit zero-balance records from balance layouts (90, 91, 75)
+    given:
+      - field: exclude_zero
+        source: input
+        operator: eq
+        value: true
+    then:
+      - action: set_field
+        target: filter_zero_balances
+        value: true
+      - action: emit_event
+        event: broker_dissem.zero_balances.excluded
   download_elective_frozen_file:
-    priority: 4
+    priority: 9
     description: User downloads frozen elective events file via online request process
     given:
       - field: email_configured
@@ -377,7 +471,7 @@ outcomes:
       - action: emit_event
         event: broker_dissem.frozen_file.delivered
   scheduling_access_denied:
-    priority: 5
+    priority: 10
     error: DISSEM_ACCESS_DENIED
     description: User without access attempts to schedule dissemination
     given:
@@ -389,8 +483,9 @@ outcomes:
       - action: emit_event
         event: broker_dissem.access_denied
   file_generation_failure:
-    priority: 6
+    priority: 11
     error: DISSEM_FILE_GENERATION_FAILED
+    description: File generation failed during EOD batch or online request
     given:
       - field: generation_status
         source: system
@@ -398,13 +493,13 @@ outcomes:
         value: failed
     then:
       - action: notify
-        channel: operations
+        channel: email
       - action: emit_event
         event: broker_dissem.generation.failed
 agi:
   goals:
     - id: reliable_broker_back_office_dissemination
-      description: Back-office data dissemination from central broker administration to member firms via fixed-width card code records (accounts, balances, deals, scrip, GL, SLB, elective events)
+      description: End-of-day back-office dissemination from central broker admin to member firms via fixed-width card code records
       success_metrics:
         - metric: policy_violation_rate
           target: 0%
@@ -445,78 +540,1393 @@ agi:
     invariants:
       - error messages never expose internal system details
 extensions:
+  record_format:
+    record_length: 173
+    padding: blank_filled
+    balance_encoding: multiply_by_100_with_leading_sign
+    sign_values: ["+", "-", " "]
+  card_code_map:
+    "000": Header Record
+    "080": Account Details Record 1
+    "085": Account Details Record 2
+    "086": Account Details Record 3
+    "077": Account Details Record 4
+    "078": Account Details Record 5
+    "079": Account Details Record 6
+    "098": Account Details Record 7
+    "050": Account Address Maintenance Record 1
+    "051": Account Address Maintenance Record 2
+    "052": Account Address Maintenance Record 3
+    "053": Account Address Maintenance Record 4
+    "058": Account Address Maintenance Record 5
+    "059": Account Address Maintenance Record 6
+    "054": Legal and Tax Maintenance Record 1
+    "055": Legal and Tax Maintenance Record 2
+    "056": Legal and Tax Maintenance Record 3
+    "057": Legal and Tax Maintenance Record 4
+    "044": Supplementary Names and Address Record 1
+    "045": Supplementary Names and Address Record 2
+    "046": Supplementary Names and Address Record 3
+    "047": Supplementary Names and Address Record 4
+    "048": Account Relationships
+    "070": BEE Instrument Account
+    "090": Balances Record 1
+    "091": Balances Record 2
+    "095": Portfolio Balances Record
+    "075": GL Balances Record
+    "087": Financial Transaction Record
+    "088": Scrip Transaction Record 1
+    "089": Scrip Transaction Record 2
+    "076": GL Transaction Record
+    "097": Cash Transaction Record
+    "081": Deals Record 1
+    "082": Deals Record 2
+    "083": Deals Record 3
+    "084": Deals Record 4
+    "099": Deals Record 5
+    "092": Instrument Record
+    "069": Multiple Bank Accounts Record
+    "093": Dividend Record
+    "094": Entitlements Record
+    "074": Electronically Settled Corporate Actions Record
+    "067": Electronically Settled Corporate Actions Tax Information Record
+    "068": Account Tax Exemption Details
+    "062": Account Tax Identification Type Codes
+    "073": ENTDU Details
+    "060": SLB Records
+    "061": Collateral Records
+    "096": Portfolio All Holdings Record
+    "071": Frozen File Event Detail Record
+    "072": Frozen File Account Detail Record
+    "999": Trailer Record
   card_code_groups:
-    account_details:
-      - 80
-      - 85
-      - 86
-      - 77
-      - 78
-      - 79
-      - 98
-    account_address_maintenance:
-      - 50
-      - 51
-      - 52
-      - 53
-      - 58
-      - 59
-    legal_and_tax_maintenance:
-      - 54
-      - 55
-      - 56
-      - 57
-    supplementary_names_addresses:
-      - 44
-      - 45
-      - 46
-      - 47
-    account_relationships:
-      - 48
-    bee_instrument_account:
-      - 70
-    balance_details:
-      - 90
-      - 91
-      - 95
-      - 75
-    daily_financial_movements:
-      - 87
-    scrip_records:
-      - 88
-      - 89
-    gl_records:
-      - 76
-    cash_transactions:
-      - 97
-    daily_deals:
-      - 81
-      - 82
-      - 83
-      - 84
-      - 99
-    instruments:
-      - 92
-    bank_records:
-      - 69
-    equity_entitlements:
-      - 93
-      - 94
-      - 74
-      - 67
-      - 68
-      - 62
-      - 73
-    slb_collateral:
-      - 60
-      - 61
-    portfolio_holdings:
-      - 96
-    elective_events_frozen_file:
-      - 0
-      - 71
-      - 72
-      - 999
+    account_details: ["080", "085", "086", "077", "078", "079", "098"]
+    account_address_maintenance: ["050", "051", "052", "053", "058", "059"]
+    legal_and_tax_maintenance: ["054", "055", "056", "057"]
+    supplementary_names_addresses: ["044", "045", "046", "047"]
+    account_relationships: ["048"]
+    bee_instrument_account: ["070"]
+    balance_details: ["090", "091", "095", "075"]
+    daily_financial_movements: ["087"]
+    scrip_records: ["088", "089"]
+    gl_records: ["076"]
+    cash_transactions: ["097"]
+    daily_deals: ["081", "082", "083", "084", "099"]
+    instruments: ["092"]
+    bank_records: ["069"]
+    equity_entitlements: ["093", "094", "074", "067", "068", "062", "073"]
+    slb_collateral: ["060", "061"]
+    portfolio_holdings: ["096"]
+    elective_events_frozen_file: ["000", "071", "072", "999"]
+  dissemination_parameters:
+    branch_partner_codes:
+      description: Broker branch or partner code filter; blank = all branches and main office
+      values: [blank, specific_code]
+    pf_ind:
+      description: Portfolio indicator filter; use hyphen to force blank when also populating FATCA
+      values: ["Y", "N", "-", blank]
+    fatca:
+      description: Include FATCA details
+      values: ["Y", "N"]
+    fupd:
+      description: Download only updated FATCA records (FATCA must also be N)
+      values: ["Y", "N"]
+    ac7:
+      description: Include new and updated Layout 70 (BEMNT) records
+      values: ["Y", "N"]
+    ac1_ac2_ac3_ac4_ac5_ac6:
+      description: Layout selection flags for 80, 85, 86, 77, 78, 98 respectively
+      values: ["Y", "N"]
+    up:
+      description: Accounts changed flag — NNNNNNYY pattern for updates-only across 80/85/86/77/78/98
+      values: ["Y", "N"]
+    dea:
+      description: Download accounts deactivated on the day (Layout 80)
+      values: ["Y", "N"]
+    bl1:
+      description: Other balances (Layout 90)
+      values: ["Y", "N"]
+    bl2:
+      description: Trading balances (Layout 91)
+      values: ["Y", "N"]
+    pf:
+      description: Portfolio balances (Layout 95)
+      values: ["Y", "N"]
+    gl_bal:
+      description: General ledger balances (Layout 75)
+      values: ["Y", "N"]
+    nz1:
+      description: Exclude zero balances for layouts 90 and 91
+      values: ["Y", "N"]
+    nz2:
+      description: Exclude zero GL balances for layout 75
+      values: ["Y", "N"]
+    rv:
+      description: Include deal reversals
+      values: ["Y", "N"]
+    fn:
+      description: Daily financial movements (Layout 87)
+      values: ["Y", "N"]
+    scr:
+      description: Daily scrip movements (Layouts 88, 89)
+      values: ["Y", "N"]
+    xop:
+      description: Include XOP records
+      values: ["Y", "N"]
+    gl_tran:
+      description: General ledger transactions (Layout 76)
+      values: ["Y", "N"]
+    cs:
+      description: Cash transactions (Layout 97)
+      values: ["Y", "N"]
+    dl1_dl2_dl3_dl4_dl5:
+      description: Daily deals layout selection (81, 82, 83, 84, 99)
+      values: ["Y", "N"]
+    set:
+      description: Include ES transaction codes
+      values: ["Y", "N"]
+    free:
+      description: Include DF, DP and DU transaction codes
+      values: ["Y", "N"]
+    ins:
+      description: Instruments (Layout 92)
+      values: ["Y", "N"]
+    iup:
+      description: Updated instruments only
+      values: ["Y", "N"]
+    bnk:
+      description: All bank records (Layout 69)
+      values: ["Y", "N"]
+    bal:
+      description: Only updated bank records
+      values: ["Y", "N"]
+    bdea:
+      description: Only deactivated bank records
+      values: ["Y", "N"]
+    divs:
+      description: Dividends newer than 60 business days (Layout 93)
+      values: ["Y", "N"]
+    r_msts:
+      description: Rights processes newer than 20 business days (Layout 94)
+      values: ["Y", "N"]
+    strt_ent:
+      description: Corporate actions for centrally-approved securities (Layout 74)
+      values: ["Y", "N"]
+    pfv:
+      description: Portfolio holdings portfolio clients only (Layout 96)
+      values: ["Y", "N"]
+    hld:
+      description: Portfolio holdings all clients (Layout 96)
+      values: ["Y", "N"]
+    up_pf:
+      description: Updated portfolio records only (Layout 96)
+      values: ["Y", "N"]
+    ent:
+      description: ENTDU records (Layout 73)
+      values: ["Y", "N"]
+    sl:
+      description: SLB records (Layout 60)
+      values: ["Y", "N"]
+    co:
+      description: Collateral records (Layout 61)
+      values: ["Y", "N"]
+    be:
+      description: Active BEE records (Layout 79)
+      values: ["Y", "N"]
+    al:
+      description: All BEE records (Layout 79)
+      values: ["Y", "N"]
+    ex:
+      description: Expired BEE records (Layout 79)
+      values: ["Y", "N"]
+    tx:
+      description: All tax exemption information (Layout 68)
+      values: ["Y", "N"]
+    id:
+      description: All tax identification information (Layout 62)
+      values: ["Y", "N"]
+    tu:
+      description: Updated tax exemption information (Layout 68)
+      values: ["Y", "N"]
+    iu:
+      description: Updated tax identification information (Layout 62)
+      values: ["Y", "N"]
+  record_layouts:
+    header_000:
+      total_length: 173
+      fields:
+        - {name: DATE,      start: 1,  length: 10, end: 10,  type: "X(10)"}
+        - {name: FILLER_1,  start: 11, length: 1,  end: 11,  type: "X"}
+        - {name: TIME,      start: 12, length: 8,  end: 19,  type: "X(8)"}
+        - {name: FILLER_2,  start: 20, length: 1,  end: 20,  type: "X"}
+        - {name: BAT_DTE,   start: 21, length: 8,  end: 28,  type: "9(8)"}
+        - {name: FILLER_3,  start: 29, length: 147, end: 175, type: "X(147)"}
+    trailer_999:
+      total_length: 173
+      fields:
+        - {name: DATE,      start: 1,  length: 10, end: 10, type: "X(10)"}
+        - {name: FILLER_1,  start: 11, length: 1,  end: 11, type: "X"}
+        - {name: TIME,      start: 12, length: 8,  end: 19, type: "X(8)"}
+        - {name: FILLER_2,  start: 20, length: 1,  end: 20, type: "X"}
+        - {name: NARRATIVE, start: 21, length: 20, end: 40, type: "X(20)"}
+        - {name: RECORDS,   start: 41, length: 9,  end: 49, type: "9(9)"}
+        - {name: FILLER_3,  start: 50, length: 1,  end: 50, type: "X"}
+        - {name: BAT_DTE,   start: 51, length: 8,  end: 58, type: "9(8)"}
+        - {name: FILLER_4,  start: 59, length: 117, end: 175, type: "X(117)"}
+    layout_80:
+      description: Account Details Record 1
+      fields:
+        - {name: SYSTEM,            start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,          start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,           start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,           start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: ACC_TYP_CDE,       start: 15,  length: 2,  end: 16,  type: "X(2)"}
+        - {name: BRN_CDE,           start: 17,  length: 2,  end: 18,  type: "X(2)"}
+        - {name: PARTNER_CDE,       start: 19,  length: 2,  end: 20,  type: "X(2)"}
+        - {name: PF_IND,            start: 21,  length: 1,  end: 21,  type: "X"}
+        - {name: PF_MAN_CHG_CDE,    start: 22,  length: 2,  end: 23,  type: "9(2)"}
+        - {name: ADVR_CDE,          start: 24,  length: 4,  end: 27,  type: "X(4)"}
+        - {name: CLI_TITLE,         start: 28,  length: 10, end: 37,  type: "X(10)"}
+        - {name: INITIALS,          start: 38,  length: 4,  end: 41,  type: "X(4)"}
+        - {name: SURNAME,           start: 42,  length: 40, end: 81,  type: "X(40)"}
+        - {name: EXTNL_ACC_IND,     start: 82,  length: 1,  end: 82,  type: "X"}
+        - {name: EXTNL_ACC_CDE,     start: 83,  length: 17, end: 99,  type: "X(17)"}
+        - {name: MAN_CDE,           start: 100, length: 3,  end: 102, type: "X(3)"}
+        - {name: SET_TYP_CDE,       start: 103, length: 1,  end: 103, type: "X"}
+        - {name: NON_RES_IND,       start: 104, length: 1,  end: 104, type: "X"}
+        - {name: COUNTRY_CDE,       start: 105, length: 3,  end: 107, type: "X(3)"}
+        - {name: INV_TYPE,          start: 108, length: 3,  end: 110, type: "X(3)"}
+        - {name: DTE_DEACTIVATED,   start: 111, length: 8,  end: 118, type: "9(8)"}
+        - {name: SEX,               start: 119, length: 1,  end: 119, type: "X"}
+        - {name: ID_NO,             start: 120, length: 13, end: 132, type: "X(13)"}
+        - {name: LANG_CDE,          start: 133, length: 1,  end: 133, type: "X"}
+        - {name: PRIN_AG_IND,       start: 134, length: 1,  end: 134, type: "X"}
+        - {name: CLI_IND,           start: 135, length: 7,  end: 141, type: "X(7)"}
+        - {name: CLI_CAT,           start: 142, length: 2,  end: 143, type: "X(2)"}
+        - {name: SCRIP_ACC_NO,      start: 144, length: 12, end: 155, type: "X(12)"}
+        - {name: EL_PAY_MAN_DTE,    start: 156, length: 8,  end: 163, type: "9(8)"}
+        - {name: MIN_NTE_IND,       start: 164, length: 1,  end: 164, type: "X(1)"}
+        - {name: ELECTION_IND,      start: 165, length: 1,  end: 165, type: "X(1)"}
+        - {name: ELEC_RPT_IND,      start: 166, length: 1,  end: 166, type: "X(1)"}
+        - {name: SLB_RATE,          start: 167, length: 5,  end: 171, type: "9(5)"}
+        - {name: FILLER,            start: 172, length: 2,  end: 173, type: "X(2)"}
+    layout_85:
+      description: Account Details Record 2
+      fields:
+        - {name: SYSTEM,                       start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,                     start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,                      start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,                      start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: ADR_LINE_1,                   start: 15,  length: 40, end: 54,  type: "X(40)"}
+        - {name: ADR_LINE_2,                   start: 55,  length: 40, end: 94,  type: "X(40)"}
+        - {name: TEL_NO_1,                     start: 95,  length: 15, end: 109, type: "X(15)"}
+        - {name: TEL_NO_2,                     start: 110, length: 15, end: 124, type: "X(15)"}
+        - {name: TAX_NO,                       start: 125, length: 12, end: 136, type: "X(12)"}
+        - {name: VAT_NO,                       start: 137, length: 13, end: 149, type: "X(13)"}
+        - {name: FILLER_1,                     start: 150, length: 14, end: 163, type: "X(14)"}
+        - {name: DATE_FAX_INDEMNITY_RECEIVED,  start: 164, length: 8,  end: 171, type: "X(8)"}
+        - {name: FILLER_2,                     start: 172, length: 2,  end: 173, type: "X(2)"}
+    layout_86:
+      description: Account Details Record 3
+      fields:
+        - {name: SYSTEM,          start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,        start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,         start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,         start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: ADR_LINE_3,      start: 15,  length: 40, end: 54,  type: "X(40)"}
+        - {name: ADR_LINE_4,      start: 55,  length: 40, end: 94,  type: "X(40)"}
+        - {name: POSTAL_CDE,      start: 95,  length: 4,  end: 98,  type: "X(4)"}
+        - {name: TELEFAX,         start: 99,  length: 15, end: 113, type: "X(15)"}
+        - {name: EMAIL_ADDR,      start: 114, length: 55, end: 168, type: "X(55)"}
+        - {name: COMM_BY_ISSUER,  start: 169, length: 1,  end: 169, type: "X(1)"}
+        - {name: FILLER,          start: 170, length: 4,  end: 173, type: "X(4)"}
+    layout_77:
+      description: Account Details Record 4
+      fields:
+        - {name: SYSTEM,        start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,      start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,       start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,       start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: FIRST_NAMES,   start: 15,  length: 40, end: 54,  type: "X(40)"}
+        - {name: DTE_LOADED,    start: 55,  length: 8,  end: 62,  type: "9(8)"}
+        - {name: EXCH_CTL,      start: 63,  length: 1,  end: 63,  type: "X"}
+        - {name: STAFF_IND,     start: 64,  length: 1,  end: 64,  type: "X"}
+        - {name: FILLER_1,      start: 65,  length: 2,  end: 66,  type: "9(2)"}
+        - {name: FILLER_2,      start: 67,  length: 5,  end: 71,  type: "9(5)"}
+        - {name: FILLER_3,      start: 72,  length: 11, end: 82,  type: "9(11)"}
+        - {name: MAND_RCV_DTE,  start: 83,  length: 8,  end: 90,  type: "9(8)"}
+        - {name: MAND_CHG_DTE,  start: 91,  length: 8,  end: 98,  type: "9(8)"}
+        - {name: INSTIT_CDE,    start: 99,  length: 3,  end: 101, type: "X(3)"}
+        - {name: BKGE_PCNT,     start: 102, length: 3,  end: 104, type: "9(3)"}
+        - {name: LAS_UPD_DTE,   start: 105, length: 8,  end: 112, type: "9(8)"}
+        - {name: ACC_ID_CDE,    start: 113, length: 3,  end: 115, type: "X(3)"}
+        - {name: FILLER_4,      start: 116, length: 2,  end: 117, type: "X(2)"}
+        - {name: SHORT_NAME,    start: 118, length: 20, end: 137, type: "X(20)"}
+        - {name: REF_BY,        start: 138, length: 30, end: 167, type: "X(30)"}
+        - {name: FILLER_5,      start: 168, length: 6,  end: 173, type: "X(6)"}
+    layout_78:
+      description: Account Details Record 5
+      fields:
+        - {name: SYSTEM,             start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,           start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,            start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,            start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: CTA_OPTN_CDE,       start: 15,  length: 1,  end: 15,  type: "X(1)"}
+        - {name: MANDATE_MOD,        start: 16,  length: 1,  end: 16,  type: "X(1)"}
+        - {name: REG_INS_CDE,        start: 17,  length: 2,  end: 18,  type: "9(2)"}
+        - {name: SCR_DISP_CDE,       start: 19,  length: 2,  end: 20,  type: "X(2)"}
+        - {name: SC_CHG_CDE,         start: 21,  length: 2,  end: 22,  type: "9(2)"}
+        - {name: SPEC_REG_NAME,      start: 23,  length: 70, end: 92,  type: "X(70)"}
+        - {name: NEG_SCALE,          start: 93,  length: 3,  end: 95,  type: "X(3)"}
+        - {name: INV_RET_CDE,        start: 96,  length: 2,  end: 97,  type: "X(2)"}
+        - {name: ASSET_RATE,         start: 98,  length: 5,  end: 102, type: "9(5)"}
+        - {name: CR_LIM_CDE,         start: 103, length: 2,  end: 104, type: "X(2)"}
+        - {name: CR_LIM_AMT,         start: 105, length: 15, end: 119, type: "9(15)"}
+        - {name: RTS_CONSOL_IND,     start: 120, length: 1,  end: 120, type: "X(1)"}
+        - {name: CON_KEY_OPTN,       start: 121, length: 1,  end: 121, type: "X(1)"}
+        - {name: ALLOC_SEQ_NO,       start: 122, length: 3,  end: 124, type: "9(3)"}
+        - {name: VAT_INV_IND,        start: 125, length: 1,  end: 125, type: "X(1)"}
+        - {name: DEL_CHQ_IND,        start: 126, length: 1,  end: 126, type: "X(1)"}
+        - {name: LEG_ENT_CDE,        start: 127, length: 2,  end: 128, type: "X(2)"}
+        - {name: POW_ATT,            start: 129, length: 1,  end: 129, type: "X(1)"}
+        - {name: MMKT_IND,           start: 130, length: 1,  end: 130, type: "X(1)"}
+        - {name: MMKT_MANDATE_DTE,   start: 131, length: 8,  end: 138, type: "9(8)"}
+        - {name: SAFEX_ACC_CDE,      start: 139, length: 5,  end: 143, type: "X(5)"}
+        - {name: SAFEX_RATE_CLASS,   start: 144, length: 1,  end: 144, type: "X(1)"}
+        - {name: UNEX_CDE,           start: 145, length: 8,  end: 152, type: "X(8)"}
+        - {name: NO_MST_IND,         start: 153, length: 1,  end: 153, type: "X(1)"}
+        - {name: CMPY_RPT_IND,       start: 154, length: 1,  end: 154, type: "X(1)"}
+        - {name: PRIME_BRK_CDE,      start: 155, length: 3,  end: 157, type: "9(3)"}
+        - {name: PRIME_ACC_CDE,      start: 158, length: 7,  end: 164, type: "9(7)"}
+        - {name: PRIME_BRK_VER_DTE,  start: 165, length: 8,  end: 172, type: "9(8)"}
+        - {name: PRIME_STATUS_IND,   start: 173, length: 1,  end: 173, type: "X(1)"}
+    layout_79:
+      description: Account Details Record 6 (BEE and postal)
+      fields:
+        - {name: SYSTEM,                       start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,                     start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,                      start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,                      start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: PROCS_DTE,                    start: 15,  length: 8,  end: 22,  type: "9(8)"}
+        - {name: BEE_IND,                      start: 23,  length: 1,  end: 23,  type: "X(1)"}
+        - {name: EXP_DTE,                      start: 24,  length: 8,  end: 31,  type: "9(8)"}
+        - {name: POSTAL_ADD_CO_IND,            start: 32,  length: 1,  end: 32,  type: "X(1)"}
+        - {name: CO_NAME,                      start: 33,  length: 30, end: 62,  type: "X(30)"}
+        - {name: NAMELESS_ACCOUNT_DESCRIPTOR,  start: 63,  length: 18, end: 80,  type: "X(18)"}
+        - {name: PROCESS_INTEREST,             start: 81,  length: 1,  end: 81,  type: "X(1)"}
+        - {name: PLEDGE_VALUE_REQUIRED,        start: 82,  length: 10, end: 91,  type: "9(10)"}
+        - {name: POA_IN_FAVOUR_OF,             start: 92,  length: 55, end: 146, type: "X(55)"}
+        - {name: SOURCE_OF_INCOME,             start: 147, length: 10, end: 156, type: "X(10)"}
+        - {name: PROCESS_MARGIN,               start: 157, length: 1,  end: 157, type: "X(1)"}
+        - {name: RETAIL_CLI_IND,               start: 158, length: 1,  end: 158, type: "X(1)"}
+        - {name: TFSA_IND,                     start: 159, length: 1,  end: 159, type: "X(1)"}
+        - {name: FOREIGN_POST_CDE,             start: 160, length: 10, end: 169, type: "X(10)"}
+        - {name: POST_CNTRY_CDE,               start: 170, length: 3,  end: 172, type: "X(3)"}
+        - {name: FILLER,                       start: 173, length: 1,  end: 173, type: "X(1)"}
+    layout_98:
+      description: Account Details Record 7 (CSDP)
+      fields:
+        - {name: SYSTEM,                start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,              start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,               start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,               start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: CSDP_CDE,              start: 15,  length: 2,  end: 16,  type: "X(2)"}
+        - {name: CSDP_BRN_CDE,          start: 17,  length: 4,  end: 20,  type: "X(4)"}
+        - {name: CSDP_ACC_NO,           start: 21,  length: 16, end: 36,  type: "X(16)"}
+        - {name: CSDP_BIC_CDE,          start: 37,  length: 11, end: 47,  type: "X(11)"}
+        - {name: CSDP_BP_ID,            start: 48,  length: 8,  end: 55,  type: "X(8)"}
+        - {name: CSDP_CSD_ACC_NO,       start: 56,  length: 9,  end: 64,  type: "9(9)"}
+        - {name: CSDP_VER_DTE,          start: 65,  length: 8,  end: 72,  type: "9(8)"}
+        - {name: CSH_AGT_CDE,           start: 73,  length: 2,  end: 74,  type: "X(2)"}
+        - {name: CSH_AGT_BRN_CDE,       start: 75,  length: 4,  end: 78,  type: "X(4)"}
+        - {name: CSH_AGT_ACC_NO,        start: 79,  length: 16, end: 94,  type: "X(16)"}
+        - {name: CSH_AGT_BIC_CDE,       start: 95,  length: 11, end: 105, type: "X(11)"}
+        - {name: CSH_AGT_BP_ID,         start: 106, length: 8,  end: 113, type: "X(8)"}
+        - {name: CSH_AGT_VER_DTE,       start: 114, length: 8,  end: 121, type: "9(8)"}
+        - {name: CLNT_BIC_CDE,          start: 122, length: 11, end: 132, type: "X(11)"}
+        - {name: NTE_IND,               start: 133, length: 1,  end: 133, type: "X(1)"}
+        - {name: STRT_CSDP_TEL_NO,      start: 134, length: 15, end: 148, type: "X(15)"}
+        - {name: STRT_ACC_TYP_HOLDER,   start: 149, length: 1,  end: 149, type: "X(1)"}
+        - {name: SLB_BIC_CDE,           start: 150, length: 11, end: 160, type: "X(11)"}
+        - {name: PRIME_ACC_IND,         start: 161, length: 1,  end: 161, type: "X(1)"}
+        - {name: FILLER,                start: 162, length: 12, end: 173, type: "X(12)"}
+    layout_50:
+      description: Account Address Maintenance Record 1 (Physical Address)
+      fields:
+        - {name: SYSTEM,                    start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,                  start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,                   start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,                   start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: SAME_AS_POSTAL_ADD,        start: 15,  length: 1,  end: 15,  type: "X(1)"}
+        - {name: PHY_ADD_CO_IND,            start: 16,  length: 1,  end: 16,  type: "X(1)"}
+        - {name: PHY_CO_NAME,               start: 17,  length: 30, end: 46,  type: "X(30)"}
+        - {name: PHY_UNIT_NUMBER,           start: 47,  length: 5,  end: 51,  type: "X(5)"}
+        - {name: PHY_COMPLEX_NAME,          start: 52,  length: 26, end: 77,  type: "X(26)"}
+        - {name: PHY_STREET_NUMBER,         start: 78,  length: 5,  end: 82,  type: "X(5)"}
+        - {name: PHY_STREET_NAME_OF_FARM,   start: 83,  length: 26, end: 108, type: "X(26)"}
+        - {name: PHY_SUBURB_DISTRICT,       start: 109, length: 34, end: 142, type: "X(34)"}
+        - {name: PHY_CITY_TOWN,             start: 143, length: 23, end: 165, type: "X(23)"}
+        - {name: FILLER,                    start: 166, length: 8,  end: 173, type: "X(8)"}
+    layout_51:
+      description: Account Address Maintenance Record 2 (Physical post / extra contact)
+      fields:
+        - {name: SYSTEM,               start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,             start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,              start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,              start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: PHY_POST_CDE,         start: 15,  length: 10, end: 24,  type: "X(10)"}
+        - {name: PHY_CNTRY_CDE,        start: 25,  length: 3,  end: 27,  type: "X(3)"}
+        - {name: FAX2_CNTRY,           start: 28,  length: 3,  end: 30,  type: "X(3)"}
+        - {name: FAX2,                 start: 31,  length: 10, end: 40,  type: "X(10)"}
+        - {name: TEL3_CNTRY,           start: 41,  length: 3,  end: 43,  type: "X(3)"}
+        - {name: TEL3,                 start: 44,  length: 10, end: 53,  type: "X(10)"}
+        - {name: TEL4_CNTRY,           start: 54,  length: 3,  end: 56,  type: "X(3)"}
+        - {name: TEL4,                 start: 57,  length: 10, end: 66,  type: "X(10)"}
+        - {name: EMAIL2,               start: 67,  length: 55, end: 121, type: "X(55)"}
+        - {name: EMAIL_DESCRIPTOR_2,   start: 122, length: 26, end: 147, type: "X(26)"}
+        - {name: FILLER,               start: 148, length: 26, end: 173, type: "X(26)"}
+    layout_52:
+      description: Account Address Maintenance Record 3
+      fields:
+        - {name: SYSTEM,              start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,            start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,             start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,             start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: EMAIL3,              start: 15,  length: 55, end: 69,  type: "X(55)"}
+        - {name: EMAIL_DESCRIPTOR_3,  start: 70,  length: 26, end: 95,  type: "X(26)"}
+        - {name: EMAIL4,              start: 96,  length: 55, end: 150, type: "X(55)"}
+        - {name: FILLER,              start: 151, length: 23, end: 173, type: "X(23)"}
+    layout_53:
+      description: Account Address Maintenance Record 4
+      fields:
+        - {name: SYSTEM,              start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,            start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,             start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,             start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: EMAIL_DESCRIPTOR_4,  start: 15,  length: 26, end: 40,  type: "X(26)"}
+        - {name: CELL_1,              start: 41,  length: 10, end: 50,  type: "X(10)"}
+        - {name: CELL_DESCRIPTOR_1,   start: 51,  length: 26, end: 76,  type: "X(26)"}
+        - {name: CELL_2,              start: 77,  length: 10, end: 86,  type: "X(10)"}
+        - {name: CELL_DESCRIPTOR_2,   start: 87,  length: 26, end: 112, type: "X(26)"}
+        - {name: CELL_3,              start: 113, length: 10, end: 122, type: "X(10)"}
+        - {name: CELL_DESCRIPTOR_3,   start: 123, length: 26, end: 148, type: "X(26)"}
+        - {name: FILLER,              start: 149, length: 25, end: 173, type: "X(25)"}
+    layout_58:
+      description: Account Address Maintenance Record 5 (Trading Address)
+      fields:
+        - {name: SYSTEM,                  start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,                start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,                 start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,                 start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: TRADING_ADDRESS_LINE_1,  start: 15,  length: 40, end: 54,  type: "X(40)"}
+        - {name: TRADING_ADDRESS_LINE_2,  start: 55,  length: 40, end: 94,  type: "X(40)"}
+        - {name: TRADING_ADDRESS_LINE_3,  start: 95,  length: 40, end: 134, type: "X(40)"}
+        - {name: FILLER,                  start: 135, length: 39, end: 173, type: "X(39)"}
+    layout_59:
+      description: Account Address Maintenance Record 6
+      fields:
+        - {name: SYSTEM,                  start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,                start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,                 start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,                 start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: TRADING_ADDRESS_LINE_4,  start: 15,  length: 40, end: 54,  type: "X(40)"}
+        - {name: POSTAL_CODE,             start: 55,  length: 10, end: 64,  type: "X(10)"}
+        - {name: FILLER,                  start: 65,  length: 109, end: 173, type: "X(109)"}
+    layout_54:
+      description: Legal and Tax Maintenance Record 1
+      fields:
+        - {name: SYSTEM,                    start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,                  start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,                   start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,                   start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: ID_TYPE,                   start: 15,  length: 3,  end: 17,  type: "9(3)"}
+        - {name: ID,                        start: 18,  length: 30, end: 47,  type: "X(30)"}
+        - {name: CTRY_OF_ISSUE_INC,         start: 48,  length: 3,  end: 50,  type: "X(3)"}
+        - {name: DTE_OF_ISSUE_INC,          start: 51,  length: 8,  end: 58,  type: "9(8)"}
+        - {name: PP_EXPIRY_DTE,             start: 59,  length: 8,  end: 66,  type: "9(8)"}
+        - {name: DTE_OF_BIRTH,              start: 67,  length: 8,  end: 74,  type: "9(8)"}
+        - {name: CNTRY_OF_BIRTH,            start: 75,  length: 3,  end: 77,  type: "X(3)"}
+        - {name: PLACE_OF_BIRTH,            start: 78,  length: 33, end: 110, type: "X(33)"}
+        - {name: CTRY_OF_RES_FOR_DWT,       start: 111, length: 3,  end: 113, type: "X(3)"}
+        - {name: DWT_EXEMP_FORM_REC,        start: 114, length: 1,  end: 114, type: "X(1)"}
+        - {name: IT3B_EXCL,                 start: 115, length: 1,  end: 115, type: "X(1)"}
+        - {name: IT3C_EXCL,                 start: 116, length: 1,  end: 116, type: "X(1)"}
+        - {name: DWT_FORM_A_OR_B,           start: 117, length: 1,  end: 117, type: "X(1)"}
+        - {name: DTA_FORM_REC,              start: 118, length: 3,  end: 120, type: "X(3)"}
+        - {name: PASS_THRU,                 start: 121, length: 1,  end: 121, type: "X(1)"}
+        - {name: REASON_FOR_NO_TAX_NUMBER,  start: 122, length: 50, end: 171, type: "X(50)"}
+        - {name: FILLER,                    start: 172, length: 2,  end: 173, type: "X(2)"}
+    layout_55:
+      description: Legal and Tax Maintenance Record 2 (FATCA / CRS)
+      fields:
+        - {name: SYSTEM,                  start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,                start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,                 start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,                 start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: REPORTING_ACCOUNT,       start: 15,  length: 1,  end: 15,  type: "X(1)"}
+        - {name: ACC_HOLDER_TYP,          start: 16,  length: 8,  end: 23,  type: "X(8)"}
+        - {name: ACC_STATUS,              start: 24,  length: 2,  end: 25,  type: "X(2)"}
+        - {name: LEGAL_ENTITY,            start: 26,  length: 2,  end: 27,  type: "X(2)"}
+        - {name: FI_GIIN,                 start: 28,  length: 19, end: 46,  type: "X(19)"}
+        - {name: INDICIA1,                start: 47,  length: 3,  end: 49,  type: "X(3)"}
+        - {name: INDICIA2,                start: 50,  length: 3,  end: 52,  type: "X(3)"}
+        - {name: INDICIA3,                start: 53,  length: 3,  end: 55,  type: "X(3)"}
+        - {name: INDICIA4,                start: 56,  length: 3,  end: 58,  type: "X(3)"}
+        - {name: INDICIA5,                start: 59,  length: 3,  end: 61,  type: "X(3)"}
+        - {name: TAX_RES1,                start: 62,  length: 3,  end: 64,  type: "X(3)"}
+        - {name: TAX_RES2,                start: 65,  length: 3,  end: 67,  type: "X(3)"}
+        - {name: TAX_RES3,                start: 68,  length: 3,  end: 70,  type: "X(3)"}
+        - {name: TAX_RES4,                start: 71,  length: 3,  end: 73,  type: "X(3)"}
+        - {name: TAX_RES5,                start: 74,  length: 3,  end: 76,  type: "X(3)"}
+        - {name: NAL1,                    start: 77,  length: 3,  end: 79,  type: "X(3)"}
+        - {name: NAL2,                    start: 80,  length: 3,  end: 82,  type: "X(3)"}
+        - {name: NAL3,                    start: 83,  length: 3,  end: 85,  type: "X(3)"}
+        - {name: NAL4,                    start: 86,  length: 3,  end: 88,  type: "X(3)"}
+        - {name: NAL5,                    start: 89,  length: 3,  end: 91,  type: "X(3)"}
+        - {name: UND_REASON_CDE,          start: 92,  length: 3,  end: 94,  type: "X(3)"}
+        - {name: GEN_COMPLNCE_REASON_CDE, start: 95,  length: 3,  end: 97,  type: "X(3)"}
+        - {name: FILLER,                  start: 98,  length: 76, end: 173, type: "X(76)"}
+    layout_56:
+      description: Legal and Tax Maintenance Record 3 (Foreign TINs)
+      fields:
+        - {name: SYSTEM,    start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,  start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,   start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,   start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: TIN1,      start: 15,  length: 20, end: 34,  type: "X(20)"}
+        - {name: TIN2,      start: 35,  length: 20, end: 54,  type: "X(20)"}
+        - {name: TIN3,      start: 55,  length: 20, end: 74,  type: "X(20)"}
+        - {name: TIN4,      start: 75,  length: 20, end: 94,  type: "X(20)"}
+        - {name: TIN5,      start: 95,  length: 20, end: 114, type: "X(20)"}
+        - {name: JUR1,      start: 115, length: 3,  end: 117, type: "X(3)"}
+        - {name: JUR2,      start: 118, length: 3,  end: 120, type: "X(3)"}
+        - {name: JUR3,      start: 121, length: 3,  end: 123, type: "X(3)"}
+        - {name: JUR4,      start: 124, length: 3,  end: 126, type: "X(3)"}
+        - {name: JUR5,      start: 127, length: 3,  end: 129, type: "X(3)"}
+        - {name: FILLER,    start: 130, length: 44, end: 173, type: "X(44)"}
+    layout_57:
+      description: Legal and Tax Maintenance Record 4 (FICA / Risk)
+      fields:
+        - {name: SYSTEM,                              start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,                            start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,                             start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,                             start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: SIC_CDE,                             start: 15,  length: 5,  end: 19,  type: "9(5)"}
+        - {name: FICA_COMPLIANT,                      start: 20,  length: 1,  end: 20,  type: "X(1)"}
+        - {name: DATE,                                start: 21,  length: 8,  end: 28,  type: "9(8)"}
+        - {name: CLIENT_RISK,                         start: 29,  length: 1,  end: 29,  type: "X(1)"}
+        - {name: SANCTIONS_POLITICALLY_EXPOSED,       start: 30,  length: 1,  end: 30,  type: "X(1)"}
+        - {name: CPA_MARKETING_MATERIAL,              start: 31,  length: 1,  end: 31,  type: "X(1)"}
+        - {name: CPA_MATERIAL_DISTRIBUTION,           start: 32,  length: 1,  end: 32,  type: "X(1)"}
+        - {name: INDIVIDUALS_PREVIOUSLY_DISADVANTAGED, start: 33, length: 1,  end: 33,  type: "X(1)"}
+        - {name: COMPANIES_ANNUAL_TURNOVER_OR_ASSET,  start: 34,  length: 15, end: 48,  type: "9(15)"}
+        - {name: TRUSTS_NO_OF_TRUSTEES,               start: 49,  length: 4,  end: 52,  type: "9(4)"}
+        - {name: JURISTIC_TRUSTEE,                    start: 53,  length: 1,  end: 53,  type: "X(1)"}
+        - {name: BND_NAME,                            start: 54,  length: 70, end: 123, type: "X(70)"}
+        - {name: RE_VER_DTE,                          start: 124, length: 8,  end: 131, type: "9(8)"}
+        - {name: FILLER,                              start: 132, length: 42, end: 173, type: "X(42)"}
+    layout_44:
+      description: Supplementary Names and Address Record 1
+      fields:
+        - {name: SYSTEM,         start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,       start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,        start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,        start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: ACC_TYP_CDE,    start: 15,  length: 2,  end: 16,  type: "X(2)"}
+        - {name: BRN_CDE,        start: 17,  length: 2,  end: 18,  type: "X(2)"}
+        - {name: PARTNER_CDE,    start: 19,  length: 2,  end: 20,  type: "X(2)"}
+        - {name: FIRST_NAMES,    start: 21,  length: 40, end: 60,  type: "X(40)"}
+        - {name: CO_ADD_IND,     start: 61,  length: 1,  end: 61,  type: "X(1)"}
+        - {name: TITLE,          start: 62,  length: 10, end: 71,  type: "X(10)"}
+        - {name: INITIALS,       start: 72,  length: 4,  end: 75,  type: "X(4)"}
+        - {name: NAME,           start: 76,  length: 40, end: 115, type: "X(40)"}
+        - {name: SA_RESIDENT,    start: 116, length: 1,  end: 116, type: "X(1)"}
+        - {name: ADR_LINE_1,     start: 117, length: 40, end: 156, type: "X(40)"}
+        - {name: POSTAL_CDE,     start: 157, length: 4,  end: 160, type: "X(4)"}
+        - {name: COUNTRY_CDE,    start: 161, length: 3,  end: 163, type: "X(3)"}
+        - {name: FGN_POST_CDE,   start: 164, length: 10, end: 173, type: "X(10)"}
+    layout_45:
+      description: Supplementary Names and Address Record 2
+      fields:
+        - {name: SYSTEM,      start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,    start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,     start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,     start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: ADR_LINE_2,  start: 15,  length: 40, end: 54,  type: "X(40)"}
+        - {name: ADR_LINE_3,  start: 55,  length: 40, end: 94,  type: "X(40)"}
+        - {name: ADR_LINE_4,  start: 95,  length: 40, end: 134, type: "X(40)"}
+        - {name: TEL_NO_1,    start: 135, length: 15, end: 149, type: "X(15)"}
+        - {name: TEL_NO_2,    start: 150, length: 15, end: 164, type: "X(15)"}
+        - {name: FILLER,      start: 165, length: 9,  end: 173, type: "X(9)"}
+    layout_46:
+      description: Supplementary Names and Address Record 3
+      fields:
+        - {name: SYSTEM,         start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,       start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,        start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,        start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: TELEFAX,        start: 15,  length: 15, end: 29,  type: "X(15)"}
+        - {name: EMAIL_ADDR,     start: 30,  length: 55, end: 84,  type: "X(55)"}
+        - {name: ALPHA_CDE,      start: 85,  length: 20, end: 104, type: "X(20)"}
+        - {name: INSTIT_TYP,     start: 105, length: 3,  end: 107, type: "X(3)"}
+        - {name: LANG_CDE,       start: 108, length: 1,  end: 108, type: "X(1)"}
+        - {name: SCR_DISP_CDE,   start: 109, length: 2,  end: 110, type: "X(2)"}
+        - {name: ETC_FUND_CDE,   start: 111, length: 3,  end: 113, type: "X(3)"}
+        - {name: ETC_FUND_BIC,   start: 114, length: 11, end: 124, type: "X(11)"}
+        - {name: FILLER,         start: 125, length: 34, end: 158, type: "X(34)"}
+    layout_47:
+      description: Supplementary Names and Address Record 4 (Controlling Persons)
+      fields:
+        - {name: SYSTEM,              start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,            start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,             start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,             start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: ELEC_RPT_IND,        start: 15,  length: 1,  end: 15,  type: "X(1)"}
+        - {name: SHAREHOLDER_PCT,     start: 16,  length: 3,  end: 18,  type: "9(3)"}
+        - {name: CONTROL_PERSON_TYP,  start: 19,  length: 8,  end: 26,  type: "X(8)"}
+        - {name: CONTACT,             start: 27,  length: 55, end: 81,  type: "X(55)"}
+        - {name: CELL,                start: 82,  length: 10, end: 91,  type: "9(10)"}
+        - {name: CELL_USE,            start: 92,  length: 40, end: 131, type: "X(40)"}
+        - {name: FILLER,              start: 132, length: 42, end: 173, type: "X(42)"}
+    layout_48:
+      description: Account Relationships
+      fields:
+        - {name: SYSTEM,               start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,             start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,              start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,              start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: REL_CDE,              start: 15,  length: 2,  end: 16,  type: "X(2)"}
+        - {name: SUPP_ACC_BRK,         start: 17,  length: 3,  end: 19,  type: "9(3)"}
+        - {name: SUPP_ACC_CDE,         start: 20,  length: 7,  end: 26,  type: "9(7)"}
+        - {name: COPIES,               start: 27,  length: 2,  end: 28,  type: "9(2)"}
+        - {name: FREQUENCY,            start: 29,  length: 1,  end: 29,  type: "X(1)"}
+        - {name: MNTH,                 start: 30,  length: 2,  end: 31,  type: "9(2)"}
+        - {name: DAY,                  start: 32,  length: 2,  end: 33,  type: "9(2)"}
+        - {name: ACR_DTE_DEACTIVATED,  start: 34,  length: 8,  end: 41,  type: "9(8)"}
+        - {name: FILLER,               start: 42,  length: 132, end: 173, type: "X(132)"}
+    layout_70:
+      description: BEE Instrument/Account
+      fields:
+        - {name: SYSTEM,            start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,          start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,           start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,           start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: INSTR_TYP,         start: 15,  length: 1,  end: 15,  type: "X(1)"}
+        - {name: INSTR_ALPHA,       start: 16,  length: 6,  end: 21,  type: "X(6)"}
+        - {name: INSTR_VERSION,     start: 22,  length: 3,  end: 24,  type: "9(3)"}
+        - {name: DTE_EFF_FROM,      start: 25,  length: 8,  end: 32,  type: "9(8)"}
+        - {name: DTE_EFF_TO,        start: 33,  length: 8,  end: 40,  type: "9(8)"}
+        - {name: DTE_DEACTIVATED,   start: 41,  length: 8,  end: 48,  type: "9(8)"}
+        - {name: FILLER,            start: 49,  length: 125, end: 173, type: "X(125)"}
+    layout_90:
+      description: Balances Record 1
+      fields:
+        - {name: SYSTEM,        start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,      start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,       start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,       start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: BAL_CDE,       start: 15,  length: 2,  end: 16,  type: "X(2)"}
+        - {name: K0U_SIGN,      start: 17,  length: 1,  end: 17,  type: "X"}
+        - {name: K0U_CASH_BAL,  start: 18,  length: 15, end: 32,  type: "9(15)"}
+        - {name: K0U_JSET_SIGN, start: 33,  length: 1,  end: 33,  type: "X"}
+        - {name: K0U_JSET_BAL,  start: 34,  length: 15, end: 48,  type: "9(15)"}
+        - {name: FILLER,        start: 49,  length: 125, end: 173, type: "X(125)"}
+    layout_91:
+      description: Balances Record 2
+      fields:
+        - {name: SYSTEM,         start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,       start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,        start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,        start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: K06_SIGN,       start: 15,  length: 1,  end: 15,  type: "X"}
+        - {name: K06_CASH_BAL,   start: 16,  length: 15, end: 30,  type: "9(15)"}
+        - {name: K06_JSET_SIGN,  start: 31,  length: 1,  end: 31,  type: "X"}
+        - {name: K06_JSET_BAL,   start: 32,  length: 15, end: 46,  type: "9(15)"}
+        - {name: K06_CS_SIGN,    start: 47,  length: 1,  end: 47,  type: "X"}
+        - {name: K06_CUR_SAL,    start: 48,  length: 15, end: 62,  type: "9(15)"}
+        - {name: K06_CP_SIGN,    start: 63,  length: 1,  end: 63,  type: "X"}
+        - {name: K06_CUR_PUR,    start: 64,  length: 15, end: 78,  type: "X(15)"}
+        - {name: K06_FS_SIGN,    start: 79,  length: 1,  end: 79,  type: "X"}
+        - {name: K06_FUT_SAL,    start: 80,  length: 15, end: 94,  type: "9(15)"}
+        - {name: K06_FP_SIGN,    start: 95,  length: 1,  end: 95,  type: "X"}
+        - {name: K06_FUT_PUR,    start: 96,  length: 15, end: 110, type: "9(15)"}
+        - {name: K06_FR_SIGN,    start: 111, length: 1,  end: 111, type: "X"}
+        - {name: K06_FREE_BAL,   start: 112, length: 15, end: 126, type: "9(15)"}
+        - {name: FILLER,         start: 127, length: 47, end: 173, type: "X(47)"}
+    layout_95:
+      description: Portfolio Balances Record
+      fields:
+        - {name: SYSTEM,           start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,         start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,          start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,          start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: INSTR_TYP,        start: 15,  length: 1,  end: 15,  type: "X"}
+        - {name: ICB_SECTOR_CDE,   start: 16,  length: 4,  end: 19,  type: "X(4)"}
+        - {name: COST_SIGN,        start: 20,  length: 1,  end: 20,  type: "X"}
+        - {name: POSN_COST,        start: 21,  length: 15, end: 35,  type: "9(15)"}
+        - {name: VAL_SIGN,         start: 36,  length: 1,  end: 36,  type: "X"}
+        - {name: POSN_VAL,         start: 37,  length: 15, end: 51,  type: "9(15)"}
+        - {name: INC_SIGN,         start: 52,  length: 1,  end: 52,  type: "X"}
+        - {name: POSN_INC,         start: 53,  length: 15, end: 67,  type: "9(15)"}
+        - {name: VAL_CLNP_SIGN,    start: 68,  length: 1,  end: 68,  type: "X"}
+        - {name: POSN_VAL_CLNP,    start: 69,  length: 15, end: 83,  type: "9(15)"}
+        - {name: INVEST_TYPE,      start: 84,  length: 1,  end: 84,  type: "X"}
+        - {name: BOARD_IND,        start: 85,  length: 1,  end: 85,  type: "X"}
+        - {name: FILLER,           start: 86,  length: 88, end: 173, type: "X(88)"}
+    layout_75:
+      description: GL Balances Record
+      fields:
+        - {name: SYSTEM,        start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,      start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,       start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: GL_ACC_CDE,    start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: EXCH_CTL,      start: 15,  length: 1,  end: 15,  type: "X"}
+        - {name: BAL_CDE,       start: 16,  length: 2,  end: 17,  type: "X(2)"}
+        - {name: BRN_CDE,       start: 18,  length: 2,  end: 19,  type: "X(2)"}
+        - {name: PARTNER_CDE,   start: 20,  length: 2,  end: 21,  type: "X(2)"}
+        - {name: CASH_ALPHA,    start: 22,  length: 2,  end: 23,  type: "X(2)"}
+        - {name: GL_GRP_CDE,    start: 24,  length: 2,  end: 25,  type: "X(2)"}
+        - {name: GL_SEQ_KEY,    start: 26,  length: 4,  end: 29,  type: "X(4)"}
+        - {name: GL_ACC_TYP,    start: 30,  length: 4,  end: 33,  type: "X(4)"}
+        - {name: BANK_CDE,      start: 34,  length: 2,  end: 35,  type: "X(2)"}
+        - {name: BANK_BRN_NO,   start: 36,  length: 3,  end: 38,  type: "X(3)"}
+        - {name: BANK_ACC_NO,   start: 39,  length: 11, end: 49,  type: "X(11)"}
+        - {name: BANK_ACC_TYP,  start: 50,  length: 1,  end: 50,  type: "X"}
+        - {name: DESCRIP40,     start: 51,  length: 40, end: 90,  type: "X(40)"}
+        - {name: CSH_SIGN,      start: 91,  length: 1,  end: 91,  type: "X"}
+        - {name: CASH_BAL,      start: 92,  length: 15, end: 106, type: "9(15)"}
+        - {name: INS_GRP_CDE,   start: 107, length: 2,  end: 108, type: "X(2)"}
+        - {name: INS_SEQ_KEY,   start: 109, length: 4,  end: 112, type: "X(4)"}
+        - {name: TYPE,          start: 113, length: 1,  end: 113, type: "X"}
+        - {name: FILLER_1,      start: 114, length: 7,  end: 120, type: "X(7)"}
+        - {name: BAT_DTE,       start: 121, length: 8,  end: 128, type: "9(8)"}
+        - {name: FILLER_2,      start: 129, length: 45, end: 173, type: "X(45)"}
+    layout_87:
+      description: Financial Transaction Record
+      fields:
+        - {name: SYSTEM,       start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,     start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,      start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,      start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: BAL_CDE,      start: 15,  length: 2,  end: 16,  type: "X(2)"}
+        - {name: DESIG_CDE,    start: 17,  length: 2,  end: 18,  type: "X(2)"}
+        - {name: SIGN_AMT,     start: 19,  length: 1,  end: 19,  type: "X"}
+        - {name: TRAN_AMT,     start: 20,  length: 15, end: 34,  type: "9(15)"}
+        - {name: TRAN_NARATV,  start: 35,  length: 40, end: 74,  type: "X(40)"}
+        - {name: FIN_TRAN_CDE, start: 75,  length: 2,  end: 76,  type: "X(2)"}
+        - {name: DOC_REF_NO,   start: 77,  length: 6,  end: 82,  type: "X(6)"}
+        - {name: CHQ_DEP_NO,   start: 83,  length: 7,  end: 89,  type: "9(7)"}
+        - {name: CASH_ALPHA,   start: 90,  length: 2,  end: 91,  type: "X(2)"}
+        - {name: AGE_DTE,      start: 92,  length: 8,  end: 99,  type: "9(8)"}
+        - {name: EXCH_CTL,     start: 100, length: 1,  end: 100, type: "X"}
+        - {name: GENRL_ANALS,  start: 101, length: 9,  end: 109, type: "X(9)"}
+        - {name: FILLER,       start: 110, length: 64, end: 173, type: "X(64)"}
+    layout_88:
+      description: Scrip Transaction Record 1
+      fields:
+        - {name: SYSTEM,         start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,       start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,        start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,        start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: INSTR_TYP,      start: 15,  length: 1,  end: 15,  type: "X"}
+        - {name: INSTR_ALPHA,    start: 16,  length: 6,  end: 21,  type: "X(6)"}
+        - {name: INSTR_VERSION,  start: 22,  length: 3,  end: 24,  type: "9(3)"}
+        - {name: SCR_TYP,        start: 25,  length: 2,  end: 26,  type: "X(2)"}
+        - {name: CERT_NO,        start: 27,  length: 9,  end: 35,  type: "X(9)"}
+        - {name: DEED_NO,        start: 36,  length: 9,  end: 44,  type: "X(9)"}
+        - {name: SCR_RCPT_NO,    start: 45,  length: 9,  end: 53,  type: "X(9)"}
+        - {name: SCR_SEQ_NO,     start: 54,  length: 3,  end: 56,  type: "9(3)"}
+        - {name: SCR_REC_ORG,    start: 57,  length: 2,  end: 58,  type: "X(2)"}
+        - {name: DTE_RCVD,       start: 59,  length: 8,  end: 66,  type: "9(8)"}
+        - {name: LOCN_ALPHA,     start: 67,  length: 2,  end: 68,  type: "X(2)"}
+        - {name: LOCN_BRN,       start: 69,  length: 2,  end: 70,  type: "X(2)"}
+        - {name: SIGN_QTY,       start: 71,  length: 1,  end: 71,  type: "X"}
+        - {name: TRAN_QTY,       start: 72,  length: 11, end: 82,  type: "9(11)"}
+        - {name: SIGN_AMT,       start: 83,  length: 1,  end: 83,  type: "X"}
+        - {name: TRAN_AMT,       start: 84,  length: 15, end: 98,  type: "9(15)"}
+        - {name: AGE_DTE,        start: 99,  length: 8,  end: 106, type: "9(8)"}
+        - {name: LOCN_ALPHA2,    start: 107, length: 2,  end: 108, type: "X(2)"}
+        - {name: LOCN_BRN2,      start: 109, length: 2,  end: 110, type: "X(2)"}
+        - {name: LOCN_DUE,       start: 111, length: 2,  end: 112, type: "X(2)"}
+        - {name: SCR_TRAN_CDE,   start: 113, length: 2,  end: 114, type: "X(2)"}
+        - {name: REG_CDE,        start: 115, length: 2,  end: 116, type: "9(2)"}
+        - {name: DEL_ID,         start: 117, length: 7,  end: 123, type: "9(7)"}
+        - {name: REASON,         start: 124, length: 40, end: 163, type: "X(40)"}
+        - {name: TRAN_ORG_TIME,  start: 164, length: 6,  end: 169, type: "9(6)"}
+        - {name: FILLER,         start: 170, length: 4,  end: 173, type: "X(4)"}
+    layout_89:
+      description: Scrip Transaction Record 2
+      fields:
+        - {name: SYSTEM,         start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,       start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,        start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,        start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: INSTR_TYP,      start: 15,  length: 1,  end: 15,  type: "X"}
+        - {name: INSTR_ALPHA,    start: 16,  length: 6,  end: 21,  type: "X(6)"}
+        - {name: INSTR_VERSION,  start: 22,  length: 3,  end: 24,  type: "9(3)"}
+        - {name: SCR_TYP,        start: 25,  length: 2,  end: 26,  type: "X(2)"}
+        - {name: CERT_NO,        start: 27,  length: 9,  end: 35,  type: "X(9)"}
+        - {name: DEED_NO,        start: 36,  length: 9,  end: 44,  type: "X(9)"}
+        - {name: SCR_RCPT_NO,    start: 45,  length: 9,  end: 53,  type: "X(9)"}
+        - {name: SCR_SEQ_NO,     start: 54,  length: 3,  end: 56,  type: "9(3)"}
+        - {name: REG_HOLDER,     start: 57,  length: 70, end: 126, type: "X(70)"}
+        - {name: REF_NUMBER,     start: 127, length: 11, end: 137, type: "X(11)"}
+        - {name: TRAN_ORG_TIME,  start: 138, length: 6,  end: 143, type: "9(6)"}
+        - {name: SIGN_COST_OTH,  start: 144, length: 1,  end: 144, type: "X"}
+        - {name: COST_PF_OTH,    start: 145, length: 15, end: 159, type: "9(15)"}
+        - {name: FILLER,         start: 160, length: 14, end: 173, type: "X(14)"}
+    layout_76:
+      description: GL Transaction Record
+      fields:
+        - {name: SYSTEM,         start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,       start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,        start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: GL_ACC_CDE,     start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: EXCH_CTL,       start: 15,  length: 1,  end: 15,  type: "X"}
+        - {name: BAL_CDE,        start: 16,  length: 2,  end: 17,  type: "X(2)"}
+        - {name: BRN_CDE,        start: 18,  length: 2,  end: 19,  type: "X(2)"}
+        - {name: PARTNER_CDE,    start: 20,  length: 2,  end: 21,  type: "X(2)"}
+        - {name: CASH_ALPHA,     start: 22,  length: 2,  end: 23,  type: "X(2)"}
+        - {name: GL_REC_TYP,     start: 24,  length: 1,  end: 24,  type: "X"}
+        - {name: ACC_CDE,        start: 25,  length: 7,  end: 31,  type: "9(7)"}
+        - {name: ACC_TYP_CDE,    start: 32,  length: 2,  end: 33,  type: "X(2)"}
+        - {name: GENRL_ANALS,    start: 34,  length: 9,  end: 42,  type: "X(9)"}
+        - {name: REG_CDE,        start: 43,  length: 2,  end: 44,  type: "X(2)"}
+        - {name: AGE_DTE,        start: 45,  length: 8,  end: 52,  type: "X(8)"}
+        - {name: SUM_TRAN_CDE,   start: 53,  length: 2,  end: 54,  type: "X(2)"}
+        - {name: SIGN_TRAN_AMT,  start: 55,  length: 1,  end: 55,  type: "X"}
+        - {name: TRAN_AMT,       start: 56,  length: 15, end: 70,  type: "9(15)"}
+        - {name: TRAN_NARATV,    start: 71,  length: 39, end: 109, type: "X(39)"}
+        - {name: DOC_REF_NO,     start: 110, length: 6,  end: 115, type: "X(6)"}
+        - {name: CHQ_DEP_NO,     start: 116, length: 7,  end: 122, type: "9(7)"}
+        - {name: BAT_DTE,        start: 123, length: 8,  end: 130, type: "9(8)"}
+        - {name: DES_CDE,        start: 131, length: 2,  end: 132, type: "9(2)"}
+        - {name: FILLER,         start: 133, length: 41, end: 173, type: "X(41)"}
+    layout_97:
+      description: Cash Transaction Record
+      fields:
+        - {name: SYSTEM,       start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,     start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,      start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,      start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: BAL_CDE,      start: 15,  length: 2,  end: 16,  type: "X(2)"}
+        - {name: DESIG_CDE,    start: 17,  length: 2,  end: 18,  type: "X(2)"}
+        - {name: SIGN_AMT,     start: 19,  length: 1,  end: 19,  type: "X"}
+        - {name: TRAN_AMT,     start: 20,  length: 15, end: 34,  type: "9(15)"}
+        - {name: TRAN_NARATV,  start: 35,  length: 40, end: 74,  type: "X(40)"}
+        - {name: FIN_TRAN_CDE, start: 75,  length: 2,  end: 76,  type: "X(2)"}
+        - {name: DOC_REF_NO,   start: 77,  length: 6,  end: 82,  type: "X(6)"}
+        - {name: CHQ_DEP_NO,   start: 83,  length: 7,  end: 89,  type: "9(7)"}
+        - {name: CASH_ALPHA,   start: 90,  length: 2,  end: 91,  type: "X(2)"}
+        - {name: AGE_DTE,      start: 92,  length: 8,  end: 99,  type: "9(8)"}
+        - {name: EXCH_CTL,     start: 100, length: 1,  end: 100, type: "X"}
+        - {name: GENRL_ANALS,  start: 101, length: 9,  end: 109, type: "X(9)"}
+        - {name: FILLER,       start: 110, length: 64, end: 173, type: "X(64)"}
+    layout_81:
+      description: Deals Record 1
+      fields:
+        - {name: SYSTEM,         start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,       start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,        start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,        start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: DEL_ID,         start: 15,  length: 7,  end: 21,  type: "9(7)"}
+        - {name: DEL_SEQ,        start: 22,  length: 3,  end: 24,  type: "9(3)"}
+        - {name: ACC_TYP_CDE,    start: 25,  length: 2,  end: 26,  type: "X(2)"}
+        - {name: BRN_CDE,        start: 27,  length: 2,  end: 28,  type: "X(2)"}
+        - {name: PARTNER_CDE,    start: 29,  length: 2,  end: 30,  type: "X(2)"}
+        - {name: AGE_DTE,        start: 31,  length: 8,  end: 38,  type: "9(8)"}
+        - {name: INSTR_TYP,      start: 39,  length: 1,  end: 39,  type: "X"}
+        - {name: INSTR_ALPHA,    start: 40,  length: 6,  end: 45,  type: "X(6)"}
+        - {name: INSTR_VERSION,  start: 46,  length: 3,  end: 48,  type: "9(3)"}
+        - {name: PS_IND,         start: 49,  length: 1,  end: 49,  type: "X"}
+        - {name: SIGN_TRAN_AMT,  start: 50,  length: 1,  end: 50,  type: "X"}
+        - {name: TRAN_AMT,       start: 51,  length: 15, end: 65,  type: "9(15)"}
+        - {name: SIGN_QTY,       start: 66,  length: 1,  end: 66,  type: "X"}
+        - {name: TRAN_QTY,       start: 67,  length: 11, end: 77,  type: "9(11)"}
+        - {name: CON_CHG_IND,    start: 78,  length: 1,  end: 78,  type: "X"}
+        - {name: CON_NTE_IND,    start: 79,  length: 1,  end: 79,  type: "X"}
+        - {name: SIGN_CONSID,    start: 80,  length: 1,  end: 80,  type: "X"}
+        - {name: CONSID,         start: 81,  length: 15, end: 95,  type: "9(15)"}
+        - {name: PRCE,           start: 96,  length: 9,  end: 104, type: "9(9)"}
+        - {name: DEL_TRAN_CDE,   start: 105, length: 2,  end: 106, type: "X(2)"}
+        - {name: TRADE_CAP,      start: 107, length: 1,  end: 107, type: "X"}
+        - {name: TRADE_TYP,      start: 108, length: 2,  end: 109, type: "X(2)"}
+        - {name: RVSD_DEL_ID,    start: 110, length: 7,  end: 116, type: "9(7)"}
+        - {name: DEALR_CDE,      start: 117, length: 5,  end: 121, type: "9(5)"}
+        - {name: ORD_NUM,        start: 122, length: 12, end: 133, type: "X(12)"}
+        - {name: SIGN_UT_QTY,    start: 134, length: 1,  end: 134, type: "X"}
+        - {name: UT_QTY,         start: 135, length: 15, end: 149, type: "9(15)"}
+        - {name: RAND_IND,       start: 150, length: 1,  end: 150, type: "X(1)"}
+        - {name: TRAN_ORG_USER,  start: 151, length: 4,  end: 154, type: "X(4)"}
+        - {name: FILLER,         start: 155, length: 19, end: 173, type: "X(19)"}
+    layout_82:
+      description: Deals Record 2
+      fields:
+        - {name: SYSTEM,           start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,         start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,          start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,          start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: DEL_ID,           start: 15,  length: 7,  end: 21,  type: "9(7)"}
+        - {name: DEL_SEQ,          start: 22,  length: 3,  end: 24,  type: "9(3)"}
+        - {name: CHG_STRCT_ENTRD,  start: 25,  length: 1,  end: 25,  type: "X"}
+        - {name: CHG_ENTRD,        start: 26,  length: 1,  end: 26,  type: "X"}
+        - {name: CHG_STR_CDE,      start: 27,  length: 2,  end: 28,  type: "X(2)"}
+        - {name: SIGN_BAS,         start: 29,  length: 1,  end: 29,  type: "X"}
+        - {name: CHG_BAS,          start: 30,  length: 15, end: 44,  type: "9(15)"}
+        - {name: SIGN_BRO,         start: 45,  length: 1,  end: 45,  type: "X"}
+        - {name: CHG_BRO,          start: 46,  length: 15, end: 60,  type: "9(15)"}
+        - {name: SIGN_VAT,         start: 61,  length: 1,  end: 61,  type: "X"}
+        - {name: CHG_VAT,          start: 62,  length: 15, end: 76,  type: "9(15)"}
+        - {name: SIGN_MST,         start: 77,  length: 1,  end: 77,  type: "X"}
+        - {name: CHG_MST,          start: 78,  length: 15, end: 92,  type: "9(15)"}
+        - {name: SIGN_INS,         start: 93,  length: 1,  end: 93,  type: "X"}
+        - {name: CHG_INS,          start: 94,  length: 15, end: 108, type: "9(15)"}
+        - {name: SIGN_SET,         start: 109, length: 1,  end: 109, type: "X"}
+        - {name: CHG_SET,          start: 110, length: 15, end: 124, type: "9(15)"}
+        - {name: SETTLE_WK,        start: 125, length: 4,  end: 128, type: "9(4)"}
+        - {name: TRMS_1,           start: 129, length: 2,  end: 130, type: "X(2)"}
+        - {name: TRMS_2,           start: 131, length: 2,  end: 132, type: "X(2)"}
+        - {name: TRMS_3,           start: 133, length: 2,  end: 134, type: "X(2)"}
+        - {name: TRMS_4,           start: 135, length: 2,  end: 136, type: "X(2)"}
+        - {name: TRMS_5,           start: 137, length: 2,  end: 138, type: "X(2)"}
+        - {name: TRMS_6,           start: 139, length: 2,  end: 140, type: "X(2)"}
+        - {name: TRMS_7,           start: 141, length: 2,  end: 142, type: "X(2)"}
+        - {name: RVSD_DEL_ID,      start: 143, length: 7,  end: 149, type: "9(7)"}
+        - {name: DEALR_CDE,        start: 150, length: 5,  end: 154, type: "9(5)"}
+        - {name: ORD_NUM,          start: 155, length: 12, end: 166, type: "X(12)"}
+        - {name: FILLER,           start: 167, length: 7,  end: 173, type: "X(7)"}
+    layout_83:
+      description: Deals Record 3
+      fields:
+        - {name: SYSTEM,              start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,            start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,             start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,             start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: DEL_ID,              start: 15,  length: 7,  end: 21,  type: "9(7)"}
+        - {name: DEL_SEQ,             start: 22,  length: 3,  end: 24,  type: "9(3)"}
+        - {name: REF_ALPHA,           start: 25,  length: 2,  end: 26,  type: "X(2)"}
+        - {name: REF_TYP,             start: 27,  length: 1,  end: 27,  type: "X"}
+        - {name: REF_PAGE_NO,         start: 28,  length: 10, end: 37,  type: "X(10)"}
+        - {name: REF_LINE_NO,         start: 38,  length: 3,  end: 40,  type: "9(3)"}
+        - {name: REF_ORD_NO,          start: 41,  length: 7,  end: 47,  type: "9(7)"}
+        - {name: ORD_NO,              start: 48,  length: 12, end: 59,  type: "X(12)"}
+        - {name: DEL_ID_OPTN,         start: 60,  length: 7,  end: 66,  type: "9(7)"}
+        - {name: SETTLE_DTE,          start: 67,  length: 8,  end: 74,  type: "9(8)"}
+        - {name: BRK_DIR_IND,         start: 75,  length: 1,  end: 75,  type: "X"}
+        - {name: COUNTRY_CDE,         start: 76,  length: 3,  end: 78,  type: "X(3)"}
+        - {name: NON_RES_IND,         start: 79,  length: 1,  end: 79,  type: "X"}
+        - {name: EXCH_CTL,            start: 80,  length: 1,  end: 80,  type: "X"}
+        - {name: PRCE_FORMAT,         start: 81,  length: 1,  end: 81,  type: "X"}
+        - {name: PRCE_NOM,            start: 82,  length: 9,  end: 90,  type: "9(9)"}
+        - {name: REF_BRK_CDE,         start: 91,  length: 3,  end: 93,  type: "9(3)"}
+        - {name: EXTNL_ACC_CDE,       start: 94,  length: 17, end: 110, type: "X(17)"}
+        - {name: ORDER_DTE,           start: 111, length: 9,  end: 119, type: "9(9)"}
+        - {name: CAPTR_TIME_STMP,     start: 120, length: 7,  end: 126, type: "9(7)"}
+        - {name: MATCH_TIME,          start: 127, length: 9,  end: 135, type: "9(9)"}
+        - {name: RVSD_DEL_ID,         start: 136, length: 7,  end: 142, type: "9(7)"}
+        - {name: DEALR_CDE,           start: 143, length: 5,  end: 147, type: "9(5)"}
+        - {name: DEAL_EXTNL_ACC_CDE,  start: 148, length: 17, end: 164, type: "X(17)"}
+        - {name: FILLER,              start: 165, length: 9,  end: 173, type: "X(9)"}
+    layout_84:
+      description: Deals Record 4
+      fields:
+        - {name: SYSTEM,          start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,        start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,         start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,         start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: DEL_ID,          start: 15,  length: 7,  end: 21,  type: "9(7)"}
+        - {name: CLEAN_PRCE,      start: 22,  length: 9,  end: 30,  type: "9(9)"}
+        - {name: NET_PRCE,        start: 31,  length: 9,  end: 39,  type: "9(9)"}
+        - {name: ALL_IN_PRCE,     start: 40,  length: 9,  end: 48,  type: "9(9)"}
+        - {name: YIELD_TO_M,      start: 49,  length: 9,  end: 57,  type: "9(9)"}
+        - {name: SIGN_BKGE,       start: 58,  length: 1,  end: 58,  type: "X"}
+        - {name: BKGE_PCNT_GILT,  start: 59,  length: 9,  end: 67,  type: "9(9)"}
+        - {name: SIGN_INT_FAC,    start: 68,  length: 1,  end: 68,  type: "X"}
+        - {name: INT_FACTOR,      start: 69,  length: 9,  end: 77,  type: "9(9)"}
+        - {name: EX_IND,          start: 78,  length: 1,  end: 78,  type: "X"}
+        - {name: INT_DTE,         start: 79,  length: 8,  end: 86,  type: "X(8)"}
+        - {name: NUM_DAY_INT,     start: 87,  length: 3,  end: 89,  type: "9(3)"}
+        - {name: SIGN_INT_AMT,    start: 90,  length: 1,  end: 90,  type: "X"}
+        - {name: INT_AMT,         start: 91,  length: 15, end: 105, type: "9(15)"}
+        - {name: FILLER,          start: 106, length: 68, end: 173, type: "X(68)"}
+    layout_99:
+      description: Deals Record 5
+      fields:
+        - {name: SYSTEM,         start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,       start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,        start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,        start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: DEL_ID,         start: 15,  length: 7,  end: 21,  type: "9(7)"}
+        - {name: BRN_CDE,        start: 22,  length: 2,  end: 23,  type: "X(2)"}
+        - {name: PARTNER_CDE,    start: 24,  length: 2,  end: 25,  type: "X(2)"}
+        - {name: AGE_DTE,        start: 26,  length: 9,  end: 34,  type: "9(9)"}
+        - {name: INSTR_TYP,      start: 35,  length: 1,  end: 35,  type: "X(1)"}
+        - {name: INSTR_ALPHA,    start: 36,  length: 6,  end: 41,  type: "X(6)"}
+        - {name: INSTR_VERSION,  start: 42,  length: 3,  end: 44,  type: "9(3)"}
+        - {name: SETTLE_DTE,     start: 45,  length: 9,  end: 53,  type: "9(9)"}
+        - {name: PS_IND,         start: 54,  length: 1,  end: 54,  type: "X(1)"}
+        - {name: SIGN_TRAN_AMT,  start: 55,  length: 1,  end: 55,  type: "X(1)"}
+        - {name: TRAN_AMT,       start: 56,  length: 15, end: 70,  type: "9(15)"}
+        - {name: SIGN_QTY,       start: 71,  length: 1,  end: 71,  type: "X(1)"}
+        - {name: TRAN_QTY,       start: 72,  length: 11, end: 82,  type: "9(11)"}
+        - {name: FREED_IND,      start: 83,  length: 1,  end: 83,  type: "X(1)"}
+        - {name: FILLER,         start: 84,  length: 90, end: 173, type: "X(90)"}
+    layout_92:
+      description: Instrument Record
+      fields:
+        - {name: SYSTEM,            start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,          start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,           start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: INSTR_TYP,         start: 8,   length: 1,  end: 8,   type: "X"}
+        - {name: INSTR_ALPHA,       start: 9,   length: 6,  end: 14,  type: "X(6)"}
+        - {name: INSTR_VERSION,     start: 15,  length: 3,  end: 17,  type: "9(3)"}
+        - {name: DTE_EFF_FROM,      start: 18,  length: 8,  end: 25,  type: "9(8)"}
+        - {name: DTE_EFF_TO,        start: 26,  length: 8,  end: 33,  type: "9(8)"}
+        - {name: PRCE,              start: 34,  length: 9,  end: 42,  type: "9(9)"}
+        - {name: PRCE_NOM,          start: 43,  length: 9,  end: 51,  type: "9(9)"}
+        - {name: GILT_PRCE,         start: 52,  length: 9,  end: 60,  type: "9(9)"}
+        - {name: GILT_ALLIN_PRCE,   start: 61,  length: 9,  end: 69,  type: "9(9)"}
+        - {name: INSTR_RPT_NAME,    start: 70,  length: 24, end: 93,  type: "X(24)"}
+        - {name: INSTR_SHRT_NAME,   start: 94,  length: 14, end: 107, type: "X(14)"}
+        - {name: ICB_SECTOR_CDE,    start: 108, length: 4,  end: 111, type: "X(4)"}
+        - {name: PRCE_FORMAT,       start: 112, length: 1,  end: 112, type: "X(1)"}
+        - {name: COUPON_RATE,       start: 113, length: 7,  end: 119, type: "9(7)"}
+        - {name: YIELD_TO_M,        start: 120, length: 9,  end: 128, type: "9(9)"}
+        - {name: ELEC_TRADE_DTE,    start: 129, length: 8,  end: 136, type: "9(8)"}
+        - {name: BOARD_IND,         start: 137, length: 1,  end: 137, type: "X(1)"}
+        - {name: BEE_IND,           start: 138, length: 1,  end: 138, type: "X(1)"}
+        - {name: MST_PCT_FACTOR,    start: 139, length: 7,  end: 145, type: "9(7)"}
+        - {name: EQUITY_DATA_TYPE,  start: 146, length: 2,  end: 147, type: "X(2)"}
+        - {name: ISIN,              start: 148, length: 12, end: 159, type: "X(12)"}
+        - {name: CHG_STR_CDE,       start: 160, length: 2,  end: 161, type: "X(2)"}
+        - {name: FILLER,            start: 162, length: 12, end: 173, type: "X(12)"}
+    layout_69:
+      description: Multiple Bank Accounts Record
+      fields:
+        - {name: SYSTEM,            start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,          start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,           start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,           start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: BAL_CDE,           start: 15,  length: 2,  end: 16,  type: "X(2)"}
+        - {name: BANK_BRN_NO,       start: 17,  length: 6,  end: 22,  type: "9(6)"}
+        - {name: BANK_ACC_NO,       start: 23,  length: 16, end: 38,  type: "X(16)"}
+        - {name: BANK_DESCRIP,      start: 39,  length: 20, end: 58,  type: "X(20)"}
+        - {name: BANK_ACC_TYP,      start: 59,  length: 1,  end: 59,  type: "X"}
+        - {name: PREFERRED_ACC,     start: 60,  length: 1,  end: 60,  type: "X"}
+        - {name: VERIFY_STA,        start: 61,  length: 1,  end: 61,  type: "X"}
+        - {name: VERIFY_DTE,        start: 62,  length: 8,  end: 69,  type: "9(8)"}
+        - {name: VERIFY_TME,        start: 70,  length: 7,  end: 76,  type: "9(7)"}
+        - {name: VERIFY_USER,       start: 77,  length: 4,  end: 80,  type: "X(4)"}
+        - {name: DTE_DEACTIVATED,   start: 81,  length: 8,  end: 88,  type: "9(8)"}
+        - {name: TME_DEACTIVATED,   start: 89,  length: 7,  end: 95,  type: "9(7)"}
+        - {name: USER_DEACTIVATED,  start: 96,  length: 4,  end: 99,  type: "X(4)"}
+        - {name: LAS_UPD_DTE,       start: 100, length: 8,  end: 107, type: "9(8)"}
+        - {name: LAS_UPD_TME,       start: 108, length: 7,  end: 114, type: "9(7)"}
+        - {name: LAS_UPD_USER,      start: 115, length: 4,  end: 118, type: "X(4)"}
+        - {name: LAS_UPD_SOURCE,    start: 119, length: 8,  end: 126, type: "X(8)"}
+        - {name: PAYEE_NAME,        start: 127, length: 35, end: 161, type: "X(35)"}
+        - {name: FILLER,            start: 162, length: 12, end: 173, type: "X(12)"}
+    layout_93:
+      description: Dividend Record
+      fields:
+        - {name: SYSTEM,                   start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,                 start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,                  start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: INSTR_TYP,                start: 8,   length: 1,  end: 8,   type: "X"}
+        - {name: INSTR_ALPHA,              start: 9,   length: 6,  end: 14,  type: "X(6)"}
+        - {name: INSTR_VERSION,            start: 15,  length: 3,  end: 17,  type: "9(3)"}
+        - {name: LDR_DTE,                  start: 18,  length: 8,  end: 25,  type: "9(8)"}
+        - {name: DIV_SEQ_NO,               start: 26,  length: 1,  end: 26,  type: "9"}
+        - {name: DIV_NO,                   start: 27,  length: 5,  end: 31,  type: "9(5)"}
+        - {name: DIV_TYP,                  start: 32,  length: 1,  end: 32,  type: "X"}
+        - {name: DTE_DECLARED,             start: 33,  length: 8,  end: 40,  type: "9(8)"}
+        - {name: EX_DIV_DTE,               start: 41,  length: 8,  end: 48,  type: "9(8)"}
+        - {name: PAY_DTE,                  start: 49,  length: 8,  end: 56,  type: "9(8)"}
+        - {name: DIV_RATE,                 start: 57,  length: 11, end: 67,  type: "9(11)"}
+        - {name: DIV_FORMAT,               start: 68,  length: 1,  end: 68,  type: "X"}
+        - {name: DIV_BONUS,                start: 69,  length: 11, end: 79,  type: "9(11)"}
+        - {name: RATE_CONF,                start: 80,  length: 1,  end: 80,  type: "X"}
+        - {name: NRST_PCNT,                start: 81,  length: 9,  end: 89,  type: "9(9)"}
+        - {name: ISSUE_RAT_OLD,            start: 90,  length: 13, end: 102, type: "9(13)"}
+        - {name: ISSUE_RAT_NEW,            start: 103, length: 13, end: 115, type: "9(13)"}
+        - {name: INSTR_TYP_REP,            start: 116, length: 1,  end: 116, type: "X(1)"}
+        - {name: INSTR_ALPHA_REP,          start: 117, length: 6,  end: 122, type: "X(6)"}
+        - {name: INSTR_VERS_REP,           start: 123, length: 3,  end: 125, type: "9(3)"}
+        - {name: PROCS_TYP,                start: 126, length: 2,  end: 127, type: "X(2)"}
+        - {name: PROCS_SEQ,                start: 128, length: 3,  end: 130, type: "X(3)"}
+        - {name: WITHHOLDING_TAX_PCT,      start: 131, length: 9,  end: 139, type: "9(9)"}
+        - {name: STC_RATE,                 start: 140, length: 11, end: 150, type: "9(11)"}
+        - {name: FOREIGN_TAX_RATE_PCT,     start: 151, length: 11, end: 161, type: "9(11)"}
+        - {name: SA_RESIDENT_TAX_REBATE,   start: 162, length: 11, end: 172, type: "9(11)"}
+        - {name: DIVIDEND_IN_SPECIE,       start: 173, length: 1,  end: 173, type: "X"}
+    layout_94:
+      description: Entitlements Record
+      fields:
+        - {name: SYSTEM,                  start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,                start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,                 start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: INSTR_TYP,               start: 8,   length: 1,  end: 8,   type: "X"}
+        - {name: INSTR_ALPHA,             start: 9,   length: 6,  end: 14,  type: "X(6)"}
+        - {name: INSTR_VERSION,           start: 15,  length: 3,  end: 17,  type: "9(3)"}
+        - {name: RTS_CONV_DTE,            start: 18,  length: 8,  end: 25,  type: "9(8)"}
+        - {name: LINK_SEQ_NO,             start: 26,  length: 1,  end: 26,  type: "9"}
+        - {name: INSTR_TYP_REP,           start: 27,  length: 1,  end: 27,  type: "X"}
+        - {name: INSTR_ALPHA_REP,         start: 28,  length: 6,  end: 33,  type: "X(6)"}
+        - {name: INSTR_VERS_REP,          start: 34,  length: 3,  end: 36,  type: "9(3)"}
+        - {name: RTS_CONV_CDE,            start: 37,  length: 2,  end: 38,  type: "X(2)"}
+        - {name: ISSUE_RAT_OLD,           start: 39,  length: 13, end: 51,  type: "9(13)"}
+        - {name: ISSUE_RAT_NEW,           start: 52,  length: 13, end: 64,  type: "9(13)"}
+        - {name: RTS_TU_PRCE,             start: 65,  length: 13, end: 77,  type: "9(13)"}
+        - {name: RTS_PAY_QTY,             start: 78,  length: 6,  end: 83,  type: "9(6)"}
+        - {name: RTS_PO_PRCE,             start: 84,  length: 13, end: 96,  type: "9(13)"}
+        - {name: RTS_LINK_CDE,            start: 97,  length: 1,  end: 97,  type: "X"}
+        - {name: NRST_PCNT,               start: 98,  length: 9,  end: 106, type: "9(9)"}
+        - {name: WITHHOLDING_TAX_PCT,     start: 107, length: 9,  end: 115, type: "9(9)"}
+        - {name: STC_RATE,                start: 116, length: 11, end: 126, type: "9(11)"}
+        - {name: FOREIGN_TAX_RATE_PCT,    start: 127, length: 11, end: 137, type: "9(11)"}
+        - {name: SA_RESIDENT_TAX_REBATE,  start: 138, length: 11, end: 148, type: "9(11)"}
+        - {name: DIVIDEND_IN_SPECIE,      start: 149, length: 1,  end: 149, type: "X"}
+        - {name: FILLER,                  start: 150, length: 24, end: 173, type: "X(24)"}
+    layout_74:
+      description: Electronically Settled Corporate Actions Record
+      fields:
+        - {name: SYSTEM,          start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,        start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,         start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: LDT,             start: 8,   length: 8,  end: 15,  type: "9(8)"}
+        - {name: INSTR_TYP,       start: 16,  length: 1,  end: 16,  type: "X"}
+        - {name: INSTR_ALPHA,     start: 17,  length: 6,  end: 22,  type: "X(6)"}
+        - {name: INSTR_VERSION,   start: 23,  length: 3,  end: 25,  type: "9(3)"}
+        - {name: PROCS_TYP,       start: 26,  length: 2,  end: 27,  type: "X(2)"}
+        - {name: PROCS_SEQ,       start: 28,  length: 3,  end: 30,  type: "9(3)"}
+        - {name: RD,              start: 31,  length: 8,  end: 38,  type: "9(8)"}
+        - {name: ELECTION_DTE,    start: 39,  length: 8,  end: 46,  type: "9(8)"}
+        - {name: PAY_DTE,         start: 47,  length: 8,  end: 54,  type: "9(8)"}
+        - {name: EX_DIV_DTE,      start: 55,  length: 8,  end: 62,  type: "9(8)"}
+        - {name: DIV_NO,          start: 63,  length: 5,  end: 67,  type: "9(5)"}
+        - {name: DIV_TYP,         start: 68,  length: 3,  end: 70,  type: "X(3)"}
+        - {name: DIV_RATE,        start: 71,  length: 11, end: 81,  type: "9(11)"}
+        - {name: DIV_BONUS,       start: 82,  length: 11, end: 92,  type: "9(11)"}
+        - {name: RATE_CONF,       start: 93,  length: 1,  end: 93,  type: "X"}
+        - {name: INSTR_TYP_REP,   start: 94,  length: 1,  end: 94,  type: "X"}
+        - {name: INSTR_ALPHA_REP, start: 95,  length: 6,  end: 100, type: "X(6)"}
+        - {name: INSTR_VERS_REP,  start: 101, length: 3,  end: 103, type: "9(3)"}
+        - {name: ISSUE_RAT_OLD,   start: 104, length: 13, end: 116, type: "9(13)"}
+        - {name: ISSUE_RAT_NEW,   start: 117, length: 13, end: 129, type: "9(13)"}
+        - {name: PAY_OUT_PRCE,    start: 130, length: 13, end: 142, type: "9(13)"}
+        - {name: TAKE_UP_PRC,     start: 143, length: 13, end: 155, type: "9(13)"}
+        - {name: FILLER,          start: 156, length: 18, end: 173, type: "X(18)"}
+    layout_67:
+      description: Electronically Settled Corporate Actions Tax Information Record
+      fields:
+        - {name: SYSTEM,                  start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,                start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,                 start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: LDT,                     start: 8,   length: 8,  end: 15,  type: "9(8)"}
+        - {name: INSTR_TYP,               start: 16,  length: 1,  end: 16,  type: "X"}
+        - {name: INSTR_ALPHA,             start: 17,  length: 6,  end: 22,  type: "X(6)"}
+        - {name: INSTR_VERSION,           start: 23,  length: 3,  end: 25,  type: "9(3)"}
+        - {name: PROCS_TYP,               start: 26,  length: 2,  end: 27,  type: "X(2)"}
+        - {name: PROCS_SEQ,               start: 28,  length: 3,  end: 30,  type: "9(3)"}
+        - {name: WITHHOLDING_TAX_PCT,     start: 31,  length: 9,  end: 39,  type: "9(9)"}
+        - {name: STC_RATE,                start: 40,  length: 11, end: 50,  type: "9(11)"}
+        - {name: FOREIGN_TAX_RATE_PCT,    start: 51,  length: 11, end: 61,  type: "9(11)"}
+        - {name: SA_RESIDENT_TAX_REBATE,  start: 62,  length: 11, end: 72,  type: "9(11)"}
+        - {name: DIVIDEND_IN_SPECIE,      start: 73,  length: 1,  end: 73,  type: "X"}
+        - {name: FILLER,                  start: 74,  length: 100, end: 173, type: "X(100)"}
+    layout_68:
+      description: Account Tax Exemption Details
+      fields:
+        - {name: SYSTEM,              start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,            start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,             start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,             start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: TAX_EXEMPTION_CODE,  start: 15,  length: 1,  end: 15,  type: "X"}
+        - {name: FROM_DATE,           start: 16,  length: 8,  end: 23,  type: "9(8)"}
+        - {name: TO_DATE,             start: 24,  length: 8,  end: 31,  type: "9(8)"}
+        - {name: DEACT_DATE,          start: 32,  length: 8,  end: 39,  type: "9(8)"}
+        - {name: REIT_EXEMPT_CODE,    start: 40,  length: 1,  end: 40,  type: "X(1)"}
+        - {name: WTI_EXEMPT_CODE,     start: 41,  length: 1,  end: 41,  type: "X(1)"}
+        - {name: FILLER,              start: 42,  length: 132, end: 173, type: "X(134)"}
+    layout_62:
+      description: Account Tax Identification Type Codes
+      fields:
+        - {name: SYSTEM,                     start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,                   start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,                    start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,                    start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: TAX_ID_TYPE_CODE,           start: 15,  length: 3,  end: 17,  type: "X(3)"}
+        - {name: TAX_ID_CODE_DESCRIPTION,    start: 18,  length: 30, end: 47,  type: "X(30)"}
+        - {name: PASS_THRU,                  start: 48,  length: 1,  end: 48,  type: "X(1)"}
+        - {name: FROM_DATE,                  start: 49,  length: 8,  end: 56,  type: "9(8)"}
+        - {name: TO_DATE,                    start: 57,  length: 8,  end: 64,  type: "9(8)"}
+        - {name: DEACT_DATE,                 start: 65,  length: 8,  end: 72,  type: "9(8)"}
+        - {name: FILLER,                     start: 73,  length: 101, end: 173, type: "X(101)"}
+    layout_73:
+      description: ENTDU Details
+      fields:
+        - {name: SYSTEM,         start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,       start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,        start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,        start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: SHORT_NAME,     start: 15,  length: 20, end: 34,  type: "X(20)"}
+        - {name: NON_RES,        start: 35,  length: 1,  end: 35,  type: "X"}
+        - {name: PAY_INSTR_DTE,  start: 36,  length: 9,  end: 44,  type: "X(9)"}
+        - {name: ACC_TYP,        start: 45,  length: 2,  end: 46,  type: "X(2)"}
+        - {name: BRN_CDE,        start: 47,  length: 2,  end: 48,  type: "X(2)"}
+        - {name: PARTNER,        start: 49,  length: 2,  end: 50,  type: "X(2)"}
+        - {name: PROCS_TYP,      start: 51,  length: 2,  end: 52,  type: "X(2)"}
+        - {name: MTHR_TYP,       start: 53,  length: 1,  end: 53,  type: "X"}
+        - {name: MTHR_ALPHA,     start: 54,  length: 6,  end: 59,  type: "X(6)"}
+        - {name: MTHR_VERSION,   start: 60,  length: 3,  end: 62,  type: "9(3)"}
+        - {name: OLD_QTY,        start: 63,  length: 13, end: 75,  type: "9(13)"}
+        - {name: REPL_TYP,       start: 76,  length: 1,  end: 76,  type: "X"}
+        - {name: REPL_ALPHA,     start: 77,  length: 6,  end: 82,  type: "X(6)"}
+        - {name: REPL_VERSION,   start: 83,  length: 3,  end: 85,  type: "9(3)"}
+        - {name: SHR_DUE_SIGN,   start: 86,  length: 1,  end: 86,  type: "X"}
+        - {name: SHR_DUE,        start: 87,  length: 13, end: 99,  type: "9(13)"}
+        - {name: LDT,            start: 100, length: 9,  end: 108, type: "9(9)"}
+        - {name: RECORD_DTE,     start: 109, length: 9,  end: 117, type: "9(9)"}
+        - {name: LAST_UPD_DTE,   start: 118, length: 9,  end: 126, type: "9(9)"}
+        - {name: DTA_PCT,        start: 127, length: 9,  end: 135, type: "9(9)"}
+        - {name: FILLER,         start: 136, length: 38, end: 173, type: "X(38)"}
+    layout_60:
+      description: SLB Records
+      fields:
+        - {name: SYSTEM,         start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,       start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,        start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: LEND_ACC,       start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: DEAL_ID,        start: 15,  length: 7,  end: 21,  type: "9(7)"}
+        - {name: BORW_ACC,       start: 22,  length: 7,  end: 28,  type: "9(7)"}
+        - {name: INSTR_TYP,      start: 29,  length: 1,  end: 29,  type: "X(1)"}
+        - {name: INSTR_ALPHA,    start: 30,  length: 6,  end: 35,  type: "X(6)"}
+        - {name: INSTR_VERSION,  start: 36,  length: 3,  end: 38,  type: "9(3)"}
+        - {name: LOAN_QTY,       start: 39,  length: 11, end: 49,  type: "X(11)"}
+        - {name: LOAN_RATE,      start: 50,  length: 5,  end: 54,  type: "9(5)"}
+        - {name: LOAN_COLL,      start: 55,  length: 15, end: 69,  type: "9(15)"}
+        - {name: COLL_TYPE,      start: 70,  length: 1,  end: 70,  type: "9(1)"}
+        - {name: PROV_BAL_CDE,   start: 71,  length: 2,  end: 72,  type: "9(2)"}
+        - {name: PROV_INT_CDE,   start: 73,  length: 2,  end: 74,  type: "X(2)"}
+        - {name: PROV_TRN_CDE,   start: 75,  length: 2,  end: 76,  type: "X(2)"}
+        - {name: BRK_BAL_CDE,    start: 77,  length: 2,  end: 78,  type: "X(2)"}
+        - {name: BRK_INT_CDE,    start: 79,  length: 2,  end: 80,  type: "X(2)"}
+        - {name: BRK_TRN_CDE,    start: 81,  length: 2,  end: 82,  type: "X(2)"}
+        - {name: BORW_RATE,      start: 83,  length: 5,  end: 87,  type: "9(5)"}
+        - {name: BORW_COLL,      start: 88,  length: 15, end: 102, type: "9(15)"}
+        - {name: RECV_DTE,       start: 103, length: 9,  end: 111, type: "9(9)"}
+        - {name: RETN_DTE,       start: 112, length: 9,  end: 120, type: "9(9)"}
+        - {name: RECV_STAT,      start: 121, length: 1,  end: 121, type: "X(1)"}
+        - {name: RETN_STAT,      start: 122, length: 1,  end: 122, type: "X(1)"}
+        - {name: TRADE_DTE,      start: 123, length: 8,  end: 130, type: "9(8)"}
+        - {name: FILLER,         start: 131, length: 40, end: 170, type: "X(40)"}
+    layout_61:
+      description: Collateral Records
+      fields:
+        - {name: SYSTEM,         start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,       start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,        start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: PROV_ACC,       start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: DEAL_ID,        start: 15,  length: 7,  end: 21,  type: "9(7)"}
+        - {name: RECV_ACC,       start: 22,  length: 7,  end: 28,  type: "9(7)"}
+        - {name: INSTR_TYP,      start: 29,  length: 1,  end: 29,  type: "X(1)"}
+        - {name: INSTR_ALPHA,    start: 30,  length: 6,  end: 35,  type: "X(6)"}
+        - {name: INSTR_VERSION,  start: 36,  length: 3,  end: 38,  type: "9(3)"}
+        - {name: COLL_QTY,       start: 39,  length: 11, end: 49,  type: "9(11)"}
+        - {name: RECV_DTE,       start: 50,  length: 9,  end: 58,  type: "9(9)"}
+        - {name: RETN_DTE,       start: 59,  length: 9,  end: 67,  type: "9(9)"}
+        - {name: RECV_STAT,      start: 68,  length: 1,  end: 68,  type: "X(1)"}
+        - {name: RETN_STAT,      start: 69,  length: 1,  end: 69,  type: "X(1)"}
+        - {name: TRADE_DTE,      start: 70,  length: 8,  end: 77,  type: "9(8)"}
+        - {name: FILLER,         start: 78,  length: 95, end: 172, type: "X(95)"}
+    layout_96:
+      description: Portfolio All Holdings Record
+      fields:
+        - {name: SYSTEM,          start: 1,   length: 2,  end: 2,   type: "X(2)"}
+        - {name: CARD_CDE,        start: 3,   length: 2,  end: 4,   type: "9(2)"}
+        - {name: BRK_CDE,         start: 5,   length: 3,  end: 7,   type: "9(3)"}
+        - {name: ACC_CDE,         start: 8,   length: 7,  end: 14,  type: "9(7)"}
+        - {name: INSTR_TYP,       start: 15,  length: 1,  end: 15,  type: "X"}
+        - {name: INSTR_ALPHA,     start: 16,  length: 6,  end: 21,  type: "X(6)"}
+        - {name: INSTR_VERSION,   start: 22,  length: 3,  end: 24,  type: "9(3)"}
+        - {name: ICB_SECTOR_CDE,  start: 25,  length: 4,  end: 28,  type: "X(4)"}
+        - {name: SIGN_HLDG_QTY,   start: 29,  length: 1,  end: 29,  type: "X"}
+        - {name: SH_HLDG_QTY,     start: 30,  length: 13, end: 42,  type: "9(13)"}
+        - {name: SIGN_QTY_AH,     start: 43,  length: 1,  end: 43,  type: "X"}
+        - {name: QTY_AH,          start: 44,  length: 13, end: 56,  type: "9(13)"}
+        - {name: SIGN_COST_OTH,   start: 57,  length: 1,  end: 57,  type: "X"}
+        - {name: COST_PF_OTH,     start: 58,  length: 15, end: 72,  type: "9(15)"}
+        - {name: SIGN_COST_AH,    start: 73,  length: 1,  end: 73,  type: "X"}
+        - {name: COST_PF_AH,      start: 74,  length: 15, end: 88,  type: "9(15)"}
+        - {name: SIGN_QTY_HLDG,   start: 89,  length: 1,  end: 89,  type: "X"}
+        - {name: UT_QTY_HLDG,     start: 90,  length: 15, end: 104, type: "9(15)"}
+        - {name: SIGN_DEMAT_QTY,  start: 105, length: 1,  end: 105, type: "X"}
+        - {name: DEMAT_HLDG_QTY,  start: 106, length: 13, end: 118, type: "9(13)"}
+        - {name: SIGN_UT_QTY,     start: 119, length: 1,  end: 119, type: "X"}
+        - {name: UT_QTY,          start: 120, length: 15, end: 134, type: "9(15)"}
+        - {name: SIGN_CL_QTY,     start: 135, length: 1,  end: 135, type: "X"}
+        - {name: CL_QTY,          start: 136, length: 13, end: 148, type: "9(13)"}
+        - {name: BOARD_IND,       start: 149, length: 1,  end: 149, type: "X"}
+        - {name: SIGN_PL_QTY,     start: 150, length: 1,  end: 150, type: "X"}
+        - {name: PL_QTY,          start: 151, length: 13, end: 163, type: "9(13)"}
+        - {name: FILLER,          start: 164, length: 10, end: 173, type: "X(10)"}
+    layout_000_frozen:
+      description: Elective Events Frozen File Header (Card Code 000)
+      total_length: 30
+      fields:
+        - {name: CARD_CODE, start: 1,  length: 3,  end: 3,  type: "9(3)"}
+        - {name: BRK_CDE,   start: 4,  length: 3,  end: 6,  type: "9(3)"}
+        - {name: DATE,      start: 7,  length: 8,  end: 14, type: "9(8)"}
+        - {name: TIME,      start: 15, length: 6,  end: 20, type: "9(6)"}
+        - {name: FILLER,    start: 21, length: 10, end: 30, type: "X(10)"}
+    layout_071:
+      description: Elective Events Frozen File Event Detail Record
+      total_length: 100
+      fields:
+        - {name: CARD_CDE,       start: 1,  length: 3,  end: 3,  type: "9(3)"}
+        - {name: BRK_CDE,        start: 4,  length: 3,  end: 6,  type: "9(3)"}
+        - {name: PROCESS_TYPE,   start: 7,  length: 2,  end: 8,  type: "X(2)"}
+        - {name: INSTR_TYP,      start: 9,  length: 1,  end: 9,  type: "X"}
+        - {name: INSTR_ALPHA,    start: 10, length: 6,  end: 15, type: "X(6)"}
+        - {name: INSTR_VERSION,  start: 16, length: 3,  end: 18, type: "X(3)"}
+        - {name: LDR_DTE,        start: 19, length: 8,  end: 26, type: "9(8)"}
+        - {name: PROC_SEQ,       start: 27, length: 3,  end: 29, type: "9(3)"}
+        - {name: FILLER,         start: 30, length: 71, end: 100, type: "X(71)"}
+    layout_072:
+      description: Elective Events Frozen File Account Detail Record
+      total_length: 100
+      fields:
+        - {name: CARD_CDE,        start: 1,  length: 3,  end: 3,  type: "9(3)"}
+        - {name: BRK_CDE,         start: 4,  length: 3,  end: 6,  type: "9(3)"}
+        - {name: SECTION,         start: 7,  length: 1,  end: 7,  type: "X"}
+        - {name: OPTN_CDE,        start: 8,  length: 2,  end: 9,  type: "X(2)"}
+        - {name: ACC_CDE,         start: 10, length: 7,  end: 16, type: "9(7)"}
+        - {name: ORIG_SIGN,       start: 17, length: 1,  end: 17, type: "X"}
+        - {name: ORIG_QTY,        start: 18, length: 13, end: 30, type: "9(13)"}
+        - {name: ELECTION_SIGN,   start: 31, length: 1,  end: 31, type: "X"}
+        - {name: ELECTION_QTY,    start: 32, length: 13, end: 44, type: "9(13)"}
+        - {name: SCRIP_TY,        start: 45, length: 2,  end: 46, type: "X(2)"}
+        - {name: REG_CDE,         start: 47, length: 2,  end: 48, type: "9(2)"}
+        - {name: LOCN_ALPHA,      start: 49, length: 2,  end: 50, type: "X(2)"}
+        - {name: DEL_ID,          start: 51, length: 7,  end: 57, type: "9(7)"}
+        - {name: PS_IND,          start: 58, length: 1,  end: 58, type: "X"}
+        - {name: LENDER_ACC,      start: 59, length: 7,  end: 65, type: "9(7)"}
+        - {name: BORROWER_ACC,    start: 66, length: 7,  end: 72, type: "9(7)"}
+        - {name: PROVIDER_ACC,    start: 73, length: 7,  end: 79, type: "9(7)"}
+        - {name: RECEIVER_ACC,    start: 80, length: 7,  end: 86, type: "9(7)"}
+        - {name: FILLER,          start: 87, length: 14, end: 100, type: "X(14)"}
+    layout_999_frozen:
+      description: Elective Events Frozen File Trailer (Card Code 999)
+      total_length: 50
+      fields:
+        - {name: CARD_CODE,          start: 1,  length: 3,  end: 3,  type: "9(3)"}
+        - {name: BRK_CDE,            start: 4,  length: 3,  end: 6,  type: "9(3)"}
+        - {name: DATE,               start: 7,  length: 8,  end: 14, type: "9(8)"}
+        - {name: TIME,               start: 15, length: 6,  end: 20, type: "9(6)"}
+        - {name: TOTAL_RECORDS,      start: 21, length: 9,  end: 29, type: "9(9)"}
+        - {name: RECORDS_PROCESSED,  start: 30, length: 9,  end: 38, type: "9(9)"}
+        - {name: RECORDS_REJECTED,   start: 39, length: 9,  end: 47, type: "9(9)"}
+        - {name: FILLER,             start: 48, length: 3,  end: 50, type: "X(3)"}
   data_use_cases:
     - Import client holdings and cash balances into trading systems for pre-trade risk management
     - Create IT3(b) and IT3(c) tax files for revenue authority
@@ -530,8 +1940,8 @@ extensions:
     - FUPD updated FATCA records only flag
     - AC7 account type 7 flag
   record_structure:
-    header: Card Code 000 — broker_code, date, file metadata
-    trailer: Card Code 999 — record count, freed indicator
+    header: Card Code 000 — broker_code, machine date, machine time, batch run date
+    trailer: Card Code 999 — machine date, machine time, record count, batch run date
   delivery_channels:
     - FTP (scheduled batch)
     - Online request process function
@@ -547,3 +1957,5 @@ related:
     type: optional
   - feature: broker-securities-lending-borrowing-upload
     type: recommended
+  - feature: popia-compliance
+    type: required

@@ -1,17 +1,16 @@
 # ============================================================
 # Broker Securities Lending & Borrowing Upload — Feature Blueprint
-# FDL v0.1.0 | Blueprint v1.0.0
+# FDL v0.1.0 | Blueprint v1.1.0
 # ============================================================
-# Extracted from: SLB Upload Specification v0.7
 # Fixed-width upload of securities lending, borrowing, and
 # collateral records from broker member firms to central
 # back-office with loan/collateral confirmation and return
-# records
+# records. Wire-level record layouts captured for every card code.
 # ============================================================
 
 feature: broker-securities-lending-borrowing-upload
-version: 1.0.0
-description: Broker securities lending and borrowing (SLB) upload to central back-office via fixed-width records for loan, collateral, loan confirmation/return, and collateral confirmation/return
+version: 1.1.0
+description: Broker securities lending and borrowing upload via fixed-width card-code records for loan open, collateral pledge, confirmation, return, mark-to-market, and margin calls
 category: trading
 tags:
   - back-office
@@ -23,6 +22,8 @@ tags:
   - collateral
   - fixed-width
   - card-codes
+  - mark-to-market
+  - margin-call
 actors:
   - id: participating_broker
     name: Participating Broker
@@ -33,7 +34,12 @@ actors:
   - id: slb_counterparty
     name: SLB Counterparty
     type: external
-    description: Lending or borrowing counterparty
+  - id: lending_desk
+    name: Lending Desk
+    type: human
+  - id: risk_controller
+    name: Risk Controller
+    type: human
 fields:
   - name: card_code
     type: text
@@ -47,34 +53,27 @@ fields:
     type: date
     required: true
     label: Upload Date
-  - name: loan_reference
+  - name: upload_type
+    type: select
+    required: true
+    label: Upload Type
+    options:
+      - {value: N, label: New}
+      - {value: U, label: Update}
+      - {value: R, label: Reverse}
+      - {value: C, label: Confirm}
+  - name: lender_account_code
     type: text
     required: false
-    label: Loan Reference
-  - name: loan_trade_date
-    type: date
-    required: false
-    label: Loan Trade Date
-  - name: loan_start_date
-    type: date
-    required: false
-    label: Loan Start Date
-  - name: loan_end_date
-    type: date
-    required: false
-    label: Loan End Date
-  - name: loan_account_code
+    label: Lender Account Code
+  - name: borrower_account_code
     type: text
     required: false
-    label: Loan Account Code
-  - name: loan_instrument_code
+    label: Borrower Account Code
+  - name: loan_deal_id
     type: text
     required: false
-    label: Loan Instrument Code
-  - name: loan_isin
-    type: text
-    required: false
-    label: Loan Isin
+    label: Loan Deal Id
   - name: loan_quantity
     type: number
     required: false
@@ -82,309 +81,680 @@ fields:
   - name: loan_rate
     type: number
     required: false
-    label: Loan Rate
-  - name: loan_fee
+    label: Loan Rate Percent
+  - name: borrow_rate
     type: number
     required: false
-    label: Loan Fee
-  - name: loan_counterparty
-    type: text
+    label: Borrower Rate Percent
+  - name: loan_collateral_value
+    type: number
     required: false
-    label: Loan Counterparty
-  - name: loan_type
-    type: select
-    required: false
-    label: Loan Type
-  - name: loan_direction
-    type: select
-    required: false
-    label: Loan Direction
-  - name: collateral_reference
-    type: text
-    required: false
-    label: Collateral Reference
-  - name: collateral_trade_date
-    type: date
-    required: false
-    label: Collateral Trade Date
+    label: Loan Collateral Value
   - name: collateral_type
     type: select
     required: false
     label: Collateral Type
-  - name: collateral_instrument
-    type: text
-    required: false
-    label: Collateral Instrument
+    options:
+      - {value: S, label: Securities}
+      - {value: C, label: Cash}
+      - {value: " ", label: None}
   - name: collateral_quantity
     type: number
     required: false
     label: Collateral Quantity
-  - name: collateral_value
-    type: number
-    required: false
-    label: Collateral Value
-  - name: collateral_currency
+  - name: instrument_type
     type: text
     required: false
-    label: Collateral Currency
-  - name: collateral_haircut
-    type: number
-    required: false
-    label: Collateral Haircut
-  - name: collateral_linked_loan_reference
+    label: Instrument Type
+  - name: instrument_alpha
     type: text
     required: false
-    label: Collateral Linked Loan Reference
-  - name: confirmation_type
-    type: select
+    label: Instrument Alpha
+  - name: instrument_version
+    type: number
     required: false
-    label: Confirmation Type
-  - name: confirmation_date
+    label: Instrument Version
+  - name: receive_date
     type: date
     required: false
-    label: Confirmation Date
-  - name: return_quantity
-    type: number
+    label: Receive Date
+  - name: return_date
+    type: date
     required: false
-    label: Return Quantity
-  - name: return_amount
-    type: number
+    label: Return Date
+  - name: provide_date
+    type: date
     required: false
-    label: Return Amount
-  - name: collateral_confirmation_type
+    label: Provide Date
+  - name: trade_date
+    type: date
+    required: false
+    label: Trade Date
+  - name: return_cash_collateral
     type: select
     required: false
-    label: Collateral Confirmation Type
-  - name: collateral_return_quantity
+    label: Return Cash Collateral
+    options:
+      - {value: "Y", label: Yes}
+      - {value: "N", label: No}
+  - name: create_swift_message
+    type: select
+    required: false
+    label: Create Swift Message
+    options:
+      - {value: "Y", label: Immediate}
+      - {value: "N", label: No}
+      - {value: "L", label: Later}
+  - name: accrued_fee
     type: number
     required: false
-    label: Collateral Return Quantity
-  - name: collateral_return_value
+    label: Accrued Lending Fee
+  - name: mark_price
     type: number
     required: false
-    label: Collateral Return Value
+    label: Mark-to-Market Price
+  - name: margin_shortfall
+    type: number
+    required: false
+    label: Margin Shortfall
 rules:
   submission:
     - "MUST: Support automated upload submission via FTP"
     - "MUST: Configure email addresses before allowing upload"
-    - "MUST: Provide error reporting via COMPR and PCOMPR functions"
+    - "MUST: Provide error reporting via common error enquiry functions"
     - "MUST: Generate response dataset with per-record response codes"
-    - "MUST: Archive processed upload files"
+    - "MUST: Archive processed upload files in a retention cycle"
   validation:
-    - "MUST: Validate loan and collateral reference uniqueness"
-    - "MUST: Link collateral records to existing loan references"
-    - "MUST: Validate trade date is within acceptable window"
-    - "MUST: Validate counterparty exists in master data"
+    - "MUST: Reject entire file if trailer record missing or mismatched"
+    - "MUST: Reject entire file if broker code on detail differs from header"
+    - "MUST: Validate loan and collateral deal id uniqueness"
+    - "MUST: Link collateral records to existing loan deal ids"
+    - "MUST: Validate counterparty account exists and is active"
+    - "MUST: Enforce return date not before receive/provide date"
+    - "MUST: Reject loan rate outside 0-999.99 percent"
   format:
-    - "MUST: Use fixed-width card code record format"
+    - "MUST: Use fixed-width non-delimited record format"
     - "MUST: Start file with Header Record (Card Code 000)"
     - "MUST: End file with Trailer Record (Card Code 999)"
-    - "MUST: Use Layout 025 for loan upload"
-    - "MUST: Use Layout 026 for collateral upload"
-    - "MUST: Use Layout 027 for loan confirmation/return"
-    - "MUST: Use Layout 028 for collateral confirmation/return"
+    - "MUST: Use Layout 025 for loan upload (total length 400)"
+    - "MUST: Use Layout 026 for collateral upload (total length 400)"
+    - "MUST: Use Layout 027 for loan confirmation/return (total length 400)"
+    - "MUST: Use Layout 028 for collateral confirmation/return (total length 400)"
+    - "MUST: Zero-fill numeric fields when value is absent"
   lifecycle:
     - "MUST: Support open-ended and fixed-term loan types"
     - "MUST: Allow partial or full return of loans and collateral"
-    - "MUST: Update loan status on confirmation and return"
+    - "MUST: Mark collateral to market and raise margin calls"
+    - "MUST: Accrue lending fee daily as rate * value * days / 365"
+    - "MUST: Force-close loans on counterparty default or contractual breach"
 errors:
-  - code: SLB_UPLOAD_INVALID_LOAN_REF
+  - code: SLB_INVALID_CARD_CODE
     status: 422
-    message: Loan reference is invalid or duplicate
-  - code: SLB_UPLOAD_COLLATERAL_NOT_LINKED
+    message: Card code is invalid
+  - code: SLB_INVALID_BROKER_CODE
+    status: 422
+    message: Broker code is invalid or inactive
+  - code: SLB_INVALID_UPLOAD_TYPE
+    status: 422
+    message: Upload type must be N, U, R, C
+  - code: SLB_INVALID_ACCOUNT_CODE
+    status: 422
+    message: Account code is invalid or not permitted
+  - code: SLB_INVALID_DEAL_ID
+    status: 422
+    message: Deal id is invalid for upload type
+  - code: SLB_INVALID_INSTRUMENT
+    status: 422
+    message: Instrument code not loaded or not electronically settled
+  - code: SLB_INVALID_LOAN_QUANTITY
+    status: 422
+    message: Loan quantity out of range
+  - code: SLB_INVALID_LOAN_RATE
+    status: 422
+    message: Loan rate must be between 0 and 999.99 percent
+  - code: SLB_INVALID_COLLATERAL_TYPE
+    status: 422
+    message: Collateral type must be S, C or blank
+  - code: SLB_RETURN_DATE_BEFORE_RECEIVE
+    status: 422
+    message: Return date may not be before receive date
+  - code: SLB_TRAILER_MISSING
+    status: 422
+    message: Trailer record not found
+  - code: SLB_TRAILER_COUNT_MISMATCH
+    status: 422
+    message: Trailer total not same as records sent
+  - code: SLB_DETAIL_BROKER_MISMATCH
+    status: 422
+    message: Detail broker code not same as header broker code
+  - code: SLB_RECORD_AFTER_TRAILER
+    status: 422
+    message: Record received after trailer
+  - code: SLB_DUPLICATE_TRAILER
+    status: 422
+    message: Duplicate trailer received
+  - code: SLB_COLLATERAL_UNLINKED
     status: 422
     message: Collateral record references non-existent loan
-  - code: SLB_UPLOAD_INVALID_COUNTERPARTY
+  - code: SLB_MARGIN_CALL_REQUIRED
     status: 422
-    message: SLB counterparty not found in master data
-  - code: SLB_UPLOAD_INSTRUMENT_NOT_FOUND
-    status: 422
-    message: Referenced instrument does not exist
-  - code: SLB_UPLOAD_PROCESSING_FAILED
+    message: Collateral value below required margin threshold
+  - code: SLB_FORCE_CLOSE_REQUIRED
+    status: 409
+    message: Loan must be force-closed due to default or breach
+  - code: SLB_PROCESSING_FAILED
     status: 500
     message: SLB upload processing failed
+events:
+  - name: slb.loan.opened
+    payload: [broker_code, loan_deal_id, lender_account_code, borrower_account_code, loan_quantity, loan_rate]
+  - name: slb.loan.returned
+    payload: [broker_code, loan_deal_id, return_date, return_quantity]
+  - name: slb.collateral.pledged
+    payload: [broker_code, loan_deal_id, collateral_type, collateral_quantity, collateral_value]
+  - name: slb.collateral.released
+    payload: [broker_code, loan_deal_id, collateral_quantity]
+  - name: slb.collateral.marked
+    payload: [loan_deal_id, mark_price, collateral_value]
+  - name: slb.margin.call
+    payload: [loan_deal_id, margin_shortfall]
+  - name: slb.loan.force_closed
+    payload: [loan_deal_id, reason]
+  - name: slb.fee.accrued
+    payload: [loan_deal_id, accrued_fee, accrual_date]
+  - name: slb.upload.response_delivered
+    payload: [broker_code, sequence_number, records_processed, records_rejected]
 outcomes:
-  automated_loan_upload:
+  header_validation:
     priority: 1
-    description: Broker submits loan upload records (Layout 025)
+    description: Validate header record (Card Code 000)
+    given:
+      - field: card_code
+        source: input
+        operator: eq
+        value: "000"
+    then:
+      - action: set_field
+        target: header_validated
+        value: true
+      - action: emit_event
+        event: slb.upload.response_delivered
+    error: SLB_INVALID_CARD_CODE
+  open_securities_loan:
+    priority: 2
+    description: Open a new securities loan (Layout 025 with upload type N)
+    transaction: true
     given:
       - field: card_code
         source: input
         operator: eq
         value: "025"
-      - field: email_configured
-        source: db
+      - field: upload_type
+        source: input
         operator: eq
-        value: true
+        value: N
+      - field: loan_quantity
+        source: input
+        operator: gt
+        value: 0
     then:
       - action: create_record
-        type: slb_loan_upload
-        fields:
-          - broker_code
-          - loan_reference
-          - counterparty
-          - quantity
-          - rate
+        type: slb_loan
+      - action: set_field
+        target: loan_status
+        value: open
       - action: emit_event
-        event: slb_upload.loan.received
-    error: SLB_UPLOAD_INVALID_LOAN_REF
-  automated_collateral_upload:
-    priority: 2
-    description: Broker submits collateral upload records (Layout 026)
+        event: slb.loan.opened
+    error: SLB_INVALID_LOAN_QUANTITY
+  pledge_collateral:
+    priority: 3
+    description: Pledge cash or securities collateral against a loan (Layout 026)
+    transaction: true
     given:
       - field: card_code
         source: input
         operator: eq
         value: "026"
+      - field: upload_type
+        source: input
+        operator: eq
+        value: N
     then:
       - action: create_record
-        type: slb_collateral_upload
+        type: slb_collateral
+      - action: set_field
+        target: collateral_status
+        value: posted
       - action: emit_event
-        event: slb_upload.collateral.received
-    error: SLB_UPLOAD_COLLATERAL_NOT_LINKED
-  loan_confirmation_return:
-    priority: 3
-    description: Broker submits loan confirmation or return (Layout 027)
+        event: slb.collateral.pledged
+    error: SLB_COLLATERAL_UNLINKED
+  return_securities_loan:
+    priority: 4
+    description: Confirm or return an open securities loan (Layout 027)
+    transaction: true
     given:
       - field: card_code
         source: input
         operator: eq
         value: "027"
+      - field: upload_type
+        source: input
+        operator: in
+        value: [C, R]
     then:
       - action: transition_state
         field: loan_status
         from: open
-        to: confirmed_or_returned
+        to: returned
       - action: emit_event
-        event: slb_upload.loan.confirmed
-  collateral_confirmation_return:
-    priority: 4
-    description: Broker submits collateral confirmation or return (Layout 028)
+        event: slb.loan.returned
+  release_collateral:
+    priority: 5
+    description: Confirm or release collateral (Layout 028)
+    transaction: true
     given:
       - field: card_code
         source: input
         operator: eq
         value: "028"
+      - field: upload_type
+        source: input
+        operator: in
+        value: [C, R]
     then:
       - action: transition_state
         field: collateral_status
         from: posted
-        to: confirmed_or_returned
+        to: released
       - action: emit_event
-        event: slb_upload.collateral.confirmed
-  validate_collateral_link:
-    priority: 5
-    description: Validate collateral record is linked to existing loan
+        event: slb.collateral.released
+  mark_to_market_collateral:
+    priority: 6
+    description: Revalue collateral at current mark price and compute exposure
+    given:
+      - field: loan_status
+        source: db
+        operator: eq
+        value: open
+      - field: mark_price
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: set_field
+        target: collateral_value
+        value: mark_price_times_quantity
+      - action: emit_event
+        event: slb.collateral.marked
+  margin_call:
+    priority: 7
+    description: Raise margin call when collateral value falls below required threshold
+    given:
+      - field: collateral_value
+        source: computed
+        operator: lt
+        value: required_margin
+    then:
+      - action: set_field
+        target: margin_call_raised
+        value: true
+      - action: notify
+        channel: email
+      - action: emit_event
+        event: slb.margin.call
+    error: SLB_MARGIN_CALL_REQUIRED
+  accrue_lending_fee:
+    priority: 8
+    description: Daily fee accrual as loan_rate * loan_value * days / 365
+    given:
+      - field: loan_status
+        source: db
+        operator: eq
+        value: open
+    then:
+      - action: set_field
+        target: accrued_fee
+        value: loan_rate_times_value_times_days_over_365
+      - action: emit_event
+        event: slb.fee.accrued
+  force_close_loan:
+    priority: 9
+    description: Force close loan on counterparty default or unmet margin call
+    transaction: true
+    given:
+      - any:
+          - field: margin_call_unmet
+            source: db
+            operator: eq
+            value: true
+          - field: counterparty_default
+            source: db
+            operator: eq
+            value: true
+    then:
+      - action: transition_state
+        field: loan_status
+        from: open
+        to: force_closed
+      - action: notify
+        channel: email
+      - action: emit_event
+        event: slb.loan.force_closed
+    error: SLB_FORCE_CLOSE_REQUIRED
+  trailer_validation:
+    priority: 10
+    description: Validate trailer record counts against records sent
     given:
       - field: card_code
         source: input
         operator: eq
-        value: "026"
-      - field: collateral_linked_loan_exists
-        source: computed
-        operator: eq
-        value: false
+        value: "999"
     then:
       - action: emit_event
-        event: slb_upload.collateral.unlinked
+        event: slb.upload.response_delivered
+    error: SLB_TRAILER_COUNT_MISMATCH
   generate_response_dataset:
-    priority: 6
-    description: Generate SLB upload response dataset
+    priority: 11
+    description: Generate SLB upload response dataset with per-record codes
     given:
-      - upload processing complete
+      - field: processing_complete
+        source: computed
+        operator: eq
+        value: true
     then:
       - action: create_record
         type: slb_response_dataset
       - action: notify
         channel: email
       - action: emit_event
-        event: slb_upload.response.delivered
-agi:
-  goals:
-    - id: reliable_broker_securities_lending_borrowing_upload
-      description: Broker securities lending and borrowing (SLB) upload to central back-office via fixed-width records for loan, collateral, loan confirmation/return, and collateral confirmation/return
-      success_metrics:
-        - metric: policy_violation_rate
-          target: 0%
-          measurement: Operations that violate defined policies
-        - metric: audit_completeness
-          target: 100%
-          measurement: All decisions have complete audit trails
-      constraints:
-        - type: regulatory
-          description: All operations must be auditable and traceable
-          negotiable: false
-  autonomy:
-    level: supervised
-    human_checkpoints:
-      - before making irreversible changes
-    escalation_triggers:
-      - error_rate > 5
-      - consecutive_failures > 3
-  safety:
-    action_permissions:
-      - action: automated_loan_upload
-        permission: autonomous
-      - action: automated_collateral_upload
-        permission: autonomous
-      - action: loan_confirmation_return
-        permission: autonomous
-      - action: collateral_confirmation_return
-        permission: autonomous
-      - action: validate_collateral_link
-        permission: autonomous
-      - action: generate_response_dataset
-        permission: autonomous
-  tradeoffs:
-    - prefer: accuracy
-      over: latency
-      reason: trading operations require precise execution and full audit trails
-  verification:
-    invariants:
-      - error messages never expose internal system details
+        event: slb.upload.response_delivered
 extensions:
-  card_codes:
-    "999":
-      name: Trailer Record
-    "000":
-      name: Header Record
-    "025":
-      name: Loan Upload Record
-      purpose: Create new securities lending/borrowing loan
-    "026":
-      name: Collateral Upload Record
-      purpose: Post collateral against loan
-    "027":
-      name: Loan Confirmation/Return Record
-      purpose: Confirm or return existing loan
-    "028":
-      name: Collateral Confirmation/Return Record
-      purpose: Confirm or return posted collateral
-  loan_types:
-    - Open (no fixed end date)
-    - Term (fixed end date)
-    - Call (callable on demand)
+  record_layouts:
+    HEADER_000:
+      total_length: 30
+      fields:
+        - {name: card_code, start: 1, end: 3, length: 3, type: numeric}
+        - {name: broker_code, start: 4, end: 6, length: 3, type: numeric}
+        - {name: upload_date, start: 7, end: 14, length: 8, type: numeric}
+        - {name: upload_time, start: 15, end: 20, length: 6, type: numeric}
+        - {name: prefix, start: 21, end: 21, length: 1, type: character}
+        - {name: sequence_number, start: 22, end: 28, length: 7, type: numeric}
+        - {name: filler, start: 29, end: 30, length: 2, type: character}
+    TRAILER_999:
+      total_length: 50
+      fields:
+        - {name: card_code, start: 1, end: 3, length: 3, type: numeric}
+        - {name: broker_code, start: 4, end: 6, length: 3, type: numeric}
+        - {name: process_date, start: 7, end: 14, length: 8, type: numeric}
+        - {name: process_time, start: 15, end: 20, length: 6, type: numeric}
+        - {name: total_records, start: 21, end: 29, length: 9, type: numeric}
+        - {name: records_processed, start: 30, end: 38, length: 9, type: numeric}
+        - {name: records_rejected, start: 39, end: 47, length: 9, type: numeric}
+        - {name: filler, start: 48, end: 50, length: 3, type: character}
+    LOAN_UPLOAD_025:
+      total_length: 400
+      purpose: Create, update or reverse a securities loan
+      fields:
+        - {name: card_code, start: 1, end: 3, length: 3, type: numeric}
+        - {name: broker_code, start: 4, end: 6, length: 3, type: numeric}
+        - {name: upload_type, start: 7, end: 7, length: 1, type: character}
+        - {name: lender_account_code, start: 8, end: 14, length: 7, type: numeric}
+        - {name: deal_id, start: 15, end: 21, length: 7, type: numeric}
+        - {name: external_reference, start: 22, end: 32, length: 11, type: character}
+        - {name: create_message, start: 33, end: 33, length: 1, type: character}
+        - {name: borrower_message_reference, start: 34, end: 49, length: 16, type: character}
+        - {name: borrower_message_status, start: 50, end: 58, length: 9, type: character}
+        - {name: collateral_type, start: 59, end: 59, length: 1, type: character}
+        - {name: return_cash_collateral, start: 60, end: 60, length: 1, type: character}
+        - {name: borrower_account_code, start: 61, end: 67, length: 7, type: numeric}
+        - {name: borrower_deal_id, start: 68, end: 74, length: 7, type: numeric}
+        - {name: receive_date, start: 75, end: 82, length: 8, type: numeric}
+        - {name: receive_status, start: 83, end: 83, length: 1, type: character}
+        - {name: return_date, start: 84, end: 91, length: 8, type: numeric}
+        - {name: return_status, start: 92, end: 92, length: 1, type: character}
+        - {name: instrument_type, start: 93, end: 93, length: 1, type: character}
+        - {name: instrument_alpha, start: 94, end: 99, length: 6, type: character}
+        - {name: instrument_version, start: 100, end: 102, length: 3, type: numeric}
+        - {name: price, start: 103, end: 109, length: 7, type: numeric}
+        - {name: loan_quantity, start: 110, end: 120, length: 11, type: numeric}
+        - {name: loan_rate, start: 121, end: 125, length: 5, type: numeric}
+        - {name: borrow_rate, start: 126, end: 130, length: 5, type: numeric}
+        - {name: loan_collateral, start: 131, end: 145, length: 15, type: numeric}
+        - {name: borrow_collateral, start: 146, end: 160, length: 15, type: numeric}
+        - {name: provider_balance_code, start: 161, end: 162, length: 2, type: character}
+        - {name: provider_interest_code, start: 163, end: 164, length: 2, type: character}
+        - {name: provider_turn_code, start: 165, end: 166, length: 2, type: character}
+        - {name: broker_balance_code, start: 167, end: 168, length: 2, type: character}
+        - {name: broker_interest_code, start: 169, end: 170, length: 2, type: character}
+        - {name: broker_turn_code, start: 171, end: 172, length: 2, type: character}
+        - {name: trade_date, start: 173, end: 180, length: 8, type: numeric}
+        - {name: filler, start: 181, end: 400, length: 220, type: character}
+    COLLATERAL_UPLOAD_026:
+      total_length: 400
+      purpose: Pledge collateral (securities or cash) against a loan
+      fields:
+        - {name: card_code, start: 1, end: 3, length: 3, type: numeric}
+        - {name: broker_code, start: 4, end: 6, length: 3, type: numeric}
+        - {name: upload_type, start: 7, end: 7, length: 1, type: character}
+        - {name: provider_account_code, start: 8, end: 14, length: 7, type: numeric}
+        - {name: deal_id, start: 15, end: 21, length: 7, type: numeric}
+        - {name: collateral_reference, start: 22, end: 32, length: 11, type: character}
+        - {name: create_message, start: 33, end: 33, length: 1, type: character}
+        - {name: borrower_message_reference, start: 34, end: 49, length: 16, type: character}
+        - {name: borrower_message_status, start: 50, end: 58, length: 9, type: character}
+        - {name: provide_date, start: 59, end: 66, length: 8, type: numeric}
+        - {name: provide_status, start: 67, end: 67, length: 1, type: character}
+        - {name: return_date, start: 68, end: 75, length: 8, type: numeric}
+        - {name: return_status, start: 76, end: 76, length: 1, type: character}
+        - {name: receiver_account_code, start: 77, end: 83, length: 7, type: numeric}
+        - {name: instrument_type, start: 84, end: 84, length: 1, type: character}
+        - {name: instrument_alpha, start: 85, end: 90, length: 6, type: character}
+        - {name: instrument_version, start: 91, end: 93, length: 3, type: numeric}
+        - {name: price, start: 94, end: 100, length: 7, type: numeric}
+        - {name: collateral_quantity, start: 101, end: 111, length: 11, type: numeric}
+        - {name: trade_date, start: 112, end: 119, length: 8, type: numeric}
+        - {name: filler, start: 120, end: 400, length: 281, type: character}
+    LOAN_CONFIRM_RETURN_027:
+      total_length: 400
+      purpose: Confirm or return an existing securities loan
+      fields:
+        - {name: card_code, start: 1, end: 3, length: 3, type: numeric}
+        - {name: broker_code, start: 4, end: 6, length: 3, type: numeric}
+        - {name: upload_type, start: 7, end: 7, length: 1, type: character}
+        - {name: lender_account_code, start: 8, end: 14, length: 7, type: numeric}
+        - {name: deal_id, start: 15, end: 21, length: 7, type: numeric}
+        - {name: return_cash_collateral, start: 22, end: 22, length: 1, type: character}
+        - {name: borrower_account_code, start: 23, end: 29, length: 7, type: numeric}
+        - {name: instrument_type, start: 30, end: 30, length: 1, type: character}
+        - {name: instrument_alpha, start: 31, end: 36, length: 6, type: character}
+        - {name: instrument_version, start: 37, end: 39, length: 3, type: numeric}
+        - {name: loan_quantity, start: 40, end: 50, length: 11, type: numeric}
+        - {name: receive_date, start: 51, end: 58, length: 8, type: numeric}
+        - {name: receive_status, start: 59, end: 59, length: 1, type: character}
+        - {name: return_date, start: 60, end: 67, length: 8, type: numeric}
+        - {name: return_status, start: 68, end: 68, length: 1, type: character}
+        - {name: create_message, start: 69, end: 69, length: 1, type: character}
+        - {name: filler, start: 70, end: 400, length: 331, type: character}
+    COLLATERAL_CONFIRM_RETURN_028:
+      total_length: 400
+      purpose: Confirm or release posted collateral
+      fields:
+        - {name: card_code, start: 1, end: 3, length: 3, type: numeric}
+        - {name: broker_code, start: 4, end: 6, length: 3, type: numeric}
+        - {name: upload_type, start: 7, end: 7, length: 1, type: character}
+        - {name: provider_account_code, start: 8, end: 14, length: 7, type: numeric}
+        - {name: deal_id, start: 15, end: 21, length: 7, type: numeric}
+        - {name: receiver_account_code, start: 22, end: 28, length: 7, type: numeric}
+        - {name: instrument_type, start: 29, end: 29, length: 1, type: character}
+        - {name: instrument_alpha, start: 30, end: 35, length: 6, type: character}
+        - {name: instrument_version, start: 36, end: 38, length: 3, type: numeric}
+        - {name: collateral_quantity, start: 39, end: 49, length: 11, type: numeric}
+        - {name: provide_date, start: 50, end: 57, length: 8, type: numeric}
+        - {name: provide_status, start: 58, end: 58, length: 1, type: character}
+        - {name: return_date, start: 59, end: 66, length: 8, type: numeric}
+        - {name: return_status, start: 67, end: 67, length: 1, type: character}
+        - {name: create_message, start: 68, end: 68, length: 1, type: character}
+        - {name: filler, start: 69, end: 400, length: 332, type: character}
+    RESPONSE_DATASET:
+      total_length: 700
+      purpose: Per-record processing response written back to broker
+      fields:
+        - {name: card_code, start: 1, end: 3, length: 3, type: numeric}
+        - {name: broker_code, start: 4, end: 6, length: 3, type: numeric}
+        - {name: process_date, start: 7, end: 14, length: 8, type: numeric}
+        - {name: process_time, start: 15, end: 20, length: 6, type: numeric}
+        - {name: total_records, start: 21, end: 29, length: 9, type: numeric}
+        - {name: records_processed, start: 30, end: 38, length: 9, type: numeric}
+        - {name: records_rejected, start: 39, end: 47, length: 9, type: numeric}
+        - {name: filler, start: 48, end: 700, length: 653, type: character}
+        - {name: count_of_messages_for_line, start: 648, end: 650, length: 3, type: numeric}
+        - {name: error_message, start: 651, end: 700, length: 50, type: character}
+  record_type_map:
+    "000": Header Record
+    "025": Loan Upload Record
+    "026": Collateral Upload Record
+    "027": Loan Confirmation/Return Record
+    "028": Collateral Confirmation/Return Record
+    "999": Trailer Record
+  slb_transaction_codes:
+    upload_type:
+      N: New
+      U: Update
+      R: Reverse
+      C: Confirm
+    collateral_type:
+      S: Securities
+      C: Cash
+      " ": None
+    create_message:
+      "Y": Immediate Swift message
+      "N": No Swift message
+      "L": Later Swift message
+    return_cash_collateral:
+      "Y": Return cash collateral on loan return
+      "N": Do not return cash collateral
+      " ": Not applicable (no cash collateral)
+    instrument_type:
+      E: Equity (electronically settled)
+    account_types_permitted:
+      - "A"
+      - "AB"
+      - "AF"
+      - "AL"
+      - "AN"
+      - "AS"
+      - "Q"
+      - "QL"
+      - "QN"
+      - "QS"
+      - "B"
+      - "C"
+      - "LB"
+      - "LL"
+  response_codes:
+    "000": SUCCESSFULLY UPDATED
+    S01: INVALID CARD CODE NUMBER
+    S03: INVALID BROKER CODE
+    S05: INVALID UPLOAD TYPE
+    S07: INVALID ACCOUNT CODE
+    S09: INVALID DEAL ID
+    S11: INVALID ACCOUNT TYPE/ROLL COMBINATION
+    S12: INVALID RECEIVE DATE
+    S14: INVALID RETURN DATE
+    S16: INVALID INSTRUMENT TYPE
+    S18: INVALID INSTRUMENT
+    S20: INVALID INSTRUMENT VERSION
+    S22: INVALID PRICE FORMAT
+    S23: INVALID LOAN QUANTITY
+    S25: INVALID LOAN RATE
+    S27: INVALID BORROW RATE
+    S42: INVALID COLLATERAL QUANTITY
+    S44: INVALID HEADER RECORD
+    S48: TRAILER RECORD NOT FOUND
+    S49: INVALID TRAILER RECORD
+    S55: INSTRUMENT NOT ELECTRONIC SETTLED
+    S57: QTY MAY NOT BE < 0 OR > 99999999
+    S58: RETURN DATE MAY NOT BE < PROVIDE DATE
+    S75: RATE MAY NOT BE < 0 OR > 999.99
+    S81: RETURN DATE MAY NOT BE < RECEIVE DATE
+    S86: LOAN CLTRL > BORROW CLTRL
+    S90: INVALID COLLATERAL TYPE
+    S91: INVALID CREATE-MSG - MUST BE Y OR N OR L
+    S93: LOAN TYPE INVALID - ONLY B OR L
+    S94: ACCOUNT TYPE INVALID
+  balance_codes:
+    AK: Cash Collateral AK
+    BK: Cash Collateral BK
+    CA: Cash Collateral CA
+    CB: Cash Collateral CB
+    CC: Cash Collateral CC
+    CD: Cash Collateral CD
+    CE: Cash Collateral CE
+    CF: Cash Collateral CF
+    CG: Cash Collateral CG
+    CH: Cash Collateral CH
+    CI: Cash Collateral CI
+    CJ: Cash Collateral CJ
+    CK: Cash Collateral CK
+    CL: Cash Collateral CL
+    CM: Cash Collateral CM
+    CN: Cash Collateral CN
+    CO: Cash Collateral CO
+    CP: Cash Collateral CP
+    DK: Cash Collateral DK
+    EK: Cash Collateral EK
+    FK: Cash Collateral FK
+    GK: Cash Collateral GK
+    IK: Cash Collateral IK
+    JC: Margin Call
+    JK: Cash Collateral JK
+    K: Cash Collateral
+    KA: Cash Collateral 10
+    KB: Cash Collateral 11
+    KC: Cash Collateral 12
+    KD: Cash Collateral 13
+    KE: Cash Collateral 14
+    KF: Cash Collateral 15
+    KG: Cash Collateral 16
+    KH: Cash Collateral 17
+    KI: Cash Collateral 18
+    KJ: Cash Collateral 19
+    KK: Cash Collateral 20
   collateral_types:
-    - Cash
-    - Securities
+    - cash
+    - securities
+  loan_types:
+    - open
+    - term
+    - call
   lifecycle_states:
     loan:
       - open
       - confirmed
       - returned
+      - force_closed
       - cancelled
     collateral:
       - posted
       - confirmed
-      - returned
+      - marked
+      - margin_call
+      - released
       - cancelled
-  workflow:
-    - 1. Email address set-up
-    - 2. Loan upload (Layout 025)
-    - 3. Collateral upload (Layout 026)
-    - 4. Loan confirmation/return (Layout 027)
-    - 5. Collateral confirmation/return (Layout 028)
-    - 6. Response dataset and archiving
+  fee_calculation:
+    formula: loan_rate * loan_value * days / 365
+    accrual: daily
+    day_count: ACT/365
+  file_structure:
+    - Header Record (Card Code 000)
+    - Detail Records (025, 026, 027, 028)
+    - Trailer Record (Card Code 999)
+  fatal_file_errors:
+    - RECORD RECEIVED AFTER TRAILER
+    - DUPLICATE TRAILER RECEIVED
+    - BRK CDE NOT SAME AS HDR
+    - TRAILER REC TOTAL NOT SAME AS RECS SENT
+    - TRAILER NOT RECEIVED
 related:
   - feature: broker-back-office-dissemination
     type: recommended

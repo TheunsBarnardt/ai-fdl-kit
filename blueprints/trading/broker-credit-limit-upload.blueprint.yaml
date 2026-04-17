@@ -1,0 +1,458 @@
+feature: broker-credit-limit-upload
+version: 1.0.0
+description: Bulk upload or update of per-account credit limits by brokers with validation, supervisor approval, effective-date scheduling, and audit trail.
+category: trading
+aliases:
+  - credit-limit-upload
+  - bulk-credit-limit-update
+  - cr-lim-upload
+  - credit-limit-maintenance-bulk
+  - crd-lim-upload
+tags:
+  - credit-limit
+  - bulk-upload
+  - risk
+  - approval-workflow
+  - audit
+fields:
+  - name: upload_mode
+    type: select
+    required: true
+    label: Upload Mode
+    options:
+      - value: full_refresh
+        label: Full refresh (replace all limits)
+      - value: delta
+        label: Delta (update only supplied accounts)
+  - name: broker_code
+    type: text
+    required: true
+    label: Broker Code
+    validation:
+      - type: pattern
+        value: ^[0-9]{3}$
+        message: Broker Code failed pattern validation
+  - name: batch_number
+    type: number
+    required: true
+    label: Batch Number
+  - name: upload_name
+    type: text
+    required: true
+    label: Upload Name
+  - name: run_date
+    type: date
+    required: true
+    label: Run Date
+  - name: account_code
+    type: text
+    required: true
+    label: Account Code
+    validation:
+      - type: pattern
+        value: ^[A-Z0-9]{7}$
+        message: Account Code failed pattern validation
+  - name: credit_limit_type
+    type: select
+    required: true
+    label: Credit Limit Type
+    options:
+      - value: UP
+        label: Intraday (valid for one day)
+      - value: ST
+        label: Standing (valid indefinitely)
+      - value: PF
+        label: Portfolio (system-calculated daily)
+  - name: credit_limit_amount
+    type: number
+    required: true
+    label: Credit Limit Amount
+  - name: currency
+    type: select
+    required: true
+    label: Currency
+    options:
+      - value: ZAR
+        label: South African Rand
+      - value: USD
+        label: US Dollar
+      - value: EUR
+        label: Euro
+      - value: GBP
+        label: British Pound
+  - name: effective_date
+    type: date
+    required: false
+    label: Effective Date
+  - name: record_count
+    type: number
+    required: true
+    label: Number of Records
+  - name: approval_status
+    type: select
+    required: true
+    label: Approval Status
+    options:
+      - value: pending
+        label: Pending supervisor approval
+      - value: approved
+        label: Approved
+      - value: rejected
+        label: Rejected
+      - value: applied
+        label: Applied
+  - name: supervisor_id
+    type: text
+    required: false
+    label: Approving Supervisor
+actors:
+  - id: broker_user
+    name: Broker User
+    type: human
+  - id: supervisor
+    name: Risk Supervisor
+    type: human
+  - id: upload_service
+    name: Credit Limit Upload Service
+    type: system
+  - id: back_office_system
+    name: Back-office System
+    type: system
+rules:
+  general:
+    rule_1: Maximum 1000 detail records per upload (1002 including header and trailer).
+    rule_2: Header record type must be H, detail D, trailer T.
+    rule_3: Batch number must be unique per broker and never reprocessed.
+    rule_4: Credit limit amount must be greater than 0 unless limit type is PF.
+    rule_5: When limit type is PF, credit limit amount MUST be zero.
+    rule_6: Currency codes must be ISO 4217 valid codes.
+    rule_7: Every limit change requires supervisor approval before it takes effect.
+    rule_8: Effective date cannot be in the past; defaults to next business day if omitted.
+    rule_9: Full refresh mode replaces all existing limits for the broker; delta mode updates only supplied accounts.
+    rule_10: Every accepted or rejected record must be written to the audit trail with before/after values.
+    rule_11: Failed records must not block successful records in the same batch.
+    rule_12: A processing report must be produced detailing changes applied and errors encountered.
+outcomes:
+  upload_limits_bulk:
+    priority: 1
+    description: Broker submits a bulk credit limit upload file for processing.
+    given:
+      - field: upload_name
+        source: input
+        operator: eq
+        value: UPLKB1
+      - field: record_count
+        source: input
+        operator: lte
+        value: 1002
+      - field: batch_number
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: credit_limit_upload_batch
+      - action: set_field
+        target: approval_status
+        value: pending
+      - action: emit_event
+        event: credit.limit.upload.received
+        payload:
+          - broker_code
+          - batch_number
+          - record_count
+          - upload_mode
+  validate_limit:
+    priority: 2
+    description: Each detail record is validated for limit type, amount, and currency before acceptance.
+    given:
+      - any:
+          - field: credit_limit_amount
+            source: input
+            operator: lte
+            value: 0
+          - field: currency
+            source: input
+            operator: not_in
+            value:
+              - ZAR
+              - USD
+              - EUR
+              - GBP
+          - field: credit_limit_type
+            source: input
+            operator: not_in
+            value:
+              - UP
+              - ST
+              - PF
+    then:
+      - action: emit_event
+        event: credit.limit.record.rejected
+        payload:
+          - broker_code
+          - account_code
+          - credit_limit_amount
+          - currency
+    error: CREDIT_LIMIT_INVALID
+  supervisor_approval_required:
+    priority: 3
+    description: Validated batch is routed to a risk supervisor for approval before any limit change is applied.
+    given:
+      - field: approval_status
+        source: db
+        operator: eq
+        value: pending
+    then:
+      - action: notify
+        channel: email
+        target: supervisor
+      - action: emit_event
+        event: credit.limit.approval.requested
+        payload:
+          - broker_code
+          - batch_number
+          - record_count
+  schedule_effective_date:
+    priority: 4
+    description: Approved limit changes are scheduled to take effect on the requested effective date.
+    given:
+      - field: approval_status
+        source: db
+        operator: eq
+        value: approved
+      - field: effective_date
+        source: input
+        operator: gte
+        value: today
+    then:
+      - action: transition_state
+        field: approval_status
+        from: approved
+        to: applied
+      - action: emit_event
+        event: credit.limit.scheduled
+        payload:
+          - broker_code
+          - account_code
+          - credit_limit_amount
+          - effective_date
+    transaction: true
+  audit_trail:
+    priority: 5
+    description: Every limit change, approval, rejection, or error writes an immutable audit entry with before/after values.
+    given:
+      - field: batch_number
+        source: db
+        operator: exists
+    then:
+      - action: create_record
+        type: credit_limit_audit_entry
+      - action: emit_event
+        event: credit.limit.audit.written
+        payload:
+          - broker_code
+          - account_code
+          - batch_number
+          - approval_status
+          - supervisor_id
+events:
+  - name: credit.limit.upload.received
+    payload:
+      - broker_code
+      - batch_number
+      - record_count
+      - upload_mode
+  - name: credit.limit.record.rejected
+    payload:
+      - broker_code
+      - account_code
+      - credit_limit_amount
+      - currency
+  - name: credit.limit.approval.requested
+    payload:
+      - broker_code
+      - batch_number
+      - record_count
+  - name: credit.limit.approval.granted
+    payload:
+      - broker_code
+      - batch_number
+      - supervisor_id
+  - name: credit.limit.approval.rejected
+    payload:
+      - broker_code
+      - batch_number
+      - supervisor_id
+  - name: credit.limit.scheduled
+    payload:
+      - broker_code
+      - account_code
+      - credit_limit_amount
+      - effective_date
+  - name: credit.limit.applied
+    payload:
+      - broker_code
+      - account_code
+      - credit_limit_amount
+      - effective_date
+  - name: credit.limit.audit.written
+    payload:
+      - broker_code
+      - account_code
+      - batch_number
+      - approval_status
+      - supervisor_id
+errors:
+  - code: CREDIT_LIMIT_INVALID
+    status: 422
+    message: Credit limit record failed validation.
+  - code: CREDIT_LIMIT_BATCH_DUPLICATE
+    status: 409
+    message: Batch number has already been processed.
+  - code: CREDIT_LIMIT_COUNT_EXCEEDED
+    status: 413
+    message: Upload exceeds maximum record count.
+  - code: CREDIT_LIMIT_HEADER_INVALID
+    status: 422
+    message: Upload header is invalid or missing required fields.
+  - code: CREDIT_LIMIT_TRAILER_MISMATCH
+    status: 422
+    message: Trailer record count does not match detail records.
+  - code: CREDIT_LIMIT_APPROVAL_REQUIRED
+    status: 403
+    message: Supervisor approval required before applying limit changes.
+  - code: CREDIT_LIMIT_EFFECTIVE_DATE_INVALID
+    status: 422
+    message: Effective date must not be in the past.
+  - code: CREDIT_LIMIT_CURRENCY_INVALID
+    status: 422
+    message: Currency code is not a recognised ISO 4217 value.
+states:
+  field: approval_status
+  values:
+    - value: pending
+      initial: true
+    - value: approved
+    - value: rejected
+      terminal: true
+    - value: applied
+      terminal: true
+  transitions:
+    - from: pending
+      to: approved
+      actor: supervisor
+      description: Supervisor approves batch
+    - from: pending
+      to: rejected
+      actor: supervisor
+      description: Supervisor rejects batch
+    - from: approved
+      to: applied
+      actor: upload_service
+      description: Scheduled effective date reached and limits applied
+sla:
+  max_duration: 24h
+  escalation: Escalate to senior risk officer if supervisor approval is outstanding beyond 24 hours.
+related:
+  - feature: broker-client-account-maintenance
+    type: required
+  - feature: popia-compliance
+    type: required
+extensions:
+  record_type_map:
+    H: Header record (one per file)
+    D: Detail record (one per account limit)
+    T: Trailer record (one per file)
+    UP: Intraday limit valid for one day
+    ST: Standing limit valid indefinitely
+    PF: Portfolio-calculated limit (amount must be zero)
+  record_layouts:
+    CC_HEADER:
+      length: 173
+      fields:
+        - name: record_type
+          start: 1
+          length: 1
+          end: 1
+          type: char
+        - name: broker_code
+          start: 2
+          length: 3
+          end: 4
+          type: char
+        - name: upload_name
+          start: 5
+          length: 6
+          end: 10
+          type: char
+        - name: run_date
+          start: 11
+          length: 8
+          end: 18
+          type: numeric
+        - name: batch_number
+          start: 19
+          length: 9
+          end: 27
+          type: numeric
+        - name: filler
+          start: 28
+          length: 146
+          end: 173
+          type: char
+    CC_DETAIL:
+      length: 173
+      fields:
+        - name: record_type
+          start: 1
+          length: 1
+          end: 1
+          type: char
+        - name: broker_code
+          start: 2
+          length: 3
+          end: 4
+          type: char
+        - name: account_code
+          start: 5
+          length: 7
+          end: 11
+          type: char
+        - name: credit_limit_amount_code
+          start: 12
+          length: 2
+          end: 13
+          type: char
+        - name: credit_limit_amount
+          start: 14
+          length: 15
+          end: 28
+          type: numeric
+        - name: filler
+          start: 29
+          length: 145
+          end: 173
+          type: char
+    CC_TRAILER:
+      length: 173
+      fields:
+        - name: record_type
+          start: 1
+          length: 1
+          end: 1
+          type: char
+        - name: broker_code
+          start: 2
+          length: 3
+          end: 4
+          type: char
+        - name: number_of_records
+          start: 5
+          length: 4
+          end: 8
+          type: numeric
+        - name: filler
+          start: 9
+          length: 165
+          end: 173
+          type: char
