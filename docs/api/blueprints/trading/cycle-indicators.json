@@ -1,0 +1,350 @@
+{
+  "feature": "cycle-indicators",
+  "version": "1.0.0",
+  "description": "Hilbert Transform cycle-analysis indicators that decompose price into dominant cycle period, phase, and trend/cycle mode using digital signal processing techniques",
+  "category": "trading",
+  "tags": [
+    "technical-analysis",
+    "cycle",
+    "hilbert-transform",
+    "dominant-cycle",
+    "phasor",
+    "sine-wave",
+    "ta-lib",
+    "indicators"
+  ],
+  "aliases": [
+    "hilbert-transform",
+    "cycle-analysis",
+    "ht-indicators",
+    "dominant-cycle-indicators",
+    "ta-lib-cycle"
+  ],
+  "actors": [
+    {
+      "id": "quant_analyst",
+      "name": "Quantitative Analyst",
+      "type": "human"
+    },
+    {
+      "id": "indicator_engine",
+      "name": "Technical Indicator Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "real_prices",
+      "type": "json",
+      "required": true,
+      "label": "Price series (typically Close; chronological double array)"
+    },
+    {
+      "name": "indicator_type",
+      "type": "select",
+      "required": true,
+      "label": "Hilbert Transform cycle function to compute",
+      "options": [
+        {
+          "value": "HT_DCPERIOD",
+          "label": "HT_DCPERIOD"
+        },
+        {
+          "value": "HT_DCPHASE",
+          "label": "HT_DCPHASE"
+        },
+        {
+          "value": "HT_PHASOR",
+          "label": "HT_PHASOR"
+        },
+        {
+          "value": "HT_SINE",
+          "label": "HT_SINE"
+        },
+        {
+          "value": "HT_TRENDMODE",
+          "label": "HT_TRENDMODE"
+        }
+      ]
+    },
+    {
+      "name": "out_beg_idx",
+      "type": "number",
+      "required": false,
+      "label": "Output Begin Index"
+    },
+    {
+      "name": "out_nb_element",
+      "type": "number",
+      "required": false,
+      "label": "Number of valid output elements"
+    },
+    {
+      "name": "out_values",
+      "type": "json",
+      "required": false,
+      "label": "Primary output (HT_DCPERIOD period values; HT_DCPHASE degrees; HT_TRENDMODE 0/1 integer)"
+    },
+    {
+      "name": "out_secondary",
+      "type": "json",
+      "required": false,
+      "label": "Secondary output (HT_PHASOR Quadrature array; HT_SINE LeadSine array)"
+    }
+  ],
+  "rules": {
+    "lookback_model": {
+      "lookback": 32,
+      "note": "32-bar fixed warm-up period applies regardless of input size; first 32 bars consume the Hilbert Transform initialisation"
+    },
+    "ht_dcperiod": {
+      "formula": "Uses Homodyne Discriminator method to estimate the dominant cycle period in price data",
+      "inputs_required": [
+        "price"
+      ],
+      "output_unit": "Bars (e.g., output of 20 means a 20-bar dominant cycle)",
+      "output_range": "6 to 50 bars (clamped internally)",
+      "interpretation": {
+        "short_cycle": "Period < 10 — fast, short-term cycle dominant",
+        "medium_cycle": "Period 10-20 — typical short-term swing cycle",
+        "long_cycle": "Period > 30 — slower, longer-duration cycle dominant"
+      },
+      "use_case": "Adaptive period selection — use HT_DCPERIOD output to dynamically set STOCH or RSI period"
+    },
+    "ht_dcphase": {
+      "formula": "Instantaneous phase of the dominant cycle; derived from InPhase and Quadrature components",
+      "inputs_required": [
+        "price"
+      ],
+      "output_unit": "Degrees (0 to 360)",
+      "output_range": "-180 to +180 (wraps at cycle boundaries)",
+      "interpretation": {
+        "zero_crossing": "Phase crosses 0° → potential buy signal (start of new cycle)",
+        "peak": "Phase near +90° → cycle peak",
+        "trough": "Phase near -90° → cycle trough"
+      },
+      "use_case": "Cycle timing — identify where in the current cycle price resides"
+    },
+    "ht_phasor": {
+      "formula": "InPhase = real component of the analytic signal; Quadrature = imaginary component (90° ahead)",
+      "inputs_required": [
+        "price"
+      ],
+      "outputs": "2 arrays: InPhase (out_values) and Quadrature (out_secondary)",
+      "output_unit": "Normalized price units",
+      "use_case": "Building block for computing HT_DCPHASE and HT_TRENDMODE; rarely used directly in strategies",
+      "note": "InPhase and Quadrature are the I/Q components of the Hilbert Transform analytic signal"
+    },
+    "ht_sine": {
+      "formula": "SineWave = sin(phase); LeadSine = sin(phase + 45°) — lead signal 45° ahead of main sine",
+      "inputs_required": [
+        "price"
+      ],
+      "outputs": "2 arrays: SineWave (out_values) and LeadSine (out_secondary)",
+      "output_range": "-1 to +1 for both",
+      "interpretation": {
+        "buy_signal": "LeadSine crosses above SineWave from below",
+        "sell_signal": "LeadSine crosses below SineWave from above"
+      },
+      "use_case": "Cycle-timing buy/sell signals without needing to interpret raw phase degrees"
+    },
+    "ht_trendmode": {
+      "formula": "Returns 1 when price is trending (not cycling), 0 when in cycle mode",
+      "inputs_required": [
+        "price"
+      ],
+      "output_type": "Integer (0 or 1)",
+      "interpretation": {
+        "trending": "Output = 1 — apply trend-following indicators (MACD, ADX, moving average crossovers)",
+        "cycling": "Output = 0 — apply cycle oscillators (Stochastic, RSI with tighter bands)"
+      },
+      "use_case": "Regime filter — switch indicator set based on whether price is trending or oscillating"
+    }
+  },
+  "outcomes": {
+    "compute_success": {
+      "priority": 10,
+      "given": [
+        "input_length > 32",
+        "real_prices present and non-empty"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "out_beg_idx",
+          "value": 32
+        },
+        {
+          "action": "set_field",
+          "target": "out_nb_element",
+          "value": "input_length - 32"
+        },
+        {
+          "action": "set_field",
+          "target": "out_values",
+          "value": "computed Hilbert Transform values"
+        },
+        {
+          "action": "emit_event",
+          "event": "cycle.computed",
+          "payload": [
+            "indicator_type",
+            "out_nb_element"
+          ]
+        }
+      ],
+      "result": "Output aligned to input via outBegIdx=32; caller must skip first 32 input bars"
+    },
+    "phasor_computed": {
+      "priority": 10,
+      "given": [
+        "indicator_type == HT_PHASOR",
+        "input_length > 32"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "out_values",
+          "value": "InPhase component values"
+        },
+        {
+          "action": "set_field",
+          "target": "out_secondary",
+          "value": "Quadrature component values"
+        }
+      ],
+      "result": "Two synchronized arrays: InPhase and Quadrature — combine to derive phase angle"
+    },
+    "sine_computed": {
+      "priority": 10,
+      "given": [
+        "indicator_type == HT_SINE",
+        "input_length > 32"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "out_values",
+          "value": "SineWave values (-1 to +1)"
+        },
+        {
+          "action": "set_field",
+          "target": "out_secondary",
+          "value": "LeadSine values (-1 to +1, 45° phase advance)"
+        }
+      ],
+      "result": "LeadSine crossover above/below SineWave generates buy/sell signals"
+    },
+    "trendmode_switch": {
+      "priority": 10,
+      "given": [
+        "indicator_type == HT_TRENDMODE",
+        "out_values[latest] changed value (0→1 or 1→0)"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "cycle.regime_change",
+          "payload": [
+            "new_mode",
+            "previous_mode"
+          ]
+        }
+      ],
+      "result": "Regime change detected — caller should switch active indicator set"
+    },
+    "insufficient_data": {
+      "priority": 1,
+      "error": "INSUFFICIENT_DATA",
+      "given": [
+        "input_length <= 32"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "out_nb_element",
+          "value": 0
+        }
+      ],
+      "result": "No output; all Hilbert Transform functions require at least 33 bars"
+    }
+  },
+  "errors": [
+    {
+      "code": "INSUFFICIENT_DATA",
+      "message": "All Hilbert Transform indicators require at least 33 bars (32-bar warm-up + 1 output bar).",
+      "status": 422
+    }
+  ],
+  "events": [
+    {
+      "name": "cycle.computed",
+      "payload": [
+        "indicator_type",
+        "out_nb_element",
+        "out_beg_idx"
+      ]
+    },
+    {
+      "name": "cycle.regime_change",
+      "payload": [
+        "new_mode",
+        "previous_mode",
+        "bar_index"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "momentum-oscillators",
+      "type": "recommended"
+    },
+    {
+      "feature": "moving-average-overlap-studies",
+      "type": "recommended"
+    },
+    {
+      "feature": "directional-movement-indicators",
+      "type": "recommended"
+    },
+    {
+      "feature": "market-data-feeds",
+      "type": "required"
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not apply Hilbert Transform functions to less than 64 bars",
+      "why": "The 32-bar warm-up is a hard minimum; in practice, the first 32 outputs are numerically unstable — use 64+ bars for reliable readings"
+    },
+    {
+      "rule": "Do not use HT_SINE buy/sell signals without confirming with HT_TRENDMODE",
+      "why": "HT_SINE signals are meaningful only in cycle mode (HT_TRENDMODE = 0); in trending markets, the sine wave diverges from price and produces false crossovers"
+    },
+    {
+      "rule": "Do not treat HT_DCPERIOD as a fixed indicator period",
+      "why": "The dominant cycle shifts bar by bar; HT_DCPERIOD is a real-time estimate, not a stable constant — use it to dynamically adapt other indicator periods, not as a static parameter"
+    },
+    {
+      "rule": "Do not expect HT functions to work on synthetic or interpolated price data",
+      "why": "Hilbert Transform assumes continuous market price; gap-filled or back-adjusted series introduce phase discontinuities that corrupt InPhase/Quadrature calculations"
+    }
+  ],
+  "extensions": {
+    "tech_stack": {
+      "language": "C99",
+      "bindings": "Java, .NET, Rust, Python",
+      "source_repo": "https://github.com/TA-Lib/ta-lib"
+    },
+    "indicator_count": 5,
+    "fixed_lookback": 32,
+    "theory": "John Ehlers — MESA and Trading Market Cycles (1992); Cybernetic Analysis for Stocks and Futures (2004)",
+    "output_types": {
+      "HT_DCPERIOD": "Double Array (bars)",
+      "HT_DCPHASE": "Double Array (degrees)",
+      "HT_PHASOR": "Two Double Arrays (InPhase, Quadrature)",
+      "HT_SINE": "Two Double Arrays (SineWave, LeadSine)",
+      "HT_TRENDMODE": "Integer Array (0 or 1)"
+    }
+  }
+}

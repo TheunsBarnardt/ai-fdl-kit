@@ -1,0 +1,181 @@
+# ============================================================
+# regression-assumptions — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 10, p.277-283
+# ============================================================
+
+feature: regression-assumptions
+version: "1.0.0"
+description: Verify the four classical assumptions of simple linear regression — linearity, homoskedasticity, independence, and normality — using residual diagnostics and plots
+category: trading
+tags: [quantitative-methods, regression, assumptions, diagnostics, residual-analysis, cfa-level-1]
+aliases:
+  - ols-assumptions
+  - regression-diagnostics
+  - homoskedasticity
+  - residual-plot-analysis
+  - gauss-markov-assumptions
+  - linearity-check
+
+actors:
+  - id: diagnostics_engine
+    name: Regression Diagnostics Engine
+    type: system
+
+fields:
+  - name: residuals
+    type: json
+    required: true
+    label: Array of regression residuals e_i = Y_i - Y_hat_i
+  - name: fitted_values
+    type: json
+    required: true
+    label: Array of fitted values Y_hat_i
+  - name: independent_variable
+    type: json
+    required: false
+    label: Array of X values for plotting residuals against X
+
+rules:
+  four_assumptions:
+    # Source: Vol 1, Module 10, p.277-280
+    linearity: "E[Y|X] is linear in X; residuals should be random, not form a systematic pattern"
+    homoskedasticity: "Var(epsilon_i) = sigma^2, constant across all observations"
+    independence: "Cov(epsilon_i, epsilon_j) = 0 for i != j; observations are independent"
+    normality: "epsilon_i ~ N(0, sigma^2) — needed for inference but relaxable for large n by CLT"
+  diagnostics:
+    # Source: Vol 1, Module 10, p.278-283
+    residual_vs_x_plot: "No pattern expected; curvature => non-linearity; fan shape => heteroskedasticity"
+    residual_vs_fitted_plot: "Same — cluster or trend signals misspecification or non-constant variance"
+    qq_plot: "Normality check — points should lie on the 45-degree line"
+    durbin_watson: "Test for first-order autocorrelation of residuals"
+  violations_and_fixes:
+    non_linearity: "Transform variables (log, sqrt); add polynomial term; use non-linear model"
+    heteroskedasticity: "Weighted least squares; use White/robust standard errors"
+    autocorrelation: "Add lagged regressors; use Newey-West HAC standard errors"
+    non_normality: "Increase sample size (CLT); use bootstrap inference; robust regression"
+  small_sample_note:
+    normality_matters_more: "For n < 30, non-normality severely distorts t and F inferences"
+    large_sample_relaxation: "For n >= 100 with finite variance, CLT makes t and F robust to non-normality"
+  applications:
+    volatility_clustering: "Financial returns exhibit heteroskedasticity — use robust SE or GARCH"
+    autocorrelated_returns: "Daily returns may show serial correlation — diagnose with DW or LM test"
+    non_linear_relation: "Returns vs size often need log transformation"
+  validation:
+    residual_length_matches: "residuals and fitted_values have same length"
+    residuals_numeric: "All residual entries are finite numbers"
+
+outcomes:
+  run_diagnostics:
+    priority: 1
+    description: Perform full residual diagnostic suite
+    given:
+      - field: residuals
+        source: input
+        operator: exists
+      - field: fitted_values
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: diagnostics_engine
+      - action: emit_event
+        event: regression.diagnostics_completed
+  heteroskedasticity_detected:
+    priority: 5
+    description: Breusch-Pagan or fan-pattern test signals non-constant variance
+    given:
+      - field: heteroskedasticity_p_value
+        source: computed
+        operator: lt
+        value: 0.05
+    then:
+      - action: emit_event
+        event: regression.assumption_violated
+  autocorrelation_detected:
+    priority: 6
+    description: Durbin-Watson outside [1.5, 2.5]
+    given:
+      - any:
+          - field: durbin_watson
+            source: computed
+            operator: lt
+            value: 1.5
+          - field: durbin_watson
+            source: computed
+            operator: gt
+            value: 2.5
+    then:
+      - action: emit_event
+        event: regression.assumption_violated
+  missing_residuals:
+    priority: 10
+    description: Residuals not provided
+    given:
+      - field: residuals
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: regression.diagnostics_rejected
+    error: DIAG_RESIDUALS_MISSING
+
+errors:
+  - code: DIAG_RESIDUALS_MISSING
+    status: 400
+    message: Residuals array is required
+
+events:
+  - name: regression.diagnostics_completed
+    payload: [model_id, linearity_ok, homoskedasticity_ok, independence_ok, normality_ok]
+  - name: regression.assumption_violated
+    payload: [model_id, assumption, severity, recommended_fix]
+  - name: regression.diagnostics_rejected
+    payload: [model_id, reason_code]
+
+anti_patterns:
+  - rule: Do not interpret OLS standard errors and t-stats when residuals are heteroskedastic
+    why: "OLS SEs are biased under heteroskedasticity — inflating/deflating t-stats and giving wrong p-values. Use White/HC robust SEs"
+  - rule: Do not ignore autocorrelation in time-series regressions
+    why: "Correlated residuals understate SEs, inflate t-stats, and produce spuriously significant coefficients. Use Newey-West or add lags"
+  - rule: Do not check normality only via a histogram on small n
+    why: "Visual checks are unreliable for n < 30; use QQ-plots AND a formal test (Shapiro-Wilk / Jarque-Bera)"
+  - rule: Do not assume passing a single diagnostic guarantees model validity
+    why: "Each test has limited power; multiple violations can partially cancel in a single test. Run the full diagnostic suite"
+
+api:
+  http:
+    method: POST
+    path: /analytics/regression/diagnostics
+  request:
+    schema:
+      residuals: array
+      fitted_values: array
+      independent_variable: array
+  response:
+    success:
+      status: 200
+      schema:
+        linearity_ok: boolean
+        homoskedasticity_ok: boolean
+        independence_ok: boolean
+        normality_ok: boolean
+        durbin_watson: number
+        recommendations: array
+    errors:
+      - status: 400
+        error_code: DIAG_RESIDUALS_MISSING
+
+extensions:
+  residual_plot_interpretations:
+    # Source: Vol 1, Module 10, Exhibits 9-11, p.278-282
+    random_cloud: "Assumptions likely OK"
+    curved_pattern: "Non-linearity — transform X or Y"
+    fan_shape: "Heteroskedasticity — use robust SEs"
+    wave_pattern: "Autocorrelation — add lags or use HAC SEs"
+    clustered_groups: "Missing regime indicator — add dummy variable"
+
+related:
+  - feature: simple-linear-regression-ols
+    type: required
+  - feature: hypothesis-testing-framework
+    type: recommended

@@ -1,0 +1,508 @@
+{
+  "feature": "math-transform-operators",
+  "version": "1.0.0",
+  "description": "Element-wise and rolling-window mathematical utility functions operating on price series — arithmetic operators, period extrema, rounding, logarithms, exponentials, and trigonometric transforms",
+  "category": "trading",
+  "tags": [
+    "technical-analysis",
+    "math",
+    "arithmetic",
+    "transform",
+    "trigonometry",
+    "ta-lib",
+    "utilities"
+  ],
+  "aliases": [
+    "math-operators",
+    "math-transforms",
+    "ta-lib-math",
+    "price-math",
+    "arithmetic-functions",
+    "trig-functions"
+  ],
+  "actors": [
+    {
+      "id": "quant_analyst",
+      "name": "Quantitative Analyst",
+      "type": "human"
+    },
+    {
+      "id": "indicator_engine",
+      "name": "Technical Indicator Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "real0",
+      "type": "json",
+      "required": false,
+      "label": "First input series (required for binary operators ADD, SUB, MULT, DIV and all single-array functions)"
+    },
+    {
+      "name": "real1",
+      "type": "json",
+      "required": false,
+      "label": "Second input series (required for binary operators ADD, SUB, MULT, DIV only)"
+    },
+    {
+      "name": "function_type",
+      "type": "select",
+      "required": true,
+      "label": "Math function to apply",
+      "options": [
+        {
+          "value": "ADD",
+          "label": "ADD"
+        },
+        {
+          "value": "SUB",
+          "label": "SUB"
+        },
+        {
+          "value": "MULT",
+          "label": "MULT"
+        },
+        {
+          "value": "DIV",
+          "label": "DIV"
+        },
+        {
+          "value": "MAX",
+          "label": "MAX"
+        },
+        {
+          "value": "MAXINDEX",
+          "label": "MAXINDEX"
+        },
+        {
+          "value": "MIN",
+          "label": "MIN"
+        },
+        {
+          "value": "MININDEX",
+          "label": "MININDEX"
+        },
+        {
+          "value": "MINMAX",
+          "label": "MINMAX"
+        },
+        {
+          "value": "MINMAXINDEX",
+          "label": "MINMAXINDEX"
+        },
+        {
+          "value": "SUM",
+          "label": "SUM"
+        },
+        {
+          "value": "CEIL",
+          "label": "CEIL"
+        },
+        {
+          "value": "FLOOR",
+          "label": "FLOOR"
+        },
+        {
+          "value": "SQRT",
+          "label": "SQRT"
+        },
+        {
+          "value": "LN",
+          "label": "LN"
+        },
+        {
+          "value": "LOG10",
+          "label": "LOG10"
+        },
+        {
+          "value": "EXP",
+          "label": "EXP"
+        },
+        {
+          "value": "SIN",
+          "label": "SIN"
+        },
+        {
+          "value": "COS",
+          "label": "COS"
+        },
+        {
+          "value": "TAN",
+          "label": "TAN"
+        },
+        {
+          "value": "ASIN",
+          "label": "ASIN"
+        },
+        {
+          "value": "ACOS",
+          "label": "ACOS"
+        },
+        {
+          "value": "ATAN",
+          "label": "ATAN"
+        },
+        {
+          "value": "SINH",
+          "label": "SINH"
+        },
+        {
+          "value": "COSH",
+          "label": "COSH"
+        },
+        {
+          "value": "TANH",
+          "label": "TANH"
+        }
+      ]
+    },
+    {
+      "name": "time_period",
+      "type": "number",
+      "required": false,
+      "label": "Rolling window period (required for MAX, MAXINDEX, MIN, MININDEX, MINMAX, MINMAXINDEX, SUM; default 30; range 2-100000)"
+    },
+    {
+      "name": "out_beg_idx",
+      "type": "number",
+      "required": false,
+      "label": "Output Begin Index"
+    },
+    {
+      "name": "out_nb_element",
+      "type": "number",
+      "required": false,
+      "label": "Number of valid output elements"
+    },
+    {
+      "name": "out_values",
+      "type": "json",
+      "required": false,
+      "label": "Primary output array (arithmetic, transform, extremum values)"
+    },
+    {
+      "name": "out_secondary",
+      "type": "json",
+      "required": false,
+      "label": "Secondary output (MINMAX min array; MINMAXINDEX min-index array)"
+    }
+  ],
+  "rules": {
+    "function_groups": {
+      "binary_operators": {
+        "functions": [
+          "ADD",
+          "SUB",
+          "MULT",
+          "DIV"
+        ],
+        "inputs": "Two equal-length price series (real0, real1)",
+        "lookback": 0,
+        "output_length": "Same as input length (1-to-1 bar mapping)",
+        "formulas": {
+          "ADD": "real0[i] + real1[i]",
+          "SUB": "real0[i] - real1[i]",
+          "MULT": "real0[i] * real1[i]",
+          "DIV": "real0[i] / real1[i]"
+        },
+        "edge_case": "DIV: when real1[i] = 0, output is implementation-defined (typically 0 or ±Inf); caller must guard"
+      },
+      "period_extrema": {
+        "functions": [
+          "MAX",
+          "MAXINDEX",
+          "MIN",
+          "MININDEX",
+          "MINMAX",
+          "MINMAXINDEX"
+        ],
+        "inputs": "Single price series (real0)",
+        "lookback": "timePeriod - 1",
+        "period_range": "2 to 100000; default 30",
+        "formulas": {
+          "MAX": "Maximum value of real0 over the last timePeriod bars",
+          "MAXINDEX": "Index of the bar holding the maximum value over timePeriod",
+          "MIN": "Minimum value of real0 over the last timePeriod bars",
+          "MININDEX": "Index of the bar holding the minimum value over timePeriod",
+          "MINMAX": "Both MAX and MIN in one call (out_values = max array, out_secondary = min array)",
+          "MINMAXINDEX": "Both MAXINDEX and MININDEX in one call (out_values = maxindex, out_secondary = minindex)"
+        },
+        "note": "MAXINDEX / MININDEX output absolute bar indices relative to the input array (not relative to the window)"
+      },
+      "rolling_sum": {
+        "functions": [
+          "SUM"
+        ],
+        "inputs": "Single price series (real0)",
+        "lookback": "timePeriod - 1",
+        "period_range": "2 to 100000; default 30",
+        "formula": "SUM[i] = sum(real0[i-n+1 .. i])",
+        "use_case": "Building block for manual SMA; cumulative position tracking; volume totals over period"
+      },
+      "single_bar_transforms": {
+        "functions": [
+          "CEIL",
+          "FLOOR",
+          "SQRT",
+          "LN",
+          "LOG10",
+          "EXP"
+        ],
+        "inputs": "Single price series (real0)",
+        "lookback": 0,
+        "output_length": "Same as input length",
+        "formulas": {
+          "CEIL": "ceil(real0[i]) — next integer toward +∞",
+          "FLOOR": "floor(real0[i]) — next integer toward -∞",
+          "SQRT": "sqrt(real0[i]) — square root; domain: real0[i] >= 0",
+          "LN": "ln(real0[i]) — natural logarithm; domain: real0[i] > 0",
+          "LOG10": "log10(real0[i]) — base-10 logarithm; domain: real0[i] > 0",
+          "EXP": "exp(real0[i]) — e^real0[i]"
+        },
+        "domain_errors": {
+          "SQRT": "Input < 0 produces NaN",
+          "LN": "Input <= 0 produces -Inf (0) or NaN (negative)",
+          "LOG10": "Input <= 0 produces -Inf (0) or NaN (negative)"
+        }
+      },
+      "trigonometric": {
+        "functions": [
+          "SIN",
+          "COS",
+          "TAN",
+          "ASIN",
+          "ACOS",
+          "ATAN",
+          "SINH",
+          "COSH",
+          "TANH"
+        ],
+        "inputs": "Single price series (real0)",
+        "lookback": 0,
+        "output_length": "Same as input length",
+        "input_unit": "Radians for all functions (not degrees)",
+        "formulas": {
+          "SIN": "sin(real0[i])",
+          "COS": "cos(real0[i])",
+          "TAN": "tan(real0[i]) — undefined at π/2 + nπ",
+          "ASIN": "arcsin(real0[i]); domain: -1 to +1; output: -π/2 to +π/2",
+          "ACOS": "arccos(real0[i]); domain: -1 to +1; output: 0 to π",
+          "ATAN": "arctan(real0[i]); output: -π/2 to +π/2",
+          "SINH": "hyperbolic sine of real0[i]",
+          "COSH": "hyperbolic cosine of real0[i]",
+          "TANH": "hyperbolic tangent; output: -1 to +1"
+        },
+        "use_cases": {
+          "price_cycles": "SIN/COS applied to normalized price for cycle analysis",
+          "angular_conversion": "Convert LINEARREG_ANGLE output (degrees) to radians before applying trig functions"
+        }
+      }
+    }
+  },
+  "outcomes": {
+    "compute_success_zero_lookback": {
+      "priority": 10,
+      "given": [
+        "function_type in [ADD, SUB, MULT, DIV, CEIL, FLOOR, SQRT, LN, LOG10, EXP, SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH]",
+        "real0 present and non-empty",
+        "for binary operators: real1 present and same length as real0"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "out_beg_idx",
+          "value": 0
+        },
+        {
+          "action": "set_field",
+          "target": "out_nb_element",
+          "value": "input_length"
+        },
+        {
+          "action": "set_field",
+          "target": "out_values",
+          "value": "element-wise transformed values"
+        },
+        {
+          "action": "emit_event",
+          "event": "math.computed",
+          "payload": [
+            "function_type",
+            "out_nb_element"
+          ]
+        }
+      ],
+      "result": "Full-length output array aligned 1-to-1 with input; no lookback offset"
+    },
+    "compute_success_period_based": {
+      "priority": 10,
+      "given": [
+        "function_type in [MAX, MAXINDEX, MIN, MININDEX, MINMAX, MINMAXINDEX, SUM]",
+        "input_length > timePeriod - 1",
+        "time_period >= 2"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "out_beg_idx",
+          "value": "timePeriod - 1"
+        },
+        {
+          "action": "set_field",
+          "target": "out_nb_element",
+          "value": "input_length - (timePeriod - 1)"
+        },
+        {
+          "action": "set_field",
+          "target": "out_values",
+          "value": "rolling extremum or sum values"
+        },
+        {
+          "action": "emit_event",
+          "event": "math.computed",
+          "payload": [
+            "function_type",
+            "out_nb_element"
+          ]
+        }
+      ],
+      "result": "Rolling output offset by timePeriod-1 bars; use outBegIdx to align with source data"
+    },
+    "minmax_computed": {
+      "priority": 10,
+      "given": [
+        "function_type in [MINMAX, MINMAXINDEX]",
+        "input_length > timePeriod - 1"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "out_values",
+          "value": "MAX (or MAXINDEX) values"
+        },
+        {
+          "action": "set_field",
+          "target": "out_secondary",
+          "value": "MIN (or MININDEX) values"
+        }
+      ],
+      "result": "Two parallel output arrays — extremum pair computed in one pass (more efficient than two separate calls)"
+    },
+    "domain_error": {
+      "priority": 2,
+      "error": "INVALID_INPUT",
+      "given": [
+        {
+          "any": [
+            "function_type == SQRT and any real0[i] < 0",
+            "function_type in [LN, LOG10] and any real0[i] <= 0",
+            "function_type in [ASIN, ACOS] and any real0[i] outside [-1, 1]",
+            "function_type == DIV and any real1[i] == 0"
+          ]
+        }
+      ],
+      "result": "Affected bars produce NaN or ±Inf; caller must validate domain constraints before calling"
+    },
+    "insufficient_data": {
+      "priority": 1,
+      "error": "INSUFFICIENT_DATA",
+      "given": [
+        "function_type in [MAX, MAXINDEX, MIN, MININDEX, MINMAX, MINMAXINDEX, SUM]",
+        "input_length <= timePeriod - 1"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "out_nb_element",
+          "value": 0
+        }
+      ],
+      "result": "No output; provide at least timePeriod bars"
+    },
+    "mismatched_arrays": {
+      "priority": 2,
+      "error": "INVALID_INPUT",
+      "given": [
+        "function_type in [ADD, SUB, MULT, DIV]",
+        "real0 and real1 differ in length"
+      ],
+      "result": "Binary operators require equal-length input arrays"
+    }
+  },
+  "errors": [
+    {
+      "code": "INSUFFICIENT_DATA",
+      "message": "Not enough bars for rolling window operation. Provide at least timePeriod bars.",
+      "status": 422
+    },
+    {
+      "code": "INVALID_INPUT",
+      "message": "Input domain violation (e.g., negative input to SQRT, zero denominator in DIV, out-of-range input to ASIN/ACOS).",
+      "status": 400
+    }
+  ],
+  "events": [
+    {
+      "name": "math.computed",
+      "payload": [
+        "function_type",
+        "out_nb_element",
+        "out_beg_idx"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "statistical-functions",
+      "type": "recommended"
+    },
+    {
+      "feature": "moving-average-overlap-studies",
+      "type": "recommended"
+    },
+    {
+      "feature": "volatility-band-indicators",
+      "type": "optional"
+    },
+    {
+      "feature": "market-data-feeds",
+      "type": "required"
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not apply LN or LOG10 to raw price series without checking for zero or negative values",
+      "why": "Price data that includes zero (e.g., instrument halted, data errors) produces -Inf; pre-filter or clamp to a small positive epsilon before logging"
+    },
+    {
+      "rule": "Do not pass degree values directly to SIN, COS, TAN without converting to radians",
+      "why": "All TA-Lib trig functions expect radians; LINEARREG_ANGLE outputs degrees — multiply by π/180 before passing to trig functions"
+    },
+    {
+      "rule": "Do not use DIV without guarding for zero denominators",
+      "why": "Integer or flat-price bars may produce a zero denominator; the C implementation propagates NaN or ±Inf silently — callers must validate"
+    },
+    {
+      "rule": "Do not use MAXINDEX / MININDEX as direct bar date references without mapping through outBegIdx",
+      "why": "The index returned is relative to the input array, not the original date array; if the caller sliced the input, the index is off by the slice offset"
+    },
+    {
+      "rule": "Do not use SUM as a substitute for SMA — divide by timePeriod to normalize",
+      "why": "SUM returns a raw total; SMA = SUM / timePeriod — using the raw SUM in a threshold comparison produces results that scale with both price and period length"
+    }
+  ],
+  "extensions": {
+    "tech_stack": {
+      "language": "C99",
+      "bindings": "Java, .NET, Rust, Python",
+      "source_repo": "https://github.com/TA-Lib/ta-lib"
+    },
+    "function_count": 26,
+    "lookback_summary": {
+      "zero_lookback": "ADD, SUB, MULT, DIV, CEIL, FLOOR, SQRT, LN, LOG10, EXP, SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH (19 functions)",
+      "period_based": "MAX, MAXINDEX, MIN, MININDEX, MINMAX, MINMAXINDEX, SUM (7 functions; lookback = timePeriod - 1)"
+    },
+    "output_type": "Double Array for all except MAXINDEX/MININDEX/MINMAXINDEX which return Integer Arrays"
+  }
+}

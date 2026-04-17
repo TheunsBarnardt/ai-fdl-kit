@@ -152,6 +152,30 @@ description: "A suite of momentum oscillators for identifying overbought/oversol
   - **interpretation:**
     - **overbought:** > 80
     - **oversold:** < 20
+- **roc:**
+  - **roc_formula:** ROC = ((Close[i] - Close[i-n]) / Close[i-n]) * 100  — percentage rate of change
+  - **rocp_formula:** ROCP = (Close[i] - Close[i-n]) / Close[i-n]  — decimal fraction (no ×100)
+  - **rocr_formula:** ROCR = Close[i] / Close[i-n]  — ratio (1.0 = no change)
+  - **rocr100_formula:** ROCR100 = ROCR * 100  — ratio expressed as percentage of prior price
+  - **period_range:** 1 to 100000; default 10
+  - **lookback:** timePeriod (one bar consumed per period)
+  - **output_range:**
+    - **roc:** unbounded (percentage; 0 = no change)
+    - **rocp:** unbounded (fraction; 0.0 = no change)
+    - **rocr:** unbounded (ratio; 1.0 = no change)
+    - **rocr100:** unbounded (ratio ×100; 100 = no change)
+  - **note:** All four measure the same concept at different scales — choose based on downstream normalization needs
+- **trix:**
+  - **formula:** EMA1 = EMA(Close, n); EMA2 = EMA(EMA1, n); EMA3 = EMA(EMA2, n); TRIX = 1-period ROC of EMA3 × 100
+  - **default_period:** 30
+  - **period_range:** 1 to 100000
+  - **lookback:** (timePeriod - 1) * 3 + 1 (three EMA passes plus one ROC bar)
+  - **output_range:** unbounded (typically small percentage values near zero)
+  - **interpretation:**
+    - **bullish:** TRIX > 0 and rising — upward momentum in triple-smoothed trend
+    - **bearish:** TRIX < 0 and falling — downward momentum
+    - **signal_crossover:** TRIX crossing 9-bar signal line (user-computed) generates buy/sell
+  - **advantage:** Triple smoothing eliminates most noise; TRIX only responds to genuine multi-bar trend shifts
 - **aroon:**
   - **aroon_up_formula:** ((period - periodsFromHigh) / period) * 100
   - **aroon_down_formula:** ((period - periodsFromLow) / period) * 100
@@ -275,7 +299,7 @@ tech_stack:
   bindings: Java, .NET (Managed C++), Rust, Python (via ta-lib wrapper)
   build_system: Autoconf / CMake
   source_repo: https://github.com/TA-Lib/ta-lib
-indicator_count: 18
+indicator_count: 23
 output_type: All outputs are double-precision floating-point arrays
 unstable_period:
   control: TA_SetUnstablePeriod(TA_FUNC_UNST_RSI, n) — default 0

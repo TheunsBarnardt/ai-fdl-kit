@@ -1,0 +1,277 @@
+{
+  "feature": "simple-linear-regression-ols",
+  "version": "1.0.0",
+  "description": "Estimate the intercept and slope of a simple linear regression of Y on X using ordinary least squares — minimising the sum of squared vertical residuals",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "regression",
+    "ols",
+    "least-squares",
+    "slr",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "ols-regression",
+    "least-squares-regression",
+    "slr",
+    "univariate-regression",
+    "linear-fit",
+    "bivariate-regression"
+  ],
+  "actors": [
+    {
+      "id": "regression_engine",
+      "name": "Regression Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "y_observations",
+      "type": "json",
+      "required": true,
+      "label": "Array of dependent variable values"
+    },
+    {
+      "name": "x_observations",
+      "type": "json",
+      "required": true,
+      "label": "Array of independent variable values (same length as y)"
+    },
+    {
+      "name": "include_intercept",
+      "type": "boolean",
+      "required": false,
+      "label": "Include intercept (default true)"
+    }
+  ],
+  "rules": {
+    "model_specification": {
+      "population_model": "Y_i = b0 + b1 * X_i + epsilon_i",
+      "estimated_line": "Y_hat_i = b0_hat + b1_hat * X_i",
+      "residual": "e_i = Y_i - Y_hat_i"
+    },
+    "ols_estimators": {
+      "slope": "b1_hat = sum_i [(X_i - X_bar)(Y_i - Y_bar)] / sum_i [(X_i - X_bar)^2] = Cov(X,Y) / Var(X)",
+      "intercept": "b0_hat = Y_bar - b1_hat * X_bar",
+      "regression_line_passes_through_means": "The fitted line always passes through the point (X_bar, Y_bar)"
+    },
+    "interpretation": {
+      "slope": "b1_hat estimates the average change in Y for a one-unit change in X",
+      "intercept": "b0_hat estimates the expected Y when X = 0 (may be economically meaningless if X = 0 is outside the sample)",
+      "residual_sum_zero": "Sum of OLS residuals equals zero when an intercept is included"
+    },
+    "applications": {
+      "factor_model": "Regress stock excess return on market excess return to estimate alpha (b0) and beta (b1)",
+      "earnings_model": "Regress ROA on CAPEX intensity",
+      "growth_relationship": "Regress market value on earnings or cash flow",
+      "cost_of_equity": "Slope of return vs market = CAPM beta"
+    },
+    "validation": {
+      "equal_length": "x_observations and y_observations must have the same length",
+      "sample_size": "n >= 2 required to fit a line; n >= 10 preferred for inference",
+      "x_variation_positive": "Var(X) > 0 — constant X cannot explain variation in Y"
+    }
+  },
+  "outcomes": {
+    "fit_regression": {
+      "priority": 1,
+      "description": "Compute OLS estimates",
+      "given": [
+        {
+          "field": "y_observations",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "x_observations",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "x_variance_positive",
+          "source": "computed",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "regression_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "regression.fit_completed"
+        }
+      ]
+    },
+    "zero_variance_x": {
+      "priority": 10,
+      "description": "Independent variable has no variation",
+      "given": [
+        {
+          "field": "x_variance_positive",
+          "source": "computed",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "regression.fit_rejected"
+        }
+      ],
+      "error": "SLR_X_ZERO_VARIANCE"
+    },
+    "length_mismatch": {
+      "priority": 11,
+      "description": "x and y arrays differ in length",
+      "given": [
+        {
+          "field": "lengths_match",
+          "source": "computed",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "regression.fit_rejected"
+        }
+      ],
+      "error": "SLR_LENGTH_MISMATCH"
+    }
+  },
+  "errors": [
+    {
+      "code": "SLR_X_ZERO_VARIANCE",
+      "status": 400,
+      "message": "Independent variable has zero variance; regression cannot be estimated"
+    },
+    {
+      "code": "SLR_LENGTH_MISMATCH",
+      "status": 400,
+      "message": "X and Y arrays must have the same length"
+    }
+  ],
+  "events": [
+    {
+      "name": "regression.fit_completed",
+      "payload": [
+        "model_id",
+        "b0_hat",
+        "b1_hat",
+        "n",
+        "x_bar",
+        "y_bar"
+      ]
+    },
+    {
+      "name": "regression.fit_rejected",
+      "payload": [
+        "model_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not interpret the intercept when X = 0 is outside the observed range",
+      "why": "Extrapolation outside the sample support is unreliable; the intercept is an arithmetic byproduct, not a forecast of Y at X = 0"
+    },
+    {
+      "rule": "Do not swap the roles of dependent and independent variables casually",
+      "why": "OLS minimises vertical residuals. Regressing Y on X and X on Y produce different slopes — choose based on which variable you wish to predict"
+    },
+    {
+      "rule": "Do not fit OLS to data with a clear non-linear pattern",
+      "why": "Linear regression assumes E[Y|X] is linear in X; ignoring curvature produces biased forecasts. Transform variables or use a non-linear model"
+    },
+    {
+      "rule": "Do not report coefficients without units and sample size",
+      "why": "b1 = 0.5 is meaningless without knowing Y and X scales, and without n the uncertainty is hidden"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/regression/simple-linear"
+    },
+    "request": {
+      "schema": {
+        "y_observations": "array",
+        "x_observations": "array",
+        "include_intercept": "boolean"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "b0_hat": "number",
+          "b1_hat": "number",
+          "n": "number",
+          "x_bar": "number",
+          "y_bar": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "SLR_X_ZERO_VARIANCE"
+        },
+        {
+          "status": 400,
+          "error_code": "SLR_LENGTH_MISMATCH"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "worked_example": {
+      "x_capex": [
+        0.7,
+        0.4,
+        5,
+        10,
+        8,
+        12.5
+      ],
+      "y_roa": [
+        6,
+        4,
+        15,
+        20,
+        10,
+        20
+      ],
+      "x_bar": 6.1,
+      "y_bar": 12.5,
+      "b1_hat": "approximately 1.25",
+      "b0_hat": "approximately 4.875",
+      "fitted_line": "ROA_hat = 4.875 + 1.25 * CAPEX"
+    }
+  },
+  "related": [
+    {
+      "feature": "covariance-correlation",
+      "type": "required"
+    },
+    {
+      "feature": "regression-assumptions",
+      "type": "required"
+    },
+    {
+      "feature": "regression-goodness-of-fit",
+      "type": "recommended"
+    },
+    {
+      "feature": "regression-coefficient-hypothesis-tests",
+      "type": "recommended"
+    }
+  ]
+}

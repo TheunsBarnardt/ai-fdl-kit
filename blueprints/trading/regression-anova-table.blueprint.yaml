@@ -1,0 +1,186 @@
+# ============================================================
+# regression-anova-table — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 10, p.297-299
+# ============================================================
+
+feature: regression-anova-table
+version: "1.0.0"
+description: Construct and interpret the ANOVA table for a simple linear regression — decomposing total variation into regression and error components and computing the overall F-test
+category: trading
+tags: [quantitative-methods, regression, anova, variance-decomposition, f-test, cfa-level-1]
+aliases:
+  - analysis-of-variance-table
+  - regression-anova
+  - ss-decomposition
+  - mean-square-regression
+  - mean-square-error
+  - variation-decomposition
+
+actors:
+  - id: regression_engine
+    name: Regression Engine
+    type: system
+
+fields:
+  - name: ssr
+    type: number
+    required: true
+    label: Sum of squares regression (explained)
+  - name: sse
+    type: number
+    required: true
+    label: Sum of squares error (unexplained)
+  - name: sample_size
+    type: number
+    required: true
+    label: n — number of observations
+  - name: parameters
+    type: number
+    required: false
+    label: k — number of slope coefficients (1 in SLR)
+
+rules:
+  anova_table:
+    # Source: Vol 1, Module 10, Exhibit 18, p.298
+    regression_row: "SS=SSR, df=k, MS=MSR=SSR/k"
+    error_row: "SS=SSE, df=n-k-1, MS=MSE=SSE/(n-k-1)"
+    total_row: "SS=SST, df=n-1"
+    sst_identity: "SST = SSR + SSE"
+  mean_squares:
+    msr: "MSR = SSR / k"
+    mse: "MSE = SSE / (n - k - 1)"
+    slr_df_error: "n - 2 in simple linear regression (k = 1)"
+  f_statistic:
+    formula: "F = MSR / MSE"
+    distribution: "F with (k, n - k - 1) degrees of freedom"
+    slr_case: "F with (1, n - 2) degrees of freedom"
+    relation_to_t_and_r_squared:
+      t_squared: "In SLR, F = t_slope^2"
+      from_r_squared: "F = (R^2 / k) / ((1 - R^2) / (n - k - 1))"
+  standard_error_of_estimate:
+    formula: "se = sqrt(MSE)"
+    interpretation: "Residual standard deviation — units of Y"
+  interpretation:
+    large_f: "Reject H0 of no linear relationship"
+    small_f: "Fail to reject — model explains little incremental variation"
+  applications:
+    factor_model_strength: "F-test of whether the factor significantly explains returns"
+    model_comparison: "F-ratios allow nested-model comparisons"
+    reporting_standard: "ANOVA table is the standard output format for statistical software"
+  validation:
+    ss_non_negative: "SSR, SSE >= 0"
+    n_above_parameters: "n > k + 1"
+
+outcomes:
+  build_anova_table:
+    priority: 1
+    description: Construct ANOVA table and F-statistic
+    given:
+      - field: ssr
+        source: input
+        operator: gte
+        value: 0
+      - field: sse
+        source: input
+        operator: gte
+        value: 0
+      - field: sample_size
+        source: input
+        operator: gt
+        value: 2
+    then:
+      - action: call_service
+        target: regression_engine
+      - action: emit_event
+        event: regression.anova_completed
+  degenerate_sse:
+    priority: 10
+    description: SSE is zero or near-zero (perfect fit) — F undefined
+    given:
+      - field: sse
+        source: input
+        operator: eq
+        value: 0
+    then:
+      - action: emit_event
+        event: regression.anova_warning
+  insufficient_n:
+    priority: 11
+    description: n too small for valid df
+    given:
+      - field: sample_size
+        source: input
+        operator: lte
+        value: 2
+    then:
+      - action: emit_event
+        event: regression.anova_rejected
+    error: ANOVA_INSUFFICIENT_N
+
+errors:
+  - code: ANOVA_INSUFFICIENT_N
+    status: 400
+    message: Sample size must exceed k + 1 for valid ANOVA degrees of freedom
+
+events:
+  - name: regression.anova_completed
+    payload: [model_id, msr, mse, f_statistic, f_p_value, r_squared, se]
+  - name: regression.anova_warning
+    payload: [model_id, warning_message]
+  - name: regression.anova_rejected
+    payload: [model_id, reason_code]
+
+anti_patterns:
+  - rule: Do not interpret ANOVA F as testing individual coefficients
+    why: "F tests the joint hypothesis that all slopes equal zero; individual t-tests are required to judge each coefficient"
+  - rule: Do not conclude a model is good because F is significant
+    why: "Significant F only rejects 'no relationship at all'; it doesn't confirm the model is correctly specified, unbiased, or economically meaningful"
+  - rule: Do not forget to subtract k + 1 from n when computing MSE
+    why: "Using n instead of n - k - 1 biases MSE downward, inflating F and producing spurious significance"
+  - rule: Do not apply the classical F-test when residuals are heteroskedastic or autocorrelated
+    why: "F assumes iid normal errors; violations invalidate the distribution — use robust covariance or bootstrap alternatives"
+
+api:
+  http:
+    method: POST
+    path: /analytics/regression/anova
+  request:
+    schema:
+      ssr: number
+      sse: number
+      sample_size: number
+      parameters: number
+  response:
+    success:
+      status: 200
+      schema:
+        msr: number
+        mse: number
+        f_statistic: number
+        f_p_value: number
+        r_squared: number
+        standard_error_of_estimate: number
+    errors:
+      - status: 400
+        error_code: ANOVA_INSUFFICIENT_N
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 10, Exhibit 18, p.298 — ROA vs CAPEX
+    ssr: 185.1
+    sse: 27.4
+    sst: 212.5
+    n: 6
+    k: 1
+    msr: 185.1
+    mse: 6.85
+    f: 27.02
+    df: [1, 4]
+    r_squared: 0.871
+    se: 2.617
+
+related:
+  - feature: simple-linear-regression-ols
+    type: required
+  - feature: regression-goodness-of-fit
+    type: required

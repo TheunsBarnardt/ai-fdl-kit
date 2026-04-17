@@ -1,0 +1,213 @@
+# ============================================================
+# regression-prediction-interval — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 10, p.299-303
+# ============================================================
+
+feature: regression-prediction-interval
+version: "1.0.0"
+description: Generate point forecasts and prediction intervals for a new observation of Y given a value of X using an estimated simple linear regression
+category: trading
+tags: [quantitative-methods, regression, prediction, forecast, prediction-interval, cfa-level-1]
+aliases:
+  - regression-forecast
+  - y-hat-interval
+  - forecast-standard-error
+  - prediction-band
+  - conditional-forecast
+  - new-observation-interval
+
+actors:
+  - id: regression_engine
+    name: Regression Engine
+    type: system
+
+fields:
+  - name: b0_hat
+    type: number
+    required: true
+    label: Estimated intercept
+  - name: b1_hat
+    type: number
+    required: true
+    label: Estimated slope
+  - name: x_new
+    type: number
+    required: true
+    label: Value of X at which to forecast Y
+  - name: standard_error_estimate
+    type: number
+    required: true
+    label: se — residual standard error from fit
+  - name: sample_size
+    type: number
+    required: true
+    label: n
+  - name: x_mean
+    type: number
+    required: true
+    label: Sample mean of X
+  - name: x_variance
+    type: number
+    required: true
+    label: Sample variance of X (s_X^2)
+  - name: significance_level
+    type: number
+    required: false
+    label: alpha (default 0.05)
+
+rules:
+  point_forecast:
+    # Source: Vol 1, Module 10, p.300
+    formula: "Y_hat_new = b0_hat + b1_hat * X_new"
+  forecast_standard_error:
+    # Source: Vol 1, Module 10, Eq 20-21, p.300-301
+    formula: "SE(Y_hat_new) = se * sqrt(1 + 1/n + (X_new - X_bar)^2 / ((n - 1) * s_X^2))"
+    interpretation: "Uncertainty widens as X_new moves away from X_bar — 'fan' shape"
+  prediction_interval:
+    formula: "Y_hat_new +/- t_{alpha/2, n-2} * SE(Y_hat_new)"
+    contrast_with_confidence_interval: "Prediction interval includes both coefficient uncertainty AND residual noise; CI on mean response uses sqrt(1/n + ...) only"
+  interpretation:
+    width_drivers: "Wider at extreme X, smaller n, larger residual variance"
+    extrapolation_caution: "Forecasting well outside observed X range inflates interval and assumes linearity continues"
+  applications:
+    return_forecast: "Given next-period CAPEX guidance, forecast ROA with interval"
+    earnings_forecast: "Forecast EPS given sales growth assumption"
+    capm_return_forecast: "Forecast asset return given expected market return"
+    stress_testing: "Forecast loan-default rate given hypothetical GDP shock"
+  validation:
+    positive_se: "se > 0"
+    positive_x_variance: "x_variance > 0"
+    valid_n: "n > 2"
+    valid_alpha: "0 < alpha < 1"
+
+outcomes:
+  compute_forecast:
+    priority: 1
+    description: Point forecast + prediction interval
+    given:
+      - field: x_new
+        source: input
+        operator: exists
+      - field: b0_hat
+        source: input
+        operator: exists
+      - field: b1_hat
+        source: input
+        operator: exists
+      - field: standard_error_estimate
+        source: input
+        operator: gt
+        value: 0
+      - field: sample_size
+        source: input
+        operator: gt
+        value: 2
+    then:
+      - action: call_service
+        target: regression_engine
+      - action: emit_event
+        event: regression.forecast_completed
+  extrapolation_warning:
+    priority: 5
+    description: X_new is far outside observed X range
+    given:
+      - field: extrapolation_detected
+        source: computed
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: regression.forecast_warning
+  invalid_inputs:
+    priority: 10
+    description: Missing or invalid required inputs
+    given:
+      - any:
+          - field: standard_error_estimate
+            source: input
+            operator: lte
+            value: 0
+          - field: sample_size
+            source: input
+            operator: lte
+            value: 2
+          - field: x_variance
+            source: input
+            operator: lte
+            value: 0
+    then:
+      - action: emit_event
+        event: regression.forecast_rejected
+    error: FORECAST_INPUT_INVALID
+
+errors:
+  - code: FORECAST_INPUT_INVALID
+    status: 400
+    message: Forecast requires positive se, n > 2, and positive X variance
+
+events:
+  - name: regression.forecast_completed
+    payload: [forecast_id, y_hat_new, prediction_interval, forecast_se, degrees_of_freedom]
+  - name: regression.forecast_warning
+    payload: [forecast_id, warning_message]
+  - name: regression.forecast_rejected
+    payload: [forecast_id, reason_code]
+
+anti_patterns:
+  - rule: Do not forecast Y far outside the observed range of X
+    why: "Linear regression assumes linearity within sample support; extrapolation is speculation, not estimation"
+  - rule: Do not confuse confidence interval on the mean response with a prediction interval for a new observation
+    why: "The prediction interval is WIDER — it includes residual noise. Reporting the narrower CI misleads stakeholders about forecast uncertainty"
+  - rule: Do not ignore the widening of the interval at extreme X
+    why: "The quadratic term (X_new - X_bar)^2 makes the interval fan out; reporting a constant-width band hides true uncertainty"
+  - rule: Do not use the classical prediction interval when residuals are heteroskedastic
+    why: "The se * sqrt(...) formula assumes constant variance; under heteroskedasticity, intervals are mis-sized. Use bootstrap or weighted intervals"
+
+api:
+  http:
+    method: POST
+    path: /analytics/regression/forecast
+  request:
+    schema:
+      b0_hat: number
+      b1_hat: number
+      x_new: number
+      standard_error_estimate: number
+      sample_size: number
+      x_mean: number
+      x_variance: number
+      significance_level: number
+  response:
+    success:
+      status: 200
+      schema:
+        y_hat_new: number
+        forecast_se: number
+        prediction_interval: array
+        degrees_of_freedom: number
+    errors:
+      - status: 400
+        error_code: FORECAST_INPUT_INVALID
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 10, p.301-303 — ROA vs CAPEX, X_new = 8
+    b0_hat: 4.875
+    b1_hat: 1.25
+    x_new: 8.0
+    x_bar: 6.1
+    y_hat_new: 14.875
+    se: 2.617
+    n: 6
+    s_X_squared: 24.02
+    forecast_se: "2.617 * sqrt(1 + 1/6 + (8 - 6.1)^2 / (5 * 24.02)) = approximately 2.872"
+    critical_t_0_025: 2.776
+    prediction_interval: "[14.875 - 7.974, 14.875 + 7.974] = [6.90, 22.85]"
+
+related:
+  - feature: simple-linear-regression-ols
+    type: required
+  - feature: regression-goodness-of-fit
+    type: required
+  - feature: regression-assumptions
+    type: recommended

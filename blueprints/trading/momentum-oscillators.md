@@ -116,6 +116,26 @@ Specifies 7 acceptance outcomes that any implementation must satisfy, regardless
 - **mfi → inputs_required:** High, Low, Close, Volume
 - **mfi → interpretation → overbought:** > 80
 - **mfi → interpretation → oversold:** < 20
+- **roc → roc_formula:** ROC = ((Close[i] - Close[i-n]) / Close[i-n]) * 100 — percentage rate of change
+- **roc → rocp_formula:** ROCP = (Close[i] - Close[i-n]) / Close[i-n] — decimal fraction (no ×100)
+- **roc → rocr_formula:** ROCR = Close[i] / Close[i-n] — ratio (1.0 = no change)
+- **roc → rocr100_formula:** ROCR100 = ROCR * 100 — ratio expressed as percentage of prior price
+- **roc → period_range:** 1 to 100000; default 10
+- **roc → lookback:** timePeriod (one bar consumed per period)
+- **roc → output_range → roc:** unbounded (percentage; 0 = no change)
+- **roc → output_range → rocp:** unbounded (fraction; 0.0 = no change)
+- **roc → output_range → rocr:** unbounded (ratio; 1.0 = no change)
+- **roc → output_range → rocr100:** unbounded (ratio ×100; 100 = no change)
+- **roc → note:** All four measure the same concept at different scales — choose based on downstream normalization needs
+- **trix → formula:** EMA1 = EMA(Close, n); EMA2 = EMA(EMA1, n); EMA3 = EMA(EMA2, n); TRIX = 1-period ROC of EMA3 × 100
+- **trix → default_period:** 30
+- **trix → period_range:** 1 to 100000
+- **trix → lookback:** (timePeriod - 1) * 3 + 1 (three EMA passes plus one ROC bar)
+- **trix → output_range:** unbounded (typically small percentage values near zero)
+- **trix → interpretation → bullish:** TRIX > 0 and rising — upward momentum in triple-smoothed trend
+- **trix → interpretation → bearish:** TRIX < 0 and falling — downward momentum
+- **trix → interpretation → signal_crossover:** TRIX crossing 9-bar signal line (user-computed) generates buy/sell
+- **trix → advantage:** Triple smoothing eliminates most noise; TRIX only responds to genuine multi-bar trend shifts
 - **aroon → aroon_up_formula:** ((period - periodsFromHigh) / period) * 100
 - **aroon → aroon_down_formula:** ((period - periodsFromLow) / period) * 100
 - **aroon → aroonosc_formula:** AroonUp - AroonDown

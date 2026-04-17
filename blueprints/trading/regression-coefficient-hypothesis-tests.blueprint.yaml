@@ -1,0 +1,197 @@
+# ============================================================
+# regression-coefficient-hypothesis-tests — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 10, p.288-296
+# ============================================================
+
+feature: regression-coefficient-hypothesis-tests
+version: "1.0.0"
+description: Test hypotheses about the slope and intercept of a simple linear regression using the t-statistic on each estimated coefficient
+category: trading
+tags: [quantitative-methods, regression, hypothesis-testing, t-test, slope-test, cfa-level-1]
+aliases:
+  - regression-slope-test
+  - regression-intercept-test
+  - coefficient-t-test
+  - slope-significance
+  - beta-t-test
+  - regression-inference
+
+actors:
+  - id: inference_engine
+    name: Statistical Inference Engine
+    type: system
+
+fields:
+  - name: coefficient_estimate
+    type: number
+    required: true
+    label: b_hat (slope or intercept estimate)
+  - name: standard_error
+    type: number
+    required: true
+    label: SE of the coefficient estimate
+  - name: hypothesized_value
+    type: number
+    required: false
+    label: b_0 under H0 (default 0)
+  - name: sample_size
+    type: number
+    required: true
+    label: n — number of observations
+  - name: alternative
+    type: select
+    required: false
+    label: two_sided | greater | less
+
+rules:
+  slope_t_statistic:
+    # Source: Vol 1, Module 10, Eq 17, p.289
+    formula: "t = (b1_hat - b1_0) / SE(b1_hat)"
+    degrees_of_freedom: "n - 2"
+    default_h0: "b1_0 = 0 — test whether X has any linear relationship to Y"
+  slope_standard_error:
+    # Source: Vol 1, Module 10, Eq 18, p.289
+    formula: "SE(b1_hat) = se / sqrt(sum_i (X_i - X_bar)^2) = se / sqrt((n-1) * s_X^2)"
+    where: "se = standard error of estimate"
+  intercept_t_statistic:
+    # Source: Vol 1, Module 10, p.291
+    formula: "t = (b0_hat - b0_0) / SE(b0_hat)"
+    degrees_of_freedom: "n - 2"
+  intercept_standard_error:
+    formula: "SE(b0_hat) = se * sqrt(1/n + X_bar^2 / sum_i (X_i - X_bar)^2)"
+  confidence_interval:
+    # Source: Vol 1, Module 10, Eq 19, p.291
+    formula: "b_hat +/- t_{alpha/2, n-2} * SE(b_hat)"
+    interpretation: "Range of plausible true coefficient values at 1 - alpha confidence"
+  decision_rules:
+    two_sided: "Reject H0 if |t| > t_{alpha/2, n-2}"
+    upper_tail: "Reject H0 if t > t_{alpha, n-2}"
+    lower_tail: "Reject H0 if t < -t_{alpha, n-2}"
+  applications:
+    capm_alpha_test: "Test H0: alpha = 0 to judge manager skill"
+    capm_beta_test: "Test H0: beta = 1 to judge market exposure"
+    factor_significance: "Test H0: slope on a candidate factor = 0"
+    mean_reversion: "Test H0: slope on lagged spread = 0 in pairs trading"
+  validation:
+    positive_se: "standard_error > 0"
+    df_valid: "n - 2 > 0"
+    alternative_known: "alternative in {two_sided, greater, less}"
+
+outcomes:
+  run_coefficient_test:
+    priority: 1
+    description: Compute t-statistic, p-value, and confidence interval for a regression coefficient
+    given:
+      - field: coefficient_estimate
+        source: input
+        operator: exists
+      - field: standard_error
+        source: input
+        operator: gt
+        value: 0
+      - field: sample_size
+        source: input
+        operator: gt
+        value: 2
+    then:
+      - action: call_service
+        target: inference_engine
+      - action: emit_event
+        event: regression.coefficient_test_completed
+  invalid_standard_error:
+    priority: 10
+    description: Standard error missing or non-positive
+    given:
+      - any:
+          - field: standard_error
+            source: input
+            operator: not_exists
+          - field: standard_error
+            source: input
+            operator: lte
+            value: 0
+    then:
+      - action: emit_event
+        event: regression.coefficient_test_rejected
+    error: COEF_TEST_SE_INVALID
+  insufficient_n:
+    priority: 11
+    description: n - 2 <= 0
+    given:
+      - field: sample_size
+        source: input
+        operator: lte
+        value: 2
+    then:
+      - action: emit_event
+        event: regression.coefficient_test_rejected
+    error: COEF_TEST_INSUFFICIENT_N
+
+errors:
+  - code: COEF_TEST_SE_INVALID
+    status: 400
+    message: Coefficient standard error must be strictly positive
+  - code: COEF_TEST_INSUFFICIENT_N
+    status: 400
+    message: Sample size must exceed 2 for valid SLR inference
+
+events:
+  - name: regression.coefficient_test_completed
+    payload: [test_id, t_statistic, p_value, confidence_interval, decision]
+  - name: regression.coefficient_test_rejected
+    payload: [test_id, reason_code]
+
+anti_patterns:
+  - rule: Do not interpret a significant slope as causal evidence
+    why: "Statistical significance rules out chance but not confounding or reverse causation; always supplement with economic reasoning"
+  - rule: Do not rely on t-stats when residuals are heteroskedastic or autocorrelated
+    why: "OLS standard errors are biased under those violations; use White, Newey-West, or HAC robust SEs"
+  - rule: Do not claim an insignificant slope means no relationship
+    why: "Low power with small n or high noise produces failure to reject even when a true effect exists — report the confidence interval, not just the p-value"
+  - rule: Do not test too many coefficients without multiple-comparison correction
+    why: "Testing many factors at alpha=0.05 inflates the family-wise error rate; use Bonferroni, FDR, or pre-register hypotheses"
+
+api:
+  http:
+    method: POST
+    path: /analytics/regression/coefficient-test
+  request:
+    schema:
+      coefficient_estimate: number
+      standard_error: number
+      hypothesized_value: number
+      sample_size: number
+      alternative: string
+  response:
+    success:
+      status: 200
+      schema:
+        t_statistic: number
+        p_value: number
+        confidence_interval: array
+        degrees_of_freedom: number
+        decision: string
+    errors:
+      - status: 400
+        error_code: COEF_TEST_SE_INVALID
+      - status: 400
+        error_code: COEF_TEST_INSUFFICIENT_N
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 10, p.289-291 — ROA vs CAPEX
+    b1_hat: 1.25
+    se_b1: 0.241
+    n: 6
+    t: "1.25 / 0.241 = 5.187"
+    df: 4
+    critical_t_0_025: 2.776
+    decision: "Reject H0: slope = 0 at alpha = 0.05"
+
+related:
+  - feature: simple-linear-regression-ols
+    type: required
+  - feature: regression-goodness-of-fit
+    type: recommended
+  - feature: hypothesis-testing-framework
+    type: required
