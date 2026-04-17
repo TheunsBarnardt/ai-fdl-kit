@@ -1,0 +1,176 @@
+# ============================================================
+# fintech-investment-analysis — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 12, p.330-340
+# ============================================================
+
+feature: fintech-investment-analysis
+version: "1.0.0"
+description: Apply fintech tools — text analytics, natural language processing, robo-advisers, risk analysis, and algorithmic trading — in the quantitative investment process
+category: trading
+tags: [quantitative-methods, fintech, text-analytics, nlp, robo-advisor, algorithmic-trading, cfa-level-1]
+aliases:
+  - fintech-applications
+  - text-analytics-investment
+  - nlp-finance
+  - robo-advisor
+  - algo-trading-fintech
+  - alternative-data-investment
+
+actors:
+  - id: analytics_engine
+    name: Investment Analytics Engine
+    type: system
+
+fields:
+  - name: use_case
+    type: select
+    required: true
+    label: text_analytics | nlp | robo_advisor | risk_analysis | algo_trading
+  - name: input_payload
+    type: json
+    required: true
+    label: Raw data to process (text, order flow, portfolio snapshot)
+  - name: time_horizon
+    type: select
+    required: false
+    label: intraday | short_term | medium_term | long_term
+
+rules:
+  text_analytics:
+    # Source: Vol 1, Module 12, p.335-336
+    definition: "Automated extraction of quantitative information from text"
+    inputs: "News articles, filings, transcripts, social media"
+    outputs: "Sentiment scores, topic distributions, keyword frequencies"
+  natural_language_processing:
+    # Source: Vol 1, Module 12, p.336
+    definition: "AI subfield focused on programming machines to understand and generate human language"
+    techniques: "Tokenisation, stemming, named-entity recognition, sentiment classification, topic modelling"
+    financial_applications: "Earnings-call sentiment, complaint analysis, regulatory text monitoring"
+  robo_advisors:
+    # Source: Vol 1, Module 12, p.338-339
+    definition: "Automated digital advisory platforms that build and manage portfolios using algorithms"
+    functions: "Risk profiling questionnaire, asset allocation, rebalancing, tax-loss harvesting"
+    strengths: "Low cost, consistent process, 24/7 availability"
+    limitations: "Limited complex-planning ability; may not handle non-standard situations"
+  risk_analysis:
+    # Source: Vol 1, Module 12, p.339
+    uses: "Real-time VaR, stress testing, concentration monitoring, AML/fraud detection"
+    benefit: "Faster identification of risk concentrations using high-frequency data"
+  algorithmic_trading:
+    # Source: Vol 1, Module 12, p.340
+    definition: "Computerised order execution following a predefined rule set"
+    motivations: "Speed, liquidity sourcing, minimising market impact"
+    common_strategies: "VWAP, TWAP, implementation shortfall, statistical arbitrage"
+  applications:
+    news_trading: "Sub-second sentiment scoring of news wires to drive event-driven trades"
+    portfolio_rebalancing: "Robo-advisors automatically reinvest dividends and rebalance to targets"
+    transaction_cost_analysis: "NLP of execution-venue descriptions combined with fill data"
+    client_onboarding: "KYC/AML automation using document recognition and NLP"
+  validation:
+    valid_use_case: "use_case in {text_analytics, nlp, robo_advisor, risk_analysis, algo_trading}"
+    payload_present: "input_payload must exist"
+
+outcomes:
+  run_fintech_workflow:
+    priority: 1
+    description: Execute the selected fintech workflow on the input
+    given:
+      - field: use_case
+        source: input
+        operator: in
+        value: [text_analytics, nlp, robo_advisor, risk_analysis, algo_trading]
+      - field: input_payload
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: analytics_engine
+      - action: emit_event
+        event: fintech.workflow_completed
+  invalid_use_case:
+    priority: 10
+    description: Unsupported use case
+    given:
+      - field: use_case
+        source: input
+        operator: not_in
+        value: [text_analytics, nlp, robo_advisor, risk_analysis, algo_trading]
+    then:
+      - action: emit_event
+        event: fintech.workflow_rejected
+    error: FINTECH_INVALID_USE_CASE
+  missing_payload:
+    priority: 11
+    description: Input payload missing
+    given:
+      - field: input_payload
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: fintech.workflow_rejected
+    error: FINTECH_MISSING_PAYLOAD
+
+errors:
+  - code: FINTECH_INVALID_USE_CASE
+    status: 400
+    message: use_case must be one of text_analytics, nlp, robo_advisor, risk_analysis, algo_trading
+  - code: FINTECH_MISSING_PAYLOAD
+    status: 400
+    message: input_payload is required
+
+events:
+  - name: fintech.workflow_completed
+    payload: [workflow_id, use_case, outputs, latency_ms]
+  - name: fintech.workflow_rejected
+    payload: [workflow_id, reason_code]
+
+anti_patterns:
+  - rule: Do not deploy NLP-derived sentiment signals without out-of-sample backtests
+    why: "Sentiment features often look predictive in-sample due to overfitting; only rigorous walk-forward tests separate signal from noise"
+  - rule: Do not use a robo-advisor as a substitute for complex tax, estate, or retirement planning
+    why: "Robo-advisors optimise asset allocation within their questionnaire's universe; they miss idiosyncratic situations a human advisor would catch"
+  - rule: Do not run algorithmic trading strategies without kill-switches and pre-trade risk limits
+    why: "Runaway algos have caused multi-million dollar losses in minutes; mandatory circuit breakers are a best-practice control"
+  - rule: Do not confuse sentiment polarity with trade direction
+    why: "Positive news after a price run-up can precede mean reversion; always pair sentiment with price context and conditioning variables"
+
+api:
+  http:
+    method: POST
+    path: /fintech/run
+  request:
+    schema:
+      use_case: string
+      input_payload: object
+      time_horizon: string
+  response:
+    success:
+      status: 200
+      schema:
+        workflow_id: string
+        use_case: string
+        outputs: object
+        latency_ms: number
+    errors:
+      - status: 400
+        error_code: FINTECH_INVALID_USE_CASE
+      - status: 400
+        error_code: FINTECH_MISSING_PAYLOAD
+
+extensions:
+  five_fintech_areas:
+    # Source: Vol 1, Module 12, p.330
+    - "Analysis of big data"
+    - "Artificial intelligence and machine learning"
+    - "Text analytics and NLP"
+    - "Robo-advisory services"
+    - "Algorithmic trading and distributed ledger technology"
+
+related:
+  - feature: big-data-characteristics
+    type: required
+  - feature: machine-learning-techniques
+    type: recommended
+  - feature: data-science-processing
+    type: recommended

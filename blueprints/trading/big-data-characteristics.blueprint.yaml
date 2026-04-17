@@ -1,0 +1,177 @@
+# ============================================================
+# big-data-characteristics — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 12, p.331-334
+# ============================================================
+
+feature: big-data-characteristics
+version: "1.0.0"
+description: Classify and evaluate big data sources by the four V characteristics — volume, velocity, variety, and veracity — and distinguish structured, semi-structured, and unstructured data
+category: trading
+tags: [quantitative-methods, big-data, fintech, data-characterisation, alternative-data, cfa-level-1]
+aliases:
+  - four-vs-of-big-data
+  - volume-velocity-variety-veracity
+  - alternative-data-taxonomy
+  - data-source-classification
+  - big-data-definition
+  - data-typing
+
+actors:
+  - id: data_catalog
+    name: Data Catalog Engine
+    type: system
+
+fields:
+  - name: dataset_id
+    type: text
+    required: true
+    label: Unique identifier for the dataset
+  - name: volume_bytes
+    type: number
+    required: false
+    label: Approximate size in bytes
+  - name: velocity
+    type: select
+    required: false
+    label: batch | near_real_time | streaming
+  - name: variety
+    type: select
+    required: false
+    label: structured | semi_structured | unstructured | mixed
+  - name: veracity_score
+    type: number
+    required: false
+    label: Estimated data quality score 0-1
+  - name: source_category
+    type: select
+    required: false
+    label: traditional_market | corporate_filings | social_media | satellite | transactional | iot_sensors | other
+
+rules:
+  four_vs:
+    # Source: Vol 1, Module 12, p.331
+    volume: "Massive amount of data — petabyte-scale is common for modern alt data"
+    velocity: "Rate at which data arrive — batch vs near-real-time vs streaming"
+    variety: "Different forms and structures — numeric, text, image, audio, video, geospatial"
+    veracity: "Trustworthiness and quality — completeness, accuracy, timeliness"
+  data_types:
+    # Source: Vol 1, Module 12, p.332
+    structured: "Rows and columns, fits relational DB — e.g., price tables, financial statements"
+    semi_structured: "Tagged elements but not strict schema — e.g., JSON, XML, HTML"
+    unstructured: "No predefined data model — e.g., news text, earnings calls, satellite images, tweets"
+  alternative_data_sources:
+    # Source: Vol 1, Module 12, p.332-333
+    individuals: "Social media posts, online reviews, web searches, mobile app use"
+    business_processes: "Transaction data, point-of-sale, supply-chain logs, credit-card aggregates"
+    sensors: "Satellite imagery, IoT devices, geolocation, traffic cameras"
+  evaluation_criteria:
+    relevance: "Does the data plausibly predict or explain the investment thesis?"
+    coverage: "Universe of firms/assets covered by the feed"
+    timeliness: "Delay between event and data availability"
+    look_ahead_bias: "Would historical data reflect what was actually knowable at the time?"
+    survivorship_bias: "Does the dataset exclude failed or delisted entities?"
+    quality: "Missing values, outliers, duplicate records"
+  applications:
+    alpha_generation: "Satellite parking-lot counts to forecast retail revenue"
+    sentiment_analysis: "News/social media sentiment as short-horizon return predictor"
+    supply_chain: "Shipping and logistics data to forecast sales"
+    esg_scoring: "Unstructured text filings mined for ESG disclosures"
+  validation:
+    valid_variety: "variety in {structured, semi_structured, unstructured, mixed}"
+    valid_velocity: "velocity in {batch, near_real_time, streaming}"
+    veracity_bounded: "0 <= veracity_score <= 1"
+
+outcomes:
+  catalog_dataset:
+    priority: 1
+    description: Register and classify a new data source
+    given:
+      - field: dataset_id
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: data_catalog
+      - action: emit_event
+        event: data.dataset_catalogued
+  quality_concern:
+    priority: 5
+    description: Veracity below threshold
+    given:
+      - field: veracity_score
+        source: input
+        operator: lt
+        value: 0.5
+    then:
+      - action: emit_event
+        event: data.quality_warning
+  invalid_variety:
+    priority: 10
+    description: Variety not supported
+    given:
+      - field: variety
+        source: input
+        operator: not_in
+        value: [structured, semi_structured, unstructured, mixed]
+    then:
+      - action: emit_event
+        event: data.catalog_rejected
+    error: BIGDATA_INVALID_VARIETY
+
+errors:
+  - code: BIGDATA_INVALID_VARIETY
+    status: 400
+    message: Variety must be structured, semi_structured, unstructured, or mixed
+
+events:
+  - name: data.dataset_catalogued
+    payload: [dataset_id, volume_bytes, velocity, variety, veracity_score]
+  - name: data.quality_warning
+    payload: [dataset_id, veracity_score, warning_message]
+  - name: data.catalog_rejected
+    payload: [dataset_id, reason_code]
+
+anti_patterns:
+  - rule: Do not assume more data always improves model performance
+    why: "Low-veracity data inflate noise and cause overfitting; quality and relevance beat raw volume"
+  - rule: Do not use alt data without checking for look-ahead and survivorship biases
+    why: "Many alt-data vendors backfill historical data, encoding information that was not actually available at historical decision times"
+  - rule: Do not confuse volume with informational content
+    why: "Billions of duplicate rows add no signal; measure effective information (unique observations, coverage) not bytes"
+  - rule: Do not treat unstructured data as analyzable without an NLP/vision pipeline
+    why: "Raw text and images need feature extraction before regression or ML models can consume them"
+
+api:
+  http:
+    method: POST
+    path: /data/catalog
+  request:
+    schema:
+      dataset_id: string
+      volume_bytes: number
+      velocity: string
+      variety: string
+      veracity_score: number
+      source_category: string
+  response:
+    success:
+      status: 200
+      schema:
+        dataset_id: string
+        classification: object
+        quality_flag: boolean
+    errors:
+      - status: 400
+        error_code: BIGDATA_INVALID_VARIETY
+
+extensions:
+  example_sources:
+    structured: ["Bloomberg price feeds", "EDGAR XBRL filings", "CRSP returns database"]
+    semi_structured: ["SEC 10-K HTML", "news article JSON feeds"]
+    unstructured: ["Earnings call transcripts", "satellite imagery", "Twitter firehose"]
+
+related:
+  - feature: fintech-investment-analysis
+    type: recommended
+  - feature: data-science-processing
+    type: recommended

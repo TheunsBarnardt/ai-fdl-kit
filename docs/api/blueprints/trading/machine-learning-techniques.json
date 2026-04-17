@@ -1,0 +1,326 @@
+{
+  "feature": "machine-learning-techniques",
+  "version": "1.0.0",
+  "description": "Select between supervised, unsupervised, and deep learning approaches for investment problems while managing overfitting through train/validation/test splits and cross-validation",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "machine-learning",
+    "supervised-learning",
+    "unsupervised-learning",
+    "overfitting",
+    "cross-validation",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "supervised-learning",
+    "unsupervised-learning",
+    "deep-learning",
+    "neural-networks-finance",
+    "ml-for-investing",
+    "algorithmic-pattern-recognition"
+  ],
+  "actors": [
+    {
+      "id": "ml_engine",
+      "name": "Machine Learning Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "problem_type",
+      "type": "select",
+      "required": true,
+      "label": "classification | regression | clustering | dimensionality_reduction | deep_learning"
+    },
+    {
+      "name": "labeled_target",
+      "type": "boolean",
+      "required": false,
+      "label": "Whether the training data include a known target variable"
+    },
+    {
+      "name": "training_data",
+      "type": "json",
+      "required": true,
+      "label": "Feature matrix X (and y for supervised)"
+    },
+    {
+      "name": "validation_strategy",
+      "type": "select",
+      "required": false,
+      "label": "holdout | k_fold_cv | time_series_cv"
+    }
+  ],
+  "rules": {
+    "supervised_learning": {
+      "definition": "ML using labeled data — algorithm learns mapping X -> y",
+      "tasks": {
+        "classification": "Discrete labels (up/down, default/non-default)",
+        "regression": "Continuous target (return, yield, spread)"
+      },
+      "algorithms": "Linear/logistic regression, SVM, random forests, gradient boosting"
+    },
+    "unsupervised_learning": {
+      "definition": "ML on data without labels — algorithm discovers structure",
+      "tasks": {
+        "clustering": "Group similar observations (k-means, hierarchical)",
+        "dimensionality_reduction": "Compress features (PCA, t-SNE, autoencoders)"
+      },
+      "applications": "Security clustering for peer selection, factor extraction"
+    },
+    "deep_learning": {
+      "definition": "Neural networks with many layers learning hierarchical representations",
+      "strengths": "Image, audio, and text processing; non-linear feature interactions",
+      "weaknesses": "Data hungry, hard to interpret, easy to overfit"
+    },
+    "overfitting_and_underfitting": {
+      "overfitting": "Model memorises training noise; strong in-sample, weak out-of-sample",
+      "underfitting": "Model too simple; poor in-sample AND out-of-sample",
+      "symptoms": {
+        "overfit": "Train error low, validation error high; complex model",
+        "underfit": "Both errors high; model too simple or regularised"
+      }
+    },
+    "mitigation": {
+      "train_test_split": "Hold out 20-30 percent for evaluation before any tuning",
+      "k_fold_cv": "Repeat train/validate across k folds to stabilise estimates",
+      "time_series_cv": "Use expanding or rolling windows to preserve time order",
+      "regularisation": "L1/L2 penalties to shrink coefficients",
+      "early_stopping": "Halt training when validation error starts to rise",
+      "feature_selection": "Fewer, well-motivated features over many noisy ones"
+    },
+    "applications": {
+      "credit_scoring": "Classification to predict default (supervised)",
+      "peer_grouping": "K-means clustering of firms by financial ratios (unsupervised)",
+      "signal_generation": "Gradient boosting of return on multi-factor features",
+      "document_classification": "Deep-learning NER/topic tagging of filings"
+    },
+    "validation": {
+      "supported_problem_type": "problem_type in {classification, regression, clustering, dimensionality_reduction, deep_learning}",
+      "labels_match_supervision": "Labels required for supervised tasks"
+    }
+  },
+  "outcomes": {
+    "fit_model": {
+      "priority": 1,
+      "description": "Train the selected ML model on the provided data",
+      "given": [
+        {
+          "field": "training_data",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "problem_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "classification",
+            "regression",
+            "clustering",
+            "dimensionality_reduction",
+            "deep_learning"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "ml_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "ml.model_trained"
+        }
+      ]
+    },
+    "overfitting_warning": {
+      "priority": 5,
+      "description": "Large gap between training and validation error",
+      "given": [
+        {
+          "field": "overfit_detected",
+          "source": "computed",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "ml.overfit_warning"
+        }
+      ]
+    },
+    "invalid_problem_type": {
+      "priority": 10,
+      "description": "Unsupported problem type",
+      "given": [
+        {
+          "field": "problem_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "classification",
+            "regression",
+            "clustering",
+            "dimensionality_reduction",
+            "deep_learning"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "ml.training_rejected"
+        }
+      ],
+      "error": "ML_INVALID_PROBLEM_TYPE"
+    },
+    "missing_labels_for_supervised": {
+      "priority": 11,
+      "description": "Supervised task but labels missing",
+      "given": [
+        {
+          "field": "problem_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "classification",
+            "regression"
+          ]
+        },
+        {
+          "field": "labeled_target",
+          "source": "input",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "ml.training_rejected"
+        }
+      ],
+      "error": "ML_MISSING_LABELS"
+    }
+  },
+  "errors": [
+    {
+      "code": "ML_INVALID_PROBLEM_TYPE",
+      "status": 400,
+      "message": "problem_type must be classification, regression, clustering, dimensionality_reduction, or deep_learning"
+    },
+    {
+      "code": "ML_MISSING_LABELS",
+      "status": 400,
+      "message": "Supervised learning requires labeled target data"
+    }
+  ],
+  "events": [
+    {
+      "name": "ml.model_trained",
+      "payload": [
+        "model_id",
+        "problem_type",
+        "train_score",
+        "validation_score",
+        "features_used"
+      ]
+    },
+    {
+      "name": "ml.overfit_warning",
+      "payload": [
+        "model_id",
+        "train_score",
+        "validation_score",
+        "gap"
+      ]
+    },
+    {
+      "name": "ml.training_rejected",
+      "payload": [
+        "model_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not evaluate model performance on the training set only",
+      "why": "Training performance is nearly always optimistic; without out-of-sample testing you cannot distinguish learning from memorisation"
+    },
+    {
+      "rule": "Do not tune hyperparameters on the test set",
+      "why": "Repeated evaluation on the holdout leaks information and inflates reported performance; use a separate validation set or cross-validation"
+    },
+    {
+      "rule": "Do not apply k-fold cross-validation to time-series data without preserving chronology",
+      "why": "Random folds leak future information into training, producing optimistic estimates that collapse in live trading. Use rolling/expanding origin CV"
+    },
+    {
+      "rule": "Do not chase complex models when simple linear models work",
+      "why": "Deep learning needs massive, clean data; most financial signals are weak and noisy, so parsimonious models often generalise better"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/ml/train"
+    },
+    "request": {
+      "schema": {
+        "problem_type": "string",
+        "labeled_target": "boolean",
+        "training_data": "object",
+        "validation_strategy": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "model_id": "string",
+          "problem_type": "string",
+          "train_score": "number",
+          "validation_score": "number",
+          "features_used": "array"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "ML_INVALID_PROBLEM_TYPE"
+        },
+        {
+          "status": 400,
+          "error_code": "ML_MISSING_LABELS"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "bias_variance_tradeoff": {
+      "bias": "Error from simplifying assumptions — underfitting",
+      "variance": "Error from sensitivity to training sample — overfitting",
+      "sweet_spot": "Minimum total prediction error sits between extremes"
+    }
+  },
+  "related": [
+    {
+      "feature": "big-data-characteristics",
+      "type": "recommended"
+    },
+    {
+      "feature": "data-science-processing",
+      "type": "recommended"
+    },
+    {
+      "feature": "fintech-investment-analysis",
+      "type": "recommended"
+    }
+  ]
+}
