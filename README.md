@@ -47,11 +47,38 @@ No code. No YAML knowledge needed. The CLI + conversational skills handle everyt
 
 ---
 
+## Meet Bob — The Multi-Agent Orchestrator
+
+Ask Bob a question. He runs the entire pipeline:
+
+```
+You: "Build a Next.js POS with OTP login and inventory"
+     ↓
+Bob orchestrates:
+  ├─ Scout → find matching blueprints
+  ├─ Surveyor → identify gaps + suggest solutions  
+  ├─ Sketcher → interactive prototype UI
+  ├─ Builder → generate production code
+  ├─ Inspector → validate each feature
+  ├─ Scribe → auto-generate docs
+  └─ Reviewer → independent cold-context QA
+     ↓
+You: review plan → iterate prototype → approve → full build
+```
+
+**Two-stage pipeline:**
+1. **Stage 1 (Plan → Prototype)** — Iterate UI and design with instant feedback before writing code
+2. **Stage 2 (Build)** — Generate production-ready implementation against an approved spec
+
+[Read the full crew architecture →](docs/plans/bob-crew-contracts.md)
+
+---
+
 ## How It Works
 
 | Method | When to use it | Command |
 |--------|---------------|---------|
-| **Build a full app** | Describe your app in plain English | `/fdl-build "nextjs POS with OTP login"` |
+| **Build a full app** | Ask Bob to build anything | `/fdl-build "nextjs POS with OTP login"` |
 | **Brainstorm a feature** | You have a problem, not a solution | `/fdl-brainstorm` |
 | **Create from scratch** | You know what feature you want | `/fdl-create checkout payment` |
 | **Extract from a document** | You have a BRD, policy doc, or SOP | `/fdl-extract docs/policy.pdf` |
@@ -90,15 +117,24 @@ cd ai-fdl-kit
 npm install
 ```
 
-Then open Claude Code and use the conversational skills:
+Then open Claude Code and ask Bob anything:
 
 ```
-/fdl-build "nextjs app with login and POS"   # Build a full app (recommended)
+/fdl-build "nextjs app with OTP login, POS, and inventory"
+  ↓ 
+Bob drafts a plan → you review → he shows a prototype → you iterate → he builds
+```
+
+Other conversational skills for one-off tasks:
+
+```
 /fdl-brainstorm                              # Socratic elicitation if the idea is vague
 /fdl-create login auth                        # Create a single blueprint
 /fdl-generate login nextjs                    # Generate code from a blueprint
 /fdl-extract-code ./src auth                 # Reverse-engineer features from existing code
 ```
+
+**Bob's voice:** Polished, efficient, anticipatory. He gives opinions backed by tradeoffs, never neutral menus. Think Jarvis from Iron Man — quietly witty, always prepared.
 
 ---
 
