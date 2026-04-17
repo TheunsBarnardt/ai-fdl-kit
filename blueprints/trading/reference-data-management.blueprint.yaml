@@ -1,0 +1,131 @@
+feature: reference-data-management
+version: 1.0.0
+description: Daily instrument master, trading calendars, session schedules, corporate-action calendar and static reference data
+category: trading
+tags: [reference-data, master-data, instruments, calendars, trading-sessions]
+aliases:
+  - reference-data
+  - instrument-master
+  - ref-data-management
+  - instrument-reference-data
+  - static-data-feed
+
+fields:
+  - name: isin
+    type: text
+    required: true
+    label: ISIN Code
+  - name: symbol
+    type: text
+    required: true
+    label: Trading Symbol
+  - name: contract_size
+    type: number
+    required: true
+    label: Contract Size (shares per lot)
+  - name: tick_size
+    type: number
+    required: true
+    label: Tick Size (minimum price increment)
+  - name: currency
+    type: text
+    required: true
+    label: Currency
+  - name: segment
+    type: select
+    required: true
+    label: Segment (Equity, Derivatives, Bonds)
+  - name: status
+    type: select
+    required: false
+    label: Status (Active, Suspended, Delisted)
+
+rules:
+  master_data:
+    isin_uniqueness: "ISIN must be globally unique"
+    symbol_uniqueness: "Symbol must be unique within segment"
+    currency_valid: "Currency must be ISO 4217 code"
+  calendars:
+    holiday_calendar: "Trading calendar excludes weekends and market holidays"
+    settlement_calendar: "Settlement calendar defines valid settlement dates"
+    corporate_action_calendar: "Calendar tracks all upcoming dividend/rights/corporate actions"
+
+outcomes:
+  load_instrument_master:
+    priority: 1
+    description: Load instrument master file at start of trading day
+    given:
+      - field: file_type
+        source: input
+        operator: eq
+        value: instrument_master
+    then:
+      - action: emit_event
+        event: data.loaded
+  update_trading_calendar:
+    priority: 2
+    description: Update trading session schedules
+    given:
+      - field: file_type
+        source: input
+        operator: eq
+        value: session_schedule
+    then:
+      - action: emit_event
+        event: calendar.updated
+  publish_corporate_action:
+    priority: 3
+    description: Publish upcoming corporate action on calendar
+    given:
+      - field: file_type
+        source: input
+        operator: eq
+        value: corporate_action_calendar
+    then:
+      - action: emit_event
+        event: ca_event.published
+
+errors:
+  - code: INSTRUMENT_NOT_FOUND
+    status: 404
+    message: Instrument not in reference data
+  - code: INVALID_CURRENCY
+    status: 400
+    message: Invalid currency code
+
+events:
+  - name: data.loaded
+    payload: [file_type, record_count, timestamp]
+  - name: calendar.updated
+    payload: [calendar_type, effective_date]
+  - name: ca_event.published
+    payload: [isin, event_type, record_date, payment_date]
+
+extensions:
+  record_layouts:
+    INSTRUMENT:
+      - {name: ISIN, offset: 0, length: 12, type: string}
+      - {name: Symbol, offset: 12, length: 20, type: string}
+      - {name: ContractSize, offset: 32, length: 10, type: integer}
+      - {name: TickSize, offset: 42, length: 8, type: decimal}
+      - {name: Currency, offset: 50, length: 3, type: string}
+    SESSION:
+      - {name: Date, offset: 0, length: 8, type: date}
+      - {name: OpenTime, offset: 8, length: 6, type: time}
+      - {name: CloseTime, offset: 14, length: 6, type: time}
+      - {name: SessionType, offset: 20, length: 1, type: char}
+  instrument_segments:
+    - {code: EQ, name: Equity}
+    - {code: DR, name: Derivatives}
+    - {code: BD, name: Bonds}
+    - {code: MM, name: MoneyMarket}
+  delivery_schedule:
+    - {file_type: instrument_master, delivery_time: "08:00", frequency: daily}
+    - {file_type: session_schedule, delivery_time: "07:00", frequency: daily}
+    - {file_type: corporate_action_calendar, delivery_time: "09:00", frequency: real_time}
+
+related:
+  - feature: trading-gateway-fix
+    type: required
+  - feature: market-data-mitch-udp
+    type: required
