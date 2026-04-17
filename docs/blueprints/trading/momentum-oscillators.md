@@ -23,8 +23,8 @@ description: "A suite of momentum oscillators for identifying overbought/oversol
 
 | ID | Name | Type | Description |
 |----|------|------|-------------|
-| `quant_analyst` | Quantitative Analyst | human | Configures indicator parameters and interprets output signals |
-| `indicator_engine` | Technical Indicator Engine | system | Computes momentum oscillator values over OHLCV price series using TA-Lib algorithms |
+| `quant_analyst` | Quantitative Analyst | human |  |
+| `indicator_engine` | Technical Indicator Engine | system |  |
 
 ## Fields
 
@@ -60,7 +60,6 @@ description: "A suite of momentum oscillators for identifying overbought/oversol
 ## Rules
 
 - **lookback_model:**
-  - **description:** The first `lookback` input bars produce no output. outBegIdx tells the caller which input index maps to out[0]. outNBElement is the count of valid output values.
   - **formula:** valid_output_count = input_length - lookback_period
   - **constraint:** If input_length <= lookback_period, outNBElement = 0 (no valid output)
 - **rsi:**
@@ -166,8 +165,6 @@ description: "A suite of momentum oscillators for identifying overbought/oversol
 
 ### Insufficient_data (Priority: 1) — Error: `INSUFFICIENT_DATA`
 
-_Input series shorter than required lookback — no output produced_
-
 **Given:**
 - input_length <= lookback_period for selected indicator
 
@@ -178,8 +175,6 @@ _Input series shorter than required lookback — no output produced_
 
 ### Invalid_parameters (Priority: 2) — Error: `INVALID_PARAMETER`
 
-_A required parameter is outside its valid range_
-
 **Given:**
 - ANY: time_period < 2 and indicator_type in [RSI, CCI, WILLR, CMO, MFI, STOCH] OR fast_period < 2 and indicator_type in [MACD, APO, PPO] OR slow_period < fast_period and indicator_type == MACD OR period1 < 1 or period2 < 2 or period3 < 2 and indicator_type == ULTOSC
 
@@ -187,16 +182,12 @@ _A required parameter is outside its valid range_
 
 ### Missing_required_inputs (Priority: 2) — Error: `MISSING_INPUT`
 
-_High/Low/Volume arrays absent when required by the selected indicator_
-
 **Given:**
 - ANY: high_prices is null and indicator_type in [CCI, WILLR, STOCH, STOCHF, STOCHRSI, ULTOSC, MFI, AROON, AROONOSC] OR volume is null and indicator_type == MFI OR open_prices is null and indicator_type == BOP
 
 **Result:** Invalid output; ensure all required price arrays are supplied
 
 ### Range_clamp_edge (Priority: 3)
-
-_Edge case where denominator is zero (flat price bar or zero volume period)_
 
 **Given:**
 - ANY: High == Low for all bars in period and indicator_type in [WILLR, STOCH, BOP] OR SumUp + SumDown == 0 and indicator_type == CMO OR PosMF + NegMF == 0 and indicator_type == MFI
@@ -207,8 +198,6 @@ _Edge case where denominator is zero (flat price bar or zero volume period)_
 **Result:** Output clamped to boundary — indicates flat market with no price movement
 
 ### Compute_success (Priority: 10)
-
-_Sufficient data and valid parameters — indicator computed, output arrays populated_
 
 **Given:**
 - input_length > lookback_period for selected indicator
@@ -225,8 +214,6 @@ _Sufficient data and valid parameters — indicator computed, output arrays popu
 
 ### Macd_computed (Priority: 10)
 
-_MACD / MACDEXT / MACDFIX computed with all three output lines_
-
 **Given:**
 - indicator_type in [MACD, MACDEXT, MACDFIX]
 - input_length > lookback_period
@@ -240,8 +227,6 @@ _MACD / MACDEXT / MACDFIX computed with all three output lines_
 **Result:** Three aligned output arrays; histogram crossing zero indicates signal crossover
 
 ### Aroon_computed (Priority: 10)
-
-_AROON returns two output lines (AroonDown + AroonUp)_
 
 **Given:**
 - indicator_type == AROON
@@ -265,21 +250,21 @@ _AROON returns two output lines (AroonDown + AroonUp)_
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `indicator.computed` | Emitted when an oscillator computation completes with valid output | `indicator_type`, `out_nb_element`, `out_beg_idx` |
-| `indicator.overbought` | Emitted when the latest value exceeds the conventional overbought threshold (RSI>70, MFI>80, etc.) | `indicator_type`, `value`, `threshold` |
-| `indicator.oversold` | Emitted when the latest value falls below the conventional oversold threshold | `indicator_type`, `value`, `threshold` |
-| `indicator.crossover` | Emitted when MACD or Stochastic K/D lines cross (signal confirmation) | `indicator_type`, `direction`, `value` |
+| `indicator.computed` |  | `indicator_type`, `out_nb_element`, `out_beg_idx` |
+| `indicator.overbought` |  | `indicator_type`, `value`, `threshold` |
+| `indicator.oversold` |  | `indicator_type`, `value`, `threshold` |
+| `indicator.crossover` |  | `indicator_type`, `direction`, `value` |
 
 ## Related Blueprints
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| moving-average-overlap-studies |  |  |
-| volatility-band-indicators |  |  |
-| directional-movement-indicators |  |  |
-| volume-flow-indicators |  |  |
-| candlestick-pattern-recognition |  |  |
-| market-data-feeds |  |  |
+| moving-average-overlap-studies | required |  |
+| volatility-band-indicators | recommended |  |
+| directional-movement-indicators | recommended |  |
+| volume-flow-indicators | recommended |  |
+| candlestick-pattern-recognition | optional |  |
+| market-data-feeds | required |  |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
@@ -293,8 +278,6 @@ tech_stack:
 indicator_count: 18
 output_type: All outputs are double-precision floating-point arrays
 unstable_period:
-  description: EMA-based indicators (RSI, MACD, EMA) require additional warm-up
-    bars beyond the formal lookback for numerical stability
   control: TA_SetUnstablePeriod(TA_FUNC_UNST_RSI, n) — default 0
 ma_type_enum:
   SMA: 0

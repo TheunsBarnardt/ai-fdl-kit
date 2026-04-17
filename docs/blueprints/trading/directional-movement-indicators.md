@@ -23,8 +23,8 @@ description: "A suite of directional movement and trend confirmation indicators 
 
 | ID | Name | Type | Description |
 |----|------|------|-------------|
-| `quant_analyst` | Quantitative Analyst | human | Configures directional indicators to filter trend vs. ranging regime signals |
-| `indicator_engine` | Technical Indicator Engine | system | Computes directional movement values, ADX trend strength, and Parabolic SAR stop levels |
+| `quant_analyst` | Quantitative Analyst | human |  |
+| `indicator_engine` | Technical Indicator Engine | system |  |
 
 ## Fields
 
@@ -89,7 +89,6 @@ description: "A suite of directional movement and trend confirmation indicators 
     - **bullish_signal:** AroonUp crosses above AroonDown
     - **bearish_signal:** AroonDown crosses above AroonUp
 - **parabolic_sar:**
-  - **description:** SAR is a trailing stop-and-reverse system. SAR value is placed below rising prices (long mode) or above falling prices (short mode).
   - **formula:**
     - **rising:** SAR[i] = SAR[i-1] + AF * (EP - SAR[i-1])  where EP = highest high since entry, AF = acceleration factor
     - **falling:** SAR[i] = SAR[i-1] + AF * (EP - SAR[i-1])  where EP = lowest low since entry
@@ -106,7 +105,6 @@ description: "A suite of directional movement and trend confirmation indicators 
     - **long_exit:** Close falls below SAR → exit long / enter short
     - **short_exit:** Close rises above SAR → exit short / enter long
 - **sarext:**
-  - **description:** Extends standard SAR with separate acceleration parameters for long and short positions and an optional reversal offset
   - **additional_params:**
     - **start_value:** Initial SAR position (0 = auto-detect from first two bars)
     - **offset_on_reverse:** Percentage offset applied to price when trend reverses (smooths whipsaws)
@@ -116,8 +114,6 @@ description: "A suite of directional movement and trend confirmation indicators 
 ## Outcomes
 
 ### Insufficient_data (Priority: 1) — Error: `INSUFFICIENT_DATA`
-
-_Input series shorter than required lookback_
 
 **Given:**
 - input_length <= lookback_period
@@ -129,16 +125,12 @@ _Input series shorter than required lookback_
 
 ### Invalid_parameters (Priority: 2) — Error: `INVALID_PARAMETER`
 
-_Parameter out of range_
-
 **Given:**
 - ANY: time_period < 2 OR acceleration < 0 and indicator_type in [SAR, SAREXT] OR acceleration > maximum and indicator_type == SAR
 
 **Result:** Function returns error; validate before calling
 
 ### Compute_success (Priority: 10)
-
-_Sufficient data and valid parameters — directional indicator computed_
 
 **Given:**
 - input_length > lookback_period for selected indicator
@@ -155,8 +147,6 @@ _Sufficient data and valid parameters — directional indicator computed_
 
 ### Aroon_computed (Priority: 10)
 
-_AROON returns two output lines (AroonDown + AroonUp)_
-
 **Given:**
 - indicator_type == AROON
 - input_length > timePeriod
@@ -169,8 +159,6 @@ _AROON returns two output lines (AroonDown + AroonUp)_
 
 ### Sar_reversal (Priority: 10)
 
-_Price closes beyond SAR — trend reversal detected_
-
 **Given:**
 - indicator_type in [SAR, SAREXT]
 - out_values[latest] crossed by close_price
@@ -181,8 +169,6 @@ _Price closes beyond SAR — trend reversal detected_
 **Result:** SAR flips to opposite side of price; emit trade signal for stop-and-reverse
 
 ### Strong_trend_detected (Priority: 10)
-
-_ADX exceeds threshold — strong trend regime confirmed_
 
 **Given:**
 - indicator_type == ADX
@@ -205,18 +191,18 @@ _ADX exceeds threshold — strong trend regime confirmed_
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `indicator.computed` | Emitted when a directional indicator computation completes | `indicator_type`, `out_nb_element`, `out_beg_idx` |
-| `indicator.sar_reversal` | Emitted when price crosses the Parabolic SAR — trend reversal signal | `sar_value`, `close_price`, `direction` |
-| `indicator.trend_strength` | Emitted when ADX crosses a strength threshold (e.g., 25 for trending, 50 for very strong) | `adx_value`, `threshold`, `di_plus`, `di_minus` |
+| `indicator.computed` |  | `indicator_type`, `out_nb_element`, `out_beg_idx` |
+| `indicator.sar_reversal` |  | `sar_value`, `close_price`, `direction` |
+| `indicator.trend_strength` |  | `adx_value`, `threshold`, `di_plus`, `di_minus` |
 
 ## Related Blueprints
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| momentum-oscillators |  |  |
-| volatility-band-indicators |  |  |
-| moving-average-overlap-studies |  |  |
-| market-data-feeds |  |  |
+| momentum-oscillators | recommended |  |
+| volatility-band-indicators | recommended |  |
+| moving-average-overlap-studies | recommended |  |
+| market-data-feeds | required |  |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

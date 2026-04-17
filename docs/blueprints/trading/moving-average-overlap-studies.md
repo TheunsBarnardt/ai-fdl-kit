@@ -23,8 +23,8 @@ description: "A comprehensive suite of moving average and trend overlay indicato
 
 | ID | Name | Type | Description |
 |----|------|------|-------------|
-| `quant_analyst` | Quantitative Analyst | human | Selects and configures moving average type and period for a given strategy |
-| `indicator_engine` | Technical Indicator Engine | system | Computes moving averages and overlap studies over price series |
+| `quant_analyst` | Quantitative Analyst | human |  |
+| `indicator_engine` | Technical Indicator Engine | system |  |
 
 ## Fields
 
@@ -55,7 +55,6 @@ description: "A comprehensive suite of moving average and trend overlay indicato
 ## Rules
 
 - **lookback_model:**
-  - **description:** First N bars produce no output; outBegIdx maps out[0] to its corresponding input index
   - **constraint:** If input_length <= lookback, outNBElement = 0
 - **sma:**
   - **formula:** SMA[i] = sum(price[i-n+1 .. i]) / n
@@ -110,10 +109,8 @@ description: "A comprehensive suite of moving average and trend overlay indicato
   - **lookback:** (timePeriod - 1) * 6
   - **characteristic:** Smoother than TEMA with less overshoot; vFactor controls smoothness-responsiveness tradeoff
 - **ma_generic:**
-  - **description:** Generic MA dispatcher — delegates to SMA, EMA, WMA, DEMA, TEMA, TRIMA, KAMA, MAMA, or T3 based on MAType parameter
   - **default_period:** 30
 - **mavp:**
-  - **description:** Computes MA where each output bar uses a potentially different period drawn from the periods[] array
   - **min_period_default:** 2
   - **max_period_default:** 30
   - **characteristic:** Allows cycle-adaptive smoothing; each bar's period is dynamically supplied
@@ -134,15 +131,12 @@ description: "A comprehensive suite of moving average and trend overlay indicato
   - **period_range:** 2 to 100000
   - **inputs_required:** High, Low
 - **ht_trendline:**
-  - **description:** Removes dominant cycle from price using Hilbert Transform; residual is the trend
   - **lookback:** 63
   - **characteristic:** Zero-lag trend extraction; best in trending markets; noisy in ranging markets
 
 ## Outcomes
 
 ### Insufficient_data (Priority: 1) — Error: `INSUFFICIENT_DATA`
-
-_Input too short for selected indicator lookback_
 
 **Given:**
 - input_length <= lookback_period
@@ -154,16 +148,12 @@ _Input too short for selected indicator lookback_
 
 ### Invalid_parameters (Priority: 2) — Error: `INVALID_PARAMETER`
 
-_Period or limit parameter out of range_
-
 **Given:**
 - ANY: time_period < 2 OR fast_limit > slow_limit and indicator_type == MAMA OR v_factor < 0 or v_factor > 1 and indicator_type == T3 OR min_period > max_period and indicator_type == MAVP
 
 **Result:** Function returns error; caller must supply valid parameter ranges
 
 ### Compute_success (Priority: 10)
-
-_Sufficient data and valid parameters — MA computed, output populated_
 
 **Given:**
 - input_length > lookback_period for selected indicator
@@ -180,8 +170,6 @@ _Sufficient data and valid parameters — MA computed, output populated_
 
 ### Accbands_computed (Priority: 10)
 
-_Acceleration Bands returns three aligned output arrays_
-
 **Given:**
 - indicator_type == ACCBANDS
 - input_length > lookback_period
@@ -194,8 +182,6 @@ _Acceleration Bands returns three aligned output arrays_
 **Result:** Three overlaid bands on price chart; breakout above upper signals acceleration
 
 ### Mama_computed (Priority: 10)
-
-_MAMA returns MAMA and FAMA lines_
 
 **Given:**
 - indicator_type == MAMA
@@ -219,17 +205,17 @@ _MAMA returns MAMA and FAMA lines_
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `indicator.computed` | Emitted when a moving average computation produces valid output | `indicator_type`, `out_nb_element`, `out_beg_idx` |
-| `indicator.crossover` | Emitted when two MA lines cross (e.g., fast MA crosses slow MA, or MAMA crosses FAMA) | `indicator_type`, `direction`, `value` |
+| `indicator.computed` |  | `indicator_type`, `out_nb_element`, `out_beg_idx` |
+| `indicator.crossover` |  | `indicator_type`, `direction`, `value` |
 
 ## Related Blueprints
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| momentum-oscillators |  |  |
-| volatility-band-indicators |  |  |
-| directional-movement-indicators |  |  |
-| market-data-feeds |  |  |
+| momentum-oscillators | required |  |
+| volatility-band-indicators | recommended |  |
+| directional-movement-indicators | recommended |  |
+| market-data-feeds | required |  |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
@@ -251,8 +237,6 @@ ma_type_enum:
   MAMA: 7
   T3: 8
 unstable_period:
-  description: EMA and EMA-derived indicators need extra warm-up bars for
-    numerical stability
   control: TA_SetUnstablePeriod(TA_FUNC_UNST_EMA, n) — default 0; increase for
     production systems
 ```
