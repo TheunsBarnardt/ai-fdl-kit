@@ -1,0 +1,207 @@
+# ============================================================
+# continuously-compounded-returns — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 6, p.181-183
+# ============================================================
+
+feature: continuously-compounded-returns
+version: "1.0.0"
+description: Convert between holding-period and continuously compounded returns, leverage their additivity over time, and annualise volatility using the square-root-of-time rule
+category: trading
+tags: [quantitative-methods, returns, continuously-compounded, log-returns, volatility-scaling, annualisation, cfa-level-1]
+aliases:
+  - log-returns
+  - cc-returns
+  - continuous-compounding
+  - log-price-change
+  - volatility-annualisation
+  - sqrt-time-rule
+  - ln-return
+
+actors:
+  - id: return_engine
+    name: Return Calculation Engine
+    type: system
+
+fields:
+  - name: prices
+    type: json
+    required: false
+    label: Array of prices {t, price} for converting to continuously compounded returns
+  - name: holding_period_return
+    type: number
+    required: false
+    label: Simple return r_hpr for conversion to ln(1 + r_hpr)
+  - name: period_volatility
+    type: number
+    required: false
+    label: Volatility to be annualised
+  - name: periods_per_year
+    type: number
+    required: false
+    label: Number of periods per year (default 250 trading days)
+
+rules:
+  core_formulas:
+    # Source: Vol 1, Module 6, p.181-182
+    cc_return_from_prices: "r_cc = ln(P_T / P_0)"
+    cc_from_hpr: "r_cc = ln(1 + r_hpr)"
+    hpr_from_cc: "r_hpr = exp(r_cc) - 1"
+    additivity_over_time: "r_0,T = r_0,1 + r_1,2 + ... + r_{T-1,T} (log returns are additive)"
+    expected_multi_period: "E(r_0,T) = T * mu when single-period returns are i.i.d. with mean mu"
+    variance_multi_period: "Var(r_0,T) = T * sigma^2 (i.i.d. assumption)"
+    volatility_scaling: "sigma(r_0,T) = sigma * sqrt(T)"
+    annualised_volatility: "sigma_annual = sigma_daily * sqrt(periods_per_year)"
+  assumptions:
+    iid: "Returns are independently and identically distributed"
+    stationarity: "Mean and variance of period returns do not change over time"
+    normality_optional: "Normality of period returns implies normality of sum (exactly); CLT gives approximate normality otherwise"
+  key_properties:
+    log_additivity: "ln(P_T / P_0) decomposes into sum of single-period log returns — enables variance scaling"
+    no_arithmetic_additivity: "Simple returns are NOT additive across time: (1+r_1)(1+r_2) != 1 + r_1 + r_2"
+    always_unbounded_below: "Unlike simple returns (>= -100%), log returns can be any real number — though price > 0 always"
+  annualisation_convention:
+    trading_days: "Standard is 250 trading days per year; some sources use 252"
+    volatility_only: "Square-root-of-time scales volatility; expected return scales linearly"
+  applications:
+    var_modelling: "Scale daily vol to annual horizon via sqrt(T) under i.i.d. assumption"
+    option_pricing: "Black-Scholes-Merton uses continuously compounded returns"
+    portfolio_compounding: "Multi-period portfolio return = sum of log returns"
+  validation:
+    prices_positive: "All prices > 0 to compute ln(P)"
+    hpr_greater_than_neg_one: "1 + r_hpr > 0 to compute ln"
+    periods_per_year_positive: "periods_per_year > 0"
+
+outcomes:
+  convert_prices_to_returns:
+    priority: 1
+    description: ln(P_t / P_{t-1}) over price series
+    given:
+      - field: prices
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: return_engine
+      - action: emit_event
+        event: return.cc_calculated
+  convert_hpr_to_cc:
+    priority: 2
+    description: r_cc = ln(1 + r_hpr)
+    given:
+      - field: holding_period_return
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: return_engine
+      - action: emit_event
+        event: return.cc_calculated
+  annualise_volatility:
+    priority: 3
+    description: Scale period volatility by sqrt(periods_per_year)
+    given:
+      - field: period_volatility
+        source: input
+        operator: exists
+      - field: periods_per_year
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: return_engine
+      - action: emit_event
+        event: return.volatility_annualised
+  invalid_price:
+    priority: 10
+    description: Non-positive price in series
+    given:
+      - field: min_price
+        source: computed
+        operator: lte
+        value: 0
+    then:
+      - action: emit_event
+        event: return.cc_rejected
+    error: CC_RETURN_INVALID_PRICE
+  invalid_hpr:
+    priority: 11
+    description: 1 + r_hpr <= 0
+    given:
+      - field: holding_period_return
+        source: input
+        operator: lte
+        value: -1
+    then:
+      - action: emit_event
+        event: return.cc_rejected
+    error: CC_RETURN_INVALID_HPR
+
+errors:
+  - code: CC_RETURN_INVALID_PRICE
+    status: 400
+    message: All prices must be positive
+  - code: CC_RETURN_INVALID_HPR
+    status: 400
+    message: Holding-period return must satisfy 1 + r > 0
+
+events:
+  - name: return.cc_calculated
+    payload: [dataset_id, cc_return, hpr, period_count]
+  - name: return.volatility_annualised
+    payload: [dataset_id, period_volatility, annualised_volatility, periods_per_year]
+  - name: return.cc_rejected
+    payload: [dataset_id, reason_code]
+
+anti_patterns:
+  - rule: Do not apply the square-root-of-time rule to returns that are not i.i.d.
+    why: "Autocorrelated or heteroskedastic returns violate the assumption; sqrt(T) scaling then dramatically understates multi-period risk — see the VaR criticism post-GFC"
+  - rule: Do not annualise by simply multiplying daily return by 250
+    why: "Volatility scales by sqrt(T), not T; conflating the two leads to the classic 15.81x overstatement of annual vol"
+  - rule: Do not sum simple (arithmetic) returns across time as if they were log returns
+    why: "Compounding is multiplicative on (1 + r); only log returns are additive. Summing simple returns systematically over- or underestimates terminal value"
+  - rule: Do not use continuously compounded returns for cross-sectional portfolio weighting
+    why: "Portfolio log return is NOT the weighted sum of asset log returns; portfolio arithmetic return IS the weighted sum. Switch back for portfolio aggregation"
+
+api:
+  http:
+    method: POST
+    path: /analytics/returns/continuously-compounded
+  request:
+    schema:
+      prices: array
+      holding_period_return: number
+      period_volatility: number
+      periods_per_year: number
+  response:
+    success:
+      status: 200
+      schema:
+        cc_return: number
+        annualised_volatility: number
+        period_count: number
+    errors:
+      - status: 400
+        error_code: CC_RETURN_INVALID_PRICE
+      - status: 400
+        error_code: CC_RETURN_INVALID_HPR
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 6, p.182 — Astra International
+    scenario: "Daily volatility 0.01 annualised over 250 trading days"
+    daily_vol: 0.01
+    periods_per_year: 250
+    annualised_vol: "0.01 * sqrt(250) = 0.1581"
+  mordice_example:
+    # Source: Vol 1, Module 6, Practice Problem 1, p.193
+    p_0: 112
+    p_t: 120
+    cc_return: "ln(120/112) = 0.0690 = 6.90%"
+
+related:
+  - feature: lognormal-distribution-asset-prices
+    type: required
+  - feature: holding-period-return
+    type: recommended
+  - feature: monte-carlo-simulation
+    type: recommended

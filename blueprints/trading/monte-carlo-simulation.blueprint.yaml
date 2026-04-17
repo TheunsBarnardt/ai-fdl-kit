@@ -1,0 +1,217 @@
+# ============================================================
+# monte-carlo-simulation — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 6, p.184-188
+# ============================================================
+
+feature: monte-carlo-simulation
+version: "1.0.0"
+description: Generate many random samples from specified probability distributions to estimate risk/return metrics, value complex securities, and test model sensitivities to distributional assumptions
+category: trading
+tags: [quantitative-methods, simulation, monte-carlo, option-pricing, risk-modelling, random-sampling, cfa-level-1]
+aliases:
+  - monte-carlo
+  - mc-simulation
+  - random-sampling-simulation
+  - stochastic-simulation
+  - scenario-generation
+  - pricing-by-simulation
+  - path-simulation
+
+actors:
+  - id: simulation_engine
+    name: Monte Carlo Simulation Engine
+    type: system
+
+fields:
+  - name: quantity_of_interest
+    type: text
+    required: true
+    label: The target metric (e.g., option value, portfolio VaR, terminal wealth)
+  - name: risk_factors
+    type: json
+    required: true
+    label: Array of {name, distribution, parameters} describing underlying stochastic drivers
+  - name: time_horizon
+    type: number
+    required: true
+    label: Total simulation horizon in calendar units
+  - name: subperiods
+    type: number
+    required: true
+    label: Number of discretisation steps K (horizon / delta_t)
+  - name: num_trials
+    type: number
+    required: true
+    label: Number of simulation trials I (typically 1,000-1,000,000)
+  - name: model
+    type: text
+    required: true
+    label: Functional form mapping random draws to the quantity of interest
+  - name: discount_rate
+    type: number
+    required: false
+    label: Rate for discounting terminal payoffs to present
+
+rules:
+  six_step_process:
+    # Source: Vol 1, Module 6, Exhibit 5, p.186
+    step_1: "Specify the quantity of interest and starting values of underlying variables"
+    step_2: "Specify the time grid (K subperiods with delta_t = horizon / K)"
+    step_3: "Specify the data-generating process and distributional assumptions for key risk factors"
+    step_4: "Draw K random values per trial; convert to underlying variable paths"
+    step_5: "Calculate the quantity of interest for the trial and discount to present"
+    step_6: "Repeat steps 4-5 I times; aggregate as mean of trial results (Monte Carlo estimate)"
+  core_principles:
+    random_sampling: "Draws come from a specified (parametric) probability distribution"
+    law_of_large_numbers: "Estimate converges to true expectation as I -> infinity"
+    error_shrinks_as_sqrt_n: "Standard error of the MC estimate scales as 1/sqrt(I)"
+    distributional_control: "Analyst controls all inputs — sensitivity analysis is straightforward"
+  strengths:
+    complex_securities: "Prices instruments with path dependence, embedded options, or multi-asset payoffs that lack closed-form solutions"
+    sensitivity_analysis: "Test how results change with distributional assumptions"
+    multi_factor: "Naturally accommodates multiple correlated risk factors"
+  limitations:
+    statistical_only: "Provides estimates, not exact results"
+    no_causal_insight: "Does not reveal cause-effect relationships the way analytical models do"
+    computational_cost: "Convergence at sqrt(I) makes tight tolerance expensive"
+    garbage_in_garbage_out: "Output quality is limited by distributional assumption quality"
+  applications:
+    option_valuation: "Price Asian options, lookback options, barrier options, American options via Longstaff-Schwartz"
+    var_cvar: "Simulate P&L distribution for risk measures"
+    liability_driven_investing: "Simulate asset-liability paths for pension planning"
+    retirement_planning: "Probability that wealth > required spending over horizon"
+  comparison_to_bootstrap:
+    monte_carlo: "Samples from assumed parametric distribution"
+    bootstrap: "Resamples with replacement from observed empirical distribution"
+    use_mc_when: "Distribution is theoretically motivated or historical data is sparse/unrepresentative"
+    use_bootstrap_when: "Historical sample is rich and its features must be preserved"
+  validation:
+    num_trials_positive: "num_trials >= 1 (typically >= 1000 for stable estimates)"
+    subperiods_positive: "subperiods >= 1"
+    risk_factors_defined: "Every risk factor has a valid distribution and parameters"
+    horizon_positive: "time_horizon > 0"
+
+outcomes:
+  run_simulation:
+    priority: 1
+    description: Execute the six-step Monte Carlo process and return the estimate
+    given:
+      - field: quantity_of_interest
+        source: input
+        operator: exists
+      - field: risk_factors
+        source: input
+        operator: exists
+      - field: num_trials
+        source: input
+        operator: gte
+        value: 1
+    then:
+      - action: call_service
+        target: simulation_engine
+      - action: emit_event
+        event: simulation.mc_completed
+  insufficient_trials:
+    priority: 10
+    description: Trial count too low for stable estimate
+    given:
+      - field: num_trials
+        source: input
+        operator: lt
+        value: 1
+    then:
+      - action: emit_event
+        event: simulation.mc_rejected
+    error: MC_INSUFFICIENT_TRIALS
+  missing_inputs:
+    priority: 11
+    description: Required simulation inputs missing
+    given:
+      - any:
+          - field: quantity_of_interest
+            source: input
+            operator: not_exists
+          - field: risk_factors
+            source: input
+            operator: not_exists
+          - field: time_horizon
+            source: input
+            operator: not_exists
+    then:
+      - action: emit_event
+        event: simulation.mc_rejected
+    error: MC_MISSING_INPUTS
+
+errors:
+  - code: MC_INSUFFICIENT_TRIALS
+    status: 400
+    message: Number of trials must be at least 1 (recommended >= 1000)
+  - code: MC_MISSING_INPUTS
+    status: 400
+    message: Quantity of interest, risk factors, and time horizon are required
+
+events:
+  - name: simulation.mc_completed
+    payload: [simulation_id, estimate, standard_error, trials_run, trials_converged]
+  - name: simulation.mc_rejected
+    payload: [simulation_id, reason_code]
+
+anti_patterns:
+  - rule: Do not report a Monte Carlo estimate without its standard error
+    why: "The estimate is a random variable whose precision depends on trial count; omitting the standard error hides convergence uncertainty"
+  - rule: Do not choose distributional parameters by fitting to limited recent history
+    why: "Recent calm periods produce understated sigma that catastrophically underestimates tail risk — a key cause of 2008 VaR failures"
+  - rule: Do not use pseudo-random number generators without verifying seed independence across trials
+    why: "Poor PRNG seeding introduces correlation between trials, violating i.i.d. assumption and biasing estimates"
+  - rule: Do not trust a Monte Carlo model without variance reduction or convergence diagnostics
+    why: "Naive MC converges at 1/sqrt(I); without antithetic variates, control variates, or quasi-MC, achievable precision is limited. Plotting estimate vs I is mandatory"
+
+api:
+  http:
+    method: POST
+    path: /analytics/simulation/monte-carlo
+  request:
+    schema:
+      quantity_of_interest: string
+      risk_factors: array
+      time_horizon: number
+      subperiods: number
+      num_trials: number
+      model: string
+      discount_rate: number
+  response:
+    success:
+      status: 200
+      schema:
+        estimate: number
+        standard_error: number
+        confidence_interval: array
+        trials_run: number
+    errors:
+      - status: 400
+        error_code: MC_INSUFFICIENT_TRIALS
+      - status: 400
+        error_code: MC_MISSING_INPUTS
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 6, Exhibit 4, p.185-186
+    scenario: "Asian-style contingent claim: payoff = max(S_T - mean(S), 0)"
+    num_trials: 1000
+    subperiods: 12
+    time_horizon: 1.0
+    stock_model: "delta_S = mu * S * delta_t + sigma * S * Z_k"
+    outcome: "In 654 trials payoff = 0; in 346 trials payoff > 0 (max 11); MC value = discounted mean across trials"
+  var_application:
+    process: "Simulate portfolio P&L 10,000 times; report the 1st percentile as 99% 1-day VaR"
+    key_point: "Captures non-linear instruments (options) that delta-normal VaR cannot"
+
+related:
+  - feature: bootstrap-resampling
+    type: recommended
+  - feature: lognormal-distribution-asset-prices
+    type: recommended
+  - feature: continuously-compounded-returns
+    type: recommended
+  - feature: expected-value-variance
+    type: recommended

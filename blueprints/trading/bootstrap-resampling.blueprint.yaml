@@ -1,0 +1,218 @@
+# ============================================================
+# bootstrap-resampling — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 6, p.189-192
+# ============================================================
+
+feature: bootstrap-resampling
+version: "1.0.0"
+description: Construct a sampling distribution by repeatedly drawing with-replacement resamples from the observed data — a nonparametric approach to inference that requires no distributional assumption
+category: trading
+tags: [quantitative-methods, simulation, bootstrap, resampling, nonparametric, sampling-distribution, statistical-inference, cfa-level-1]
+aliases:
+  - bootstrap
+  - bootstrap-method
+  - resampling
+  - nonparametric-bootstrap
+  - empirical-resampling
+  - efron-bootstrap
+  - with-replacement-sampling
+
+actors:
+  - id: simulation_engine
+    name: Bootstrap / Simulation Engine
+    type: system
+
+fields:
+  - name: observed_sample
+    type: json
+    required: true
+    label: Array of observed data points — treated as the empirical distribution
+  - name: num_resamples
+    type: number
+    required: true
+    label: Number of bootstrap replicates B (typically 1,000-10,000)
+  - name: statistic
+    type: select
+    required: true
+    label: mean | median | variance | std_dev | quantile | correlation | custom
+  - name: confidence_level
+    type: number
+    required: false
+    label: Confidence level for percentile / BCa interval (e.g., 0.95)
+
+rules:
+  core_principle:
+    # Source: Vol 1, Module 6, p.189-191
+    treat_sample_as_population: "The observed sample is treated as if it were the population; resamples mimic repeated draws from that population"
+    with_replacement: "Each bootstrap resample is drawn WITH replacement, same size n as original"
+    items_may_repeat: "An observation can appear multiple times in a resample; others may not appear at all"
+  process:
+    # Source: Vol 1, Module 6, Exhibit 7, p.190
+    step_1: "Treat observed sample as the empirical distribution F_hat"
+    step_2: "Draw a bootstrap resample of size n WITH replacement from F_hat"
+    step_3: "Compute the statistic on the resample"
+    step_4: "Repeat steps 2-3 B times (typically B >= 1,000)"
+    step_5: "Use the B replicate statistics as an approximation to the true sampling distribution"
+  inference_outputs:
+    standard_error: "Bootstrap SE = sample std dev of the B replicate statistics"
+    bias_estimate: "Bias_hat = mean(replicates) - statistic(original_sample)"
+    percentile_ci: "(alpha/2, 1-alpha/2) percentiles of the replicate distribution"
+    bca_ci: "Bias-corrected and accelerated CI improves coverage for skewed statistics"
+  key_differences_vs_monte_carlo:
+    source_of_randomness:
+      monte_carlo: "Random draws from a SPECIFIED parametric distribution"
+      bootstrap: "Random draws from the OBSERVED empirical distribution (no parametric assumption)"
+    when_to_use_each:
+      use_bootstrap: "Historical sample is rich and representative; no good parametric model"
+      use_monte_carlo: "Parametric model is theoretically justified or empirical data is sparse"
+  strengths:
+    distribution_free: "No normality or other parametric assumption required"
+    handles_arbitrary_statistics: "Works for statistics (median, quantiles, ratios) where analytic SEs are difficult"
+    simple_to_implement: "Requires only resampling and evaluating the statistic"
+  limitations:
+    sample_dependent: "Resamples inherit any bias or incompleteness of the original sample"
+    poor_tail_estimation: "Cannot extrapolate beyond observed range — tail events absent from the sample stay absent"
+    iid_assumption: "Standard bootstrap assumes i.i.d. observations; time series need block bootstrap"
+    statistical_estimate_only: "Provides estimates, not exact results"
+  applications:
+    standard_errors: "SE of median, Sharpe ratio, max drawdown, and other complex statistics"
+    hypothesis_tests: "Permutation tests via bootstrap under the null"
+    confidence_intervals: "Percentile / BCa intervals for performance metrics"
+    portfolio_backtesting: "Bootstrap historical returns to assess strategy robustness"
+  validation:
+    sample_non_empty: "length(observed_sample) >= 2"
+    resamples_sufficient: "num_resamples >= 100 (recommended >= 1000)"
+
+outcomes:
+  run_bootstrap:
+    priority: 1
+    description: Execute B resamples and return the bootstrap sampling distribution
+    given:
+      - field: observed_sample
+        source: input
+        operator: exists
+      - field: num_resamples
+        source: input
+        operator: gte
+        value: 100
+    then:
+      - action: call_service
+        target: simulation_engine
+      - action: emit_event
+        event: simulation.bootstrap_completed
+  compute_confidence_interval:
+    priority: 2
+    description: Derive percentile or BCa CI from the bootstrap distribution
+    given:
+      - field: confidence_level
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: simulation_engine
+      - action: emit_event
+        event: simulation.bootstrap_ci_calculated
+  insufficient_resamples:
+    priority: 10
+    description: num_resamples too low
+    given:
+      - field: num_resamples
+        source: input
+        operator: lt
+        value: 100
+    then:
+      - action: emit_event
+        event: simulation.bootstrap_rejected
+    error: BOOTSTRAP_INSUFFICIENT_RESAMPLES
+  empty_sample:
+    priority: 11
+    description: Observed sample missing or too small
+    given:
+      - any:
+          - field: observed_sample
+            source: input
+            operator: not_exists
+          - field: sample_size
+            source: computed
+            operator: lt
+            value: 2
+    then:
+      - action: emit_event
+        event: simulation.bootstrap_rejected
+    error: BOOTSTRAP_SAMPLE_TOO_SMALL
+
+errors:
+  - code: BOOTSTRAP_INSUFFICIENT_RESAMPLES
+    status: 400
+    message: Number of resamples must be at least 100 (recommended >= 1000)
+  - code: BOOTSTRAP_SAMPLE_TOO_SMALL
+    status: 400
+    message: Observed sample must contain at least 2 observations
+
+events:
+  - name: simulation.bootstrap_completed
+    payload: [bootstrap_id, statistic_value, standard_error, bias, num_resamples]
+  - name: simulation.bootstrap_ci_calculated
+    payload: [bootstrap_id, confidence_level, lower_bound, upper_bound, method]
+  - name: simulation.bootstrap_rejected
+    payload: [bootstrap_id, reason_code]
+
+anti_patterns:
+  - rule: Do not bootstrap i.i.d. samples from a time series with autocorrelation
+    why: "Standard bootstrap destroys temporal dependence; resampled series have spurious i.i.d. properties. Use block bootstrap or stationary bootstrap for dependent data"
+  - rule: Do not rely on the bootstrap for tail-risk estimation
+    why: "The bootstrap cannot generate events beyond the observed range; using it for 99.9% VaR systematically understates tail loss if the sample lacks crisis observations"
+  - rule: Do not ignore the finite-sample bias of the statistic being bootstrapped
+    why: "Bootstrap estimates the sampling distribution around the sample value, not the population value; bias correction (BCa, jackknife-after-bootstrap) is essential for skewed statistics"
+  - rule: Do not conflate the bootstrap with Monte Carlo simulation
+    why: "Bootstrap draws from empirical data; Monte Carlo draws from an assumed parametric distribution. Confusing them leads to incorrect model selection and false confidence in results"
+
+api:
+  http:
+    method: POST
+    path: /analytics/simulation/bootstrap
+  request:
+    schema:
+      observed_sample: array
+      num_resamples: number
+      statistic: string
+      confidence_level: number
+  response:
+    success:
+      status: 200
+      schema:
+        statistic_value: number
+        standard_error: number
+        bias: number
+        confidence_interval: array
+        num_resamples: number
+    errors:
+      - status: 400
+        error_code: BOOTSTRAP_INSUFFICIENT_RESAMPLES
+      - status: 400
+        error_code: BOOTSTRAP_SAMPLE_TOO_SMALL
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 6, p.191
+    scenario: "Bootstrap the sample mean of 30 returns"
+    steps:
+      - "Draw 30 returns with replacement from the original sample"
+      - "Compute the mean of this resample"
+      - "Repeat 1,000 times"
+      - "Sample SD of the 1,000 means = bootstrap SE of the mean"
+    comparison_to_clt: "Bootstrap SE approximates analytic SE = s / sqrt(n); advantage is it also works for median, Sharpe, etc."
+  time_series_variant:
+    issue: "Daily returns exhibit volatility clustering"
+    solution: "Block bootstrap: resample contiguous blocks of length b (b ~ n^(1/3))"
+    preserves: "Short-range dependence structure of the series"
+
+related:
+  - feature: monte-carlo-simulation
+    type: recommended
+  - feature: continuously-compounded-returns
+    type: recommended
+  - feature: expected-value-variance
+    type: recommended
+  - feature: measures-of-dispersion
+    type: recommended

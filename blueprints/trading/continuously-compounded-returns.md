@@ -1,0 +1,103 @@
+<!-- AUTO-GENERATED FROM continuously-compounded-returns.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Continuously Compounded Returns
+
+> Convert between holding-period and continuously compounded returns, leverage their additivity over time, and annualise volatility using the square-root-of-time rule
+
+**Category:** Trading · **Version:** 1.0.0 · **Tags:** quantitative-methods · returns · continuously-compounded · log-returns · volatility-scaling · annualisation · cfa-level-1
+
+## What this does
+
+Convert between holding-period and continuously compounded returns, leverage their additivity over time, and annualise volatility using the square-root-of-time rule
+
+Specifies 5 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **prices** *(json, optional)* — Array of prices {t, price} for converting to continuously compounded returns
+- **holding_period_return** *(number, optional)* — Simple return r_hpr for conversion to ln(1 + r_hpr)
+- **period_volatility** *(number, optional)* — Volatility to be annualised
+- **periods_per_year** *(number, optional)* — Number of periods per year (default 250 trading days)
+
+## What must be true
+
+- **core_formulas → cc_return_from_prices:** r_cc = ln(P_T / P_0)
+- **core_formulas → cc_from_hpr:** r_cc = ln(1 + r_hpr)
+- **core_formulas → hpr_from_cc:** r_hpr = exp(r_cc) - 1
+- **core_formulas → additivity_over_time:** r_0,T = r_0,1 + r_1,2 + ... + r_{T-1,T} (log returns are additive)
+- **core_formulas → expected_multi_period:** E(r_0,T) = T * mu when single-period returns are i.i.d. with mean mu
+- **core_formulas → variance_multi_period:** Var(r_0,T) = T * sigma^2 (i.i.d. assumption)
+- **core_formulas → volatility_scaling:** sigma(r_0,T) = sigma * sqrt(T)
+- **core_formulas → annualised_volatility:** sigma_annual = sigma_daily * sqrt(periods_per_year)
+- **assumptions → iid:** Returns are independently and identically distributed
+- **assumptions → stationarity:** Mean and variance of period returns do not change over time
+- **assumptions → normality_optional:** Normality of period returns implies normality of sum (exactly); CLT gives approximate normality otherwise
+- **key_properties → log_additivity:** ln(P_T / P_0) decomposes into sum of single-period log returns — enables variance scaling
+- **key_properties → no_arithmetic_additivity:** Simple returns are NOT additive across time: (1+r_1)(1+r_2) != 1 + r_1 + r_2
+- **key_properties → always_unbounded_below:** Unlike simple returns (>= -100%), log returns can be any real number — though price > 0 always
+- **annualisation_convention → trading_days:** Standard is 250 trading days per year; some sources use 252
+- **annualisation_convention → volatility_only:** Square-root-of-time scales volatility; expected return scales linearly
+- **applications → var_modelling:** Scale daily vol to annual horizon via sqrt(T) under i.i.d. assumption
+- **applications → option_pricing:** Black-Scholes-Merton uses continuously compounded returns
+- **applications → portfolio_compounding:** Multi-period portfolio return = sum of log returns
+- **validation → prices_positive:** All prices > 0 to compute ln(P)
+- **validation → hpr_greater_than_neg_one:** 1 + r_hpr > 0 to compute ln
+- **validation → periods_per_year_positive:** periods_per_year > 0
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Convert Prices To Returns** — when prices exists, then call service; emit return.cc_calculated. _Why: ln(P_t / P_{t-1}) over price series._
+- **Convert Hpr To Cc** — when holding_period_return exists, then call service; emit return.cc_calculated. _Why: r_cc = ln(1 + r_hpr)._
+- **Annualise Volatility** — when period_volatility exists; periods_per_year exists, then call service; emit return.volatility_annualised. _Why: Scale period volatility by sqrt(periods_per_year)._
+
+**❌ Failure paths**
+
+- **Invalid Price** — when min_price lte 0, then emit return.cc_rejected. _Why: Non-positive price in series._ *(error: `CC_RETURN_INVALID_PRICE`)*
+- **Invalid Hpr** — when holding_period_return lte -1, then emit return.cc_rejected. _Why: 1 + r_hpr <= 0._ *(error: `CC_RETURN_INVALID_HPR`)*
+
+## Errors it can return
+
+- `CC_RETURN_INVALID_PRICE` — All prices must be positive
+- `CC_RETURN_INVALID_HPR` — Holding-period return must satisfy 1 + r > 0
+
+## Events
+
+**`return.cc_calculated`**
+  Payload: `dataset_id`, `cc_return`, `hpr`, `period_count`
+
+**`return.volatility_annualised`**
+  Payload: `dataset_id`, `period_volatility`, `annualised_volatility`, `periods_per_year`
+
+**`return.cc_rejected`**
+  Payload: `dataset_id`, `reason_code`
+
+## Connects to
+
+- **lognormal-distribution-asset-prices** *(required)*
+- **holding-period-return** *(recommended)*
+- **monte-carlo-simulation** *(recommended)*
+
+## Quality fitness 🟢 85/100
+
+Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
+
+| Dimension | Score | Points |
+|-----------|-------|--------|
+| Description | `██████████` | 10/10 |
+| Rules | `██████████` | 10/10 |
+| Outcomes | `███████████████████████░░` | 23/25 |
+| Structured conditions | `██████████` | 10/10 |
+| Error binding | `██████████` | 10/10 |
+| Field validation | `█████░░░░░` | 5/10 |
+| Relationships | `███████░░░` | 7/10 |
+| Events | `█████` | 5/5 |
+| AGI readiness | `░░░░░` | 0/5 |
+| Simplicity | `█████` | 5/5 |
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/trading/continuously-compounded-returns/) · **Spec source:** [`continuously-compounded-returns.blueprint.yaml`](./continuously-compounded-returns.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

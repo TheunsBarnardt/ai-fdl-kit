@@ -1,0 +1,354 @@
+# ============================================================
+# directional-movement-indicators — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/TA-Lib/ta-lib
+# Tech stack: C99 | Multi-language bindings: Java, .NET, Rust, Python
+# Files analyzed: ta_ADX.c, ta_ADXR.c, ta_DX.c,
+#   ta_PLUS_DI.c, ta_MINUS_DI.c, ta_PLUS_DM.c, ta_MINUS_DM.c,
+#   ta_AROON.c, ta_AROONOSC.c, ta_SAR.c, ta_SAREXT.c,
+#   ta_func_api.xml
+# ============================================================
+
+feature: directional-movement-indicators
+version: "1.0.0"
+description: A suite of directional movement and trend confirmation indicators for measuring trend strength, identifying trend direction, and generating trailing stop levels via Parabolic SAR
+category: trading
+tags: [technical-analysis, directional-movement, adx, aroon, parabolic-sar, trend-strength, ta-lib]
+
+aliases:
+  - directional-movement
+  - adx-indicators
+  - trend-strength-indicators
+  - adx-aroon-sar
+  - ta-lib-directional
+  - wilder-directional-movement
+
+actors:
+  - id: quant_analyst
+    name: Quantitative Analyst
+    type: human
+    description: Configures directional indicators to filter trend vs. ranging regime signals
+  - id: indicator_engine
+    name: Technical Indicator Engine
+    type: system
+    description: Computes directional movement values, ADX trend strength, and Parabolic SAR stop levels
+
+fields:
+  - name: high_prices
+    type: json
+    required: true
+    label: High Prices (chronological double array)
+  - name: low_prices
+    type: json
+    required: true
+    label: Low Prices (chronological double array)
+  - name: close_prices
+    type: json
+    required: false
+    label: Close Prices (required for ADX, ADXR, DX, PLUS_DI, MINUS_DI)
+  - name: indicator_type
+    type: select
+    required: true
+    label: Indicator to compute
+    allowed_values: [ADX, ADXR, DX, PLUS_DI, MINUS_DI, PLUS_DM, MINUS_DM, AROON, AROONOSC, SAR, SAREXT]
+  - name: time_period
+    type: number
+    required: false
+    label: "Time Period (default 14 for ADX/ADXR/DX/DI/DM/AROON; range 2-100000)"
+  # SAR parameters
+  - name: acceleration
+    type: number
+    required: false
+    label: SAR Acceleration Factor initial value (default 0.02; range 0-TA_REAL_MAX; typically ≤ 0.20)
+  - name: maximum
+    type: number
+    required: false
+    label: SAR Maximum Acceleration Factor (default 0.20; range 0-TA_REAL_MAX)
+  # SAREXT additional parameters
+  - name: start_value
+    type: number
+    required: false
+    label: SAREXT Initial SAR value (0 = auto-detect; default 0)
+  - name: offset_on_reverse
+    type: number
+    required: false
+    label: SAREXT Percentage offset applied to SAR on trend reversal (default 0)
+  - name: acceleration_init_long
+    type: number
+    required: false
+    label: SAREXT Acceleration Factor initial value for long positions (default 0.02)
+  - name: acceleration_long
+    type: number
+    required: false
+    label: SAREXT Acceleration Factor increment for long (default 0.02)
+  - name: acceleration_max_long
+    type: number
+    required: false
+    label: SAREXT Maximum Acceleration Factor for long (default 0.20)
+  - name: acceleration_init_short
+    type: number
+    required: false
+    label: SAREXT Acceleration Factor initial value for short (default 0.02)
+  - name: acceleration_short
+    type: number
+    required: false
+    label: SAREXT Acceleration Factor increment for short (default 0.02)
+  - name: acceleration_max_short
+    type: number
+    required: false
+    label: SAREXT Maximum Acceleration Factor for short (default 0.20)
+  # Outputs
+  - name: out_beg_idx
+    type: number
+    required: false
+    label: Output Begin Index
+  - name: out_nb_element
+    type: number
+    required: false
+    label: Number of valid output elements
+  - name: out_values
+    type: json
+    required: false
+    label: Primary output (ADX, DX, PLUS_DI, MINUS_DI, PLUS_DM, MINUS_DM, AROONOSC, SAR values)
+  - name: out_aroon_down
+    type: json
+    required: false
+    label: AROON Down line values (0-100)
+  - name: out_aroon_up
+    type: json
+    required: false
+    label: AROON Up line values (0-100)
+
+rules:
+  directional_movement_system:
+    # Source: J. Welles Wilder, "New Concepts in Technical Trading Systems" (1978)
+    # Implemented in ta_PLUS_DM.c, ta_MINUS_DM.c, ta_DX.c, ta_ADX.c
+    plus_dm: "+DM = UpMove > DownMove and UpMove > 0 ? UpMove : 0  where UpMove = High - PrevHigh"
+    minus_dm: "-DM = DownMove > UpMove and DownMove > 0 ? DownMove : 0  where DownMove = PrevLow - Low"
+    true_range: "TR = max(High - Low, abs(High - PrevClose), abs(Low - PrevClose))"
+    smoothed: "+DI = Wilder_EMA(+DM, n) / Wilder_EMA(TR, n) * 100"
+    dx: "DX = abs(+DI - -DI) / (+DI + -DI) * 100"
+    adx: "ADX = Wilder_EMA(DX, n) — smoothed directional index"
+    adxr: "ADXR = (ADX[today] + ADX[today - n]) / 2 — ADX Rating (further smoothed)"
+    period_range: "2 to 100000; default 14"
+    lookback:
+      dx: "2 * timePeriod - 1"
+      adx: "3 * timePeriod - 2 (plus unstable period)"
+      adxr: "3 * timePeriod - 1"
+    interpretation:
+      strong_trend: "ADX > 25 indicates a strong trend in either direction"
+      very_strong: "ADX > 50 indicates a very strong trend"
+      no_trend: "ADX < 20 indicates a ranging/sideways market"
+      trend_direction: "+DI > -DI → uptrend; -DI > +DI → downtrend"
+      di_crossover: "Wilder's crossover rule: buy when +DI crosses above -DI while ADX > 25"
+    note: "ADX does NOT indicate trend direction — only strength. Use +DI/-DI comparison for direction."
+
+  aroon:
+    # Source: ta_AROON.c, ta_AROONOSC.c — Tushar Chande, 1995
+    aroon_up: "((timePeriod - periodsFromHigh) / timePeriod) * 100"
+    aroon_down: "((timePeriod - periodsFromLow) / timePeriod) * 100"
+    aroonosc: "AroonUp - AroonDown"
+    inputs_required: [High, Low]
+    period_range: "2 to 100000; default 14"
+    output_aroon: "0 to 100 (for each line)"
+    output_aroonosc: "-100 to +100"
+    lookback: "timePeriod"
+    interpretation:
+      strong_uptrend: "AroonUp > 70 and AroonDown < 30"
+      strong_downtrend: "AroonDown > 70 and AroonUp < 30"
+      consolidation: "Both lines near 50"
+      bullish_signal: "AroonUp crosses above AroonDown"
+      bearish_signal: "AroonDown crosses above AroonUp"
+
+  parabolic_sar:
+    # Source: ta_SAR.c — J. Welles Wilder (1978)
+    description: "SAR is a trailing stop-and-reverse system. SAR value is placed below rising prices (long mode) or above falling prices (short mode)."
+    formula:
+      rising: "SAR[i] = SAR[i-1] + AF * (EP - SAR[i-1])  where EP = highest high since entry, AF = acceleration factor"
+      falling: "SAR[i] = SAR[i-1] + AF * (EP - SAR[i-1])  where EP = lowest low since entry"
+    acceleration_default: 0.02
+    acceleration_increment: "Increases by initial acceleration value (0.02) each time new EP is set"
+    maximum_default: 0.20
+    maximum_range: "0 to TA_REAL_MAX; exceeding maximum caps AF"
+    inputs_required: [High, Low]
+    lookback: 1
+    output: "SAR stop-and-reverse level for each bar (same price unit as input)"
+    reversal_rule: "When price crosses SAR, trend reverses and SAR flips to opposite side"
+    two_bar_rule: "SAR cannot be inside or beyond the two prior bars' price range (moves if needed)"
+    trade_signal:
+      long_exit: "Close falls below SAR → exit long / enter short"
+      short_exit: "Close rises above SAR → exit short / enter long"
+
+  sarext:
+    # Source: ta_SAREXT.c — Extended Parabolic SAR
+    description: "Extends standard SAR with separate acceleration parameters for long and short positions and an optional reversal offset"
+    additional_params:
+      start_value: "Initial SAR position (0 = auto-detect from first two bars)"
+      offset_on_reverse: "Percentage offset applied to price when trend reverses (smooths whipsaws)"
+      per_side_acceleration: "Independent acceleration init/increment/max for long vs short"
+    use_case: "Asymmetric volatility regimes where uptrend and downtrend have different momentum characteristics"
+
+outcomes:
+  compute_success:
+    priority: 10
+    description: Sufficient data and valid parameters — directional indicator computed
+    given:
+      - "input_length > lookback_period for selected indicator"
+      - "all required price arrays present"
+      - "parameters within valid ranges"
+    then:
+      - action: set_field
+        target: out_beg_idx
+        value: "first input index mapped to out[0]"
+      - action: set_field
+        target: out_nb_element
+        value: "input_length - lookback_period"
+      - action: set_field
+        target: out_values
+        value: "computed directional values"
+      - action: emit_event
+        event: indicator.computed
+        payload: [indicator_type, out_nb_element]
+    result: "Directional series aligned to input via outBegIdx"
+
+  aroon_computed:
+    priority: 10
+    description: AROON returns two output lines (AroonDown + AroonUp)
+    given:
+      - "indicator_type == AROON"
+      - "input_length > timePeriod"
+    then:
+      - action: set_field
+        target: out_aroon_down
+        value: "AroonDown values (0-100)"
+      - action: set_field
+        target: out_aroon_up
+        value: "AroonUp values (0-100)"
+    result: "Two arrays representing days-since-high and days-since-low as normalized percentages"
+
+  sar_reversal:
+    priority: 10
+    description: Price closes beyond SAR — trend reversal detected
+    given:
+      - "indicator_type in [SAR, SAREXT]"
+      - "out_values[latest] crossed by close_price"
+    then:
+      - action: emit_event
+        event: indicator.sar_reversal
+        payload: [sar_value, close_price, direction]
+    result: "SAR flips to opposite side of price; emit trade signal for stop-and-reverse"
+
+  strong_trend_detected:
+    priority: 10
+    description: ADX exceeds threshold — strong trend regime confirmed
+    given:
+      - "indicator_type == ADX"
+      - "out_values[latest] > 25"
+    then:
+      - action: emit_event
+        event: indicator.trend_strength
+        payload: [adx_value, di_plus, di_minus]
+    result: "Strong trend confirmed; momentum and trend-following signals are more reliable"
+
+  insufficient_data:
+    priority: 1
+    description: Input series shorter than required lookback
+    error: INSUFFICIENT_DATA
+    given:
+      - "input_length <= lookback_period"
+    then:
+      - action: set_field
+        target: out_nb_element
+        value: 0
+    result: "No output; ADX especially requires 3×period bars — buffer accordingly"
+
+  invalid_parameters:
+    priority: 2
+    description: Parameter out of range
+    error: INVALID_PARAMETER
+    given:
+      - any:
+          - "time_period < 2"
+          - "acceleration < 0 and indicator_type in [SAR, SAREXT]"
+          - "acceleration > maximum and indicator_type == SAR"
+    result: "Function returns error; validate before calling"
+
+errors:
+  - code: INSUFFICIENT_DATA
+    message: "Not enough historical bars. ADX requires approximately 3×period bars; AROON requires period+1."
+    status: 422
+  - code: INVALID_PARAMETER
+    message: "A parameter is out of range (period < 2, SAR acceleration > maximum, etc.)."
+    status: 400
+  - code: MISSING_INPUT
+    message: "Close price array required for ADX, DX, +DI, -DI but not provided."
+    status: 400
+
+events:
+  - name: indicator.computed
+    description: Emitted when a directional indicator computation completes
+    payload: [indicator_type, out_nb_element, out_beg_idx]
+  - name: indicator.sar_reversal
+    description: Emitted when price crosses the Parabolic SAR — trend reversal signal
+    payload: [sar_value, close_price, direction]
+  - name: indicator.trend_strength
+    description: Emitted when ADX crosses a strength threshold (e.g., 25 for trending, 50 for very strong)
+    payload: [adx_value, threshold, di_plus, di_minus]
+
+related:
+  - feature: momentum-oscillators
+    relationship: recommended
+    description: Use ADX > 25 to filter MACD and RSI signals — oscillators are unreliable in strong trends
+  - feature: volatility-band-indicators
+    relationship: recommended
+    description: ATR provides the raw volatility that feeds into directional analysis; NATR normalizes DM across instruments
+  - feature: moving-average-overlap-studies
+    relationship: recommended
+    description: MA crossover systems are best used when ADX confirms a trend (ADX > 25)
+  - feature: market-data-feeds
+    relationship: required
+    description: Source OHLCV time series from market data feeds
+
+api:
+  functions:
+    - name: ADX
+      signature: "TA_ADX(startIdx, endIdx, inHigh[], inLow[], inClose[], timePeriod) → (outBegIdx, outNBElement, outReal[])"
+      defaults: "timePeriod=14"
+      lookback: "3 * timePeriod - 2"
+    - name: AROON
+      signature: "TA_AROON(startIdx, endIdx, inHigh[], inLow[], timePeriod) → (outBegIdx, outNBElement, outAroonDown[], outAroonUp[])"
+      defaults: "timePeriod=14"
+    - name: PLUS_DI
+      signature: "TA_PLUS_DI(startIdx, endIdx, inHigh[], inLow[], inClose[], timePeriod) → (outBegIdx, outNBElement, outReal[])"
+      defaults: "timePeriod=14"
+    - name: SAR
+      signature: "TA_SAR(startIdx, endIdx, inHigh[], inLow[], acceleration, maximum) → (outBegIdx, outNBElement, outReal[])"
+      defaults: "acceleration=0.02, maximum=0.20"
+    - name: SAREXT
+      signature: "TA_SAREXT(startIdx, endIdx, inHigh[], inLow[], startValue, offsetOnReverse, accelInitLong, accelLong, accelMaxLong, accelInitShort, accelShort, accelMaxShort) → (outBegIdx, outNBElement, outReal[])"
+      defaults: "all acceleration defaults = 0.02 init / 0.02 step / 0.20 max"
+
+anti_patterns:
+  - rule: "Do not use ADX to determine trend direction"
+    why: "ADX measures trend strength only (0-100 scale); +DI vs. -DI comparison determines direction — ADX alone cannot tell up from down"
+  - rule: "Do not use momentum oscillators (RSI, MACD) when ADX < 20"
+    why: "Oscillators generate false signals in ranging markets; ADX < 20 indicates consolidation where oscillators whipsaw"
+  - rule: "Do not set SAR acceleration factor above 0.20 without testing"
+    why: "High acceleration makes SAR extremely sensitive, causing frequent whipsaws; standard range is 0.01-0.02 initial, 0.20 maximum"
+  - rule: "Do not ignore ADX lookback length"
+    why: "ADX lookback is ~3×period; with period=14, you need at least 42 bars of history before the first valid ADX value"
+  - rule: "Do not treat AROON crossover as a standalone trade signal in volatile markets"
+    why: "AROON is based purely on time elapsed since high/low; a single large price spike can sustain a false directional reading for an entire period"
+
+extensions:
+  tech_stack:
+    language: "C99"
+    bindings: "Java, .NET, Rust, Python"
+    source_repo: "https://github.com/TA-Lib/ta-lib"
+  indicator_count: 11
+  wilder_smoothing_note: "All DM system components use Wilder smoothing (EMA with alpha=1/n) — different from standard EMA (alpha=2/(n+1))"
+  adx_lookback_table:
+    period_14: "lookback ≈ 40 bars"
+    period_20: "lookback ≈ 58 bars"
+    period_7: "lookback ≈ 19 bars"

@@ -1,0 +1,168 @@
+# ============================================================
+# lognormal-distribution-asset-prices — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 6, p.178-182
+# ============================================================
+
+feature: lognormal-distribution-asset-prices
+version: "1.0.0"
+description: Model asset prices using the lognormal distribution — bounded below by zero, right-skewed, and the theoretical consequence of normally distributed continuously compounded returns
+category: trading
+tags: [quantitative-methods, probability-distributions, lognormal, asset-pricing, black-scholes, cfa-level-1]
+aliases:
+  - lognormal-distribution
+  - lognormal-asset-price
+  - price-distribution
+  - right-skewed-distribution
+  - exp-normal
+  - black-scholes-price-distribution
+
+actors:
+  - id: distribution_engine
+    name: Probability Distribution Engine
+    type: system
+
+fields:
+  - name: mu
+    type: number
+    required: true
+    label: Mean of the associated normal distribution (i.e., of ln Y)
+  - name: sigma
+    type: number
+    required: true
+    label: Standard deviation of the associated normal distribution
+  - name: compute
+    type: select
+    required: false
+    label: mean | variance | pdf | cdf | quantile | all
+
+rules:
+  core_formulas:
+    # Source: Vol 1, Module 6, p.180-181
+    relationship: "Y is lognormal if and only if ln(Y) is normal with parameters (mu, sigma^2)"
+    lognormal_mean: "E(Y) = exp(mu + 0.5 * sigma^2)"
+    lognormal_variance: "Var(Y) = exp(2*mu + sigma^2) * (exp(sigma^2) - 1)"
+    pdf: "f(y) = (1 / (y * sigma * sqrt(2*pi))) * exp(-(ln(y) - mu)^2 / (2 * sigma^2)) for y > 0"
+  properties:
+    bounded_below: "Y > 0 always — matches the reality that asset prices cannot go negative"
+    right_skewed: "Long right tail; median < mean"
+    multiplicative: "Product of independent lognormals is lognormal; log-additive under compounding"
+  parameter_semantics:
+    two_parameter_sets: "Track both (mu, sigma) of ln(Y) and (E(Y), Var(Y)) of Y — they differ by an exp(0.5*sigma^2) factor"
+    factor_note: "E(Y) > exp(mu) because variance spreads the distribution upward but floors it at 0"
+  investment_applications:
+    option_pricing: "Black-Scholes-Merton assumes underlying asset is lognormally distributed"
+    risk_management: "Scenario distribution of future prices from current price + normal returns"
+    monte_carlo: "Generate terminal asset prices via P_T = P_0 * exp(r_0,T)"
+  validation:
+    sigma_positive: "sigma > 0 (zero sigma collapses to a point mass)"
+    mu_finite: "mu is finite real number"
+
+outcomes:
+  compute_moments:
+    priority: 1
+    description: Compute mean and variance of Y from (mu, sigma)
+    given:
+      - field: mu
+        source: input
+        operator: exists
+      - field: sigma
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: distribution_engine
+      - action: emit_event
+        event: distribution.lognormal_calculated
+  invalid_sigma:
+    priority: 10
+    description: Sigma is non-positive
+    given:
+      - field: sigma
+        source: input
+        operator: lte
+        value: 0
+    then:
+      - action: emit_event
+        event: distribution.lognormal_rejected
+    error: LOGNORMAL_SIGMA_INVALID
+  missing_parameters:
+    priority: 11
+    description: mu or sigma missing
+    given:
+      - any:
+          - field: mu
+            source: input
+            operator: not_exists
+          - field: sigma
+            source: input
+            operator: not_exists
+    then:
+      - action: emit_event
+        event: distribution.lognormal_rejected
+    error: LOGNORMAL_MISSING_PARAMS
+
+errors:
+  - code: LOGNORMAL_SIGMA_INVALID
+    status: 400
+    message: Sigma must be positive
+  - code: LOGNORMAL_MISSING_PARAMS
+    status: 400
+    message: Both mu and sigma are required
+
+events:
+  - name: distribution.lognormal_calculated
+    payload: [distribution_id, mu, sigma, mean_y, variance_y]
+  - name: distribution.lognormal_rejected
+    payload: [distribution_id, reason_code]
+
+anti_patterns:
+  - rule: Do not confuse the (mu, sigma) of ln(Y) with the (E(Y), sd(Y)) of Y itself
+    why: "The parameters describe the associated normal distribution; the moments of Y require the exp(mu + 0.5*sigma^2) transform. Mixing them produces wildly wrong option prices and VaR estimates"
+  - rule: Do not use the lognormal to model arithmetic returns
+    why: "Arithmetic returns can be negative; lognormal is strictly positive. Use lognormal for prices and simple/compounded gross returns (1 + r), not for returns themselves"
+  - rule: Do not assume lognormal parameters are stable across regimes
+    why: "Realized volatility clusters; sigma in calm markets dramatically understates tail prices in crises. Use regime-switching or stochastic volatility models for stress analysis"
+  - rule: Do not use the lognormal for returns with heavy tails or skew
+    why: "Lognormal is determined by its first two moments; fat-tailed distributions (e.g., equity returns) need t-distribution or jump-diffusion models for accurate tail risk"
+
+api:
+  http:
+    method: POST
+    path: /analytics/distribution/lognormal
+  request:
+    schema:
+      mu: number
+      sigma: number
+      compute: string
+  response:
+    success:
+      status: 200
+      schema:
+        mean_y: number
+        variance_y: number
+        std_dev_y: number
+        median_y: number
+    errors:
+      - status: 400
+        error_code: LOGNORMAL_SIGMA_INVALID
+      - status: 400
+        error_code: LOGNORMAL_MISSING_PARAMS
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 6, p.180
+    mu: 0.07
+    sigma: 0.12
+    mean_y: "exp(0.07 + 0.5*0.12^2) = exp(0.0772) ≈ 1.0803"
+    interpretation: "Normal returns with mean 7% and sigma 12% produce lognormal future prices with mean ~1.08x current"
+  black_scholes_context:
+    assumption: "S_T is lognormal with parameters (ln(S_0) + (r - 0.5*sigma^2)*T, sigma^2 * T)"
+    usage: "Closed-form European option prices assume this distribution of terminal asset price"
+
+related:
+  - feature: continuously-compounded-returns
+    type: required
+  - feature: monte-carlo-simulation
+    type: recommended
+  - feature: expected-value-variance
+    type: recommended

@@ -1,0 +1,535 @@
+{
+  "feature": "volatility-band-indicators",
+  "version": "1.0.0",
+  "description": "A suite of volatility measurement and price band indicators for quantifying market risk, setting dynamic stop levels, and identifying breakout conditions across financial time series",
+  "category": "trading",
+  "tags": [
+    "technical-analysis",
+    "volatility",
+    "atr",
+    "bollinger-bands",
+    "stddev",
+    "risk",
+    "ta-lib",
+    "indicators"
+  ],
+  "aliases": [
+    "volatility-indicators",
+    "price-bands",
+    "atr-bollinger",
+    "risk-indicators",
+    "ta-lib-volatility",
+    "market-volatility"
+  ],
+  "actors": [
+    {
+      "id": "quant_analyst",
+      "name": "Quantitative Analyst",
+      "type": "human",
+      "description": "Configures volatility indicators for position sizing and risk management"
+    },
+    {
+      "id": "risk_engine",
+      "name": "Risk Management Engine",
+      "type": "system",
+      "description": "Computes volatility metrics to dynamically size positions and set stop-loss levels"
+    }
+  ],
+  "fields": [
+    {
+      "name": "real_prices",
+      "type": "json",
+      "required": false,
+      "label": "Price series — typically Close (required for BBANDS, STDDEV, VAR, AVGDEV)"
+    },
+    {
+      "name": "high_prices",
+      "type": "json",
+      "required": false,
+      "label": "High Prices (required for ATR, NATR, TRANGE, BETA-like range studies)"
+    },
+    {
+      "name": "low_prices",
+      "type": "json",
+      "required": false,
+      "label": "Low Prices (required for ATR, NATR, TRANGE)"
+    },
+    {
+      "name": "close_prices",
+      "type": "json",
+      "required": false,
+      "label": "Close Prices (required for ATR, NATR, TRANGE — previous close for True Range)"
+    },
+    {
+      "name": "real0",
+      "type": "json",
+      "required": false,
+      "label": "First price series for BETA / CORREL (e.g., asset returns)"
+    },
+    {
+      "name": "real1",
+      "type": "json",
+      "required": false,
+      "label": "Second price series for BETA / CORREL (e.g., benchmark returns)"
+    },
+    {
+      "name": "indicator_type",
+      "type": "select",
+      "required": true,
+      "label": "Volatility indicator to compute",
+      "allowed_values": [
+        "ATR",
+        "NATR",
+        "TRANGE",
+        "BBANDS",
+        "STDDEV",
+        "VAR",
+        "AVGDEV",
+        "BETA",
+        "CORREL"
+      ]
+    },
+    {
+      "name": "time_period",
+      "type": "number",
+      "required": false,
+      "label": "Time Period (default by indicator: ATR=14, NATR=14, BBANDS=5, STDDEV=5, VAR=5, AVGDEV=14, BETA=5, CORREL=30)"
+    },
+    {
+      "name": "nb_dev_up",
+      "type": "number",
+      "required": false,
+      "label": "BBANDS Upper Band Deviation Multiplier (default 2.0; any real number)"
+    },
+    {
+      "name": "nb_dev_dn",
+      "type": "number",
+      "required": false,
+      "label": "BBANDS Lower Band Deviation Multiplier (default 2.0; any real number)"
+    },
+    {
+      "name": "ma_type",
+      "type": "select",
+      "required": false,
+      "label": "BBANDS Middle Band MA Type (default SMA)",
+      "allowed_values": [
+        "SMA",
+        "EMA",
+        "WMA",
+        "DEMA",
+        "TEMA",
+        "TRIMA",
+        "KAMA",
+        "MAMA",
+        "T3"
+      ]
+    },
+    {
+      "name": "nb_dev",
+      "type": "number",
+      "required": false,
+      "label": "Standard Deviation / Variance multiplier for STDDEV/VAR output scaling (default 1.0)"
+    },
+    {
+      "name": "out_beg_idx",
+      "type": "number",
+      "required": false,
+      "label": "Output Begin Index"
+    },
+    {
+      "name": "out_nb_element",
+      "type": "number",
+      "required": false,
+      "label": "Number of valid output elements"
+    },
+    {
+      "name": "out_values",
+      "type": "json",
+      "required": false,
+      "label": "Primary output array (ATR, NATR, TRANGE, STDDEV, VAR, AVGDEV, BETA, CORREL values)"
+    },
+    {
+      "name": "out_upper_band",
+      "type": "json",
+      "required": false,
+      "label": "BBANDS Upper Band values"
+    },
+    {
+      "name": "out_middle_band",
+      "type": "json",
+      "required": false,
+      "label": "BBANDS Middle Band values (MA of price)"
+    },
+    {
+      "name": "out_lower_band",
+      "type": "json",
+      "required": false,
+      "label": "BBANDS Lower Band values"
+    }
+  ],
+  "rules": {
+    "true_range": {
+      "formula": "TR = max(High - Low, abs(High - PrevClose), abs(Low - PrevClose))",
+      "description": "True Range captures overnight gaps by comparing to previous close, not just intraday High-Low spread",
+      "lookback": 1,
+      "edge_case": "First bar has no PrevClose; TR = High - Low for bar[0]",
+      "inputs_required": [
+        "High",
+        "Low",
+        "Close"
+      ]
+    },
+    "atr": {
+      "formula": "ATR[0] = mean(TR[0..n-1]); ATR[i] = (ATR[i-1] * (n-1) + TR[i]) / n  (Wilder smoothing)",
+      "default_period": 14,
+      "period_range": "1 to 100000",
+      "lookback": "timePeriod (plus unstable period)",
+      "output_unit": "Same unit as price (not percentage-normalized)",
+      "use_cases": {
+        "position_sizing": "Risk per trade = account_risk / ATR — position size adapts to volatility",
+        "stop_loss": "Stop distance = N * ATR (Chandelier Exit, Keltner Channels)",
+        "trailing_stop": "Trail by 2× or 3× ATR below highest close"
+      },
+      "note": "Wilder smoothing is equivalent to EMA with alpha = 1/n (slower than standard EMA alpha 2/(n+1))"
+    },
+    "natr": {
+      "formula": "NATR[i] = ATR[i] / Close[i] * 100",
+      "default_period": 14,
+      "period_range": "1 to 100000",
+      "output_unit": "Percentage (%)",
+      "output_range": "> 0 (cannot be negative)",
+      "advantage": "Cross-instrument comparable — NATR of 1.5% on a $10 stock and a $1000 stock are equivalent volatility",
+      "edge_case": "If Close = 0, NATR is undefined (division by zero)"
+    },
+    "bbands": {
+      "formula": {
+        "middle": "MiddleBand = MA(price, n)",
+        "upper": "UpperBand = MiddleBand + nbDevUp * StdDev(price, n)",
+        "lower": "LowerBand = MiddleBand - nbDevDn * StdDev(price, n)"
+      },
+      "defaults": "timePeriod=5, nbDevUp=2.0, nbDevDn=2.0, MAType=SMA",
+      "period_range": "2 to 100000",
+      "outputs": "3 arrays: upper, middle, lower bands",
+      "band_width": "bandwidth = (UpperBand - LowerBand) / MiddleBand — normalized volatility measure",
+      "percent_b": "%b = (price - LowerBand) / (UpperBand - LowerBand) — price position within bands",
+      "interpretation": {
+        "squeeze": "Narrowing bands indicate low volatility / pre-breakout compression",
+        "breakout": "Price closing above UpperBand or below LowerBand signals expansion",
+        "walk_the_band": "Price can trend along a band; closure across does not automatically mean reversal"
+      },
+      "statistical_basis": "With SMA and nbDev=2, ~95% of prices fall within bands under normal distribution"
+    },
+    "stddev": {
+      "formula": "STDDEV[i] = sqrt(sum((price[j] - mean(price, n))^2, j=i-n+1..i) / n) * nbDev",
+      "default_period": 5,
+      "nb_dev_default": 1,
+      "period_range": "2 to 100000",
+      "output_unit": "Same unit as price",
+      "use_cases": {
+        "volatility_filter": "High StdDev = noisy market; low StdDev = consolidation",
+        "bbands_construction": "BBANDS internally calls STDDEV for band width calculation"
+      }
+    },
+    "variance": {
+      "formula": "VAR[i] = STDDEV[i]^2 / nbDev^2",
+      "default_period": 5,
+      "nb_dev_default": 1,
+      "note": "Variance is STDDEV squared; use when downstream statistical models need variance (e.g., portfolio optimization)"
+    },
+    "avgdev": {
+      "formula": "AVGDEV[i] = sum(abs(price[j] - mean(price, n)), j=i-n+1..i) / n",
+      "default_period": 14,
+      "note": "More robust than STDDEV to outliers; used internally by CCI's denominator"
+    },
+    "beta": {
+      "formula": "Uses slope of linear regression of real0 vs real1 over the period",
+      "default_period": 5,
+      "period_range": "1 to 100000",
+      "inputs_required": [
+        "real0 (asset)",
+        "real1 (benchmark)"
+      ],
+      "output": "Rolling beta coefficient (typically >1 = more volatile than benchmark)",
+      "use_cases": "Portfolio risk decomposition; hedge ratio calculation"
+    },
+    "correl": {
+      "formula": "CORREL = cov(real0, real1, n) / (stddev(real0, n) * stddev(real1, n))",
+      "default_period": 30,
+      "period_range": "1 to 100000",
+      "inputs_required": [
+        "real0",
+        "real1"
+      ],
+      "output_range": "-1 to +1",
+      "use_cases": "Pair trading; portfolio diversification; asset correlation measurement"
+    }
+  },
+  "outcomes": {
+    "compute_success": {
+      "priority": 10,
+      "description": "Valid data and parameters — volatility metric computed",
+      "given": [
+        "input_length > lookback_period for selected indicator",
+        "required price arrays present",
+        "parameters within valid ranges"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "out_beg_idx",
+          "value": "first input index mapped to out[0]"
+        },
+        {
+          "action": "set_field",
+          "target": "out_nb_element",
+          "value": "input_length - lookback_period"
+        },
+        {
+          "action": "set_field",
+          "target": "out_values",
+          "value": "computed volatility values"
+        },
+        {
+          "action": "emit_event",
+          "event": "volatility.computed",
+          "payload": [
+            "indicator_type",
+            "out_nb_element"
+          ]
+        }
+      ],
+      "result": "Volatility series aligned to input via outBegIdx"
+    },
+    "bbands_computed": {
+      "priority": 10,
+      "description": "Bollinger Bands returns three aligned band arrays",
+      "given": [
+        "indicator_type == BBANDS",
+        "input_length > (timePeriod - 1)"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "out_upper_band",
+          "value": "upper band values"
+        },
+        {
+          "action": "set_field",
+          "target": "out_middle_band",
+          "value": "middle band values (MA)"
+        },
+        {
+          "action": "set_field",
+          "target": "out_lower_band",
+          "value": "lower band values"
+        },
+        {
+          "action": "emit_event",
+          "event": "volatility.computed",
+          "payload": [
+            "BBANDS",
+            "out_nb_element"
+          ]
+        }
+      ],
+      "result": "Three overlaid bands; bandwidth contraction (squeeze) precedes breakout"
+    },
+    "volatility_expansion": {
+      "priority": 10,
+      "description": "ATR or NATR shows significant increase relative to recent average — potential breakout",
+      "given": [
+        "indicator_type in [ATR, NATR]",
+        "out_values[latest] > 1.5 * mean(out_values[-20:])"
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "volatility.expansion",
+          "payload": [
+            "indicator_type",
+            "latest_value",
+            "ratio"
+          ]
+        }
+      ],
+      "result": "Volatility expansion signal — widen stops or reduce position size"
+    },
+    "insufficient_data": {
+      "priority": 1,
+      "description": "Input series shorter than required lookback",
+      "error": "INSUFFICIENT_DATA",
+      "given": [
+        "input_length <= lookback_period"
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "out_nb_element",
+          "value": 0
+        }
+      ],
+      "result": "No valid output; buffer more bars"
+    },
+    "invalid_parameters": {
+      "priority": 2,
+      "description": "A period or deviation multiplier parameter is out of range",
+      "error": "INVALID_PARAMETER",
+      "given": [
+        {
+          "any": [
+            "time_period < 1 and indicator_type in [ATR, NATR]",
+            "time_period < 2 and indicator_type in [BBANDS, STDDEV, VAR]",
+            "nb_dev_up == 0 and nb_dev_dn == 0 and indicator_type == BBANDS"
+          ]
+        }
+      ],
+      "result": "Function returns error code; validate parameters before calling"
+    },
+    "natr_zero_close": {
+      "priority": 2,
+      "description": "Close price is zero — NATR denominator undefined",
+      "error": "INVALID_INPUT",
+      "given": [
+        "indicator_type == NATR",
+        "any close_prices value == 0"
+      ],
+      "result": "NATR output undefined at that bar; caller must filter zero-price bars"
+    }
+  },
+  "errors": [
+    {
+      "code": "INSUFFICIENT_DATA",
+      "message": "Not enough historical bars. ATR requires at least timePeriod bars; BBANDS requires timePeriod.",
+      "status": 422
+    },
+    {
+      "code": "INVALID_PARAMETER",
+      "message": "A parameter is outside its valid range (period < 1 for ATR/NATR, < 2 for BBANDS/STDDEV).",
+      "status": 400
+    },
+    {
+      "code": "INVALID_INPUT",
+      "message": "A price value is zero or non-finite, causing division by zero in NATR.",
+      "status": 422
+    }
+  ],
+  "events": [
+    {
+      "name": "volatility.computed",
+      "description": "Emitted when a volatility indicator computation completes",
+      "payload": [
+        "indicator_type",
+        "out_nb_element",
+        "out_beg_idx"
+      ]
+    },
+    {
+      "name": "volatility.expansion",
+      "description": "Emitted when ATR or NATR increases significantly above its recent average",
+      "payload": [
+        "indicator_type",
+        "latest_value",
+        "expansion_ratio"
+      ]
+    },
+    {
+      "name": "volatility.squeeze",
+      "description": "Emitted when BBANDS bandwidth contracts below a configurable threshold",
+      "payload": [
+        "bandwidth",
+        "middle_band_value"
+      ]
+    }
+  ],
+  "related": [
+    {
+      "feature": "momentum-oscillators",
+      "relationship": "recommended",
+      "description": "Combine momentum oscillators with volatility bands — signals inside bands vs. outside carry different weight"
+    },
+    {
+      "feature": "moving-average-overlap-studies",
+      "relationship": "required",
+      "description": "BBANDS middle band uses a moving average from this suite; ATR feeds Keltner Channel construction"
+    },
+    {
+      "feature": "directional-movement-indicators",
+      "relationship": "recommended",
+      "description": "ADX confirms whether ATR expansion is directional (trend) or non-directional (chop)"
+    },
+    {
+      "feature": "market-data-feeds",
+      "relationship": "required",
+      "description": "OHLCV series sourced from market data feeds"
+    },
+    {
+      "feature": "regulation-28-compliance",
+      "relationship": "optional",
+      "description": "Volatility metrics (STDDEV, BETA) support risk-adjusted return and regulatory capital calculations"
+    }
+  ],
+  "api": {
+    "functions": [
+      {
+        "name": "ATR",
+        "signature": "TA_ATR(startIdx, endIdx, inHigh[], inLow[], inClose[], timePeriod) → (outBegIdx, outNBElement, outReal[])",
+        "defaults": "timePeriod=14"
+      },
+      {
+        "name": "NATR",
+        "signature": "TA_NATR(startIdx, endIdx, inHigh[], inLow[], inClose[], timePeriod) → (outBegIdx, outNBElement, outReal[])",
+        "defaults": "timePeriod=14"
+      },
+      {
+        "name": "TRANGE",
+        "signature": "TA_TRANGE(startIdx, endIdx, inHigh[], inLow[], inClose[]) → (outBegIdx, outNBElement, outReal[])"
+      },
+      {
+        "name": "BBANDS",
+        "signature": "TA_BBANDS(startIdx, endIdx, inReal[], timePeriod, nbDevUp, nbDevDn, MAType) → (outBegIdx, outNBElement, outUpperBand[], outMiddleBand[], outLowerBand[])",
+        "defaults": "timePeriod=5, nbDevUp=2.0, nbDevDn=2.0, MAType=SMA"
+      },
+      {
+        "name": "STDDEV",
+        "signature": "TA_STDDEV(startIdx, endIdx, inReal[], timePeriod, nbDev) → (outBegIdx, outNBElement, outReal[])",
+        "defaults": "timePeriod=5, nbDev=1.0"
+      },
+      {
+        "name": "CORREL",
+        "signature": "TA_CORREL(startIdx, endIdx, inReal0[], inReal1[], timePeriod) → (outBegIdx, outNBElement, outReal[])",
+        "defaults": "timePeriod=30"
+      }
+    ]
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not use BBANDS default period of 5 for daily price charts",
+      "why": "TA-Lib's BBANDS default period is 5 (very short); standard Bollinger Band practice uses 20 periods — always override the default"
+    },
+    {
+      "rule": "Do not use ATR stops without scaling to recent volatility regime",
+      "why": "A fixed ATR multiple (e.g., 2×) that worked in low-vol periods may be too tight in high-vol regimes; use NATR for regime-normalized sizing"
+    },
+    {
+      "rule": "Do not use CORREL as a static portfolio weight",
+      "why": "CORREL is a rolling statistic; correlations break down in crisis regimes — the lookback period must match the intended hedging horizon"
+    },
+    {
+      "rule": "Do not interpret BBANDS squeeze as a direction signal",
+      "why": "Bollinger squeeze only signals that a move is imminent, not its direction; combine with RSI or MACD for directional confirmation"
+    },
+    {
+      "rule": "Do not use NATR when Close prices include zero or null values",
+      "why": "Division by close price; zero close produces undefined output — filter or interpolate before computing"
+    }
+  ],
+  "extensions": {
+    "tech_stack": {
+      "language": "C99",
+      "bindings": "Java, .NET, Rust, Python",
+      "source_repo": "https://github.com/TA-Lib/ta-lib"
+    },
+    "indicator_count": 9,
+    "atr_smoothing_note": "Wilder smoothing alpha = 1/n is less responsive than EMA alpha = 2/(n+1); ATR period 14 with Wilder ≈ EMA period 27"
+  }
+}

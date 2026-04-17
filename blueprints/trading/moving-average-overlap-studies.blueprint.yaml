@@ -1,0 +1,404 @@
+# ============================================================
+# moving-average-overlap-studies — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Extracted from: https://github.com/TA-Lib/ta-lib
+# Tech stack: C99 | Multi-language bindings: Java, .NET, Rust, Python
+# Files analyzed: ta_SMA.c, ta_EMA.c, ta_DEMA.c, ta_TEMA.c,
+#   ta_WMA.c, ta_TRIMA.c, ta_KAMA.c, ta_MAMA.c, ta_T3.c,
+#   ta_MA.c, ta_MAVP.c, ta_ACCBANDS.c, ta_MIDPOINT.c,
+#   ta_MIDPRICE.c, ta_HT_TRENDLINE.c, ta_func_api.xml
+# ============================================================
+
+feature: moving-average-overlap-studies
+version: "1.0.0"
+description: A comprehensive suite of moving average and trend overlay indicators that smooth price series, identify trend direction, and generate overlap bands overlaid on price charts
+category: trading
+tags: [technical-analysis, moving-averages, trend, overlap, sma, ema, bollinger, ta-lib, indicators]
+
+aliases:
+  - moving-averages
+  - ma-indicators
+  - trend-indicators
+  - overlap-studies
+  - price-smoothing
+  - ta-lib-overlap
+
+actors:
+  - id: quant_analyst
+    name: Quantitative Analyst
+    type: human
+    description: Selects and configures moving average type and period for a given strategy
+  - id: indicator_engine
+    name: Technical Indicator Engine
+    type: system
+    description: Computes moving averages and overlap studies over price series
+
+fields:
+  - name: real_prices
+    type: json
+    required: true
+    label: Price series (typically Close; chronological double array)
+  - name: high_prices
+    type: json
+    required: false
+    label: High Prices (required for ACCBANDS, MIDPRICE)
+  - name: low_prices
+    type: json
+    required: false
+    label: Low Prices (required for ACCBANDS, MIDPRICE)
+  - name: close_prices
+    type: json
+    required: false
+    label: Close Prices (required for ACCBANDS when computing middle band)
+  - name: periods
+    type: json
+    required: false
+    label: Variable period array (required for MAVP — one period value per input bar)
+  - name: indicator_type
+    type: select
+    required: true
+    label: Moving average or overlap study to compute
+    allowed_values:
+      [SMA, EMA, DEMA, TEMA, WMA, TRIMA, KAMA, MAMA, T3, MA, MAVP,
+       ACCBANDS, MIDPOINT, MIDPRICE, HT_TRENDLINE]
+  - name: time_period
+    type: number
+    required: false
+    label: "Time Period (default by indicator: SMA/EMA/WMA/TRIMA/KAMA=30, DEMA/TEMA=30, T3=5, MIDPOINT=14, MIDPRICE=14, ACCBANDS=20)"
+  - name: ma_type
+    type: select
+    required: false
+    label: MA Type for generic MA function (SMA=0, EMA=1, WMA=2, DEMA=3, TEMA=4, TRIMA=5, KAMA=6, MAMA=7, T3=8)
+    allowed_values: [SMA, EMA, WMA, DEMA, TEMA, TRIMA, KAMA, MAMA, T3]
+  - name: fast_limit
+    type: number
+    required: false
+    label: MAMA Fast Limit — upper bound of adaptive alpha (default 0.5; range 0.01-0.99)
+  - name: slow_limit
+    type: number
+    required: false
+    label: MAMA Slow Limit — lower bound of adaptive alpha (default 0.05; range 0.01-0.99)
+  - name: v_factor
+    type: number
+    required: false
+    label: T3 Volume Factor — controls smoothness (default 0.7; range 0-1; 0=DEMA-like, 1=EMA)
+  - name: min_period
+    type: number
+    required: false
+    label: MAVP Minimum Period (default 2; range 2-100000)
+  - name: max_period
+    type: number
+    required: false
+    label: MAVP Maximum Period (default 30; range 2-100000)
+  - name: out_beg_idx
+    type: number
+    required: false
+    label: Output Begin Index
+  - name: out_nb_element
+    type: number
+    required: false
+    label: Number of valid output elements
+  - name: out_values
+    type: json
+    required: false
+    label: Primary output array (trend/MA values; double array)
+  - name: out_upper_band
+    type: json
+    required: false
+    label: Upper band (ACCBANDS only)
+  - name: out_middle_band
+    type: json
+    required: false
+    label: Middle band (ACCBANDS only)
+  - name: out_lower_band
+    type: json
+    required: false
+    label: Lower band (ACCBANDS only)
+  - name: out_mama
+    type: json
+    required: false
+    label: MAMA output (MAMA indicator only)
+  - name: out_fama
+    type: json
+    required: false
+    label: FAMA (Following Adaptive Moving Average) output (MAMA indicator only)
+
+rules:
+  lookback_model:
+    description: "First N bars produce no output; outBegIdx maps out[0] to its corresponding input index"
+    constraint: "If input_length <= lookback, outNBElement = 0"
+
+  sma:
+    # Source: ta_SMA.c
+    formula: "SMA[i] = sum(price[i-n+1 .. i]) / n"
+    default_period: 30
+    period_range: "2 to 100000"
+    lookback: "timePeriod - 1"
+    characteristic: "Gives equal weight to all periods; lags more than EMA"
+
+  ema:
+    # Source: ta_EMA.c
+    formula: "EMA[i] = price[i] * k + EMA[i-1] * (1 - k)  where k = 2 / (timePeriod + 1)"
+    default_period: 30
+    period_range: "2 to 100000"
+    lookback: "timePeriod - 1 (plus unstable period for numerical stability)"
+    characteristic: "Exponential weighting reduces lag vs SMA; recent prices weighted more heavily"
+
+  dema:
+    # Source: ta_DEMA.c — Double Exponential MA (Patrick Mulloy, 1994)
+    formula: "DEMA = 2 * EMA(price, n) - EMA(EMA(price, n), n)"
+    default_period: 30
+    lookback: "(timePeriod - 1) * 2"
+    characteristic: "Reduces EMA lag by removing trend component; more responsive than EMA"
+
+  tema:
+    # Source: ta_TEMA.c — Triple Exponential MA (Patrick Mulloy, 1994)
+    formula: "TEMA = 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA))"
+    default_period: 30
+    lookback: "(timePeriod - 1) * 3"
+    characteristic: "Further lag reduction vs DEMA; most responsive but noisier"
+
+  wma:
+    # Source: ta_WMA.c — Weighted Moving Average
+    formula: "WMA[i] = (n*price[i] + (n-1)*price[i-1] + ... + 1*price[i-n+1]) / (n*(n+1)/2)"
+    default_period: 30
+    period_range: "2 to 100000"
+    lookback: "timePeriod - 1"
+    characteristic: "Linearly decreasing weights; more recent data emphasized, less lag than SMA"
+
+  trima:
+    # Source: ta_TRIMA.c — Triangular Moving Average
+    formula: "TRIMA = SMA(SMA(price, ceil(n/2)), floor(n/2) + 1) — double-smoothed SMA"
+    default_period: 30
+    period_range: "2 to 100000"
+    characteristic: "Double-smoothed SMA; centermost data weighted most heavily; very smooth but high lag"
+
+  kama:
+    # Source: ta_KAMA.c — Kaufman Adaptive MA (Perry Kaufman, 1998)
+    formula: "ER = abs(close - close[n-1]) / sum(abs(close[i] - close[i-1]), n); SC = (ER * (fast-slow) + slow)^2; KAMA[i] = KAMA[i-1] + SC * (price - KAMA[i-1])"
+    default_period: 10
+    period_range: "2 to 100000"
+    characteristic: "Adapts speed to market efficiency: fast in trending markets, slow in choppy markets"
+    # fast constant = 2/(2+1), slow constant = 2/(30+1)
+
+  mama:
+    # Source: ta_MAMA.c — MESA Adaptive MA (John Ehlers)
+    formula: "Uses Hilbert Transform cycle measurement to adapt EMA multiplier; FAMA = 0.5 * MAMA + 0.5 * FAMA[i-1]"
+    fast_limit_default: 0.5
+    slow_limit_default: 0.05
+    limit_range: "0.01 to 0.99 for both limits"
+    outputs: "2 arrays: MAMA and FAMA (Following Adaptive Moving Average)"
+    characteristic: "Adapts to dominant market cycle; MAMA/FAMA crossover generates buy/sell signals"
+
+  t3:
+    # Source: ta_T3.c — Tillson T3 (Tim Tillson)
+    formula: "Applies EMA six times with GD = EMA * (1 + vFactor) - EMA(EMA) * vFactor; T3 = GD(GD(GD))"
+    default_period: 5
+    v_factor_default: 0.7
+    v_factor_range: "0 to 1"
+    lookback: "(timePeriod - 1) * 6"
+    characteristic: "Smoother than TEMA with less overshoot; vFactor controls smoothness-responsiveness tradeoff"
+
+  ma_generic:
+    # Source: ta_MA.c — wrapper that calls specific MA based on MAType enum
+    description: "Generic MA dispatcher — delegates to SMA, EMA, WMA, DEMA, TEMA, TRIMA, KAMA, MAMA, or T3 based on MAType parameter"
+    default_period: 30
+
+  mavp:
+    # Source: ta_MAVP.c — Moving Average with Variable Period
+    description: "Computes MA where each output bar uses a potentially different period drawn from the periods[] array"
+    min_period_default: 2
+    max_period_default: 30
+    characteristic: "Allows cycle-adaptive smoothing; each bar's period is dynamically supplied"
+
+  accbands:
+    # Source: ta_ACCBANDS.c — Acceleration Bands (Price Headley)
+    formula: "UpperBand = SMA(High * (1 + 4 * (High - Low) / (High + Low)), n); LowerBand = SMA(Low * (1 - 4 * (High - Low) / (High + Low)), n); MiddleBand = SMA(Close, n)"
+    default_period: 20
+    period_range: "2 to 100000"
+    outputs: "3 arrays: upper, middle, lower bands"
+    characteristic: "Bands expand during high volatility; price outside bands signals acceleration"
+
+  midpoint:
+    # Source: ta_MIDPOINT.c
+    formula: "MIDPOINT[i] = (max(price[i-n+1..i]) + min(price[i-n+1..i])) / 2"
+    default_period: 14
+    period_range: "2 to 100000"
+    input: "Single price series (typically Close)"
+
+  midprice:
+    # Source: ta_MIDPRICE.c
+    formula: "MIDPRICE[i] = (max(High[i-n+1..i]) + min(Low[i-n+1..i])) / 2"
+    default_period: 14
+    period_range: "2 to 100000"
+    inputs_required: [High, Low]
+
+  ht_trendline:
+    # Source: ta_HT_TRENDLINE.c — Hilbert Transform Instantaneous Trendline (John Ehlers)
+    description: "Removes dominant cycle from price using Hilbert Transform; residual is the trend"
+    lookback: 63
+    characteristic: "Zero-lag trend extraction; best in trending markets; noisy in ranging markets"
+
+outcomes:
+  compute_success:
+    priority: 10
+    description: Sufficient data and valid parameters — MA computed, output populated
+    given:
+      - "input_length > lookback_period for selected indicator"
+      - "required price arrays present"
+      - "parameters within valid ranges"
+    then:
+      - action: set_field
+        target: out_beg_idx
+        value: "first input index corresponding to out[0]"
+      - action: set_field
+        target: out_nb_element
+        value: "input_length - lookback_period"
+      - action: set_field
+        target: out_values
+        value: "smoothed price series"
+      - action: emit_event
+        event: indicator.computed
+        payload: [indicator_type, out_nb_element]
+    result: "Smoothed trend series aligned to input via outBegIdx"
+
+  accbands_computed:
+    priority: 10
+    description: Acceleration Bands returns three aligned output arrays
+    given:
+      - "indicator_type == ACCBANDS"
+      - "input_length > lookback_period"
+    then:
+      - action: set_field
+        target: out_upper_band
+        value: "upper band values"
+      - action: set_field
+        target: out_middle_band
+        value: "middle band values (SMA of Close)"
+      - action: set_field
+        target: out_lower_band
+        value: "lower band values"
+    result: "Three overlaid bands on price chart; breakout above upper signals acceleration"
+
+  mama_computed:
+    priority: 10
+    description: MAMA returns MAMA and FAMA lines
+    given:
+      - "indicator_type == MAMA"
+      - "input_length > 32 (MAMA lookback ~32)"
+    then:
+      - action: set_field
+        target: out_mama
+        value: "MAMA line values"
+      - action: set_field
+        target: out_fama
+        value: "FAMA line values"
+    result: "Two adaptive trend lines; MAMA/FAMA crossover signals trend change"
+
+  insufficient_data:
+    priority: 1
+    description: Input too short for selected indicator lookback
+    error: INSUFFICIENT_DATA
+    given:
+      - "input_length <= lookback_period"
+    then:
+      - action: set_field
+        target: out_nb_element
+        value: 0
+    result: "No output produced; caller must buffer more bars"
+
+  invalid_parameters:
+    priority: 2
+    description: Period or limit parameter out of range
+    error: INVALID_PARAMETER
+    given:
+      - any:
+          - "time_period < 2"
+          - "fast_limit > slow_limit and indicator_type == MAMA"
+          - "v_factor < 0 or v_factor > 1 and indicator_type == T3"
+          - "min_period > max_period and indicator_type == MAVP"
+    result: "Function returns error; caller must supply valid parameter ranges"
+
+errors:
+  - code: INSUFFICIENT_DATA
+    message: "Not enough historical bars. Provide at least lookback + 1 data points."
+    status: 422
+  - code: INVALID_PARAMETER
+    message: "A parameter is outside its valid range (e.g., period < 2, MAMA fast_limit > slow_limit)."
+    status: 400
+  - code: MISSING_INPUT
+    message: "High or Low price array missing for ACCBANDS or MIDPRICE."
+    status: 400
+
+events:
+  - name: indicator.computed
+    description: Emitted when a moving average computation produces valid output
+    payload: [indicator_type, out_nb_element, out_beg_idx]
+  - name: indicator.crossover
+    description: Emitted when two MA lines cross (e.g., fast MA crosses slow MA, or MAMA crosses FAMA)
+    payload: [indicator_type, direction, value]
+
+related:
+  - feature: momentum-oscillators
+    relationship: required
+    description: MACD and Stochastic smoothing use MA variants from this suite
+  - feature: volatility-band-indicators
+    relationship: recommended
+    description: Bollinger Bands combine SMA (this feature) with Standard Deviation
+  - feature: directional-movement-indicators
+    relationship: recommended
+    description: ADX measures trend strength; use with MA crossover signals
+  - feature: market-data-feeds
+    relationship: required
+    description: Source OHLCV time series from market data
+
+api:
+  functions:
+    - name: SMA
+      signature: "TA_SMA(startIdx, endIdx, inReal[], timePeriod) → (outBegIdx, outNBElement, outReal[])"
+      defaults: "timePeriod=30"
+    - name: EMA
+      signature: "TA_EMA(startIdx, endIdx, inReal[], timePeriod) → (outBegIdx, outNBElement, outReal[])"
+      defaults: "timePeriod=30"
+    - name: MAMA
+      signature: "TA_MAMA(startIdx, endIdx, inReal[], fastLimit, slowLimit) → (outBegIdx, outNBElement, outMAMA[], outFAMA[])"
+      defaults: "fastLimit=0.5, slowLimit=0.05"
+    - name: T3
+      signature: "TA_T3(startIdx, endIdx, inReal[], timePeriod, vFactor) → (outBegIdx, outNBElement, outReal[])"
+      defaults: "timePeriod=5, vFactor=0.7"
+    - name: ACCBANDS
+      signature: "TA_ACCBANDS(startIdx, endIdx, inHigh[], inLow[], inClose[], timePeriod) → (outBegIdx, outNBElement, outUpperBand[], outMiddleBand[], outLowerBand[])"
+      defaults: "timePeriod=20"
+
+anti_patterns:
+  - rule: "Do not use SMA for strategies where lag is critical"
+    why: "SMA weights all bars equally; in fast-moving markets this causes late signals compared to EMA or KAMA"
+  - rule: "Do not apply TEMA on noisy data without filtering"
+    why: "Triple EMA lookback is 3× the period; short periods on noisy price produce erratic outputs"
+  - rule: "Do not use MAMA without providing at least 64 bars"
+    why: "Hilbert Transform requires a fixed 32-bar warm-up regardless of parameters; output before that is unreliable"
+  - rule: "Do not set T3 vFactor to 0 expecting a simple DEMA"
+    why: "vFactor=0 produces a special weighted sum of EMAs, not pure DEMA; use DEMA function directly for exact DEMA"
+  - rule: "Do not ignore the different lookback lengths when combining two MAs for crossover"
+    why: "outBegIdx differs between fast and slow MA; arrays must be aligned before computing crossovers or signals will be off by N bars"
+
+extensions:
+  tech_stack:
+    language: "C99"
+    bindings: "Java, .NET, Rust, Python"
+    source_repo: "https://github.com/TA-Lib/ta-lib"
+  indicator_count: 15
+  ma_type_enum:
+    SMA: 0
+    EMA: 1
+    WMA: 2
+    DEMA: 3
+    TEMA: 4
+    TRIMA: 5
+    KAMA: 6
+    MAMA: 7
+    T3: 8
+  unstable_period:
+    description: "EMA and EMA-derived indicators need extra warm-up bars for numerical stability"
+    control: "TA_SetUnstablePeriod(TA_FUNC_UNST_EMA, n) — default 0; increase for production systems"
