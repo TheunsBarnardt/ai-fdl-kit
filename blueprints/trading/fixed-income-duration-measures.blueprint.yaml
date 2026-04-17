@@ -1,0 +1,140 @@
+# ============================================================
+# fixed-income-duration-measures — Feature Blueprint
+# Source: CFA LV1 2025 Vol 06 — Module 9, Duration Measures
+# ============================================================
+
+feature: fixed-income-duration-measures
+version: "1.0.0"
+description: Compute Macaulay, modified, effective, money, and price-value-of-a-basis-point measures of bond interest-rate risk and choose the appropriate measure per instrument
+category: trading
+tags: [fixed-income, duration, macaulay, modified-duration, effective-duration, pvbp, cfa-level-1]
+aliases:
+  - macaulay-duration
+  - modified-duration
+  - effective-duration
+  - money-duration
+  - price-value-basis-point
+  - dollar-duration
+
+actors:
+  - id: duration_engine
+    name: Duration Measurement Engine
+    type: system
+
+fields:
+  - name: bond_id
+    type: text
+    required: true
+    label: Bond identifier
+  - name: duration_type
+    type: select
+    required: true
+    label: macaulay | modified | effective | money | pvbp
+  - name: has_embedded_option
+    type: boolean
+    required: false
+    label: Does bond have embedded options
+
+rules:
+  macaulay_duration:
+    definition: "Weighted average time to receive cash flows (years)"
+    formula: "sum(t * PV_CF_t) / price"
+  modified_duration:
+    formula: "Macaulay / (1 + YTM/periods)"
+    use: "Approximates percentage price change per 100 bps yield move"
+  approximate_modified:
+    formula: "(P_down - P_up) / (2 * P0 * delta_y)"
+    use: "Numerical approximation valid for option-free bonds"
+  effective_duration:
+    formula: "(P_down - P_up) / (2 * P0 * delta_curve)"
+    use: "Required for bonds with embedded options; curve shifts, not yield"
+  money_duration:
+    formula: "Modified duration * price"
+    use: "Dollar change per 100 bps; position sizing"
+  pvbp:
+    formula: "Money duration / 10000"
+    use: "Price change per 1 basis point; trading desks"
+  key_rate_duration:
+    definition: "Sensitivity to specific point on the curve"
+    use: "Decompose curve risk for non-parallel shifts"
+  portfolio_duration:
+    formula: "Market-value-weighted average of constituent durations"
+    caveat: "Assumes parallel yield curve shifts"
+  validation:
+    bond_required: "bond_id present"
+    valid_type: "duration_type in allowed set"
+
+outcomes:
+  compute_duration:
+    priority: 1
+    description: Compute requested duration measure
+    given:
+      - field: bond_id
+        source: input
+        operator: exists
+      - field: duration_type
+        source: input
+        operator: in
+        value: [macaulay, modified, effective, money, pvbp]
+    then:
+      - action: call_service
+        target: duration_engine
+      - action: emit_event
+        event: duration.computed
+  invalid_type:
+    priority: 10
+    description: Unsupported duration measure
+    given:
+      - field: duration_type
+        source: input
+        operator: not_in
+        value: [macaulay, modified, effective, money, pvbp]
+    then:
+      - action: emit_event
+        event: duration.computation_rejected
+    error: DUR_INVALID_TYPE
+
+errors:
+  - code: DUR_INVALID_TYPE
+    status: 400
+    message: duration_type must be macaulay, modified, effective, money, or pvbp
+
+events:
+  - name: duration.computed
+    payload: [computation_id, bond_id, duration_type, value]
+  - name: duration.computation_rejected
+    payload: [computation_id, reason_code]
+
+anti_patterns:
+  - rule: Do not use modified duration for callable bonds
+    why: "Modified duration assumes fixed cash flows; effective duration shocks the curve and recalculates price — required with embedded optionality"
+  - rule: Do not aggregate durations across currencies without FX hedging
+    why: "Duration is currency-specific; combining local-currency durations without hedging mis-states dollar risk"
+  - rule: Do not rely on duration for large yield moves
+    why: "Duration is a first-order approximation; convexity matters for moves beyond 50 bps"
+
+api:
+  http:
+    method: POST
+    path: /fixed-income/duration/compute
+  request:
+    schema:
+      bond_id: string
+      duration_type: string
+      has_embedded_option: boolean
+  response:
+    success:
+      status: 200
+      schema:
+        computation_id: string
+        duration_type: string
+        value: number
+    errors:
+      - status: 400
+        error_code: DUR_INVALID_TYPE
+
+related:
+  - feature: fixed-income-convexity-measures
+    type: required
+  - feature: fixed-income-bond-pricing
+    type: required

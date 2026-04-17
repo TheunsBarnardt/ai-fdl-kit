@@ -1,0 +1,142 @@
+# ============================================================
+# fixed-income-issuance-trading — Feature Blueprint
+# Source: CFA LV1 2025 Vol 06 — Module 3, Issuance & Trading
+# ============================================================
+
+feature: fixed-income-issuance-trading
+version: "1.0.0"
+description: Classify fixed-income primary issuance mechanisms (auction, syndicated, best-efforts, private placement) and secondary trading structures (OTC dealer, electronic, dark)
+category: trading
+tags: [fixed-income, bond-issuance, primary-market, dealer-market, auction, cfa-level-1]
+aliases:
+  - bond-auction
+  - syndicated-offering-fi
+  - bond-primary-market
+  - bond-secondary-market
+  - dealer-quotation
+  - bond-private-placement
+
+actors:
+  - id: fi_venue_service
+    name: Fixed-Income Venue Classifier
+    type: system
+
+fields:
+  - name: event_id
+    type: text
+    required: true
+    label: Issuance or trade identifier
+  - name: venue_type
+    type: select
+    required: true
+    label: primary_auction | primary_syndicated | primary_best_efforts | primary_private | secondary_dealer | secondary_electronic
+  - name: issuer_segment
+    type: select
+    required: false
+    label: sovereign | agency | corporate | municipal | supranational
+
+rules:
+  primary_mechanisms:
+    auction:
+      single_price: "Uniform clearing yield; bidders receive their bid or better"
+      multiple_price: "Pay-as-bid; winners pay their own bid"
+      typical_use: "Sovereign benchmark issuance"
+    syndicated:
+      pattern: "Underwriter group distributes new issue"
+      pricing: "Book-building with indicative range"
+      typical_use: "Corporate benchmark and emerging-market sovereigns"
+    best_efforts:
+      pattern: "Underwriters act as agent; no firm commitment"
+      typical_use: "Smaller or high-yield deals"
+    private_placement:
+      pattern: "Sold to qualified institutional buyers (e.g., 144A)"
+      disclosure: "Light; resale restricted"
+  secondary_trading:
+    dealer_otc:
+      mechanics: "Request-for-quote from dealers; bilateral settlement"
+      liquidity: "Dealer balance sheets provide market-making"
+    electronic:
+      all_to_all: "Buy-side can trade with buy-side"
+      dealer_to_client: "RFQ platforms"
+    dark_pools: "Used for large block trades"
+  settlement:
+    govt_bonds: "T+1 typical"
+    corporate_bonds: "T+2 typical"
+    emerging_markets: "T+2 to T+3"
+  validation:
+    event_required: "event_id present"
+    valid_venue: "venue_type in allowed set"
+
+outcomes:
+  classify_fi_event:
+    priority: 1
+    description: Classify primary issuance or secondary trading event
+    given:
+      - field: event_id
+        source: input
+        operator: exists
+      - field: venue_type
+        source: input
+        operator: in
+        value: [primary_auction, primary_syndicated, primary_best_efforts, primary_private, secondary_dealer, secondary_electronic]
+    then:
+      - action: call_service
+        target: fi_venue_service
+      - action: emit_event
+        event: fi_event.classified
+  invalid_venue:
+    priority: 10
+    description: Unsupported venue
+    given:
+      - field: venue_type
+        source: input
+        operator: not_in
+        value: [primary_auction, primary_syndicated, primary_best_efforts, primary_private, secondary_dealer, secondary_electronic]
+    then:
+      - action: emit_event
+        event: fi_event.classification_rejected
+    error: FI_EVENT_INVALID_VENUE
+
+errors:
+  - code: FI_EVENT_INVALID_VENUE
+    status: 400
+    message: venue_type must be one of the supported venues
+
+events:
+  - name: fi_event.classified
+    payload: [event_id, venue_type, issuer_segment]
+  - name: fi_event.classification_rejected
+    payload: [event_id, reason_code]
+
+anti_patterns:
+  - rule: Do not assume auction uniform price is always single clearing
+    why: "Auctions differ — single vs multiple-price affects winning bidder payoff materially; match mechanism to market"
+  - rule: Do not treat 144A bonds as fully liquid
+    why: "Private-placement resale restrictions fragment liquidity; holding period assumptions must reflect investor qualifications"
+  - rule: Do not rely on TRACE quotes for execution in stressed markets
+    why: "Reported prints lag and may represent inventory flushes; confirm with live RFQs before sizing trades"
+
+api:
+  http:
+    method: POST
+    path: /fixed-income/events
+  request:
+    schema:
+      event_id: string
+      venue_type: string
+      issuer_segment: string
+  response:
+    success:
+      status: 201
+      schema:
+        event_id: string
+        venue_type: string
+    errors:
+      - status: 400
+        error_code: FI_EVENT_INVALID_VENUE
+
+related:
+  - feature: fixed-income-bond-features
+    type: recommended
+  - feature: fixed-income-market-segments
+    type: recommended

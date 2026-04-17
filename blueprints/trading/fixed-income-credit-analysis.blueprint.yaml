@@ -1,0 +1,146 @@
+# ============================================================
+# fixed-income-credit-analysis — Feature Blueprint
+# Source: CFA LV1 2025 Vol 06 — Module 11, Credit Analysis
+# ============================================================
+
+feature: fixed-income-credit-analysis
+version: "1.0.0"
+description: Assess issuer credit quality using the four Cs (capacity, collateral, covenants, character), credit ratios, and rating agency frameworks for investment-grade and high-yield corporates
+category: trading
+tags: [fixed-income, credit-analysis, ratings, four-cs, covenants, cfa-level-1]
+aliases:
+  - four-cs-credit
+  - credit-ratings
+  - credit-ratios
+  - corporate-credit-analysis
+  - high-yield-credit
+  - investment-grade-credit
+
+actors:
+  - id: credit_analyst
+    name: Corporate Credit Analyst
+    type: system
+
+fields:
+  - name: issuer_id
+    type: text
+    required: true
+    label: Issuer identifier
+  - name: rating_scale
+    type: select
+    required: false
+    label: moody | s_and_p | fitch
+  - name: rating_band
+    type: select
+    required: false
+    label: investment_grade | crossover | high_yield | distressed
+  - name: industry_code
+    type: text
+    required: false
+    label: Industry classification code
+
+rules:
+  four_cs:
+    capacity: "Ability to service debt from operating cash flow"
+    collateral: "Assets available to secure obligations"
+    covenants: "Contractual protections for bondholders"
+    character: "Track record and governance of management"
+  core_credit_ratios:
+    leverage:
+      debt_to_ebitda: "Total debt / EBITDA"
+      ffo_to_debt: "Funds from operations / debt"
+      debt_to_capital: "Debt / (debt + equity)"
+    coverage:
+      ebit_interest: "EBIT / interest expense"
+      ebitda_interest: "EBITDA / interest expense"
+      fcf_debt: "Free cash flow / debt"
+  rating_bands:
+    investment_grade: "BBB-/Baa3 or higher"
+    speculative: "BB+/Ba1 or lower — high yield"
+    default: "C and below; in default or near default"
+  industry_factors:
+    cyclicality: "Cyclical industries warrant lower ratings for same ratios"
+    regulatory: "Utilities benefit from stable cash flows"
+    technology_change: "Fast-moving industries see frequent rating drift"
+  structural_factors:
+    parent_subsidiary: "Structural subordination at holdcos"
+    cross_default: "Default in one issue triggers others"
+    guarantees: "Explicit vs implicit parent support"
+  high_yield_specifics:
+    leverage_focus: "Coverage and liquidity trump absolute size"
+    covenant_light: "Weaker protections common post-2010"
+    recovery_analysis: "Estimate recovery given default"
+  validation:
+    issuer_required: "issuer_id present"
+
+outcomes:
+  analyze_credit:
+    priority: 1
+    description: Produce a credit profile with ratios and qualitative commentary
+    given:
+      - field: issuer_id
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: credit_analyst
+      - action: emit_event
+        event: credit.analyzed
+  missing_issuer:
+    priority: 10
+    description: Issuer missing
+    given:
+      - field: issuer_id
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: credit.analysis_rejected
+    error: CREDIT_ISSUER_MISSING
+
+errors:
+  - code: CREDIT_ISSUER_MISSING
+    status: 400
+    message: issuer_id is required
+
+events:
+  - name: credit.analyzed
+    payload: [analysis_id, issuer_id, leverage_ratio, coverage_ratio, rating_band]
+  - name: credit.analysis_rejected
+    payload: [analysis_id, reason_code]
+
+anti_patterns:
+  - rule: Do not rely solely on agency ratings
+    why: "Agencies lag fundamentals; internal credit analysis anticipates migrations"
+  - rule: Do not ignore structural subordination at holding companies
+    why: "Opcos pay debt first; holdco unsecured can be effectively subordinated"
+  - rule: Do not apply IG covenant templates to high-yield credit
+    why: "HY covenants are more restrictive and tighter; their presence materially affects recovery and spread"
+
+api:
+  http:
+    method: POST
+    path: /fixed-income/credit/analyze
+  request:
+    schema:
+      issuer_id: string
+      rating_scale: string
+      rating_band: string
+      industry_code: string
+  response:
+    success:
+      status: 200
+      schema:
+        analysis_id: string
+        leverage_ratio: number
+        coverage_ratio: number
+        rating_band: string
+    errors:
+      - status: 400
+        error_code: CREDIT_ISSUER_MISSING
+
+related:
+  - feature: fixed-income-credit-risk-spreads
+    type: required
+  - feature: fixed-income-bond-features
+    type: recommended

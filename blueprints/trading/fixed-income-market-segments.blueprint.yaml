@@ -1,0 +1,149 @@
+# ============================================================
+# fixed-income-market-segments — Feature Blueprint
+# Source: CFA LV1 2025 Vol 06 — Module 4, Markets for FI
+# ============================================================
+
+feature: fixed-income-market-segments
+version: "1.0.0"
+description: Map fixed-income market segments — sovereign, supranational, agency, corporate IG/HY, municipal, structured, emerging market — by currency, maturity, and credit characteristics
+category: trading
+tags: [fixed-income, market-segments, sovereign-bonds, corporate-bonds, high-yield, cfa-level-1]
+aliases:
+  - sovereign-bond-market
+  - corporate-bond-market
+  - high-yield-market
+  - investment-grade-market
+  - emerging-market-debt
+  - municipal-bond
+
+actors:
+  - id: fi_segment
+    name: Fixed-Income Segment Classifier
+    type: system
+
+fields:
+  - name: security_id
+    type: text
+    required: true
+    label: Security identifier
+  - name: segment
+    type: select
+    required: true
+    label: sovereign | supranational | agency | corporate_ig | corporate_hy | municipal | structured | emerging
+  - name: currency
+    type: text
+    required: false
+    label: ISO currency code
+  - name: rating_band
+    type: select
+    required: false
+    label: AAA | AA | A | BBB | BB | B | CCC_or_below
+
+rules:
+  sovereign:
+    local_currency: "Treasuries, gilts, JGBs — default risk very low for reserve currencies"
+    foreign_currency: "Emerging sovereigns; higher default risk"
+  supranational:
+    examples: "World Bank, EIB, Asian Development Bank"
+    characteristics: "High credit quality; global investor base"
+  agency:
+    examples: "Fannie Mae, Freddie Mac, Ginnie Mae"
+    implicit_explicit: "Some carry explicit government guarantee"
+  corporate:
+    investment_grade: "BBB-/Baa3 or higher"
+    high_yield: "BB+/Ba1 or lower — speculative grade"
+  municipal:
+    general_obligation: "Backed by taxing power"
+    revenue: "Backed by project cash flows"
+    tax_advantage: "US muni interest often federal tax-exempt"
+  structured:
+    abs: "Backed by receivables"
+    mbs: "Backed by mortgages"
+    cdo: "Backed by pool of bonds/loans with tranches"
+  emerging_market:
+    hard_currency: "USD/EUR denominated; sovereign or corporate"
+    local_currency: "Issuer local — currency and rate risk"
+  tenors:
+    money_market: "Less than 1 year"
+    short_term: "1-5 years"
+    medium_term: "5-12 years"
+    long_term: "12+ years"
+  validation:
+    security_required: "security_id present"
+    valid_segment: "segment in allowed set"
+
+outcomes:
+  classify_segment:
+    priority: 1
+    description: Classify a fixed-income security by segment and tenor
+    given:
+      - field: security_id
+        source: input
+        operator: exists
+      - field: segment
+        source: input
+        operator: in
+        value: [sovereign, supranational, agency, corporate_ig, corporate_hy, municipal, structured, emerging]
+    then:
+      - action: call_service
+        target: fi_segment
+      - action: emit_event
+        event: fi_segment.classified
+  invalid_segment:
+    priority: 10
+    description: Unsupported segment
+    given:
+      - field: segment
+        source: input
+        operator: not_in
+        value: [sovereign, supranational, agency, corporate_ig, corporate_hy, municipal, structured, emerging]
+    then:
+      - action: emit_event
+        event: fi_segment.rejected
+    error: FI_SEG_INVALID
+
+errors:
+  - code: FI_SEG_INVALID
+    status: 400
+    message: segment must be one of the supported fixed-income segments
+
+events:
+  - name: fi_segment.classified
+    payload: [classification_id, security_id, segment, currency, rating_band]
+  - name: fi_segment.rejected
+    payload: [classification_id, reason_code]
+
+anti_patterns:
+  - rule: Do not treat agency paper as sovereign
+    why: "Agency guarantees vary from explicit to implicit; ignoring the gap misprices tail risk"
+  - rule: Do not ignore currency denomination for EM debt
+    why: "Local-currency and hard-currency EM debt are distinct risk/return classes; mixing them in allocation muddles attribution"
+  - rule: Do not infer credit quality from segment alone
+    why: "Investment-grade and high-yield issuers exist within corporate and municipal segments; check ratings before aggregating"
+
+api:
+  http:
+    method: POST
+    path: /fixed-income/segments/classify
+  request:
+    schema:
+      security_id: string
+      segment: string
+      currency: string
+      rating_band: string
+  response:
+    success:
+      status: 200
+      schema:
+        classification_id: string
+        segment: string
+        rating_band: string
+    errors:
+      - status: 400
+        error_code: FI_SEG_INVALID
+
+related:
+  - feature: fixed-income-issuance-trading
+    type: recommended
+  - feature: fixed-income-credit-analysis
+    type: recommended

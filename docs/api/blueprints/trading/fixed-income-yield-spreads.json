@@ -1,0 +1,227 @@
+{
+  "feature": "fixed-income-yield-spreads",
+  "version": "1.0.0",
+  "description": "Compute nominal, G-, I-, Z-, and option-adjusted spreads to isolate credit, liquidity, and optionality components of yield relative to a risk-free benchmark",
+  "category": "trading",
+  "tags": [
+    "fixed-income",
+    "yield-spread",
+    "g-spread",
+    "z-spread",
+    "oas",
+    "swap-spread",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "g-spread",
+    "i-spread",
+    "z-spread",
+    "option-adjusted-spread",
+    "swap-spread",
+    "nominal-spread"
+  ],
+  "actors": [
+    {
+      "id": "spread_engine",
+      "name": "Yield Spread Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "bond_id",
+      "type": "text",
+      "required": true,
+      "label": "Bond identifier"
+    },
+    {
+      "name": "spread_type",
+      "type": "select",
+      "required": true,
+      "label": "nominal | g | i | z | oas | swap"
+    },
+    {
+      "name": "benchmark_curve",
+      "type": "select",
+      "required": false,
+      "label": "treasury | swap | sovereign"
+    },
+    {
+      "name": "option_features",
+      "type": "select",
+      "required": false,
+      "label": "none | callable | putable | convertible"
+    }
+  ],
+  "rules": {
+    "spread_definitions": {
+      "nominal": "YTM(bond) - YTM(on-the-run treasury at same maturity)",
+      "g_spread": "Bond YTM - interpolated treasury yield",
+      "i_spread": "Bond YTM - interpolated swap rate",
+      "z_spread": "Constant spread added to spot curve so PV equals price",
+      "oas": "Z-spread minus option cost; isolates credit/liquidity",
+      "swap_spread": "Swap rate - treasury yield at same tenor"
+    },
+    "when_to_use": {
+      "nominal": "Quick comparison; not rigorous",
+      "g_spread": "Corporate bonds vs treasury curve",
+      "z_spread": "More accurate for unusual coupons",
+      "oas": "Required for callable / putable / MBS",
+      "swap_spread": "Bank and financial sector benchmarking"
+    },
+    "interpretation": {
+      "credit_component": "Compensation for default risk",
+      "liquidity_component": "Premium for bid-ask and market impact",
+      "optionality_component": "Value of embedded option to issuer/holder"
+    },
+    "spread_duration": {
+      "definition": "Sensitivity of price to spread change",
+      "use": "Isolate credit risk from rate risk"
+    },
+    "validation": {
+      "bond_required": "bond_id present",
+      "valid_spread": "spread_type in allowed set"
+    }
+  },
+  "outcomes": {
+    "compute_spread": {
+      "priority": 1,
+      "description": "Compute requested spread for the bond",
+      "given": [
+        {
+          "field": "bond_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "spread_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "nominal",
+            "g",
+            "i",
+            "z",
+            "oas",
+            "swap"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "spread_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "spread.computed"
+        }
+      ]
+    },
+    "invalid_spread": {
+      "priority": 10,
+      "description": "Unsupported spread",
+      "given": [
+        {
+          "field": "spread_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "nominal",
+            "g",
+            "i",
+            "z",
+            "oas",
+            "swap"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "spread.computation_rejected"
+        }
+      ],
+      "error": "SPREAD_INVALID_TYPE"
+    }
+  },
+  "errors": [
+    {
+      "code": "SPREAD_INVALID_TYPE",
+      "status": 400,
+      "message": "spread_type must be nominal, g, i, z, oas, or swap"
+    }
+  ],
+  "events": [
+    {
+      "name": "spread.computed",
+      "payload": [
+        "computation_id",
+        "bond_id",
+        "spread_type",
+        "value_bps"
+      ]
+    },
+    {
+      "name": "spread.computation_rejected",
+      "payload": [
+        "computation_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use Z-spread for callable bonds",
+      "why": "Z-spread ignores optionality; OAS isolates pure credit/liquidity by stripping out option value"
+    },
+    {
+      "rule": "Do not compare G-spread across issuers with different coupon structures",
+      "why": "Coupon differences shift spread without credit change; Z-spread or OAS neutralise this"
+    },
+    {
+      "rule": "Do not treat OAS widening in isolation as credit deterioration",
+      "why": "OAS also reflects liquidity and technicals; decompose with CDS and ratings before acting"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/fixed-income/spreads/compute"
+    },
+    "request": {
+      "schema": {
+        "bond_id": "string",
+        "spread_type": "string",
+        "benchmark_curve": "string",
+        "option_features": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "computation_id": "string",
+          "spread_type": "string",
+          "value_bps": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "SPREAD_INVALID_TYPE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "fixed-income-spot-forward-rates",
+      "type": "required"
+    },
+    {
+      "feature": "fixed-income-credit-risk-spreads",
+      "type": "required"
+    }
+  ]
+}

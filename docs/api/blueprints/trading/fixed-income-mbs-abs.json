@@ -1,0 +1,250 @@
+{
+  "feature": "fixed-income-mbs-abs",
+  "version": "1.0.0",
+  "description": "Analyse residential and commercial mortgage-backed securities, CMOs, and asset-backed securities including prepayment risk, extension risk, and tranche economics",
+  "category": "trading",
+  "tags": [
+    "fixed-income",
+    "mbs",
+    "rmbs",
+    "cmbs",
+    "cmo",
+    "abs",
+    "prepayment-risk",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "residential-mbs",
+    "commercial-mbs",
+    "collateralised-mortgage-obligation",
+    "asset-backed-security",
+    "prepayment-risk",
+    "extension-risk"
+  ],
+  "actors": [
+    {
+      "id": "mbs_analyst",
+      "name": "MBS & ABS Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "security_id",
+      "type": "text",
+      "required": true,
+      "label": "MBS / ABS identifier"
+    },
+    {
+      "name": "security_type",
+      "type": "select",
+      "required": true,
+      "label": "rmbs_agency | rmbs_non_agency | cmbs | cmo | abs_auto | abs_card | abs_other"
+    },
+    {
+      "name": "tranche_type",
+      "type": "select",
+      "required": false,
+      "label": "sequential | pac | support | io | po | z_bond"
+    },
+    {
+      "name": "wac",
+      "type": "number",
+      "required": false,
+      "label": "Weighted-average coupon (decimal)"
+    },
+    {
+      "name": "wam",
+      "type": "number",
+      "required": false,
+      "label": "Weighted-average maturity (months)"
+    }
+  ],
+  "rules": {
+    "rmbs": {
+      "agency": "Guaranteed by Ginnie/Fannie/Freddie; credit risk minimal",
+      "non_agency": "Private-label; full credit analysis required",
+      "pass_through": "Simple pro-rata pass-through of pool cash flows"
+    },
+    "cmo": {
+      "pac": "Planned amortisation class — cash flows stable within prepayment band",
+      "support": "Absorbs prepayment variance for PACs",
+      "sequential": "Paid in order of tranches",
+      "io_po": {
+        "io": "Interest-only; rises when rates rise (prepayments slow)",
+        "po": "Principal-only; price sensitive to prepayment speed"
+      },
+      "z_bond": "Accrual bond; last principal pay"
+    },
+    "cmbs": {
+      "balloon_risk": "Non-amortising mortgages require refinancing at maturity",
+      "call_protection": "Yield maintenance, defeasance, lockout prevent early prepay"
+    },
+    "abs_types": {
+      "auto": "Short duration; prepayment from sales/trade-ins",
+      "credit_card": "Revolving pool; lockout then amortisation",
+      "student_loans": "Often guaranteed; extended WAL",
+      "equipment": "Lease receivables"
+    },
+    "prepayment_risk": {
+      "contraction": "Rates fall -> prepayments accelerate -> WAL shortens",
+      "extension": "Rates rise -> prepayments slow -> WAL extends",
+      "psa_benchmark": "Standard prepayment assumption curve (100 PSA = 6 percent CPR)"
+    },
+    "risk_return": {
+      "negative_convexity": "Prepayments cap price upside when rates drop",
+      "spread": "Compensation for prepay uncertainty"
+    },
+    "validation": {
+      "security_required": "security_id present",
+      "valid_type": "security_type in allowed set"
+    }
+  },
+  "outcomes": {
+    "analyze_mbs_abs": {
+      "priority": 1,
+      "description": "Produce prepayment, extension, and cash-flow analytics",
+      "given": [
+        {
+          "field": "security_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "security_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "rmbs_agency",
+            "rmbs_non_agency",
+            "cmbs",
+            "cmo",
+            "abs_auto",
+            "abs_card",
+            "abs_other"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "mbs_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "mbs_abs.analyzed"
+        }
+      ]
+    },
+    "invalid_type": {
+      "priority": 10,
+      "description": "Unsupported security type",
+      "given": [
+        {
+          "field": "security_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "rmbs_agency",
+            "rmbs_non_agency",
+            "cmbs",
+            "cmo",
+            "abs_auto",
+            "abs_card",
+            "abs_other"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "mbs_abs.analysis_rejected"
+        }
+      ],
+      "error": "MBS_INVALID_TYPE"
+    }
+  },
+  "errors": [
+    {
+      "code": "MBS_INVALID_TYPE",
+      "status": 400,
+      "message": "security_type must be one of the supported MBS/ABS types"
+    }
+  ],
+  "events": [
+    {
+      "name": "mbs_abs.analyzed",
+      "payload": [
+        "analysis_id",
+        "security_id",
+        "security_type",
+        "wal",
+        "effective_duration",
+        "effective_convexity"
+      ]
+    },
+    {
+      "name": "mbs_abs.analysis_rejected",
+      "payload": [
+        "analysis_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not value MBS with Z-spread",
+      "why": "Prepayment optionality makes static-spread approaches mis-price; OAS or effective measures required"
+    },
+    {
+      "rule": "Do not assume CMO tranches insulate against all prepayment risk",
+      "why": "PAC bands break under extreme prepayments; support tranches can be depleted, exposing PAC"
+    },
+    {
+      "rule": "Do not ignore commercial-mortgage balloon risk",
+      "why": "CMBS often require refinance at maturity; refinance risk drives rollover losses"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/fixed-income/mbs-abs/analyze"
+    },
+    "request": {
+      "schema": {
+        "security_id": "string",
+        "security_type": "string",
+        "tranche_type": "string",
+        "wac": "number",
+        "wam": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "analysis_id": "string",
+          "wal": "number",
+          "effective_duration": "number",
+          "effective_convexity": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "MBS_INVALID_TYPE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "fixed-income-securitization",
+      "type": "required"
+    },
+    {
+      "feature": "fixed-income-convexity-measures",
+      "type": "required"
+    }
+  ]
+}

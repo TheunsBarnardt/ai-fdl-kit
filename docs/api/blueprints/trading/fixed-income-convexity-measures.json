@@ -1,0 +1,213 @@
+{
+  "feature": "fixed-income-convexity-measures",
+  "version": "1.0.0",
+  "description": "Compute convexity and effective convexity, apply second-order corrections to duration-based price estimates, and distinguish positive from negative convexity regimes",
+  "category": "trading",
+  "tags": [
+    "fixed-income",
+    "convexity",
+    "effective-convexity",
+    "negative-convexity",
+    "mbs",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "bond-convexity",
+    "effective-convexity",
+    "negative-convexity",
+    "duration-convexity-approximation",
+    "mbs-convexity",
+    "callable-convexity"
+  ],
+  "actors": [
+    {
+      "id": "convexity_engine",
+      "name": "Convexity Measurement Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "bond_id",
+      "type": "text",
+      "required": true,
+      "label": "Bond identifier"
+    },
+    {
+      "name": "convexity_type",
+      "type": "select",
+      "required": true,
+      "label": "standard | effective"
+    },
+    {
+      "name": "has_prepayment_option",
+      "type": "boolean",
+      "required": false,
+      "label": "Bond has prepayment or call feature"
+    }
+  ],
+  "rules": {
+    "convexity_definition": {
+      "standard": "Second derivative of price w.r.t. yield / price",
+      "effective": "Second derivative w.r.t. benchmark curve shift / price",
+      "formula_approx": "(P_down + P_up - 2*P0) / (P0 * delta_y^2)"
+    },
+    "price_change_approximation": {
+      "first_order": "delta_P/P ~= -Modified_D * delta_y",
+      "second_order": "delta_P/P ~= -Mod_D * delta_y + 0.5 * Convexity * delta_y^2"
+    },
+    "positive_vs_negative": {
+      "positive": "Option-free bonds; price gains exceed losses for symmetric yield changes",
+      "negative": {
+        "mbs": "Prepayments accelerate when rates drop — price truncated",
+        "callable": "Issuer call caps upside",
+        "putable": "Put floor; typically positive convexity"
+      }
+    },
+    "money_convexity": {
+      "formula": "Convexity * price"
+    },
+    "effective_convexity_use": {
+      "required_for": "MBS, callable bonds, putable bonds"
+    },
+    "convexity_adjustment_bps": {
+      "bond_strategy": "Higher convexity desirable; absorbs more volatility"
+    },
+    "validation": {
+      "bond_required": "bond_id present",
+      "valid_type": "convexity_type in [standard, effective]"
+    }
+  },
+  "outcomes": {
+    "compute_convexity": {
+      "priority": 1,
+      "description": "Compute standard or effective convexity",
+      "given": [
+        {
+          "field": "bond_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "convexity_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "standard",
+            "effective"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "convexity_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "convexity.computed"
+        }
+      ]
+    },
+    "invalid_type": {
+      "priority": 10,
+      "description": "Unsupported convexity type",
+      "given": [
+        {
+          "field": "convexity_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "standard",
+            "effective"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "convexity.computation_rejected"
+        }
+      ],
+      "error": "CVX_INVALID_TYPE"
+    }
+  },
+  "errors": [
+    {
+      "code": "CVX_INVALID_TYPE",
+      "status": 400,
+      "message": "convexity_type must be standard or effective"
+    }
+  ],
+  "events": [
+    {
+      "name": "convexity.computed",
+      "payload": [
+        "computation_id",
+        "bond_id",
+        "convexity_type",
+        "value"
+      ]
+    },
+    {
+      "name": "convexity.computation_rejected",
+      "payload": [
+        "computation_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use standard convexity for MBS or callables",
+      "why": "Cash flows change with rates via prepayment/call; only effective convexity captures the non-linearity"
+    },
+    {
+      "rule": "Do not neglect convexity for barbell vs bullet portfolios",
+      "why": "Equal-duration strategies differ in convexity; barbell outperforms when yields move sharply"
+    },
+    {
+      "rule": "Do not assume convexity hedges are costless",
+      "why": "Convexity is priced; paying up for optionality erodes carry and funding cost"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/fixed-income/convexity/compute"
+    },
+    "request": {
+      "schema": {
+        "bond_id": "string",
+        "convexity_type": "string",
+        "has_prepayment_option": "boolean"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "computation_id": "string",
+          "convexity_type": "string",
+          "value": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "CVX_INVALID_TYPE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "fixed-income-duration-measures",
+      "type": "required"
+    },
+    {
+      "feature": "fixed-income-mbs-abs",
+      "type": "recommended"
+    }
+  ]
+}

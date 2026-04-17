@@ -1,0 +1,146 @@
+# ============================================================
+# fixed-income-spot-forward-rates — Feature Blueprint
+# Source: CFA LV1 2025 Vol 06 — Module 7, Spot & Forward Rates
+# ============================================================
+
+feature: fixed-income-spot-forward-rates
+version: "1.0.0"
+description: Derive spot rates via bootstrapping, compute forward rates under no-arbitrage, and interpret the term structure of interest rates for pricing and curve strategies
+category: trading
+tags: [fixed-income, spot-rate, forward-rate, bootstrapping, yield-curve, cfa-level-1]
+aliases:
+  - spot-rate-curve
+  - forward-rate-curve
+  - bootstrapping-curve
+  - par-curve
+  - no-arbitrage-rates
+  - implied-forward-rate
+
+actors:
+  - id: curve_engine
+    name: Term-Structure Curve Engine
+    type: system
+
+fields:
+  - name: curve_id
+    type: text
+    required: true
+    label: Curve identifier
+  - name: curve_type
+    type: select
+    required: true
+    label: par | spot | forward
+  - name: tenor_years
+    type: number
+    required: false
+    label: Target tenor in years
+  - name: as_of_date
+    type: date
+    required: true
+    label: Curve as-of date
+
+rules:
+  par_curve:
+    definition: "Yields on coupon bonds priced at par at each tenor"
+    source: "Observable YTMs on benchmark issues"
+  spot_curve:
+    definition: "Zero-coupon yields implied by no-arbitrage"
+    bootstrapping: "Strip par coupons from short tenors to long sequentially"
+  forward_rate:
+    formula: "(1 + z_n)^n / (1 + z_m)^m - 1 for period from m to n"
+    notation: "f(m,n-m) — forward rate starting m years ahead for (n-m) years"
+    no_arbitrage: "Implied forwards make investors indifferent between rolling vs locking in"
+  curve_shapes:
+    upward: "Normal; reflects term premium and growth expectations"
+    downward: "Inverted; often signals tightening or recession"
+    humped: "Short and long low, middle high"
+  discounting_with_spot:
+    benefit: "Consistent with no-arbitrage; identifies rich/cheap bonds"
+  yield_curve_strategies:
+    riding: "Rolling down the curve to capture yield as it ages"
+    steepener: "Long short-maturity, short long-maturity for curve steepening"
+    flattener: "Opposite of steepener"
+    butterfly: "Long wings, short belly or vice versa"
+  validation:
+    curve_required: "curve_id present"
+    valid_type: "curve_type in allowed set"
+    date_required: "as_of_date present"
+
+outcomes:
+  build_curve:
+    priority: 1
+    description: Construct par, spot, or forward curve on as-of date
+    given:
+      - field: curve_id
+        source: input
+        operator: exists
+      - field: curve_type
+        source: input
+        operator: in
+        value: [par, spot, forward]
+      - field: as_of_date
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: curve_engine
+      - action: emit_event
+        event: curve.built
+  invalid_type:
+    priority: 10
+    description: Unsupported curve type
+    given:
+      - field: curve_type
+        source: input
+        operator: not_in
+        value: [par, spot, forward]
+    then:
+      - action: emit_event
+        event: curve.build_rejected
+    error: CURVE_INVALID_TYPE
+
+errors:
+  - code: CURVE_INVALID_TYPE
+    status: 400
+    message: curve_type must be par, spot, or forward
+
+events:
+  - name: curve.built
+    payload: [curve_id, curve_type, as_of_date, points]
+  - name: curve.build_rejected
+    payload: [curve_id, reason_code]
+
+anti_patterns:
+  - rule: Do not mix par yields with zero-coupon discounting
+    why: "Discounting with par yields mis-prices bonds with off-market coupons; use spot curve for consistency"
+  - rule: Do not treat implied forwards as forecasts
+    why: "Forward rates are arbitrage-consistent, not expectations; pure expectations hypothesis fails empirically"
+  - rule: Do not extrapolate short-end volatility into long-end curve moves
+    why: "Factor decomposition (level, slope, curvature) shows different drivers; naive parallel assumptions miss curve risk"
+
+api:
+  http:
+    method: POST
+    path: /fixed-income/curves/build
+  request:
+    schema:
+      curve_id: string
+      curve_type: string
+      tenor_years: number
+      as_of_date: string
+  response:
+    success:
+      status: 201
+      schema:
+        curve_id: string
+        curve_type: string
+        points: array
+    errors:
+      - status: 400
+        error_code: CURVE_INVALID_TYPE
+
+related:
+  - feature: fixed-income-bond-pricing
+    type: required
+  - feature: fixed-income-yield-spreads
+    type: recommended

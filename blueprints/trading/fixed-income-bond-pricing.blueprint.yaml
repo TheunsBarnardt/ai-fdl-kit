@@ -1,0 +1,170 @@
+# ============================================================
+# fixed-income-bond-pricing — Feature Blueprint
+# Source: CFA LV1 2025 Vol 06 — Module 5, Bond Pricing
+# ============================================================
+
+feature: fixed-income-bond-pricing
+version: "1.0.0"
+description: Price bonds using discounted cash flow with spot or constant-yield discounting, reconcile full (dirty) vs flat (clean) price via accrued interest, and explain price-yield relationships
+category: trading
+tags: [fixed-income, bond-pricing, present-value, accrued-interest, clean-dirty-price, cfa-level-1]
+aliases:
+  - bond-pricing-cfa
+  - present-value-bond
+  - flat-price
+  - full-price
+  - accrued-interest
+  - price-yield-relationship
+
+actors:
+  - id: fi_pricer
+    name: Fixed-Income Pricing Engine
+    type: system
+
+fields:
+  - name: bond_id
+    type: text
+    required: true
+    label: Bond identifier
+  - name: coupon_rate
+    type: number
+    required: true
+    label: Annual coupon rate (decimal)
+  - name: ytm
+    type: number
+    required: true
+    label: Yield to maturity (decimal)
+  - name: years_to_maturity
+    type: number
+    required: true
+    label: Years to maturity
+  - name: periods_per_year
+    type: number
+    required: false
+    label: Coupon periods per year (default 2)
+
+rules:
+  bond_price_formula:
+    # Source: Vol 6, Module 5
+    constant_yield: "Price = sum(Coupon/(1+r/m)^t) + Face/(1+r/m)^n"
+    spot_rate: "Price = sum(Coupon/(1+z_t)^t) + Face/(1+z_n)^n"
+  price_yield_relationship:
+    inverse: "Yield up -> price down"
+    convex: "Price-yield curve bows above tangent line (positive convexity)"
+    par: "Coupon = market rate -> price = par"
+    premium: "Coupon > market -> price > par"
+    discount: "Coupon < market -> price < par"
+  full_vs_flat:
+    full_price: "PV as of settlement date including accrued"
+    flat_price: "Full price - accrued interest (quoted price)"
+    accrued_interest: "Coupon * (days since last coupon / days in period)"
+  matrix_pricing:
+    definition: "Infer yield for infrequently traded bond from comparable liquid bonds"
+    use_case: "Benchmark spreads and new-issue pricing"
+  day_count_conventions:
+    actual_actual: "Treasuries — true days / true days"
+    thirty_360: "Corporate / muni — 30-day months"
+    actual_360: "Money market — true days / 360"
+  validation:
+    bond_required: "bond_id present"
+    valid_ytm: "ytm >= 0"
+    positive_maturity: "years_to_maturity > 0"
+
+outcomes:
+  price_bond:
+    priority: 1
+    description: Compute full and flat price from cash flows and yield
+    given:
+      - field: bond_id
+        source: input
+        operator: exists
+      - field: ytm
+        source: input
+        operator: gte
+        value: 0
+      - field: years_to_maturity
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: fi_pricer
+      - action: emit_event
+        event: bond.priced
+  invalid_maturity:
+    priority: 10
+    description: Non-positive maturity
+    given:
+      - field: years_to_maturity
+        source: input
+        operator: lte
+        value: 0
+    then:
+      - action: emit_event
+        event: bond.pricing_rejected
+    error: PRICE_INVALID_MATURITY
+  invalid_ytm:
+    priority: 11
+    description: Negative YTM
+    given:
+      - field: ytm
+        source: input
+        operator: lt
+        value: 0
+    then:
+      - action: emit_event
+        event: bond.pricing_rejected
+    error: PRICE_INVALID_YTM
+
+errors:
+  - code: PRICE_INVALID_MATURITY
+    status: 400
+    message: years_to_maturity must be positive
+  - code: PRICE_INVALID_YTM
+    status: 400
+    message: ytm must be non-negative
+
+events:
+  - name: bond.priced
+    payload: [pricing_id, bond_id, full_price, flat_price, accrued_interest]
+  - name: bond.pricing_rejected
+    payload: [pricing_id, reason_code]
+
+anti_patterns:
+  - rule: Do not discount with a single YTM when the term structure is steep
+    why: "Spot-rate discounting reveals arbitrage opportunities; constant-yield pricing hides them"
+  - rule: Do not quote full price as market price
+    why: "Market quotes are flat; full price is for settlement only — confusing the two distorts yield and duration"
+  - rule: Do not ignore day-count conventions when converting yields
+    why: "30/360 vs actual/actual shift coupons by days and change reported yields by basis points"
+
+api:
+  http:
+    method: POST
+    path: /fixed-income/bonds/price
+  request:
+    schema:
+      bond_id: string
+      coupon_rate: number
+      ytm: number
+      years_to_maturity: number
+      periods_per_year: number
+  response:
+    success:
+      status: 200
+      schema:
+        pricing_id: string
+        full_price: number
+        flat_price: number
+        accrued_interest: number
+    errors:
+      - status: 400
+        error_code: PRICE_INVALID_MATURITY
+      - status: 400
+        error_code: PRICE_INVALID_YTM
+
+related:
+  - feature: fixed-income-yield-measures
+    type: required
+  - feature: fixed-income-spot-forward-rates
+    type: required

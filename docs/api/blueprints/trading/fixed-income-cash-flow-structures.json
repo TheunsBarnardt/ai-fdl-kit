@@ -1,0 +1,242 @@
+{
+  "feature": "fixed-income-cash-flow-structures",
+  "version": "1.0.0",
+  "description": "Characterise fixed-income cash flow patterns — bullet, amortising, sinking fund, step-up, floating, PIK, contingent — and compute principal and interest schedules",
+  "category": "trading",
+  "tags": [
+    "fixed-income",
+    "cash-flow-structure",
+    "amortising",
+    "sinking-fund",
+    "floating-rate",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "bullet-bond",
+    "amortising-bond",
+    "sinking-fund-bond",
+    "floating-rate-note",
+    "pik-bond",
+    "inflation-linked-bond"
+  ],
+  "actors": [
+    {
+      "id": "fi_cashflow",
+      "name": "Fixed-Income Cash Flow Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "bond_id",
+      "type": "text",
+      "required": true,
+      "label": "Bond identifier"
+    },
+    {
+      "name": "cash_flow_structure",
+      "type": "select",
+      "required": true,
+      "label": "bullet | amortising | sinking_fund | step_up | floating | pik | contingent"
+    },
+    {
+      "name": "face_value",
+      "type": "number",
+      "required": true,
+      "label": "Face value"
+    },
+    {
+      "name": "coupon_rate",
+      "type": "number",
+      "required": false,
+      "label": "Coupon rate or reference plus margin (decimal)"
+    }
+  ],
+  "rules": {
+    "bullet": {
+      "pattern": "Periodic coupons + full principal at maturity"
+    },
+    "amortising": {
+      "fully_amortising": "Equal payments; each contains interest and principal",
+      "partially_amortising": "Amortise to a balloon at maturity"
+    },
+    "sinking_fund": {
+      "pattern": "Issuer retires bonds progressively per schedule",
+      "lottery": "Specific bonds drawn by lottery"
+    },
+    "floating_rate": {
+      "reference": "SOFR, EURIBOR, TONAR",
+      "spread": "Quoted margin above reference",
+      "reset_frequency": "Quarterly or semi-annual",
+      "caps_floors": "Optional"
+    },
+    "step_up": {
+      "pattern": "Pre-scheduled coupon increases; common in callables"
+    },
+    "pik": {
+      "pattern": "Interest paid in additional bonds or notes",
+      "use_case": "Distressed or leveraged issuers"
+    },
+    "inflation_linked": {
+      "principal_indexed": "TIPS-style; coupon applied to inflated principal",
+      "interest_indexed": "Fixed principal; coupon tracks inflation"
+    },
+    "contingent": {
+      "catastrophe": "Principal loss on trigger event",
+      "covid_pandemic": "Reduced payments on trigger"
+    },
+    "validation": {
+      "bond_required": "bond_id present",
+      "valid_structure": "cash_flow_structure in allowed set",
+      "positive_face": "face_value > 0"
+    }
+  },
+  "outcomes": {
+    "compute_cash_flow_schedule": {
+      "priority": 1,
+      "description": "Compute scheduled principal and interest flows",
+      "given": [
+        {
+          "field": "bond_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "cash_flow_structure",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "bullet",
+            "amortising",
+            "sinking_fund",
+            "step_up",
+            "floating",
+            "pik",
+            "contingent"
+          ]
+        },
+        {
+          "field": "face_value",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "fi_cashflow"
+        },
+        {
+          "action": "emit_event",
+          "event": "cashflow.computed"
+        }
+      ]
+    },
+    "invalid_structure": {
+      "priority": 10,
+      "description": "Unsupported cash flow structure",
+      "given": [
+        {
+          "field": "cash_flow_structure",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "bullet",
+            "amortising",
+            "sinking_fund",
+            "step_up",
+            "floating",
+            "pik",
+            "contingent"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "cashflow.computation_rejected"
+        }
+      ],
+      "error": "CF_INVALID_STRUCTURE"
+    }
+  },
+  "errors": [
+    {
+      "code": "CF_INVALID_STRUCTURE",
+      "status": 400,
+      "message": "cash_flow_structure must be one of the supported patterns"
+    }
+  ],
+  "events": [
+    {
+      "name": "cashflow.computed",
+      "payload": [
+        "computation_id",
+        "bond_id",
+        "structure",
+        "schedule"
+      ]
+    },
+    {
+      "name": "cashflow.computation_rejected",
+      "payload": [
+        "computation_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not apply bullet duration metrics to amortising bonds",
+      "why": "Amortising bonds have declining average life; Macaulay and modified duration must use scheduled balances"
+    },
+    {
+      "rule": "Do not ignore caps and floors on floaters",
+      "why": "Capped floaters under-perform when rates rise through cap; price decline larger than plain floater"
+    },
+    {
+      "rule": "Do not price PIK bonds at par",
+      "why": "PIK interest compounds face value; yield measures must incorporate growing principal balance"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/fixed-income/cashflow/compute"
+    },
+    "request": {
+      "schema": {
+        "bond_id": "string",
+        "cash_flow_structure": "string",
+        "face_value": "number",
+        "coupon_rate": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "computation_id": "string",
+          "schedule": "array"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "CF_INVALID_STRUCTURE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "fixed-income-bond-features",
+      "type": "required"
+    },
+    {
+      "feature": "fixed-income-bond-pricing",
+      "type": "required"
+    }
+  ]
+}

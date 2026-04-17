@@ -1,0 +1,151 @@
+# ============================================================
+# fixed-income-securitization — Feature Blueprint
+# Source: CFA LV1 2025 Vol 06 — Securitization & ABS
+# ============================================================
+
+feature: fixed-income-securitization
+version: "1.0.0"
+description: Describe the securitization process — pool formation, SPE issuance, tranching, credit enhancement, waterfalls — and the benefits and risks for originators, investors, and the financial system
+category: trading
+tags: [fixed-income, securitization, abs, spe, tranching, credit-enhancement, cfa-level-1]
+aliases:
+  - securitization-process
+  - special-purpose-entity
+  - tranche-structure
+  - credit-enhancement
+  - waterfall-payment
+  - true-sale
+
+actors:
+  - id: structurer
+    name: Securitization Structuring Service
+    type: system
+
+fields:
+  - name: deal_id
+    type: text
+    required: true
+    label: Securitization identifier
+  - name: collateral_type
+    type: select
+    required: true
+    label: auto_loans | credit_card | student_loans | commercial_loans | mortgages | future_flow | other
+  - name: tranche_structure
+    type: select
+    required: false
+    label: senior_sub | sequential_pay | pac | principal_only | interest_only
+  - name: credit_enhancement
+    type: multiselect
+    required: false
+    label: subordination | overcollateralisation | reserve_fund | excess_spread | wrap
+
+rules:
+  parties:
+    originator: "Sells assets to SPE"
+    spe: "Special-purpose entity — bankruptcy-remote issuer"
+    servicer: "Collects and administers pool cash flows"
+    trustee: "Protects investor interests and enforces covenants"
+  process:
+    pool: "Homogeneous or curated asset pool"
+    true_sale: "Transfer isolates assets from originator bankruptcy"
+    issuance: "SPE issues tranches with differentiated cash-flow rights"
+  tranching:
+    senior: "Paid first; highest rating"
+    mezzanine: "Intermediate risk/return"
+    equity_residual: "First-loss; holds economic interest"
+    sequential: "Pay senior principal until retired, then mezz, etc."
+    pro_rata: "Principal split across tranches in proportion"
+  credit_enhancement:
+    subordination: "Junior tranches absorb losses first"
+    overcollateralisation: "Pool par > bonds issued"
+    reserve_fund: "Cash set aside to cover shortfalls"
+    excess_spread: "Net interest income above deal expenses"
+    wrap: "Third-party financial guarantee"
+  benefits:
+    originator: "Funding diversification, balance-sheet relief, fee income"
+    investor: "Access to pool exposure, tranched risk/return"
+    system: "Risk distribution, deeper capital markets"
+  risks:
+    prepayment: "Borrowers prepay early; reduces WAL"
+    default: "Pool losses hit junior first, then up the stack"
+    manager_conflict: "Adverse selection in asset sale"
+    complexity: "Multi-layer structures obscure risk"
+  validation:
+    deal_required: "deal_id present"
+    valid_collateral: "collateral_type in allowed set"
+
+outcomes:
+  structure_deal:
+    priority: 1
+    description: Record securitization structure and enhancements
+    given:
+      - field: deal_id
+        source: input
+        operator: exists
+      - field: collateral_type
+        source: input
+        operator: in
+        value: [auto_loans, credit_card, student_loans, commercial_loans, mortgages, future_flow, other]
+    then:
+      - action: call_service
+        target: structurer
+      - action: emit_event
+        event: securitization.structured
+  invalid_collateral:
+    priority: 10
+    description: Unsupported collateral
+    given:
+      - field: collateral_type
+        source: input
+        operator: not_in
+        value: [auto_loans, credit_card, student_loans, commercial_loans, mortgages, future_flow, other]
+    then:
+      - action: emit_event
+        event: securitization.rejected
+    error: SEC_INVALID_COLLATERAL
+
+errors:
+  - code: SEC_INVALID_COLLATERAL
+    status: 400
+    message: collateral_type must be one of the supported classes
+
+events:
+  - name: securitization.structured
+    payload: [deal_id, collateral_type, tranche_structure, enhancements]
+  - name: securitization.rejected
+    payload: [deal_id, reason_code]
+
+anti_patterns:
+  - rule: Do not assume senior tranches are risk-free
+    why: "Concentrated pool defaults (e.g., subprime 2007) can breach subordination; senior tranches can still experience loss"
+  - rule: Do not ignore servicer quality
+    why: "Poor servicing increases delinquency and losses regardless of structure; servicer transition adds risk"
+  - rule: Do not rely on ratings alone for complex structures
+    why: "Rating methodologies differ and can lag; perform stand-alone cash-flow stress tests"
+
+api:
+  http:
+    method: POST
+    path: /fixed-income/securitization/structure
+  request:
+    schema:
+      deal_id: string
+      collateral_type: string
+      tranche_structure: string
+      credit_enhancement: array
+  response:
+    success:
+      status: 201
+      schema:
+        deal_id: string
+        collateral_type: string
+        tranche_structure: string
+    errors:
+      - status: 400
+        error_code: SEC_INVALID_COLLATERAL
+
+related:
+  - feature: fixed-income-mbs-abs
+    type: required
+  - feature: fixed-income-credit-analysis
+    type: recommended

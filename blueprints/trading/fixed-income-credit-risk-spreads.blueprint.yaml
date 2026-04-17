@@ -1,0 +1,175 @@
+# ============================================================
+# fixed-income-credit-risk-spreads — Feature Blueprint
+# Source: CFA LV1 2025 Vol 06 — Module 12, Credit Risk & Spreads
+# ============================================================
+
+feature: fixed-income-credit-risk-spreads
+version: "1.0.0"
+description: Quantify credit risk via probability of default, loss given default, and expected loss, and decompose credit spreads into default, liquidity, and risk-premium components
+category: trading
+tags: [fixed-income, credit-risk, probability-of-default, loss-given-default, credit-spread, cfa-level-1]
+aliases:
+  - probability-of-default
+  - loss-given-default
+  - expected-loss
+  - credit-spread-decomposition
+  - credit-migration
+  - credit-cycle
+
+actors:
+  - id: credit_risk_engine
+    name: Credit Risk Decomposition Engine
+    type: system
+
+fields:
+  - name: exposure_id
+    type: text
+    required: true
+    label: Exposure identifier
+  - name: pd
+    type: number
+    required: false
+    label: Probability of default (decimal)
+  - name: lgd
+    type: number
+    required: false
+    label: Loss given default (decimal)
+  - name: exposure_amount
+    type: number
+    required: false
+    label: Exposure at default
+  - name: rating_band
+    type: select
+    required: false
+    label: investment_grade | high_yield | distressed
+
+rules:
+  expected_loss:
+    formula: "PD * LGD * EAD"
+    interpretation: "Base case credit loss provision"
+  recovery_rate:
+    formula: "1 - LGD"
+    factors:
+      - "Seniority and collateral"
+      - "Industry liquidation value"
+      - "Jurisdiction and process"
+  credit_spread_components:
+    default_compensation: "Expected loss across states"
+    risk_premium: "Compensation for systemic and uncertainty"
+    liquidity_premium: "Bid-ask and market-impact cost"
+    tax_premium: "Applicable for muni vs corporate"
+  credit_migration:
+    transition_matrix: "Probabilities of rating changes over horizon"
+    credit_drift: "Net upgrades minus downgrades in portfolio"
+  credit_cycle:
+    expansion: "Spreads compress, low defaults"
+    peak: "Covenant erosion, leverage high"
+    contraction: "Spreads widen, defaults rise"
+    trough: "Distressed opportunities; highest recovery prospects"
+  portfolio_metrics:
+    concentration: "Name, industry, region"
+    diversification: "Correlated defaults cluster in recessions"
+  validation:
+    exposure_required: "exposure_id present"
+    valid_pd: "pd between 0 and 1 when provided"
+    valid_lgd: "lgd between 0 and 1 when provided"
+
+outcomes:
+  compute_credit_risk:
+    priority: 1
+    description: Compute expected loss and spread decomposition
+    given:
+      - field: exposure_id
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: credit_risk_engine
+      - action: emit_event
+        event: credit_risk.computed
+  invalid_pd:
+    priority: 10
+    description: PD outside [0, 1]
+    given:
+      - any:
+          - field: pd
+            source: input
+            operator: lt
+            value: 0
+          - field: pd
+            source: input
+            operator: gt
+            value: 1
+    then:
+      - action: emit_event
+        event: credit_risk.computation_rejected
+    error: CREDIT_RISK_INVALID_PD
+  invalid_lgd:
+    priority: 11
+    description: LGD outside [0, 1]
+    given:
+      - any:
+          - field: lgd
+            source: input
+            operator: lt
+            value: 0
+          - field: lgd
+            source: input
+            operator: gt
+            value: 1
+    then:
+      - action: emit_event
+        event: credit_risk.computation_rejected
+    error: CREDIT_RISK_INVALID_LGD
+
+errors:
+  - code: CREDIT_RISK_INVALID_PD
+    status: 400
+    message: pd must be between 0 and 1
+  - code: CREDIT_RISK_INVALID_LGD
+    status: 400
+    message: lgd must be between 0 and 1
+
+events:
+  - name: credit_risk.computed
+    payload: [computation_id, exposure_id, expected_loss, spread_decomposition]
+  - name: credit_risk.computation_rejected
+    payload: [computation_id, reason_code]
+
+anti_patterns:
+  - rule: Do not assume historical PDs apply in stress
+    why: "PDs cluster in recessions; point-in-time estimates must be supplemented with through-the-cycle anchoring"
+  - rule: Do not use recovery rate averages across seniority classes
+    why: "Senior secured recovers 60-70 percent; subordinated often below 30 percent; aggregation misleads"
+  - rule: Do not ignore correlation in portfolio EL
+    why: "Defaults cluster in downturns; ignoring correlation understates tail risk"
+
+api:
+  http:
+    method: POST
+    path: /fixed-income/credit-risk/compute
+  request:
+    schema:
+      exposure_id: string
+      pd: number
+      lgd: number
+      exposure_amount: number
+      rating_band: string
+  response:
+    success:
+      status: 200
+      schema:
+        computation_id: string
+        expected_loss: number
+        spread_components: object
+    errors:
+      - status: 400
+        error_code: CREDIT_RISK_INVALID_PD
+      - status: 400
+        error_code: CREDIT_RISK_INVALID_LGD
+
+related:
+  - feature: fixed-income-credit-analysis
+    type: required
+  - feature: fixed-income-yield-spreads
+    type: required

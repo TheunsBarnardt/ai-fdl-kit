@@ -1,0 +1,221 @@
+{
+  "feature": "fixed-income-yield-measures",
+  "version": "1.0.0",
+  "description": "Compute yield measures — YTM, current yield, yield to call, yield to worst, discount yield, bond-equivalent yield — and convert between quoting conventions",
+  "category": "trading",
+  "tags": [
+    "fixed-income",
+    "ytm",
+    "yield-to-call",
+    "yield-to-worst",
+    "current-yield",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "ytm-cfa",
+    "yield-to-call",
+    "yield-to-worst",
+    "current-yield-fi",
+    "discount-yield",
+    "bond-equivalent-yield"
+  ],
+  "actors": [
+    {
+      "id": "yield_engine",
+      "name": "Yield Measure Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "bond_id",
+      "type": "text",
+      "required": true,
+      "label": "Bond identifier"
+    },
+    {
+      "name": "yield_measure",
+      "type": "select",
+      "required": true,
+      "label": "ytm | ytc | ytw | current | discount | bey"
+    },
+    {
+      "name": "periods_per_year",
+      "type": "number",
+      "required": false,
+      "label": "Coupon periods per year"
+    }
+  ],
+  "rules": {
+    "ytm": {
+      "definition": "IRR of bond cash flows held to maturity",
+      "assumptions": "Held to maturity, coupons reinvested at YTM, no default, no call"
+    },
+    "current_yield": {
+      "formula": "Annual coupon / flat price",
+      "use": "Quick read; ignores capital gain/loss"
+    },
+    "ytc_ytp": {
+      "ytc": "IRR to call date and call price",
+      "ytp": "IRR to put date and put price",
+      "ytw": "Min of YTM and all YTC/YTP scenarios"
+    },
+    "money_market_yields": {
+      "discount_yield": "(Face - Price)/Face * 360/days",
+      "money_market_yield": "(Face - Price)/Price * 360/days",
+      "bey": "Money market yield * 365/360 adjusted to semi-annual bond basis"
+    },
+    "conversion": {
+      "semi_to_annual": "(1 + r/2)^2 - 1",
+      "annual_to_semi": "2 * ((1+r)^0.5 - 1)"
+    },
+    "floater_yields": {
+      "discount_margin": "Spread that equates PV to price",
+      "quoted_margin": "Contractual spread over reference"
+    },
+    "validation": {
+      "bond_required": "bond_id present",
+      "valid_measure": "yield_measure in allowed set"
+    }
+  },
+  "outcomes": {
+    "compute_yield": {
+      "priority": 1,
+      "description": "Compute specified yield measure",
+      "given": [
+        {
+          "field": "bond_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "yield_measure",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "ytm",
+            "ytc",
+            "ytw",
+            "current",
+            "discount",
+            "bey"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "yield_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "yield.computed"
+        }
+      ]
+    },
+    "invalid_measure": {
+      "priority": 10,
+      "description": "Unsupported yield measure",
+      "given": [
+        {
+          "field": "yield_measure",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "ytm",
+            "ytc",
+            "ytw",
+            "current",
+            "discount",
+            "bey"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "yield.computation_rejected"
+        }
+      ],
+      "error": "YIELD_INVALID_MEASURE"
+    }
+  },
+  "errors": [
+    {
+      "code": "YIELD_INVALID_MEASURE",
+      "status": 400,
+      "message": "yield_measure must be one of the supported measures"
+    }
+  ],
+  "events": [
+    {
+      "name": "yield.computed",
+      "payload": [
+        "computation_id",
+        "bond_id",
+        "measure",
+        "value"
+      ]
+    },
+    {
+      "name": "yield.computation_rejected",
+      "payload": [
+        "computation_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not rely on YTM for callable bonds",
+      "why": "YTW captures worst economic outcome; using YTM over-states return when call is likely"
+    },
+    {
+      "rule": "Do not compare money-market and bond yields without conversion",
+      "why": "Discount yield, MMY, and BEY use different bases (360 vs 365, discount vs simple); convert before ranking"
+    },
+    {
+      "rule": "Do not assume coupon reinvestment at YTM is realistic",
+      "why": "Reinvestment risk materially shifts realised return when rates diverge from YTM; stress with scenarios"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/fixed-income/yield/compute"
+    },
+    "request": {
+      "schema": {
+        "bond_id": "string",
+        "yield_measure": "string",
+        "periods_per_year": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "computation_id": "string",
+          "measure": "string",
+          "value": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "YIELD_INVALID_MEASURE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "fixed-income-bond-pricing",
+      "type": "required"
+    },
+    {
+      "feature": "fixed-income-yield-spreads",
+      "type": "recommended"
+    }
+  ]
+}

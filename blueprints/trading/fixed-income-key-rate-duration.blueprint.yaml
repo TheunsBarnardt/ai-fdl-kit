@@ -1,0 +1,130 @@
+# ============================================================
+# fixed-income-key-rate-duration — Feature Blueprint
+# Source: CFA LV1 2025 Vol 06 — Curve Risk Measures
+# ============================================================
+
+feature: fixed-income-key-rate-duration
+version: "1.0.0"
+description: Measure bond and portfolio sensitivity to non-parallel curve shifts using key-rate durations, steepener/flattener, and butterfly trades
+category: trading
+tags: [fixed-income, key-rate-duration, curve-risk, steepener, butterfly, cfa-level-1]
+aliases:
+  - partial-duration
+  - curve-risk-measures
+  - steepener-flattener
+  - butterfly-trade
+  - principal-components-curve
+  - level-slope-curvature
+
+actors:
+  - id: curve_risk_engine
+    name: Curve Risk Engine
+    type: system
+
+fields:
+  - name: portfolio_id
+    type: text
+    required: true
+    label: Portfolio identifier
+  - name: curve_point_years
+    type: number
+    required: false
+    label: Curve tenor being perturbed (years)
+  - name: shock_bps
+    type: number
+    required: false
+    label: Size of the shock (basis points)
+  - name: trade_type
+    type: select
+    required: false
+    label: parallel | steepener | flattener | butterfly | reverse_butterfly
+
+rules:
+  key_rate_duration:
+    definition: "Sensitivity of price to a 1 bp shift at a specific curve tenor, holding others fixed"
+    sum_to_effective: "Sum of key-rate durations approximates effective duration for parallel shift"
+  principal_components:
+    level: "Largest component; captures parallel shifts (about 80-90 percent of variance)"
+    slope: "Steepener/flattener rotation around a mid-point"
+    curvature: "Butterfly; differential movement of belly vs wings"
+  curve_trades:
+    steepener: "Long short-maturity, short long-maturity; profits when curve steepens"
+    flattener: "Opposite of steepener"
+    butterfly: "Long wings, short belly; profits when curvature increases"
+  hedging:
+    duration_neutral: "Offset aggregate duration with swaps/futures"
+    key_rate_neutral: "Match key-rate durations bucket by bucket"
+    convexity_hedging: "Options or barbell positions"
+  validation:
+    portfolio_required: "portfolio_id present"
+
+outcomes:
+  compute_key_rate_risk:
+    priority: 1
+    description: Compute key-rate durations and proposed curve trades
+    given:
+      - field: portfolio_id
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: curve_risk_engine
+      - action: emit_event
+        event: curve_risk.computed
+  missing_portfolio:
+    priority: 10
+    description: Portfolio missing
+    given:
+      - field: portfolio_id
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: curve_risk.rejected
+    error: CURVE_RISK_MISSING_PORTFOLIO
+
+errors:
+  - code: CURVE_RISK_MISSING_PORTFOLIO
+    status: 400
+    message: portfolio_id is required
+
+events:
+  - name: curve_risk.computed
+    payload: [computation_id, portfolio_id, key_rate_durations, proposed_trades]
+  - name: curve_risk.rejected
+    payload: [computation_id, reason_code]
+
+anti_patterns:
+  - rule: Do not rely on parallel duration for curve-steepening environments
+    why: "Duration mis-estimates PnL when slope or curvature dominates; key-rate durations isolate the exposure"
+  - rule: Do not ignore curvature when running butterfly trades
+    why: "Butterfly carry depends on curvature realisation; ignoring convexity changes expected return sign"
+  - rule: Do not assume hedge ratios from today hold over horizon
+    why: "Curve drift and aging change key-rate sensitivities; rebalance at least monthly for active books"
+
+api:
+  http:
+    method: POST
+    path: /fixed-income/curve-risk/compute
+  request:
+    schema:
+      portfolio_id: string
+      curve_point_years: number
+      shock_bps: number
+      trade_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        computation_id: string
+        key_rate_durations: object
+        proposed_trades: array
+    errors:
+      - status: 400
+        error_code: CURVE_RISK_MISSING_PORTFOLIO
+
+related:
+  - feature: fixed-income-duration-measures
+    type: required
+  - feature: fixed-income-spot-forward-rates
+    type: required

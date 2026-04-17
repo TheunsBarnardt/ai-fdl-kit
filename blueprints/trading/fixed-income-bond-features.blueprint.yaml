@@ -1,0 +1,177 @@
+# ============================================================
+# fixed-income-bond-features — Feature Blueprint
+# Source: CFA LV1 2025 Vol 06 — Module 1, Instrument Features
+# ============================================================
+
+feature: fixed-income-bond-features
+version: "1.0.0"
+description: Classify bond indenture terms — issuer, maturity, coupon, seniority, collateral, covenants — and describe how contractual features drive cash flow and credit risk
+category: trading
+tags: [fixed-income, bond-features, indenture, covenants, seniority, cfa-level-1]
+aliases:
+  - bond-indenture
+  - bond-covenants-fi
+  - bond-seniority
+  - coupon-types
+  - bond-issuer
+  - bond-maturity
+
+actors:
+  - id: fi_classifier
+    name: Fixed-Income Instrument Classifier
+    type: system
+
+fields:
+  - name: bond_id
+    type: text
+    required: true
+    label: Bond identifier (CUSIP / ISIN)
+  - name: issuer_type
+    type: select
+    required: true
+    label: sovereign | supranational | quasi_government | corporate | municipal | securitised
+  - name: coupon_type
+    type: select
+    required: true
+    label: fixed | floating | zero | step_up | deferred | inflation_linked
+  - name: seniority
+    type: select
+    required: false
+    label: senior_secured | senior_unsecured | subordinated | junior_subordinated
+  - name: collateral
+    type: select
+    required: false
+    label: unsecured | mortgage | equipment | covered | sovereign_guarantee
+
+rules:
+  indenture_contents:
+    # Source: Vol 6, Module 1
+    obligations: "Issuer obligations — payment schedule, covenants"
+    rights: "Bondholder rights — voting, acceleration"
+    definitions: "Events of default, remedies"
+  coupon_structures:
+    fixed: "Constant rate through life"
+    floating: "Reference rate + quoted margin"
+    zero: "Issued at discount; no periodic coupons"
+    step_up: "Rate increases on schedule"
+    deferred: "No coupons early; large later"
+    inflation_linked: "Principal or coupon indexed to CPI"
+  covenants:
+    affirmative: "Must do — audited statements, insurance"
+    negative: "Must not do — additional debt above cap, asset sales"
+    maintenance: "Maintain ratios (coverage, leverage)"
+    incurrence: "Only when new action is taken"
+  seniority_ladder:
+    order_of_payment:
+      - "Senior secured"
+      - "Senior unsecured"
+      - "Subordinated"
+      - "Junior subordinated"
+      - "Preferred equity"
+      - "Common equity"
+  contingency_provisions:
+    callable: "Issuer may redeem early"
+    putable: "Bondholder may demand redemption"
+    convertible: "Convert to equity at ratio"
+  validation:
+    bond_required: "bond_id present"
+    valid_issuer: "issuer_type in allowed set"
+    valid_coupon: "coupon_type in allowed set"
+
+outcomes:
+  classify_bond:
+    priority: 1
+    description: Produce structured classification of bond indenture
+    given:
+      - field: bond_id
+        source: input
+        operator: exists
+      - field: issuer_type
+        source: input
+        operator: in
+        value: [sovereign, supranational, quasi_government, corporate, municipal, securitised]
+      - field: coupon_type
+        source: input
+        operator: in
+        value: [fixed, floating, zero, step_up, deferred, inflation_linked]
+    then:
+      - action: call_service
+        target: fi_classifier
+      - action: emit_event
+        event: bond.classified
+  invalid_issuer:
+    priority: 10
+    description: Unsupported issuer type
+    given:
+      - field: issuer_type
+        source: input
+        operator: not_in
+        value: [sovereign, supranational, quasi_government, corporate, municipal, securitised]
+    then:
+      - action: emit_event
+        event: bond.classification_rejected
+    error: BOND_INVALID_ISSUER
+  invalid_coupon:
+    priority: 11
+    description: Unsupported coupon type
+    given:
+      - field: coupon_type
+        source: input
+        operator: not_in
+        value: [fixed, floating, zero, step_up, deferred, inflation_linked]
+    then:
+      - action: emit_event
+        event: bond.classification_rejected
+    error: BOND_INVALID_COUPON
+
+errors:
+  - code: BOND_INVALID_ISSUER
+    status: 400
+    message: issuer_type must be one of the supported issuer categories
+  - code: BOND_INVALID_COUPON
+    status: 400
+    message: coupon_type must be one of the supported coupon types
+
+events:
+  - name: bond.classified
+    payload: [classification_id, bond_id, issuer_type, coupon_type, seniority]
+  - name: bond.classification_rejected
+    payload: [classification_id, reason_code]
+
+anti_patterns:
+  - rule: Do not ignore covenants when pricing corporate bonds
+    why: "Covenant strength materially affects recovery and protection against issuer actions; spread narrows for tight covenants"
+  - rule: Do not assume senior unsecured is always safe
+    why: "Structural subordination at operating subsidiaries can leave holding-company senior unsecured with thin recovery"
+  - rule: Do not treat sovereign as risk-free
+    why: "Foreign-currency and emerging sovereign debt carries default risk; even local currency can restructure"
+
+api:
+  http:
+    method: POST
+    path: /fixed-income/bonds/classify
+  request:
+    schema:
+      bond_id: string
+      issuer_type: string
+      coupon_type: string
+      seniority: string
+      collateral: string
+  response:
+    success:
+      status: 200
+      schema:
+        classification_id: string
+        issuer_type: string
+        seniority: string
+    errors:
+      - status: 400
+        error_code: BOND_INVALID_ISSUER
+      - status: 400
+        error_code: BOND_INVALID_COUPON
+
+related:
+  - feature: fixed-income-cash-flow-structures
+    type: recommended
+  - feature: fixed-income-credit-analysis
+    type: recommended
