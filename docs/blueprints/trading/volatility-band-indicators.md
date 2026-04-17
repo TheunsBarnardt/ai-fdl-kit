@@ -23,8 +23,8 @@ description: "A suite of volatility measurement and price band indicators for qu
 
 | ID | Name | Type | Description |
 |----|------|------|-------------|
-| `quant_analyst` | Quantitative Analyst | human | Configures volatility indicators for position sizing and risk management |
-| `risk_engine` | Risk Management Engine | system | Computes volatility metrics to dynamically size positions and set stop-loss levels |
+| `quant_analyst` | Quantitative Analyst | human |  |
+| `risk_engine` | Risk Management Engine | system |  |
 
 ## Fields
 
@@ -53,7 +53,6 @@ description: "A suite of volatility measurement and price band indicators for qu
 
 - **true_range:**
   - **formula:** TR = max(High - Low, abs(High - PrevClose), abs(Low - PrevClose))
-  - **description:** True Range captures overnight gaps by comparing to previous close, not just intraday High-Low spread
   - **lookback:** 1
   - **edge_case:** First bar has no PrevClose; TR = High - Low for bar[0]
   - **inputs_required:** High, Low, Close
@@ -128,8 +127,6 @@ description: "A suite of volatility measurement and price band indicators for qu
 
 ### Insufficient_data (Priority: 1) — Error: `INSUFFICIENT_DATA`
 
-_Input series shorter than required lookback_
-
 **Given:**
 - input_length <= lookback_period
 
@@ -140,16 +137,12 @@ _Input series shorter than required lookback_
 
 ### Invalid_parameters (Priority: 2) — Error: `INVALID_PARAMETER`
 
-_A period or deviation multiplier parameter is out of range_
-
 **Given:**
 - ANY: time_period < 1 and indicator_type in [ATR, NATR] OR time_period < 2 and indicator_type in [BBANDS, STDDEV, VAR] OR nb_dev_up == 0 and nb_dev_dn == 0 and indicator_type == BBANDS
 
 **Result:** Function returns error code; validate parameters before calling
 
 ### Natr_zero_close (Priority: 2) — Error: `INVALID_INPUT`
-
-_Close price is zero — NATR denominator undefined_
 
 **Given:**
 - indicator_type == NATR
@@ -158,8 +151,6 @@ _Close price is zero — NATR denominator undefined_
 **Result:** NATR output undefined at that bar; caller must filter zero-price bars
 
 ### Compute_success (Priority: 10)
-
-_Valid data and parameters — volatility metric computed_
 
 **Given:**
 - input_length > lookback_period for selected indicator
@@ -176,8 +167,6 @@ _Valid data and parameters — volatility metric computed_
 
 ### Bbands_computed (Priority: 10)
 
-_Bollinger Bands returns three aligned band arrays_
-
 **Given:**
 - indicator_type == BBANDS
 - input_length > (timePeriod - 1)
@@ -191,8 +180,6 @@ _Bollinger Bands returns three aligned band arrays_
 **Result:** Three overlaid bands; bandwidth contraction (squeeze) precedes breakout
 
 ### Volatility_expansion (Priority: 10)
-
-_ATR or NATR shows significant increase relative to recent average — potential breakout_
 
 **Given:**
 - indicator_type in [ATR, NATR]
@@ -215,19 +202,19 @@ _ATR or NATR shows significant increase relative to recent average — potential
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `volatility.computed` | Emitted when a volatility indicator computation completes | `indicator_type`, `out_nb_element`, `out_beg_idx` |
-| `volatility.expansion` | Emitted when ATR or NATR increases significantly above its recent average | `indicator_type`, `latest_value`, `expansion_ratio` |
-| `volatility.squeeze` | Emitted when BBANDS bandwidth contracts below a configurable threshold | `bandwidth`, `middle_band_value` |
+| `volatility.computed` |  | `indicator_type`, `out_nb_element`, `out_beg_idx` |
+| `volatility.expansion` |  | `indicator_type`, `latest_value`, `expansion_ratio` |
+| `volatility.squeeze` |  | `bandwidth`, `middle_band_value` |
 
 ## Related Blueprints
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| momentum-oscillators |  |  |
-| moving-average-overlap-studies |  |  |
-| directional-movement-indicators |  |  |
-| market-data-feeds |  |  |
-| regulation-28-compliance |  |  |
+| momentum-oscillators | recommended |  |
+| moving-average-overlap-studies | required |  |
+| directional-movement-indicators | recommended |  |
+| market-data-feeds | required |  |
+| regulation-28-compliance | optional |  |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

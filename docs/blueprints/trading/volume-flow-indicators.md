@@ -23,8 +23,8 @@ description: "Volume-based flow indicators that track accumulation, distribution
 
 | ID | Name | Type | Description |
 |----|------|------|-------------|
-| `quant_analyst` | Quantitative Analyst | human | Uses volume flow indicators to confirm price trends and detect divergences |
-| `indicator_engine` | Technical Indicator Engine | system | Computes volume-weighted flow metrics over OHLCV time series |
+| `quant_analyst` | Quantitative Analyst | human |  |
+| `indicator_engine` | Technical Indicator Engine | system |  |
 
 ## Fields
 
@@ -96,8 +96,6 @@ description: "Volume-based flow indicators that track accumulation, distribution
 
 ### Insufficient_data (Priority: 1) — Error: `INSUFFICIENT_DATA`
 
-_Fewer bars than lookback_
-
 **Given:**
 - input_length <= lookback_period
 
@@ -108,16 +106,12 @@ _Fewer bars than lookback_
 
 ### Missing_volume (Priority: 2) — Error: `MISSING_INPUT`
 
-_Volume array not provided — all indicators in this suite require volume_
-
 **Given:**
 - volume is null or empty
 
 **Result:** Cannot compute any volume flow indicator without volume data
 
 ### Flat_bar_edge (Priority: 3)
-
-_High == Low on one or more bars — CLV undefined for AD/ADOSC_
 
 **Given:**
 - indicator_type in [AD, ADOSC]
@@ -129,8 +123,6 @@ _High == Low on one or more bars — CLV undefined for AD/ADOSC_
 **Result:** Flat bars contribute zero to AD accumulation — no error, handled gracefully
 
 ### Compute_success (Priority: 10)
-
-_All required arrays provided and valid — volume indicator computed_
 
 **Given:**
 - input_length > lookback_period for selected indicator
@@ -146,8 +138,6 @@ _All required arrays provided and valid — volume indicator computed_
 
 ### Bullish_divergence (Priority: 10)
 
-_Price makes a new low but OBV/AD fails to confirm — buyers absorbing selling pressure_
-
 **Given:**
 - indicator_type in [OBV, AD]
 - close_prices makes new n-bar low
@@ -159,8 +149,6 @@ _Price makes a new low but OBV/AD fails to confirm — buyers absorbing selling 
 **Result:** Bullish divergence signal — potential price reversal to the upside
 
 ### Bearish_divergence (Priority: 10)
-
-_Price makes a new high but OBV/AD fails to confirm — sellers dominating_
 
 **Given:**
 - indicator_type in [OBV, AD]
@@ -174,8 +162,6 @@ _Price makes a new high but OBV/AD fails to confirm — sellers dominating_
 
 ### Mfi_overbought (Priority: 10)
 
-_MFI exceeds 80 — volume-weighted overbought condition_
-
 **Given:**
 - indicator_type == MFI
 - out_values[latest] > 80
@@ -186,8 +172,6 @@ _MFI exceeds 80 — volume-weighted overbought condition_
 **Result:** Volume-confirmed overbought — higher confidence reversal signal than RSI alone
 
 ### Mfi_oversold (Priority: 10)
-
-_MFI falls below 20 — volume-weighted oversold condition_
 
 **Given:**
 - indicator_type == MFI
@@ -210,21 +194,21 @@ _MFI falls below 20 — volume-weighted oversold condition_
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `volume.computed` | Emitted when a volume flow indicator computation completes | `indicator_type`, `out_nb_element`, `out_beg_idx` |
-| `volume.bullish_divergence` | Price makes new low but volume indicator does not confirm — accumulation detected | `indicator_type`, `price_low`, `indicator_value` |
-| `volume.bearish_divergence` | Price makes new high but volume indicator does not confirm — distribution detected | `indicator_type`, `price_high`, `indicator_value` |
-| `volume.overbought` | MFI exceeds overbought threshold (default 80) | `indicator_type`, `value`, `threshold` |
-| `volume.oversold` | MFI falls below oversold threshold (default 20) | `indicator_type`, `value`, `threshold` |
+| `volume.computed` |  | `indicator_type`, `out_nb_element`, `out_beg_idx` |
+| `volume.bullish_divergence` |  | `indicator_type`, `price_low`, `indicator_value` |
+| `volume.bearish_divergence` |  | `indicator_type`, `price_high`, `indicator_value` |
+| `volume.overbought` |  | `indicator_type`, `value`, `threshold` |
+| `volume.oversold` |  | `indicator_type`, `value`, `threshold` |
 
 ## Related Blueprints
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| momentum-oscillators |  |  |
-| directional-movement-indicators |  |  |
-| volatility-band-indicators |  |  |
-| candlestick-pattern-recognition |  |  |
-| market-data-feeds |  |  |
+| momentum-oscillators | recommended |  |
+| directional-movement-indicators | recommended |  |
+| volatility-band-indicators | optional |  |
+| candlestick-pattern-recognition | optional |  |
+| market-data-feeds | required |  |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>

@@ -3,12 +3,12 @@ title: "Candlestick Pattern Recognition Blueprint"
 layout: default
 parent: "Trading"
 grand_parent: Blueprint Catalog
-description: "A comprehensive library of 61 candlestick pattern recognition functions that identify single-bar and multi-bar Japanese candlestick formations, returning a dire"
+description: "Recognizes 61 Japanese candlestick patterns from OHLC price bars, returning +100 (bullish), -100 (bearish), or 0 (none) for each bar in the series. 9 fields. 6 "
 ---
 
 # Candlestick Pattern Recognition Blueprint
 
-> A comprehensive library of 61 candlestick pattern recognition functions that identify single-bar and multi-bar Japanese candlestick formations, returning a directional signal (+100 bullish, -100 bearish, 0 no pattern) for each input bar
+> Recognizes 61 Japanese candlestick patterns from OHLC price bars, returning +100 (bullish), -100 (bearish), or 0 (none) for each bar in the series
 
 | | |
 |---|---|
@@ -23,8 +23,8 @@ description: "A comprehensive library of 61 candlestick pattern recognition func
 
 | ID | Name | Type | Description |
 |----|------|------|-------------|
-| `quant_analyst` | Quantitative Analyst | human | Selects and combines candlestick patterns with indicator confirmation for trade signal generation |
-| `pattern_engine` | Candlestick Pattern Engine | system | Scans OHLC price bars for specific multi-bar candlestick formations and emits directional signals |
+| `quant_analyst` | Quantitative Analyst | human |  |
+| `pattern_engine` | Candlestick Pattern Engine | system |  |
 
 ## Fields
 
@@ -61,7 +61,6 @@ description: "A comprehensive library of 61 candlestick pattern recognition func
   - **range:** 0 to 1
   - **meaning:** Minimum penetration into the prior bar's body required to qualify as the pattern (e.g., 0.3 = close must be at least 30% into prior body)
 - **body_shadow_averaging:**
-  - **description:** TA-Lib uses internal Exponential Averages of body and shadow sizes to classify candles as 'long', 'short', 'doji', etc.
   - **implication:** Even single-bar patterns may have lookback > 0 due to body-size averaging
 - **pattern_categories:**
   - **reversal_bullish:**
@@ -86,8 +85,6 @@ description: "A comprehensive library of 61 candlestick pattern recognition func
 
 ### Insufficient_data (Priority: 1) — Error: `INSUFFICIENT_DATA`
 
-_Input shorter than pattern lookback_
-
 **Given:**
 - input_length <= lookback_period
 
@@ -98,8 +95,6 @@ _Input shorter than pattern lookback_
 
 ### Invalid_penetration (Priority: 2) — Error: `INVALID_PARAMETER`
 
-_Penetration parameter out of valid range for patterns that require it_
-
 **Given:**
 - pattern_type in [CDLDARKCLOUDCOVER, CDLEVENINGSTAR, CDLMORNINGSTAR, CDLABANDONEDBABY, CDLMATHOLD, CDLMORNINGDOJISTAR, CDLEVENINGDOJISTAR]
 - ANY: penetration < 0 OR penetration > 1
@@ -107,8 +102,6 @@ _Penetration parameter out of valid range for patterns that require it_
 **Result:** Function returns error; default penetration of 0.3 is the standard value
 
 ### Pattern_detected_bullish (Priority: 10)
-
-_A bullish candlestick pattern is confirmed on the current bar_
 
 **Given:**
 - input_length > lookback_period for selected pattern
@@ -123,8 +116,6 @@ _A bullish candlestick pattern is confirmed on the current bar_
 
 ### Pattern_detected_bearish (Priority: 10)
 
-_A bearish candlestick pattern is confirmed on the current bar_
-
 **Given:**
 - input_length > lookback_period
 - out_integer[latest] == -100
@@ -137,16 +128,12 @@ _A bearish candlestick pattern is confirmed on the current bar_
 
 ### No_pattern (Priority: 10)
 
-_Current bar does not complete any instance of the selected pattern_
-
 **Given:**
 - out_integer[latest] == 0
 
 **Result:** Output is 0 — most bars produce this result; pattern detection is event-driven
 
 ### Multi_pattern_scan (Priority: 10)
-
-_Running all 61 pattern functions over the same OHLC data to identify any active pattern_
 
 **Given:**
 - multiple pattern_type values evaluated in sequence over the same input
@@ -167,19 +154,19 @@ _Running all 61 pattern functions over the same OHLC data to identify any active
 
 | Event | Description | Payload |
 |-------|-------------|----------|
-| `pattern.bullish_detected` | A bullish candlestick pattern completed on the current bar | `pattern_type`, `bar_index`, `open`, `high`, `low`, `close` |
-| `pattern.bearish_detected` | A bearish candlestick pattern completed on the current bar | `pattern_type`, `bar_index`, `open`, `high`, `low`, `close` |
-| `pattern.scan_complete` | Full 61-pattern scan completed over the input range | `patterns_matched`, `bar_count`, `results_map` |
+| `pattern.bullish_detected` |  | `pattern_type`, `bar_index`, `open`, `high`, `low`, `close` |
+| `pattern.bearish_detected` |  | `pattern_type`, `bar_index`, `open`, `high`, `low`, `close` |
+| `pattern.scan_complete` |  | `patterns_matched`, `bar_count`, `results_map` |
 
 ## Related Blueprints
 
 | Feature | Relationship | Reason |
 |---------|-------------|--------|
-| momentum-oscillators |  |  |
-| directional-movement-indicators |  |  |
-| volume-flow-indicators |  |  |
-| volatility-band-indicators |  |  |
-| market-data-feeds |  |  |
+| momentum-oscillators | recommended |  |
+| directional-movement-indicators | recommended |  |
+| volume-flow-indicators | recommended |  |
+| volatility-band-indicators | optional |  |
+| market-data-feeds | required |  |
 
 <details>
 <summary><strong>Extensions (framework-specific hints)</strong></summary>
@@ -195,8 +182,6 @@ output_type: Integer Array (+100 / -100 / 0) — unlike price indicators which
 body_average_period: TA-Lib uses TA_CANDLE_AVGPERIOD (typically 14) for internal
   body/shadow classification
 candle_settings:
-  description: TA-Lib allows customization of body/shadow thresholds via
-    TA_SetCandleSettings()
   default_settings: Based on statistical norms from historical price data; can be
     tuned per instrument
   settings_types:
@@ -221,7 +206,7 @@ candle_settings:
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Candlestick Pattern Recognition Blueprint",
-  "description": "A comprehensive library of 61 candlestick pattern recognition functions that identify single-bar and multi-bar Japanese candlestick formations, returning a dire",
+  "description": "Recognizes 61 Japanese candlestick patterns from OHLC price bars, returning +100 (bullish), -100 (bearish), or 0 (none) for each bar in the series. 9 fields. 6 ",
   "programmingLanguage": "YAML",
   "codeRepository": "https://github.com/TheunsBarnardt/ai-fdl-kit",
   "license": "https://opensource.org/licenses/MIT",
