@@ -3,639 +3,1464 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FDL Prototype — Palm Vein Payment Terminal v3</title>
+<title>Tender — Palm Vein Payment Terminal v3</title>
+<link rel="preconnect" href="https://rsms.me/">
+<link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
   /* ============================================================
-     FDL Visual Spec — Palm Vein Payment Terminal
-     Two palettes: terminal (dark) and admin (light)
+     TENDER — Palm Vein Payment Terminal v3
+     Light-first warm-paper. One ink. Binary states. The amount IS the screen.
+     Spec: payment-terminal-app-v3.DESIGN.md
      ============================================================ */
   :root {
-    /* Terminal palette (dark device) */
-    --t-bg:          #0B1120;
-    --t-surface:     #131B2E;
-    --t-surface-2:   #1A2440;
-    --t-border:      #253050;
-    --t-text:        #E8EDF5;
-    --t-text-muted:  #7A8BA8;
-    --t-primary:     #3B82F6;
-    --t-primary-hover:#2563EB;
-    --t-success:     #22C55E;
-    --t-danger:      #EF4444;
-    --t-warning:     #F59E0B;
-    --t-focus:       rgba(59,130,246,0.3);
-    /* Admin palette (light web) */
-    --a-bg:          #F8FAFC;
-    --a-surface:     #FFFFFF;
-    --a-border:      #E2E8F0;
-    --a-text:        #0F172A;
-    --a-text-muted:  #64748B;
-    --a-primary:     #6366F1;
-    --a-primary-hover:#4F46E5;
-    --a-success:     #10B981;
-    --a-danger:      #EF4444;
-    --a-warning:     #F59E0B;
-    /* Shared */
-    --radius:        8px;
-    --radius-sm:     6px;
-    --radius-pill:   9999px;
-    --font:          "Inter", system-ui, -apple-system, sans-serif;
-    --mono:          "SF Mono", "Fira Code", Menlo, monospace;
-    --shadow-1:      0 1px 3px rgba(0,0,0,0.08);
-    --shadow-2:      0 4px 12px rgba(0,0,0,0.12);
-    --shadow-3:      0 12px 32px rgba(0,0,0,0.16);
-  }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { font-size: 16px; }
-  body { font-family: var(--font); background: #0F172A; color: var(--t-text); min-height: 100vh; overflow-x: hidden; }
+    /* Warm-paper surfaces */
+    --bg:#F8F5EE; --surface:#FFFFFF; --surface-2:#EFEAE0; --surface-3:#E5DFD2;
+    --border:#D8D1C0; --border-strong:#B8AE99;
+    /* Deep ink — text and action are one */
+    --text:#0B0E14; --text-muted:#5A5648; --text-placeholder:#9A9279;
+    --action:#0B0E14; --action-hover:#000000; --action-inverse:#F8F5EE;
+    /* Binary semantics */
+    --success:#1E7A4D; --success-ambient:rgba(30,122,77,0.08); --success-glow:rgba(30,122,77,0.32);
+    --fail:#A8341A; --fail-ambient:rgba(168,52,26,0.08); --fail-glow:rgba(168,52,26,0.32);
+    --attention:#9C6A12; --attention-ambient:rgba(156,106,18,0.08);
+    /* Reserved scan blue (palm reticle ONLY) */
+    --scan:#1F4FA8; --scan-ambient:rgba(31,79,168,0.08); --scan-glow:rgba(31,79,168,0.32);
+    --focus-ring:rgba(31,79,168,0.35);
 
-  /* Proto badge */
-  .proto-badge { position: fixed; top: 10px; right: 10px; z-index: 9999; background: #FEF3C7; color: #92400E; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; border: 1px solid #FCD34D; }
+    --font:"Inter Variable","Inter",system-ui,-apple-system,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+
+    --r-control:4px; --r-pill:9999px; --r-sheet:20px; --r-canvas:24px; --r-device:28px;
+    --t-fast:120ms; --t-base:180ms; --t-slow:320ms; --t-scan:1800ms;
+    --e-eased:cubic-bezier(0.33,1,0.68,1);
+    --e-snap:cubic-bezier(0.4,0,0.2,1);
+  }
+
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+  html{font-size:16px}
+  body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;padding:24px 16px 80px;line-height:1.55;font-feature-settings:"ss01","cv11";font-variation-settings:"opsz" 16}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background-image:radial-gradient(circle at 15% 12%,rgba(184,174,153,0.12),transparent 45%),radial-gradient(circle at 85% 88%,rgba(184,174,153,0.08),transparent 45%)}
+
+  .proto-badge{position:fixed;top:14px;right:14px;z-index:9999;background:var(--surface);color:var(--text-muted);padding:8px 14px;border-radius:var(--r-control);font-size:11px;font-weight:500;border:1px solid var(--border);font-family:var(--mono);letter-spacing:-0.01em;box-shadow:0 1px 0 rgba(11,14,20,0.04),0 2px 8px rgba(11,14,20,0.05)}
+  .proto-badge::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--success);margin-right:8px;vertical-align:middle}
+
+  /* Layout shell */
+  .shell{display:flex;gap:32px;max-width:1700px;margin:0 auto;align-items:flex-start;justify-content:center;flex-wrap:wrap;position:relative;z-index:1}
+  .frame-label{flex-basis:100%;text-align:center;font-family:var(--mono);font-size:10px;color:var(--text-placeholder);letter-spacing:0.16em;text-transform:uppercase;margin:32px 0 -8px}
+  .frame-label:first-child{margin-top:0}
 
   /* ============================================================
-     Layout: terminal (phone-frame) + admin (desktop)
+     DEVICE FRAME (terminal)
+     400 × 640, status LED strip, palm-scanner cutout hint on bezel
      ============================================================ */
-  .app-shell { display: flex; gap: 32px; padding: 24px; max-width: 1400px; margin: 0 auto; min-height: 100vh; align-items: flex-start; }
-  @media (max-width: 900px) { .app-shell { flex-direction: column; align-items: center; } }
+  .device{
+    width:400px;flex-shrink:0;position:relative;
+    padding:14px 14px 56px;
+    background:linear-gradient(180deg,#1A1812,#0B0A07);
+    border-radius:var(--r-device);
+    box-shadow:0 32px 80px rgba(11,14,20,0.18),0 0 0 1px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .device::after{
+    content:"PALM SCANNER · 15-30 CM";
+    position:absolute;bottom:18px;left:50%;transform:translate(-50%,0);
+    font-family:var(--mono);font-size:8px;letter-spacing:0.16em;color:rgba(248,245,238,0.32);
+  }
+  .device::before{
+    content:"";position:absolute;bottom:30px;left:50%;transform:translateX(-50%);
+    width:120px;height:4px;border-radius:2px;background:rgba(248,245,238,0.15);
+    box-shadow:inset 0 1px 2px rgba(0,0,0,0.6);
+  }
 
-  /* Terminal frame (phone-shaped) */
-  .terminal-frame {
-    width: 375px; min-height: 700px; flex-shrink: 0;
-    background: var(--t-bg); border: 2px solid var(--t-border);
-    border-radius: 24px; overflow: hidden; position: relative;
-    box-shadow: 0 0 0 4px #1E293B, var(--shadow-3);
+  .device-screen{
+    width:100%;height:640px;
+    background:var(--surface);
+    border-radius:18px;overflow:hidden;
+    display:flex;flex-direction:column;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06);
   }
-  .terminal-header {
-    background: var(--t-surface); padding: 16px 20px; display: flex;
-    align-items: center; justify-content: space-between;
-    border-bottom: 1px solid var(--t-border);
-  }
-  .terminal-header h2 { font-size: 15px; font-weight: 600; }
-  .terminal-header .merchant { font-size: 12px; color: var(--t-text-muted); }
-  .terminal-body { padding: 20px; }
-  .terminal-status { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--t-text-muted); }
-  .terminal-status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--t-success); }
 
-  /* Admin frame (desktop) */
-  .admin-frame {
-    flex: 1; min-width: 0; background: var(--a-bg);
-    border-radius: 12px; overflow: hidden;
-    border: 1px solid var(--a-border); box-shadow: var(--shadow-2);
+  /* Status LED strip — top of device */
+  .status-strip{
+    height:36px;padding:0 18px;
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--bg);
+    border-bottom:1px solid var(--border);
+    flex-shrink:0;
   }
-  .admin-header {
-    background: var(--a-surface); padding: 14px 24px; display: flex;
-    align-items: center; justify-content: space-between;
-    border-bottom: 1px solid var(--a-border);
+  .status-strip .led{display:flex;align-items:center;gap:8px}
+  .status-strip .led .dot{width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 8px var(--success-glow)}
+  .status-strip .led.attention .dot{background:var(--attention);box-shadow:0 0 8px rgba(156,106,18,0.5)}
+  .status-strip .led.offline .dot{background:var(--fail);box-shadow:0 0 8px var(--fail-glow);animation:led-blink 1.4s ease-in-out infinite}
+  @keyframes led-blink{50%{opacity:0.35}}
+  .status-strip .led .label{font-size:11px;font-weight:500;color:var(--text)}
+  .status-strip .meta{font-family:var(--mono);font-size:10px;color:var(--text-muted);letter-spacing:0}
+
+  /* Sandbox banner (when sandbox enrolled) */
+  .sandbox-banner{
+    background:var(--attention);color:#fff;
+    padding:6px 14px;font-size:10px;font-weight:600;letter-spacing:0.08em;
+    text-align:center;font-family:var(--mono);
   }
-  .admin-header h2 { font-size: 15px; font-weight: 600; color: var(--a-text); }
-  .admin-body { padding: 24px; color: var(--a-text); }
+
+  .device-body{flex:1;padding:24px;overflow-y:auto;display:flex;flex-direction:column}
+  .device-body::-webkit-scrollbar{width:0;height:0}
 
   /* ============================================================
-     Screen system
+     CONSOLE FRAME (admin)
      ============================================================ */
-  [data-screen] { display: none; animation: fadeIn 0.2s ease; }
-  [data-screen].active { display: block; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .console{
+    flex:1;min-width:560px;max-width:1080px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--r-canvas);
+    overflow:hidden;
+    box-shadow:0 4px 16px rgba(11,14,20,0.08);
+    display:flex;flex-direction:column;
+    height:680px;
+  }
+  .console-header{
+    height:56px;padding:0 24px;
+    display:flex;align-items:center;justify-content:space-between;
+    border-bottom:1px solid var(--border);
+    flex-shrink:0;
+  }
+  .console-header .ident{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600}
+  .console-header .ident .dot{width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 8px var(--success-glow)}
+  .console-header .ident .station{font-family:var(--mono);font-size:11px;color:var(--text-muted);font-weight:400;letter-spacing:0}
+  .console-header .right{display:flex;gap:8px;align-items:center}
+
+  .console-cols{flex:1;display:grid;grid-template-columns:220px 1fr;overflow:hidden}
+  .console-side{
+    background:var(--surface-2);
+    border-right:1px solid var(--border);
+    padding:16px;overflow-y:auto;
+  }
+  .console-side .label{font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin:12px 0 8px;padding:0 8px}
+  .console-side .nav-item{display:block;padding:8px 12px;font-size:13px;color:var(--text-muted);border-radius:var(--r-control);cursor:pointer;transition:all var(--t-fast) var(--e-eased)}
+  .console-side .nav-item:hover{background:var(--surface);color:var(--text)}
+  .console-side .nav-item.active{background:var(--surface);color:var(--text);border-left:2px solid var(--text);font-weight:500}
+
+  .console-main{padding:24px;overflow-y:auto}
+  .console-main::-webkit-scrollbar{width:6px}
+  .console-main::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 
   /* ============================================================
-     Terminal components
+     SCREENS
      ============================================================ */
-  .t-card { background: var(--t-surface); border: 1px solid var(--t-border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
-  .t-amount-display {
-    text-align: center; padding: 24px 0;
-    font-family: var(--mono); font-size: 2.5rem; font-weight: 700;
-    letter-spacing: -0.02em; color: var(--t-text);
-  }
-  .t-amount-display .currency { font-size: 1.5rem; color: var(--t-text-muted); vertical-align: top; margin-right: 4px; }
-  .t-btn {
-    width: 100%; height: 52px; border: none; border-radius: var(--radius);
-    font-family: var(--font); font-size: 15px; font-weight: 600;
-    cursor: pointer; transition: all 0.15s; display: flex;
-    align-items: center; justify-content: center; gap: 8px;
-  }
-  .t-btn-primary { background: var(--t-primary); color: #fff; }
-  .t-btn-primary:hover { background: var(--t-primary-hover); }
-  .t-btn-secondary { background: var(--t-surface-2); color: var(--t-text); border: 1px solid var(--t-border); }
-  .t-btn-secondary:hover { background: var(--t-border); }
-  .t-btn-success { background: var(--t-success); color: #fff; }
-  .t-btn-danger { background: var(--t-danger); color: #fff; }
-  .t-btn + .t-btn { margin-top: 8px; }
-  .t-numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
-  .t-numpad button {
-    height: 52px; border: 1px solid var(--t-border); border-radius: var(--radius-sm);
-    background: var(--t-surface); color: var(--t-text); font-family: var(--mono);
-    font-size: 20px; font-weight: 500; cursor: pointer; transition: background 0.1s;
-  }
-  .t-numpad button:hover { background: var(--t-surface-2); }
-  .t-numpad button.fn { font-size: 14px; font-family: var(--font); }
-  .t-label { font-size: 12px; color: var(--t-text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; font-weight: 500; }
-  .t-icon-circle {
-    width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 16px;
-    display: flex; align-items: center; justify-content: center; font-size: 36px;
-  }
-  .t-method-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
-  .t-method-card {
-    background: var(--t-surface); border: 2px solid var(--t-border);
-    border-radius: var(--radius); padding: 24px 12px; text-align: center;
-    cursor: pointer; transition: all 0.15s;
-  }
-  .t-method-card:hover { border-color: var(--t-primary); background: var(--t-surface-2); }
-  .t-method-card .icon { font-size: 36px; margin-bottom: 8px; }
-  .t-method-card .label { font-size: 14px; font-weight: 600; }
-  .t-method-card .sub { font-size: 11px; color: var(--t-text-muted); margin-top: 2px; }
-
-  /* Scanner animation */
-  .scanner-ring {
-    width: 160px; height: 160px; border-radius: 50%; margin: 20px auto;
-    border: 3px solid var(--t-primary); position: relative;
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-  .scanner-ring::before {
-    content: ""; position: absolute; inset: 12px; border-radius: 50%;
-    border: 2px dashed var(--t-primary); opacity: 0.4;
-    animation: spin 8s linear infinite;
-  }
-  .scanner-ring .hand { font-size: 56px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
-  @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 50% { box-shadow: 0 0 0 20px rgba(59,130,246,0); } }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* Progress bar */
-  .t-progress { height: 4px; background: var(--t-surface-2); border-radius: 2px; overflow: hidden; margin: 12px 0; }
-  .t-progress-bar { height: 100%; background: var(--t-primary); border-radius: 2px; transition: width 0.3s; }
+  [data-screen]{display:none}
+  [data-screen].active{display:flex;flex-direction:column;flex:1;animation:tender-fade var(--t-base) var(--e-eased)}
+  @keyframes tender-fade{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:none}}
 
   /* ============================================================
-     Admin components
+     TYPOGRAPHY
      ============================================================ */
-  .a-card { background: var(--a-surface); border: 1px solid var(--a-border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow-1); }
-  .a-stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
-  @media (max-width: 700px) { .a-stat-grid { grid-template-columns: 1fr 1fr; } }
-  .a-stat { background: var(--a-surface); border: 1px solid var(--a-border); border-radius: var(--radius); padding: 16px; }
-  .a-stat .value { font-size: 1.5rem; font-weight: 700; color: var(--a-text); font-family: var(--mono); }
-  .a-stat .label { font-size: 12px; color: var(--a-text-muted); margin-top: 2px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; padding: 8px 10px; font-weight: 500; color: var(--a-text-muted); border-bottom: 1px solid var(--a-border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
-  td { padding: 10px; border-bottom: 1px solid var(--a-border); }
-  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 600; }
-  .badge::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
-  .badge-success { background: #ECFDF5; color: #065F46; }
-  .badge-pending { background: #EEF2FF; color: #4338CA; }
-  .badge-danger  { background: #FEF2F2; color: #991B1B; }
-  .badge-warning { background: #FFFBEB; color: #92400E; }
-  .badge-muted   { background: #F1F5F9; color: #475569; }
-  .a-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: none; border-radius: var(--radius-sm); font-family: var(--font); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
-  .a-btn-primary { background: var(--a-primary); color: #fff; }
-  .a-btn-primary:hover { background: var(--a-primary-hover); }
-  .a-btn-ghost { background: transparent; color: var(--a-text-muted); }
-  .a-btn-ghost:hover { background: #F1F5F9; color: var(--a-text); }
-  .rail-card { display: flex; align-items: center; gap: 16px; padding: 16px; border: 1px solid var(--a-border); border-radius: var(--radius); margin-bottom: 8px; background: var(--a-surface); }
-  .rail-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: #fff; }
-  .rail-info { flex: 1; }
-  .rail-info .name { font-weight: 600; font-size: 14px; color: var(--a-text); }
-  .rail-info .desc { font-size: 12px; color: var(--a-text-muted); }
-  .toggle { width: 40px; height: 22px; border-radius: 11px; background: #CBD5E1; position: relative; cursor: pointer; transition: background 0.2s; border: none; }
-  .toggle.on { background: var(--a-primary); }
-  .toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
-  .toggle.on::after { transform: translateX(18px); }
+  .display-amount{font-family:var(--font);font-weight:800;letter-spacing:-0.05em;font-variation-settings:"opsz" 32;line-height:1;font-size:64px;color:var(--text)}
+  .display-amount.large{font-size:96px}
+  .display-amount .currency{font-family:var(--font);font-weight:600;font-size:28px;letter-spacing:-0.02em;color:var(--text-muted);margin-right:8px;vertical-align:0.18em}
+  .heading{font-family:var(--font);font-weight:600;letter-spacing:-0.015em;font-size:18px}
+  .heading-lg{font-family:var(--font);font-weight:600;letter-spacing:-0.02em;font-size:22px}
+  .subhead{font-family:var(--font);font-weight:400;font-size:14px;color:var(--text-muted);line-height:1.5}
+  .label{font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px}
+  .mono{font-family:var(--mono);letter-spacing:0;font-feature-settings:"ss01"}
 
   /* ============================================================
-     Screen nav bar
+     STATUS PILL
      ============================================================ */
-  .screen-nav {
-    position: fixed; bottom: 0; left: 0; right: 0; z-index: 9998;
-    background: #1E293B; border-top: 1px solid #334155;
-    display: flex; gap: 4px; padding: 8px 12px; overflow-x: auto;
-  }
-  .screen-nav button {
-    flex-shrink: 0; height: 30px; padding: 0 12px;
-    border: 1px solid #334155; border-radius: var(--radius-pill);
-    background: transparent; font-family: var(--font); font-size: 12px;
-    font-weight: 500; color: #94A3B8; cursor: pointer; transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .screen-nav button:hover { background: #334155; color: #E2E8F0; }
-  .screen-nav button.active-nav { background: var(--a-primary); color: #fff; border-color: var(--a-primary); }
-  .screen-nav .sep { border-left: 1px solid #334155; margin: 0 4px; }
-  body { padding-bottom: 56px; }
+  .pill{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 12px;border-radius:var(--r-pill);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;border:1px solid}
+  .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .pill--success{color:var(--success);background:var(--success-ambient);border-color:rgba(30,122,77,0.3)}
+  .pill--fail{color:var(--fail);background:var(--fail-ambient);border-color:rgba(168,52,26,0.3)}
+  .pill--attention{color:var(--attention);background:var(--attention-ambient);border-color:rgba(156,106,18,0.3)}
+  .pill--scan{color:var(--scan);background:var(--scan-ambient);border-color:rgba(31,79,168,0.3)}
+  .pill--neutral{color:var(--text-muted);background:var(--surface-2);border-color:var(--border)}
 
-  .text-center { text-align: center; }
-  .mt-8 { margin-top: 8px; }
-  .mt-12 { margin-top: 12px; }
-  .mt-16 { margin-top: 16px; }
-  .mt-20 { margin-top: 20px; }
+  /* ============================================================
+     CARDS / SHEETS
+     ============================================================ */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sheet);padding:18px;margin-bottom:14px;box-shadow:0 1px 0 rgba(11,14,20,0.04)}
+  .card--success{border-color:rgba(30,122,77,0.4);background:linear-gradient(180deg,var(--success-ambient),transparent 80%),var(--surface)}
+  .card--fail{border-color:rgba(168,52,26,0.4);background:linear-gradient(180deg,var(--fail-ambient),transparent 80%),var(--surface)}
+  .card--attention{border-color:rgba(156,106,18,0.35);background:linear-gradient(180deg,var(--attention-ambient),transparent 80%),var(--surface)}
+  .card--scan{border-color:rgba(31,79,168,0.35);background:linear-gradient(180deg,var(--scan-ambient),transparent 80%),var(--surface)}
+  .card-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+
+  /* ============================================================
+     BUTTONS — one ink, one job
+     ============================================================ */
+  .btn{
+    width:100%;height:64px;
+    background:var(--text);color:var(--action-inverse);
+    border:none;border-radius:var(--r-control);
+    font-family:var(--font);font-size:17px;font-weight:600;letter-spacing:-0.01em;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+    transition:background var(--t-base) var(--e-eased),transform var(--t-fast) var(--e-eased);
+  }
+  .btn+.btn{margin-top:10px}
+  .btn:hover{background:var(--action-hover)}
+  .btn:active{transform:scale(0.985)}
+  .btn:focus-visible{outline:2px solid var(--scan);outline-offset:3px}
+
+  /* Secondary — outlined ghost */
+  .btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border-strong)}
+  .btn-ghost:hover{background:var(--surface-2)}
+
+  /* Cancel/destructive */
+  .btn-fail{background:transparent;color:var(--fail);border:1px solid rgba(168,52,26,0.4)}
+  .btn-fail:hover{background:var(--fail-ambient)}
+
+  /* Compact (admin) */
+  .btn-sm{height:36px;font-size:13px;padding:0 14px}
+  .btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .btn-row .btn,.btn-row .btn+.btn{margin-top:0}
+  .btn-row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .btn-row-3 .btn,.btn-row-3 .btn+.btn{margin-top:0}
+
+  /* ============================================================
+     FIELDS
+     ============================================================ */
+  .field{
+    width:100%;height:60px;
+    background:var(--surface);color:var(--text);
+    border:2px solid var(--border-strong);border-radius:var(--r-control);
+    padding:0 16px;
+    font-family:var(--font);font-size:16px;
+    transition:border-color var(--t-base) var(--e-eased),box-shadow var(--t-base) var(--e-eased);
+  }
+  .field::placeholder{color:var(--text-placeholder)}
+  .field:focus{outline:none;border-color:var(--scan);box-shadow:0 0 0 4px var(--focus-ring)}
+  textarea.field{height:auto;padding:14px 16px;resize:vertical;min-height:80px;line-height:1.5}
+  select.field{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--text-muted) 50%),linear-gradient(135deg,var(--text-muted) 50%,transparent 50%);background-position:calc(100% - 20px) 28px,calc(100% - 15px) 28px;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:40px}
+  .field-sm{height:36px;font-size:13px;border-width:1px}
+
+  /* OTP cells */
+  .otp-row{display:flex;gap:8px;justify-content:center;margin:16px 0}
+  .otp-cell{width:48px;height:60px;border:2px solid var(--border-strong);border-radius:var(--r-control);background:var(--surface);color:var(--text);font-family:var(--mono);font-size:24px;font-weight:600;text-align:center}
+  .otp-cell:focus{outline:none;border-color:var(--scan);box-shadow:0 0 0 4px var(--focus-ring)}
+
+  /* ============================================================
+     NUMBER PAD (terminal amount entry / PIN)
+     ============================================================ */
+  .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r-control);overflow:hidden;margin-top:auto}
+  .keypad button{
+    height:64px;background:var(--surface);border:none;
+    font-family:var(--mono);font-size:22px;font-weight:500;color:var(--text);
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+    transition:background var(--t-fast) var(--e-eased);
+  }
+  .keypad button:hover{background:var(--surface-2)}
+  .keypad button:active{background:var(--surface-3)}
+  .keypad button.alt{font-size:18px;color:var(--text-muted)}
+
+  /* ============================================================
+     PALM SCAN RETICLE — the hero biometric moment
+     ============================================================ */
+  .scan-stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:20px 0}
+  .reticle{
+    position:relative;width:240px;height:240px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .reticle::before{
+    content:"";position:absolute;inset:0;border-radius:50%;
+    border:2px solid var(--scan);
+    box-shadow:0 0 0 1px var(--scan-ambient),0 0 32px var(--scan-glow);
+    animation:reticle-breath var(--t-scan) linear infinite;
+  }
+  .reticle::after{
+    content:"";position:absolute;inset:14px;border-radius:50%;
+    border:1px dashed rgba(31,79,168,0.4);
+    animation:reticle-rotate 10s linear infinite;
+  }
+  @keyframes reticle-breath{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.16);opacity:0.7}}
+  @keyframes reticle-rotate{to{transform:rotate(360deg)}}
+
+  /* Vein-pattern dots — simulate feature extraction */
+  .vein-pattern{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .vein-pattern svg{width:160px;height:160px}
+  .vein-pattern circle{fill:var(--scan);opacity:0;animation:vein-fade 0.18s var(--e-eased) forwards}
+  @keyframes vein-fade{to{opacity:0.85}}
+
+  .scan-instruction{font-size:18px;font-weight:600;color:var(--text);text-align:center;letter-spacing:-0.01em}
+  .scan-progress{font-family:var(--mono);font-size:12px;color:var(--scan);letter-spacing:0.04em;text-transform:uppercase}
+
+  /* Success collapse */
+  .scan-success{
+    width:240px;height:240px;border-radius:50%;
+    background:var(--success-ambient);
+    border:2px solid var(--success);
+    box-shadow:0 0 32px var(--success-glow);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--success);font-size:120px;font-weight:300;
+    animation:scan-success-pop var(--t-slow) var(--e-eased)
+  }
+  @keyframes scan-success-pop{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
+
+  /* Fail shake */
+  .scan-fail{
+    width:240px;height:240px;border-radius:50%;
+    background:var(--fail-ambient);
+    border:2px solid var(--fail);
+    box-shadow:0 0 32px var(--fail-glow);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--fail);font-size:96px;font-weight:300;
+    animation:scan-fail-shake 0.2s ease-in-out
+  }
+  @keyframes scan-fail-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+  /* ============================================================
+     CARD CAPTURE — Apple Pay-style chip illustration
+     ============================================================ */
+  .card-stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:20px 0}
+  .card-illustration{
+    width:220px;height:140px;
+    background:linear-gradient(135deg,#1F1D17,#3A3429);
+    border-radius:14px;position:relative;
+    box-shadow:0 12px 32px rgba(11,14,20,0.25),inset 0 1px 0 rgba(255,255,255,0.06);
+    color:#E5DFD2;padding:14px;
+    display:flex;flex-direction:column;justify-content:space-between;
+  }
+  .card-chip{width:36px;height:28px;background:linear-gradient(135deg,#C9B574,#8E7A3D);border-radius:4px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.2)}
+  .card-num{font-family:var(--mono);font-size:13px;letter-spacing:0.08em}
+  .card-name{font-family:var(--mono);font-size:9px;color:rgba(229,223,210,0.6);letter-spacing:0.06em;text-transform:uppercase}
+  .nfc-waves{position:absolute;top:14px;right:14px;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+  .nfc-waves .wave{width:14px;height:14px;border:1.5px solid var(--scan);border-radius:50%;border-bottom-color:transparent;border-left-color:transparent;animation:nfc-pulse 1.4s ease-in-out infinite;transform-origin:bottom right}
+  .nfc-waves .wave:nth-child(2){width:18px;height:18px;animation-delay:0.2s}
+  .nfc-waves .wave:nth-child(3){width:22px;height:22px;animation-delay:0.4s}
+  @keyframes nfc-pulse{0%,100%{opacity:0.4;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
+
+  /* ============================================================
+     RECEIPT — document feel
+     ============================================================ */
+  .receipt{
+    background:var(--surface);
+    border:1px dashed var(--border-strong);
+    padding:18px;
+    margin:0 0 14px;
+    position:relative;
+    font-family:var(--mono);
+    font-size:11px;
+    line-height:1.7;
+  }
+  .receipt::before,.receipt::after{
+    content:"";position:absolute;left:0;right:0;height:8px;
+    background-image:radial-gradient(circle at 4px 4px,var(--bg) 4px,transparent 4px);
+    background-size:8px 8px;background-position:left center;
+  }
+  .receipt::before{top:-8px}
+  .receipt::after{bottom:-8px;transform:rotate(180deg)}
+  .receipt .r-row{display:flex;justify-content:space-between;padding:2px 0}
+  .receipt .r-row.total{border-top:1px dashed var(--border-strong);margin-top:6px;padding-top:6px;font-weight:600;color:var(--text)}
+  .receipt .r-foot{margin-top:10px;padding-top:10px;border-top:1px dashed var(--border-strong);font-size:9px;color:var(--text-muted)}
+  .receipt .r-hash{font-family:var(--mono);font-size:9px;color:var(--text-placeholder);word-break:break-all}
+
+  /* ============================================================
+     ENROLMENT STEPPER
+     ============================================================ */
+  .stepper{display:flex;gap:6px;justify-content:center;margin:8px 0 20px}
+  .step{width:28px;height:3px;background:var(--border);border-radius:2px;transition:background var(--t-base) var(--e-eased)}
+  .step.done{background:var(--success)}
+  .step.cur{background:var(--text)}
+  .step-num{font-family:var(--mono);font-size:11px;color:var(--text-muted);text-align:center;margin-bottom:8px;letter-spacing:0.04em}
+
+  /* Capture-progress dots (palm enrolment 4 captures) */
+  .capture-dots{display:flex;gap:8px;justify-content:center;margin:14px 0}
+  .capture-dot{width:10px;height:10px;border-radius:50%;border:2px solid var(--border-strong);background:transparent}
+  .capture-dot.done{background:var(--success);border-color:var(--success);box-shadow:0 0 8px var(--success-glow)}
+  .capture-dot.cur{border-color:var(--scan);background:var(--scan-ambient);animation:capture-pulse 1s ease-in-out infinite}
+  @keyframes capture-pulse{50%{transform:scale(1.3)}}
+
+  /* ============================================================
+     ROWS / TOGGLES (settings, profile)
+     ============================================================ */
+  .row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)}
+  .row:last-child{border-bottom:none}
+  .row-l{flex:1}
+  .row-l .t{font-size:14px;font-weight:500}
+  .row-l .s{font-size:12px;color:var(--text-muted);margin-top:2px;line-height:1.4}
+  .toggle{width:40px;height:22px;border-radius:var(--r-pill);background:var(--surface-2);border:1px solid var(--border-strong);position:relative;cursor:pointer;flex-shrink:0;transition:all var(--t-base) var(--e-eased)}
+  .toggle::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--text-muted);transition:all var(--t-base) var(--e-eased)}
+  .toggle.on{background:var(--success-ambient);border-color:var(--success)}
+  .toggle.on::after{left:20px;background:var(--success)}
+
+  /* ============================================================
+     ADMIN — table, audit, drill-down, vendor cards
+     ============================================================ */
+  .console-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+  .console-stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-control);padding:14px}
+  .console-stat .v{font-family:var(--mono);font-size:24px;font-weight:600;letter-spacing:-0.02em;line-height:1;color:var(--text)}
+  .console-stat .v.success{color:var(--success)}
+  .console-stat .v.fail{color:var(--fail)}
+  .console-stat .l{font-size:10px;color:var(--text-muted);margin-top:8px;text-transform:uppercase;letter-spacing:0.08em;font-weight:500}
+
+  .table-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sheet);overflow:hidden}
+  .table-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap}
+
+  .tender-table{width:100%;border-collapse:collapse;font-size:12px}
+  .tender-table th{text-align:left;padding:12px 18px;font-size:9px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;border-bottom:1px solid var(--border);background:var(--surface-2)}
+  .tender-table td{padding:14px 18px;border-bottom:1px solid var(--border);vertical-align:middle}
+  .tender-table tr:last-child td{border-bottom:none}
+  .tender-table tbody tr{cursor:pointer;transition:background var(--t-fast) var(--e-eased)}
+  .tender-table tbody tr:hover{background:var(--surface-2)}
+  .tender-table tbody tr.row--success td:first-child{border-left:2px solid var(--success);padding-left:16px}
+  .tender-table tbody tr.row--fail td:first-child{border-left:2px solid var(--fail);padding-left:16px}
+  .tender-table tbody tr.row--scan td:first-child{border-left:2px solid var(--scan);padding-left:16px}
+  .tender-table .mono-id{font-family:var(--mono);font-size:11px;color:var(--text);letter-spacing:0;font-weight:500}
+  .tender-table .amount{font-family:var(--mono);font-size:12px;font-weight:600;text-align:right}
+
+  /* Audit timeline */
+  .audit-timeline{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sheet);padding:18px;margin-top:14px}
+  .audit-timeline .heading{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-bottom:12px}
+  .audit-row{display:flex;gap:14px;padding:8px 0;font-size:12px;border-bottom:1px solid var(--border)}
+  .audit-row:last-child{border-bottom:none}
+  .audit-row .ts{font-family:var(--mono);font-size:11px;color:var(--text);min-width:80px;letter-spacing:0;font-weight:500}
+  .audit-row .stage{font-family:var(--mono);font-size:9px;color:var(--text-muted);min-width:70px;text-transform:uppercase;letter-spacing:0.06em;align-self:center}
+  .audit-row .msg{flex:1;color:var(--text-muted)}
+  .audit-row .msg strong{color:var(--text);font-weight:500}
+  .audit-row .actor{font-family:var(--mono);font-size:10px;color:var(--text-placeholder);letter-spacing:0;align-self:center}
+
+  /* Form rows */
+  .form-row{margin-bottom:16px}
+  .form-row .label{margin-bottom:6px}
+  .form-foot{display:flex;justify-content:space-between;align-items:center;padding-top:14px;border-top:1px solid var(--border);margin-top:14px}
+
+  /* Vendor health ring */
+  .health-ring{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;font-weight:500}
+  .health-ring .ring{width:8px;height:8px;border-radius:50%}
+  .health-ring.ok .ring{background:var(--success);box-shadow:0 0 8px var(--success-glow)}
+  .health-ring.warn .ring{background:var(--attention)}
+  .health-ring.err .ring{background:var(--fail);box-shadow:0 0 8px var(--fail-glow)}
+
+  /* ============================================================
+     MOBILE ENROLMENT FRAME (companion)
+     ============================================================ */
+  .phone{
+    width:360px;height:740px;flex-shrink:0;
+    background:var(--bg);border:1px solid var(--border);
+    border-radius:36px;overflow:hidden;
+    box-shadow:0 32px 80px rgba(11,14,20,0.18),0 0 0 1px var(--border);
+    display:flex;flex-direction:column;
+  }
+  .phone .status-strip{height:32px}
+  .phone .device-body{padding:20px}
+
+  /* Helpers */
+  .muted{color:var(--text-muted)}
+  .center{text-align:center}
+  .mt-8{margin-top:8px}.mt-12{margin-top:12px}.mt-16{margin-top:16px}.mt-24{margin-top:24px}.mt-auto{margin-top:auto}
+  .mb-8{margin-bottom:8px}.mb-12{margin-bottom:12px}.mb-16{margin-bottom:16px}.mb-24{margin-bottom:24px}
+  .row-flex{display:flex;justify-content:space-between;align-items:center;gap:8px}
+
+  /* ============================================================
+     BOTTOM SCREEN NAV
+     ============================================================ */
+  .screen-nav{
+    position:fixed;bottom:0;left:0;right:0;z-index:9998;
+    background:rgba(248,245,238,0.92);backdrop-filter:blur(20px);
+    -webkit-backdrop-filter:blur(20px);
+    border-top:1px solid var(--border);
+    display:flex;gap:4px;padding:10px 16px;overflow-x:auto;
+  }
+  .screen-nav button{flex-shrink:0;height:30px;padding:0 12px;border:1px solid var(--border);border-radius:var(--r-control);background:transparent;color:var(--text-muted);font-family:var(--font);font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all var(--t-fast) var(--e-eased)}
+  .screen-nav button:hover{background:var(--surface);color:var(--text)}
+  .screen-nav button.active-nav{background:var(--text);color:var(--action-inverse);border-color:var(--text)}
+  .screen-nav .nav-group-label{font-family:var(--mono);font-size:9px;color:var(--text-placeholder);text-transform:uppercase;letter-spacing:0.12em;align-self:center;padding:0 6px;font-weight:600}
+  .screen-nav .sep{width:1px;background:var(--border);margin:0 4px}
+
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation:none !important;transition:none !important}
+  }
 </style>
 </head>
 <body>
 
-<div class="proto-badge">FDL Prototype &middot; Palm Vein Payment Terminal v3</div>
+<div class="proto-badge">TENDER · PALM VEIN PAYMENT TERMINAL</div>
 
-<div class="app-shell">
+<div class="shell">
+
+  <div class="frame-label">▼ TERMINAL DEVICE · MOBILE ENROLMENT · ADMIN CONSOLE</div>
 
   <!-- ============================================================
-       LEFT: Terminal (phone frame)
+       TERMINAL DEVICE
        ============================================================ -->
-  <div class="terminal-frame">
-    <div class="terminal-header">
-      <div>
-        <h2>PalmPay Terminal</h2>
-        <div class="merchant">Store #12 &middot; Sandton City</div>
+  <div class="device" id="device-terminal">
+    <div class="device-screen">
+      <div class="status-strip">
+        <div class="led"><div class="dot"></div><div class="label">Online</div></div>
+        <div class="meta">PNP-BRY-7 · DEV-A8K2L9</div>
       </div>
-      <div class="terminal-status"><div class="dot"></div> Online</div>
+      <div class="device-body">
+
+        <!-- T: Boot / device attestation -->
+        <section id="t-boot" data-screen>
+          <div class="center" style="margin:auto 0;display:flex;flex-direction:column;align-items:center;gap:18px">
+            <div style="width:72px;height:72px;border-radius:18px;background:var(--text);color:var(--action-inverse);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:600">T</div>
+            <div class="heading-lg">Tender</div>
+            <div class="subhead" style="max-width:280px">Verifying device attestation with the Payments Gateway…</div>
+            <div style="display:flex;gap:6px;margin-top:8px">
+              <div style="width:6px;height:6px;border-radius:50%;background:var(--text);animation:capture-pulse 1s ease-in-out infinite"></div>
+              <div style="width:6px;height:6px;border-radius:50%;background:var(--text);animation:capture-pulse 1s ease-in-out 0.15s infinite"></div>
+              <div style="width:6px;height:6px;border-radius:50%;background:var(--text);animation:capture-pulse 1s ease-in-out 0.3s infinite"></div>
+            </div>
+            <div class="mono mt-16" style="font-size:10px;color:var(--text-muted);letter-spacing:0.04em">DEV-A8K2L9 · MTLS · TPM-BACKED</div>
+          </div>
+        </section>
+
+        <!-- T: Idle (waiting for cashier) -->
+        <section id="t-idle" data-screen>
+          <div style="margin:auto 0;text-align:center">
+            <div class="label">Pick n Pay · Bryanston</div>
+            <div class="heading-lg" style="margin-top:8px">Ready</div>
+            <div class="subhead mt-12">Cashier — enter amount to begin a transaction.</div>
+            <div class="mono mt-24" style="font-size:11px;color:var(--text-muted);letter-spacing:0.04em">12 TXN TODAY · LAST PAYSHAP 0.8s</div>
+          </div>
+          <button class="btn mt-auto" onclick="showT('t-amount')">Begin transaction</button>
+          <button class="btn-ghost btn mt-8" onclick="showT('t-settings')">Cashier menu</button>
+        </section>
+
+        <!-- T: Amount entry -->
+        <section id="t-amount" data-screen class="active">
+          <div class="label">Enter amount</div>
+          <div class="center mt-16 mb-24">
+            <div class="display-amount"><span class="currency">R</span>250<span style="color:var(--text-muted);font-weight:600">,00</span></div>
+            <div class="subhead mt-8">Pick n Pay · Bryanston West</div>
+          </div>
+          <div class="keypad">
+            <button>1</button><button>2</button><button>3</button>
+            <button>4</button><button>5</button><button>6</button>
+            <button>7</button><button>8</button><button>9</button>
+            <button class="alt">,</button><button>0</button><button class="alt">⌫</button>
+          </div>
+          <button class="btn mt-12" onclick="showT('t-method')">Continue</button>
+        </section>
+
+        <!-- T: Method selection -->
+        <section id="t-method" data-screen>
+          <div class="label">Choose payment method</div>
+          <div class="center mb-16">
+            <div class="display-amount"><span class="currency">R</span>250<span style="color:var(--text-muted);font-weight:600">,00</span></div>
+          </div>
+          <div class="card" onclick="showT('t-palm-scan')" style="cursor:pointer;border-width:2px;border-color:var(--text)">
+            <div class="card-row">
+              <div>
+                <div class="heading">Pay with palm</div>
+                <div class="subhead mt-8">Hold your hand 15-30cm above the scanner. Settles in under 5 seconds.</div>
+              </div>
+              <div style="font-size:32px;color:var(--text-muted)">✋</div>
+            </div>
+            <div class="mono mt-12" style="font-size:10px;color:var(--success);letter-spacing:0.06em">✓ FASTEST · NO PIN · NO CARD</div>
+          </div>
+          <div class="card" onclick="showT('t-card-insert')" style="cursor:pointer">
+            <div class="card-row">
+              <div>
+                <div class="heading">Pay with card</div>
+                <div class="subhead mt-8">Tap, insert, or swipe. Supports Visa, Mastercard, AMEX, Apple Pay, Google Pay.</div>
+              </div>
+              <div style="font-size:32px;color:var(--text-muted)">▭</div>
+            </div>
+          </div>
+          <button class="btn-ghost btn mt-auto" onclick="showT('t-amount')">Cancel</button>
+        </section>
+
+        <!-- T: Palm scan (HERO biometric moment) -->
+        <section id="t-palm-scan" data-screen>
+          <div class="row-flex mb-12">
+            <span class="pill pill--scan">Scanning</span>
+            <span class="mono" style="font-size:11px">R 250,00</span>
+          </div>
+          <div class="scan-stage">
+            <div class="reticle">
+              <div class="vein-pattern">
+                <svg viewBox="0 0 160 160">
+                  <circle cx="80" cy="40" r="4" style="animation-delay:0.05s"/>
+                  <circle cx="65" cy="55" r="3" style="animation-delay:0.10s"/>
+                  <circle cx="95" cy="55" r="3" style="animation-delay:0.15s"/>
+                  <circle cx="55" cy="75" r="3" style="animation-delay:0.20s"/>
+                  <circle cx="80" cy="75" r="4" style="animation-delay:0.25s"/>
+                  <circle cx="105" cy="75" r="3" style="animation-delay:0.30s"/>
+                  <circle cx="48" cy="95" r="3" style="animation-delay:0.35s"/>
+                  <circle cx="68" cy="100" r="3" style="animation-delay:0.40s"/>
+                  <circle cx="92" cy="100" r="3" style="animation-delay:0.45s"/>
+                  <circle cx="112" cy="95" r="3" style="animation-delay:0.50s"/>
+                  <circle cx="58" cy="115" r="3" style="animation-delay:0.55s"/>
+                  <circle cx="80" cy="120" r="4" style="animation-delay:0.60s"/>
+                  <circle cx="102" cy="115" r="3" style="animation-delay:0.65s"/>
+                </svg>
+              </div>
+            </div>
+            <div>
+              <div class="scan-instruction">Hold your hand still</div>
+              <div class="scan-progress center mt-12">EXTRACTING FEATURES · 0.4s</div>
+            </div>
+          </div>
+          <button class="btn-ghost btn" onclick="showT('t-method')">Cancel</button>
+        </section>
+
+        <!-- T: Palm match success -->
+        <section id="t-palm-success" data-screen>
+          <div class="row-flex mb-12"><span class="pill pill--success">Matched</span><span class="mono" style="font-size:11px">R 250,00</span></div>
+          <div class="scan-stage">
+            <div class="scan-success">✓</div>
+            <div class="center">
+              <div class="heading-lg">Welcome back, T. Barnardt</div>
+              <div class="subhead mt-8">Routing via PayShap…</div>
+              <div class="scan-progress mt-12" style="color:var(--text-muted)">PALM-SESSION T-A8K2L9 · ROUTING</div>
+            </div>
+          </div>
+          <button class="btn" onclick="showT('t-success')">Confirm pay R 250,00</button>
+          <button class="btn-ghost btn mt-8" onclick="showT('t-method')">Use a different method</button>
+        </section>
+
+        <!-- T: Palm match fail -->
+        <section id="t-palm-fail" data-screen>
+          <div class="row-flex mb-12"><span class="pill pill--fail">Not matched</span><span class="mono" style="font-size:11px">R 250,00</span></div>
+          <div class="scan-stage">
+            <div class="scan-fail">✕</div>
+            <div class="center">
+              <div class="heading-lg">Palm not recognised</div>
+              <div class="subhead mt-8">No enrolled match in our records. Try again or pay another way.</div>
+            </div>
+          </div>
+          <button class="btn" onclick="showT('t-palm-scan')">Try palm again</button>
+          <button class="btn-ghost btn mt-8" onclick="showT('t-card-insert')">Pay with card</button>
+          <button class="btn-fail btn mt-8" onclick="showT('t-amount')">Cancel transaction</button>
+        </section>
+
+        <!-- T: Card capture (insert / NFC) -->
+        <section id="t-card-insert" data-screen>
+          <div class="row-flex mb-12"><span class="pill pill--scan">Awaiting card</span><span class="mono" style="font-size:11px">R 250,00</span></div>
+          <div class="card-stage">
+            <div class="card-illustration">
+              <div class="card-chip"></div>
+              <div class="nfc-waves"><div class="wave"></div><div class="wave"></div><div class="wave"></div></div>
+              <div>
+                <div class="card-num">•••• •••• •••• ••••</div>
+                <div class="card-name mt-8">Tap, insert, or swipe</div>
+              </div>
+            </div>
+            <div class="center">
+              <div class="heading">Tap, insert, or swipe</div>
+              <div class="subhead mt-8">Visa · Mastercard · AMEX · Apple Pay · Google Pay</div>
+            </div>
+          </div>
+          <button class="btn-ghost btn" onclick="showT('t-method')">Cancel</button>
+        </section>
+
+        <!-- T: Card PIN -->
+        <section id="t-card-pin" data-screen>
+          <div class="row-flex mb-12"><span class="pill pill--scan">PIN required</span><span class="mono" style="font-size:11px">R 250,00</span></div>
+          <div class="center mt-16 mb-16">
+            <div class="heading-lg">Enter your PIN</div>
+            <div class="subhead mt-8">VISA debit · ending <span class="mono">4824</span></div>
+          </div>
+          <div class="otp-row">
+            <input class="otp-cell" value="•" type="password"><input class="otp-cell" value="•" type="password"><input class="otp-cell" value="•" type="password"><input class="otp-cell" value="" type="password">
+          </div>
+          <div class="keypad mt-16">
+            <button>1</button><button>2</button><button>3</button>
+            <button>4</button><button>5</button><button>6</button>
+            <button>7</button><button>8</button><button>9</button>
+            <button class="alt">​</button><button>0</button><button class="alt">⌫</button>
+          </div>
+          <button class="btn mt-12" onclick="showT('t-card-processing')">Confirm</button>
+        </section>
+
+        <!-- T: Card processing -->
+        <section id="t-card-processing" data-screen>
+          <div class="row-flex mb-12"><span class="pill pill--scan">Processing</span><span class="mono" style="font-size:11px">R 250,00</span></div>
+          <div class="scan-stage">
+            <div class="reticle"><div class="vein-pattern"><svg viewBox="0 0 160 160"><circle cx="80" cy="80" r="6" style="animation-delay:0s"/></svg></div></div>
+            <div class="center">
+              <div class="heading-lg">Authorising</div>
+              <div class="scan-progress mt-12">CLOUD-EMV · ACQUIRER · TOKENISING</div>
+            </div>
+          </div>
+          <button class="btn" onclick="showT('t-success')">Continue (demo)</button>
+        </section>
+
+        <!-- T: Payment success -->
+        <section id="t-success" data-screen>
+          <div class="row-flex mb-12"><span class="pill pill--success">Cleared</span><span class="mono" style="font-size:11px">SETTLED 0.8s</span></div>
+          <div class="scan-stage">
+            <div class="scan-success">✓</div>
+            <div class="center">
+              <div class="display-amount large" style="margin-top:8px"><span class="currency">R</span>250<span style="color:var(--text-muted);font-weight:600">,00</span></div>
+              <div class="heading mt-12">Payment received</div>
+              <div class="mono mt-12" style="font-size:11px;color:var(--text-muted);letter-spacing:0.04em">REF · PAY-2026-04-17-A8K2L9</div>
+            </div>
+          </div>
+          <button class="btn" onclick="showT('t-receipt-choose')">Receipt</button>
+          <button class="btn-ghost btn mt-8" onclick="showT('t-idle')">Done</button>
+        </section>
+
+        <!-- T: Receipt selection -->
+        <section id="t-receipt-choose" data-screen>
+          <div class="label">Send receipt</div>
+          <div class="card" onclick="showT('t-receipt-sent')" style="cursor:pointer">
+            <div class="row-flex"><div><div class="heading">SMS</div><div class="subhead mt-8">+27 82 555 ••••</div></div><div style="font-size:24px;color:var(--text-muted)">›</div></div>
+          </div>
+          <div class="card" onclick="showT('t-receipt-sent')" style="cursor:pointer">
+            <div class="row-flex"><div><div class="heading">Email</div><div class="subhead mt-8">t.b•••@•••.co.za</div></div><div style="font-size:24px;color:var(--text-muted)">›</div></div>
+          </div>
+          <div class="card" onclick="showT('t-receipt-sent')" style="cursor:pointer">
+            <div class="row-flex"><div><div class="heading">No receipt</div><div class="subhead mt-8">Receipt remains in your account history</div></div><div style="font-size:24px;color:var(--text-muted)">›</div></div>
+          </div>
+          <button class="btn-ghost btn mt-auto" onclick="showT('t-idle')">Done</button>
+        </section>
+
+        <!-- T: Receipt sent -->
+        <section id="t-receipt-sent" data-screen>
+          <div class="row-flex mb-12"><span class="pill pill--success">Sent</span><span class="mono" style="font-size:11px">SMS · 0.4s</span></div>
+          <div class="receipt">
+            <div class="r-row"><span>Pick n Pay · Bryanston W</span><span class="mono">A8K2L9</span></div>
+            <div class="r-row muted"><span>Terminal</span><span class="mono">DEV-A8K2L9</span></div>
+            <div class="r-row muted"><span>Date</span><span class="mono">2026-04-17 13:42</span></div>
+            <div class="r-row muted"><span>Method</span><span>Palm · PayShap</span></div>
+            <div class="r-row total"><span>TOTAL</span><span class="mono">R 250,00</span></div>
+            <div class="r-row muted"><span>Ref</span><span class="mono">PAY-2026-04-17-A8K2L9</span></div>
+            <div class="r-foot">SETTLED VIA PAYSHAP IN 0.8s · NEDBANK ←→ FNB<br>SIGNED-AUDIT-CHAIN ENTRY:</div>
+            <div class="r-hash mt-8">a3f9e2b4c1d7…0a8b · CHAIN-IDX 1842091</div>
+          </div>
+          <div class="center subhead">Receipt sent to <span class="mono">+27 82 555 ••••</span></div>
+          <button class="btn mt-auto" onclick="showT('t-idle')">Done</button>
+        </section>
+
+        <!-- T: Refund — Manager PIN -->
+        <section id="t-refund-pin" data-screen>
+          <div class="row-flex mb-12"><span class="pill pill--attention">Manager required</span><span class="mono" style="font-size:11px">REFUND</span></div>
+          <div class="center mt-16 mb-16">
+            <div class="heading-lg">Manager PIN</div>
+            <div class="subhead mt-8">Refunds require manager authorisation.</div>
+          </div>
+          <div class="otp-row">
+            <input class="otp-cell" value="•" type="password"><input class="otp-cell" value="•" type="password"><input class="otp-cell" value="" type="password"><input class="otp-cell" value="" type="password">
+          </div>
+          <div class="keypad mt-16">
+            <button>1</button><button>2</button><button>3</button>
+            <button>4</button><button>5</button><button>6</button>
+            <button>7</button><button>8</button><button>9</button>
+            <button class="alt">​</button><button>0</button><button class="alt">⌫</button>
+          </div>
+          <button class="btn mt-12" onclick="showT('t-refund-lookup')">Confirm</button>
+        </section>
+
+        <!-- T: Refund — lookup -->
+        <section id="t-refund-lookup" data-screen>
+          <div class="label">Look up transaction</div>
+          <input class="field mb-12" placeholder="Reference (PAY-…)" value="PAY-2026-04-17-A8K2L9">
+          <div class="card">
+            <div class="row-flex mb-8"><span class="pill pill--success">Cleared</span><span class="mono" style="font-size:11px">17 APR · 13:42</span></div>
+            <div class="display-amount" style="font-size:40px"><span class="currency">R</span>250<span style="color:var(--text-muted);font-weight:600">,00</span></div>
+            <div class="subhead mt-8">Palm · PayShap · matched template</div>
+            <div class="mono mt-8" style="font-size:11px;color:var(--text-muted)">PAY-2026-04-17-A8K2L9</div>
+          </div>
+          <button class="btn" onclick="showT('t-refund-confirm')">Refund full amount</button>
+          <button class="btn-ghost btn mt-8" onclick="showT('t-refund-confirm')">Refund partial</button>
+        </section>
+
+        <!-- T: Refund confirm -->
+        <section id="t-refund-confirm" data-screen>
+          <div class="row-flex mb-12"><span class="pill pill--attention">Confirm refund</span><span class="mono" style="font-size:11px">PAY-…A8K2L9</span></div>
+          <div class="center mt-16">
+            <div class="display-amount" style="font-size:48px;color:var(--fail)">−<span class="currency">R</span>250<span style="font-weight:600">,00</span></div>
+            <div class="subhead mt-8">Reverse via PayShap to original proxy</div>
+          </div>
+          <div class="form-row mt-16">
+            <div class="label">Reason</div>
+            <select class="field"><option>Customer return</option><option>Product damaged</option><option>Duplicate charge</option><option>Other</option></select>
+          </div>
+          <button class="btn btn-fail" onclick="showT('t-refund-done')">Confirm refund</button>
+          <button class="btn-ghost btn mt-8" onclick="showT('t-idle')">Cancel</button>
+        </section>
+
+        <!-- T: Refund done -->
+        <section id="t-refund-done" data-screen>
+          <div class="row-flex mb-12"><span class="pill pill--success">Refunded</span><span class="mono" style="font-size:11px">SETTLED 0.6s</span></div>
+          <div class="scan-stage">
+            <div class="scan-success">✓</div>
+            <div class="center">
+              <div class="display-amount large" style="font-size:64px"><span class="currency">R</span>250<span style="color:var(--text-muted);font-weight:600">,00</span></div>
+              <div class="heading mt-12">Refund cleared</div>
+              <div class="mono mt-12" style="font-size:11px;color:var(--text-muted)">REF-2026-04-17-RFD-A8K2L9</div>
+            </div>
+          </div>
+          <button class="btn" onclick="showT('t-receipt-choose')">Send refund receipt</button>
+          <button class="btn-ghost btn mt-8" onclick="showT('t-idle')">Done</button>
+        </section>
+
+        <!-- T: Enrolment 1 — palm capture -->
+        <section id="t-enrol-1" data-screen>
+          <div class="step-num">STEP 1 OF 5 · NEW PALM ENROLMENT</div>
+          <div class="stepper"><div class="step cur"></div><div class="step"></div><div class="step"></div><div class="step"></div><div class="step"></div></div>
+          <div class="heading-lg center">Capture your palm</div>
+          <div class="subhead center mt-8">Four scans required. Hold steady — we extract a vein-pattern template, never a photo.</div>
+          <div class="scan-stage" style="padding:12px 0">
+            <div class="reticle" style="width:200px;height:200px">
+              <div class="vein-pattern">
+                <svg viewBox="0 0 160 160">
+                  <circle cx="80" cy="40" r="4" style="animation-delay:0.05s"/>
+                  <circle cx="65" cy="60" r="3" style="animation-delay:0.10s"/>
+                  <circle cx="95" cy="60" r="3" style="animation-delay:0.15s"/>
+                  <circle cx="80" cy="80" r="4" style="animation-delay:0.20s"/>
+                  <circle cx="60" cy="100" r="3" style="animation-delay:0.25s"/>
+                  <circle cx="100" cy="100" r="3" style="animation-delay:0.30s"/>
+                  <circle cx="80" cy="120" r="4" style="animation-delay:0.35s"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div class="capture-dots">
+            <div class="capture-dot done"></div>
+            <div class="capture-dot done"></div>
+            <div class="capture-dot cur"></div>
+            <div class="capture-dot"></div>
+          </div>
+          <div class="scan-progress center">CAPTURE 3 OF 4 · HOLD STEADY</div>
+          <button class="btn mt-12" onclick="showT('t-enrol-2')">Continue (demo)</button>
+        </section>
+
+        <!-- T: Enrolment 2 — second hand -->
+        <section id="t-enrol-2" data-screen>
+          <div class="step-num">STEP 2 OF 5</div>
+          <div class="stepper"><div class="step done"></div><div class="step cur"></div><div class="step"></div><div class="step"></div><div class="step"></div></div>
+          <div class="heading-lg center">Enrol a second hand?</div>
+          <div class="subhead center mt-8" style="max-width:280px;margin-left:auto;margin-right:auto">Optional. A second hand means you can pay with either palm — useful if your dominant hand is unavailable.</div>
+          <div class="card mt-24" onclick="showT('t-enrol-1')" style="cursor:pointer;border-color:var(--text);border-width:2px">
+            <div class="card-row"><div class="heading">Yes — capture second hand</div><div style="font-size:24px;color:var(--text-muted)">›</div></div>
+          </div>
+          <div class="card" onclick="showT('t-enrol-3')" style="cursor:pointer">
+            <div class="card-row"><div class="heading">Skip — one hand is enough</div><div style="font-size:24px;color:var(--text-muted)">›</div></div>
+          </div>
+        </section>
+
+        <!-- T: Enrolment 3 — phone -->
+        <section id="t-enrol-3" data-screen>
+          <div class="step-num">STEP 3 OF 5</div>
+          <div class="stepper"><div class="step done"></div><div class="step done"></div><div class="step cur"></div><div class="step"></div><div class="step"></div></div>
+          <div class="heading-lg center">Link to your phone</div>
+          <div class="subhead center mt-8">We'll send an OTP to verify ownership. This phone becomes your PayShap proxy.</div>
+          <div class="form-row mt-16">
+            <div class="label">Phone</div>
+            <div style="display:flex;gap:8px"><select class="field" style="flex:0 0 100px"><option>+27</option></select><input class="field" style="flex:1" placeholder="82 555 0000" inputmode="tel"></div>
+          </div>
+          <button class="btn mt-12" onclick="showT('t-enrol-4')">Send OTP</button>
+        </section>
+
+        <!-- T: Enrolment 4 — OTP -->
+        <section id="t-enrol-4" data-screen>
+          <div class="step-num">STEP 4 OF 5</div>
+          <div class="stepper"><div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step cur"></div><div class="step"></div></div>
+          <div class="heading-lg center">Enter the 6-digit code</div>
+          <div class="subhead center mt-8">Sent to <span class="mono">+27 82 555 0000</span>. Code expires in <span class="mono">10:00</span>.</div>
+          <div class="otp-row">
+            <input class="otp-cell" value="9"><input class="otp-cell" value="2"><input class="otp-cell" value="7"><input class="otp-cell" value="3"><input class="otp-cell" value=""><input class="otp-cell" value="">
+          </div>
+          <button class="btn mt-12" onclick="showT('t-enrol-5')">Verify</button>
+          <button class="btn-ghost btn mt-8">Resend</button>
+        </section>
+
+        <!-- T: Enrolment 5 — done -->
+        <section id="t-enrol-5" data-screen>
+          <div class="step-num">STEP 5 OF 5 · ENROLMENT COMPLETE</div>
+          <div class="stepper"><div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step cur"></div></div>
+          <div class="scan-stage">
+            <div class="scan-success">✓</div>
+            <div class="center">
+              <div class="heading-lg">You're enrolled</div>
+              <div class="subhead mt-8" style="max-width:280px;margin:0 auto">Pay with your palm at any Tender terminal. Settles in under 5 seconds via PayShap.</div>
+              <div class="mono mt-16" style="font-size:11px;color:var(--text-muted);letter-spacing:0.04em">ENROL-2026-04-17-T-A8K2L9</div>
+            </div>
+          </div>
+          <button class="btn" onclick="showT('t-idle')">Done</button>
+        </section>
+
+        <!-- T: Settings (cashier menu) -->
+        <section id="t-settings" data-screen>
+          <div class="heading-lg mb-16">Cashier menu</div>
+          <div class="card" onclick="showT('t-enrol-1')" style="cursor:pointer">
+            <div class="card-row"><div><div class="heading">New palm enrolment</div><div class="subhead mt-8">Activate enrolment mode for a customer</div></div><div style="font-size:24px;color:var(--text-muted)">›</div></div>
+          </div>
+          <div class="card" onclick="showT('t-refund-pin')" style="cursor:pointer">
+            <div class="card-row"><div><div class="heading">Refund</div><div class="subhead mt-8">Requires manager PIN</div></div><div style="font-size:24px;color:var(--text-muted)">›</div></div>
+          </div>
+          <div class="card">
+            <div class="row"><div class="row-l"><div class="t">Cashier-dark mode</div><div class="s">For low-light kiosks</div></div><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+            <div class="row"><div class="row-l"><div class="t">Beep on success</div><div class="s">Audible confirmation</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="row"><div class="row-l"><div class="t">Language</div><div class="s">English</div></div><span class="mono" style="font-size:10px;color:var(--text-muted)">CHANGE</span></div>
+          </div>
+          <button class="btn-ghost btn mt-auto" onclick="showT('t-idle')">Back</button>
+        </section>
+
+        <!-- T: Offline (PGW unreachable) -->
+        <section id="t-offline" data-screen>
+          <div class="card card--fail">
+            <div class="card-row mb-8"><span class="pill pill--fail">Offline</span><span class="mono" style="font-size:11px;color:var(--text-muted)">PGW UNREACHABLE</span></div>
+            <div class="heading">Payments unavailable</div>
+            <div class="subhead mt-8">This terminal cannot accept payments while disconnected from the Payments Gateway. Refunds and card capture are also disabled.</div>
+          </div>
+          <div class="card">
+            <div class="label">Retry status</div>
+            <div class="mono" style="font-size:11px;color:var(--text-muted);line-height:1.8">
+              <div>RETRY 1 · 13:48 · TIMEOUT</div>
+              <div>RETRY 2 · 13:50 · TIMEOUT</div>
+              <div>NEXT ATTEMPT · 13:52 (in 0:43)</div>
+            </div>
+          </div>
+          <div class="card card--attention">
+            <div class="heading">What to tell the customer</div>
+            <div class="subhead mt-8">"We're temporarily unable to take payments. Cash is fine, or please come back in a moment."</div>
+          </div>
+          <button class="btn-ghost btn mt-auto" onclick="showT('t-idle')">Try now</button>
+        </section>
+
+      </div>
     </div>
-    <div class="terminal-body">
+  </div>
 
-      <!-- Screen: Amount Entry (§4.1 step 1) -->
-      <section id="t-amount" data-screen class="active">
-        <div class="t-label">Enter Amount</div>
-        <div class="t-amount-display"><span class="currency">R</span><span id="amount-val">0.00</span></div>
-        <div class="t-numpad">
-          <button onclick="numpad('1')">1</button><button onclick="numpad('2')">2</button><button onclick="numpad('3')">3</button>
-          <button onclick="numpad('4')">4</button><button onclick="numpad('5')">5</button><button onclick="numpad('6')">6</button>
-          <button onclick="numpad('7')">7</button><button onclick="numpad('8')">8</button><button onclick="numpad('9')">9</button>
-          <button onclick="numpad('C')" class="fn" style="color:var(--t-danger)">Clear</button>
-          <button onclick="numpad('0')">0</button>
-          <button onclick="numpad('.')" class="fn">.</button>
+
+  <!-- ============================================================
+       MOBILE ENROLMENT FRAME (companion app)
+       ============================================================ -->
+  <div class="phone" id="phone-enrol">
+    <div class="status-strip">
+      <div class="led"><div class="dot"></div><div class="label">Tender</div></div>
+      <div class="meta">ENROLMENT · ON-PHONE</div>
+    </div>
+    <div class="device-body">
+
+      <section id="m-intro" data-screen class="active">
+        <div class="center" style="margin-top:24px">
+          <div style="width:64px;height:64px;border-radius:18px;background:var(--text);color:var(--action-inverse);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;margin:0 auto 16px">T</div>
+          <div class="heading-lg">Enrol your palm</div>
+          <div class="subhead mt-8" style="padding:0 12px">Pay anywhere with Tender — no card, no phone, no PIN. Sub-5-second checkout.</div>
         </div>
-        <button class="t-btn t-btn-primary" onclick="showT('t-method')">Charge</button>
-      </section>
-
-      <!-- Screen: Method Selection (§4.1 step 2) -->
-      <section id="t-method" data-screen>
-        <div class="t-label">Payment Amount</div>
-        <div class="t-amount-display" style="padding:12px 0;font-size:1.8rem"><span class="currency">R</span><span id="method-amount">250.00</span></div>
-        <div class="t-label mt-12">Choose Payment Method</div>
-        <div class="t-method-grid">
-          <div class="t-method-card" onclick="showT('t-palm-scan')">
-            <div class="icon">&#9995;</div>
-            <div class="label">Palm</div>
-            <div class="sub">PayShap instant</div>
-          </div>
-          <div class="t-method-card" onclick="showT('t-card')">
-            <div class="icon">&#128179;</div>
-            <div class="label">Card</div>
-            <div class="sub">Tap / Insert / Swipe</div>
+        <div class="card mt-24">
+          <div class="label">What you'll need</div>
+          <div style="font-size:13px;color:var(--text);line-height:1.9">
+            ✓ Phone with a working camera<br>
+            ✓ A SA mobile number (for OTP)<br>
+            ✓ A linked PayShap-eligible bank account<br>
+            ✓ ~2 minutes
           </div>
         </div>
-        <button class="t-btn t-btn-secondary" onclick="showT('t-amount')">&#8592; Back</button>
-      </section>
-
-      <!-- Screen: Palm Scan (§4.1 step 3 + §3.1 technical flow) -->
-      <section id="t-palm-scan" data-screen>
-        <div class="text-center">
-          <div class="t-label" style="text-align:center">Place Hand on Scanner</div>
-          <div class="scanner-ring"><div class="hand">&#9995;</div></div>
-          <div style="color:var(--t-text-muted);font-size:13px">Hold hand 15-30cm above scanner<br>Fingers spread naturally</div>
-          <div class="t-progress mt-16"><div class="t-progress-bar" id="scan-progress" style="width:0%"></div></div>
-          <div id="scan-status" style="font-size:13px;color:var(--t-primary);margin-top:8px">Scanning...</div>
+        <div class="card card--attention">
+          <div class="heading">Your biometric stays on the device</div>
+          <div class="subhead mt-8">POPIA s.26 — vein-pattern templates never leave the terminal that captures them. Only an opaque template ID is shared.</div>
         </div>
-        <button class="t-btn t-btn-secondary mt-20" onclick="showT('t-method')">Cancel</button>
+        <button class="btn mt-auto" onclick="showM('m-scan')">Begin</button>
       </section>
 
-      <!-- Screen: Palm Processing (§3.1 steps 3-6 — gateway resolve + payment) -->
-      <section id="t-palm-processing" data-screen>
-        <div class="text-center">
-          <div class="t-icon-circle" style="background:var(--t-surface-2);border:2px solid var(--t-primary)">
-            <div style="animation:spin 1s linear infinite;font-size:28px">&#9696;</div>
-          </div>
-          <div style="font-weight:600;font-size:16px">Processing Payment</div>
-          <div style="color:var(--t-text-muted);font-size:13px;margin-top:8px">
-            Resolving palm session...<br>
-            <span style="font-family:var(--mono);font-size:11px">POST /v1/palm-sessions/resolve</span>
-          </div>
-          <div class="t-card mt-16" style="text-align:left">
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
-              <span style="color:var(--t-text-muted)">Step 1: Template match</span><span style="color:var(--t-success)">&#10003; 0.4s</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
-              <span style="color:var(--t-text-muted)">Step 2: Resolve proxy</span><span style="color:var(--t-success)">&#10003; 0.2s</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
-              <span style="color:var(--t-text-muted)">Step 3: Rail selection</span><span style="color:var(--t-primary)">&#8943; payshap</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:13px">
-              <span style="color:var(--t-text-muted)">Step 4: Settlement</span><span style="color:var(--t-text-muted)">waiting...</span>
+      <section id="m-scan" data-screen>
+        <div class="step-num">STEP 1 OF 4 · CAPTURE</div>
+        <div class="stepper"><div class="step cur"></div><div class="step"></div><div class="step"></div><div class="step"></div></div>
+        <div class="heading-lg center">Hold your hand over the camera</div>
+        <div class="subhead center mt-8">15-30cm above. The infrared attachment captures the vein pattern.</div>
+        <div class="scan-stage" style="padding:12px 0">
+          <div class="reticle" style="width:200px;height:200px">
+            <div class="vein-pattern">
+              <svg viewBox="0 0 160 160">
+                <circle cx="80" cy="50" r="4" style="animation-delay:0.05s"/>
+                <circle cx="65" cy="70" r="3" style="animation-delay:0.10s"/>
+                <circle cx="95" cy="70" r="3" style="animation-delay:0.15s"/>
+                <circle cx="80" cy="90" r="4" style="animation-delay:0.20s"/>
+                <circle cx="60" cy="110" r="3" style="animation-delay:0.25s"/>
+                <circle cx="100" cy="110" r="3" style="animation-delay:0.30s"/>
+              </svg>
             </div>
           </div>
         </div>
+        <div class="capture-dots">
+          <div class="capture-dot done"></div>
+          <div class="capture-dot cur"></div>
+          <div class="capture-dot"></div>
+          <div class="capture-dot"></div>
+        </div>
+        <div class="scan-progress center">CAPTURE 2 OF 4 · HOLD STEADY</div>
+        <button class="btn mt-12" onclick="showM('m-otp')">Continue (demo)</button>
       </section>
 
-      <!-- Screen: Payment Success (§4.1 step 5) -->
-      <section id="t-success" data-screen>
-        <div class="text-center">
-          <div class="t-icon-circle" style="background:rgba(34,197,94,0.15)">
-            <span style="color:var(--t-success)">&#10003;</span>
-          </div>
-          <div style="font-weight:700;font-size:18px;color:var(--t-success)">Payment Settled</div>
-          <div class="t-amount-display" style="padding:8px 0;font-size:1.5rem"><span class="currency">R</span>250.00</div>
-          <div class="t-card" style="text-align:left">
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:var(--t-text-muted)">Method</span><span>&#9995; Palm (PayShap)</span></div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:var(--t-text-muted)">Rail</span><span style="font-family:var(--mono)">payshap</span></div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:var(--t-text-muted)">Ref</span><span style="font-family:var(--mono);font-size:11px">TXN-2026-0416-8A3F</span></div>
-            <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--t-text-muted)">Time</span><span>3.2 seconds</span></div>
-          </div>
-          <div class="t-label mt-16" style="text-align:center">Send Receipt?</div>
-          <button class="t-btn t-btn-primary mt-8" onclick="showT('t-receipt-sent')">&#9993; SMS Receipt</button>
-          <button class="t-btn t-btn-secondary" onclick="showT('t-amount')">No Receipt — Done</button>
+      <section id="m-otp" data-screen>
+        <div class="step-num">STEP 2 OF 4 · OTP</div>
+        <div class="stepper"><div class="step done"></div><div class="step cur"></div><div class="step"></div><div class="step"></div></div>
+        <div class="heading-lg center">Verify your number</div>
+        <div class="subhead center mt-8">Sent to <span class="mono">+27 82 555 0000</span></div>
+        <div class="otp-row">
+          <input class="otp-cell" value="4"><input class="otp-cell" value="8"><input class="otp-cell" value="2"><input class="otp-cell" value="1"><input class="otp-cell" value=""><input class="otp-cell" value="">
         </div>
+        <button class="btn mt-12" onclick="showM('m-link')">Verify</button>
+        <button class="btn-ghost btn mt-8">Resend</button>
       </section>
 
-      <!-- Screen: Receipt Sent -->
-      <section id="t-receipt-sent" data-screen>
-        <div class="text-center" style="padding-top:40px">
-          <div class="t-icon-circle" style="background:rgba(59,130,246,0.15)"><span style="color:var(--t-primary)">&#9993;</span></div>
-          <div style="font-weight:600;font-size:16px">Receipt Sent</div>
-          <div style="color:var(--t-text-muted);font-size:13px;margin-top:8px">SMS sent to +27 •••• ••82</div>
-          <button class="t-btn t-btn-primary mt-20" onclick="showT('t-amount')">New Transaction</button>
+      <section id="m-link" data-screen>
+        <div class="step-num">STEP 3 OF 4 · LINK BANK</div>
+        <div class="stepper"><div class="step done"></div><div class="step done"></div><div class="step cur"></div><div class="step"></div></div>
+        <div class="heading-lg center">Link your bank</div>
+        <div class="subhead center mt-8">Choose your PayShap-eligible bank</div>
+        <div class="form-row mt-16">
+          <div class="label">Bank</div>
+          <select class="field"><option>Capitec</option><option>FNB</option><option>Nedbank</option><option>Absa</option><option>Standard Bank</option><option>Discovery Bank</option><option>TymeBank</option><option>Investec</option></select>
         </div>
+        <div class="form-row">
+          <div class="label">PayShap proxy</div>
+          <select class="field"><option>Use my mobile number</option><option>Use my ShapID</option><option>Enter account manually</option></select>
+        </div>
+        <div class="card card--attention">
+          <div class="subhead">You'll be redirected to your bank's app to authorise the link. Tender never sees your bank credentials.</div>
+        </div>
+        <button class="btn mt-12" onclick="showM('m-done')">Authorise with bank</button>
       </section>
 
-      <!-- Screen: Card Payment (§3.2) -->
-      <section id="t-card" data-screen>
-        <div class="text-center">
-          <div class="t-icon-circle" style="background:var(--t-surface-2);border:2px dashed var(--t-border)">
-            <span style="font-size:32px">&#128179;</span>
-          </div>
-          <div style="font-weight:600;font-size:16px">Tap, Insert, or Swipe</div>
-          <div style="color:var(--t-text-muted);font-size:13px;margin-top:8px">Waiting for card...<br><span style="font-size:11px;font-family:var(--mono)">PCI-SPoC passthrough &rarr; Cloud EMV</span></div>
-          <div class="t-card mt-16" style="text-align:left">
-            <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
-              <span style="font-size:20px">&#128179;</span><span style="font-size:13px">Visa payWave / Mastercard Contactless</span>
-            </div>
-            <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
-              <span style="font-size:20px">&#9114;</span><span style="font-size:13px">EMV Chip (insert)</span>
-            </div>
-            <div style="display:flex;gap:12px;align-items:center">
-              <span style="font-size:20px">&#8594;</span><span style="font-size:13px">Magnetic stripe (swipe)</span>
-            </div>
+      <section id="m-done" data-screen>
+        <div class="step-num">STEP 4 OF 4 · DONE</div>
+        <div class="stepper"><div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step cur"></div></div>
+        <div class="scan-stage">
+          <div class="scan-success">✓</div>
+          <div class="center">
+            <div class="heading-lg">You're enrolled</div>
+            <div class="subhead mt-8" style="padding:0 12px">Pay with your palm at any Tender terminal — Pick n Pay, Woolworths, Spar, Clicks.</div>
           </div>
         </div>
-        <button class="t-btn t-btn-primary mt-16" onclick="showT('t-success')">Simulate Approved</button>
-        <button class="t-btn t-btn-secondary" onclick="showT('t-method')">&#8592; Back</button>
-      </section>
-
-      <!-- Screen: Palm Failed → Card Fallback (§3.5) -->
-      <section id="t-palm-fail" data-screen>
-        <div class="text-center">
-          <div class="t-icon-circle" style="background:rgba(239,68,68,0.15)">
-            <span style="color:var(--t-danger)">&#10007;</span>
-          </div>
-          <div style="font-weight:600;font-size:16px;color:var(--t-danger)">Palm Not Recognised</div>
-          <div style="color:var(--t-text-muted);font-size:13px;margin-top:8px">No matching template found.<br>The customer may not be enrolled.</div>
+        <div class="card">
+          <div class="row-flex"><span class="muted">Linked proxy</span><span class="mono" style="font-size:12px">+27 82 555 ••••</span></div>
+          <div class="row-flex"><span class="muted">Bank</span><span style="font-size:12px;font-weight:500">Capitec</span></div>
+          <div class="row-flex"><span class="muted">Enrol ref</span><span class="mono" style="font-size:11px;color:var(--text-muted)">ENROL-2026-04-17-M-J9P2X4</span></div>
         </div>
-        <button class="t-btn t-btn-primary mt-20" onclick="showT('t-card')">&#128179; Pay with Card Instead</button>
-        <button class="t-btn t-btn-secondary" onclick="showT('t-palm-scan')">&#9995; Try Again</button>
-        <button class="t-btn t-btn-secondary" onclick="showT('t-amount')">Cancel</button>
-      </section>
-
-      <!-- Screen: Enrolment (§4.2) -->
-      <section id="t-enrol" data-screen>
-        <div class="t-label">Palm Enrolment</div>
-        <div class="text-center mt-8">
-          <div class="scanner-ring" style="width:120px;height:120px"><div class="hand" style="font-size:40px">&#9995;</div></div>
-          <div style="font-weight:600;font-size:15px">Scan 2 of 4</div>
-          <div class="t-progress mt-8"><div class="t-progress-bar" style="width:50%"></div></div>
-          <div style="color:var(--t-text-muted);font-size:12px;margin-top:6px">Hold steady — capturing vein pattern</div>
-        </div>
-        <div class="t-card mt-16" style="text-align:left">
-          <div style="font-size:13px;margin-bottom:4px">&#10003; <span style="color:var(--t-success)">Scan 1 captured</span></div>
-          <div style="font-size:13px;margin-bottom:4px">&#9696; <span style="color:var(--t-primary)">Scan 2 in progress...</span></div>
-          <div style="font-size:13px;margin-bottom:4px;color:var(--t-text-muted)">&#9675; Scan 3 pending</div>
-          <div style="font-size:13px;color:var(--t-text-muted)">&#9675; Scan 4 pending</div>
-        </div>
-        <button class="t-btn t-btn-secondary mt-12" onclick="showT('t-amount')">Cancel Enrolment</button>
-      </section>
-
-      <!-- Screen: Refund (§4.3) -->
-      <section id="t-refund" data-screen>
-        <div class="t-label">Manager Refund</div>
-        <div class="t-card">
-          <div style="font-size:13px;color:var(--t-text-muted);margin-bottom:8px">Original Transaction</div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:var(--t-text-muted)">Ref</span><span style="font-family:var(--mono);font-size:11px">TXN-2026-0416-8A3F</span></div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:var(--t-text-muted)">Amount</span><span style="font-family:var(--mono)">R 250.00</span></div>
-          <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--t-text-muted)">Method</span><span>&#9995; Palm (PayShap)</span></div>
-        </div>
-        <div class="t-card" style="border-color:var(--t-warning)">
-          <div style="font-size:13px;color:var(--t-warning);font-weight:600;margin-bottom:8px">&#9888; Manager PIN Required</div>
-          <div style="display:flex;gap:8px;justify-content:center">
-            <input type="password" maxlength="1" style="width:40px;height:48px;background:var(--t-surface-2);border:1px solid var(--t-border);border-radius:var(--radius-sm);color:var(--t-text);text-align:center;font-size:20px;font-family:var(--mono)" value="*">
-            <input type="password" maxlength="1" style="width:40px;height:48px;background:var(--t-surface-2);border:1px solid var(--t-border);border-radius:var(--radius-sm);color:var(--t-text);text-align:center;font-size:20px;font-family:var(--mono)" value="*">
-            <input type="password" maxlength="1" style="width:40px;height:48px;background:var(--t-surface-2);border:1px solid var(--t-border);border-radius:var(--radius-sm);color:var(--t-text);text-align:center;font-size:20px;font-family:var(--mono)" value="*">
-            <input type="password" maxlength="1" style="width:40px;height:48px;background:var(--t-surface-2);border:1px solid var(--t-border);border-radius:var(--radius-sm);color:var(--t-text);text-align:center;font-size:20px;font-family:var(--mono)">
-          </div>
-        </div>
-        <button class="t-btn t-btn-danger" onclick="showT('t-success')">Process Refund</button>
-        <button class="t-btn t-btn-secondary" onclick="showT('t-amount')">Cancel</button>
+        <button class="btn mt-12">Find a terminal near me</button>
       </section>
 
     </div>
   </div>
 
+
   <!-- ============================================================
-       RIGHT: Admin Dashboard
+       ADMIN CONSOLE
        ============================================================ -->
-  <div class="admin-frame">
-    <div class="admin-header">
-      <h2>Admin Dashboard</h2>
-      <div style="display:flex;gap:8px">
-        <button class="a-btn a-btn-ghost" onclick="showA('a-transactions')">Transactions</button>
-        <button class="a-btn a-btn-ghost" onclick="showA('a-rails')">Rail Registry</button>
-        <button class="a-btn a-btn-ghost" onclick="showA('a-vendors')">Vendors</button>
-        <button class="a-btn a-btn-ghost" onclick="showA('a-sandbox')">Sandbox</button>
+  <div class="frame-label">▼ ADMIN CONSOLE — TRANSACTIONS · RAILS · VENDORS · FLEET · SANDBOX · AUDIT</div>
+
+  <div class="console" id="console-admin">
+    <div class="console-header">
+      <div class="ident"><div class="dot"></div>Tender Admin<span class="station">· OPS-002 · Pick n Pay (chain)</span></div>
+      <div class="right">
+        <button class="btn-ghost btn btn-sm" style="width:auto;margin:0">Help</button>
+        <button class="btn-ghost btn btn-sm" style="width:auto;margin:0">Sign out</button>
       </div>
     </div>
-    <div class="admin-body">
+    <div class="console-cols">
+      <div class="console-side">
+        <div class="label">Operate</div>
+        <div class="nav-item active" onclick="showA('a-transactions')">Transactions</div>
+        <div class="nav-item" onclick="showA('a-drilldown')">Drill-down</div>
+        <div class="nav-item" onclick="showA('a-recon')">Reconciliation</div>
+        <div class="nav-item" onclick="showA('a-export')">Export</div>
+        <div class="label">Configure</div>
+        <div class="nav-item" onclick="showA('a-rails')">Rail registry</div>
+        <div class="nav-item" onclick="showA('a-routing')">Routing policy</div>
+        <div class="nav-item" onclick="showA('a-vendors')">Vendors</div>
+        <div class="nav-item" onclick="showA('a-vendor-detail')">Vendor detail</div>
+        <div class="label">Fleet</div>
+        <div class="nav-item" onclick="showA('a-fleet')">Devices</div>
+        <div class="nav-item" onclick="showA('a-sandbox')">Sandbox</div>
+        <div class="label">Trust</div>
+        <div class="nav-item" onclick="showA('a-audit')">Audit log</div>
+        <div class="nav-item" onclick="showA('a-users')">Users &amp; roles</div>
+      </div>
 
-      <!-- Admin: Transaction Explorer (§3.6.1) -->
-      <section id="a-transactions" data-screen class="active">
-        <div class="a-stat-grid">
-          <div class="a-stat"><div class="value">1,247</div><div class="label">Today's transactions</div></div>
-          <div class="a-stat"><div class="value">R 412K</div><div class="label">Total volume</div></div>
-          <div class="a-stat"><div class="value">3.1s</div><div class="label">Avg settlement (palm)</div></div>
-          <div class="a-stat"><div class="value">99.7%</div><div class="label">Success rate</div></div>
-        </div>
-        <div class="a-card">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <h3 style="font-size:14px;font-weight:600">Live Transactions</h3>
-            <div style="display:flex;gap:6px">
-              <input placeholder="Search ref, amount, terminal..." style="height:32px;padding:0 10px;border:1px solid var(--a-border);border-radius:var(--radius-sm);font-size:12px;width:220px;font-family:var(--font)">
-              <button class="a-btn a-btn-ghost" style="font-size:12px">Export CSV</button>
+      <div class="console-main">
+
+        <!-- A: Sign-in -->
+        <section id="a-signin" data-screen>
+          <div class="card" style="max-width:420px;margin:40px auto 0">
+            <div class="heading-lg mb-16">Operator sign-in</div>
+            <div class="form-row"><div class="label">Operator ID</div><input class="field mono" value="OPS-002"></div>
+            <div class="form-row"><div class="label">Password</div><input class="field" type="password" value="••••••••••"></div>
+            <div class="card card--scan" style="margin:0 0 16px"><div class="card-row"><span class="mono" style="font-size:11px;color:var(--scan)">⌖ HARDWARE KEY DETECTED</span><span class="pill pill--scan">Touch to confirm</span></div></div>
+            <button class="btn" onclick="showA('a-transactions')">Sign in</button>
+          </div>
+        </section>
+
+        <!-- A: Transactions explorer -->
+        <section id="a-transactions" data-screen class="active">
+          <div class="row-flex mb-16"><div class="heading-lg">Transactions</div><div style="display:flex;gap:8px"><select class="field field-sm" style="width:auto;padding:0 30px 0 12px"><option>Last 24 hours</option><option>Last 7 days</option><option>Custom…</option></select><input class="field field-sm" placeholder="Search ref / amount…" style="width:240px"></div></div>
+          <div class="console-stats">
+            <div class="console-stat"><div class="v mono success">8 472</div><div class="l">Cleared today</div></div>
+            <div class="console-stat"><div class="v mono fail">31</div><div class="l">Declined</div></div>
+            <div class="console-stat"><div class="v mono">R 2,1m</div><div class="l">Volume today</div></div>
+            <div class="console-stat"><div class="v mono">0,84s</div><div class="l">PayShap p50</div></div>
+          </div>
+          <div class="table-box">
+            <div class="table-head">
+              <div class="heading">Live intent stream</div>
+              <div style="display:flex;gap:6px"><button class="btn-ghost btn btn-sm" style="width:auto;margin:0">Filter</button><button class="btn-ghost btn btn-sm" style="width:auto;margin:0">Export view</button></div>
+            </div>
+            <table class="tender-table">
+              <thead><tr><th>Ref</th><th>When</th><th>Method</th><th>Rail</th><th>Merchant</th><th>Status</th><th class="amount">Amount</th></tr></thead>
+              <tbody>
+                <tr class="row--success" onclick="showA('a-drilldown')"><td class="mono-id">PAY-…A8K2L9</td><td class="mono-id">13:42:31</td><td>Palm</td><td>payshap</td><td>PnP Bryanston W</td><td><span class="pill pill--success">Cleared</span></td><td class="amount">R 250,00</td></tr>
+                <tr class="row--success"><td class="mono-id">PAY-…A8K2K7</td><td class="mono-id">13:41:08</td><td>Card · NFC</td><td>card</td><td>PnP Bryanston W</td><td><span class="pill pill--success">Cleared</span></td><td class="amount">R 1 247,90</td></tr>
+                <tr class="row--scan"><td class="mono-id">PAY-…A8K2J4</td><td class="mono-id">13:39:55</td><td>Palm</td><td>payshap</td><td>Wools Sandton</td><td><span class="pill pill--scan">Settling</span></td><td class="amount">R 89,50</td></tr>
+                <tr class="row--fail"><td class="mono-id">PAY-…A8K2H2</td><td class="mono-id">13:38:12</td><td>Card · chip</td><td>card</td><td>Spar Hyde Park</td><td><span class="pill pill--fail">Declined</span></td><td class="amount">R 8 904,00</td></tr>
+                <tr class="row--success"><td class="mono-id">PAY-…A8K2G8</td><td class="mono-id">13:36:04</td><td>Palm</td><td>payshap</td><td>Clicks Cresta</td><td><span class="pill pill--success">Cleared</span></td><td class="amount">R 49,00</td></tr>
+                <tr class="row--success"><td class="mono-id">PAY-…A8K2F3</td><td class="mono-id">13:34:48</td><td>Card · Apple Pay</td><td>card</td><td>PnP Bryanston W</td><td><span class="pill pill--success">Cleared</span></td><td class="amount">R 312,40</td></tr>
+                <tr class="row--success"><td class="mono-id">PAY-…A8K2E1</td><td class="mono-id">13:33:20</td><td>Palm</td><td>payshap</td><td>PnP Bryanston N</td><td><span class="pill pill--success">Cleared</span></td><td class="amount">R 78,25</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- A: Drill-down -->
+        <section id="a-drilldown" data-screen>
+          <div class="row-flex mb-16">
+            <div><div class="heading-lg">PAY-2026-04-17-A8K2L9</div><div class="subhead mt-8">Pick n Pay Bryanston W · Terminal DEV-A8K2L9 · 13:42:31</div></div>
+            <div style="display:flex;gap:8px"><button class="btn-ghost btn btn-sm" style="width:auto;margin:0">Refund</button><button class="btn-ghost btn btn-sm" style="width:auto;margin:0">Dispute</button></div>
+          </div>
+          <div class="card card--success">
+            <div class="card-row"><span class="pill pill--success">Cleared · settled</span><div class="display-amount" style="font-size:32px"><span class="currency">R</span>250<span style="color:var(--text-muted);font-weight:600">,00</span></div></div>
+            <div class="row-flex mt-12" style="font-size:12px"><span class="muted">Method</span><span>Palm · template T-A8K2L9</span></div>
+            <div class="row-flex" style="font-size:12px"><span class="muted">Rail</span><span class="mono">payshap → Capitec → FNB</span></div>
+            <div class="row-flex" style="font-size:12px"><span class="muted">Settlement</span><span class="mono">0,82s · pacs.002 ACSC</span></div>
+            <div class="row-flex" style="font-size:12px"><span class="muted">Audit chain</span><span class="mono" style="font-size:10px;color:var(--text-muted)">a3f9e2b4c1d7…0a8b · IDX 1842091</span></div>
+          </div>
+          <div class="audit-timeline">
+            <div class="heading">Intent → Routing → Adapter → Settlement</div>
+            <div class="audit-row"><span class="ts mono">13:42:31.142</span><span class="stage">INTENT</span><span class="msg"><strong>POST /v1/payments</strong> · idempotency PAY-…A8K2L9</span><span class="actor">DEV-A8K2L9</span></div>
+            <div class="audit-row"><span class="ts mono">13:42:31.198</span><span class="stage">PALM</span><span class="msg"><strong>palm-session resolved</strong> → proxy +27 82 555 ••••</span><span class="actor">PGW</span></div>
+            <div class="audit-row"><span class="ts mono">13:42:31.244</span><span class="stage">ROUTE</span><span class="msg"><strong>routing</strong> amount &lt; R50k AND payshap available → <span class="mono">payshap</span></span><span class="actor">PGW</span></div>
+            <div class="audit-row"><span class="ts mono">13:42:31.301</span><span class="stage">FRAUD</span><span class="msg"><strong>fraud check</strong> score 0,02 · pass</span><span class="actor">PGW</span></div>
+            <div class="audit-row"><span class="ts mono">13:42:31.358</span><span class="stage">ADAPTER</span><span class="msg"><strong>payshap.execute</strong> pacs.008 submitted · ack 202</span><span class="actor">PAYSHAP</span></div>
+            <div class="audit-row"><span class="ts mono">13:42:32.184</span><span class="stage">WEBHOOK</span><span class="msg"><strong>pacs.002 ACSC</strong> AcceptedSettlementCompleted · 0,82s</span><span class="actor">PAYSHAP</span></div>
+            <div class="audit-row"><span class="ts mono">13:42:32.221</span><span class="stage">RECEIPT</span><span class="msg"><strong>SMS dispatched</strong> +27 82 555 ••••</span><span class="actor">PGW</span></div>
+            <div class="audit-row"><span class="ts mono">13:42:32.290</span><span class="stage">AUDIT</span><span class="msg"><strong>chain entry</strong> IDX 1842091 · sha256 a3f9e2b4…0a8b</span><span class="actor">SYSTEM</span></div>
+          </div>
+        </section>
+
+        <!-- A: Reconciliation -->
+        <section id="a-recon" data-screen>
+          <div class="heading-lg mb-12">Reconciliation</div>
+          <div class="subhead mb-16">Daily settlement matched against the audit ledger. Breaks surface here.</div>
+          <div class="console-stats">
+            <div class="console-stat"><div class="v mono success">8 471</div><div class="l">Matched</div></div>
+            <div class="console-stat"><div class="v mono attention" style="color:var(--attention)">1</div><div class="l">Break</div></div>
+            <div class="console-stat"><div class="v mono">R 2 098 412,40</div><div class="l">Reconciled</div></div>
+            <div class="console-stat"><div class="v mono">R 312,40</div><div class="l">Open break</div></div>
+          </div>
+          <div class="table-box">
+            <div class="table-head"><div class="heading">Per-rail</div></div>
+            <table class="tender-table">
+              <thead><tr><th>Rail</th><th>Submitted</th><th>Settled</th><th>Breaks</th><th class="amount">Volume</th></tr></thead>
+              <tbody>
+                <tr><td><strong>payshap</strong></td><td class="mono-id">6 217</td><td class="mono-id">6 217</td><td><span class="pill pill--success">0</span></td><td class="amount">R 1 472 904,12</td></tr>
+                <tr><td><strong>card</strong></td><td class="mono-id">2 255</td><td class="mono-id">2 254</td><td><span class="pill pill--attention">1</span></td><td class="amount">R 625 508,28</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card card--attention mt-12">
+            <div class="card-row"><span class="pill pill--attention">Open break</span><span class="mono" style="font-size:11px">PAY-…A8K2F3</span></div>
+            <div class="subhead mt-8">Card capture confirmed by acquirer at 13:34:51 — settlement webhook outstanding (>15min). Investigate or initiate manual reconciliation.</div>
+            <div style="display:flex;gap:8px;margin-top:12px"><button class="btn-ghost btn btn-sm" style="width:auto;margin:0">View intent</button><button class="btn-ghost btn btn-sm" style="width:auto;margin:0">Replay webhook</button><button class="btn btn-sm" style="width:auto;margin:0;height:34px">Resolve manually</button></div>
+          </div>
+        </section>
+
+        <!-- A: Export workshop -->
+        <section id="a-export" data-screen>
+          <div class="heading-lg mb-12">Export workshop</div>
+          <div class="subhead mb-16">CSV / JSON exports for regulators, auditors, accounts. Every export is audit-logged.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div class="card" style="margin:0">
+              <div class="label">Filtered transactions</div>
+              <div class="subhead">Match the live transaction explorer's current filter and export.</div>
+              <div class="form-row mt-12"><div class="label">Format</div><div style="display:flex;gap:8px"><button class="btn-ghost btn btn-sm" style="margin:0;width:auto">CSV</button><button class="btn-ghost btn btn-sm" style="margin:0;width:auto">JSON</button><button class="btn-ghost btn btn-sm" style="margin:0;width:auto">Parquet</button></div></div>
+              <button class="btn btn-sm" style="height:36px">Generate</button>
+            </div>
+            <div class="card" style="margin:0">
+              <div class="label">Reconciliation snapshot</div>
+              <div class="subhead">Per-rail reconciliation for a date range, signed.</div>
+              <div class="form-row mt-12"><div class="label">From → to</div><div style="display:flex;gap:6px"><input class="field field-sm mono" value="2026-04-01"><input class="field field-sm mono" value="2026-04-17"></div></div>
+              <button class="btn btn-sm" style="height:36px">Generate signed PDF</button>
+            </div>
+            <div class="card" style="margin:0">
+              <div class="label">Audit chain export</div>
+              <div class="subhead">Hash-chained audit log for a range. Used for SARB / PCI evidence.</div>
+              <button class="btn btn-sm mt-12" style="height:36px">Build evidence pack</button>
+            </div>
+            <div class="card" style="margin:0">
+              <div class="label">Anonymised research dataset</div>
+              <div class="subhead">k-anonymised payment data for risk modelling. Requires dual-admin approval.</div>
+              <button class="btn-ghost btn btn-sm mt-12" style="height:36px">Request approval</button>
             </div>
           </div>
-          <table>
-            <thead><tr><th>Ref</th><th>Time</th><th>Terminal</th><th>Method</th><th>Rail</th><th>Amount</th><th>Status</th><th>Latency</th></tr></thead>
-            <tbody>
-              <tr><td style="font-family:var(--mono);font-size:11px">8A3F</td><td>13:42:18</td><td>T-012</td><td>&#9995; Palm</td><td><span class="badge badge-success">payshap</span></td><td style="font-family:var(--mono)">R 250.00</td><td><span class="badge badge-success">Settled</span></td><td>3.2s</td></tr>
-              <tr><td style="font-family:var(--mono);font-size:11px">7B2E</td><td>13:41:55</td><td>T-003</td><td>&#128179; Card</td><td><span class="badge badge-pending">card</span></td><td style="font-family:var(--mono)">R 1,890.00</td><td><span class="badge badge-success">Settled</span></td><td>8.1s</td></tr>
-              <tr><td style="font-family:var(--mono);font-size:11px">6C1D</td><td>13:41:30</td><td>T-012</td><td>&#9995; Palm</td><td><span class="badge badge-success">payshap</span></td><td style="font-family:var(--mono)">R 45.00</td><td><span class="badge badge-success">Settled</span></td><td>2.8s</td></tr>
-              <tr><td style="font-family:var(--mono);font-size:11px">5D0C</td><td>13:40:12</td><td>T-007</td><td>&#9995; Palm</td><td><span class="badge badge-success">payshap</span></td><td style="font-family:var(--mono)">R 520.00</td><td><span class="badge badge-warning">Pending</span></td><td>—</td></tr>
-              <tr><td style="font-family:var(--mono);font-size:11px">4E9B</td><td>13:39:44</td><td>T-003</td><td>&#128179; Card</td><td><span class="badge badge-pending">card</span></td><td style="font-family:var(--mono)">R 89.50</td><td><span class="badge badge-danger">Declined</span></td><td>4.5s</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+        </section>
 
-      <!-- Admin: Rail Registry (§3.4) -->
-      <section id="a-rails" data-screen>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <h3 style="font-size:14px;font-weight:600;color:var(--a-text)">Rail Registry</h3>
-          <button class="a-btn a-btn-primary">+ Register Rail</button>
-        </div>
-        <div class="rail-card">
-          <div class="rail-icon" style="background:#22C55E">PS</div>
-          <div class="rail-info"><div class="name">PayShap (ZA_RPP)</div><div class="desc">Real-time ZAR settlement via BankservAfrica &middot; Limit R50,000 &middot; Fee R1-R35</div></div>
-          <span class="badge badge-success">Active</span>
-          <button class="toggle on" onclick="this.classList.toggle('on')"></button>
-        </div>
-        <div class="rail-card">
-          <div class="rail-icon" style="background:#3B82F6">CC</div>
-          <div class="rail-info"><div class="name">Card (Visa / Mastercard / AMEX)</div><div class="desc">Cloud EMV kernel &middot; PCI DSS L1 &middot; Chip / NFC / Stripe</div></div>
-          <span class="badge badge-success">Active</span>
-          <button class="toggle on" onclick="this.classList.toggle('on')"></button>
-        </div>
-        <div class="rail-card">
-          <div class="rail-icon" style="background:#8B5CF6">RT</div>
-          <div class="rail-info"><div class="name">RTGS (SAMOS)</div><div class="desc">High-value ZAR settlement &middot; Reserve Bank &middot; Not yet configured</div></div>
-          <span class="badge badge-muted">Disabled</span>
-          <button class="toggle" onclick="this.classList.toggle('on')"></button>
-        </div>
-        <div class="a-card mt-16">
-          <h3 style="font-size:13px;font-weight:600;color:var(--a-text);margin-bottom:8px">Routing Policy</h3>
-          <div style="font-family:var(--mono);font-size:12px;background:#F8FAFC;padding:12px;border-radius:var(--radius-sm);border:1px solid var(--a-border);color:var(--a-text)">
-            amount &lt; 50000 AND rail_available(payshap) &rarr; <strong>payshap</strong><br>
-            card_brand == AMEX &rarr; <strong>card (amex-acquirer)</strong><br>
-            * &rarr; <strong>card (default-acquirer)</strong>
+        <!-- A: Rail registry -->
+        <section id="a-rails" data-screen>
+          <div class="row-flex mb-16"><div class="heading-lg">Rail registry</div><button class="btn btn-sm" style="width:auto;height:36px">+ Register adapter</button></div>
+          <div class="subhead mb-16">Pluggable payment rails. Each adapter satisfies the <span class="mono">RailAdapter</span> contract.</div>
+          <div class="table-box">
+            <table class="tender-table">
+              <thead><tr><th>Adapter ID</th><th>Display</th><th>Status</th><th>Last 24h</th><th>p50 latency</th><th>Health</th></tr></thead>
+              <tbody>
+                <tr><td class="mono-id">payshap</td><td><strong>PayShap (ZA_RPP)</strong></td><td><span class="pill pill--success">Enabled</span></td><td class="mono-id">6 217</td><td class="mono-id">0,84s</td><td><span class="health-ring ok"><span class="ring"></span>OK</span></td></tr>
+                <tr><td class="mono-id">card</td><td><strong>Card · Visa/MC/AMEX</strong></td><td><span class="pill pill--success">Enabled</span></td><td class="mono-id">2 255</td><td class="mono-id">2,1s</td><td><span class="health-ring ok"><span class="ring"></span>OK</span></td></tr>
+                <tr><td class="mono-id">rtgs</td><td><strong>RTGS / SAMOS</strong></td><td><span class="pill pill--neutral">Disabled</span></td><td class="mono-id">—</td><td class="mono-id">—</td><td><span class="health-ring ok"><span class="ring"></span>READY</span></td></tr>
+                <tr><td class="mono-id">sandbox</td><td><strong>Sandbox / Mock</strong></td><td><span class="pill pill--attention">Sandbox-only</span></td><td class="mono-id">412</td><td class="mono-id">0,12s</td><td><span class="health-ring ok"><span class="ring"></span>OK</span></td></tr>
+              </tbody>
+            </table>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Admin: Vendor Management (§3.6.2) -->
-      <section id="a-vendors" data-screen>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <h3 style="font-size:14px;font-weight:600;color:var(--a-text)">Vendor Management</h3>
-          <button class="a-btn a-btn-primary">+ Add Vendor</button>
-        </div>
-        <table>
-          <thead><tr><th>Vendor</th><th>Type</th><th>Environment</th><th>Health</th><th>Cost / txn</th><th>Credentials</th></tr></thead>
-          <tbody>
-            <tr><td style="font-weight:600">BankservAfrica</td><td><span class="badge badge-success">Rail</span></td><td>Production</td><td><span style="color:#22C55E">&#9679;</span> Healthy</td><td style="font-family:var(--mono)">R 1.20</td><td><button class="a-btn a-btn-ghost" style="font-size:11px">Rotate</button></td></tr>
-            <tr><td style="font-weight:600">Card Acquirer</td><td><span class="badge badge-pending">Rail</span></td><td>Production</td><td><span style="color:#22C55E">&#9679;</span> Healthy</td><td style="font-family:var(--mono)">1.8%</td><td><button class="a-btn a-btn-ghost" style="font-size:11px">Rotate</button></td></tr>
-            <tr><td style="font-weight:600">SMS Gateway</td><td><span class="badge badge-warning">SMS</span></td><td>Production</td><td><span style="color:#22C55E">&#9679;</span> Healthy</td><td style="font-family:var(--mono)">R 0.35</td><td><button class="a-btn a-btn-ghost" style="font-size:11px">Rotate</button></td></tr>
-            <tr><td style="font-weight:600">Email Service</td><td><span class="badge badge-muted">Email</span></td><td>Production</td><td><span style="color:#F59E0B">&#9679;</span> Degraded</td><td style="font-family:var(--mono)">R 0.02</td><td><button class="a-btn a-btn-ghost" style="font-size:11px">Rotate</button></td></tr>
-            <tr><td style="font-weight:600">KYC Provider</td><td><span class="badge badge-muted">KYC</span></td><td>Production</td><td><span style="color:#22C55E">&#9679;</span> Healthy</td><td style="font-family:var(--mono)">R 2.50</td><td><button class="a-btn a-btn-ghost" style="font-size:11px">Rotate</button></td></tr>
-          </tbody>
-        </table>
-      </section>
+        <!-- A: Routing policy -->
+        <section id="a-routing" data-screen>
+          <div class="row-flex mb-16"><div class="heading-lg">Routing policy</div><button class="btn btn-sm" style="width:auto;height:36px">+ Add rule</button></div>
+          <div class="subhead mb-16">Rules are evaluated top-down. First match wins. Hot-reloads on save.</div>
+          <div class="card">
+            <div class="row-flex mb-8"><span class="mono" style="font-size:11px;color:var(--text-muted)">RULE 1 · ENABLED</span><span class="pill pill--success">Active</span></div>
+            <div style="font-family:var(--mono);font-size:13px;color:var(--text);background:var(--surface-2);padding:12px;border-radius:var(--r-control);line-height:1.6">
+              <div>WHEN <strong>method == palm</strong> AND <strong>amount &lt; R50000</strong></div>
+              <div>AND <strong>rail_available(payshap)</strong></div>
+              <div>THEN <strong>route → payshap</strong></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="row-flex mb-8"><span class="mono" style="font-size:11px;color:var(--text-muted)">RULE 2 · ENABLED</span><span class="pill pill--success">Active</span></div>
+            <div style="font-family:var(--mono);font-size:13px;color:var(--text);background:var(--surface-2);padding:12px;border-radius:var(--r-control);line-height:1.6">
+              <div>WHEN <strong>method == card</strong> AND <strong>card_brand == AMEX</strong></div>
+              <div>THEN <strong>route → card (amex-acquirer)</strong></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="row-flex mb-8"><span class="mono" style="font-size:11px;color:var(--text-muted)">RULE 3 · ENABLED · FALLBACK</span><span class="pill pill--success">Active</span></div>
+            <div style="font-family:var(--mono);font-size:13px;color:var(--text);background:var(--surface-2);padding:12px;border-radius:var(--r-control);line-height:1.6">
+              <div>WHEN <strong>method == card</strong></div>
+              <div>THEN <strong>route → card (default-acquirer)</strong></div>
+            </div>
+          </div>
+        </section>
 
-      <!-- Admin: Sandbox (§3.7) -->
-      <section id="a-sandbox" data-screen>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <h3 style="font-size:14px;font-weight:600;color:var(--a-text)">Sandbox &amp; Demo</h3>
-          <span class="badge badge-warning">Sandbox Mode</span>
-        </div>
-        <div class="a-card" style="border-left:3px solid var(--a-warning)">
-          <div style="font-weight:600;font-size:14px;margin-bottom:8px;color:var(--a-text)">Mock Rail: <span style="font-family:var(--mono)">sandbox</span></div>
-          <div style="font-size:13px;color:var(--a-text-muted);margin-bottom:12px">Implements the full RailAdapter contract. No real money moves. Scripted scenarios for testing.</div>
-          <h4 style="font-size:12px;font-weight:600;color:var(--a-text);margin-bottom:8px">Scenario Library</h4>
-          <table>
-            <thead><tr><th>Scenario</th><th>Trigger</th><th>Behaviour</th></tr></thead>
-            <tbody>
-              <tr><td style="font-family:var(--mono);font-size:12px">approve-fast</td><td>R 1.00 - R 99.99</td><td>Instant approval + pacs.002 callback</td></tr>
-              <tr><td style="font-family:var(--mono);font-size:12px">approve-slow</td><td>R 100.00 - R 999.99</td><td>3s delay then approval</td></tr>
-              <tr><td style="font-family:var(--mono);font-size:12px">decline-insufficient</td><td>R 13.37</td><td>Decline: insufficient funds</td></tr>
-              <tr><td style="font-family:var(--mono);font-size:12px">decline-fraud</td><td>R 66.60</td><td>Decline: fraud suspicion + risk score 92</td></tr>
-              <tr><td style="font-family:var(--mono);font-size:12px">timeout</td><td>R 0.01</td><td>30s timeout, no callback</td></tr>
-              <tr><td style="font-family:var(--mono);font-size:12px">webhook-reversal</td><td>R 999.99</td><td>Approve then reverse at t+3s</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="a-card">
-          <div style="font-weight:600;font-size:14px;margin-bottom:8px;color:var(--a-text)">Demo Mode</div>
-          <div style="font-size:13px;color:var(--a-text-muted);margin-bottom:12px">Run a scripted scenario timeline for sales demos. Read-only overlay on sandbox.</div>
-          <button class="a-btn a-btn-primary">&#9654; Start Demo: Full Palm Payment Flow</button>
-        </div>
-      </section>
+        <!-- A: Vendors -->
+        <section id="a-vendors" data-screen>
+          <div class="row-flex mb-16"><div class="heading-lg">Vendors</div><button class="btn btn-sm" style="width:auto;height:36px">+ Register vendor</button></div>
+          <div class="table-box">
+            <table class="tender-table">
+              <thead><tr><th>Vendor</th><th>Type</th><th>Env</th><th>Health</th><th>Last 24h cost</th><th>SLA · 30d</th></tr></thead>
+              <tbody>
+                <tr onclick="showA('a-vendor-detail')"><td><strong>Capitec</strong></td><td>rail · payshap</td><td>prod</td><td><span class="health-ring ok"><span class="ring"></span>OK</span></td><td class="mono-id">R 0,80 / txn</td><td class="mono-id">99,98%</td></tr>
+                <tr><td><strong>FNB</strong></td><td>rail · payshap</td><td>prod</td><td><span class="health-ring ok"><span class="ring"></span>OK</span></td><td class="mono-id">R 0,80 / txn</td><td class="mono-id">99,94%</td></tr>
+                <tr><td><strong>Standard Bank</strong></td><td>rail · payshap</td><td>prod</td><td><span class="health-ring warn"><span class="ring"></span>SLOW</span></td><td class="mono-id">R 0,80 / txn</td><td class="mono-id">99,42%</td></tr>
+                <tr><td><strong>Investec PSP</strong></td><td>card acquirer</td><td>prod</td><td><span class="health-ring ok"><span class="ring"></span>OK</span></td><td class="mono-id">R 1,80 / txn</td><td class="mono-id">99,90%</td></tr>
+                <tr><td><strong>Twilio</strong></td><td>sms</td><td>prod</td><td><span class="health-ring ok"><span class="ring"></span>OK</span></td><td class="mono-id">R 0,12 / sms</td><td class="mono-id">99,99%</td></tr>
+                <tr><td><strong>SendGrid</strong></td><td>email</td><td>prod</td><td><span class="health-ring err"><span class="ring"></span>ERR</span></td><td class="mono-id">R 0,02 / email</td><td class="mono-id">98,12%</td></tr>
+                <tr><td><strong>OnFido KYC</strong></td><td>kyc / fica</td><td>prod</td><td><span class="health-ring ok"><span class="ring"></span>OK</span></td><td class="mono-id">R 4,20 / chk</td><td class="mono-id">99,72%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
 
+        <!-- A: Vendor detail (credential rotation) -->
+        <section id="a-vendor-detail" data-screen>
+          <div class="row-flex mb-16">
+            <div><div class="heading-lg">Capitec</div><div class="subhead mt-8">Rail · payshap participant · prod environment</div></div>
+            <span class="health-ring ok"><span class="ring"></span>HEALTHY</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+            <div class="card" style="margin:0">
+              <div class="label">Endpoint</div>
+              <div class="mono" style="font-size:11px;color:var(--text);word-break:break-all">https://payshap-api.capitec.co.za/v23.0.1/</div>
+              <div class="row mt-12"><div class="row-l"><div class="t">Per-merchant override</div><div class="s">Use for specific merchants only</div></div><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+            </div>
+            <div class="card" style="margin:0">
+              <div class="label">Cost · 30d</div>
+              <div class="display-amount" style="font-size:32px">R 4 974</div>
+              <div class="subhead mt-8">6 217 transactions · R 0,80 average</div>
+            </div>
+          </div>
+          <div class="card card--attention">
+            <div class="card-row mb-12"><div><div class="heading">Credentials</div><div class="subhead mt-8">Rotation is a guided flow — credentials never appear plaintext.</div></div><span class="pill pill--attention">Last rotated 84d ago</span></div>
+            <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t">mTLS client certificate</div><div class="s mono" style="font-size:10px">SHA1 fingerprint: a3:f9:e2:b4:…:0a:8b</div></div><button class="btn-ghost btn btn-sm" style="width:auto;margin:0">Rotate</button></div>
+            <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t">API key (secondary)</div><div class="s mono" style="font-size:10px">****************AK29 · expires 2026-08-12</div></div><button class="btn-ghost btn btn-sm" style="width:auto;margin:0">Rotate</button></div>
+            <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t">Webhook signing secret</div><div class="s mono" style="font-size:10px">****************XK02 · used 6 217 times today</div></div><button class="btn-ghost btn btn-sm" style="width:auto;margin:0">Rotate</button></div>
+          </div>
+        </section>
+
+        <!-- A: Fleet -->
+        <section id="a-fleet" data-screen>
+          <div class="row-flex mb-16"><div class="heading-lg">Fleet · 47 devices</div><div style="display:flex;gap:8px"><button class="btn-ghost btn btn-sm" style="width:auto;margin:0">OTA push</button><button class="btn btn-sm" style="width:auto;height:36px">+ Provision</button></div></div>
+          <div class="console-stats" style="grid-template-columns:repeat(4,1fr)">
+            <div class="console-stat"><div class="v mono success">42</div><div class="l">Online</div></div>
+            <div class="console-stat"><div class="v mono" style="color:var(--attention)">3</div><div class="l">Idle &gt;1h</div></div>
+            <div class="console-stat"><div class="v mono fail">2</div><div class="l">Offline</div></div>
+            <div class="console-stat"><div class="v mono">v3.2.1</div><div class="l">Latest firmware</div></div>
+          </div>
+          <div class="table-box">
+            <table class="tender-table">
+              <thead><tr><th>Device</th><th>Merchant</th><th>Last seen</th><th>Firmware</th><th>Heartbeat</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td class="mono-id">DEV-A8K2L9</td><td>PnP Bryanston W</td><td class="mono-id">2s ago</td><td class="mono-id">v3.2.1</td><td><span class="health-ring ok"><span class="ring"></span>60s</span></td><td><span class="pill pill--success">Online</span></td></tr>
+                <tr><td class="mono-id">DEV-A8K2J7</td><td>PnP Bryanston W</td><td class="mono-id">14s ago</td><td class="mono-id">v3.2.1</td><td><span class="health-ring ok"><span class="ring"></span>60s</span></td><td><span class="pill pill--success">Online</span></td></tr>
+                <tr><td class="mono-id">DEV-A8K2H3</td><td>PnP Bryanston N</td><td class="mono-id">28s ago</td><td class="mono-id">v3.2.0</td><td><span class="health-ring warn"><span class="ring"></span>Pending OTA</span></td><td><span class="pill pill--success">Online</span></td></tr>
+                <tr><td class="mono-id">DEV-A8K2G1</td><td>Wools Sandton</td><td class="mono-id">1h 4m ago</td><td class="mono-id">v3.2.1</td><td><span class="health-ring warn"><span class="ring"></span>Idle</span></td><td><span class="pill pill--attention">Idle</span></td></tr>
+                <tr><td class="mono-id">DEV-A8K2F8</td><td>Spar Hyde Park</td><td class="mono-id">2d 14h ago</td><td class="mono-id">v3.1.4</td><td><span class="health-ring err"><span class="ring"></span>Lost</span></td><td><span class="pill pill--fail">Offline</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- A: Sandbox / demo mode -->
+        <section id="a-sandbox" data-screen>
+          <div class="row-flex mb-16"><div class="heading-lg">Sandbox &amp; demo mode</div><span class="pill pill--attention">SANDBOX PGW · NO REAL MONEY</span></div>
+          <div class="subhead mb-16">A parallel PGW environment with only the <span class="mono">sandbox</span> rail loaded. The terminal cannot tell it's in sandbox — that's the whole point.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div class="card" style="margin:0">
+              <div class="label">Scenario library</div>
+              <div class="subhead mb-12">Choose what the next sandbox transaction does.</div>
+              <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t">approve-fast</div><div class="s mono" style="font-size:10px">~120ms · success</div></div><span class="pill pill--success">Default</span></div>
+              <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t">approve-slow</div><div class="s mono" style="font-size:10px">~5,2s · success (realistic)</div></div></div>
+              <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t">decline-insufficient-funds</div><div class="s mono" style="font-size:10px">~340ms · fail</div></div></div>
+              <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t">timeout</div><div class="s mono" style="font-size:10px">30s no response · fail</div></div></div>
+              <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t">settlement-callback-at-t+60s</div><div class="s mono" style="font-size:10px">~150ms ack · settlement at +60s</div></div></div>
+              <div class="row" style="border:none;padding:6px 0"><div class="row-l"><div class="t">duplicate-intent-409</div><div class="s mono" style="font-size:10px">409 conflict response</div></div></div>
+            </div>
+            <div class="card" style="margin:0">
+              <div class="label">Magic amounts</div>
+              <div class="subhead mb-12">These exact amounts always trigger their scenario.</div>
+              <div class="row" style="border:none;padding:6px 0;font-family:var(--mono);font-size:12px"><span>R 13,37</span><span class="muted">decline-insufficient-funds</span></div>
+              <div class="row" style="border:none;padding:6px 0;font-family:var(--mono);font-size:12px"><span>R 99,99</span><span class="muted">timeout</span></div>
+              <div class="row" style="border:none;padding:6px 0;font-family:var(--mono);font-size:12px"><span>R 4,04</span><span class="muted">duplicate-intent-409</span></div>
+              <div class="row" style="border:none;padding:6px 0;font-family:var(--mono);font-size:12px"><span>R 5,00</span><span class="muted">approve-slow</span></div>
+            </div>
+            <div class="card" style="margin:0;grid-column:1 / -1">
+              <div class="label">Demo mode — scripted timeline</div>
+              <div class="subhead mb-12">Drive a sandbox terminal through a sequence for a sales demo. Read-only on prod.</div>
+              <div class="audit-row"><span class="ts mono">+0s</span><span class="msg"><strong>enrol palm</strong></span><span class="actor">demo</span></div>
+              <div class="audit-row"><span class="ts mono">+45s</span><span class="msg"><strong>approve R250 palm</strong> · approve-fast</span><span class="actor">demo</span></div>
+              <div class="audit-row"><span class="ts mono">+90s</span><span class="msg"><strong>approve R1,200 card</strong> · approve-fast</span><span class="actor">demo</span></div>
+              <div class="audit-row"><span class="ts mono">+120s</span><span class="msg"><strong>refund R1,200 card</strong></span><span class="actor">demo</span></div>
+              <div class="audit-row"><span class="ts mono">+150s</span><span class="msg"><strong>dispute R250 palm</strong></span><span class="actor">demo</span></div>
+              <button class="btn btn-sm mt-12" style="width:auto;height:36px">Run demo on DEV-SBX-01</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- A: Audit log -->
+        <section id="a-audit" data-screen>
+          <div class="row-flex mb-12"><div class="heading-lg">Audit log</div><div style="display:flex;gap:8px"><select class="field field-sm" style="width:auto;padding:0 30px 0 12px"><option>All actors</option><option>Operator</option><option>Admin</option><option>System</option><option>Terminal</option></select><input class="field field-sm" placeholder="Search…" style="width:200px"><button class="btn-ghost btn btn-sm" style="width:auto;margin:0">Export CSV</button></div></div>
+          <div class="card card--scan mb-16" style="margin:0 0 16px">
+            <div class="subhead">Hash-chained, append-only, 7-year retention. Every entry is signed; every export carries the chain proof.</div>
+          </div>
+          <div class="card" style="margin:0">
+            <div class="audit-row"><span class="ts mono">13:42:32.290</span><span class="stage">PAYMENT</span><span class="msg"><strong>cleared</strong> PAY-…A8K2L9 · R 250,00 via payshap</span><span class="actor">SYSTEM</span></div>
+            <div class="audit-row"><span class="ts mono">13:42:31.244</span><span class="stage">ROUTING</span><span class="msg"><strong>routed</strong> PAY-…A8K2L9 to payshap (rule-1)</span><span class="actor">PGW</span></div>
+            <div class="audit-row"><span class="ts mono">13:38:14.020</span><span class="stage">DECLINE</span><span class="msg"><strong>declined</strong> PAY-…A8K2H2 · insufficient funds</span><span class="actor">CARD-NETWORK</span></div>
+            <div class="audit-row"><span class="ts mono">13:14:00.142</span><span class="stage">VETTING</span><span class="msg"><strong>credential rotated</strong> · Capitec mTLS cert</span><span class="actor">OPS-002</span></div>
+            <div class="audit-row"><span class="ts mono">12:58:21.708</span><span class="stage">CONSENT</span><span class="msg"><strong>palm enrolment</strong> · template T-J9P2X4 linked to proxy +27 82 555 ••••</span><span class="actor">DEV-A8K2L9</span></div>
+            <div class="audit-row"><span class="ts mono">12:30:08.412</span><span class="stage">DSAR</span><span class="msg"><strong>data access request</strong> raised by data subject K. Nkosi</span><span class="actor">CUSTOMER</span></div>
+            <div class="audit-row"><span class="ts mono">11:42:00.099</span><span class="stage">CONFIG</span><span class="msg"><strong>routing rule edited</strong> · rule-2 priority changed 3 → 2</span><span class="actor">OPS-002</span></div>
+            <div class="audit-row"><span class="ts mono">10:14:48.220</span><span class="stage">FLEET</span><span class="msg"><strong>OTA pushed</strong> firmware v3.2.1 to 47 devices</span><span class="actor">OPS-002</span></div>
+          </div>
+        </section>
+
+        <!-- A: Users & roles -->
+        <section id="a-users" data-screen>
+          <div class="row-flex mb-16"><div class="heading-lg">Users &amp; roles</div><button class="btn btn-sm" style="width:auto;height:36px">+ Invite</button></div>
+          <div class="subhead mb-16">RBAC: ops-viewer, ops-operator, vendor-admin, rail-admin, super-admin. Mutating actions are audit-logged with actor + before/after diff.</div>
+          <div class="table-box">
+            <table class="tender-table">
+              <thead><tr><th>User</th><th>Role</th><th>Last seen</th><th>2FA</th><th>Hardware key</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td><strong>T. Barnardt</strong></td><td>super-admin</td><td class="mono-id">2s</td><td><span class="pill pill--success">On</span></td><td><span class="pill pill--success">YubiKey</span></td><td><span class="pill pill--success">Active</span></td></tr>
+                <tr><td><strong>L. Singh</strong></td><td>rail-admin</td><td class="mono-id">12m</td><td><span class="pill pill--success">On</span></td><td><span class="pill pill--success">YubiKey</span></td><td><span class="pill pill--success">Active</span></td></tr>
+                <tr><td><strong>M. Khoza</strong></td><td>ops-operator</td><td class="mono-id">2h</td><td><span class="pill pill--success">On</span></td><td><span class="pill pill--neutral">—</span></td><td><span class="pill pill--success">Active</span></td></tr>
+                <tr><td><strong>R. Mokoena</strong></td><td>ops-viewer</td><td class="mono-id">5d</td><td><span class="pill pill--attention">SMS</span></td><td><span class="pill pill--neutral">—</span></td><td><span class="pill pill--attention">Stale</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </div>
     </div>
   </div>
+
 </div>
 
-<!-- Screen nav bar -->
+<!-- ============================================================
+     BOTTOM SCREEN NAV
+     ============================================================ -->
 <nav class="screen-nav">
+  <span class="nav-group-label">Terminal</span>
+  <button onclick="showT('t-boot')" data-nav="t-boot">Boot</button>
+  <button onclick="showT('t-idle')" data-nav="t-idle">Idle</button>
   <button onclick="showT('t-amount')" data-nav="t-amount" class="active-nav">Amount</button>
   <button onclick="showT('t-method')" data-nav="t-method">Method</button>
-  <button onclick="showT('t-palm-scan')" data-nav="t-palm-scan">Palm Scan</button>
-  <button onclick="showT('t-palm-processing')" data-nav="t-palm-processing">Processing</button>
+  <button onclick="showT('t-palm-scan')" data-nav="t-palm-scan">Palm scan</button>
+  <button onclick="showT('t-palm-success')" data-nav="t-palm-success">Palm ✓</button>
+  <button onclick="showT('t-palm-fail')" data-nav="t-palm-fail">Palm ✗</button>
+  <button onclick="showT('t-card-insert')" data-nav="t-card-insert">Card</button>
+  <button onclick="showT('t-card-pin')" data-nav="t-card-pin">PIN</button>
+  <button onclick="showT('t-card-processing')" data-nav="t-card-processing">Card proc</button>
   <button onclick="showT('t-success')" data-nav="t-success">Success</button>
-  <button onclick="showT('t-card')" data-nav="t-card">Card</button>
-  <button onclick="showT('t-palm-fail')" data-nav="t-palm-fail">Palm Fail</button>
-  <button onclick="showT('t-enrol')" data-nav="t-enrol">Enrolment</button>
-  <button onclick="showT('t-refund')" data-nav="t-refund">Refund</button>
-  <div class="sep"></div>
-  <button onclick="showA('a-transactions')" data-nav="a-transactions">Transactions</button>
+  <button onclick="showT('t-receipt-choose')" data-nav="t-receipt-choose">Receipt?</button>
+  <button onclick="showT('t-receipt-sent')" data-nav="t-receipt-sent">Receipt ✓</button>
+  <button onclick="showT('t-refund-pin')" data-nav="t-refund-pin">Refund PIN</button>
+  <button onclick="showT('t-refund-lookup')" data-nav="t-refund-lookup">Refund find</button>
+  <button onclick="showT('t-refund-confirm')" data-nav="t-refund-confirm">Refund ?</button>
+  <button onclick="showT('t-refund-done')" data-nav="t-refund-done">Refund ✓</button>
+  <button onclick="showT('t-enrol-1')" data-nav="t-enrol-1">Enrol 1</button>
+  <button onclick="showT('t-enrol-2')" data-nav="t-enrol-2">Enrol 2</button>
+  <button onclick="showT('t-enrol-3')" data-nav="t-enrol-3">Enrol 3</button>
+  <button onclick="showT('t-enrol-4')" data-nav="t-enrol-4">Enrol 4</button>
+  <button onclick="showT('t-enrol-5')" data-nav="t-enrol-5">Enrol ✓</button>
+  <button onclick="showT('t-settings')" data-nav="t-settings">Cashier</button>
+  <button onclick="showT('t-offline')" data-nav="t-offline">Offline</button>
+
+  <span class="sep"></span>
+  <span class="nav-group-label">Mobile</span>
+  <button onclick="showM('m-intro')" data-nav="m-intro">Intro</button>
+  <button onclick="showM('m-scan')" data-nav="m-scan">Scan</button>
+  <button onclick="showM('m-otp')" data-nav="m-otp">OTP</button>
+  <button onclick="showM('m-link')" data-nav="m-link">Link</button>
+  <button onclick="showM('m-done')" data-nav="m-done">Done</button>
+
+  <span class="sep"></span>
+  <span class="nav-group-label">Admin</span>
+  <button onclick="showA('a-signin')" data-nav="a-signin">Sign-in</button>
+  <button onclick="showA('a-transactions')" data-nav="a-transactions">Txns</button>
+  <button onclick="showA('a-drilldown')" data-nav="a-drilldown">Drill</button>
+  <button onclick="showA('a-recon')" data-nav="a-recon">Recon</button>
+  <button onclick="showA('a-export')" data-nav="a-export">Export</button>
   <button onclick="showA('a-rails')" data-nav="a-rails">Rails</button>
+  <button onclick="showA('a-routing')" data-nav="a-routing">Routing</button>
   <button onclick="showA('a-vendors')" data-nav="a-vendors">Vendors</button>
+  <button onclick="showA('a-vendor-detail')" data-nav="a-vendor-detail">Vendor</button>
+  <button onclick="showA('a-fleet')" data-nav="a-fleet">Fleet</button>
   <button onclick="showA('a-sandbox')" data-nav="a-sandbox">Sandbox</button>
+  <button onclick="showA('a-audit')" data-nav="a-audit">Audit</button>
+  <button onclick="showA('a-users')" data-nav="a-users">Users</button>
 </nav>
 
 <script>
-  var amountStr = '';
-
-  function numpad(key) {
-    if (key === 'C') { amountStr = ''; }
-    else if (key === '.' && amountStr.includes('.')) { return; }
-    else { amountStr += key; }
-    var val = amountStr || '0';
-    if (!val.includes('.')) val += '.00';
-    else if (val.split('.')[1].length === 1) val += '0';
-    else if (val.split('.')[1].length === 0) val += '00';
-    document.getElementById('amount-val').textContent = val;
-  }
-
-  function showT(id) {
-    document.querySelectorAll('.terminal-body [data-screen]').forEach(function(s) { s.classList.remove('active'); });
-    var el = document.getElementById(id);
-    if (el) el.classList.add('active');
-    // Update amount display on method screen
-    if (id === 't-method') {
-      var a = document.getElementById('amount-val').textContent;
-      document.getElementById('method-amount').textContent = a === '0.00' ? '250.00' : a;
-    }
-    // Palm scan animation
-    if (id === 't-palm-scan') { runScanAnim(); }
-    updateNav(id);
-  }
-
-  function showA(id) {
-    document.querySelectorAll('.admin-body [data-screen]').forEach(function(s) { s.classList.remove('active'); });
-    var el = document.getElementById(id);
-    if (el) el.classList.add('active');
-    updateNav(id);
-  }
-
-  function updateNav(id) {
-    document.querySelectorAll('.screen-nav button').forEach(function(b) {
-      b.classList.toggle('active-nav', b.getAttribute('data-nav') === id);
-    });
-  }
-
-  function runScanAnim() {
-    var bar = document.getElementById('scan-progress');
-    var status = document.getElementById('scan-status');
-    bar.style.width = '0%';
-    status.textContent = 'Scanning...';
-    var steps = [
-      { pct: 30, text: 'Extracting features...', ms: 600 },
-      { pct: 60, text: 'Matching 1:N templates...', ms: 1200 },
-      { pct: 90, text: 'Match found — resolving proxy...', ms: 1800 },
-      { pct: 100, text: 'Matched!', ms: 2200 }
-    ];
-    steps.forEach(function(s) {
-      setTimeout(function() {
-        bar.style.width = s.pct + '%';
-        status.textContent = s.text;
-      }, s.ms);
-    });
-    setTimeout(function() { showT('t-palm-processing'); }, 2800);
-    setTimeout(function() { showT('t-success'); }, 5000);
-  }
+function showT(id){
+  document.querySelectorAll('#device-terminal [data-screen]').forEach(s=>s.classList.remove('active'));
+  const e = document.getElementById(id);
+  if(e) e.classList.add('active');
+  updateNav(id);
+}
+function showM(id){
+  document.querySelectorAll('#phone-enrol [data-screen]').forEach(s=>s.classList.remove('active'));
+  const e = document.getElementById(id);
+  if(e) e.classList.add('active');
+  updateNav(id);
+}
+function showA(id){
+  document.querySelectorAll('#console-admin [data-screen]').forEach(s=>s.classList.remove('active'));
+  const e = document.getElementById(id);
+  if(e) e.classList.add('active');
+  document.querySelectorAll('#console-admin .nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('#console-admin .nav-item').forEach(n=>{
+    if(n.getAttribute('onclick') && n.getAttribute('onclick').includes(id)) n.classList.add('active');
+  });
+  updateNav(id);
+}
+function updateNav(id){
+  document.querySelectorAll('.screen-nav button').forEach(b=>b.classList.toggle('active-nav', b.getAttribute('data-nav')===id));
+}
 </script>
 </body>
 </html>
