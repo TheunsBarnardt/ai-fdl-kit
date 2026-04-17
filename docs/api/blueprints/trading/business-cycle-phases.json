@@ -1,0 +1,287 @@
+{
+  "feature": "business-cycle-phases",
+  "version": "1.0.0",
+  "description": "Classify the current business cycle phase — recovery, expansion, slowdown, or recession — using GDP growth, unemployment, inflation, and policy signals",
+  "category": "trading",
+  "tags": [
+    "economics",
+    "macroeconomics",
+    "business-cycle",
+    "recession",
+    "expansion",
+    "phase-classification",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "business-cycle-classification",
+    "economic-cycle-phases",
+    "recession-expansion-cycle",
+    "cycle-stage-identification",
+    "output-gap",
+    "nber-dating"
+  ],
+  "actors": [
+    {
+      "id": "macro_engine",
+      "name": "Macroeconomic Analysis Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "gdp_growth",
+      "type": "number",
+      "required": true,
+      "label": "Annualised real GDP growth rate (percent)"
+    },
+    {
+      "name": "unemployment_rate",
+      "type": "number",
+      "required": false,
+      "label": "Current unemployment rate (percent)"
+    },
+    {
+      "name": "inflation_rate",
+      "type": "number",
+      "required": false,
+      "label": "Current inflation rate (percent)"
+    },
+    {
+      "name": "output_gap",
+      "type": "number",
+      "required": false,
+      "label": "Output gap (actual minus potential GDP, percent)"
+    },
+    {
+      "name": "capacity_utilisation",
+      "type": "number",
+      "required": false,
+      "label": "Capacity utilisation rate (percent)"
+    }
+  ],
+  "rules": {
+    "four_phases": {
+      "recovery": {
+        "description": "Initial rebound from trough — GDP growth turns positive",
+        "unemployment": "High but peaking",
+        "inflation": "Low and stable",
+        "policy": "Accommodative"
+      },
+      "expansion": {
+        "description": "Sustained above-trend growth",
+        "unemployment": "Falling toward NAIRU",
+        "inflation": "Rising gradually",
+        "policy": "Neutral to tightening"
+      },
+      "slowdown": {
+        "description": "Growth decelerates; output gap closing",
+        "unemployment": "At cycle low; starting to rise",
+        "inflation": "Often elevated",
+        "policy": "Tight"
+      },
+      "recession": {
+        "description": "Two consecutive quarters of negative GDP growth (rule of thumb)",
+        "unemployment": "Rising sharply",
+        "inflation": "Falling with demand",
+        "policy": "Cutting aggressively"
+      }
+    },
+    "leads_and_lags": {
+      "leading": "Stock market, yield curve, orders, building permits",
+      "coincident": "GDP, industrial production, personal income, retail sales",
+      "lagging": "Unemployment rate, CPI, inventories-to-sales"
+    },
+    "investor_behavior": {
+      "recovery": "Cyclicals and small caps outperform",
+      "expansion": "Quality growth, industrials lead",
+      "slowdown": "Defensives, low-beta rotate in",
+      "recession": "Long-duration bonds, gold, staples"
+    },
+    "applications": {
+      "sector_rotation": "Shift equity weights by phase to align with leaders",
+      "credit_positioning": "Widen credit exposure in recovery, tighten into slowdown",
+      "factor_timing": "Value tends to lead in recovery; quality in slowdown"
+    },
+    "validation": {
+      "gdp_growth_present": "gdp_growth required",
+      "unemployment_bounds": "0 <= unemployment_rate <= 100",
+      "inflation_reasonable": "-10 <= inflation_rate <= 50"
+    }
+  },
+  "outcomes": {
+    "classify_phase": {
+      "priority": 1,
+      "description": "Assign the current cycle phase",
+      "given": [
+        {
+          "field": "gdp_growth",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "macro_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "macro.phase_classified"
+        }
+      ]
+    },
+    "recession_detected": {
+      "priority": 2,
+      "description": "Two consecutive quarters of negative GDP growth",
+      "given": [
+        {
+          "field": "recession_triggered",
+          "source": "computed",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "macro.recession_alert"
+        }
+      ]
+    },
+    "missing_growth": {
+      "priority": 10,
+      "description": "GDP growth missing",
+      "given": [
+        {
+          "field": "gdp_growth",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "macro.phase_rejected"
+        }
+      ],
+      "error": "CYCLE_GDP_MISSING"
+    }
+  },
+  "errors": [
+    {
+      "code": "CYCLE_GDP_MISSING",
+      "status": 400,
+      "message": "gdp_growth is required to classify a cycle phase"
+    }
+  ],
+  "events": [
+    {
+      "name": "macro.phase_classified",
+      "payload": [
+        "classification_id",
+        "phase",
+        "confidence",
+        "supporting_signals"
+      ]
+    },
+    {
+      "name": "macro.recession_alert",
+      "payload": [
+        "alert_id",
+        "quarters_negative",
+        "magnitude"
+      ]
+    },
+    {
+      "name": "macro.phase_rejected",
+      "payload": [
+        "classification_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not rely on a single quarter of GDP to declare a phase change",
+      "why": "Revisions are common; phase calls should use multi-series confirmation (NBER methodology) and several quarters"
+    },
+    {
+      "rule": "Do not confuse mid-cycle pauses with recessions",
+      "why": "Soft patches within expansion look similar to recession onset; check coincident indicators before repositioning"
+    },
+    {
+      "rule": "Do not assume historical phase-length averages predict the current cycle",
+      "why": "Each cycle differs in policy, productivity, and shocks; use leading indicators instead of calendar heuristics"
+    },
+    {
+      "rule": "Do not hedge based only on lagging indicators",
+      "why": "By the time unemployment confirms recession, markets have priced in much of it; use leading indicators for positioning"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/macro/business-cycle/classify"
+    },
+    "request": {
+      "schema": {
+        "gdp_growth": "number",
+        "unemployment_rate": "number",
+        "inflation_rate": "number",
+        "output_gap": "number",
+        "capacity_utilisation": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "phase": "string",
+          "confidence": "number",
+          "supporting_signals": "array",
+          "recommended_positioning": "array"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "CYCLE_GDP_MISSING"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "phase_signal_matrix": {
+      "recovery": {
+        "gdp": "positive_accelerating",
+        "unemployment": "falling_from_peak",
+        "inflation": "rising"
+      },
+      "expansion": {
+        "gdp": "above_trend",
+        "unemployment": "at_nairu",
+        "inflation": "stable_rising"
+      },
+      "slowdown": {
+        "gdp": "below_trend_positive",
+        "unemployment": "bottoming",
+        "inflation": "peaking"
+      },
+      "recession": {
+        "gdp": "negative",
+        "unemployment": "rising",
+        "inflation": "falling"
+      }
+    }
+  },
+  "related": [
+    {
+      "feature": "economic-indicators",
+      "type": "required"
+    },
+    {
+      "feature": "credit-cycles",
+      "type": "recommended"
+    }
+  ]
+}

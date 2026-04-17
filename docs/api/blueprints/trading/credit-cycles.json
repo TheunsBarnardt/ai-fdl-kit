@@ -1,0 +1,248 @@
+{
+  "feature": "credit-cycles",
+  "version": "1.0.0",
+  "description": "Identify credit cycle phase using credit growth, lending standards, and spreads — and track how credit conditions amplify business cycles via leverage and asset prices",
+  "category": "trading",
+  "tags": [
+    "economics",
+    "macroeconomics",
+    "credit-cycle",
+    "leverage",
+    "financial-conditions",
+    "minsky",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "credit-conditions",
+    "financial-cycle",
+    "lending-cycle",
+    "leverage-cycle",
+    "minsky-cycle",
+    "credit-spreads-cycle"
+  ],
+  "actors": [
+    {
+      "id": "credit_monitor",
+      "name": "Credit Conditions Monitor",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "market_id",
+      "type": "text",
+      "required": true,
+      "label": "Market or economy identifier"
+    },
+    {
+      "name": "credit_growth_rate",
+      "type": "number",
+      "required": false,
+      "label": "Year-on-year credit growth (percent)"
+    },
+    {
+      "name": "lending_standards_index",
+      "type": "number",
+      "required": false,
+      "label": "Senior loan officer tightening index or equivalent"
+    },
+    {
+      "name": "credit_spread_bps",
+      "type": "number",
+      "required": false,
+      "label": "Representative IG or HY spread over sovereign"
+    },
+    {
+      "name": "default_rate",
+      "type": "number",
+      "required": false,
+      "label": "Trailing default rate (percent)"
+    }
+  ],
+  "rules": {
+    "credit_cycle_phases": {
+      "repair": "Post-default phase; defaults peak, underwriting tight, spreads wide",
+      "recovery": "Defaults falling; underwriting loosens; spreads compress",
+      "expansion": "Credit grows rapidly; standards loose; spreads tight",
+      "downturn": "Defaults rising; standards tighten; spreads widen"
+    },
+    "interaction_with_business_cycle": {
+      "amplification": "Loose credit amplifies expansions; tight credit deepens recessions",
+      "asset_price_link": "Credit fuels asset prices; price falls reduce collateral value and credit supply",
+      "procyclicality": "Bank balance sheets expand in booms, contract in busts"
+    },
+    "early_warning_signals": {
+      "rapid_credit_growth": "Credit growth exceeding GDP growth for many quarters",
+      "deteriorating_standards": "Covenant-lite deals, high LTVs, thin DSCRs",
+      "compressed_spreads": "Spreads at historic tights with deteriorating quality",
+      "rising_leverage": "Debt/EBITDA climbing across borrowers"
+    },
+    "applications": {
+      "credit_allocation": "Reduce HY exposure in late-expansion phase",
+      "bank_equity_analysis": "Monitor loan loss reserves vs credit cycle phase",
+      "sovereign_risk": "Credit-to-GDP gap as BIS early-warning indicator",
+      "counter_cyclical_capital_buffer": "Regulator tool set by credit gap"
+    },
+    "validation": {
+      "market_id_required": "market_id present",
+      "reasonable_spread": "credit_spread_bps >= 0"
+    }
+  },
+  "outcomes": {
+    "classify_credit_phase": {
+      "priority": 1,
+      "description": "Assign current credit cycle phase",
+      "given": [
+        {
+          "field": "market_id",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "credit_monitor"
+        },
+        {
+          "action": "emit_event",
+          "event": "credit.phase_classified"
+        }
+      ]
+    },
+    "credit_stress_alert": {
+      "priority": 2,
+      "description": "Spreads spike and standards tighten sharply",
+      "given": [
+        {
+          "field": "stress_signal",
+          "source": "computed",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "credit.stress_alert"
+        }
+      ]
+    },
+    "missing_market": {
+      "priority": 10,
+      "description": "Market id missing",
+      "given": [
+        {
+          "field": "market_id",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "credit.classification_rejected"
+        }
+      ],
+      "error": "CREDIT_MARKET_MISSING"
+    }
+  },
+  "errors": [
+    {
+      "code": "CREDIT_MARKET_MISSING",
+      "status": 400,
+      "message": "market_id is required"
+    }
+  ],
+  "events": [
+    {
+      "name": "credit.phase_classified",
+      "payload": [
+        "classification_id",
+        "phase",
+        "confidence",
+        "supporting_signals"
+      ]
+    },
+    {
+      "name": "credit.stress_alert",
+      "payload": [
+        "alert_id",
+        "spread_widening_bps",
+        "standard_tightening"
+      ]
+    },
+    {
+      "name": "credit.classification_rejected",
+      "payload": [
+        "classification_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not assume credit spreads track only fundamental default risk",
+      "why": "Spreads also embed liquidity premia, technical flows, and risk aversion; decomposing is essential before attributing moves to credit quality"
+    },
+    {
+      "rule": "Do not wait for realised defaults before repositioning",
+      "why": "Defaults lag; leading signals (standards, spread changes, leverage trends) move 6-12 months earlier"
+    },
+    {
+      "rule": "Do not conflate the credit cycle with the business cycle",
+      "why": "Financial and real cycles can de-couple; credit crises can occur without output contractions and vice versa"
+    },
+    {
+      "rule": "Do not size positions assuming liquidity will remain in a downturn",
+      "why": "Credit liquidity dries up exactly when most needed; stress-test with illiquid market assumptions"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/macro/credit-cycle/classify"
+    },
+    "request": {
+      "schema": {
+        "market_id": "string",
+        "credit_growth_rate": "number",
+        "lending_standards_index": "number",
+        "credit_spread_bps": "number",
+        "default_rate": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "phase": "string",
+          "confidence": "number",
+          "supporting_signals": "array"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "CREDIT_MARKET_MISSING"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "bis_credit_to_gdp_gap": {
+      "signal": "Credit/GDP ratio deviation from long-run trend",
+      "threshold_warning": "> 10 percentage points above trend -> elevated systemic risk"
+    }
+  },
+  "related": [
+    {
+      "feature": "business-cycle-phases",
+      "type": "required"
+    },
+    {
+      "feature": "economic-indicators",
+      "type": "recommended"
+    }
+  ]
+}

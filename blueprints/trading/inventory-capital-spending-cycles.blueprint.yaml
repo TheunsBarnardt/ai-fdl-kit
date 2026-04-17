@@ -1,0 +1,169 @@
+# ============================================================
+# inventory-capital-spending-cycles — Feature Blueprint
+# Source: CFA LV1 2025 Vol 02 — Module 2, p.60-65
+# ============================================================
+
+feature: inventory-capital-spending-cycles
+version: "1.0.0"
+description: Track inventory-to-sales ratios, capital expenditure, and workforce costs across the business cycle to anticipate turning points and firm profitability
+category: trading
+tags: [economics, macroeconomics, inventory-cycle, capex, labour-costs, cfa-level-1]
+aliases:
+  - inventory-sales-ratio
+  - capex-cycle
+  - workforce-cost-cycle
+  - inventory-investment
+  - capital-spending-cyclicality
+  - labour-cost-sensitivity
+
+actors:
+  - id: macro_engine
+    name: Macroeconomic Analysis Engine
+    type: system
+
+fields:
+  - name: observation_date
+    type: date
+    required: true
+    label: Observation date
+  - name: inventory_to_sales
+    type: number
+    required: false
+    label: Inventory-to-sales ratio
+  - name: capex_growth
+    type: number
+    required: false
+    label: Year-on-year capex growth (percent)
+  - name: unit_labour_cost_growth
+    type: number
+    required: false
+    label: Year-on-year unit labour cost growth (percent)
+  - name: capacity_utilisation
+    type: number
+    required: false
+    label: Capacity utilisation rate (percent)
+
+rules:
+  inventory_cycle:
+    # Source: Vol 2, Module 2, p.63-65
+    expansion_start: "Firms caught short; inventory-to-sales ratio falls"
+    late_expansion: "Inventory builds as demand softens; ratio rises"
+    recession: "Firms draw down inventory rapidly; ratio spikes then falls"
+    recovery: "Restocking cycle lifts production"
+  capital_spending_cycle:
+    # Source: Vol 2, Module 2, p.61-62
+    early_expansion: "Capex rebounds as utilisation rises and confidence returns"
+    mid_expansion: "Capex accelerates; capacity additions"
+    late_expansion: "Capex peaks; diminishing project returns"
+    recession: "Capex cuts are deep and fast"
+  workforce_cost_cycle:
+    # Source: Vol 2, Module 2, p.60-61
+    early_expansion: "Productivity rises faster than wages; unit labour costs flat"
+    late_expansion: "Wage growth accelerates; ULC rises"
+    recession: "Layoffs and hiring freezes reduce labour cost growth"
+  investment_implications:
+    sector_bets:
+      inventory_restock: "Favour cyclicals, transports in early recovery"
+      capex_acceleration: "Favour capital-goods manufacturers in mid-expansion"
+      wage_squeeze: "Watch margin compression in labour-intensive sectors late-cycle"
+  applications:
+    earnings_forecast: "Incorporate inventory-sales ratios into revenue forecasts"
+    industrial_equity: "Capex cycle timing for machinery and semiconductor equipment"
+    retail: "Inventory overhang at peak cycle warns of margin pressure"
+  validation:
+    observation_date_present: "observation_date required"
+    ratios_reasonable: "0 <= inventory_to_sales <= 10"
+
+outcomes:
+  update_cycle_metrics:
+    priority: 1
+    description: Record readings and compute phase signals
+    given:
+      - field: observation_date
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: macro_engine
+      - action: emit_event
+        event: macro.cycle_metrics_updated
+  inventory_alert:
+    priority: 2
+    description: Inventory-to-sales ratio breaches warning threshold
+    given:
+      - field: inventory_to_sales
+        source: input
+        operator: gt
+        value: 1.5
+    then:
+      - action: emit_event
+        event: macro.inventory_alert
+  missing_date:
+    priority: 10
+    description: Observation date missing
+    given:
+      - field: observation_date
+        source: input
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: macro.cycle_metrics_rejected
+    error: CYCLE_METRIC_DATE_MISSING
+
+errors:
+  - code: CYCLE_METRIC_DATE_MISSING
+    status: 400
+    message: observation_date is required
+
+events:
+  - name: macro.cycle_metrics_updated
+    payload: [observation_date, inventory_to_sales, capex_growth, unit_labour_cost_growth]
+  - name: macro.inventory_alert
+    payload: [observation_date, inventory_to_sales, threshold]
+  - name: macro.cycle_metrics_rejected
+    payload: [observation_date, reason_code]
+
+anti_patterns:
+  - rule: Do not treat rising inventories alone as a recession signal
+    why: "Voluntary strategic inventory builds differ from involuntary demand shortfalls; decompose into components before acting"
+  - rule: Do not forecast capex purely from GDP trends
+    why: "Capex is lumpy and sensitive to tax policy, interest rates, and sectoral shocks; bottom-up firm guidance is often more informative"
+  - rule: Do not ignore productivity when interpreting wage growth
+    why: "Wage growth with matching productivity does not raise unit labour costs or inflation; the spread matters more than the level"
+  - rule: Do not ignore global supply chains when sizing US inventory cycles
+    why: "Imports smooth or distort domestic inventory behaviour; watch global PMIs and shipping volumes"
+
+api:
+  http:
+    method: POST
+    path: /macro/cycle/metrics
+  request:
+    schema:
+      observation_date: string
+      inventory_to_sales: number
+      capex_growth: number
+      unit_labour_cost_growth: number
+      capacity_utilisation: number
+  response:
+    success:
+      status: 200
+      schema:
+        observation_date: string
+        cycle_signal: string
+        warnings: array
+    errors:
+      - status: 400
+        error_code: CYCLE_METRIC_DATE_MISSING
+
+extensions:
+  stylized_cycle_readings:
+    early_recovery: {inventory_to_sales: low, capex_growth: rising, ulc_growth: flat}
+    mid_expansion: {inventory_to_sales: balanced, capex_growth: strong, ulc_growth: rising}
+    late_expansion: {inventory_to_sales: rising, capex_growth: peaking, ulc_growth: elevated}
+    recession: {inventory_to_sales: spiking_then_falling, capex_growth: negative, ulc_growth: falling}
+
+related:
+  - feature: business-cycle-phases
+    type: required
+  - feature: economic-indicators
+    type: required
