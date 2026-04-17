@@ -1,0 +1,670 @@
+feature: broker-scrip-procedures
+version: 1.0.0
+description: Back-office scrip handling covering physical and electronic securities — receipts, allocations, registration, dispatch, safekeeping, central depository lodgement, pledge management, and scrip...
+category: trading
+tags:
+  - back-office
+  - broker
+  - scrip
+  - settlement
+  - safekeeping
+  - csd
+  - lodgement
+  - dematerialisation
+  - float-control
+  - bank-pledge
+aliases:
+  - scrip-procedures
+  - scrip-handling
+  - physical-securities-handling
+  - scrip-register
+  - scrip-movements
+  - safe-custody
+  - csdp-lodgement
+  - float-control
+actors:
+  - id: broker_operator
+    name: Broker Back-Office Operator
+    type: human
+  - id: scrip_clerk
+    name: Scrip Clerk
+    type: human
+  - id: scrip_supervisor
+    name: Scrip Supervisor
+    type: human
+  - id: transfer_secretary
+    name: Transfer Secretary
+    type: external
+    description: Issuer agent responsible for registration of physical securities
+  - id: central_depository
+    name: Central Securities Depository Participant
+    type: external
+    description: CSD participant holding dematerialised securities on behalf of the broker
+  - id: custodian_bank
+    name: Custodian Bank
+    type: external
+    description: Bank holding scrip under pledge or safe custody
+  - id: back_office_system
+    name: Back-Office System
+    type: system
+fields:
+  - name: scrip_reference
+    type: text
+    required: true
+    label: Scrip Reference Number
+  - name: scrip_type
+    type: select
+    required: true
+    label: Scrip Type
+  - name: security_code
+    type: text
+    required: true
+    label: Security Code
+  - name: certificate_number
+    type: text
+    required: false
+    label: Certificate Number
+  - name: quantity
+    type: number
+    required: true
+    label: Share Quantity
+  - name: registered_holder
+    type: text
+    required: false
+    label: Registered Holder Name
+  - name: account_code
+    type: text
+    required: true
+    label: Client Account Code
+  - name: deal_reference
+    type: text
+    required: false
+    label: Deal Reference
+  - name: location_code
+    type: select
+    required: true
+    label: Scrip Location Code
+  - name: scrip_status
+    type: select
+    required: true
+    label: Scrip Status
+  - name: received_date
+    type: date
+    required: true
+    label: Received Date
+  - name: received_from
+    type: text
+    required: false
+    label: Received From Counterparty
+  - name: transfer_deed_number
+    type: text
+    required: false
+    label: Transfer Deed Number
+  - name: transfer_deed_type
+    type: select
+    required: false
+    label: Transfer Deed Type
+  - name: balance_receipt_number
+    type: text
+    required: false
+    label: Balance Receipt Number
+  - name: lodged_with
+    type: select
+    required: false
+    label: Lodged With
+  - name: lodgement_reference
+    type: text
+    required: false
+    label: Lodgement Reference
+  - name: pledge_reference
+    type: text
+    required: false
+    label: Pledge Reference
+  - name: pledge_bank
+    type: text
+    required: false
+    label: Pledging Bank
+  - name: dispatch_method
+    type: select
+    required: false
+    label: Dispatch Method
+  - name: dispatch_date
+    type: date
+    required: false
+    label: Dispatch Date
+  - name: safe_custody_reference
+    type: text
+    required: false
+    label: Safe Custody Reference
+  - name: contra_reference
+    type: text
+    required: false
+    label: Contra Reference
+  - name: float_count_date
+    type: date
+    required: false
+    label: Float Count Date
+  - name: counted_quantity
+    type: number
+    required: false
+    label: Counted Quantity
+  - name: system_quantity
+    type: number
+    required: false
+    label: System Quantity
+  - name: variance_quantity
+    type: number
+    required: false
+    label: Variance Quantity
+  - name: memo_text
+    type: rich_text
+    required: false
+    label: Scrip Memo
+states:
+  field: scrip_status
+  values:
+    - name: received
+      initial: true
+    - name: allocated
+    - name: registered
+    - name: lodged
+    - name: in_safe_custody
+    - name: pledged
+    - name: released
+      terminal: true
+    - name: dispatched
+      terminal: true
+  transitions:
+    - from: received
+      to: allocated
+      actor: scrip_clerk
+      description: Scrip matched against an open purchase and allocated to a buyer account
+    - from: allocated
+      to: registered
+      actor: transfer_secretary
+      description: Transfer secretary completes registration in new holder's name
+    - from: registered
+      to: lodged
+      actor: scrip_clerk
+      description: Registered scrip lodged with central depository
+    - from: registered
+      to: in_safe_custody
+      actor: scrip_clerk
+    - from: registered
+      to: pledged
+      actor: scrip_supervisor
+    - from: in_safe_custody
+      to: released
+      actor: scrip_supervisor
+    - from: lodged
+      to: released
+      actor: scrip_supervisor
+    - from: pledged
+      to: released
+      actor: scrip_supervisor
+    - from: registered
+      to: dispatched
+      actor: scrip_clerk
+rules:
+  data_integrity:
+    scrip_uniqueness: Scrip reference must be unique within broker firm and cannot be reused after release or dispatch
+    certificate_integrity: Certificate number plus security code must match issuer records before registration
+    quantity_match: Captured quantity must equal the sum of allocated quantities across linked deals
+    location_audit: Every scrip movement logs origin location, destination location, timestamp, and actor
+    record_retention: Scrip movement history retained for at least seven years to satisfy recordkeeping rules
+  security:
+    segregation_of_duties: Operator who receives scrip may not also release from safe custody or pledge without a supervisor override
+    physical_handling: Physical scrip handled only by designated scrip clerks in a dual-control environment
+    dematerialised_access: Electronic pledge operations require supervisor role and are recorded with audit trail
+  compliance:
+    exchange_control: Foreign-holder scrip flagged and handled under applicable exchange-control regulations
+    popia_client_data: Registered-holder names and account linkages treated as personal information under POPIA
+    fica_counterparty: Counterparty identity verified before accepting scrip received from non-regulated parties
+    aml_monitoring: Unusual patterns of physical scrip movement reported to compliance
+  business:
+    scrip_types: Valid scrip types are certificate, certified deed, white deed form CM42, blue deed form CM41, balance receipt, transfer receipt
+    location_codes: Each physical location of scrip assigned a unique code so the broker always knows where scrip resides
+    contra_settlement: Scrip received against a sale must be contra-matched to the corresponding counter-side; unmatched contras block settlement
+    float_balancing: Daily scrip count per security and per location must reconcile to system quantity; variances raise a float-control exception
+    registration_flow: Scrip sent to transfer secretary for registration, monitored until receipt ex-company, then moved to final destination
+    safe_custody_sweep: Client scrip not earmarked for delivery moves to safe custody by end of settlement window
+    pledge_release: Pledged scrip cannot be released to client or safe custody until pledge is formally withdrawn by the pledgee bank
+errors:
+  - code: SCRIP_DUPLICATE
+    status: 409
+    message: Scrip reference already exists in the register
+  - code: SCRIP_TYPE_INVALID
+    status: 400
+    message: Scrip type is not recognised
+  - code: SCRIP_QUANTITY_MISMATCH
+    status: 422
+    message: Captured quantity does not match allocated quantities
+  - code: SCRIP_LOCATION_UNKNOWN
+    status: 400
+    message: Location code is not defined in the scrip location master
+  - code: SCRIP_CONTRA_UNMATCHED
+    status: 409
+    message: No matching contra found for this scrip receipt
+  - code: SCRIP_NOT_REGISTERED
+    status: 409
+    message: Scrip must be registered before lodgement, safe custody, or pledge
+  - code: SCRIP_RELEASE_FORBIDDEN
+    status: 403
+    message: Scrip release requires scrip supervisor role
+  - code: SCRIP_PLEDGE_ACTIVE
+    status: 409
+    message: Scrip cannot be released while an active pledge exists
+  - code: SCRIP_FLOAT_VARIANCE
+    status: 422
+    message: Float count does not reconcile to system quantity
+events:
+  - name: scrip.received
+    payload:
+      - scrip_reference
+      - scrip_type
+      - security_code
+      - quantity
+      - account_code
+      - received_from
+      - timestamp
+  - name: scrip.allocated
+    payload:
+      - scrip_reference
+      - deal_reference
+      - account_code
+      - allocated_by
+      - timestamp
+  - name: scrip.sent_for_registration
+    payload:
+      - scrip_reference
+      - transfer_secretary
+      - sent_by
+      - timestamp
+  - name: scrip.registered
+    payload:
+      - scrip_reference
+      - registered_holder
+      - certificate_number
+      - timestamp
+  - name: scrip.lodged
+    payload:
+      - scrip_reference
+      - lodged_with
+      - lodgement_reference
+      - lodged_by
+      - timestamp
+  - name: scrip.released_from_safekeeping
+    payload:
+      - scrip_reference
+      - location_code
+      - released_by
+      - timestamp
+  - name: scrip.pledged
+    payload:
+      - scrip_reference
+      - pledge_bank
+      - pledge_reference
+      - pledged_by
+      - timestamp
+  - name: scrip.pledge_withdrawn
+    payload:
+      - scrip_reference
+      - pledge_reference
+      - withdrawn_by
+      - timestamp
+  - name: scrip.dispatched
+    payload:
+      - scrip_reference
+      - dispatch_method
+      - dispatch_date
+      - dispatched_by
+  - name: scrip.float_counted
+    payload:
+      - security_code
+      - location_code
+      - counted_quantity
+      - system_quantity
+      - variance_quantity
+      - counted_by
+      - timestamp
+  - name: scrip.contra_matched
+    payload:
+      - scrip_reference
+      - contra_reference
+      - matched_by
+      - timestamp
+outcomes:
+  receive_scrip_against_sale:
+    priority: 1
+    description: Scrip clerk captures scrip received from a counterparty against an open sale, creating a register entry and initial receipt event
+    given:
+      - field: scrip_type
+        source: input
+        operator: in
+        value:
+          - certificate
+          - certified_deed
+          - white_deed
+          - blue_deed
+          - balance_receipt
+          - transfer_receipt
+      - field: security_code
+        source: input
+        operator: exists
+      - field: quantity
+        source: input
+        operator: gt
+        value: 0
+      - field: deal_reference
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: scrip_register_entry
+      - action: set_field
+        target: scrip_status
+        value: received
+      - action: emit_event
+        event: scrip.received
+    transaction: true
+  reject_duplicate_scrip:
+    priority: 2
+    error: SCRIP_DUPLICATE
+    description: Prevent the same certificate or balance receipt being loaded twice
+    given:
+      - field: scrip_reference
+        source: db
+        operator: exists
+    then:
+      - action: emit_event
+        event: scrip.received
+  allocate_scrip_to_purchase:
+    priority: 3
+    description: Scrip clerk allocates received scrip against a matching open purchase
+    given:
+      - field: scrip_status
+        source: db
+        operator: eq
+        value: received
+      - field: deal_reference
+        source: input
+        operator: exists
+    then:
+      - action: transition_state
+        field: scrip_status
+        from: received
+        to: allocated
+      - action: emit_event
+        event: scrip.allocated
+    transaction: true
+  send_for_registration:
+    priority: 4
+    description: Clerk sends allocated scrip to the transfer secretary for registration in the new holder's name
+    given:
+      - field: scrip_status
+        source: db
+        operator: eq
+        value: allocated
+    then:
+      - action: set_field
+        target: location_code
+        value: at_transfer_secretary
+      - action: emit_event
+        event: scrip.sent_for_registration
+    transaction: true
+  record_registered_scrip:
+    priority: 5
+    description: Back-office records receipt ex-company once transfer secretary returns the registered certificate
+    given:
+      - field: certificate_number
+        source: input
+        operator: exists
+      - field: registered_holder
+        source: input
+        operator: exists
+    then:
+      - action: transition_state
+        field: scrip_status
+        from: allocated
+        to: registered
+      - action: emit_event
+        event: scrip.registered
+    transaction: true
+  lodge_with_central_depository:
+    priority: 6
+    description: Registered scrip lodged with the central securities depository for dematerialisation
+    given:
+      - field: scrip_status
+        source: db
+        operator: eq
+        value: registered
+      - field: lodged_with
+        source: input
+        operator: eq
+        value: central_depository
+    then:
+      - action: transition_state
+        field: scrip_status
+        from: registered
+        to: lodged
+      - action: set_field
+        target: location_code
+        value: at_central_depository
+      - action: emit_event
+        event: scrip.lodged
+    transaction: true
+  move_to_safe_custody:
+    priority: 7
+    description: Registered scrip not earmarked for delivery is swept into safe custody
+    given:
+      - field: scrip_status
+        source: db
+        operator: eq
+        value: registered
+    then:
+      - action: transition_state
+        field: scrip_status
+        from: registered
+        to: in_safe_custody
+      - action: set_field
+        target: location_code
+        value: safe_custody
+      - action: emit_event
+        event: scrip.lodged
+  reject_unregistered_lodgement:
+    priority: 8
+    error: SCRIP_NOT_REGISTERED
+    description: Prevent lodgement, safe custody, or pledge of unregistered scrip
+    given:
+      - field: scrip_status
+        source: db
+        operator: in
+        value:
+          - received
+          - allocated
+    then:
+      - action: emit_event
+        event: scrip.lodged
+  pledge_scrip_to_bank:
+    priority: 9
+    description: Supervisor pledges registered or lodged scrip to a custodian bank
+    given:
+      - field: user_role
+        source: session
+        operator: eq
+        value: scrip_supervisor
+      - field: pledge_bank
+        source: input
+        operator: exists
+    then:
+      - action: transition_state
+        field: scrip_status
+        from: registered
+        to: pledged
+      - action: emit_event
+        event: scrip.pledged
+    transaction: true
+  release_scrip_from_safekeeping:
+    priority: 10
+    description: Supervisor releases scrip from safe custody, lodgement, or pledge once business reason documented
+    given:
+      - field: user_role
+        source: session
+        operator: eq
+        value: scrip_supervisor
+      - field: scrip_status
+        source: db
+        operator: in
+        value:
+          - in_safe_custody
+          - lodged
+          - pledged
+    then:
+      - action: transition_state
+        field: scrip_status
+        from: in_safe_custody
+        to: released
+      - action: emit_event
+        event: scrip.released_from_safekeeping
+    transaction: true
+  reject_release_with_active_pledge:
+    priority: 11
+    error: SCRIP_PLEDGE_ACTIVE
+    description: Block release of scrip while an active pledge record exists and has not been withdrawn
+    given:
+      - field: pledge_reference
+        source: db
+        operator: exists
+      - field: scrip_status
+        source: db
+        operator: eq
+        value: pledged
+    then:
+      - action: emit_event
+        event: scrip.released_from_safekeeping
+  dispatch_scrip_to_client:
+    priority: 12
+    description: Registered scrip dispatched by registered post or courier to the client
+    given:
+      - field: scrip_status
+        source: db
+        operator: eq
+        value: registered
+      - field: dispatch_method
+        source: input
+        operator: in
+        value:
+          - registered_post
+          - courier
+          - counter_collection
+    then:
+      - action: transition_state
+        field: scrip_status
+        from: registered
+        to: dispatched
+      - action: emit_event
+        event: scrip.dispatched
+  balance_scrip_float:
+    priority: 13
+    description: Daily scrip count reconciles physical quantity at each location to system quantity
+    given:
+      - field: counted_quantity
+        source: input
+        operator: exists
+      - field: system_quantity
+        source: db
+        operator: exists
+    then:
+      - action: set_field
+        target: variance_quantity
+        value: computed
+      - action: emit_event
+        event: scrip.float_counted
+  raise_float_variance_exception:
+    priority: 14
+    error: SCRIP_FLOAT_VARIANCE
+    description: Float count variance raises an exception and blocks end-of-day until investigated
+    given:
+      - field: variance_quantity
+        source: computed
+        operator: neq
+        value: 0
+    then:
+      - action: emit_event
+        event: scrip.float_counted
+api:
+  http:
+    method: POST
+    path: /api/v1/scrip
+  request:
+    schema:
+      scrip_type: select
+      security_code: text
+      quantity: number
+      account_code: text
+      deal_reference: text
+      received_from: text
+  response:
+    success:
+      status: 201
+      schema:
+        scrip_reference: text
+        scrip_status: select
+        location_code: select
+    errors:
+      - error_code: SCRIP_DUPLICATE
+        status: 409
+      - error_code: SCRIP_TYPE_INVALID
+        status: 400
+      - error_code: SCRIP_QUANTITY_MISMATCH
+        status: 422
+      - error_code: SCRIP_CONTRA_UNMATCHED
+        status: 409
+anti_patterns:
+  - rule: Do not allow the same operator to both receive scrip and release it from safe custody without a supervisor approval
+    why: Single-person control over physical scrip is a classic fraud vector; segregation of duties is mandatory
+  - rule: Do not lodge scrip with the central depository before the transfer secretary has registered it in the new holder's name
+    why: Unregistered scrip cannot be dematerialised and will be rejected by the depository, stranding the client's position
+  - rule: Do not release pledged scrip without a formal pledge withdrawal from the pledgee bank
+    why: Releasing pledged securities breaches the pledge agreement and exposes the broker to legal and credit risk
+  - rule: Do not bypass daily float counts because variances look small
+    why: Small recurring variances mask systemic errors or shrinkage; daily reconciliation is a core control
+  - rule: Do not record personal information of registered holders in unencrypted logs or flat-file exports
+    why: Registered-holder names combined with security holdings are personal information under POPIA and attract breach-notification obligations
+  - rule: Do not store real certificate numbers or holder identifiers in example fixtures
+    why: Fixture data leaks propagate into lower environments and become a data-protection incident
+related:
+  - feature: broker-client-account-maintenance
+    type: required
+  - feature: popia-compliance
+    type: required
+  - feature: broker-back-office-dissemination
+    type: recommended
+  - feature: broker-client-data-upload
+    type: recommended
+extensions:
+  screens:
+    ACDLU: Receive Scrip Against Sales
+    ACSCR: Scrip Receipts Other Than Against Sales
+    MANCT: Manual Contras
+    SCRAL: Scrip Allocation and Certification
+    SCRCT: Scrip Count
+    SHBAL: Share Balance
+    USTCO: Scrip to Company (Send for Registration)
+    URXCO: Receipts Ex Company
+    USXCO: Scrip Ex Company
+    USTNN: Scrip Delivery
+    USTPO: Scrip for Mailing
+    USTSC: Scrip to Safe Custody
+    USXSC: Scrip Ex Safe Custody
+    USTBP: Scrip to Bank Pledge
+    USXBP: Scrip from Bank Pledge
+    USTEP: Bank Pledge for Electronic Scrip
+    USXEP: Scrip Ex Bank Pledge
+  scrip_types:
+    C: Certificate
+    CD: Certified Deed
+    WD: White Deed (Form CM42)
+    BD: Blue Deed (Form CM41)
+    BR: Balance Receipt
+    TR: Transfer Receipt

@@ -1,0 +1,522 @@
+feature: broker-money-market
+version: 1.0.0
+description: Broker-managed money market facility for investing pooled client funds in daily call and fixed-term deposits with a deposit-taking institution, with automated interest capitalisation and reinvestment
+category: trading
+tags:
+  - back-office
+  - broker
+  - money-market
+  - call-loan
+  - fixed-term-deposit
+  - deposit-taking-institution
+  - interest-capitalisation
+  - pooled-funds
+aliases:
+  - money-market
+  - mm-loans-and-deposits
+  - broker-call-deposit
+  - broker-fixed-term-deposit
+  - pooled-client-funds
+  - mm-investment-maintenance
+  - mm-control-parameters
+actors:
+  - id: broker_operator
+    name: Broker Back-Office Operator
+    type: human
+  - id: money_market_supervisor
+    name: Money Market Supervisor
+    type: human
+  - id: back_office_system
+    name: Back-Office System
+    type: system
+  - id: deposit_taking_institution
+    name: Deposit-Taking Institution
+    type: external
+  - id: client
+    name: Broker Client (Beneficial Owner of Funds)
+    type: external
+  - id: compliance_officer
+    name: Compliance Officer
+    type: human
+fields:
+  - name: investment_id
+    type: text
+    required: true
+    label: Investment Identifier
+  - name: client_account_code
+    type: text
+    required: true
+    label: Client Account Code
+  - name: borrower_account_code
+    type: text
+    required: true
+    label: Borrower (Deposit-Taking Institution) Account Code
+  - name: investment_type
+    type: select
+    required: true
+    label: Investment Type
+  - name: balance_code
+    type: text
+    required: true
+    label: Money Market Balance Code
+  - name: interest_code
+    type: text
+    required: true
+    label: Interest Code
+  - name: interest_rate
+    type: number
+    required: true
+    label: Negotiated Interest Rate Percentage
+  - name: original_capital_amount
+    type: number
+    required: true
+    label: Original Capital Amount
+  - name: current_balance
+    type: number
+    required: true
+    label: Current Balance Including Capitalised Interest
+  - name: effective_date
+    type: date
+    required: true
+    label: Effective Date
+  - name: maturity_date
+    type: date
+    required: false
+    label: Maturity Date
+  - name: auto_reinvest_flag
+    type: boolean
+    required: true
+    label: Auto-Reinvestment Enabled
+  - name: mandate_signed_date
+    type: date
+    required: true
+    label: Client Money Market Mandate Signed Date
+  - name: pooled_flag
+    type: boolean
+    required: true
+    label: Funds Pooled with Other Clients
+  - name: withdrawal_instruction
+    type: boolean
+    required: false
+    label: Withdrawal Instruction Received
+  - name: investment_status
+    type: select
+    required: true
+    label: Investment Status
+  - name: capitalisation_frequency
+    type: select
+    required: true
+    label: Interest Capitalisation Frequency
+  - name: last_capitalised_date
+    type: date
+    required: false
+    label: Last Interest Capitalisation Date
+states:
+  field: investment_status
+  values:
+    - name: pending
+      initial: true
+    - name: invested
+    - name: active
+    - name: matured
+    - name: withdrawn
+      terminal: true
+    - name: closed
+      terminal: true
+  transitions:
+    - from: pending
+      to: invested
+      actor: broker_operator
+      description: Funds transferred to deposit-taking institution
+    - from: invested
+      to: active
+      actor: back_office_system
+      description: Investment confirmed and earning interest
+    - from: active
+      to: matured
+      actor: back_office_system
+      description: Fixed-term investment has reached maturity
+    - from: matured
+      to: active
+      actor: back_office_system
+      description: Auto-reinvestment at new rates
+    - from: matured
+      to: withdrawn
+      actor: broker_operator
+      description: Client withdrawal instruction processed at maturity
+    - from: active
+      to: withdrawn
+      actor: broker_operator
+      description: Client call-loan withdrawal processed
+    - from: withdrawn
+      to: closed
+      actor: back_office_system
+rules:
+  regulatory:
+    agent_capacity: Broker acts as agent pooling client funds on clients' behalf; broker is not the principal lender
+    mandate_required: Client must sign a money market mandate before any funds are invested on their behalf
+    segregation_of_funds: Pooled client money market funds must be segregated from broker house funds
+    popia_compliance: Client personal and account information handled under POPIA lawful-basis requirements
+  interest:
+    call_capitalisation: Daily call investments capitalise interest at calendar month end
+    fixed_term_capitalisation: Fixed-term investments capitalise interest at maturity date
+    auto_reinvestment: On maturity, capital plus capitalised interest automatically reinvests at the prevailing rates unless a withdrawal has been instructed
+    rate_sourcing: Interest rate is negotiated with the deposit-taking institution per interest code and effective date range
+    call_rate_validity: Call interest codes carry an open-ended validity (no fixed end date)
+  financial:
+    balance_code_required: All money market debits and credits use specific money market balance codes on the client balance ledger
+    borrower_balance_code: Borrower balance code must exist on the balance table before funds can be deposited
+    pooled_allocation: Pooled interest is allocated across participating client accounts in proportion to capital and holding period
+  data_integrity:
+    investment_uniqueness: Investment identifier must be unique within the broker firm
+    borrower_type: Borrower accounts must be loaded with account type representing a deposit-taking institution before investments can be made against them
+    audit_trail: All capital movements, rate changes, and status transitions are logged with actor and timestamp
+  security:
+    rate_change_authorisation: Changes to interest rates require supervisor authorisation
+    segregation_of_duties: Operator who loaded an investment cannot self-authorise rate changes against it
+errors:
+  - code: MM_MANDATE_MISSING
+    status: 422
+    message: Client money market mandate is not on file
+  - code: MM_BORROWER_INVALID
+    status: 400
+    message: Borrower account is not a registered deposit-taking institution
+  - code: MM_BALANCE_CODE_UNKNOWN
+    status: 400
+    message: Balance code is not defined on the balance table
+  - code: MM_RATE_UNAUTHORISED
+    status: 403
+    message: Only a supervisor may change money market interest rates
+  - code: MM_REINVEST_BLOCKED
+    status: 409
+    message: Auto-reinvestment blocked because a withdrawal instruction is pending
+  - code: MM_MATURITY_INVALID
+    status: 400
+    message: Maturity date is required for fixed-term investments and must be after the effective date
+  - code: MM_WITHDRAWAL_INSUFFICIENT
+    status: 409
+    message: Requested withdrawal exceeds available balance
+events:
+  - name: money_market.investment_created
+    payload:
+      - investment_id
+      - client_account_code
+      - borrower_account_code
+      - investment_type
+      - original_capital_amount
+      - effective_date
+  - name: money_market.investment_activated
+    payload:
+      - investment_id
+      - activated_by
+      - timestamp
+  - name: money_market.interest_capitalised
+    payload:
+      - investment_id
+      - period
+      - interest_amount
+      - new_balance
+      - capitalised_at
+  - name: money_market.investment_matured
+    payload:
+      - investment_id
+      - maturity_date
+      - final_balance
+  - name: money_market.auto_reinvested
+    payload:
+      - investment_id
+      - previous_balance
+      - new_capital
+      - new_rate
+      - new_maturity_date
+  - name: money_market.withdrawal_processed
+    payload:
+      - investment_id
+      - client_account_code
+      - amount
+      - processed_by
+      - timestamp
+  - name: money_market.rate_changed
+    payload:
+      - interest_code
+      - old_rate
+      - new_rate
+      - effective_date
+      - changed_by
+outcomes:
+  create_call_investment:
+    priority: 1
+    description: Broker operator loads a new daily call investment against a deposit-taking institution after confirming the client mandate is on file
+    given:
+      - field: mandate_signed_date
+        source: db
+        operator: exists
+      - field: investment_type
+        source: input
+        operator: eq
+        value: call
+      - field: borrower_account_code
+        source: db
+        operator: exists
+    then:
+      - action: create_record
+        type: money_market_investment
+      - action: set_field
+        target: capitalisation_frequency
+        value: monthly
+      - action: set_field
+        target: investment_status
+        value: invested
+      - action: emit_event
+        event: money_market.investment_created
+    transaction: true
+  create_fixed_term_investment:
+    priority: 2
+    description: Broker operator loads a fixed-term deposit with a negotiated rate and maturity date
+    given:
+      - field: investment_type
+        source: input
+        operator: eq
+        value: fixed_term
+      - field: maturity_date
+        source: input
+        operator: exists
+      - field: mandate_signed_date
+        source: db
+        operator: exists
+    then:
+      - action: create_record
+        type: money_market_investment
+      - action: set_field
+        target: capitalisation_frequency
+        value: at_maturity
+      - action: set_field
+        target: investment_status
+        value: invested
+      - action: emit_event
+        event: money_market.investment_created
+    transaction: true
+  reject_missing_mandate:
+    priority: 3
+    error: MM_MANDATE_MISSING
+    description: Block investment creation if the client has not signed a money market mandate
+    given:
+      - field: mandate_signed_date
+        source: db
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: money_market.investment_created
+  capitalise_call_interest_month_end:
+    priority: 4
+    description: Month-end calendar run capitalises accrued interest on all active daily call investments
+    given:
+      - field: investment_type
+        source: db
+        operator: eq
+        value: call
+      - field: investment_status
+        source: db
+        operator: eq
+        value: active
+    then:
+      - action: set_field
+        target: current_balance
+        value: computed
+      - action: set_field
+        target: last_capitalised_date
+        value: computed
+      - action: emit_event
+        event: money_market.interest_capitalised
+    transaction: true
+  capitalise_and_mature_fixed_term:
+    priority: 5
+    description: On maturity date, capitalise accrued interest and transition fixed-term investment to matured
+    given:
+      - field: investment_type
+        source: db
+        operator: eq
+        value: fixed_term
+      - field: maturity_date
+        source: db
+        operator: lte
+        value: today
+    then:
+      - action: set_field
+        target: current_balance
+        value: computed
+      - action: transition_state
+        field: investment_status
+        from: active
+        to: matured
+      - action: emit_event
+        event: money_market.interest_capitalised
+      - action: emit_event
+        event: money_market.investment_matured
+    transaction: true
+  auto_reinvest_matured_investment:
+    priority: 6
+    description: Automatically reinvest capital plus capitalised interest at prevailing rates unless a withdrawal was instructed
+    given:
+      - field: investment_status
+        source: db
+        operator: eq
+        value: matured
+      - field: withdrawal_instruction
+        source: db
+        operator: neq
+        value: true
+      - field: auto_reinvest_flag
+        source: db
+        operator: eq
+        value: true
+    then:
+      - action: transition_state
+        field: investment_status
+        from: matured
+        to: active
+      - action: emit_event
+        event: money_market.auto_reinvested
+    transaction: true
+  block_reinvestment_on_withdrawal:
+    priority: 7
+    error: MM_REINVEST_BLOCKED
+    description: Prevent auto-reinvestment when the client has lodged a withdrawal instruction
+    given:
+      - field: withdrawal_instruction
+        source: db
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: money_market.withdrawal_processed
+  process_client_withdrawal:
+    priority: 8
+    description: Process a client withdrawal, debiting the money market balance code and crediting the client account
+    given:
+      - field: withdrawal_instruction
+        source: input
+        operator: eq
+        value: true
+      - field: current_balance
+        source: db
+        operator: gt
+        value: 0
+    then:
+      - action: transition_state
+        field: investment_status
+        from: active
+        to: withdrawn
+      - action: emit_event
+        event: money_market.withdrawal_processed
+    transaction: true
+  reject_unauthorised_rate_change:
+    priority: 9
+    error: MM_RATE_UNAUTHORISED
+    description: Only a money market supervisor may change negotiated interest rates
+    given:
+      - field: user_role
+        source: session
+        operator: neq
+        value: money_market_supervisor
+    then:
+      - action: emit_event
+        event: money_market.rate_changed
+  reject_unknown_balance_code:
+    priority: 10
+    error: MM_BALANCE_CODE_UNKNOWN
+    description: Reject investments that reference a balance code not on the balance table
+    given:
+      - field: balance_code
+        source: db
+        operator: not_exists
+    then:
+      - action: emit_event
+        event: money_market.investment_created
+api:
+  http:
+    method: POST
+    path: /api/v1/money-market/investments
+  request:
+    schema:
+      client_account_code: text
+      borrower_account_code: text
+      investment_type: select
+      balance_code: text
+      interest_code: text
+      original_capital_amount: number
+      effective_date: date
+      maturity_date: date
+      auto_reinvest_flag: boolean
+  response:
+    success:
+      status: 201
+      schema:
+        investment_id: text
+        investment_status: select
+        capitalisation_frequency: select
+    errors:
+      - error_code: MM_MANDATE_MISSING
+        status: 422
+      - error_code: MM_BORROWER_INVALID
+        status: 400
+      - error_code: MM_BALANCE_CODE_UNKNOWN
+        status: 400
+      - error_code: MM_MATURITY_INVALID
+        status: 400
+      - error_code: MM_RATE_UNAUTHORISED
+        status: 403
+      - error_code: MM_REINVEST_BLOCKED
+        status: 409
+      - error_code: MM_WITHDRAWAL_INSUFFICIENT
+        status: 409
+anti_patterns:
+  - rule: Do not invest client funds without a signed, dated money market mandate on file
+    why: Agent-capacity investment without an explicit mandate exposes the broker to regulatory sanction and client claims
+  - rule: Do not comingle pooled client money market funds with broker house funds
+    why: Client money rules require strict segregation; comingling is a cardinal regulatory breach
+  - rule: Do not allow the operator who loaded an investment to self-authorise rate changes on it
+    why: Segregation of duties prevents rate manipulation by a single compromised credential
+  - rule: Do not auto-reinvest when a withdrawal instruction is pending
+    why: Auto-reinvestment locks client capital and overrides the client's most recent instruction
+  - rule: Do not capitalise call interest on any cadence other than calendar month end
+    why: Off-cycle capitalisation breaks reconciliation with the deposit-taking institution and distorts interest allocation across pooled clients
+  - rule: Do not allow investments against borrower accounts that are not typed as deposit-taking institutions
+    why: The regulatory dispensation permits investment only with a recognised deposit-taking institution
+related:
+  - feature: broker-client-account-maintenance
+    type: required
+  - feature: popia-compliance
+    type: required
+  - feature: broker-back-office-dissemination
+    type: recommended
+extensions:
+  screens:
+    MMACI: Money Market Account Enquiry
+    MMALA: Money Market Allocation Audit Enquiry
+    MMALI: Money Market Allocation Enquiry
+    MMCTL: Money Market Control Parameters
+    MMINT: Interest Rates Maintenance
+    MMINQ: Interest Rates Enquiry
+    MMINV: Investment Maintenance
+    MMIVI: Investment via Interest Code
+    MMIVQ: Investment Enquiry
+    MMRTE: Money Market Rate Enquiry
+    MMTRI: Money Market Turn History
+    MMTRQ: Turn Rates Enquiry
+    MMTUR: Turn Rates
+    TBINV: Investment Type Table
+  reports:
+    - Money Market Upload Discrepancies
+    - Money Market Balances Report
+    - Balances with No Investments
+    - Deal Settlements with Money Market Balances
+    - Money Market Interest Earned Report
+    - Money Market Mandates Report
+    - Money Market Call Interest Report
+    - List of Lenders per Borrower
+    - List of Borrowers per Lender
+    - Daily Reconciliation
+    - Money Market Daily Confirmation
+    - Money Market Fixed Term Confirmation
+    - Income Tax Letter

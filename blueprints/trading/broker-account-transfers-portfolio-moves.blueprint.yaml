@@ -1,0 +1,549 @@
+feature: broker-account-transfers-portfolio-moves
+version: 1.0.0
+description: Automates account-to-account transfers and bulk portfolio moves of dematerialised listed equity holdings between client accounts, including source/destination validation, supervisor approval, and...
+category: trading
+tags:
+  - back-office
+  - broker
+  - account-transfer
+  - portfolio-move
+  - settlement
+  - dematerialised
+  - csdp
+  - equities
+aliases:
+  - account-transfers
+  - portfolio-moves
+  - atsel
+  - atdlv
+  - atrec
+  - pmsel
+  - pmdlv
+  - pmrec
+  - internal-account-transfer
+  - external-account-transfer
+  - portfolio-transfer
+  - holdings-transfer
+  - bulk-portfolio-transfer
+actors:
+  - id: broker_operator
+    name: Broker Back-Office Operator
+    type: human
+    description: Initiates and captures transfer or portfolio move instructions
+  - id: transfer_supervisor
+    name: Transfer Supervisor
+    type: human
+    description: Approves delivering and receiving legs of a transfer
+  - id: back_office_system
+    name: Back-Office System
+    type: system
+    description: Executes bookkeeping entries and position updates
+  - id: central_securities_depository
+    name: Central Securities Depository
+    type: external
+    description: External registry that coordinates the registered-securities leg via settlement messages
+  - id: counterparty_broker
+    name: Counterparty Broker
+    type: external
+    description: Receiving or delivering broker in an external transfer
+fields:
+  - name: transfer_reference
+    type: text
+    required: true
+    label: Transfer Reference
+  - name: transfer_type
+    type: select
+    required: true
+    label: Transfer Type
+  - name: transaction_code
+    type: text
+    required: true
+    label: Transaction Code
+  - name: source_account_code
+    type: text
+    required: true
+    label: Source Account Code
+  - name: destination_account_code
+    type: text
+    required: true
+    label: Destination Account Code
+  - name: source_member_code
+    type: text
+    required: true
+    label: Source Member Code
+  - name: destination_member_code
+    type: text
+    required: true
+    label: Destination Member Code
+  - name: instrument_code
+    type: text
+    required: false
+    label: Instrument Code
+  - name: quantity
+    type: number
+    required: false
+    label: Quantity to Transfer
+  - name: available_holding
+    type: number
+    required: false
+    label: Available Holding
+  - name: settlement_date
+    type: date
+    required: true
+    label: Settlement Date
+  - name: transfer_reason
+    type: select
+    required: true
+    label: Transfer Reason
+  - name: change_of_beneficial_owner
+    type: boolean
+    required: true
+    label: Change of Beneficial Owner
+  - name: controlled_source_flag
+    type: boolean
+    required: true
+    label: Source Is Controlled Account
+  - name: controlled_destination_flag
+    type: boolean
+    required: true
+    label: Destination Is Controlled Account
+  - name: non_resident_flag
+    type: boolean
+    required: false
+    label: Non-Resident Client
+  - name: portfolio_selection_mode
+    type: select
+    required: false
+    label: Portfolio Selection Mode
+  - name: linkage_key
+    type: text
+    required: false
+    label: Branch/Partner/Advisor Linkage Key
+  - name: swift_message_reference
+    type: text
+    required: false
+    label: Settlement Message Reference
+  - name: csd_commit_reference
+    type: text
+    required: false
+    label: Central Securities Depository Commit Reference
+  - name: transfer_status
+    type: select
+    required: true
+    label: Transfer Status
+  - name: approval_notes
+    type: rich_text
+    required: false
+    label: Approval Notes
+  - name: created_by
+    type: text
+    required: true
+    label: Created By
+  - name: approved_by
+    type: text
+    required: false
+    label: Approved By
+states:
+  field: transfer_status
+  values:
+    - name: requested
+      initial: true
+    - name: approved
+    - name: executed
+    - name: settled
+      terminal: true
+    - name: rejected
+      terminal: true
+    - name: cancelled
+      terminal: true
+  transitions:
+    - from: requested
+      to: approved
+      actor: transfer_supervisor
+      description: Supervisor approves the delivery or receipt instruction
+    - from: requested
+      to: rejected
+      actor: transfer_supervisor
+      description: Supervisor rejects due to validation or policy failure
+    - from: approved
+      to: executed
+      actor: back_office_system
+      description: Book entries posted; awaiting registered-securities confirmation
+    - from: executed
+      to: settled
+      actor: central_securities_depository
+      description: Central depository confirms the registered leg
+    - from: requested
+      to: cancelled
+      actor: broker_operator
+      description: Operator cancels before approval
+    - from: approved
+      to: cancelled
+      actor: transfer_supervisor
+      description: Supervisor recalls an approval before execution
+rules:
+  data_integrity:
+    holding_sufficiency: Transfer quantity must not exceed available holding on source account for the chosen instrument
+    settlement_date_floor: Default settlement date is T+1, may be set to same-day or a future date but never a past date
+    unique_reference: Transfer reference must be unique within the broker firm
+    paired_legs: External transfers require matching delivery and receipt legs with identical quantity, instrument, and settlement date
+    scope_equities_only: Functionality restricted to dematerialised listed equities; other instrument classes are rejected
+  security:
+    screen_level_access: Selection, delivery, receipt, and enquiry screens each have distinct access codes for segregation of duties
+    segregation_of_duties: Operator who captures a transfer cannot approve it; a supervisor role is required
+    field_level_auth: Settlement date and quantity are edit-restricted once a leg is approved
+  compliance:
+    change_of_beneficial_owner_flag: Every transfer must declare whether beneficial ownership changes, for tax and regulatory reporting
+    non_resident_segregation: Non-resident controlled client holdings must remain in non-resident pools; mixing with resident balances is forbidden
+    non_controlled_destination: Moves from controlled to non-controlled accounts remove the holding from the controlled balance without re-creating it on the non-controlled side
+    popia_consent: Personal information displayed on transfer screens is subject to POPIA lawful-basis checks
+    audit_trail: All state transitions, approvals, and message exchanges are logged with user, timestamp, and before/after values for at least 36 months
+  business:
+    transaction_codes: Each transfer type uses a distinct transaction code for downstream identification and reporting
+    internal_vs_external: Internal transfers stay within one broker; external transfers pair with a counterparty broker
+    portfolio_scope: Portfolio moves transfer all qualifying listed-equity holdings across one or many client accounts in a single instruction
+    portfolio_selection: Accounts may be selected by branch, partner, or advisor linkage, or from an explicit account list
+    csd_coordination: Registered-securities leg is coordinated with the central securities depository via standard settlement messages
+    dissemination: Transfer confirmations are disseminated to clients via configured contract-note channels
+errors:
+  - code: TRANSFER_INSUFFICIENT_HOLDING
+    status: 409
+    message: Source account does not hold the requested quantity
+  - code: TRANSFER_INVALID_ACCOUNT
+    status: 400
+    message: Source or destination account code is unknown or inactive
+  - code: TRANSFER_INVALID_INSTRUMENT
+    status: 400
+    message: Instrument is not a dematerialised listed equity
+  - code: TRANSFER_SETTLEMENT_DATE_INVALID
+    status: 400
+    message: Settlement date must be today or in the future
+  - code: TRANSFER_DUPLICATE_REFERENCE
+    status: 409
+    message: Transfer reference already exists for this broker
+  - code: TRANSFER_APPROVAL_FORBIDDEN
+    status: 403
+    message: Only a supervisor role may approve a transfer
+  - code: TRANSFER_SELF_APPROVAL_BLOCKED
+    status: 403
+    message: Transfer creator may not approve their own instruction
+  - code: TRANSFER_NON_RESIDENT_VIOLATION
+    status: 422
+    message: Non-resident holdings cannot be mixed with resident balances
+  - code: TRANSFER_CSD_REJECT
+    status: 503
+    message: Central securities depository rejected the settlement message
+  - code: TRANSFER_STATE_INVALID
+    status: 409
+    message: Requested state transition is not allowed from current status
+events:
+  - name: transfer.requested
+    payload:
+      - transfer_reference
+      - transfer_type
+      - source_account_code
+      - destination_account_code
+      - quantity
+      - created_by
+      - timestamp
+  - name: transfer.approved
+    payload:
+      - transfer_reference
+      - approved_by
+      - timestamp
+  - name: transfer.rejected
+    payload:
+      - transfer_reference
+      - rejected_by
+      - reason
+      - timestamp
+  - name: transfer.executed
+    payload:
+      - transfer_reference
+      - executed_by
+      - csd_commit_reference
+      - timestamp
+  - name: transfer.settled
+    payload:
+      - transfer_reference
+      - swift_message_reference
+      - settled_at
+  - name: transfer.cancelled
+    payload:
+      - transfer_reference
+      - cancelled_by
+      - timestamp
+  - name: portfolio_move.requested
+    payload:
+      - transfer_reference
+      - source_accounts
+      - destination_accounts
+      - linkage_key
+      - created_by
+      - timestamp
+  - name: portfolio_move.executed
+    payload:
+      - transfer_reference
+      - instrument_count
+      - executed_by
+      - timestamp
+outcomes:
+  request_internal_transfer:
+    priority: 1
+    description: Operator captures an internal account-to-account transfer within the same broker
+    given:
+      - field: transfer_type
+        source: input
+        operator: eq
+        value: internal
+      - field: source_member_code
+        source: input
+        operator: eq
+        value: destination_member_code
+      - field: quantity
+        source: input
+        operator: lte
+        value: available_holding
+    then:
+      - action: create_record
+        type: transfer_instruction
+      - action: set_field
+        target: transfer_status
+        value: requested
+      - action: emit_event
+        event: transfer.requested
+    transaction: true
+  reject_insufficient_holding:
+    priority: 2
+    error: TRANSFER_INSUFFICIENT_HOLDING
+    description: Prevent transfer when source holding is smaller than requested quantity
+    given:
+      - field: quantity
+        source: input
+        operator: gt
+        value: available_holding
+    then:
+      - action: emit_event
+        event: transfer.rejected
+  reject_past_settlement_date:
+    priority: 3
+    error: TRANSFER_SETTLEMENT_DATE_INVALID
+    description: Block instructions with a settlement date in the past
+    given:
+      - field: settlement_date
+        source: input
+        operator: lt
+        value: today
+    then:
+      - action: emit_event
+        event: transfer.rejected
+  approve_transfer:
+    priority: 4
+    description: Supervisor approves a requested delivery or receipt leg
+    given:
+      - field: user_role
+        source: session
+        operator: eq
+        value: transfer_supervisor
+      - field: transfer_status
+        source: db
+        operator: eq
+        value: requested
+      - field: created_by
+        source: db
+        operator: neq
+        value: current_user
+    then:
+      - action: transition_state
+        field: transfer_status
+        from: requested
+        to: approved
+      - action: set_field
+        target: approved_by
+        value: current_user
+      - action: emit_event
+        event: transfer.approved
+    transaction: true
+  block_self_approval:
+    priority: 5
+    error: TRANSFER_SELF_APPROVAL_BLOCKED
+    description: Prevent the capturing operator from approving their own transfer
+    given:
+      - field: created_by
+        source: db
+        operator: eq
+        value: current_user
+    then:
+      - action: emit_event
+        event: transfer.rejected
+  execute_approved_transfer:
+    priority: 6
+    description: Back-office system posts book entries and dispatches settlement message to the central securities depository
+    given:
+      - field: transfer_status
+        source: db
+        operator: eq
+        value: approved
+    then:
+      - action: call_service
+        target: csd_settlement_gateway
+      - action: transition_state
+        field: transfer_status
+        from: approved
+        to: executed
+      - action: emit_event
+        event: transfer.executed
+    transaction: true
+  settle_on_csd_confirmation:
+    priority: 7
+    description: Mark transfer settled when the central securities depository confirms the registered leg
+    given:
+      - field: transfer_status
+        source: db
+        operator: eq
+        value: executed
+      - field: swift_message_reference
+        source: input
+        operator: exists
+    then:
+      - action: transition_state
+        field: transfer_status
+        from: executed
+        to: settled
+      - action: emit_event
+        event: transfer.settled
+    transaction: true
+  request_portfolio_move_by_linkage:
+    priority: 8
+    description: Operator selects a set of client accounts by branch, partner, or advisor linkage and initiates a bulk portfolio move
+    given:
+      - field: transfer_type
+        source: input
+        operator: eq
+        value: portfolio_move
+      - field: portfolio_selection_mode
+        source: input
+        operator: in
+        value:
+          - branch
+          - partner
+          - advisor
+          - account_list
+      - field: linkage_key
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: portfolio_move_instruction
+      - action: set_field
+        target: transfer_status
+        value: requested
+      - action: emit_event
+        event: portfolio_move.requested
+    transaction: true
+  reject_non_equity_instrument:
+    priority: 9
+    error: TRANSFER_INVALID_INSTRUMENT
+    description: Reject transfers of anything other than dematerialised listed equities
+    given:
+      - field: instrument_code
+        source: db
+        operator: not_in
+        value:
+          - listed_equity_dematerialised
+    then:
+      - action: emit_event
+        event: transfer.rejected
+  handle_csd_rejection:
+    priority: 10
+    error: TRANSFER_CSD_REJECT
+    description: Roll back execution when the central securities depository rejects the settlement message
+    given:
+      - field: csd_response_code
+        source: input
+        operator: eq
+        value: rejected
+    then:
+      - action: transition_state
+        field: transfer_status
+        from: executed
+        to: rejected
+      - action: emit_event
+        event: transfer.rejected
+    transaction: true
+api:
+  http:
+    method: POST
+    path: /api/v1/transfers
+  request:
+    schema:
+      transfer_type: select
+      source_account_code: text
+      destination_account_code: text
+      source_member_code: text
+      destination_member_code: text
+      instrument_code: text
+      quantity: number
+      settlement_date: date
+      transfer_reason: select
+      change_of_beneficial_owner: boolean
+  response:
+    success:
+      status: 201
+      schema:
+        transfer_reference: text
+        transfer_status: select
+        settlement_date: date
+    errors:
+      - error_code: TRANSFER_INSUFFICIENT_HOLDING
+        status: 409
+      - error_code: TRANSFER_INVALID_ACCOUNT
+        status: 400
+      - error_code: TRANSFER_INVALID_INSTRUMENT
+        status: 400
+      - error_code: TRANSFER_SETTLEMENT_DATE_INVALID
+        status: 400
+      - error_code: TRANSFER_DUPLICATE_REFERENCE
+        status: 409
+      - error_code: TRANSFER_SELF_APPROVAL_BLOCKED
+        status: 403
+      - error_code: TRANSFER_CSD_REJECT
+        status: 503
+anti_patterns:
+  - rule: Do not allow the capturing operator to approve their own transfer instruction
+    why: Segregation of duties is a core settlement-integrity control; self-approval lets a single compromised credential move holdings undetected
+  - rule: Do not accept settlement dates in the past or outside allowed windows
+    why: Back-dated settlement corrupts position history, tax lots, and regulatory reporting
+  - rule: Do not mix non-resident controlled holdings with resident balances
+    why: Exchange-control legislation requires strict segregation; co-mingling is a reportable breach
+  - rule: Do not execute the book leg before the central-securities-depository leg is acknowledged
+    why: Split-state failures leave positions out of sync with the registry and require manual reconciliation
+  - rule: Do not permit transfers of non-equity or certificated instruments through this flow
+    why: Scope is restricted to dematerialised listed equities; other instrument classes require different settlement rails
+  - rule: Do not log personal information or account numbers in plaintext operational logs
+    why: POPIA s.19 requires appropriate technical safeguards; plaintext logs are a recognised breach vector
+  - rule: Do not hard-delete transfer records after settlement
+    why: Transfers form part of the statutory audit trail and must be retained for the full regulatory recordkeeping period
+related:
+  - feature: broker-client-account-maintenance
+    type: required
+  - feature: popia-compliance
+    type: required
+  - feature: broker-back-office-dissemination
+    type: recommended
+extensions:
+  screens:
+    ATSEL: Account Transfer Select
+    ATDLV: Account Transfer Delivery
+    ATREC: Account Transfer Receipt
+    ATENQ: Account Transfer Enquiry
+    ATDET: Account Transfer Detail
+    PMSEL: Portfolio Move Selection
+    PMDLV: Portfolio Move Delivery
+    PMREC: Portfolio Move Receipt
+    PMENQ: Portfolio Move Enquiry
+    PMDET: Portfolio Move Detail
+  notes:
+    scope: Dematerialised listed equities only
+    default_settlement: T+1, adjustable to same-day or future date
+    csd_messaging: Standard settlement messages coordinate the registered-securities leg

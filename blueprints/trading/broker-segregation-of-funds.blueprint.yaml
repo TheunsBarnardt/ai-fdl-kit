@@ -1,0 +1,492 @@
+feature: broker-segregation-of-funds
+version: 1.0.0
+description: Segregation of client funds from member funds via trust banking accounts with daily sweeps to a central trust-account provider, resident vs non-resident handling, and bank transfer instructions
+category: trading
+tags:
+  - back-office
+  - broker
+  - segregation-of-funds
+  - trust-account
+  - sweeps
+  - exchange-control
+  - non-resident
+  - reconciliation
+aliases:
+  - segregation-of-funds
+  - trust-account-sweeps
+  - client-fund-segregation
+  - daily-sweep
+  - jset-sweep
+  - non-resident-funds
+  - trust-banking
+actors:
+  - id: broker_operator
+    name: Broker Back-Office Operator
+    type: human
+  - id: finance_officer
+    name: Member Finance Officer
+    type: human
+  - id: trust_account_provider
+    name: Central Trust Account Provider
+    type: external
+    description: Central entity holding pooled controlled-client funds on behalf of members
+  - id: commercial_bank
+    name: Commercial Bank
+    type: external
+    description: One of the approved banks holding member trust and non-resident trust accounts
+  - id: exchange_control_authority
+    name: Foreign Exchange Control Authority
+    type: external
+  - id: back_office_system
+    name: Back-Office Accounting System
+    type: system
+fields:
+  - name: member_code
+    type: text
+    required: true
+    label: Member Code
+  - name: cash_alpha_code
+    type: text
+    required: true
+    label: Cash Alpha Code
+  - name: bank_account_number
+    type: text
+    required: true
+    label: Bank Account Number
+  - name: bank_branch_code
+    type: text
+    required: true
+    label: Bank Branch Code
+  - name: bank_bic_code
+    type: text
+    required: false
+    label: Bank BIC / SWIFT Code
+  - name: account_type
+    type: select
+    required: true
+    label: Account Type
+  - name: related_cash_alpha
+    type: text
+    required: false
+    label: Related Current Account Cash Alpha
+  - name: exchange_control_indicator
+    type: select
+    required: true
+    label: Exchange Control Indicator
+  - name: gl_control_account_resident
+    type: text
+    required: true
+    label: GL Control Account — Resident Funds
+  - name: gl_control_account_non_resident
+    type: text
+    required: true
+    label: GL Control Account — Non-Resident Funds
+  - name: sweep_date
+    type: date
+    required: true
+    label: Sweep Age Date
+  - name: sweep_amount
+    type: number
+    required: true
+    label: Sweep Amount
+  - name: sweep_direction
+    type: select
+    required: true
+    label: Sweep Direction
+  - name: sweep_status
+    type: select
+    required: true
+    label: Sweep Status
+  - name: unpaid_sweep_reason
+    type: text
+    required: false
+    label: Unpaid Sweep Reason
+  - name: interest_rate
+    type: number
+    required: false
+    label: Base Interest Rate
+  - name: minimum_interest_debit
+    type: number
+    required: false
+    label: Minimum Interest Amount Debit
+  - name: minimum_interest_credit
+    type: number
+    required: false
+    label: Minimum Interest Amount Credit
+  - name: non_resident_cutoff_time
+    type: text
+    required: false
+    label: Non-Resident Payment Cut-off Time
+  - name: transfer_instruction_reference
+    type: text
+    required: false
+    label: Bank Transfer Instruction Reference
+states:
+  field: sweep_status
+  values:
+    - name: pending
+      initial: true
+    - name: instructed
+    - name: settled
+      terminal: true
+    - name: unpaid
+    - name: investigated
+    - name: resolved
+      terminal: true
+  transitions:
+    - from: pending
+      to: instructed
+      actor: back_office_system
+      description: Overnight batch generates transfer instructions to banks
+    - from: instructed
+      to: settled
+      actor: commercial_bank
+      description: Bank confirms same-day value settlement
+    - from: instructed
+      to: unpaid
+      actor: commercial_bank
+      description: Bank fails to process the sweep
+    - from: unpaid
+      to: investigated
+      actor: finance_officer
+    - from: investigated
+      to: resolved
+      actor: finance_officer
+rules:
+  segregation:
+    trust_account_required: Every member must operate a resident trust banking account and, if serving non-residents, a non-resident trust banking account
+    client_funds_protection: Client assets must be held separately from member assets at all times to protect investors on member default
+    deposit_routing: Client deposits must be made into the member's trust account, never the member's operating current account
+    daily_sweep: Credit balances on controlled-client accounts are swept to the central trust-account provider on a daily basis
+    same_day_value: Sweeps must settle for same-day value, even if the transfer instruction is delivered to the bank the following morning (retro back-dating)
+    approved_banks_only: Trust banking accounts may only be held at the set of approved commercial banks recognised by the trust-account provider
+  exchange_control:
+    resident_blank_indicator: Accounts belonging to residents carry a blank or 'resident' exchange control indicator and funds are non-transferable offshore without authority approval
+    non_resident_indicator: Non-resident accounts carry an 'F' / non_resident indicator and funds are transferable out of the country
+    blocked_funds_indicator: "'B' / blocked funds indicator identifies emigrated-person residual funds, strictly controlled and held only by authorised dealers"
+    non_resident_no_overdraft: Non-resident bank accounts may never go into overdraft; deliberate overdraft is a contravention that may trigger licence revocation and regulator audit
+    deposit_default_routing: Deposits from accounts flagged non-resident default to the non-resident trust account regardless of cash alpha supplied
+    non_resident_cutoff: Non-resident payments must respect the regulator cut-off time; funds must be loaded the day before to allow sweep settlement
+  reconciliation:
+    daily_balance_check: Member must confirm daily that balances due to or from the trust-account provider reconcile; any differences addressed promptly
+    unpaid_sweep_follow_up: Unpaid sweeps on current accounts require immediate investigation and resolution
+    gl_control_accounts: Resident and non-resident sweeps must post to distinct general ledger control accounts
+    audit_trail: All sweep transactions and bank transfer instructions logged and retained for regulatory inspection
+  interest:
+    interest_payment_cycle: Market-related interest on pooled trust funds is paid by the trust-account provider to the member monthly and credited to client accounts at month-end
+    administration_fee: Member may deduct a disclosed administration fee from interest before crediting clients
+    minimum_interest_thresholds: Minimum debit and credit interest amounts configurable separately for managed and non-managed clients
+  security:
+    bank_file_integrity: Bank transfer instruction files must be digitally signed or transmitted over authenticated channels
+    segregation_of_duties: Authoriser of non-resident payments must be distinct from the operator who captured the instruction
+errors:
+  - code: SOF_SWEEP_UNPAID
+    status: 409
+    message: Sweep instruction was not settled by the bank
+  - code: SOF_NON_RESIDENT_OVERDRAFT
+    status: 422
+    message: Non-resident bank account cannot go into overdraft
+  - code: SOF_TRUST_ACCOUNT_MISSING
+    status: 409
+    message: Required trust banking account has not been configured for this member
+  - code: SOF_UNAPPROVED_BANK
+    status: 422
+    message: Bank is not on the list of approved trust-account providers
+  - code: SOF_CUTOFF_EXCEEDED
+    status: 422
+    message: Non-resident payment submitted after regulator cut-off time
+  - code: SOF_EXCHANGE_CONTROL_MISMATCH
+    status: 422
+    message: Exchange control indicator on account does not match trust account type
+  - code: SOF_RECONCILIATION_DIFFERENCE
+    status: 409
+    message: Trust-account provider balance does not reconcile with member ledger
+events:
+  - name: sweep.calculated
+    payload:
+      - member_code
+      - sweep_date
+      - sweep_amount
+      - sweep_direction
+      - gl_control_account
+  - name: sweep.instruction_issued
+    payload:
+      - member_code
+      - bank_account_number
+      - transfer_instruction_reference
+      - sweep_amount
+      - sweep_date
+  - name: sweep.settled
+    payload:
+      - member_code
+      - sweep_date
+      - sweep_amount
+      - transfer_instruction_reference
+  - name: sweep.unpaid
+    payload:
+      - member_code
+      - sweep_date
+      - sweep_amount
+      - unpaid_sweep_reason
+  - name: sweep.reconciled
+    payload:
+      - member_code
+      - sweep_date
+      - reconciled_by
+  - name: trust_account.configured
+    payload:
+      - member_code
+      - cash_alpha_code
+      - bank_account_number
+      - account_type
+      - exchange_control_indicator
+  - name: interest.credited
+    payload:
+      - member_code
+      - period
+      - total_interest
+      - administration_fee
+outcomes:
+  configure_trust_account:
+    priority: 1
+    description: Customer support loads a trust banking account with cash alpha and bank details
+    given:
+      - field: account_type
+        source: input
+        operator: in
+        value:
+          - trust
+          - non_resident_trust
+      - field: bank_account_number
+        source: input
+        operator: exists
+      - field: cash_alpha_code
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: trust_account_configuration
+      - action: emit_event
+        event: trust_account.configured
+    transaction: true
+  reject_unapproved_bank:
+    priority: 2
+    error: SOF_UNAPPROVED_BANK
+    description: Block creation of trust accounts at banks outside the approved list
+    given:
+      - field: bank_code
+        source: input
+        operator: not_in
+        value:
+          - approved_bank_1
+          - approved_bank_2
+          - approved_bank_3
+          - approved_bank_4
+    then:
+      - action: emit_event
+        event: trust_account.configured
+  calculate_daily_sweep:
+    priority: 3
+    description: Overnight batch calculates required sweep to or from the trust-account provider per bank
+    given:
+      - field: batch_phase
+        source: system
+        operator: eq
+        value: overnight
+      - field: controlled_client_balance_changed
+        source: computed
+        operator: eq
+        value: true
+    then:
+      - action: create_record
+        type: sweep_entry
+      - action: set_field
+        target: sweep_status
+        value: pending
+      - action: emit_event
+        event: sweep.calculated
+    transaction: true
+  issue_bank_transfer_instruction:
+    priority: 4
+    description: Back-office system issues same-day-value transfer instruction to the member's bank
+    given:
+      - field: sweep_status
+        source: db
+        operator: eq
+        value: pending
+    then:
+      - action: call_service
+        target: bank_transfer_interface
+      - action: transition_state
+        field: sweep_status
+        from: pending
+        to: instructed
+      - action: emit_event
+        event: sweep.instruction_issued
+    transaction: true
+  reject_non_resident_overdraft:
+    priority: 5
+    error: SOF_NON_RESIDENT_OVERDRAFT
+    description: Block any instruction that would send the non-resident trust account into overdraft
+    given:
+      - field: account_type
+        source: db
+        operator: eq
+        value: non_resident_trust
+      - field: projected_balance
+        source: computed
+        operator: lt
+        value: 0
+    then:
+      - action: emit_event
+        event: sweep.unpaid
+  enforce_non_resident_cutoff:
+    priority: 6
+    error: SOF_CUTOFF_EXCEEDED
+    description: Reject non-resident payment submitted after the regulator cut-off time
+    given:
+      - field: account_type
+        source: db
+        operator: eq
+        value: non_resident_trust
+      - field: submission_time
+        source: request
+        operator: gt
+        value: non_resident_cutoff_time
+    then:
+      - action: emit_event
+        event: sweep.unpaid
+  route_non_resident_deposit:
+    priority: 7
+    description: Auto-route deposits from non-resident-flagged clients to the non-resident trust account regardless of supplied cash alpha
+    given:
+      - field: client_exchange_control_indicator
+        source: db
+        operator: eq
+        value: non_resident
+    then:
+      - action: set_field
+        target: cash_alpha_code
+        value: non_resident_default
+      - action: emit_event
+        event: sweep.calculated
+  record_unpaid_sweep:
+    priority: 8
+    error: SOF_SWEEP_UNPAID
+    description: Bank reports a sweep was not settled; record reason and flag for investigation
+    given:
+      - field: bank_settlement_status
+        source: input
+        operator: eq
+        value: failed
+    then:
+      - action: transition_state
+        field: sweep_status
+        from: instructed
+        to: unpaid
+      - action: emit_event
+        event: sweep.unpaid
+    transaction: true
+  reconcile_trust_provider_balance:
+    priority: 9
+    description: Finance reconciles member ledger against trust-account provider statements for the period
+    given:
+      - field: reconciliation_period_closed
+        source: system
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: sweep.reconciled
+    transaction: true
+  credit_monthly_interest:
+    priority: 10
+    description: Monthly interest received from trust-account provider credited to client balances net of administration fee
+    given:
+      - field: period_end
+        source: system
+        operator: eq
+        value: month_end
+    then:
+      - action: set_field
+        target: client_balance
+        value: updated
+      - action: emit_event
+        event: interest.credited
+    transaction: true
+api:
+  http:
+    method: POST
+    path: /api/v1/segregation-of-funds/sweeps
+  request:
+    schema:
+      member_code: text
+      sweep_date: date
+      sweep_amount: number
+      sweep_direction: select
+      exchange_control_indicator: select
+      cash_alpha_code: text
+  response:
+    success:
+      status: 201
+      schema:
+        transfer_instruction_reference: text
+        sweep_status: select
+    errors:
+      - error_code: SOF_TRUST_ACCOUNT_MISSING
+        status: 409
+      - error_code: SOF_UNAPPROVED_BANK
+        status: 422
+      - error_code: SOF_NON_RESIDENT_OVERDRAFT
+        status: 422
+      - error_code: SOF_CUTOFF_EXCEEDED
+        status: 422
+      - error_code: SOF_EXCHANGE_CONTROL_MISMATCH
+        status: 422
+      - error_code: SOF_SWEEP_UNPAID
+        status: 409
+      - error_code: SOF_RECONCILIATION_DIFFERENCE
+        status: 409
+anti_patterns:
+  - rule: Do not commingle client trust funds with member operating funds
+    why: Segregation of client assets is a statutory requirement; commingling breaches investor-protection rules and exposes clients on member default
+  - rule: Do not route non-resident deposits to resident trust accounts
+    why: Foreign-exchange-control regulations require strict separation; misrouting creates unauthorised cross-border exposure and regulator sanctions
+  - rule: Do not allow non-resident trust accounts to go into overdraft
+    why: Deliberate overdraft on a non-resident account contravenes exchange-control regulations and can result in licence revocation and criminal liability for the authoriser
+  - rule: Do not transmit bank transfer instruction files over unauthenticated channels
+    why: Instruction files direct real money movements; spoofed or tampered files enable fraud and undermine audit integrity
+  - rule: Do not suppress or delay investigation of unpaid sweeps
+    why: Unpaid sweeps frequently indicate member insolvency or bank errors; delayed follow-up compounds client-fund risk and breaches daily reconciliation duty
+  - rule: Do not hard-code a single bank provider for sweep settlement
+    why: Banks forbid inter-bank retro entries; the sweep process requires mirrored accounts at each approved bank, so multi-bank support is mandatory
+related:
+  - feature: broker-client-account-maintenance
+    type: required
+  - feature: foreign-exchange-control
+    type: required
+  - feature: popia-compliance
+    type: required
+  - feature: broker-client-data-upload
+    type: recommended
+extensions:
+  screens:
+    BROKM: Broker Maintenance
+    T_GL_CSH: Cash Alpha Codes Table
+    T_BOP: Broker Options
+    T_INT: Base Interest Rates Table
+    CSHRT: Cash Receipts
+    CSHPT: Cash Payments
+    CSHMN: Cashflow Management
+  reports:
+    PAUDSW: List of Sweep Transactions with bank transfer instructions
+    PJSETB: Trust-Account Provider Client Balances
+    PSWEEP: Daily sweep report per bank
+    PCOMPR: Common Error Report from overnight processing
+    PFINTR: Journal and Cash Book Listings
+    PTRBAL: Trial Balance with resident and non-resident totals
+    PBALSA: Financial Account Balances per balance type
+  gl_accounts:
+    resident_funds_control: Resident funds sweep control account
+    non_resident_funds_control: Non-resident funds sweep control account
+    crossover_account: Settlement crossover account for securities-settlement sweeps

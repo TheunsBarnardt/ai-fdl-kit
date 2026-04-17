@@ -1,0 +1,467 @@
+feature: broker-realtime-deal-management
+version: 1.0.0
+description: Intra-day release and management of market trades, allocations and deal extensions into the broker sub-ledger, with average-price calculation, electronic trade confirmations and SWIFT contract notes
+category: trading
+tags:
+  - back-office
+  - broker
+  - trading
+  - real-time
+  - settlement
+  - contract-notes
+  - swift
+  - etc
+  - average-price
+aliases:
+  - realtime-deal-management
+  - realtime-trade-release
+  - rtrel
+  - same-day-allocation
+  - sdall
+  - intra-day-release
+  - trade-day-processing
+  - electronic-trade-confirmation
+  - swift-contract-notes
+actors:
+  - id: broker_operator
+    name: Broker Back-Office Operator
+    type: human
+  - id: dealing_desk
+    name: Dealing Desk Trader
+    type: human
+  - id: trade_supervisor
+    name: Trade Release Supervisor
+    type: human
+  - id: back_office_system
+    name: Back-Office Sub-Ledger System
+    type: system
+  - id: trading_engine
+    name: Market Trading Engine
+    type: external
+  - id: clearing_system
+    name: Central Clearing Solution
+    type: external
+  - id: swift_gateway
+    name: SWIFT Messaging Gateway
+    type: external
+fields:
+  - name: trade_reference
+    type: text
+    required: true
+    label: Trade Reference
+  - name: instrument_code
+    type: text
+    required: true
+    label: Instrument Code
+  - name: buy_sell_indicator
+    type: select
+    required: true
+    label: Buy/Sell Indicator
+  - name: principal_agent_indicator
+    type: select
+    required: true
+    label: Principal/Agent Indicator
+  - name: trading_account
+    type: text
+    required: true
+    label: Trading Account
+  - name: allocation_account
+    type: text
+    required: false
+    label: Allocation Account
+  - name: client_account_code
+    type: text
+    required: false
+    label: Client Account Code
+  - name: trade_quantity
+    type: number
+    required: true
+    label: Trade Quantity
+  - name: trade_price
+    type: number
+    required: true
+    label: Trade Price
+  - name: average_price
+    type: number
+    required: false
+    label: Calculated Average Price
+  - name: override_price
+    type: number
+    required: false
+    label: Override Allocation Price
+  - name: rand_indicator
+    type: boolean
+    required: true
+    label: Rand Settlement Indicator
+  - name: ring_fenced_term
+    type: text
+    required: false
+    label: Ring-Fenced Term
+  - name: trade_date
+    type: date
+    required: true
+    label: Trade Date
+  - name: settlement_date
+    type: date
+    required: true
+    label: Settlement Date
+  - name: release_status
+    type: select
+    required: true
+    label: Release Status
+  - name: release_timestamp
+    type: datetime
+    required: false
+    label: Release Timestamp
+  - name: contract_note_number
+    type: text
+    required: false
+    label: Contract Note Number
+  - name: etc_status
+    type: select
+    required: false
+    label: Electronic Trade Confirmation Status
+  - name: swift_message_reference
+    type: text
+    required: false
+    label: SWIFT Message Reference
+states:
+  field: release_status
+  values:
+    - name: matched
+      initial: true
+    - name: allocated
+    - name: released
+    - name: confirmed
+      terminal: true
+  transitions:
+    - from: matched
+      to: allocated
+      actor: dealing_desk
+      description: Trader allocates market trade to client or allocation accounts
+    - from: allocated
+      to: released
+      actor: broker_operator
+      description: Operator releases intra-day via real-time trade release
+    - from: released
+      to: confirmed
+      actor: back_office_system
+      description: Contract note generated and electronic confirmation acknowledged
+rules:
+  real_time_processing:
+    intra_day_release: Market trades flow in from trading engine and must be released intra-day to update the sub-ledger before end-of-day batch
+    same_day_allocation: Same-day allocation is permitted only on allocation accounts and only after underlying market trades are released into the sub-ledger
+    average_price_calculation: Average price calculated across grouped market trades sharing broker, instrument, buy/sell, principal/agent, trading account, ring-fenced term and rand indicator
+    override_price_allowed: User may override the calculated average price at allocation time; override must be recorded with operator identity and timestamp
+    unreleased_trades_fallback: Trades not released intra-day are processed in the overnight batch without loss of data
+  data_integrity:
+    grouping_keys: Grouping for average-price aggregation must use all seven keys; mismatched keys produce separate groups
+    allocation_balance: Allocation accounts must balance back to zero after all allocations are released on trade day
+    backdating_controls: Pre-dated and back-dated deals require explicit facility and supervisor authorization
+  security:
+    access_control: Release and allocation screens require role-based authorization; operator cannot self-approve supervisor-gated actions
+    audit_trail: Every release, override, adjustment and pre-date action logged with user, timestamp and before/after values
+  compliance:
+    settlement_discipline: Release deadlines align with clearing-cycle commitment to avoid margin penalties and reverse substitution
+    popia_compliance: Client-linked trade data is personal information; processing and transmission must meet POPIA lawful-basis and security controls
+    contract_note_delivery: Contract notes generated near-real-time in structured XML and SWIFT formats for client and counterparty delivery
+  business:
+    etc_lifecycle: Electronic Trade Confirmation messages flow between broker, custodian and counterparty; unmatched confirmations escalate to manual resolution
+    swift_adjustments: Adjustment and history contract notes produced when released trades are later corrected; SWIFT messages reference original
+    upload_facilities: Allocation and deal uploads accepted via batch files on trade day for bulk clients
+errors:
+  - code: TRADE_RELEASE_FORBIDDEN
+    status: 403
+    message: User role cannot release trades on this screen
+  - code: TRADE_ALREADY_RELEASED
+    status: 409
+    message: Trade has already been released and cannot be re-released
+  - code: ALLOCATION_ACCOUNT_UNRELEASED
+    status: 409
+    message: Same-day allocation blocked, underlying market trades not yet released
+  - code: ALLOCATION_BALANCE_NONZERO
+    status: 422
+    message: Allocation account does not balance to zero after release
+  - code: AVERAGE_PRICE_UNAVAILABLE
+    status: 422
+    message: Average price cannot be calculated, trade group incomplete
+  - code: OVERRIDE_PRICE_INVALID
+    status: 400
+    message: Override price failed validation or tolerance check
+  - code: CONTRACT_NOTE_GENERATION_FAILED
+    status: 500
+    message: Contract note generation failed, trade flagged for review
+  - code: SWIFT_DISPATCH_FAILED
+    status: 503
+    message: SWIFT gateway did not acknowledge contract note message
+  - code: ETC_MISMATCH
+    status: 409
+    message: Electronic trade confirmation did not match counterparty response
+  - code: BACKDATE_NOT_AUTHORIZED
+    status: 403
+    message: Backdating of trade requires supervisor authorization
+events:
+  - name: trade.matched
+    payload:
+      - trade_reference
+      - instrument_code
+      - trade_quantity
+      - trade_price
+      - timestamp
+  - name: trade.allocated
+    payload:
+      - trade_reference
+      - allocation_account
+      - client_account_code
+      - average_price
+      - allocated_by
+  - name: trade.released
+    payload:
+      - trade_reference
+      - release_timestamp
+      - released_by
+  - name: trade.release_failed
+    payload:
+      - trade_reference
+      - error_code
+      - timestamp
+  - name: contract_note.generated
+    payload:
+      - trade_reference
+      - contract_note_number
+      - format
+      - timestamp
+  - name: contract_note.swift_dispatched
+    payload:
+      - contract_note_number
+      - swift_message_reference
+      - timestamp
+  - name: etc.confirmed
+    payload:
+      - trade_reference
+      - counterparty
+      - timestamp
+  - name: etc.mismatched
+    payload:
+      - trade_reference
+      - counterparty
+      - reason
+      - timestamp
+  - name: allocation.balanced
+    payload:
+      - allocation_account
+      - trade_date
+      - timestamp
+outcomes:
+  release_trade_intraday:
+    priority: 1
+    description: Operator releases a matched and allocated trade via the real-time trade release screen
+    given:
+      - field: release_status
+        source: db
+        operator: eq
+        value: allocated
+      - field: user_role
+        source: session
+        operator: in
+        value:
+          - broker_operator
+          - trade_supervisor
+    then:
+      - action: transition_state
+        field: release_status
+        from: allocated
+        to: released
+      - action: set_field
+        target: release_timestamp
+        value: now
+      - action: emit_event
+        event: trade.released
+    transaction: true
+  reject_duplicate_release:
+    priority: 2
+    error: TRADE_ALREADY_RELEASED
+    description: Prevent release of a trade that has already been released
+    given:
+      - field: release_status
+        source: db
+        operator: in
+        value:
+          - released
+          - confirmed
+    then:
+      - action: emit_event
+        event: trade.release_failed
+  calculate_average_price:
+    priority: 3
+    description: Compute average price across a grouped set of market trades for allocation
+    given:
+      - field: trade_group_complete
+        source: computed
+        operator: eq
+        value: true
+    then:
+      - action: set_field
+        target: average_price
+        value: computed
+      - action: emit_event
+        event: trade.allocated
+    transaction: true
+  same_day_allocation_at_average:
+    priority: 4
+    description: Allocate released market trades on allocation accounts at the real-time average price
+    given:
+      - field: allocation_account
+        source: input
+        operator: exists
+      - field: release_status
+        source: db
+        operator: eq
+        value: released
+    then:
+      - action: create_record
+        type: allocation_entry
+      - action: emit_event
+        event: trade.allocated
+    transaction: true
+  block_allocation_when_underlying_unreleased:
+    priority: 5
+    error: ALLOCATION_ACCOUNT_UNRELEASED
+    description: Block same-day allocation when underlying market trades have not yet been released
+    given:
+      - field: release_status
+        source: db
+        operator: neq
+        value: released
+    then:
+      - action: emit_event
+        event: trade.release_failed
+  generate_realtime_contract_note:
+    priority: 6
+    description: Generate a structured contract note shortly after trade release and dispatch via SWIFT
+    given:
+      - field: release_status
+        source: db
+        operator: eq
+        value: released
+    then:
+      - action: create_record
+        type: contract_note
+      - action: emit_event
+        event: contract_note.generated
+      - action: call_service
+        target: swift_gateway
+      - action: emit_event
+        event: contract_note.swift_dispatched
+    transaction: true
+  confirm_electronic_trade_confirmation:
+    priority: 7
+    description: Match electronic trade confirmation response from counterparty and mark trade confirmed
+    given:
+      - field: etc_response
+        source: system
+        operator: eq
+        value: matched
+    then:
+      - action: transition_state
+        field: release_status
+        from: released
+        to: confirmed
+      - action: emit_event
+        event: etc.confirmed
+    transaction: true
+  flag_etc_mismatch:
+    priority: 8
+    error: ETC_MISMATCH
+    description: Counterparty ETC did not match, escalate for manual resolution
+    given:
+      - field: etc_response
+        source: system
+        operator: eq
+        value: mismatched
+    then:
+      - action: emit_event
+        event: etc.mismatched
+  verify_allocation_balance:
+    priority: 9
+    description: Confirm allocation account balances to zero at end of trade-day processing
+    given:
+      - field: allocation_account_balance
+        source: computed
+        operator: eq
+        value: 0
+    then:
+      - action: emit_event
+        event: allocation.balanced
+api:
+  http:
+    method: POST
+    path: /api/v1/trades/release
+  request:
+    schema:
+      trade_reference: text
+      allocation_account: text
+      override_price: number
+  response:
+    success:
+      status: 200
+      schema:
+        trade_reference: text
+        release_status: select
+        release_timestamp: datetime
+        contract_note_number: text
+    errors:
+      - error_code: TRADE_RELEASE_FORBIDDEN
+        status: 403
+      - error_code: TRADE_ALREADY_RELEASED
+        status: 409
+      - error_code: ALLOCATION_ACCOUNT_UNRELEASED
+        status: 409
+      - error_code: AVERAGE_PRICE_UNAVAILABLE
+        status: 422
+      - error_code: OVERRIDE_PRICE_INVALID
+        status: 400
+      - error_code: CONTRACT_NOTE_GENERATION_FAILED
+        status: 500
+      - error_code: SWIFT_DISPATCH_FAILED
+        status: 503
+anti_patterns:
+  - rule: Do not permit same-day allocation on allocation accounts whose underlying market trades are unreleased
+    why: Allocating against uncommitted trades produces sub-ledger imbalances that cascade into settlement failures
+  - rule: Do not silently apply an override price without logging operator identity and tolerance check
+    why: Undocumented price overrides are a known market-abuse vector and breach audit-trail requirements
+  - rule: Do not regenerate contract notes without producing an adjustment note referencing the original
+    why: Clients and counterparties rely on referenced adjustments for reconciliation; silent replacement breaks audit
+  - rule: Do not backdate trades outside the pre-dated or adjustment facility
+    why: Backdating through the normal release flow bypasses supervisor approval and masks late-booking breaches
+  - rule: Do not dispatch SWIFT contract notes without gateway acknowledgement handling
+    why: Lost messages without retry cause settlement disputes and margin calls on unmatched trades
+related:
+  - feature: broker-deal-management
+    type: recommended
+  - feature: broker-client-account-maintenance
+    type: recommended
+  - feature: popia-compliance
+    type: required
+extensions:
+  screens:
+    RTREL: Real-time Trade Release
+    RTMON: Real-time Release Monitoring Enquiry
+    TRELT: Trades Released Today
+    TRADS: Online Trades Display
+    DIRAL: Summary Online Trades
+    DCLOP: New Deals Previous Day
+    PRAVG: Price Average Display
+    PRAVP: Post Release Average Price Summary
+    RTNTE: Real-time Contract Note Display
+    SDALL: Same Day Allocations
+    ALDLS: List of Open Deals on Allocation Accounts
+    DLPRE: Pre-dated Direct Deals
+    DLADJ: Deal Adjustments
+    PDSETL: Settlement Details Report
+  uploads:
+    same_day_allocation_upload: Batch upload of same-day allocations
+    deals_upload: Batch upload of deals
+  contract_note_formats:
+    - XML
+    - SWIFT

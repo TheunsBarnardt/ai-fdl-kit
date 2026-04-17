@@ -1,0 +1,775 @@
+{
+  "feature": "broker-deal-management",
+  "version": "1.0.0",
+  "description": "Internal back-office deal management covering allocation, release, extensions, direct deals, pre-dated deals, deal adjustments, and contract note generation for equity trades",
+  "category": "trading",
+  "tags": [
+    "back-office",
+    "broker",
+    "deal-allocation",
+    "trade-release",
+    "contract-notes",
+    "same-day-allocation",
+    "next-day-allocation",
+    "popia"
+  ],
+  "aliases": [
+    "deal-management",
+    "deal-allocation",
+    "trade-allocation",
+    "deal-release",
+    "direct-deals",
+    "pre-dated-deals",
+    "deal-adjustments",
+    "contract-note-generation"
+  ],
+  "actors": [
+    {
+      "id": "broker_operator",
+      "name": "Broker Back-Office Operator",
+      "type": "human"
+    },
+    {
+      "id": "trader",
+      "name": "Trader",
+      "type": "human"
+    },
+    {
+      "id": "deal_supervisor",
+      "name": "Deal Supervisor",
+      "type": "human"
+    },
+    {
+      "id": "back_office_system",
+      "name": "Back-Office System",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "deal_reference",
+      "type": "text",
+      "required": true,
+      "label": "Deal Reference Number"
+    },
+    {
+      "name": "trade_date",
+      "type": "date",
+      "required": true,
+      "label": "Trade Date"
+    },
+    {
+      "name": "settlement_date",
+      "type": "date",
+      "required": true,
+      "label": "Settlement Date"
+    },
+    {
+      "name": "instrument_code",
+      "type": "text",
+      "required": true,
+      "label": "Instrument Code"
+    },
+    {
+      "name": "buy_sell_indicator",
+      "type": "select",
+      "required": true,
+      "label": "Buy/Sell Indicator"
+    },
+    {
+      "name": "principal_agent_indicator",
+      "type": "select",
+      "required": true,
+      "label": "Principal/Agent Indicator"
+    },
+    {
+      "name": "quantity",
+      "type": "number",
+      "required": true,
+      "label": "Quantity"
+    },
+    {
+      "name": "price",
+      "type": "number",
+      "required": true,
+      "label": "Price"
+    },
+    {
+      "name": "average_price",
+      "type": "number",
+      "required": false,
+      "label": "Average Price"
+    },
+    {
+      "name": "consideration",
+      "type": "number",
+      "required": true,
+      "label": "Consideration"
+    },
+    {
+      "name": "allocation_account",
+      "type": "text",
+      "required": true,
+      "label": "Allocation Account Code"
+    },
+    {
+      "name": "client_account",
+      "type": "text",
+      "required": false,
+      "label": "Client Account Code"
+    },
+    {
+      "name": "trading_account",
+      "type": "text",
+      "required": false,
+      "label": "Trading Account"
+    },
+    {
+      "name": "ring_fenced_indicator",
+      "type": "boolean",
+      "required": false,
+      "label": "Ring-Fenced Term Indicator"
+    },
+    {
+      "name": "rand_indicator",
+      "type": "boolean",
+      "required": false,
+      "label": "Rand Indicator"
+    },
+    {
+      "name": "allocation_type",
+      "type": "select",
+      "required": true,
+      "label": "Allocation Type"
+    },
+    {
+      "name": "override_price",
+      "type": "number",
+      "required": false,
+      "label": "Override Price"
+    },
+    {
+      "name": "deal_status",
+      "type": "select",
+      "required": true,
+      "label": "Deal Status"
+    },
+    {
+      "name": "adjustment_reason",
+      "type": "text",
+      "required": false,
+      "label": "Adjustment Reason"
+    },
+    {
+      "name": "contract_note_number",
+      "type": "text",
+      "required": false,
+      "label": "Contract Note Number"
+    },
+    {
+      "name": "released_by",
+      "type": "text",
+      "required": false,
+      "label": "Released By Operator"
+    },
+    {
+      "name": "released_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Release Timestamp"
+    },
+    {
+      "name": "upload_batch_id",
+      "type": "text",
+      "required": false,
+      "label": "Upload Batch Identifier"
+    }
+  ],
+  "states": {
+    "field": "deal_status",
+    "values": [
+      {
+        "name": "captured",
+        "initial": true
+      },
+      {
+        "name": "allocated"
+      },
+      {
+        "name": "released"
+      },
+      {
+        "name": "settled",
+        "terminal": true
+      },
+      {
+        "name": "adjusted"
+      },
+      {
+        "name": "rejected",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "captured",
+        "to": "allocated",
+        "actor": "broker_operator"
+      },
+      {
+        "from": "allocated",
+        "to": "released",
+        "actor": "broker_operator"
+      },
+      {
+        "from": "released",
+        "to": "settled",
+        "actor": "back_office_system"
+      },
+      {
+        "from": "allocated",
+        "to": "adjusted",
+        "actor": "deal_supervisor"
+      },
+      {
+        "from": "captured",
+        "to": "rejected",
+        "actor": "deal_supervisor"
+      },
+      {
+        "from": "adjusted",
+        "to": "released",
+        "actor": "broker_operator"
+      }
+    ]
+  },
+  "rules": {
+    "data_integrity": {
+      "allocation_balance": "Allocation accounts must balance back to zero after all allocations are released on trade day",
+      "ring_fenced_segregation": "Ring-fenced and non-ring-fenced batches must remain in balance; deal terms cannot be altered post-capture",
+      "unique_deal_reference": "Deal reference must be unique within the broker firm and trade date",
+      "audit_trail": "All deal changes logged with operator, timestamp, and pre/post values; retained for a minimum of 60 months for regulatory review",
+      "upload_validation": "Uploaded allocations validated against market trades before acceptance"
+    },
+    "security": {
+      "access_control": "Screen-level access enforced via resource access control facility",
+      "segregation_of_duties": "Deal adjustments require supervisor approval; operator cannot self-approve adjustments",
+      "release_authority": "Real-time release restricted to authorised operators per trading desk"
+    },
+    "compliance": {
+      "popia": "Client identifying data on deals must satisfy POPIA lawful-basis and minimisation requirements",
+      "exchange_reporting": "Deals must be reported to the exchange within regulatory timeframes",
+      "contract_note_delivery": "Contract notes must be issued to clients per exchange rules and recordkeeping requirements",
+      "default_account_cleanup": "Deals posted to a default account due to invalid allocation must be booked out to correct client account via pre-dated deals"
+    },
+    "business": {
+      "same_day_allocation": "Same-day allocation (SDALL) is only permitted on released market trades on allocation accounts; price computed as real-time average or operator override",
+      "next_day_allocation": "Next-day allocation (NXTAL) processes open allocation-account positions the day after trade",
+      "pre_dated_deals": "Pre-dated deals (DLPRE) are used to correct prior-day allocations and move positions between accounts",
+      "deal_extensions": "Deal extensions (DLEXT) capture additional terms against an existing market trade without altering its reference",
+      "direct_deals": "Direct deals (DLDIR) capture off-market or non-allocated trades; deal terms carried forward from trading system when accessed via allocation summary",
+      "real_time_release": "Trades, allocations, and extensions may be released intraday via RTREL; unreleased items process in overnight batch",
+      "deal_adjustments": "Deal adjustments (DLADJ) permit correction of captured terms prior to settlement and require a documented reason",
+      "contract_notes": "Contract notes are generated per client per deal after allocation and release"
+    }
+  },
+  "errors": [
+    {
+      "code": "DEAL_ALLOCATION_UNBALANCED",
+      "status": 422,
+      "message": "Allocation account does not balance to zero after release"
+    },
+    {
+      "code": "DEAL_REFERENCE_DUPLICATE",
+      "status": 409,
+      "message": "Deal reference already exists for this trade date"
+    },
+    {
+      "code": "DEAL_RELEASE_FORBIDDEN",
+      "status": 403,
+      "message": "Operator not authorised to release trades for this desk"
+    },
+    {
+      "code": "DEAL_ADJUSTMENT_REQUIRES_SUPERVISOR",
+      "status": 403,
+      "message": "Deal adjustment requires supervisor approval"
+    },
+    {
+      "code": "DEAL_TERMS_IMMUTABLE",
+      "status": 409,
+      "message": "Deal terms carried from trading system cannot be modified"
+    },
+    {
+      "code": "DEAL_INVALID_ALLOCATION_ACCOUNT",
+      "status": 422,
+      "message": "Allocation account is invalid or deactivated"
+    },
+    {
+      "code": "DEAL_PRE_DATED_FORBIDDEN",
+      "status": 403,
+      "message": "Pre-dated deal outside permitted backdating window"
+    },
+    {
+      "code": "DEAL_UPLOAD_VALIDATION_FAILED",
+      "status": 422,
+      "message": "Uploaded allocation failed validation against market trades"
+    }
+  ],
+  "events": [
+    {
+      "name": "deal.captured",
+      "payload": [
+        "deal_reference",
+        "trade_date",
+        "instrument_code",
+        "quantity",
+        "price",
+        "captured_by"
+      ]
+    },
+    {
+      "name": "deal.allocated",
+      "payload": [
+        "deal_reference",
+        "allocation_account",
+        "client_account",
+        "quantity",
+        "allocated_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "deal.released",
+      "payload": [
+        "deal_reference",
+        "released_by",
+        "released_at"
+      ]
+    },
+    {
+      "name": "deal.extension_added",
+      "payload": [
+        "deal_reference",
+        "extension_terms",
+        "added_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "deal.adjusted",
+      "payload": [
+        "deal_reference",
+        "adjustment_reason",
+        "adjusted_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "deal.pre_dated_created",
+      "payload": [
+        "deal_reference",
+        "original_trade_date",
+        "new_allocation_account",
+        "created_by"
+      ]
+    },
+    {
+      "name": "deal.contract_note_generated",
+      "payload": [
+        "deal_reference",
+        "contract_note_number",
+        "client_account",
+        "generated_at"
+      ]
+    },
+    {
+      "name": "deal.rejected",
+      "payload": [
+        "deal_reference",
+        "rejection_reason",
+        "rejected_by",
+        "timestamp"
+      ]
+    }
+  ],
+  "outcomes": {
+    "real_time_allocation_actual_price": {
+      "priority": 1,
+      "description": "Operator allocates a market trade at actual price via direct allocation summary",
+      "given": [
+        {
+          "field": "deal_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "captured"
+        },
+        {
+          "field": "allocation_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "actual"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "deal_status",
+          "from": "captured",
+          "to": "allocated"
+        },
+        {
+          "action": "emit_event",
+          "event": "deal.allocated"
+        }
+      ],
+      "transaction": true
+    },
+    "real_time_allocation_average_price": {
+      "priority": 2,
+      "description": "Operator allocates grouped market trades at average price for same instrument and side",
+      "given": [
+        {
+          "field": "allocation_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "average"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "price",
+          "value": "average_price"
+        },
+        {
+          "action": "transition_state",
+          "field": "deal_status",
+          "from": "captured",
+          "to": "allocated"
+        },
+        {
+          "action": "emit_event",
+          "event": "deal.allocated"
+        }
+      ],
+      "transaction": true
+    },
+    "release_trade_real_time": {
+      "priority": 3,
+      "description": "Operator releases allocated deals intraday so they post to the ledger before overnight batch",
+      "given": [
+        {
+          "field": "deal_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "allocated"
+        },
+        {
+          "field": "user_role",
+          "source": "session",
+          "operator": "in",
+          "value": [
+            "broker_operator",
+            "deal_supervisor"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "deal_status",
+          "from": "allocated",
+          "to": "released"
+        },
+        {
+          "action": "set_field",
+          "target": "released_at",
+          "value": "now"
+        },
+        {
+          "action": "emit_event",
+          "event": "deal.released"
+        }
+      ],
+      "transaction": true
+    },
+    "reject_unbalanced_release": {
+      "priority": 4,
+      "error": "DEAL_ALLOCATION_UNBALANCED",
+      "description": "Prevent release when the allocation account does not balance to zero",
+      "given": [
+        {
+          "field": "allocation_balance",
+          "source": "computed",
+          "operator": "neq",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "deal.rejected"
+        }
+      ]
+    },
+    "same_day_allocation": {
+      "priority": 5,
+      "description": "Calculate real-time average on released allocation-account trades and allocate at average or override price",
+      "given": [
+        {
+          "field": "allocation_account_type",
+          "source": "db",
+          "operator": "eq",
+          "value": "DA"
+        },
+        {
+          "field": "market_trades_released",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "same_day_average_calculator"
+        },
+        {
+          "action": "transition_state",
+          "field": "deal_status",
+          "from": "captured",
+          "to": "allocated"
+        },
+        {
+          "action": "emit_event",
+          "event": "deal.allocated"
+        }
+      ],
+      "transaction": true
+    },
+    "next_day_allocation": {
+      "priority": 6,
+      "description": "Process open allocation-account positions the next trading day",
+      "given": [
+        {
+          "field": "allocation_account_type",
+          "source": "db",
+          "operator": "eq",
+          "value": "DA"
+        },
+        {
+          "field": "open_positions",
+          "source": "db",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "next_day_allocation"
+        },
+        {
+          "action": "emit_event",
+          "event": "deal.allocated"
+        }
+      ]
+    },
+    "pre_dated_deal_correction": {
+      "priority": 7,
+      "description": "Book out positions from default account to correct client account via pre-dated deal",
+      "given": [
+        {
+          "field": "user_role",
+          "source": "session",
+          "operator": "eq",
+          "value": "broker_operator"
+        },
+        {
+          "field": "original_trade_date",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "pre_dated_deal"
+        },
+        {
+          "action": "emit_event",
+          "event": "deal.pre_dated_created"
+        }
+      ],
+      "transaction": true
+    },
+    "deal_adjustment": {
+      "priority": 8,
+      "description": "Supervisor adjusts a captured deal with a documented reason prior to settlement",
+      "given": [
+        {
+          "field": "user_role",
+          "source": "session",
+          "operator": "eq",
+          "value": "deal_supervisor"
+        },
+        {
+          "field": "adjustment_reason",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "deal_status",
+          "from": "allocated",
+          "to": "adjusted"
+        },
+        {
+          "action": "emit_event",
+          "event": "deal.adjusted"
+        }
+      ],
+      "transaction": true
+    },
+    "reject_operator_adjustment": {
+      "priority": 9,
+      "error": "DEAL_ADJUSTMENT_REQUIRES_SUPERVISOR",
+      "description": "Prevent non-supervisor users from adjusting deals",
+      "given": [
+        {
+          "field": "user_role",
+          "source": "session",
+          "operator": "neq",
+          "value": "deal_supervisor"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "deal.rejected"
+        }
+      ]
+    },
+    "generate_contract_notes": {
+      "priority": 10,
+      "description": "Generate contract notes for each client account after deal release",
+      "given": [
+        {
+          "field": "deal_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "released"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "contract_note"
+        },
+        {
+          "action": "emit_event",
+          "event": "deal.contract_note_generated"
+        }
+      ]
+    }
+  },
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/api/v1/deals/allocate"
+    },
+    "request": {
+      "schema": {
+        "deal_reference": "text",
+        "allocation_account": "text",
+        "client_account": "text",
+        "allocation_type": "select",
+        "quantity": "number",
+        "price": "number",
+        "override_price": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "deal_reference": "text",
+          "deal_status": "select",
+          "allocation_account": "text"
+        }
+      },
+      "errors": [
+        {
+          "error_code": "DEAL_REFERENCE_DUPLICATE",
+          "status": 409
+        },
+        {
+          "error_code": "DEAL_INVALID_ALLOCATION_ACCOUNT",
+          "status": 422
+        },
+        {
+          "error_code": "DEAL_TERMS_IMMUTABLE",
+          "status": 409
+        },
+        {
+          "error_code": "DEAL_ALLOCATION_UNBALANCED",
+          "status": 422
+        },
+        {
+          "error_code": "DEAL_RELEASE_FORBIDDEN",
+          "status": 403
+        }
+      ]
+    }
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not unprotect and modify deal terms carried from the trading system",
+      "why": "Altering terms post-capture puts ring-fenced and non-ring-fenced batches out of balance and breaks reconciliation"
+    },
+    {
+      "rule": "Do not release deals before allocation accounts balance to zero",
+      "why": "Unbalanced release produces stuck positions that require costly pre-dated corrections and may breach exchange settlement rules"
+    },
+    {
+      "rule": "Do not leave positions in the default account overnight",
+      "why": "Default-account balances obscure true client exposure and may breach segregation requirements"
+    },
+    {
+      "rule": "Do not permit operator self-approval on deal adjustments",
+      "why": "Segregation-of-duties is required to prevent a single compromised credential from masking deal tampering"
+    },
+    {
+      "rule": "Do not log client identifying data on deal records in plaintext",
+      "why": "POPIA s.19 requires technical safeguards; plaintext logs are a known breach vector"
+    }
+  ],
+  "related": [
+    {
+      "feature": "broker-client-account-maintenance",
+      "type": "required"
+    },
+    {
+      "feature": "popia-compliance",
+      "type": "required"
+    },
+    {
+      "feature": "broker-back-office-dissemination",
+      "type": "recommended"
+    }
+  ],
+  "extensions": {
+    "screens": {
+      "TRADS": "Online Trades Display",
+      "DIRAL": "Online Trade Summary and Direct Allocations",
+      "DLDIR": "Direct Deals Capture",
+      "DLEXT": "Deal Extensions",
+      "RTREL": "Real-Time Trade Release",
+      "SDALL": "Same Day Allocation",
+      "NXTAL": "Next Day Allocation",
+      "DLPRE": "Pre-Dated Deals",
+      "DLADJ": "Deal Adjustments"
+    }
+  }
+}

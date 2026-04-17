@@ -1,0 +1,793 @@
+{
+  "feature": "broker-bond-download-automation",
+  "version": "1.0.0",
+  "description": "Automated scheduled download of bond instrument datasets from a bond-data-feed-provider, including error monitoring, adhoc request handling, and a file processing pipeline for verified distribution",
+  "category": "trading",
+  "tags": [
+    "back-office",
+    "broker",
+    "bond",
+    "automation",
+    "scheduled-job",
+    "batch",
+    "file-pipeline",
+    "monitoring"
+  ],
+  "aliases": [
+    "bond-download-automation",
+    "bnd-download",
+    "bond-data-retrieval",
+    "adhoc-bond-download",
+    "scheduled-bond-download",
+    "bond-file-pipeline"
+  ],
+  "actors": [
+    {
+      "id": "customer_support_operator",
+      "name": "Customer Support Operator",
+      "type": "human"
+    },
+    {
+      "id": "batch_scheduler",
+      "name": "Batch Scheduler",
+      "type": "system"
+    },
+    {
+      "id": "download_service",
+      "name": "Bond Download Service",
+      "type": "system"
+    },
+    {
+      "id": "bond_data_feed_provider",
+      "name": "Bond Data Feed Provider",
+      "type": "external"
+    },
+    {
+      "id": "distribution_service",
+      "name": "File Distribution Service",
+      "type": "system"
+    },
+    {
+      "id": "operations_monitor",
+      "name": "Operations Monitor",
+      "type": "human"
+    }
+  ],
+  "fields": [
+    {
+      "name": "request_id",
+      "type": "text",
+      "required": true,
+      "label": "Download Request ID"
+    },
+    {
+      "name": "instrument_alpha",
+      "type": "text",
+      "required": true,
+      "label": "Instrument Alpha Code"
+    },
+    {
+      "name": "instrument_version",
+      "type": "text",
+      "required": true,
+      "label": "Instrument Version"
+    },
+    {
+      "name": "instrument_type",
+      "type": "select",
+      "required": true,
+      "label": "Instrument Type"
+    },
+    {
+      "name": "run_frequency",
+      "type": "select",
+      "required": true,
+      "label": "Run Frequency"
+    },
+    {
+      "name": "adhoc_flag",
+      "type": "boolean",
+      "required": true,
+      "label": "Adhoc Request Flag"
+    },
+    {
+      "name": "business_date",
+      "type": "date",
+      "required": true,
+      "label": "Business Date"
+    },
+    {
+      "name": "scheduled_time",
+      "type": "datetime",
+      "required": true,
+      "label": "Scheduled Run Time"
+    },
+    {
+      "name": "download_status",
+      "type": "select",
+      "required": true,
+      "label": "Download Status"
+    },
+    {
+      "name": "started_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Run Started At"
+    },
+    {
+      "name": "completed_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Run Completed At"
+    },
+    {
+      "name": "dataset_name",
+      "type": "text",
+      "required": false,
+      "label": "Produced Dataset Name"
+    },
+    {
+      "name": "dataset_checksum",
+      "type": "text",
+      "required": false,
+      "label": "Dataset Checksum"
+    },
+    {
+      "name": "record_count",
+      "type": "number",
+      "required": false,
+      "label": "Record Count"
+    },
+    {
+      "name": "retry_count",
+      "type": "number",
+      "required": false,
+      "label": "Retry Count"
+    },
+    {
+      "name": "error_code",
+      "type": "text",
+      "required": false,
+      "label": "Error Code"
+    },
+    {
+      "name": "error_message",
+      "type": "text",
+      "required": false,
+      "label": "Error Message"
+    },
+    {
+      "name": "verified_flag",
+      "type": "boolean",
+      "required": false,
+      "label": "Dataset Verified Flag"
+    },
+    {
+      "name": "distribution_status",
+      "type": "select",
+      "required": false,
+      "label": "Distribution Status"
+    },
+    {
+      "name": "requested_by",
+      "type": "text",
+      "required": false,
+      "label": "Requested By"
+    }
+  ],
+  "states": {
+    "field": "download_status",
+    "values": [
+      {
+        "name": "scheduled",
+        "initial": true
+      },
+      {
+        "name": "running"
+      },
+      {
+        "name": "completed",
+        "terminal": true
+      },
+      {
+        "name": "failed",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "scheduled",
+        "to": "running",
+        "actor": "batch_scheduler"
+      },
+      {
+        "from": "running",
+        "to": "completed",
+        "actor": "download_service"
+      },
+      {
+        "from": "running",
+        "to": "failed",
+        "actor": "download_service"
+      },
+      {
+        "from": "failed",
+        "to": "scheduled",
+        "actor": "customer_support_operator",
+        "description": "Operator re-queues a failed adhoc request after remediation"
+      }
+    ]
+  },
+  "rules": {
+    "scheduling": {
+      "daily_batch": "Daily batch orchestrator triggers instrument download steps at configured window; no manual intervention required on the happy path",
+      "adhoc_same_day": "Adhoc requests must only be loaded on the day the files are required for; same-day-only execution prevents stale dataset production",
+      "adhoc_flag": "A run-frequency flag marks a request as adhoc so batch jobs route it through the adhoc pipeline",
+      "single_instrument_per_request": "Each adhoc request covers exactly one instrument type; multi-instrument requests must be split",
+      "mandatory_alpha_and_version": "Instrument alpha and version are mandatory on every adhoc request"
+    },
+    "processing": {
+      "dataset_verification": "Produced dataset files must be verified (checksum + record-count sanity) before distribution",
+      "distribution_handoff": "Once verified, the standard downstream distribution process handles the file; the automation must not duplicate distribution",
+      "idempotency": "Re-running a completed request for the same business date and instrument must not produce a second dataset"
+    },
+    "monitoring": {
+      "error_alerting": "Every failure emits a monitoring event with instrument, business date, error code, and retry count",
+      "retry_policy": "Transient provider errors retry with exponential backoff up to a configured ceiling; exhausted retries escalate to operations",
+      "sla_window": "Scheduled downloads must complete within the configured batch SLA window or escalate"
+    },
+    "compliance": {
+      "audit_trail": "Every scheduled and adhoc run is logged with requester, timestamp, and resulting dataset identifiers; retained for at least 36 months",
+      "vendor_neutrality": "Provider connection details are configuration, not code; switching to another bond-data-feed-provider must not require code changes",
+      "no_pii_in_dataset": "Bond instrument datasets must not contain personal information; any PII found triggers quarantine"
+    }
+  },
+  "errors": [
+    {
+      "code": "BOND_DOWNLOAD_PROVIDER_UNAVAILABLE",
+      "status": 503,
+      "message": "Bond data feed provider is not reachable"
+    },
+    {
+      "code": "BOND_DOWNLOAD_TIMEOUT",
+      "status": 500,
+      "message": "Bond data download exceeded the configured timeout"
+    },
+    {
+      "code": "BOND_DOWNLOAD_INVALID_INSTRUMENT",
+      "status": 400,
+      "message": "Instrument alpha or version is missing or invalid"
+    },
+    {
+      "code": "BOND_DOWNLOAD_ADHOC_WRONG_DATE",
+      "status": 409,
+      "message": "Adhoc request may only be loaded on the business date it targets"
+    },
+    {
+      "code": "BOND_DOWNLOAD_VERIFICATION_FAILED",
+      "status": 422,
+      "message": "Produced dataset failed verification checks"
+    },
+    {
+      "code": "BOND_DOWNLOAD_DUPLICATE",
+      "status": 409,
+      "message": "A completed download already exists for this instrument and business date"
+    },
+    {
+      "code": "BOND_DOWNLOAD_RETRIES_EXHAUSTED",
+      "status": 500,
+      "message": "Download failed after maximum retry attempts"
+    }
+  ],
+  "events": [
+    {
+      "name": "bond_download.scheduled",
+      "payload": [
+        "request_id",
+        "instrument_alpha",
+        "instrument_version",
+        "business_date",
+        "adhoc_flag",
+        "requested_by"
+      ]
+    },
+    {
+      "name": "bond_download.started",
+      "payload": [
+        "request_id",
+        "instrument_alpha",
+        "started_at"
+      ]
+    },
+    {
+      "name": "bond_download.completed",
+      "payload": [
+        "request_id",
+        "instrument_alpha",
+        "dataset_name",
+        "record_count",
+        "dataset_checksum",
+        "completed_at"
+      ]
+    },
+    {
+      "name": "bond_download.failed",
+      "payload": [
+        "request_id",
+        "instrument_alpha",
+        "error_code",
+        "error_message",
+        "retry_count"
+      ]
+    },
+    {
+      "name": "bond_download.retried",
+      "payload": [
+        "request_id",
+        "instrument_alpha",
+        "retry_count"
+      ]
+    },
+    {
+      "name": "bond_download.verified",
+      "payload": [
+        "request_id",
+        "dataset_name",
+        "dataset_checksum"
+      ]
+    },
+    {
+      "name": "bond_download.distributed",
+      "payload": [
+        "request_id",
+        "dataset_name",
+        "distribution_status"
+      ]
+    },
+    {
+      "name": "bond_download.sla_breached",
+      "payload": [
+        "request_id",
+        "instrument_alpha",
+        "scheduled_time",
+        "elapsed_minutes"
+      ]
+    }
+  ],
+  "outcomes": {
+    "schedule_adhoc_download": {
+      "priority": 1,
+      "description": "Operator registers an adhoc bond download request for the current business date",
+      "given": [
+        {
+          "field": "instrument_alpha",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "instrument_version",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "adhoc_flag",
+          "source": "input",
+          "operator": "eq",
+          "value": true
+        },
+        {
+          "field": "business_date",
+          "source": "input",
+          "operator": "eq",
+          "value": "today"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "bond_download_request"
+        },
+        {
+          "action": "set_field",
+          "target": "download_status",
+          "value": "scheduled"
+        },
+        {
+          "action": "emit_event",
+          "event": "bond_download.scheduled"
+        }
+      ],
+      "transaction": true
+    },
+    "reject_adhoc_wrong_date": {
+      "priority": 2,
+      "error": "BOND_DOWNLOAD_ADHOC_WRONG_DATE",
+      "description": "Prevent adhoc requests loaded for a business date other than today",
+      "given": [
+        {
+          "field": "adhoc_flag",
+          "source": "input",
+          "operator": "eq",
+          "value": true
+        },
+        {
+          "field": "business_date",
+          "source": "input",
+          "operator": "neq",
+          "value": "today"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "bond_download.failed"
+        }
+      ]
+    },
+    "reject_invalid_instrument": {
+      "priority": 3,
+      "error": "BOND_DOWNLOAD_INVALID_INSTRUMENT",
+      "description": "Reject requests missing mandatory instrument identifiers",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "instrument_alpha",
+              "source": "input",
+              "operator": "not_exists"
+            },
+            {
+              "field": "instrument_version",
+              "source": "input",
+              "operator": "not_exists"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "bond_download.failed"
+        }
+      ]
+    },
+    "execute_scheduled_download": {
+      "priority": 4,
+      "description": "Scheduler triggers a scheduled download and the service retrieves the dataset from the provider",
+      "given": [
+        {
+          "field": "download_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "scheduled"
+        },
+        {
+          "field": "scheduled_time",
+          "source": "db",
+          "operator": "lte",
+          "value": "now"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "download_status",
+          "from": "scheduled",
+          "to": "running"
+        },
+        {
+          "action": "call_service",
+          "target": "bond_data_feed_provider"
+        },
+        {
+          "action": "emit_event",
+          "event": "bond_download.started"
+        }
+      ],
+      "transaction": true
+    },
+    "complete_and_verify_dataset": {
+      "priority": 5,
+      "description": "Downloaded dataset passes checksum and record-count verification, then hands off to distribution",
+      "given": [
+        {
+          "field": "download_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "running"
+        },
+        {
+          "field": "dataset_checksum",
+          "source": "computed",
+          "operator": "exists"
+        },
+        {
+          "field": "record_count",
+          "source": "computed",
+          "operator": "gt",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "verified_flag",
+          "value": true
+        },
+        {
+          "action": "transition_state",
+          "field": "download_status",
+          "from": "running",
+          "to": "completed"
+        },
+        {
+          "action": "emit_event",
+          "event": "bond_download.verified"
+        },
+        {
+          "action": "emit_event",
+          "event": "bond_download.completed"
+        },
+        {
+          "action": "call_service",
+          "target": "distribution_service"
+        },
+        {
+          "action": "emit_event",
+          "event": "bond_download.distributed"
+        }
+      ],
+      "transaction": true
+    },
+    "fail_on_provider_unavailable": {
+      "priority": 6,
+      "error": "BOND_DOWNLOAD_PROVIDER_UNAVAILABLE",
+      "description": "Provider is unreachable; transition run to failed and queue a retry",
+      "given": [
+        {
+          "field": "download_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "running"
+        },
+        {
+          "field": "provider_reachable",
+          "source": "system",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "download_status",
+          "from": "running",
+          "to": "failed"
+        },
+        {
+          "action": "emit_event",
+          "event": "bond_download.failed"
+        },
+        {
+          "action": "emit_event",
+          "event": "bond_download.retried"
+        }
+      ],
+      "transaction": true
+    },
+    "verification_failure_quarantine": {
+      "priority": 7,
+      "error": "BOND_DOWNLOAD_VERIFICATION_FAILED",
+      "description": "Dataset fails verification; block distribution and escalate",
+      "given": [
+        {
+          "field": "download_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "running"
+        },
+        {
+          "any": [
+            {
+              "field": "dataset_checksum",
+              "source": "computed",
+              "operator": "not_exists"
+            },
+            {
+              "field": "record_count",
+              "source": "computed",
+              "operator": "lte",
+              "value": 0
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "verified_flag",
+          "value": false
+        },
+        {
+          "action": "transition_state",
+          "field": "download_status",
+          "from": "running",
+          "to": "failed"
+        },
+        {
+          "action": "notify",
+          "target": "operations_monitor",
+          "channel": "email"
+        },
+        {
+          "action": "emit_event",
+          "event": "bond_download.failed"
+        }
+      ]
+    },
+    "reject_duplicate_completed": {
+      "priority": 8,
+      "error": "BOND_DOWNLOAD_DUPLICATE",
+      "description": "Prevent producing a second dataset for the same instrument and business date",
+      "given": [
+        {
+          "field": "existing_completed_request",
+          "source": "db",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "bond_download.failed"
+        }
+      ]
+    },
+    "escalate_retries_exhausted": {
+      "priority": 9,
+      "error": "BOND_DOWNLOAD_RETRIES_EXHAUSTED",
+      "description": "Maximum retries reached without success; escalate to operations",
+      "given": [
+        {
+          "field": "retry_count",
+          "source": "db",
+          "operator": "gte",
+          "value": 5
+        },
+        {
+          "field": "download_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "failed"
+        }
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "target": "operations_monitor",
+          "channel": "email"
+        },
+        {
+          "action": "emit_event",
+          "event": "bond_download.failed"
+        }
+      ]
+    },
+    "sla_breach_alert": {
+      "priority": 10,
+      "description": "Scheduled download exceeds configured SLA window without completion",
+      "given": [
+        {
+          "field": "download_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "running"
+        },
+        {
+          "field": "started_at",
+          "source": "db",
+          "operator": "lt",
+          "value": "now - 60m"
+        }
+      ],
+      "then": [
+        {
+          "action": "notify",
+          "target": "operations_monitor",
+          "channel": "email"
+        },
+        {
+          "action": "emit_event",
+          "event": "bond_download.sla_breached"
+        }
+      ]
+    }
+  },
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/api/v1/bond-downloads"
+    },
+    "request": {
+      "schema": {
+        "instrument_alpha": "text",
+        "instrument_version": "text",
+        "instrument_type": "select",
+        "run_frequency": "select",
+        "adhoc_flag": "boolean",
+        "business_date": "date"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 201,
+        "schema": {
+          "request_id": "text",
+          "download_status": "select",
+          "scheduled_time": "datetime"
+        }
+      },
+      "errors": [
+        {
+          "error_code": "BOND_DOWNLOAD_INVALID_INSTRUMENT",
+          "status": 400
+        },
+        {
+          "error_code": "BOND_DOWNLOAD_ADHOC_WRONG_DATE",
+          "status": 409
+        },
+        {
+          "error_code": "BOND_DOWNLOAD_DUPLICATE",
+          "status": 409
+        },
+        {
+          "error_code": "BOND_DOWNLOAD_PROVIDER_UNAVAILABLE",
+          "status": 503
+        }
+      ]
+    }
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not hard-code bond-data-feed-provider endpoints or credentials in application code",
+      "why": "Provider details must be swappable via configuration; hard-coding locks the broker into one vendor and blocks failover"
+    },
+    {
+      "rule": "Do not skip dataset verification before distribution",
+      "why": "Unverified datasets corrupt downstream pricing and settlement; verification is the only firewall between provider errors and the trading floor"
+    },
+    {
+      "rule": "Do not allow adhoc requests loaded for prior business dates",
+      "why": "Backdated adhoc runs produce stale datasets that contaminate historical records and mislead downstream consumers"
+    },
+    {
+      "rule": "Do not swallow provider errors silently with infinite retries",
+      "why": "Unbounded retries mask outages and delay operator intervention; bounded retries with escalation are required"
+    },
+    {
+      "rule": "Do not duplicate distribution on re-run of a completed request",
+      "why": "Double distribution creates duplicate datasets in consumer systems and confuses reconciliation"
+    }
+  ],
+  "related": [
+    {
+      "feature": "broker-client-account-maintenance",
+      "type": "recommended"
+    },
+    {
+      "feature": "popia-compliance",
+      "type": "required"
+    }
+  ],
+  "extensions": {
+    "processes": {
+      "INSTRUMENT_EXTRACT": "Instrument master extract step — alpha and version mandatory, adhoc flag on run-frequency field",
+      "BOND_EXTRACT": "Bond dataset extract step — adhoc flag on run-frequency field, same-day-only",
+      "DAILY_BATCH": "Daily batch orchestrator that runs scheduled and adhoc steps end-to-end",
+      "ADHOC_BATCH": "Adhoc batch orchestrator invoked on demand for single-instrument same-day runs"
+    },
+    "datasets": {
+      "BOND_DISTRIBUTION_FILE": "Verified bond dataset handed to the standard distribution service"
+    }
+  }
+}

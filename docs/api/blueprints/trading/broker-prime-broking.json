@@ -1,0 +1,814 @@
+{
+  "feature": "broker-prime-broking",
+  "version": "1.0.0",
+  "description": "Prime brokerage workflow covering executing-broker and prime-broker relationship, trade give-ups, consolidated settlement, and client reporting across multiple executing brokers",
+  "category": "trading",
+  "tags": [
+    "back-office",
+    "broker",
+    "prime-broking",
+    "give-up",
+    "settlement",
+    "clearing",
+    "custody",
+    "reporting"
+  ],
+  "aliases": [
+    "prime-broker",
+    "prime-brokerage",
+    "give-up",
+    "trade-give-up",
+    "executing-broker",
+    "prime-account",
+    "consolidated-settlement",
+    "pbacv",
+    "ebenq"
+  ],
+  "actors": [
+    {
+      "id": "client",
+      "name": "Prime Brokerage Client",
+      "type": "human",
+      "description": "Underlying investor whose trades are executed by one or more executing brokers and cleared through a single prime broker"
+    },
+    {
+      "id": "executing_broker",
+      "name": "Executing Broker",
+      "type": "external",
+      "description": "Broker firm that executes trades on the exchange on behalf of the client and gives them up to the prime broker"
+    },
+    {
+      "id": "prime_broker",
+      "name": "Prime Broker",
+      "type": "system",
+      "description": "Broker firm that accepts give-ups, finances positions, settles trades, holds custody, and issues consolidated reporting"
+    },
+    {
+      "id": "back_office_operator",
+      "name": "Back-Office Operator",
+      "type": "human",
+      "description": "Operations staff at either executing or prime broker who maintains accounts and processes give-up workflows"
+    },
+    {
+      "id": "csdp",
+      "name": "Central Securities Depository Participant",
+      "type": "external",
+      "description": "Custodian settling scrip and funds on behalf of the prime broker"
+    },
+    {
+      "id": "clearing_house",
+      "name": "Clearing House",
+      "type": "external",
+      "description": "Exchange clearing authority that nets and settles obligations"
+    }
+  ],
+  "fields": [
+    {
+      "name": "prime_account_code",
+      "type": "text",
+      "required": true,
+      "label": "Prime Account Code"
+    },
+    {
+      "name": "client_code",
+      "type": "text",
+      "required": true,
+      "label": "Underlying Client Code"
+    },
+    {
+      "name": "executing_broker_code",
+      "type": "text",
+      "required": true,
+      "label": "Executing Broker Code"
+    },
+    {
+      "name": "prime_broker_code",
+      "type": "text",
+      "required": true,
+      "label": "Prime Broker Code"
+    },
+    {
+      "name": "account_type",
+      "type": "select",
+      "required": true,
+      "label": "Account Type"
+    },
+    {
+      "name": "controlled_flag",
+      "type": "boolean",
+      "required": true,
+      "label": "Controlled Account Flag"
+    },
+    {
+      "name": "csdp_bp_id",
+      "type": "text",
+      "required": true,
+      "label": "CSDP BP Identifier"
+    },
+    {
+      "name": "csdp_safekeeping_account",
+      "type": "text",
+      "required": true,
+      "label": "CSDP Safekeeping Account"
+    },
+    {
+      "name": "prime_agreement_reference",
+      "type": "text",
+      "required": true,
+      "label": "Prime Brokerage Agreement Reference"
+    },
+    {
+      "name": "give_up_reference",
+      "type": "text",
+      "required": true,
+      "label": "Give-Up Reference"
+    },
+    {
+      "name": "deal_number",
+      "type": "text",
+      "required": true,
+      "label": "Executing Broker Deal Number"
+    },
+    {
+      "name": "prime_deal_number",
+      "type": "text",
+      "required": false,
+      "label": "Prime Broker Deal Number"
+    },
+    {
+      "name": "instrument_code",
+      "type": "text",
+      "required": true,
+      "label": "Instrument Code"
+    },
+    {
+      "name": "trade_date",
+      "type": "date",
+      "required": true,
+      "label": "Trade Date"
+    },
+    {
+      "name": "settlement_date",
+      "type": "date",
+      "required": true,
+      "label": "Settlement Date"
+    },
+    {
+      "name": "quantity",
+      "type": "number",
+      "required": true,
+      "label": "Trade Quantity"
+    },
+    {
+      "name": "price",
+      "type": "number",
+      "required": true,
+      "label": "Trade Price"
+    },
+    {
+      "name": "consideration",
+      "type": "number",
+      "required": true,
+      "label": "Consideration"
+    },
+    {
+      "name": "trade_side",
+      "type": "select",
+      "required": true,
+      "label": "Buy or Sell"
+    },
+    {
+      "name": "give_up_status",
+      "type": "select",
+      "required": true,
+      "label": "Give-Up Status"
+    },
+    {
+      "name": "rejection_reason",
+      "type": "text",
+      "required": false,
+      "label": "Rejection Reason"
+    },
+    {
+      "name": "netting_group",
+      "type": "text",
+      "required": false,
+      "label": "Clearing Netting Group"
+    },
+    {
+      "name": "commission_split",
+      "type": "json",
+      "required": false,
+      "label": "Commission Split Between Brokers"
+    },
+    {
+      "name": "client_statement_flag",
+      "type": "boolean",
+      "required": false,
+      "label": "Include on Consolidated Client Statement"
+    }
+  ],
+  "states": {
+    "field": "give_up_status",
+    "values": [
+      {
+        "name": "pending",
+        "initial": true
+      },
+      {
+        "name": "give_up_requested"
+      },
+      {
+        "name": "accepted"
+      },
+      {
+        "name": "rejected",
+        "terminal": true
+      },
+      {
+        "name": "settled",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "pending",
+        "to": "give_up_requested",
+        "actor": "executing_broker",
+        "description": "Executing broker submits give-up to prime broker after trade execution"
+      },
+      {
+        "from": "give_up_requested",
+        "to": "accepted",
+        "actor": "prime_broker",
+        "description": "Prime broker verifies client mandate and accepts give-up"
+      },
+      {
+        "from": "give_up_requested",
+        "to": "rejected",
+        "actor": "prime_broker",
+        "description": "Prime broker rejects give-up (no mandate, limit breach, invalid account)"
+      },
+      {
+        "from": "accepted",
+        "to": "settled",
+        "actor": "prime_broker",
+        "description": "Prime broker settles funds and scrip on T+n via CSDP"
+      }
+    ]
+  },
+  "rules": {
+    "data_integrity": {
+      "prime_account_uniqueness": "Prime account code unique per prime broker; links to exactly one underlying client",
+      "give_up_matching": "Give-up records must match executing-broker deal on instrument, quantity, price, trade date, and side",
+      "deal_immutability": "Once settled, deal records cannot be amended; adjustments must be booked as reversals",
+      "audit_trail_retention": "All account changes and give-up state transitions retained with user/timestamp for at least 5 years"
+    },
+    "security": {
+      "segregation_of_duties": "Account setup and verification performed by different operator roles",
+      "resource_access_control": "Executing broker may view own deals only; prime broker may view all give-ups routed to them",
+      "mandate_verification": "Prime broker must hold signed prime brokerage agreement before accepting give-ups"
+    },
+    "compliance": {
+      "popia_personal_information": "Underlying client personal information protected under POPIA; sharing between executing and prime broker requires documented lawful basis",
+      "exchange_control": "Cross-border give-ups must respect exchange-control segregation of resident and non-resident funds",
+      "market_conduct": "Trade give-ups reported to exchange within regulated cut-off windows",
+      "best_execution": "Executing broker retains best-execution obligation to underlying client regardless of give-up"
+    },
+    "business": {
+      "account_types": "Non-controlled prime accounts held at prime broker; executing broker maintains mirror account for routing",
+      "csdp_details": "Prime broker CSDP details disseminated to executing brokers on account verification",
+      "consolidated_reporting": "Client receives single consolidated statement from prime broker covering trades from all executing brokers",
+      "netting": "Prime broker nets obligations per instrument per settlement date across all give-ups",
+      "financing": "Prime broker may finance controlled client positions; interest accrues on outstanding balances",
+      "commission_handling": "Executing broker retains execution commission; prime broker charges separate prime-brokerage fee"
+    }
+  },
+  "errors": [
+    {
+      "code": "PRIME_ACCOUNT_NOT_FOUND",
+      "status": 404,
+      "message": "Prime account does not exist at prime broker"
+    },
+    {
+      "code": "PRIME_MANDATE_MISSING",
+      "status": 409,
+      "message": "No active prime brokerage agreement between client and prime broker"
+    },
+    {
+      "code": "GIVE_UP_MISMATCH",
+      "status": 422,
+      "message": "Give-up details do not match executing-broker deal"
+    },
+    {
+      "code": "GIVE_UP_DUPLICATE",
+      "status": 409,
+      "message": "Give-up already recorded for this deal"
+    },
+    {
+      "code": "GIVE_UP_REJECTED",
+      "status": 409,
+      "message": "Prime broker rejected the give-up"
+    },
+    {
+      "code": "CSDP_DETAILS_INVALID",
+      "status": 400,
+      "message": "CSDP participant or safekeeping account invalid"
+    },
+    {
+      "code": "PRIME_SETTLEMENT_FAILED",
+      "status": 500,
+      "message": "Consolidated settlement instruction failed at custodian"
+    },
+    {
+      "code": "PRIME_UNAUTHORISED_VIEW",
+      "status": 403,
+      "message": "User not authorised to view deals routed to a different prime broker"
+    }
+  ],
+  "events": [
+    {
+      "name": "prime.account.created",
+      "payload": [
+        "prime_account_code",
+        "client_code",
+        "executing_broker_code",
+        "prime_broker_code",
+        "created_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "prime.account.verified",
+      "payload": [
+        "prime_account_code",
+        "verified_by",
+        "csdp_bp_id",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "prime.give_up.requested",
+      "payload": [
+        "give_up_reference",
+        "deal_number",
+        "executing_broker_code",
+        "prime_broker_code",
+        "instrument_code",
+        "quantity",
+        "price",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "prime.give_up.accepted",
+      "payload": [
+        "give_up_reference",
+        "prime_deal_number",
+        "accepted_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "prime.give_up.rejected",
+      "payload": [
+        "give_up_reference",
+        "rejection_reason",
+        "rejected_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "prime.settlement.completed",
+      "payload": [
+        "prime_deal_number",
+        "settlement_date",
+        "netting_group",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "prime.statement.issued",
+      "payload": [
+        "client_code",
+        "statement_period",
+        "statement_reference",
+        "timestamp"
+      ]
+    }
+  ],
+  "outcomes": {
+    "load_prime_account_at_executing_broker": {
+      "priority": 1,
+      "description": "Executing broker sets up a non-controlled prime account pointing at the prime broker",
+      "given": [
+        {
+          "field": "account_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "prime"
+        },
+        {
+          "field": "prime_broker_code",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "prime_agreement_reference",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "prime_account"
+        },
+        {
+          "action": "set_field",
+          "target": "give_up_status",
+          "value": "pending"
+        },
+        {
+          "action": "emit_event",
+          "event": "prime.account.created"
+        }
+      ],
+      "transaction": true
+    },
+    "verify_prime_account_at_prime_broker": {
+      "priority": 2,
+      "description": "Prime broker verifies the prime account and disseminates CSDP details to the executing broker",
+      "given": [
+        {
+          "field": "user_role",
+          "source": "session",
+          "operator": "eq",
+          "value": "prime_broker"
+        },
+        {
+          "field": "prime_agreement_reference",
+          "source": "db",
+          "operator": "exists"
+        },
+        {
+          "field": "csdp_bp_id",
+          "source": "db",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "account_status",
+          "value": "verified"
+        },
+        {
+          "action": "call_service",
+          "target": "broker_dissemination"
+        },
+        {
+          "action": "emit_event",
+          "event": "prime.account.verified"
+        }
+      ],
+      "transaction": true
+    },
+    "reject_account_without_mandate": {
+      "priority": 3,
+      "error": "PRIME_MANDATE_MISSING",
+      "description": "Block account verification when no prime brokerage agreement exists",
+      "given": [
+        {
+          "field": "prime_agreement_reference",
+          "source": "db",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prime.give_up.rejected"
+        }
+      ]
+    },
+    "request_trade_give_up": {
+      "priority": 4,
+      "description": "Executing broker submits a give-up to the prime broker after trade execution",
+      "given": [
+        {
+          "field": "deal_number",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "prime_broker_code",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "give_up_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "pending"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "give_up_status",
+          "from": "pending",
+          "to": "give_up_requested"
+        },
+        {
+          "action": "emit_event",
+          "event": "prime.give_up.requested"
+        }
+      ],
+      "transaction": true
+    },
+    "accept_give_up": {
+      "priority": 5,
+      "description": "Prime broker accepts matching give-up and assumes settlement responsibility",
+      "given": [
+        {
+          "field": "user_role",
+          "source": "session",
+          "operator": "eq",
+          "value": "prime_broker"
+        },
+        {
+          "field": "give_up_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "give_up_requested"
+        },
+        {
+          "field": "prime_account_code",
+          "source": "db",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "give_up_status",
+          "from": "give_up_requested",
+          "to": "accepted"
+        },
+        {
+          "action": "create_record",
+          "type": "prime_deal"
+        },
+        {
+          "action": "emit_event",
+          "event": "prime.give_up.accepted"
+        }
+      ],
+      "transaction": true
+    },
+    "reject_mismatched_give_up": {
+      "priority": 6,
+      "error": "GIVE_UP_MISMATCH",
+      "description": "Reject give-up when quantity, price, instrument, or trade date do not match executing-broker deal",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "quantity",
+              "source": "input",
+              "operator": "neq",
+              "value": "db_quantity"
+            },
+            {
+              "field": "price",
+              "source": "input",
+              "operator": "neq",
+              "value": "db_price"
+            },
+            {
+              "field": "instrument_code",
+              "source": "input",
+              "operator": "neq",
+              "value": "db_instrument"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "give_up_status",
+          "from": "give_up_requested",
+          "to": "rejected"
+        },
+        {
+          "action": "emit_event",
+          "event": "prime.give_up.rejected"
+        }
+      ]
+    },
+    "consolidated_settlement": {
+      "priority": 7,
+      "description": "Prime broker nets accepted give-ups per instrument per settlement date and settles via CSDP",
+      "given": [
+        {
+          "field": "give_up_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "accepted"
+        },
+        {
+          "field": "settlement_date",
+          "source": "db",
+          "operator": "eq",
+          "value": "today"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "csdp_settlement"
+        },
+        {
+          "action": "transition_state",
+          "field": "give_up_status",
+          "from": "accepted",
+          "to": "settled"
+        },
+        {
+          "action": "emit_event",
+          "event": "prime.settlement.completed"
+        }
+      ],
+      "transaction": true
+    },
+    "issue_consolidated_client_statement": {
+      "priority": 8,
+      "description": "Prime broker issues single consolidated statement covering all executing brokers for the period",
+      "given": [
+        {
+          "field": "client_statement_flag",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "consolidated_statement"
+        },
+        {
+          "action": "notify",
+          "target": "client",
+          "channel": "email"
+        },
+        {
+          "action": "emit_event",
+          "event": "prime.statement.issued"
+        }
+      ]
+    },
+    "block_cross_prime_view": {
+      "priority": 9,
+      "error": "PRIME_UNAUTHORISED_VIEW",
+      "description": "Prevent an executing broker from viewing give-ups routed to a different prime broker",
+      "given": [
+        {
+          "field": "user_prime_broker_code",
+          "source": "session",
+          "operator": "neq",
+          "value": "deal_prime_broker_code"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "prime.give_up.rejected"
+        }
+      ]
+    }
+  },
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/api/v1/prime/give-ups"
+    },
+    "request": {
+      "schema": {
+        "deal_number": "text",
+        "prime_account_code": "text",
+        "prime_broker_code": "text",
+        "instrument_code": "text",
+        "trade_date": "date",
+        "quantity": "number",
+        "price": "number",
+        "trade_side": "select"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 201,
+        "schema": {
+          "give_up_reference": "text",
+          "give_up_status": "select",
+          "prime_deal_number": "text"
+        }
+      },
+      "errors": [
+        {
+          "error_code": "PRIME_ACCOUNT_NOT_FOUND",
+          "status": 404
+        },
+        {
+          "error_code": "PRIME_MANDATE_MISSING",
+          "status": 409
+        },
+        {
+          "error_code": "GIVE_UP_MISMATCH",
+          "status": 422
+        },
+        {
+          "error_code": "GIVE_UP_DUPLICATE",
+          "status": 409
+        },
+        {
+          "error_code": "PRIME_UNAUTHORISED_VIEW",
+          "status": 403
+        }
+      ]
+    }
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not allow give-up acceptance without verifying an active prime brokerage agreement",
+      "why": "Accepting give-ups without a mandate exposes the prime broker to unfunded settlement obligations and regulatory sanction"
+    },
+    {
+      "rule": "Do not permit amendment of a settled prime deal",
+      "why": "Settled trades have downstream CSDP and clearing-house records; amendments corrupt the audit trail, use reversal + rebook instead"
+    },
+    {
+      "rule": "Do not share underlying client personal information beyond what is necessary for the give-up",
+      "why": "POPIA minimisation applies even between executing and prime broker, only identifiers required for settlement should cross the boundary"
+    },
+    {
+      "rule": "Do not net across different settlement dates or instruments",
+      "why": "Clearing-house netting rules operate per instrument per settlement date, cross-date netting creates settlement failures"
+    },
+    {
+      "rule": "Do not let the executing broker see deals routed to a different prime broker",
+      "why": "Client routing choices are confidential, leakage breaches both market-conduct rules and competitive trust"
+    },
+    {
+      "rule": "Do not hard-code CSDP participant identifiers in deal records",
+      "why": "CSDP details change, deal records should reference the prime account which resolves CSDP at settlement time"
+    }
+  ],
+  "related": [
+    {
+      "feature": "broker-client-account-maintenance",
+      "type": "required"
+    },
+    {
+      "feature": "popia-compliance",
+      "type": "required"
+    },
+    {
+      "feature": "broker-back-office-dissemination",
+      "type": "recommended"
+    },
+    {
+      "feature": "broker-client-data-upload",
+      "type": "recommended"
+    }
+  ],
+  "extensions": {
+    "screens": {
+      "CLMNT": "Client Account Maintenance (prime account setup)",
+      "AGMNT": "Agent Account Maintenance (executing broker mirror)",
+      "PBACV": "Prime Broker Account Verification",
+      "EBENQ": "Executing Broker Enquiry",
+      "SECFN": "User and Function Maintenance",
+      "CLVER": "Client Account Verification",
+      "BDDISSEM": "Broker Dissemination",
+      "BDDISINS": "Institutional Dissemination",
+      "DLPRE": "Pre-Dated Deals",
+      "DLADJ": "Deal Adjustments",
+      "DLREV": "Deal Reversals",
+      "CSREVS": "Controlled Client Sales Reverse Substitution",
+      "RSREV": "Non-Controlled Reverse Substitution",
+      "SHDLS": "Deals and Scrip by Instrument",
+      "ACDLS": "Open Deals by Share",
+      "AFINH": "Account Financial History"
+    },
+    "reports": {
+      "daily_deals_by_share": "Daily print of deals data in share sequence",
+      "daily_rolling_settlement": "Daily rolling settlement report",
+      "daily_settlement_by_share": "Daily rolling settlement in share sequence",
+      "daily_settlement": "Daily settlement report",
+      "funds_availability_controlled": "Funds availability for controlled clients"
+    }
+  }
+}

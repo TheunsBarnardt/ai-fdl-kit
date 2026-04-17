@@ -1,0 +1,746 @@
+feature: broker-reports
+version: 1.0.0
+description: Standard broker reporting subsystem covering contract notes, statements, portfolio valuations, tax certificates, scheduled batch generation, and multi-channel delivery
+category: trading
+tags:
+  - back-office
+  - broker
+  - reports
+  - contract-notes
+  - statements
+  - portfolio-valuation
+  - tax-certificates
+  - batch-scheduling
+  - delivery
+aliases:
+  - broker-standard-reports
+  - report-scheduler
+  - contract-notes
+  - client-statements
+  - portfolio-valuations
+  - tax-certificates
+  - it3b-reports
+  - cgt-reports
+  - report-delivery
+actors:
+  - id: broker_operator
+    name: Broker Back-Office Operator
+    type: human
+  - id: report_scheduler
+    name: Report Scheduler
+    type: system
+  - id: batch_runner
+    name: Batch Report Runner
+    type: system
+  - id: compliance_officer
+    name: Compliance Officer
+    type: human
+  - id: delivery_gateway
+    name: Delivery Gateway
+    type: system
+  - id: tax_authority
+    name: Tax Authority
+    type: external
+  - id: client
+    name: Client
+    type: external
+fields:
+  - name: report_id
+    type: text
+    required: true
+    label: Report Identifier
+  - name: report_code
+    type: text
+    required: true
+    label: Report Code
+  - name: report_type
+    type: select
+    required: true
+    label: Report Type
+  - name: report_name
+    type: text
+    required: true
+    label: Report Name
+  - name: description
+    type: text
+    required: false
+    label: Description
+  - name: schedule_frequency
+    type: select
+    required: true
+    label: Schedule Frequency
+  - name: schedule_day
+    type: number
+    required: false
+    label: Schedule Day
+  - name: schedule_time
+    type: text
+    required: false
+    label: Schedule Time
+  - name: run_date
+    type: date
+    required: true
+    label: Run Date
+  - name: period_start
+    type: date
+    required: false
+    label: Period Start
+  - name: period_end
+    type: date
+    required: false
+    label: Period End
+  - name: account_code
+    type: text
+    required: false
+    label: Account Code
+  - name: account_range
+    type: text
+    required: false
+    label: Account Range
+  - name: branch_code
+    type: text
+    required: false
+    label: Branch Code
+  - name: partner_code
+    type: text
+    required: false
+    label: Partner Code
+  - name: output_format
+    type: select
+    required: true
+    label: Output Format
+  - name: delivery_channel
+    type: select
+    required: true
+    label: Delivery Channel
+  - name: delivery_address
+    type: text
+    required: false
+    label: Delivery Address
+  - name: email_address
+    type: email
+    required: false
+    label: Email Address
+  - name: physical_address
+    type: text
+    required: false
+    label: Physical Address
+  - name: tax_year
+    type: text
+    required: false
+    label: Tax Year
+  - name: tax_certificate_type
+    type: select
+    required: false
+    label: Tax Certificate Type
+  - name: tax_reference_number
+    type: text
+    required: false
+    label: Tax Reference Number
+  - name: it3b_exclusion
+    type: boolean
+    required: false
+    label: IT3B Exclusion Flag
+  - name: cgt_basis
+    type: select
+    required: false
+    label: CGT Cost Basis Method
+  - name: valuation_date
+    type: date
+    required: false
+    label: Portfolio Valuation Date
+  - name: base_currency
+    type: text
+    required: false
+    label: Base Currency
+  - name: include_zero_balances
+    type: boolean
+    required: false
+    label: Include Zero Balances
+  - name: consolidated
+    type: boolean
+    required: false
+    label: Consolidated Statement
+  - name: copy_count
+    type: number
+    required: false
+    label: Copy Count
+  - name: priority
+    type: select
+    required: false
+    label: Batch Priority
+  - name: report_status
+    type: select
+    required: true
+    label: Report Status
+  - name: generated_at
+    type: datetime
+    required: false
+    label: Generated Timestamp
+  - name: delivered_at
+    type: datetime
+    required: false
+    label: Delivered Timestamp
+  - name: delivery_reference
+    type: text
+    required: false
+    label: Delivery Reference
+  - name: file_size_bytes
+    type: number
+    required: false
+    label: File Size (bytes)
+  - name: page_count
+    type: number
+    required: false
+    label: Page Count
+  - name: error_message
+    type: text
+    required: false
+    label: Error Message
+  - name: retry_count
+    type: number
+    required: false
+    label: Retry Count
+  - name: requested_by
+    type: text
+    required: false
+    label: Requested By
+states:
+  field: report_status
+  values:
+    - name: requested
+      initial: true
+    - name: queued
+    - name: generating
+    - name: generated
+    - name: delivering
+    - name: delivered
+      terminal: true
+    - name: failed
+      terminal: true
+  transitions:
+    - from: requested
+      to: queued
+      actor: report_scheduler
+    - from: queued
+      to: generating
+      actor: batch_runner
+    - from: generating
+      to: generated
+      actor: batch_runner
+    - from: generated
+      to: delivering
+      actor: delivery_gateway
+    - from: delivering
+      to: delivered
+      actor: delivery_gateway
+    - from: generating
+      to: failed
+      actor: batch_runner
+    - from: delivering
+      to: failed
+      actor: delivery_gateway
+rules:
+  standard_reports:
+    catalog: "System ships a catalog of standard reports: contract notes, daily/monthly statements, portfolio valuations, cash and stock position, deal journals, commission, and tax certificates"
+    contract_notes: Contract notes generated per executed deal, delivered same-day per regulatory requirement
+    statements: Client statements generated daily, weekly, monthly, or on demand covering cash movements, deals, and open positions
+    portfolio_valuations: Portfolio valuations priced at mark-to-market using end-of-day closing prices with configurable base currency
+    tax_certificates: IT3B interest/dividend tax certificates and CGT realised-gain certificates generated annually per tax year
+  scheduling:
+    frequencies: "Supported frequencies: daily, weekly, monthly, quarterly, yearly, on-demand"
+    calendar: Respects trading-calendar holidays; scheduled runs skip non-business days and roll to next eligible day
+    batch_windows: Batches run in defined overnight windows with configurable priority and retry policy
+    idempotency: Re-running a scheduled report for the same period produces identical output, safe to retry
+  delivery:
+    channels: "Supported channels: hardcopy print, XML feed, electronic (email with secure attachment, SFTP, portal download)"
+    hardcopy: Hardcopy delivery routed to print spool with mailing address from account master
+    xml_feed: XML delivery packaged per published schema and pushed to configured endpoint with signed manifest
+    electronic: Email delivery uses password-protected attachment or secure-portal link, never plaintext PII in body
+    delivery_confirmation: Delivery receipts recorded with timestamp, channel, and reference
+    retry_policy: Failed delivery retried with exponential backoff up to configured maximum attempts
+  tax_compliance:
+    tax_authority_format: Tax certificate output conforms to tax-authority electronic-submission specification
+    tax_year_boundary: Tax year boundaries honour South African tax-year (1 March – end February)
+    it3b_exclusion: Accounts flagged it3b_exclusion are excluded from IT3B generation but still reported internally
+    cgt_methods: CGT supports FIFO, weighted-average, and specific-identification cost-basis methods
+    certificate_retention: Tax certificates retained for at least five years per tax-authority recordkeeping rules
+  security:
+    access_control: Report generation and delivery configuration controlled per role; clients see only own reports
+    pii_masking: Personal-information fields masked in logs; raw output encrypted at rest
+    popia_consent: Electronic delivery requires recorded client consent and current contact details
+    segregation_of_duties: Schedule configuration and approval separated from report generation execution
+  data_integrity:
+    source_snapshot: Reports generated against a point-in-time snapshot of deals, positions, and prices for reproducibility
+    audit_trail: Every report run records requester, parameters, output hash, and delivery outcome
+    referential_integrity: Reports cannot be deleted while referenced by regulatory submission records
+errors:
+  - code: REPORT_NOT_FOUND
+    status: 404
+    message: Report definition not found
+  - code: REPORT_SCHEDULE_INVALID
+    status: 400
+    message: Schedule frequency or parameters are invalid
+  - code: REPORT_PERIOD_INVALID
+    status: 400
+    message: Reporting period is invalid or spans a closed financial period
+  - code: REPORT_ACCOUNT_NOT_FOUND
+    status: 404
+    message: One or more requested accounts do not exist
+  - code: REPORT_GENERATION_FAILED
+    status: 500
+    message: Report generation failed, see error log for details
+  - code: REPORT_DELIVERY_FAILED
+    status: 503
+    message: Delivery channel rejected the report
+  - code: REPORT_DELIVERY_CONSENT_MISSING
+    status: 422
+    message: Electronic delivery requires recorded client consent
+  - code: REPORT_TAX_YEAR_INVALID
+    status: 400
+    message: Tax year is not a recognised tax-authority tax year
+  - code: REPORT_IT3B_EXCLUDED
+    status: 409
+    message: Account is flagged as excluded from IT3B generation
+  - code: REPORT_POPIA_VIOLATION
+    status: 422
+    message: Report parameters or delivery channel failed POPIA check
+  - code: REPORT_UNAUTHORIZED
+    status: 403
+    message: User lacks permission to generate or receive this report
+events:
+  - name: report.requested
+    payload:
+      - report_id
+      - report_code
+      - requested_by
+      - parameters
+      - timestamp
+  - name: report.scheduled
+    payload:
+      - report_id
+      - schedule_frequency
+      - next_run_date
+      - timestamp
+  - name: report.queued
+    payload:
+      - report_id
+      - run_date
+      - priority
+      - timestamp
+  - name: report.generation_started
+    payload:
+      - report_id
+      - run_date
+      - timestamp
+  - name: report.generated
+    payload:
+      - report_id
+      - output_format
+      - page_count
+      - file_size_bytes
+      - timestamp
+  - name: report.generation_failed
+    payload:
+      - report_id
+      - error_message
+      - retry_count
+      - timestamp
+  - name: report.delivery_started
+    payload:
+      - report_id
+      - delivery_channel
+      - delivery_address
+      - timestamp
+  - name: report.delivered
+    payload:
+      - report_id
+      - delivery_channel
+      - delivery_reference
+      - timestamp
+  - name: report.delivery_failed
+    payload:
+      - report_id
+      - delivery_channel
+      - error_message
+      - retry_count
+      - timestamp
+  - name: report.tax_certificate_issued
+    payload:
+      - report_id
+      - tax_certificate_type
+      - tax_year
+      - account_code
+      - timestamp
+outcomes:
+  request_standard_report:
+    priority: 1
+    description: Operator requests a standard report from the catalog with parameters
+    given:
+      - field: report_code
+        source: input
+        operator: exists
+      - field: output_format
+        source: input
+        operator: in
+        value:
+          - hardcopy
+          - xml
+          - electronic
+      - field: delivery_channel
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: report_request
+      - action: set_field
+        target: report_status
+        value: requested
+      - action: emit_event
+        event: report.requested
+    transaction: true
+  schedule_recurring_batch:
+    priority: 2
+    description: Schedule a report to run on a recurring frequency
+    given:
+      - field: schedule_frequency
+        source: input
+        operator: in
+        value:
+          - daily
+          - weekly
+          - monthly
+          - quarterly
+          - yearly
+      - field: report_code
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: report_schedule
+      - action: emit_event
+        event: report.scheduled
+    transaction: true
+  reject_invalid_schedule:
+    priority: 3
+    error: REPORT_SCHEDULE_INVALID
+    description: Reject schedule requests with unsupported frequency or missing parameters
+    given:
+      - field: schedule_frequency
+        source: input
+        operator: not_in
+        value:
+          - daily
+          - weekly
+          - monthly
+          - quarterly
+          - yearly
+          - on_demand
+    then:
+      - action: emit_event
+        event: report.requested
+  generate_contract_note:
+    priority: 4
+    description: Generate a contract note for an executed deal
+    given:
+      - field: report_type
+        source: input
+        operator: eq
+        value: contract_note
+      - field: account_code
+        source: input
+        operator: exists
+    then:
+      - action: transition_state
+        field: report_status
+        from: queued
+        to: generating
+      - action: set_field
+        target: generated_at
+        value: now
+      - action: emit_event
+        event: report.generated
+    transaction: true
+  generate_portfolio_valuation:
+    priority: 5
+    description: Generate a mark-to-market portfolio valuation as at a valuation date
+    given:
+      - field: report_type
+        source: input
+        operator: eq
+        value: portfolio_valuation
+      - field: valuation_date
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: pricing_snapshot
+      - action: set_field
+        target: report_status
+        value: generated
+      - action: emit_event
+        event: report.generated
+    transaction: true
+  generate_it3b_tax_certificate:
+    priority: 6
+    description: Generate an IT3B interest/dividend tax certificate for a tax year
+    given:
+      - field: tax_certificate_type
+        source: input
+        operator: eq
+        value: IT3B
+      - field: tax_year
+        source: input
+        operator: exists
+      - field: it3b_exclusion
+        source: db
+        operator: neq
+        value: true
+    then:
+      - action: create_record
+        type: tax_certificate
+      - action: set_field
+        target: report_status
+        value: generated
+      - action: emit_event
+        event: report.tax_certificate_issued
+    transaction: true
+  reject_it3b_for_excluded_account:
+    priority: 7
+    error: REPORT_IT3B_EXCLUDED
+    description: Prevent IT3B generation for accounts flagged as excluded
+    given:
+      - field: tax_certificate_type
+        source: input
+        operator: eq
+        value: IT3B
+      - field: it3b_exclusion
+        source: db
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: report.generation_failed
+  generate_cgt_certificate:
+    priority: 8
+    description: Generate CGT realised-gains certificate using configured cost-basis method
+    given:
+      - field: tax_certificate_type
+        source: input
+        operator: eq
+        value: CGT
+      - field: cgt_basis
+        source: input
+        operator: in
+        value:
+          - FIFO
+          - weighted_average
+          - specific_identification
+    then:
+      - action: create_record
+        type: tax_certificate
+      - action: emit_event
+        event: report.tax_certificate_issued
+    transaction: true
+  deliver_hardcopy:
+    priority: 9
+    description: Route generated report to hardcopy print spool using mailing address
+    given:
+      - field: delivery_channel
+        source: input
+        operator: eq
+        value: hardcopy
+      - field: physical_address
+        source: db
+        operator: exists
+    then:
+      - action: transition_state
+        field: report_status
+        from: generated
+        to: delivering
+      - action: call_service
+        target: print_spool
+      - action: emit_event
+        event: report.delivery_started
+  deliver_xml_feed:
+    priority: 10
+    description: Package report as XML and push to configured endpoint with signed manifest
+    given:
+      - field: delivery_channel
+        source: input
+        operator: eq
+        value: xml
+      - field: output_format
+        source: input
+        operator: eq
+        value: xml
+    then:
+      - action: call_service
+        target: xml_feed_gateway
+      - action: set_field
+        target: report_status
+        value: delivered
+      - action: emit_event
+        event: report.delivered
+    transaction: true
+  deliver_electronic:
+    priority: 11
+    description: Deliver report electronically via secure email or portal link
+    given:
+      - field: delivery_channel
+        source: input
+        operator: eq
+        value: electronic
+      - field: email_address
+        source: db
+        operator: exists
+      - field: delivery_consent
+        source: db
+        operator: eq
+        value: true
+    then:
+      - action: call_service
+        target: secure_delivery_gateway
+      - action: set_field
+        target: delivered_at
+        value: now
+      - action: emit_event
+        event: report.delivered
+    transaction: true
+  reject_electronic_without_consent:
+    priority: 12
+    error: REPORT_DELIVERY_CONSENT_MISSING
+    description: Block electronic delivery when client consent is not recorded
+    given:
+      - field: delivery_channel
+        source: input
+        operator: eq
+        value: electronic
+      - field: delivery_consent
+        source: db
+        operator: neq
+        value: true
+    then:
+      - action: emit_event
+        event: report.delivery_failed
+  retry_failed_delivery:
+    priority: 13
+    description: Retry a failed delivery with exponential backoff up to configured limit
+    given:
+      - field: report_status
+        source: db
+        operator: eq
+        value: failed
+      - field: retry_count
+        source: db
+        operator: lt
+        value: 5
+    then:
+      - action: set_field
+        target: retry_count
+        value: incremented
+      - action: transition_state
+        field: report_status
+        from: failed
+        to: delivering
+      - action: emit_event
+        event: report.delivery_started
+  handle_generation_failure:
+    priority: 14
+    error: REPORT_GENERATION_FAILED
+    description: Capture generation failures and mark report as failed
+    given:
+      - field: generation_error
+        source: system
+        operator: exists
+    then:
+      - action: transition_state
+        field: report_status
+        from: generating
+        to: failed
+      - action: emit_event
+        event: report.generation_failed
+api:
+  http:
+    method: POST
+    path: /api/v1/reports
+  request:
+    schema:
+      report_code: text
+      report_type: select
+      output_format: select
+      delivery_channel: select
+      account_code: text
+      period_start: date
+      period_end: date
+      tax_year: text
+      tax_certificate_type: select
+      schedule_frequency: select
+  response:
+    success:
+      status: 202
+      schema:
+        report_id: text
+        report_status: select
+        run_date: date
+    errors:
+      - error_code: REPORT_SCHEDULE_INVALID
+        status: 400
+      - error_code: REPORT_PERIOD_INVALID
+        status: 400
+      - error_code: REPORT_ACCOUNT_NOT_FOUND
+        status: 404
+      - error_code: REPORT_DELIVERY_CONSENT_MISSING
+        status: 422
+      - error_code: REPORT_IT3B_EXCLUDED
+        status: 409
+      - error_code: REPORT_UNAUTHORIZED
+        status: 403
+anti_patterns:
+  - rule: Do not embed personal information or account details in plaintext email bodies
+    why: POPIA s.19 requires technical safeguards for PII in transit; plaintext email is a common breach vector
+  - rule: Do not regenerate tax certificates without preserving prior versions
+    why: Tax-authority audits require the ability to reproduce the exact certificate issued on a given date
+  - rule: Do not run batch schedules on non-business days without calendar validation
+    why: Running reports against incomplete end-of-day data produces misleading valuations and client disputes
+  - rule: Do not retry delivery indefinitely on permanent failures
+    why: Unbounded retries mask downstream configuration errors and flood delivery gateways
+  - rule: Do not allow cross-client data to bleed into a single statement run
+    why: Account-scoping errors leak confidential positions and breach client confidentiality
+  - rule: Do not price portfolio valuations with stale prices without flagging them
+    why: Mark-to-market reports based on stale prices mislead clients and distort regulatory capital
+  - rule: Do not delete generated reports before statutory retention period
+    why: Tax-authority and exchange-control rules require multi-year recordkeeping
+related:
+  - feature: broker-client-account-maintenance
+    type: required
+  - feature: popia-compliance
+    type: required
+  - feature: broker-back-office-dissemination
+    type: recommended
+  - feature: broker-client-data-upload
+    type: optional
+extensions:
+  report_catalog:
+    CONTRACT_NOTE: Contract note per executed deal
+    DAILY_STATEMENT: Daily cash and stock statement
+    MONTHLY_STATEMENT: Monthly consolidated statement
+    PORTFOLIO_VALUATION: Mark-to-market portfolio valuation
+    CASH_POSITION: Client cash position listing
+    STOCK_POSITION: Client stock position listing
+    DEAL_JOURNAL: Deal journal by period
+    COMMISSION_REPORT: Commission and fee breakdown
+    IT3B_CERTIFICATE: Interest and dividend tax certificate
+    CGT_CERTIFICATE: Capital gains tax realised-gains certificate
+  output_formats:
+    hardcopy: Printed document routed to mailing address
+    xml: XML document conforming to published schema
+    electronic: Secure email attachment or portal link
+    pdf: PDF rendering for viewing and archival
+    csv: Tabular export for downstream analysis
+  delivery_channels:
+    print: Physical mail via print spool
+    email: Secure email with password-protected attachment
+    portal: Client self-service download portal
+    sftp: Scheduled SFTP push to configured endpoint
+    xml_feed: Push to configured XML ingestion endpoint

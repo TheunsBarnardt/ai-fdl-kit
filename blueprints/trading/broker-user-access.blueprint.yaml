@@ -1,0 +1,519 @@
+feature: broker-user-access
+version: 1.0.0
+description: User access management for back-office systems with screen-level and function-level security, role-based view/update permissions, dual-control verification, and audit trail of access changes
+category: auth
+tags:
+  - back-office
+  - broker
+  - user-access
+  - rbac
+  - access-control
+  - security
+  - audit
+  - segregation-of-duties
+aliases:
+  - user-access-management
+  - function-security
+  - screen-level-security
+  - secfn
+  - secus
+  - seccd
+  - user-function-allocation
+  - broker-role-based-access
+actors:
+  - id: security_administrator
+    name: Security Administrator
+    type: human
+    description: Authorised user who allocates functions to users
+  - id: access_verifier
+    name: Access Verifier
+    type: human
+    description: Authorised user who verifies (signs off) granted access before activation
+  - id: back_office_user
+    name: Back-Office User
+    type: human
+    description: End user whose access is being granted, modified, or revoked
+  - id: back_office_system
+    name: Back-Office System
+    type: system
+    description: Host system that enforces per-function security checks at runtime
+  - id: exchange_operator
+    name: Exchange Operator
+    type: external
+    description: Central operator that creates new users and defines function codes
+fields:
+  - name: user_id
+    type: text
+    required: true
+    label: User ID
+  - name: operator_id
+    type: text
+    required: true
+    label: Operator ID
+  - name: user_name
+    type: text
+    required: true
+    label: User Name
+  - name: broker_alpha
+    type: text
+    required: true
+    label: Broker Alpha Code
+  - name: branch_code
+    type: text
+    required: false
+    label: Branch Code
+  - name: function_code
+    type: text
+    required: true
+    label: Function Code
+  - name: generic_code
+    type: text
+    required: false
+    label: Generic Code
+  - name: broker_option
+    type: select
+    required: true
+    label: Broker Option
+  - name: update_option
+    type: select
+    required: true
+    label: Update Option
+  - name: access_level
+    type: select
+    required: true
+    label: Security Access Level
+  - name: branch_data_option
+    type: select
+    required: false
+    label: Branch Data Option
+  - name: action_code
+    type: select
+    required: true
+    label: Action Code
+  - name: access_status
+    type: select
+    required: true
+    label: Access Status
+  - name: deactivated_date
+    type: date
+    required: false
+    label: Deactivated Date
+  - name: function_description
+    type: text
+    required: false
+    label: Function Description
+  - name: verifier_role
+    type: select
+    required: false
+    label: Verifier Role
+  - name: requested_by
+    type: text
+    required: false
+    label: Requested By User
+  - name: requested_at
+    type: datetime
+    required: false
+    label: Request Timestamp
+  - name: verified_by
+    type: text
+    required: false
+    label: Verified By User
+  - name: verified_at
+    type: datetime
+    required: false
+    label: Verification Timestamp
+  - name: change_reason
+    type: text
+    required: false
+    label: Change Reason
+states:
+  field: access_status
+  values:
+    - name: requested
+      initial: true
+    - name: unverified
+    - name: granted
+    - name: deactivated
+    - name: revoked
+      terminal: true
+  transitions:
+    - from: requested
+      to: unverified
+      actor: security_administrator
+      description: Administrator assigns function to user, record marked unverified
+    - from: unverified
+      to: granted
+      actor: access_verifier
+      description: Second authorised user verifies and activates access
+    - from: granted
+      to: deactivated
+      actor: security_administrator
+      description: Access is deactivated but retained for potential reactivation
+    - from: deactivated
+      to: unverified
+      actor: security_administrator
+      description: Reactivation places access back in unverified state pending sign-off
+    - from: granted
+      to: revoked
+      actor: security_administrator
+      description: Access fully revoked
+rules:
+  access_control:
+    function_level_security: Every screen/function has a unique security code checked at invocation
+    view_vs_update: Access is granted at either enquiry (E) or update (U) level, where update implies enquiry
+    screen_level_enforcement: Resource-access-control-facility enforces permission check before screen is rendered or action processed
+    deactivation_blocks_access: A deactivated access prevents any use of the function until reactivated and verified
+  segregation_of_duties:
+    dual_control_verification: A granted access is not usable until verified by a second authorised user
+    self_verification_prohibited: Loader and verifier may differ; verifier must hold dedicated verification role (branch, broker, or exchange-level)
+    broker_scope_restriction: A broker user may only grant access to users whose ID begins with the broker alpha code
+  role_model:
+    verification_roles: "Three verification scopes: branch verifier, broker verifier, exchange-wide verifier"
+    function_grant_scope: Broker users may only grant functions where broker option allows enquiry or update
+    special_security_codes: Certain functions use combination security codes and special characters (e.g. portfolio advisor data-access codes)
+  audit:
+    full_audit_trail: All access changes are logged with user, timestamp, action, old/new status, retained at least 36 months
+    change_reason_required: Deactivation and revocation require a documented change reason
+    enquiry_logging: Access enquiries by user ID or by function code are logged for compliance review
+  compliance:
+    popia_alignment: Access records may contain staff personal information; POPIA lawful-basis and data-minimisation apply
+    least_privilege: Default posture is no access; privileges granted explicitly per function
+errors:
+  - code: ACCESS_USER_INVALID
+    status: 400
+    message: User ID is not recognised, please verify via user enquiry screen
+  - code: ACCESS_UNAUTHORISED_GRANTOR
+    status: 403
+    message: You are not authorised to grant access to this function
+  - code: ACCESS_BROKER_SCOPE_VIOLATION
+    status: 403
+    message: Broker users may only grant access to users within their own broker alpha
+  - code: ACCESS_UPDATE_NOT_PERMITTED
+    status: 403
+    message: Update access is not permitted for this function, enquiry only
+  - code: ACCESS_VERIFICATION_REQUIRED
+    status: 409
+    message: Access must be verified by a second authorised user before it can be used
+  - code: ACCESS_SELF_VERIFICATION_FORBIDDEN
+    status: 403
+    message: Verifier must hold a dedicated verification role
+  - code: ACCESS_INVALID_STATE_TRANSITION
+    status: 409
+    message: The requested action is not valid from the current access status
+  - code: ACCESS_FUNCTION_NOT_FOUND
+    status: 404
+    message: Function code is not defined in the security codes register
+events:
+  - name: user_access.requested
+    payload:
+      - user_id
+      - function_code
+      - access_level
+      - requested_by
+      - timestamp
+  - name: user_access.granted
+    payload:
+      - user_id
+      - function_code
+      - access_level
+      - verified_by
+      - timestamp
+  - name: user_access.verified
+    payload:
+      - user_id
+      - function_code
+      - verified_by
+      - timestamp
+  - name: user_access.deactivated
+    payload:
+      - user_id
+      - function_code
+      - deactivated_by
+      - change_reason
+      - timestamp
+  - name: user_access.reactivated
+    payload:
+      - user_id
+      - function_code
+      - reactivated_by
+      - timestamp
+  - name: user_access.revoked
+    payload:
+      - user_id
+      - function_code
+      - revoked_by
+      - change_reason
+      - timestamp
+  - name: user_access.denied
+    payload:
+      - user_id
+      - function_code
+      - reason
+      - timestamp
+  - name: user_access.enquiry
+    payload:
+      - query_type
+      - query_value
+      - queried_by
+      - timestamp
+outcomes:
+  grant_new_function_access:
+    priority: 1
+    description: Security administrator allocates a new function to a user, marked unverified pending sign-off
+    given:
+      - field: action_code
+        source: input
+        operator: eq
+        value: N
+      - field: user_id
+        source: db
+        operator: exists
+      - field: function_code
+        source: db
+        operator: exists
+    then:
+      - action: create_record
+        type: user_function_access
+      - action: set_field
+        target: access_status
+        value: UNVER
+      - action: emit_event
+        event: user_access.requested
+    transaction: true
+  reject_broker_scope_violation:
+    priority: 2
+    error: ACCESS_BROKER_SCOPE_VIOLATION
+    description: Broker administrator attempts to grant access to a user outside their broker alpha
+    given:
+      - field: granting_user_type
+        source: session
+        operator: eq
+        value: broker
+      - field: user_id_prefix
+        source: input
+        operator: neq
+        value: broker_alpha
+    then:
+      - action: emit_event
+        event: user_access.denied
+  verify_and_activate_access:
+    priority: 3
+    description: Authorised verifier signs off unverified access, making it usable
+    given:
+      - field: action_code
+        source: input
+        operator: eq
+        value: V
+      - field: access_status
+        source: db
+        operator: eq
+        value: UNVER
+      - field: verifier_role
+        source: session
+        operator: in
+        value:
+          - BRNVR
+          - BRKVR
+          - JSEVR
+    then:
+      - action: transition_state
+        field: access_status
+        from: UNVER
+        to: ACTIVE
+      - action: set_field
+        target: verified_at
+        value: now
+      - action: emit_event
+        event: user_access.verified
+      - action: emit_event
+        event: user_access.granted
+    transaction: true
+  reject_unauthorised_verifier:
+    priority: 4
+    error: ACCESS_SELF_VERIFICATION_FORBIDDEN
+    description: User without a verification role attempts to verify access
+    given:
+      - field: action_code
+        source: input
+        operator: eq
+        value: V
+      - field: verifier_role
+        source: session
+        operator: not_in
+        value:
+          - BRNVR
+          - BRKVR
+          - JSEVR
+    then:
+      - action: emit_event
+        event: user_access.denied
+  deactivate_access:
+    priority: 5
+    description: Administrator deactivates an active access while retaining history
+    given:
+      - field: action_code
+        source: input
+        operator: eq
+        value: D
+      - field: access_status
+        source: db
+        operator: eq
+        value: ACTIVE
+    then:
+      - action: transition_state
+        field: access_status
+        from: ACTIVE
+        to: DEACT
+      - action: set_field
+        target: deactivated_date
+        value: today
+      - action: emit_event
+        event: user_access.deactivated
+    transaction: true
+  reactivate_access:
+    priority: 6
+    description: Administrator reactivates a previously deactivated access, requiring re-verification
+    given:
+      - field: action_code
+        source: input
+        operator: eq
+        value: R
+      - field: access_status
+        source: db
+        operator: eq
+        value: DEACT
+    then:
+      - action: transition_state
+        field: access_status
+        from: DEACT
+        to: UNVER
+      - action: emit_event
+        event: user_access.reactivated
+    transaction: true
+  reject_update_on_enquiry_only_function:
+    priority: 7
+    error: ACCESS_UPDATE_NOT_PERMITTED
+    description: Update-level access requested against a function defined as enquiry-only
+    given:
+      - field: update_option
+        source: db
+        operator: eq
+        value: E
+      - field: access_level
+        source: input
+        operator: eq
+        value: U
+    then:
+      - action: emit_event
+        event: user_access.denied
+  runtime_function_invocation_check:
+    priority: 8
+    description: Runtime check when user attempts to invoke a function; access granted only when status is ACTIVE and level matches
+    given:
+      - field: access_status
+        source: db
+        operator: eq
+        value: ACTIVE
+      - field: access_level
+        source: db
+        operator: gte
+        value: required_level
+    then:
+      - action: call_service
+        target: function_dispatcher
+      - action: emit_event
+        event: user_access.enquiry
+  enquire_access_by_user_or_function:
+    priority: 9
+    description: Authorised administrator lists all functions for a user or all users for a function
+    given:
+      - field: query_type
+        source: input
+        operator: in
+        value:
+          - by_user
+          - by_function
+    then:
+      - action: call_service
+        target: access_enquiry_service
+      - action: emit_event
+        event: user_access.enquiry
+api:
+  http:
+    method: POST
+    path: /api/v1/user-access
+  request:
+    schema:
+      user_id: text
+      function_code: text
+      access_level: select
+      action_code: select
+      branch_data_option: select
+      change_reason: text
+  response:
+    success:
+      status: 201
+      schema:
+        user_id: text
+        function_code: text
+        access_status: select
+        requested_at: datetime
+    errors:
+      - error_code: ACCESS_USER_INVALID
+        status: 400
+      - error_code: ACCESS_UNAUTHORISED_GRANTOR
+        status: 403
+      - error_code: ACCESS_BROKER_SCOPE_VIOLATION
+        status: 403
+      - error_code: ACCESS_UPDATE_NOT_PERMITTED
+        status: 403
+      - error_code: ACCESS_VERIFICATION_REQUIRED
+        status: 409
+      - error_code: ACCESS_SELF_VERIFICATION_FORBIDDEN
+        status: 403
+      - error_code: ACCESS_INVALID_STATE_TRANSITION
+        status: 409
+      - error_code: ACCESS_FUNCTION_NOT_FOUND
+        status: 404
+anti_patterns:
+  - rule: Do not allow the same user to both grant and verify an access change
+    why: Dual-control is the core defence against insider misuse of privileged functions
+  - rule: Do not skip runtime per-function security checks even if screen-level access was granted
+    why: Screen-level checks can be bypassed via fast-path invocation; per-function checks are the last line of defence
+  - rule: Do not hard-delete access history when access is revoked
+    why: Regulatory audit requires reconstructing who had what access at any given point in time
+  - rule: Do not grant update permission on functions flagged enquiry-only at the function-code level
+    why: Function-code update option is the canonical policy; screen overrides undermine the central policy
+  - rule: Do not broaden broker scope by allowing cross-broker grants from broker-level administrators
+    why: Cross-broker scope is reserved for central exchange operators to prevent lateral privilege escalation
+  - rule: Do not store credentials, session tokens, or personal identifiers in access log payloads
+    why: POPIA s.19 requires appropriate technical safeguards; plaintext logging of sensitive data is a known breach vector
+related:
+  - feature: popia-compliance
+    type: required
+  - feature: broker-client-account-maintenance
+    type: recommended
+  - feature: login
+    type: recommended
+  - feature: password-reset
+    type: optional
+extensions:
+  screens:
+    SECCD: Security codes maintenance (function code register, enquiry for members)
+    SECUS: User maintenance enquiry (user ID and operator ID lookup)
+    SECFN: Function allocation and verification
+    SECIU: Function enquiry by user ID
+    SECIF: Function enquiry by function code
+  verification_roles:
+    BRNVR: Branch-scope access verifier
+    BRKVR: Broker-scope access verifier
+    JSEVR: Exchange-wide access verifier (central operator use only)
+  action_codes:
+    N: New authorisation
+    C: Change of authorisation
+    D: Deactivate authorisation
+    R: Reactivate authorisation
+    V: Verify authorisation
+  access_levels:
+    E: Enquiry only
+    U: Update and enquiry

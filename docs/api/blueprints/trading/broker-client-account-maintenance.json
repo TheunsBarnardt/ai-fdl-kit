@@ -1,0 +1,662 @@
+{
+  "feature": "broker-client-account-maintenance",
+  "version": "1.0.0",
+  "description": "Internal back-office account maintenance for clients, agents, and stock accounts including alpha lookup, relationships, addresses, tax/legal records, freezes, and memos",
+  "category": "trading",
+  "tags": [
+    "back-office",
+    "broker",
+    "account-maintenance",
+    "clients",
+    "agents",
+    "stock-accounts",
+    "tax",
+    "kyc",
+    "popia"
+  ],
+  "aliases": [
+    "client-account-maintenance",
+    "account-maintenance",
+    "clmnt",
+    "broker-account-setup",
+    "account-master-data",
+    "account-alpha-lookup",
+    "agent-account-maintenance"
+  ],
+  "actors": [
+    {
+      "id": "broker_operator",
+      "name": "Broker Back-Office Operator",
+      "type": "human"
+    },
+    {
+      "id": "account_supervisor",
+      "name": "Account Supervisor",
+      "type": "human"
+    },
+    {
+      "id": "back_office_system",
+      "name": "Back-Office System",
+      "type": "system"
+    },
+    {
+      "id": "compliance_officer",
+      "name": "Compliance Officer",
+      "type": "human"
+    }
+  ],
+  "fields": [
+    {
+      "name": "account_code",
+      "type": "text",
+      "required": true,
+      "label": "Account Code"
+    },
+    {
+      "name": "account_type",
+      "type": "select",
+      "required": true,
+      "label": "Account Type"
+    },
+    {
+      "name": "alpha_short_name",
+      "type": "text",
+      "required": true,
+      "label": "Alpha Short Name"
+    },
+    {
+      "name": "full_name",
+      "type": "text",
+      "required": true,
+      "label": "Account Full Name"
+    },
+    {
+      "name": "branch_code",
+      "type": "text",
+      "required": false,
+      "label": "Branch Code"
+    },
+    {
+      "name": "partner_code",
+      "type": "text",
+      "required": false,
+      "label": "Partner Code"
+    },
+    {
+      "name": "advisor_code",
+      "type": "text",
+      "required": false,
+      "label": "Advisor Code"
+    },
+    {
+      "name": "mandate_type",
+      "type": "select",
+      "required": false,
+      "label": "Managed Mandate Type"
+    },
+    {
+      "name": "controlled_account_flag",
+      "type": "boolean",
+      "required": true,
+      "label": "Controlled Account Flag"
+    },
+    {
+      "name": "id_number",
+      "type": "text",
+      "required": false,
+      "label": "SA ID Number"
+    },
+    {
+      "name": "passport_number",
+      "type": "text",
+      "required": false,
+      "label": "Passport Number"
+    },
+    {
+      "name": "tax_reference_number",
+      "type": "text",
+      "required": false,
+      "label": "Tax Reference Number"
+    },
+    {
+      "name": "fatca_status",
+      "type": "select",
+      "required": false,
+      "label": "FATCA Status"
+    },
+    {
+      "name": "crs_reportable",
+      "type": "boolean",
+      "required": false,
+      "label": "CRS Reportable"
+    },
+    {
+      "name": "it3b_exclusion",
+      "type": "boolean",
+      "required": false,
+      "label": "IT3B Tax Certificate Exclusion"
+    },
+    {
+      "name": "physical_address",
+      "type": "text",
+      "required": true,
+      "label": "Physical Address"
+    },
+    {
+      "name": "postal_address",
+      "type": "text",
+      "required": false,
+      "label": "Postal Address"
+    },
+    {
+      "name": "email_address",
+      "type": "email",
+      "required": false,
+      "label": "Email Address"
+    },
+    {
+      "name": "cellphone_number",
+      "type": "phone",
+      "required": false,
+      "label": "Cellphone Number"
+    },
+    {
+      "name": "bank_account_number",
+      "type": "text",
+      "required": false,
+      "label": "Bank Account Number"
+    },
+    {
+      "name": "bank_branch_code",
+      "type": "text",
+      "required": false,
+      "label": "Bank Branch Code"
+    },
+    {
+      "name": "account_status",
+      "type": "select",
+      "required": true,
+      "label": "Account Status"
+    },
+    {
+      "name": "freeze_reason",
+      "type": "text",
+      "required": false,
+      "label": "Freeze Reason"
+    },
+    {
+      "name": "deactivation_date",
+      "type": "date",
+      "required": false,
+      "label": "Deactivation Date"
+    },
+    {
+      "name": "memo_text",
+      "type": "rich_text",
+      "required": false,
+      "label": "Memorandum Text"
+    }
+  ],
+  "states": {
+    "field": "account_status",
+    "values": [
+      {
+        "name": "pending_verification",
+        "initial": true
+      },
+      {
+        "name": "active"
+      },
+      {
+        "name": "frozen"
+      },
+      {
+        "name": "deactivated",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "pending_verification",
+        "to": "active",
+        "actor": "account_supervisor"
+      },
+      {
+        "from": "active",
+        "to": "frozen",
+        "actor": "broker_operator"
+      },
+      {
+        "from": "frozen",
+        "to": "active",
+        "actor": "account_supervisor"
+      },
+      {
+        "from": "active",
+        "to": "deactivated",
+        "actor": "account_supervisor"
+      }
+    ]
+  },
+  "rules": {
+    "data_integrity": {
+      "alpha_code_auto_generation": "Short alpha code auto-derived from surname+initials or first 20 chars of name; broker may override",
+      "account_uniqueness": "Account code must be unique within broker firm",
+      "referential_integrity": "Deletion forbidden if account has historical deals, financial entries, or open positions",
+      "audit_trail_retention": "All changes logged with user, timestamp, old/new values; retained for at least 36 months"
+    },
+    "security": {
+      "access_control": "User access controlled at screen level via resource access control facility",
+      "segregation_of_duties": "Freeze/unfreeze requires supervisor role; operator cannot self-approve",
+      "field_level_auth": "View vs update permissions configurable per screen and per field"
+    },
+    "compliance": {
+      "popia_consent": "Personal information capture requires documented lawful basis; POPIA compliance required",
+      "popia_breach_notification": "Unauthorized access or disclosure triggers regulator and data-subject notification per POPIA s.22",
+      "sars_address": "Physical address fields must meet tax-authority requirements",
+      "fatca_crs": "US-person and CRS-reportable status recorded on tax/legal maintenance screen",
+      "kyc_verification": "Client account verification completed before trading is enabled"
+    },
+    "business": {
+      "account_types": "Client, agent, stock, allocation, nominee, trustee — each governs downstream processing",
+      "controlled_accounts": "Controlled client credit balances swept nightly to broker trust account",
+      "supplementary_names": "Copy contract notes and statements can be mailed to supplementary addresses",
+      "shorty_codes": "Shorty name codes may be loaded for quick reference on trading screens",
+      "freeze_blocks_trading": "Frozen accounts cannot have new deals allocated or financial entries processed"
+    }
+  },
+  "errors": [
+    {
+      "code": "ACCOUNT_DUPLICATE",
+      "status": 409,
+      "message": "Account code already exists for this broker"
+    },
+    {
+      "code": "ACCOUNT_INVALID_ALPHA",
+      "status": 400,
+      "message": "Alpha short name cannot be derived, please supply manually"
+    },
+    {
+      "code": "ACCOUNT_VERIFICATION_REQUIRED",
+      "status": 409,
+      "message": "Account must be verified before activation"
+    },
+    {
+      "code": "ACCOUNT_DELETE_BLOCKED",
+      "status": 409,
+      "message": "Account cannot be deleted, historical activity exists"
+    },
+    {
+      "code": "ACCOUNT_FREEZE_FORBIDDEN",
+      "status": 403,
+      "message": "Only a supervisor role may freeze or unfreeze an account"
+    },
+    {
+      "code": "ACCOUNT_POPIA_VIOLATION",
+      "status": 422,
+      "message": "Personal information capture failed POPIA lawful-basis check"
+    }
+  ],
+  "events": [
+    {
+      "name": "account.created",
+      "payload": [
+        "account_code",
+        "account_type",
+        "broker_code",
+        "created_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "account.activated",
+      "payload": [
+        "account_code",
+        "activated_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "account.frozen",
+      "payload": [
+        "account_code",
+        "freeze_reason",
+        "frozen_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "account.unfrozen",
+      "payload": [
+        "account_code",
+        "unfrozen_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "account.deactivated",
+      "payload": [
+        "account_code",
+        "deactivated_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "account.updated",
+      "payload": [
+        "account_code",
+        "field_name",
+        "old_value",
+        "new_value",
+        "updated_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "account.tax_status_changed",
+      "payload": [
+        "account_code",
+        "fatca_status",
+        "crs_reportable",
+        "changed_by"
+      ]
+    }
+  ],
+  "outcomes": {
+    "create_new_client_account": {
+      "priority": 1,
+      "description": "Operator loads a new client account with required KYC fields",
+      "given": [
+        {
+          "field": "account_type",
+          "source": "input",
+          "operator": "eq",
+          "value": "client"
+        },
+        {
+          "field": "full_name",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "physical_address",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "type": "client_account"
+        },
+        {
+          "action": "set_field",
+          "target": "account_status",
+          "value": "pending_verification"
+        },
+        {
+          "action": "emit_event",
+          "event": "account.created"
+        }
+      ],
+      "transaction": true
+    },
+    "reject_duplicate_account": {
+      "priority": 2,
+      "error": "ACCOUNT_DUPLICATE",
+      "description": "Prevent duplicate account codes within a broker firm",
+      "given": [
+        {
+          "field": "account_code",
+          "source": "db",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "account.created"
+        }
+      ]
+    },
+    "verify_and_activate_account": {
+      "priority": 3,
+      "description": "Supervisor verifies KYC documents and activates account for trading",
+      "given": [
+        {
+          "field": "account_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "pending_verification"
+        },
+        {
+          "field": "kyc_documents_complete",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "account_status",
+          "from": "pending_verification",
+          "to": "active"
+        },
+        {
+          "action": "emit_event",
+          "event": "account.activated"
+        }
+      ],
+      "transaction": true
+    },
+    "freeze_account": {
+      "priority": 4,
+      "description": "Supervisor freezes an account with a documented reason",
+      "given": [
+        {
+          "field": "user_role",
+          "source": "session",
+          "operator": "eq",
+          "value": "account_supervisor"
+        },
+        {
+          "field": "freeze_reason",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "account_status",
+          "from": "active",
+          "to": "frozen"
+        },
+        {
+          "action": "emit_event",
+          "event": "account.frozen"
+        }
+      ],
+      "transaction": true
+    },
+    "reject_operator_freeze": {
+      "priority": 5,
+      "error": "ACCOUNT_FREEZE_FORBIDDEN",
+      "description": "Prevent non-supervisor users from freezing accounts",
+      "given": [
+        {
+          "field": "user_role",
+          "source": "session",
+          "operator": "neq",
+          "value": "account_supervisor"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "account.frozen"
+        }
+      ]
+    },
+    "update_tax_legal_record": {
+      "priority": 6,
+      "description": "Compliance officer records FATCA and CRS status",
+      "given": [
+        {
+          "field": "user_role",
+          "source": "session",
+          "operator": "eq",
+          "value": "compliance_officer"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "fatca_status",
+          "value": "updated"
+        },
+        {
+          "action": "set_field",
+          "target": "crs_reportable",
+          "value": "updated"
+        },
+        {
+          "action": "emit_event",
+          "event": "account.tax_status_changed"
+        }
+      ]
+    },
+    "block_deletion_with_history": {
+      "priority": 7,
+      "error": "ACCOUNT_DELETE_BLOCKED",
+      "description": "Prevent deletion of accounts that hold historical activity",
+      "given": [
+        {
+          "field": "has_historical_activity",
+          "source": "db",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "account.updated"
+        }
+      ]
+    },
+    "alpha_lookup": {
+      "priority": 8,
+      "description": "Generic alpha look-up by partial name, optionally filtered by type/branch/partner",
+      "given": [
+        {
+          "field": "search_term",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "account_search_index"
+        }
+      ]
+    }
+  },
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/api/v1/accounts"
+    },
+    "request": {
+      "schema": {
+        "account_type": "select",
+        "full_name": "text",
+        "alpha_short_name": "text",
+        "physical_address": "text",
+        "controlled_account_flag": "boolean"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 201,
+        "schema": {
+          "account_code": "text",
+          "account_status": "select"
+        }
+      },
+      "errors": [
+        {
+          "error_code": "ACCOUNT_DUPLICATE",
+          "status": 409
+        },
+        {
+          "error_code": "ACCOUNT_INVALID_ALPHA",
+          "status": 400
+        },
+        {
+          "error_code": "ACCOUNT_POPIA_VIOLATION",
+          "status": 422
+        }
+      ]
+    }
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not log personal information (ID number, bank account, email) in plaintext",
+      "why": "POPIA s.19 requires appropriate technical safeguards, plaintext logs are a known breach vector"
+    },
+    {
+      "rule": "Do not allow operator self-approval on freeze or unfreeze",
+      "why": "Segregation-of-duties prevents a single compromised credential from hiding account tampering"
+    },
+    {
+      "rule": "Do not hard-delete accounts with historical activity",
+      "why": "Audit trail and regulatory recordkeeping require retention of all activity (typically 5+ years)"
+    },
+    {
+      "rule": "Do not persist foreign-resident funds in resident balances",
+      "why": "Exchange-control legislation requires strict segregation, mixing breaches regulations"
+    },
+    {
+      "rule": "Do not expose alpha short name auto-generation to untrusted input without sanitisation",
+      "why": "Names containing control characters have been used to break downstream fixed-width batches"
+    }
+  ],
+  "related": [
+    {
+      "feature": "broker-client-data-upload",
+      "type": "extends"
+    },
+    {
+      "feature": "popia-compliance",
+      "type": "required"
+    },
+    {
+      "feature": "broker-back-office-dissemination",
+      "type": "recommended"
+    }
+  ],
+  "extensions": {
+    "screens": {
+      "ACALF": "Account Code Generic Alpha Look-Up",
+      "AHDIM": "Account Trail of Changes",
+      "RELAC": "Account Relationship Links",
+      "CLMNT": "Client Account Maintenance",
+      "ADMNT": "Address Maintenance",
+      "LTMNT": "Legal and Tax Maintenance",
+      "NAMNT": "Supplementary Names and Addresses",
+      "ARMNT": "Account Relationships",
+      "CLVER": "Client Account Verification",
+      "BLMNT": "Balance Record Maintenance",
+      "BNKAC": "Bank Account Details",
+      "FUACC": "Freeze Unfreeze Accounts",
+      "MEMNT": "Memorandum Line Maintenance",
+      "AGMNT": "Agent Account Maintenance",
+      "STMNT": "Stock Account Maintenance",
+      "SNMNT": "Shorty Name Maintenance",
+      "TRMNT": "Transfer Instructions Maintenance"
+    }
+  }
+}

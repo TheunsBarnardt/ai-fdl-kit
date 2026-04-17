@@ -1,0 +1,520 @@
+feature: broker-financial-processing
+version: 1.0.0
+description: Internal back-office financial processing covering general ledger, cash payments and receipts, journal entries, debit and credit interest calculations, trust-account provider integration, and...
+category: trading
+tags:
+  - back-office
+  - broker
+  - finance
+  - general-ledger
+  - cash-management
+  - journals
+  - interest
+  - eft
+  - popia
+aliases:
+  - broker-finance
+  - financial-processing
+  - cash-management
+  - general-ledger-processing
+  - journal-entry-capture
+  - interest-calculation
+  - eft-payments
+  - trust-account-sweep
+actors:
+  - id: finance_operator
+    name: Finance Operator
+    type: human
+  - id: finance_supervisor
+    name: Finance Supervisor
+    type: human
+  - id: treasurer
+    name: Treasurer
+    type: human
+  - id: back_office_system
+    name: Back-Office System
+    type: system
+fields:
+  - name: entry_reference
+    type: text
+    required: true
+    label: Entry Reference
+  - name: entry_type
+    type: select
+    required: true
+    label: Entry Type
+  - name: ledger_code
+    type: text
+    required: true
+    label: General Ledger Code
+  - name: account_code
+    type: text
+    required: true
+    label: Client Account Code
+  - name: counter_ledger_code
+    type: text
+    required: false
+    label: Contra Ledger Code
+  - name: amount
+    type: number
+    required: true
+    label: Amount
+  - name: currency_code
+    type: select
+    required: true
+    label: Currency Code
+  - name: value_date
+    type: date
+    required: true
+    label: Value Date
+  - name: posting_date
+    type: date
+    required: true
+    label: Posting Date
+  - name: narration
+    type: text
+    required: true
+    label: Narration
+  - name: debit_credit_indicator
+    type: select
+    required: true
+    label: Debit or Credit Indicator
+  - name: batch_number
+    type: text
+    required: false
+    label: Batch Number
+  - name: source_module
+    type: select
+    required: true
+    label: Source Module
+  - name: payment_method
+    type: select
+    required: false
+    label: Payment Method
+  - name: bank_reference
+    type: text
+    required: false
+    label: Bank Reference
+  - name: beneficiary_account_number
+    type: text
+    required: false
+    label: Beneficiary Bank Account Number
+  - name: beneficiary_branch_code
+    type: text
+    required: false
+    label: Beneficiary Branch Code
+  - name: trust_account_flag
+    type: boolean
+    required: true
+    label: Trust Account Flag
+  - name: interest_rate
+    type: number
+    required: false
+    label: Interest Rate
+  - name: interest_accrual_from
+    type: date
+    required: false
+    label: Interest Accrual Start
+  - name: interest_accrual_to
+    type: date
+    required: false
+    label: Interest Accrual End
+  - name: backdated_flag
+    type: boolean
+    required: false
+    label: Backdated Entry Flag
+  - name: postdated_flag
+    type: boolean
+    required: false
+    label: Postdated Entry Flag
+  - name: entry_status
+    type: select
+    required: true
+    label: Entry Status
+  - name: captured_by
+    type: text
+    required: true
+    label: Captured By
+  - name: verified_by
+    type: text
+    required: false
+    label: Verified By
+  - name: released_by
+    type: text
+    required: false
+    label: Released By
+states:
+  field: entry_status
+  values:
+    - name: captured
+      initial: true
+    - name: verified
+    - name: released
+    - name: posted
+      terminal: true
+    - name: rejected
+      terminal: true
+  transitions:
+    - from: captured
+      to: verified
+      actor: finance_supervisor
+    - from: verified
+      to: released
+      actor: treasurer
+    - from: released
+      to: posted
+      actor: back_office_system
+    - from: captured
+      to: rejected
+      actor: finance_supervisor
+    - from: verified
+      to: rejected
+      actor: treasurer
+rules:
+  data_integrity:
+    double_entry_balance: Every journal must balance to zero across debits and credits before release
+    entry_uniqueness: Entry reference must be unique within posting date and source module
+    referential_integrity: Posted entries cannot be deleted; reversals required via contra journal
+    audit_trail_retention: All captures, verifications, releases, and postings retained for at least 60 months
+  security:
+    segregation_of_duties: Capture, verification, and release must be performed by three distinct users
+    access_control: Finance screens controlled at the screen and ledger-code level via resource access control
+    dual_control_over_threshold: Entries above the configured threshold require both supervisor verification and treasurer release
+  compliance:
+    popia_protection: Beneficiary banking details and account references are personal information and must be encrypted at rest and masked in logs
+    trust_segregation: Client trust balances must be swept to the trust-account-provider daily and never commingled with firm funds
+    exchange_control: Cross-border payments require exchange-control reference and must not pass through resident-only ledgers
+    sars_reporting: Debit and credit interest amounts must feed IT3B tax-certificate generation
+  business:
+    backdated_entries: Backdated entries allowed within the current financial period and require supervisor reason code
+    postdated_entries: Postdated entries queued until value date then auto-released by the back-office system
+    interest_calculation: Daily debit and credit interest calculated on cleared balances using prevailing rate tables
+    eft_routing: Electronic funds transfers routed to electronic-funds-transfer-bank gateway using standardised ACB file format
+    cash_receipt_allocation: Unallocated receipts parked in suspense ledger until matched to a client account within five business days
+errors:
+  - code: ENTRY_UNBALANCED
+    status: 422
+    message: Journal entries must balance before release
+  - code: ENTRY_DUPLICATE_REFERENCE
+    status: 409
+    message: Entry reference already exists for this posting date
+  - code: ENTRY_RELEASE_FORBIDDEN
+    status: 403
+    message: Capture user may not verify or release the same entry
+  - code: ENTRY_BACKDATE_BLOCKED
+    status: 422
+    message: Backdated entry falls outside the open financial period
+  - code: ENTRY_TRUST_COMMINGLING
+    status: 422
+    message: Trust account entry cannot post against a firm ledger code
+  - code: ENTRY_EFT_INVALID_BENEFICIARY
+    status: 422
+    message: Beneficiary bank details failed validation
+  - code: ENTRY_POPIA_VIOLATION
+    status: 422
+    message: Personal or banking information failed POPIA protection check
+events:
+  - name: entry.captured
+    payload:
+      - entry_reference
+      - entry_type
+      - amount
+      - currency_code
+      - captured_by
+      - timestamp
+  - name: entry.verified
+    payload:
+      - entry_reference
+      - verified_by
+      - timestamp
+  - name: entry.released
+    payload:
+      - entry_reference
+      - released_by
+      - timestamp
+  - name: entry.posted
+    payload:
+      - entry_reference
+      - ledger_code
+      - posting_date
+      - timestamp
+  - name: entry.rejected
+    payload:
+      - entry_reference
+      - reason
+      - rejected_by
+      - timestamp
+  - name: cash.receipt_allocated
+    payload:
+      - entry_reference
+      - account_code
+      - amount
+      - allocated_by
+  - name: cash.payment_dispatched
+    payload:
+      - entry_reference
+      - beneficiary_account_number
+      - amount
+      - bank_reference
+  - name: interest.calculated
+    payload:
+      - account_code
+      - interest_rate
+      - interest_accrual_from
+      - interest_accrual_to
+      - amount
+  - name: trust.sweep_executed
+    payload:
+      - sweep_date
+      - total_amount
+      - currency_code
+outcomes:
+  capture_journal_entry:
+    priority: 1
+    description: Finance operator captures a journal entry with balanced debits and credits
+    given:
+      - field: entry_type
+        source: input
+        operator: in
+        value:
+          - journal
+          - cash_payment
+          - cash_receipt
+      - field: amount
+        source: input
+        operator: gt
+        value: 0
+      - field: ledger_code
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: financial_entry
+      - action: set_field
+        target: entry_status
+        value: captured
+      - action: emit_event
+        event: entry.captured
+    transaction: true
+  reject_unbalanced_entry:
+    priority: 2
+    error: ENTRY_UNBALANCED
+    description: Prevent release of journals that do not balance
+    given:
+      - field: debits_equal_credits
+        source: computed
+        operator: eq
+        value: false
+    then:
+      - action: emit_event
+        event: entry.rejected
+  verify_entry_by_supervisor:
+    priority: 3
+    description: Supervisor verifies captured entry, enforcing segregation of duties
+    given:
+      - field: entry_status
+        source: db
+        operator: eq
+        value: captured
+      - field: user_role
+        source: session
+        operator: eq
+        value: finance_supervisor
+      - field: captured_by
+        source: db
+        operator: neq
+        value: current_user
+    then:
+      - action: transition_state
+        field: entry_status
+        from: captured
+        to: verified
+      - action: emit_event
+        event: entry.verified
+    transaction: true
+  reject_self_release:
+    priority: 4
+    error: ENTRY_RELEASE_FORBIDDEN
+    description: Block the capturing user from also verifying or releasing
+    given:
+      - field: captured_by
+        source: db
+        operator: eq
+        value: current_user
+    then:
+      - action: emit_event
+        event: entry.rejected
+  release_and_post_entry:
+    priority: 5
+    description: Treasurer releases verified entry and back-office system posts to general ledger
+    given:
+      - field: entry_status
+        source: db
+        operator: eq
+        value: verified
+      - field: user_role
+        source: session
+        operator: eq
+        value: treasurer
+    then:
+      - action: transition_state
+        field: entry_status
+        from: verified
+        to: released
+      - action: emit_event
+        event: entry.released
+      - action: transition_state
+        field: entry_status
+        from: released
+        to: posted
+      - action: emit_event
+        event: entry.posted
+    transaction: true
+  dispatch_eft_payment:
+    priority: 6
+    description: Back-office system dispatches released cash payment to the bank gateway
+    given:
+      - field: entry_type
+        source: db
+        operator: eq
+        value: cash_payment
+      - field: entry_status
+        source: db
+        operator: eq
+        value: released
+      - field: beneficiary_account_number
+        source: db
+        operator: exists
+    then:
+      - action: call_service
+        target: electronic-funds-transfer-bank
+      - action: emit_event
+        event: cash.payment_dispatched
+    transaction: true
+  calculate_daily_interest:
+    priority: 7
+    description: Back-office system accrues debit and credit interest on cleared balances
+    given:
+      - field: posting_date
+        source: system
+        operator: exists
+    then:
+      - action: create_record
+        type: interest_accrual
+      - action: emit_event
+        event: interest.calculated
+    transaction: true
+  sweep_trust_balances:
+    priority: 8
+    description: Daily sweep of client trust balances to the trust-account-provider
+    given:
+      - field: trust_account_flag
+        source: db
+        operator: eq
+        value: true
+    then:
+      - action: call_service
+        target: trust-account-provider
+      - action: emit_event
+        event: trust.sweep_executed
+    transaction: true
+  block_backdate_outside_period:
+    priority: 9
+    error: ENTRY_BACKDATE_BLOCKED
+    description: Reject backdated entries that fall outside the open financial period
+    given:
+      - field: backdated_flag
+        source: input
+        operator: eq
+        value: true
+      - field: period_is_open
+        source: computed
+        operator: eq
+        value: false
+    then:
+      - action: emit_event
+        event: entry.rejected
+  queue_postdated_entry:
+    priority: 10
+    description: Hold postdated entries until their value date then auto-release
+    given:
+      - field: postdated_flag
+        source: input
+        operator: eq
+        value: true
+      - field: value_date
+        source: input
+        operator: gt
+        value: today
+    then:
+      - action: set_field
+        target: entry_status
+        value: captured
+      - action: emit_event
+        event: entry.captured
+api:
+  http:
+    method: POST
+    path: /api/v1/financial-entries
+  request:
+    schema:
+      entry_type: select
+      ledger_code: text
+      account_code: text
+      amount: number
+      currency_code: select
+      value_date: date
+      narration: text
+      debit_credit_indicator: select
+  response:
+    success:
+      status: 201
+      schema:
+        entry_reference: text
+        entry_status: select
+    errors:
+      - error_code: ENTRY_UNBALANCED
+        status: 422
+      - error_code: ENTRY_DUPLICATE_REFERENCE
+        status: 409
+      - error_code: ENTRY_BACKDATE_BLOCKED
+        status: 422
+      - error_code: ENTRY_TRUST_COMMINGLING
+        status: 422
+      - error_code: ENTRY_EFT_INVALID_BENEFICIARY
+        status: 422
+      - error_code: ENTRY_POPIA_VIOLATION
+        status: 422
+anti_patterns:
+  - rule: Do not allow a single user to capture, verify, and release the same entry
+    why: Segregation-of-duties is the primary control against internal fraud in finance systems
+  - rule: Do not commingle client trust balances with firm operating ledgers
+    why: Trust segregation is a regulatory requirement and commingling is a reportable breach
+  - rule: Do not log beneficiary bank account numbers in plaintext
+    why: POPIA s.19 requires appropriate technical safeguards for personal financial information
+  - rule: Do not permit backdated entries into closed financial periods
+    why: Reopening closed periods corrupts audited balances and breaks statutory reporting
+  - rule: Do not delete posted entries to correct errors
+    why: Audit integrity requires reversals via contra journal, never destructive edits
+  - rule: Do not dispatch EFT payments before treasurer release
+    why: Unreleased payments bypass dual-control and create reconciliation breaks
+related:
+  - feature: broker-client-account-maintenance
+    type: required
+  - feature: popia-compliance
+    type: required
+  - feature: broker-back-office-dissemination
+    type: recommended
+extensions:
+  screens:
+    GLENT: General Ledger Entry Capture
+    CPAYM: Cash Payment Capture
+    CRCPT: Cash Receipt Capture
+    JRNLC: Journal Entry Capture
+    JRNLV: Journal Verification
+    JRNLR: Journal Release
+    INTCL: Interest Calculation Run
+    TRSWP: Trust Account Sweep
+    EFTGW: EFT Gateway Dispatch
+    BKDTE: Backdated Entry Authorisation
+    PDPQU: Postdated Entry Queue

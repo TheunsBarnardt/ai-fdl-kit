@@ -1,0 +1,481 @@
+feature: broker-corporate-actions
+version: 1.0.0
+description: Back-office corporate actions processing covering event announcement, last-day-to-trade and record-date lifecycle, client entitlements, rights issues, cash or share elections, and loan/collateral...
+category: trading
+tags:
+  - back-office
+  - broker
+  - corporate-actions
+  - entitlements
+  - dividends
+  - rights-issues
+  - elections
+  - popia
+aliases:
+  - entitlements-processing
+  - ca-processing
+  - dividend-processing
+  - rights-issue-processing
+  - election-processing
+  - frozen-file-processing
+  - corporate-event-lifecycle
+actors:
+  - id: ca_operator
+    name: Corporate Actions Operator
+    type: human
+  - id: ca_supervisor
+    name: Corporate Actions Supervisor
+    type: human
+  - id: back_office_system
+    name: Back-Office System
+    type: system
+  - id: exchange
+    name: Stock Exchange
+    type: external
+  - id: central_securities_depository
+    name: Central Securities Depository
+    type: external
+  - id: client
+    name: Client Account Holder
+    type: external
+fields:
+  - name: event_code
+    type: text
+    required: true
+    label: Corporate Action Event Code
+  - name: event_type
+    type: select
+    required: true
+    label: Event Type
+  - name: instrument_code
+    type: text
+    required: true
+    label: Instrument Code
+  - name: announcement_date
+    type: date
+    required: true
+    label: Announcement Date
+  - name: last_day_to_trade
+    type: date
+    required: true
+    label: Last Day to Trade (LDT)
+  - name: ex_dividend_date
+    type: date
+    required: true
+    label: Ex-Dividend Date (XD)
+  - name: record_date
+    type: date
+    required: true
+    label: Record Date (RD)
+  - name: payment_date
+    type: date
+    required: false
+    label: Payment or Distribution Date
+  - name: dividend_rate
+    type: number
+    required: false
+    label: Dividend Rate Per Share
+  - name: ratio_numerator
+    type: number
+    required: false
+    label: Entitlement Ratio Numerator
+  - name: ratio_denominator
+    type: number
+    required: false
+    label: Entitlement Ratio Denominator
+  - name: election_type
+    type: select
+    required: false
+    label: Election Type (Cash or Shares)
+  - name: election_deadline
+    type: datetime
+    required: false
+    label: Election Deadline
+  - name: client_account_code
+    type: text
+    required: true
+    label: Client Account Code
+  - name: entitled_quantity
+    type: number
+    required: true
+    label: Entitled Quantity
+  - name: frozen_position_flag
+    type: boolean
+    required: true
+    label: Frozen Position Flag
+  - name: loan_position_flag
+    type: boolean
+    required: false
+    label: Loan Position Flag
+  - name: collateral_position_flag
+    type: boolean
+    required: false
+    label: Collateral Position Flag
+  - name: event_status
+    type: select
+    required: true
+    label: Event Lifecycle Status
+  - name: withholding_tax_rate
+    type: number
+    required: false
+    label: Dividends Tax Withholding Rate
+states:
+  field: event_status
+  values:
+    - name: announced
+      initial: true
+    - name: ldt_frozen
+    - name: rd_processed
+    - name: elections_captured
+    - name: settled
+      terminal: true
+  transitions:
+    - from: announced
+      to: ldt_frozen
+      actor: back_office_system
+    - from: ldt_frozen
+      to: rd_processed
+      actor: back_office_system
+    - from: rd_processed
+      to: elections_captured
+      actor: ca_operator
+    - from: elections_captured
+      to: settled
+      actor: ca_supervisor
+    - from: rd_processed
+      to: settled
+      actor: ca_supervisor
+rules:
+  lifecycle:
+    ldt_freeze: At LDT close, back-office system freezes entitled positions into a frozen file; no further trades affect this event's entitlement
+    record_date_processing: On RD, client entitlements are computed from frozen positions against the official ratio or rate
+    ex_dividend_marking: Instruments trade ex-dividend from XD; pricing systems must flag and adjust accordingly
+  entitlements:
+    cash_dividends: Cash dividend events compute gross amount = holding x rate, net amount = gross minus dividends withholding tax
+    capitalisation_issues: Capitalisation issues allocate bonus shares at the declared ratio, with fractional entitlements settled in cash
+    rights_issues: Rights issues offer entitled holders the right to subscribe for new shares at the offer price by the election deadline
+    dividend_reinvestment: Dividend reinvestment plans convert cash dividend into additional shares at the reinvestment price when elected
+  elections:
+    election_capture: Cash-or-shares elections captured per client account before the election deadline; defaults apply if no election received
+    election_validation: Election quantity cannot exceed entitled quantity; excess applications queued for allocation at issuer discretion
+    election_messages: Elections transmitted to the central securities depository via standard ISO 15022 MT565 messages
+  loan_collateral:
+    loans_processed_separately: Stock-lending positions generate manufactured dividends or substitute entitlements paid by the borrower
+    collateral_handling: Collateral positions retain entitlements for the pledgor unless title has transferred
+    oddlot_offer_segregation: Oddlot offers processed separately for loan and collateral positions to preserve audit trail
+  compliance:
+    popia_compliance: Client entitlement data contains personal financial information; POPIA lawful basis required
+    tax_certificates: Dividends tax withheld and reported via IT3b certificates at year-end
+    audit_retention: All event records, elections, and frozen files retained for at least 5 years
+errors:
+  - code: CA_EVENT_DUPLICATE
+    status: 409
+    message: Corporate action event code already exists for this instrument
+  - code: CA_LDT_PASSED
+    status: 409
+    message: Cannot modify event entitlement, last day to trade has passed
+  - code: CA_ELECTION_DEADLINE_PASSED
+    status: 409
+    message: Election deadline has passed, no further elections accepted
+  - code: CA_ELECTION_EXCEEDS_ENTITLEMENT
+    status: 422
+    message: Election quantity exceeds entitled quantity
+  - code: CA_FROZEN_FILE_MISSING
+    status: 409
+    message: Frozen file not available, record date processing cannot proceed
+  - code: CA_INVALID_RATIO
+    status: 400
+    message: Entitlement ratio must specify both numerator and denominator
+  - code: CA_POPIA_VIOLATION
+    status: 422
+    message: Entitlement data processing failed POPIA lawful-basis check
+events:
+  - name: ca.event.announced
+    payload:
+      - event_code
+      - event_type
+      - instrument_code
+      - announcement_date
+      - ldt
+      - record_date
+  - name: ca.ldt.frozen
+    payload:
+      - event_code
+      - instrument_code
+      - frozen_at
+      - position_count
+  - name: ca.record_date.processed
+    payload:
+      - event_code
+      - record_date
+      - entitled_accounts
+      - total_entitlement
+  - name: ca.election.captured
+    payload:
+      - event_code
+      - client_account_code
+      - election_type
+      - quantity
+      - captured_by
+  - name: ca.entitlement.settled
+    payload:
+      - event_code
+      - client_account_code
+      - settled_amount
+      - settled_quantity
+      - settlement_date
+  - name: ca.loan.manufactured_payment
+    payload:
+      - event_code
+      - loan_reference
+      - manufactured_amount
+      - borrower
+  - name: ca.event.updated
+    payload:
+      - event_code
+      - field_name
+      - old_value
+      - new_value
+      - updated_by
+outcomes:
+  announce_new_event:
+    priority: 1
+    description: Load a newly announced corporate action with mandatory lifecycle dates
+    given:
+      - field: event_code
+        source: input
+        operator: exists
+      - field: instrument_code
+        source: input
+        operator: exists
+      - field: last_day_to_trade
+        source: input
+        operator: exists
+      - field: record_date
+        source: input
+        operator: exists
+    then:
+      - action: create_record
+        type: corporate_action_event
+      - action: set_field
+        target: event_status
+        value: announced
+      - action: emit_event
+        event: ca.event.announced
+    transaction: true
+  reject_duplicate_event:
+    priority: 2
+    error: CA_EVENT_DUPLICATE
+    description: Prevent duplicate event codes for the same instrument
+    given:
+      - field: event_code
+        source: db
+        operator: exists
+    then:
+      - action: emit_event
+        event: ca.event.updated
+  freeze_positions_at_ldt:
+    priority: 3
+    description: At LDT close, snapshot entitled positions into the frozen file
+    given:
+      - field: event_status
+        source: db
+        operator: eq
+        value: announced
+      - field: last_day_to_trade
+        source: system
+        operator: lte
+        value: now
+    then:
+      - action: transition_state
+        field: event_status
+        from: announced
+        to: ldt_frozen
+      - action: emit_event
+        event: ca.ldt.frozen
+    transaction: true
+  process_record_date:
+    priority: 4
+    description: On record date, compute entitlements from the frozen file
+    given:
+      - field: event_status
+        source: db
+        operator: eq
+        value: ldt_frozen
+      - field: record_date
+        source: system
+        operator: lte
+        value: now
+    then:
+      - action: transition_state
+        field: event_status
+        from: ldt_frozen
+        to: rd_processed
+      - action: emit_event
+        event: ca.record_date.processed
+    transaction: true
+  reject_rd_without_frozen_file:
+    priority: 5
+    error: CA_FROZEN_FILE_MISSING
+    description: Block record date processing when the frozen file is absent
+    given:
+      - field: frozen_file_available
+        source: db
+        operator: eq
+        value: false
+    then:
+      - action: emit_event
+        event: ca.event.updated
+  capture_client_election:
+    priority: 6
+    description: Capture client cash-or-shares election before the election deadline
+    given:
+      - field: event_status
+        source: db
+        operator: eq
+        value: rd_processed
+      - field: election_deadline
+        source: db
+        operator: gt
+        value: now
+      - field: election_type
+        source: input
+        operator: in
+        value:
+          - cash
+          - shares
+    then:
+      - action: set_field
+        target: event_status
+        value: elections_captured
+      - action: emit_event
+        event: ca.election.captured
+    transaction: true
+  reject_late_election:
+    priority: 7
+    error: CA_ELECTION_DEADLINE_PASSED
+    description: Reject elections submitted after the deadline
+    given:
+      - field: election_deadline
+        source: db
+        operator: lte
+        value: now
+    then:
+      - action: emit_event
+        event: ca.event.updated
+  reject_over_election:
+    priority: 8
+    error: CA_ELECTION_EXCEEDS_ENTITLEMENT
+    description: Reject elections that exceed the entitled quantity
+    given:
+      - field: election_quantity
+        source: input
+        operator: gt
+        value: entitled_quantity
+    then:
+      - action: emit_event
+        event: ca.event.updated
+  settle_entitlements:
+    priority: 9
+    description: Settle cash or share entitlements to client accounts on payment date
+    given:
+      - field: event_status
+        source: db
+        operator: in
+        value:
+          - rd_processed
+          - elections_captured
+      - field: payment_date
+        source: system
+        operator: lte
+        value: now
+    then:
+      - action: transition_state
+        field: event_status
+        from: elections_captured
+        to: settled
+      - action: emit_event
+        event: ca.entitlement.settled
+    transaction: true
+  process_loan_manufactured_payment:
+    priority: 10
+    description: Generate manufactured dividend payments for open stock-lending positions
+    given:
+      - field: loan_position_flag
+        source: db
+        operator: eq
+        value: true
+      - field: event_type
+        source: db
+        operator: eq
+        value: cash_dividend
+    then:
+      - action: call_service
+        target: stock_lending_manufactured_payment
+      - action: emit_event
+        event: ca.loan.manufactured_payment
+api:
+  http:
+    method: POST
+    path: /api/v1/corporate-actions/events
+  request:
+    schema:
+      event_code: text
+      event_type: select
+      instrument_code: text
+      announcement_date: date
+      last_day_to_trade: date
+      ex_dividend_date: date
+      record_date: date
+      dividend_rate: number
+  response:
+    success:
+      status: 201
+      schema:
+        event_code: text
+        event_status: select
+    errors:
+      - error_code: CA_EVENT_DUPLICATE
+        status: 409
+      - error_code: CA_INVALID_RATIO
+        status: 400
+      - error_code: CA_POPIA_VIOLATION
+        status: 422
+anti_patterns:
+  - rule: Do not modify the frozen file after LDT close
+    why: The frozen file is the authoritative snapshot; post-LDT edits break settlement reconciliation and audit
+  - rule: Do not process record date without a completed frozen file
+    why: Entitlements computed without the frozen file risk paying wrong holders, creating regulatory breaches
+  - rule: Do not accept elections past the deadline
+    why: Issuer cut-off is contractual; late elections cannot be transmitted to the depository and cause settlement failures
+  - rule: Do not commingle loan and collateral entitlement streams
+    why: Manufactured payments and pledgor entitlements have different tax and ownership treatment; mixing is a compliance failure
+  - rule: Do not apply default withholding tax without checking tax residency
+    why: Non-resident holders and tax-exempt entities have different rates; blanket defaults cause over- or under-withholding
+related:
+  - feature: popia-compliance
+    type: required
+  - feature: broker-client-account-maintenance
+    type: required
+  - feature: broker-back-office-dissemination
+    type: recommended
+extensions:
+  screens:
+    MENUE: Election Positions and Results Menu
+    MENUL: Entitlement Data Menu
+    ENLDR: Entitlements Due By RD or Last Date of Rights
+    ENLDT: Entitlements Due By Last Day to Trade
+    ENREL: Entitlements Due By Release Date
+    ICFRZ: Consolidated Frozen Positions
+    IEFRZ: Entitlement Election Results
+    ODSLB: Oddlot Offers on Loans
+    ODCOL: Oddlot Offers on Collateral
+    RTSLB: Rights Take-Up Maintenance on Loans
+    RTCOL: Rights Take-Up Maintenance on Collateral
+    TDFRA: Detail Frozen Position Maintenance
+    TDSLB: Detail Frozen Position Maintenance on Loans
+    TDCOL: Detail Frozen Position Maintenance on Collateral
+    RESLB: Excess Rights on Loans
+    RECOL: Excess Rights on Collateral
+    ENDRP: Dividend Reinvestment
+    ENTDU: Entitlements Due

@@ -1,0 +1,906 @@
+{
+  "feature": "broker-negotiable-brokerage",
+  "version": "1.0.0",
+  "description": "Negotiable brokerage configuration covering custom commission rate schedules, per-client rate assignments, contract-note overrides, minimum charges, and brokerage scale tables keyed by instrument...",
+  "category": "trading",
+  "tags": [
+    "back-office",
+    "broker",
+    "brokerage",
+    "commission",
+    "rate-schedule",
+    "contract-note",
+    "pricing",
+    "trading"
+  ],
+  "aliases": [
+    "negotiable-brokerage",
+    "negotiated-brokerage",
+    "brokerage-scales",
+    "commission-schedules",
+    "broker-rate-tables",
+    "custom-commission-rates",
+    "client-rate-schedules"
+  ],
+  "actors": [
+    {
+      "id": "broker_operator",
+      "name": "Broker Back-Office Operator",
+      "type": "human"
+    },
+    {
+      "id": "rate_administrator",
+      "name": "Rate Administrator",
+      "type": "human",
+      "description": "Loads and maintains brokerage scale tables"
+    },
+    {
+      "id": "account_supervisor",
+      "name": "Account Supervisor",
+      "type": "human",
+      "description": "Approves negotiated rates before activation"
+    },
+    {
+      "id": "compliance_officer",
+      "name": "Compliance Officer",
+      "type": "human"
+    },
+    {
+      "id": "contract_note_engine",
+      "name": "Contract Note Engine",
+      "type": "system",
+      "description": "Applies the negotiated scale to trades at confirmation time"
+    },
+    {
+      "id": "back_office_system",
+      "name": "Back-Office System",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "scale_code",
+      "type": "text",
+      "required": true,
+      "label": "Negotiated Brokerage Scale Code"
+    },
+    {
+      "name": "charge_structure_code",
+      "type": "text",
+      "required": true,
+      "label": "Charge Structure Code"
+    },
+    {
+      "name": "charge_structure_description",
+      "type": "text",
+      "required": false,
+      "label": "Charge Structure Description"
+    },
+    {
+      "name": "rate_type",
+      "type": "select",
+      "required": true,
+      "label": "Percentage or Cents Indicator"
+    },
+    {
+      "name": "from_date",
+      "type": "date",
+      "required": true,
+      "label": "Effective From Date"
+    },
+    {
+      "name": "to_date",
+      "type": "date",
+      "required": false,
+      "label": "Expiry Date"
+    },
+    {
+      "name": "basic_charge",
+      "type": "number",
+      "required": false,
+      "label": "Basic Charge"
+    },
+    {
+      "name": "scale_start",
+      "type": "number",
+      "required": true,
+      "label": "Scale Lower Limit"
+    },
+    {
+      "name": "scale_end",
+      "type": "number",
+      "required": true,
+      "label": "Scale Upper Limit"
+    },
+    {
+      "name": "commission_amount",
+      "type": "number",
+      "required": false,
+      "label": "Commission Rate or Cents Per Share"
+    },
+    {
+      "name": "minimum_rand_amount",
+      "type": "number",
+      "required": false,
+      "label": "Minimum Charge Amount"
+    },
+    {
+      "name": "rate_status",
+      "type": "select",
+      "required": true,
+      "label": "Rate Lifecycle Status"
+    },
+    {
+      "name": "deactivated_flag",
+      "type": "boolean",
+      "required": false,
+      "label": "Deactivated Flag"
+    },
+    {
+      "name": "client_account_code",
+      "type": "text",
+      "required": false,
+      "label": "Client Account Code"
+    },
+    {
+      "name": "assigned_scale_code",
+      "type": "text",
+      "required": false,
+      "label": "Client Assigned Scale Code"
+    },
+    {
+      "name": "branch_code",
+      "type": "text",
+      "required": false,
+      "label": "Branch Code"
+    },
+    {
+      "name": "partner_code",
+      "type": "text",
+      "required": false,
+      "label": "Partner Code"
+    },
+    {
+      "name": "relationship_code",
+      "type": "text",
+      "required": false,
+      "label": "Relationship Code"
+    },
+    {
+      "name": "approved_by",
+      "type": "text",
+      "required": false,
+      "label": "Approver Identifier"
+    },
+    {
+      "name": "approved_at",
+      "type": "datetime",
+      "required": false,
+      "label": "Approval Timestamp"
+    },
+    {
+      "name": "contract_note_override_rate",
+      "type": "number",
+      "required": false,
+      "label": "Contract Note Override Rate"
+    },
+    {
+      "name": "override_reason",
+      "type": "text",
+      "required": false,
+      "label": "Override Reason"
+    }
+  ],
+  "states": {
+    "field": "rate_status",
+    "values": [
+      {
+        "name": "proposed",
+        "initial": true
+      },
+      {
+        "name": "approved"
+      },
+      {
+        "name": "active"
+      },
+      {
+        "name": "archived",
+        "terminal": true
+      }
+    ],
+    "transitions": [
+      {
+        "from": "proposed",
+        "to": "approved",
+        "actor": "account_supervisor",
+        "description": "Supervisor approves a proposed negotiated rate"
+      },
+      {
+        "from": "approved",
+        "to": "active",
+        "actor": "back_office_system",
+        "description": "Rate becomes active on its effective from_date"
+      },
+      {
+        "from": "active",
+        "to": "archived",
+        "actor": "rate_administrator",
+        "description": "Rate is superseded or deactivated"
+      },
+      {
+        "from": "proposed",
+        "to": "archived",
+        "actor": "rate_administrator",
+        "description": "Proposed rate withdrawn before approval"
+      }
+    ]
+  },
+  "rules": {
+    "data_integrity": {
+      "scale_code_format": "Scale code is up to 3 alphanumeric characters, unique per broker",
+      "complete_structure_coverage": "A scale must define an entry for every charge structure code to guarantee a rate exists for any instrument traded",
+      "sliding_scale_terminator": "The final band in a sliding scale must terminate at a configured maximum ceiling (e.g. <id-number>.99)",
+      "effective_date_future": "from_date must be greater than or equal to the system process date",
+      "non_overlapping_bands": "Scale bands for a given scale_code and charge_structure_code must not overlap; scale_start of band N+1 must exceed scale_end of band N",
+      "decimal_precision": "Commission rate carries up to 4 decimal places; basic_charge and minimum_rand_amount carry 2 decimal places"
+    },
+    "security": {
+      "rate_change_authorization": "New rate or rate change requires rate_administrator role",
+      "segregation_of_duties": "Loader and approver must be different users",
+      "bulk_assignment_window": "Bulk assignment to client accounts may only run after end-of-trading cut-off",
+      "audit_trail": "All rate table and client assignment changes logged with user, timestamp, old and new values"
+    },
+    "compliance": {
+      "disclosure_on_contract_note": "Negotiated commission and basic charge must be itemised on the client contract note",
+      "fair_treatment_of_customers": "Rate assignments documented in client mandate; no discriminatory pricing without mandate justification",
+      "popia_personal_pricing": "Per-client rate records are personal information and must comply with POPIA lawful-basis and retention rules"
+    },
+    "business": {
+      "rate_calculation_types": "Rate type P applies a percentage to trade consideration; rate type C applies cents per share to traded volume",
+      "minimum_charge_fallback": "Where minimum_rand_amount is configured, the calculated commission is the greater of computed commission and the minimum charge",
+      "default_scale_fallback": "If a client has no assigned_scale_code, the default broker scale is used",
+      "supersession_by_future_date": "Loading a new rate with a future from_date against the same scale_code and charge_structure_code auto-deactivates the prior rate on that date",
+      "per_client_override": "Client assigned_scale_code overrides the default scale for all charge structures unless a specific contract note override is recorded",
+      "contract_note_override": "A one-off contract-note override may be recorded with reason; overrides are logged and require supervisor approval",
+      "bulk_assignment_scope": "Bulk assignment can target a branch, a branch-plus-partner combination, or an account-plus-relationship-code combination",
+      "reduced_rate_instruments": "Specific instrument charge structures (e.g. alternative exchange equities) may carry a reduced rate via a dedicated scale entry"
+    }
+  },
+  "errors": [
+    {
+      "code": "RATE_SCALE_DUPLICATE",
+      "status": 409,
+      "message": "Scale code already exists for this charge structure and effective date"
+    },
+    {
+      "code": "RATE_INVALID_DATE",
+      "status": 400,
+      "message": "Effective date must be today or in the future"
+    },
+    {
+      "code": "RATE_BANDS_OVERLAP",
+      "status": 422,
+      "message": "Scale bands overlap or leave gaps; bands must be contiguous and non-overlapping"
+    },
+    {
+      "code": "RATE_STRUCTURE_INCOMPLETE",
+      "status": 422,
+      "message": "Scale must cover every required charge structure code"
+    },
+    {
+      "code": "RATE_UNAUTHORIZED",
+      "status": 403,
+      "message": "Only a rate administrator may load or change negotiated scales"
+    },
+    {
+      "code": "RATE_APPROVAL_REQUIRED",
+      "status": 409,
+      "message": "Rate cannot activate without supervisor approval"
+    },
+    {
+      "code": "RATE_ASSIGNMENT_WINDOW",
+      "status": 409,
+      "message": "Bulk assignment may only run after end-of-trading cut-off"
+    },
+    {
+      "code": "RATE_OVERRIDE_UNJUSTIFIED",
+      "status": 422,
+      "message": "Contract note override requires a documented reason and supervisor approval"
+    },
+    {
+      "code": "RATE_CLIENT_NOT_FOUND",
+      "status": 404,
+      "message": "Client account does not exist for scale assignment"
+    },
+    {
+      "code": "RATE_MINIMUM_VIOLATION",
+      "status": 422,
+      "message": "Computed commission is below the configured minimum charge"
+    }
+  ],
+  "events": [
+    {
+      "name": "rate.scale.proposed",
+      "payload": [
+        "scale_code",
+        "charge_structure_code",
+        "from_date",
+        "proposed_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "rate.scale.approved",
+      "payload": [
+        "scale_code",
+        "charge_structure_code",
+        "approved_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "rate.scale.activated",
+      "payload": [
+        "scale_code",
+        "charge_structure_code",
+        "from_date",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "rate.scale.archived",
+      "payload": [
+        "scale_code",
+        "charge_structure_code",
+        "archived_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "rate.scale.superseded",
+      "payload": [
+        "scale_code",
+        "charge_structure_code",
+        "new_from_date",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "rate.client.assigned",
+      "payload": [
+        "client_account_code",
+        "assigned_scale_code",
+        "assigned_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "rate.client.bulk_assigned",
+      "payload": [
+        "scale_code",
+        "branch_code",
+        "partner_code",
+        "account_code",
+        "relationship_code",
+        "count",
+        "assigned_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "rate.contract_note.override_applied",
+      "payload": [
+        "client_account_code",
+        "trade_reference",
+        "override_rate",
+        "override_reason",
+        "approved_by",
+        "timestamp"
+      ]
+    },
+    {
+      "name": "rate.minimum.applied",
+      "payload": [
+        "client_account_code",
+        "trade_reference",
+        "computed_commission",
+        "minimum_rand_amount",
+        "timestamp"
+      ]
+    }
+  ],
+  "outcomes": {
+    "propose_new_negotiable_scale": {
+      "priority": 1,
+      "description": "Rate administrator proposes a new negotiable brokerage scale entry",
+      "given": [
+        {
+          "field": "user_role",
+          "source": "session",
+          "operator": "eq",
+          "value": "rate_administrator"
+        },
+        {
+          "field": "scale_code",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "charge_structure_code",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "from_date",
+          "source": "input",
+          "operator": "gte",
+          "value": "today"
+        }
+      ],
+      "then": [
+        {
+          "action": "create_record",
+          "target": "brokerage_scale",
+          "type": "record"
+        },
+        {
+          "action": "set_field",
+          "target": "rate_status",
+          "value": "proposed"
+        },
+        {
+          "action": "emit_event",
+          "event": "rate.scale.proposed"
+        }
+      ],
+      "transaction": true
+    },
+    "reject_past_dated_rate": {
+      "priority": 2,
+      "error": "RATE_INVALID_DATE",
+      "description": "Reject a rate whose effective date is in the past",
+      "given": [
+        {
+          "field": "from_date",
+          "source": "input",
+          "operator": "lt",
+          "value": "today"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "rate.scale.proposed"
+        }
+      ]
+    },
+    "reject_overlapping_bands": {
+      "priority": 3,
+      "error": "RATE_BANDS_OVERLAP",
+      "description": "Reject scales whose bands overlap or leave gaps",
+      "given": [
+        {
+          "field": "bands_contiguous",
+          "source": "computed",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "rate.scale.proposed"
+        }
+      ]
+    },
+    "approve_negotiable_scale": {
+      "priority": 4,
+      "description": "Supervisor approves a proposed scale, distinct from the loader",
+      "given": [
+        {
+          "field": "user_role",
+          "source": "session",
+          "operator": "eq",
+          "value": "account_supervisor"
+        },
+        {
+          "field": "rate_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "proposed"
+        },
+        {
+          "field": "approver_is_loader",
+          "source": "computed",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "rate_status",
+          "from": "proposed",
+          "to": "approved"
+        },
+        {
+          "action": "set_field",
+          "target": "approved_by",
+          "value": "current_user"
+        },
+        {
+          "action": "set_field",
+          "target": "approved_at",
+          "value": "now"
+        },
+        {
+          "action": "emit_event",
+          "event": "rate.scale.approved"
+        }
+      ],
+      "transaction": true
+    },
+    "activate_on_effective_date": {
+      "priority": 5,
+      "description": "System activates an approved scale when its effective date is reached and archives the prior scale for the same key",
+      "given": [
+        {
+          "field": "rate_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "approved"
+        },
+        {
+          "field": "from_date",
+          "source": "db",
+          "operator": "lte",
+          "value": "today"
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "rate_status",
+          "from": "approved",
+          "to": "active"
+        },
+        {
+          "action": "emit_event",
+          "event": "rate.scale.activated"
+        },
+        {
+          "action": "emit_event",
+          "event": "rate.scale.superseded"
+        }
+      ],
+      "transaction": true
+    },
+    "assign_scale_to_client": {
+      "priority": 6,
+      "description": "Assign a negotiated scale code to a single client account",
+      "given": [
+        {
+          "field": "client_account_code",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "assigned_scale_code",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "assigned_scale_code",
+          "value": "input_value"
+        },
+        {
+          "action": "emit_event",
+          "event": "rate.client.assigned"
+        }
+      ]
+    },
+    "bulk_assign_scale": {
+      "priority": 7,
+      "description": "Bulk assignment of a scale code across a branch, partner, or related account set after end-of-trading cut-off",
+      "given": [
+        {
+          "field": "scale_code",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "any": [
+            {
+              "field": "branch_code",
+              "source": "input",
+              "operator": "exists"
+            },
+            {
+              "field": "relationship_code",
+              "source": "input",
+              "operator": "exists"
+            }
+          ]
+        },
+        {
+          "field": "end_of_trading_cutoff_passed",
+          "source": "system",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "bulk_client_scale_update"
+        },
+        {
+          "action": "emit_event",
+          "event": "rate.client.bulk_assigned"
+        }
+      ],
+      "transaction": true
+    },
+    "reject_bulk_assignment_in_trading_window": {
+      "priority": 8,
+      "error": "RATE_ASSIGNMENT_WINDOW",
+      "description": "Block bulk assignment during the live trading window",
+      "given": [
+        {
+          "field": "end_of_trading_cutoff_passed",
+          "source": "system",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "rate.client.bulk_assigned"
+        }
+      ]
+    },
+    "apply_contract_note_override": {
+      "priority": 9,
+      "description": "Apply a one-off negotiated rate override to a specific contract note with documented reason and supervisor approval",
+      "given": [
+        {
+          "field": "contract_note_override_rate",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "override_reason",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "approved_by",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "contract_note_override_rate",
+          "value": "input_value"
+        },
+        {
+          "action": "emit_event",
+          "event": "rate.contract_note.override_applied"
+        }
+      ]
+    },
+    "reject_unjustified_override": {
+      "priority": 10,
+      "error": "RATE_OVERRIDE_UNJUSTIFIED",
+      "description": "Reject contract note overrides lacking reason or approver",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "override_reason",
+              "source": "input",
+              "operator": "not_exists"
+            },
+            {
+              "field": "approved_by",
+              "source": "input",
+              "operator": "not_exists"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "rate.contract_note.override_applied"
+        }
+      ]
+    },
+    "apply_minimum_charge": {
+      "priority": 11,
+      "description": "Contract note engine substitutes minimum charge when computed commission falls below configured minimum",
+      "given": [
+        {
+          "field": "computed_commission",
+          "source": "computed",
+          "operator": "lt",
+          "value": "minimum_rand_amount"
+        }
+      ],
+      "then": [
+        {
+          "action": "set_field",
+          "target": "commission_amount",
+          "value": "minimum_rand_amount"
+        },
+        {
+          "action": "emit_event",
+          "event": "rate.minimum.applied"
+        }
+      ]
+    },
+    "archive_superseded_scale": {
+      "priority": 12,
+      "description": "Archive a scale when a newer scale with later effective date activates",
+      "given": [
+        {
+          "field": "rate_status",
+          "source": "db",
+          "operator": "eq",
+          "value": "active"
+        },
+        {
+          "field": "superseded",
+          "source": "computed",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "transition_state",
+          "field": "rate_status",
+          "from": "active",
+          "to": "archived"
+        },
+        {
+          "action": "set_field",
+          "target": "deactivated_flag",
+          "value": true
+        },
+        {
+          "action": "emit_event",
+          "event": "rate.scale.archived"
+        }
+      ],
+      "transaction": true
+    }
+  },
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/api/v1/brokerage/scales"
+    },
+    "request": {
+      "schema": {
+        "scale_code": "text",
+        "charge_structure_code": "text",
+        "rate_type": "select",
+        "from_date": "date",
+        "basic_charge": "number",
+        "scale_start": "number",
+        "scale_end": "number",
+        "commission_amount": "number",
+        "minimum_rand_amount": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 201,
+        "schema": {
+          "scale_code": "text",
+          "charge_structure_code": "text",
+          "rate_status": "select",
+          "from_date": "date"
+        }
+      },
+      "errors": [
+        {
+          "error_code": "RATE_SCALE_DUPLICATE",
+          "status": 409
+        },
+        {
+          "error_code": "RATE_INVALID_DATE",
+          "status": 400
+        },
+        {
+          "error_code": "RATE_BANDS_OVERLAP",
+          "status": 422
+        },
+        {
+          "error_code": "RATE_STRUCTURE_INCOMPLETE",
+          "status": 422
+        },
+        {
+          "error_code": "RATE_UNAUTHORIZED",
+          "status": 403
+        },
+        {
+          "error_code": "RATE_APPROVAL_REQUIRED",
+          "status": 409
+        }
+      ]
+    }
+  },
+  "anti_patterns": [
+    {
+      "rule": "Do not allow the same user to both load and approve a negotiable scale",
+      "why": "Segregation-of-duties prevents a single compromised credential from silently reducing revenue or favouring a client"
+    },
+    {
+      "rule": "Do not permit retroactive (back-dated) rate changes",
+      "why": "Retroactive rates corrupt already-issued contract notes, tax certificates, and regulator reports"
+    },
+    {
+      "rule": "Do not silently fall back to the default scale when a client-assigned scale is incomplete",
+      "why": "Missing charge-structure entries can lead to under- or over-charging; the system must fail closed and alert"
+    },
+    {
+      "rule": "Do not apply contract-note overrides without a documented reason and approver",
+      "why": "Unjustified overrides are a classic insider-fraud pattern and breach fair-treatment-of-customer duties"
+    },
+    {
+      "rule": "Do not run bulk client scale assignments during the live trading window",
+      "why": "Mid-session rate changes cause inconsistent pricing across trades executed moments apart"
+    },
+    {
+      "rule": "Do not store per-client negotiated rates without POPIA lawful-basis records",
+      "why": "Per-client pricing is personal information; processing without lawful basis is a regulatory breach"
+    },
+    {
+      "rule": "Do not truncate commission precision below four decimal places",
+      "why": "Rate rounding errors compound across high-volume trading and create reconciliation breaks"
+    }
+  ],
+  "related": [
+    {
+      "feature": "broker-client-account-maintenance",
+      "type": "required"
+    },
+    {
+      "feature": "popia-compliance",
+      "type": "required"
+    },
+    {
+      "feature": "broker-client-data-upload",
+      "type": "recommended"
+    },
+    {
+      "feature": "broker-back-office-dissemination",
+      "type": "recommended"
+    }
+  ],
+  "extensions": {
+    "screens": {
+      "CHARGE_STRUCTURE_TABLE": "Charge structure code master table covering all tradeable instrument classes",
+      "BROKERAGE_SCALE_TABLE": "Brokerage scale table keyed by scale_code and charge_structure_code with banded rates",
+      "CLIENT_MAINTENANCE": "Assigns a negotiated scale code to an individual client account",
+      "BULK_SCALE_ASSIGNMENT": "Bulk applies a scale code to many client accounts by branch, partner, or relationship code",
+      "SCALE_ENQUIRY": "Lists all client accounts currently assigned to a given negotiable scale code"
+    },
+    "rate_functions": {
+      "N": "New - load new negotiated scale",
+      "C": "Change - change existing negotiated scale",
+      "M": "Model - clone an existing scale as the basis for a new entry",
+      "D": "Deactivate - deactivate existing scale",
+      "ENQUIRE": "Enquire into an existing negotiated scale"
+    }
+  }
+}

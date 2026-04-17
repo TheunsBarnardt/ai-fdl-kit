@@ -1,0 +1,530 @@
+feature: broker-general-maintenance
+version: 1.0.0
+description: Back-office general maintenance covering user-specific master records, online and batch print control, end-user reporting, instrument information, remote printer maintenance, report request...
+category: trading
+tags:
+  - back-office
+  - broker
+  - general-maintenance
+  - reporting
+  - printing
+  - instruments
+  - reference-data
+  - tables
+aliases:
+  - general-maintenance
+  - menua
+  - broker-reference-data
+  - online-batch-print-control
+  - end-user-reporting
+  - remote-printer-maintenance
+  - report-request-loading
+  - instrument-maintenance
+  - broker-tables
+actors:
+  - id: broker_operator
+    name: Broker Back-Office Operator
+    type: human
+  - id: report_user
+    name: End-User Report Requester
+    type: human
+  - id: printer_administrator
+    name: Remote Printer Administrator
+    type: human
+  - id: reference_data_steward
+    name: Reference Data Steward
+    type: human
+  - id: back_office_system
+    name: Back-Office System
+    type: system
+  - id: batch_scheduler
+    name: Overnight Batch Scheduler
+    type: system
+fields:
+  - name: user_id
+    type: text
+    required: true
+    label: User Identifier
+  - name: broker_code
+    type: text
+    required: true
+    label: Broker Firm Code
+  - name: option_code
+    type: text
+    required: true
+    label: Menu Option Code
+  - name: print_job_id
+    type: text
+    required: false
+    label: Print Job Identifier
+  - name: print_job_type
+    type: select
+    required: false
+    label: Print Job Type
+  - name: print_job_status
+    type: select
+    required: false
+    label: Print Job Status
+  - name: print_class
+    type: text
+    required: false
+    label: Printer Class
+  - name: printer_id
+    type: text
+    required: false
+    label: Remote Printer Identifier
+  - name: printer_location
+    type: text
+    required: false
+    label: Printer Location
+  - name: report_code
+    type: text
+    required: false
+    label: End-User Report Code
+  - name: report_parameters
+    type: json
+    required: false
+    label: Report Parameters
+  - name: report_request_status
+    type: select
+    required: false
+    label: Report Request Status
+  - name: requested_at
+    type: datetime
+    required: false
+    label: Request Submitted Time
+  - name: output_destination
+    type: select
+    required: false
+    label: Output Destination
+  - name: instrument_code
+    type: text
+    required: false
+    label: Instrument Code
+  - name: instrument_name
+    type: text
+    required: false
+    label: Instrument Full Name
+  - name: instrument_type
+    type: select
+    required: false
+    label: Instrument Type
+  - name: is_quoted
+    type: boolean
+    required: false
+    label: Listed / Quoted Flag
+  - name: isin_code
+    type: text
+    required: false
+    label: ISIN Code
+  - name: nominal_value
+    type: number
+    required: false
+    label: Nominal Value
+  - name: instrument_status
+    type: select
+    required: false
+    label: Instrument Status
+  - name: table_code
+    type: text
+    required: false
+    label: User Table Code
+  - name: table_row_key
+    type: text
+    required: false
+    label: User Table Row Key
+  - name: table_row_value
+    type: text
+    required: false
+    label: User Table Row Value
+  - name: effective_from
+    type: date
+    required: false
+    label: Effective From Date
+  - name: effective_to
+    type: date
+    required: false
+    label: Effective To Date
+states:
+  field: print_job_status
+  values:
+    - name: queued
+      initial: true
+    - name: printing
+    - name: completed
+      terminal: true
+    - name: cancelled
+      terminal: true
+    - name: reinstated
+rules:
+  data_integrity:
+    option_scoping: Every menu option is scoped to a broker firm and user; cross-broker data leakage is forbidden
+    instrument_uniqueness: Instrument code must be unique within the broker firm; ISIN captured where available
+    table_row_uniqueness: User table rows are keyed by (broker_code, table_code, table_row_key); duplicates rejected
+    referential_integrity: Instruments referenced by open positions or historical deals cannot be deleted
+    effective_dating: Reference table rows support effective-from and effective-to dates; overlapping ranges are blocked
+    audit_trail: All maintenance changes logged with user, timestamp, old/new values; retained for at least 36 months
+  security:
+    access_control: Access to each menu option gated by resource access control facility; per-option and per-field view/update rights
+    print_segregation: Print job cancellation and reinstatement restricted to authorised operators; self-service reprint must not expose other users' reports
+    printer_class_restriction: End-users may only send output to printer classes their profile is authorised for
+    report_parameter_validation: All end-user report parameters validated against a schema; free-form SQL or expression injection is forbidden
+  compliance:
+    popia_personal_information: Reports that materialise personal information must enforce POPIA lawful-basis and minimisation rules
+    popia_output_channel: Output destinations holding personal information must be access-controlled and auditable
+    recordkeeping: Report requests, parameters, and output recipients logged for regulatory recordkeeping
+  business:
+    online_batch_split: Schedules and delivery dockets may be produced either online or in the overnight batch; users choose per request
+    job_lifecycle: Print jobs may be cancelled before the batch window and reinstated while still queued
+    unquoted_instruments: Broker may capture unquoted instruments locally; quoted instruments are sourced from market data reference
+    special_tables: A subset of tables is system-maintained (special tables); user tables are broker-maintained
+    remote_printers: Printers are grouped by class; routing is by class not by physical device
+    report_request_loading: End-user reports are submitted as parameterised requests that execute in a controlled process queue
+errors:
+  - code: GM_OPTION_FORBIDDEN
+    status: 403
+    message: User is not authorised for this menu option
+  - code: GM_PRINT_JOB_NOT_FOUND
+    status: 404
+    message: Print job not found or outside the reprint retention window
+  - code: GM_PRINT_JOB_INVALID_STATE
+    status: 409
+    message: Print job cannot be cancelled or reinstated in its current state
+  - code: GM_REPORT_PARAMETER_INVALID
+    status: 400
+    message: Report parameter failed validation
+  - code: GM_REPORT_UNAUTHORISED_DESTINATION
+    status: 403
+    message: Output destination is not permitted for this user
+  - code: GM_INSTRUMENT_DUPLICATE
+    status: 409
+    message: Instrument code already exists for this broker
+  - code: GM_INSTRUMENT_DELETE_BLOCKED
+    status: 409
+    message: Instrument cannot be deleted, referenced by positions or historical deals
+  - code: GM_TABLE_ROW_DUPLICATE
+    status: 409
+    message: Table row already exists for this broker, table, and key
+  - code: GM_TABLE_EFFECTIVE_OVERLAP
+    status: 409
+    message: Effective date range overlaps an existing row
+  - code: GM_PRINTER_CLASS_UNKNOWN
+    status: 404
+    message: Printer class is not defined for this broker
+events:
+  - name: print_job.requested
+    payload:
+      - print_job_id
+      - print_job_type
+      - broker_code
+      - user_id
+      - timestamp
+  - name: print_job.cancelled
+    payload:
+      - print_job_id
+      - cancelled_by
+      - timestamp
+  - name: print_job.reinstated
+    payload:
+      - print_job_id
+      - reinstated_by
+      - timestamp
+  - name: report_request.submitted
+    payload:
+      - report_code
+      - report_parameters
+      - user_id
+      - requested_at
+  - name: report_request.completed
+    payload:
+      - report_code
+      - user_id
+      - output_destination
+      - row_count
+      - completed_at
+  - name: instrument.created
+    payload:
+      - instrument_code
+      - instrument_type
+      - broker_code
+      - created_by
+      - timestamp
+  - name: instrument.updated
+    payload:
+      - instrument_code
+      - field_name
+      - old_value
+      - new_value
+      - updated_by
+      - timestamp
+  - name: instrument.deleted
+    payload:
+      - instrument_code
+      - deleted_by
+      - timestamp
+  - name: printer.updated
+    payload:
+      - printer_id
+      - print_class
+      - updated_by
+      - timestamp
+  - name: table.row_upserted
+    payload:
+      - table_code
+      - table_row_key
+      - broker_code
+      - updated_by
+      - timestamp
+  - name: table.row_deleted
+    payload:
+      - table_code
+      - table_row_key
+      - broker_code
+      - deleted_by
+      - timestamp
+outcomes:
+  request_online_or_batch_print:
+    priority: 1
+    description: Operator submits a schedule or delivery docket request for online or overnight batch print
+    given:
+      - field: print_job_type
+        source: input
+        operator: in
+        value:
+          - schedule
+          - delivery_docket
+          - deed
+      - field: user_authorised_for_option
+        source: db
+        operator: eq
+        value: true
+    then:
+      - action: create_record
+        type: print_job
+      - action: set_field
+        target: print_job_status
+        value: queued
+      - action: emit_event
+        event: print_job.requested
+    transaction: true
+  cancel_queued_print_job:
+    priority: 2
+    description: Operator cancels a queued print job before the batch window closes
+    given:
+      - field: print_job_status
+        source: db
+        operator: eq
+        value: queued
+    then:
+      - action: transition_state
+        field: print_job_status
+        from: queued
+        to: cancelled
+      - action: emit_event
+        event: print_job.cancelled
+    transaction: true
+  reject_invalid_print_job_state:
+    priority: 3
+    error: GM_PRINT_JOB_INVALID_STATE
+    description: Prevent cancel or reinstate actions on completed jobs
+    given:
+      - field: print_job_status
+        source: db
+        operator: in
+        value:
+          - completed
+          - cancelled
+    then:
+      - action: emit_event
+        event: print_job.cancelled
+  submit_end_user_report_request:
+    priority: 4
+    description: End-user submits a parameterised report request through the report request loader
+    given:
+      - field: report_code
+        source: input
+        operator: exists
+      - field: report_parameters_valid
+        source: computed
+        operator: eq
+        value: true
+      - field: destination_authorised
+        source: computed
+        operator: eq
+        value: true
+    then:
+      - action: create_record
+        type: report_request
+      - action: set_field
+        target: report_request_status
+        value: queued
+      - action: emit_event
+        event: report_request.submitted
+    transaction: true
+  reject_unauthorised_report_destination:
+    priority: 5
+    error: GM_REPORT_UNAUTHORISED_DESTINATION
+    description: Block report output routed to a destination the user is not permitted to use
+    given:
+      - field: destination_authorised
+        source: computed
+        operator: eq
+        value: false
+    then:
+      - action: emit_event
+        event: report_request.submitted
+  load_unquoted_instrument:
+    priority: 6
+    description: Reference data steward loads a locally-captured unquoted instrument
+    given:
+      - field: user_role
+        source: session
+        operator: eq
+        value: reference_data_steward
+      - field: is_quoted
+        source: input
+        operator: eq
+        value: false
+      - field: instrument_code
+        source: db
+        operator: not_exists
+    then:
+      - action: create_record
+        type: instrument
+      - action: emit_event
+        event: instrument.created
+    transaction: true
+  reject_duplicate_instrument:
+    priority: 7
+    error: GM_INSTRUMENT_DUPLICATE
+    description: Prevent a duplicate instrument code within the broker firm
+    given:
+      - field: instrument_code
+        source: db
+        operator: exists
+    then:
+      - action: emit_event
+        event: instrument.created
+  block_instrument_deletion_with_history:
+    priority: 8
+    error: GM_INSTRUMENT_DELETE_BLOCKED
+    description: Prevent deletion of instruments referenced by open positions or historical deals
+    given:
+      - field: has_historical_activity
+        source: db
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: instrument.deleted
+  maintain_remote_printer:
+    priority: 9
+    description: Printer administrator creates or updates a remote printer entry within a printer class
+    given:
+      - field: user_role
+        source: session
+        operator: eq
+        value: printer_administrator
+      - field: print_class
+        source: input
+        operator: exists
+    then:
+      - action: set_field
+        target: printer_id
+        value: updated
+      - action: emit_event
+        event: printer.updated
+    transaction: true
+  upsert_user_table_row:
+    priority: 10
+    description: Reference data steward upserts a row into a broker-maintained user table
+    given:
+      - field: user_role
+        source: session
+        operator: eq
+        value: reference_data_steward
+      - field: effective_range_valid
+        source: computed
+        operator: eq
+        value: true
+    then:
+      - action: set_field
+        target: table_row_value
+        value: updated
+      - action: emit_event
+        event: table.row_upserted
+    transaction: true
+  reject_overlapping_table_effective_dates:
+    priority: 11
+    error: GM_TABLE_EFFECTIVE_OVERLAP
+    description: Block table row whose effective date range overlaps an existing row
+    given:
+      - field: effective_range_overlap
+        source: db
+        operator: eq
+        value: true
+    then:
+      - action: emit_event
+        event: table.row_upserted
+api:
+  http:
+    method: POST
+    path: /api/v1/general-maintenance/report-requests
+  request:
+    schema:
+      report_code: text
+      report_parameters: json
+      output_destination: select
+  response:
+    success:
+      status: 202
+      schema:
+        report_request_id: text
+        report_request_status: select
+    errors:
+      - error_code: GM_REPORT_PARAMETER_INVALID
+        status: 400
+      - error_code: GM_REPORT_UNAUTHORISED_DESTINATION
+        status: 403
+      - error_code: GM_OPTION_FORBIDDEN
+        status: 403
+anti_patterns:
+  - rule: Do not accept free-form SQL or expressions as end-user report parameters
+    why: Query injection against back-office data is a known breach vector and bypasses POPIA access controls
+  - rule: Do not let users route report output to destinations outside their authorised printer classes
+    why: Personal and financial data has leaked historically through misrouted print output
+  - rule: Do not hard-delete instruments referenced by open positions or historical deals
+    why: Positions and audit trails must remain reconcilable for the full regulatory retention period
+  - rule: Do not allow overlapping effective-date rows in reference tables
+    why: Downstream pricing, tax, and settlement logic assumes a single active row per key at any point in time
+  - rule: Do not expose other users' print jobs via reprint or browse facilities
+    why: Print queues frequently contain statements and tax certificates, disclosure breaches POPIA s.22
+  - rule: Do not silently fail report requests when parameters are invalid
+    why: End-users assume a submitted request will run; silent failure produces stale decisions on missing data
+related:
+  - feature: broker-client-account-maintenance
+    type: recommended
+  - feature: broker-back-office-dissemination
+    type: recommended
+  - feature: popia-compliance
+    type: required
+extensions:
+  screens:
+    MENUA: General Maintenance Menu
+    AHDIN: Audit Trail New Account
+    BCNTL: Online-Batch Print Control
+    BROKM: Broker Maintenance
+    BROKT: Broker Tax Information
+    COMPR: Common Error Report Maintenance
+    CSDPC: Change of Controlled Client CSDP Details
+    CSDPN: Change of Proprietary CSDP Details
+    CSDPV: Display of Unverified CSDP Details
+    GLIGR: Inspectorate GL Maintenance
+    INSTM: Instruments
+    MOD10: Check Digits Modulus 10
+    RPROC: Browse Process Requests and Report Request Loading
+    ODQRY: End-User Reporting
+    PRMNT: Remote Printer Maintenance
+    REPRT: Mark Tags For Reprinting
+    TRMNT: Pay Transfer Instructions
+    TSECM: Transfer Secretaries

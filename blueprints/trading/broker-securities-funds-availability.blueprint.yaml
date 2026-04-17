@@ -1,0 +1,535 @@
+# ============================================================
+# Broker Securities and Funds Availability — Feature Blueprint
+# FDL v0.1.0 | Blueprint v1.0.0
+# ============================================================
+# Pre-trade and settlement-cycle availability checks for
+# proprietary and controlled accounts. Verifies sufficient
+# securities (for sales) and sufficient funds (for purchases)
+# to cover open allocations against the clearing system during
+# the settlement cycle, and enforces trading limits.
+# ============================================================
+
+feature: broker-securities-funds-availability
+version: 1.0.0
+description: Pre-trade and settlement-cycle availability checks for securities holdings and cash balances, with real-time position lookup and trading limit enforcement across proprietary and controlled accounts
+category: trading
+
+tags:
+  - back-office
+  - broker
+  - settlement
+  - clearing
+  - pre-trade
+  - risk
+  - availability
+  - trading-limits
+
+aliases:
+  - sfa
+  - securities-and-funds-availability
+  - pre-trade-check
+  - availability-check
+  - settlement-availability
+  - funds-availability
+  - securities-availability
+  - trading-limit-check
+  - sfenq
+  - sfpss
+  - sfpps
+
+actors:
+  - id: broker_operator
+    name: Broker Back-Office Operator
+    type: human
+  - id: settlements_officer
+    name: Settlements Officer
+    type: human
+  - id: risk_officer
+    name: Risk Officer
+    type: human
+  - id: back_office_system
+    name: Back-Office System
+    type: system
+  - id: clearing_system
+    name: Equity Clearing System
+    type: external
+  - id: trading_platform
+    name: Trading Platform
+    type: system
+
+fields:
+  - name: batch_date
+    type: date
+    required: true
+    label: Batch Date
+  - name: source_indicator
+    type: select
+    required: true
+    label: Source (Batch or Intraday)
+  - name: account_group
+    type: select
+    required: true
+    label: Account Group (BOA / Controlled / Proprietary)
+  - name: purchase_sale_indicator
+    type: select
+    required: true
+    label: Purchase or Sale Indicator
+  - name: settlement_date
+    type: date
+    required: true
+    label: Settlement Date
+  - name: instrument_code
+    type: text
+    required: false
+    label: Instrument Code
+  - name: account_code
+    type: text
+    required: true
+    label: Account Code
+  - name: account_type
+    type: text
+    required: true
+    label: Account Type
+  - name: branch_code
+    type: text
+    required: false
+    label: Branch Code
+  - name: partner_code
+    type: text
+    required: false
+    label: Partner Code
+  - name: deal_id
+    type: text
+    required: false
+    label: Deal Identifier
+  - name: trade_type
+    type: text
+    required: false
+    label: Trade Type
+  - name: foreign_indicator
+    type: boolean
+    required: false
+    label: Foreign Currency Settlement Flag
+  - name: sale_quantity
+    type: number
+    required: false
+    label: Sale Quantity
+  - name: quantity_short
+    type: number
+    required: false
+    label: Quantity Short
+  - name: demat_scrip_available
+    type: number
+    required: false
+    label: Dematerialised Scrip Available
+  - name: purchase_qty_on_suspense
+    type: number
+    required: false
+    label: Purchase Quantity on Suspense Account
+  - name: slb_collateral_qty_due
+    type: number
+    required: false
+    label: Stock Lending and Collateral Quantity Due
+  - name: entitlements_qty_due
+    type: number
+    required: false
+    label: Entitlements Quantity Due
+  - name: purchase_qty_due
+    type: number
+    required: false
+    label: Purchase Quantity Due
+  - name: qty_allocated_to_sales
+    type: number
+    required: false
+    label: Quantity Allocated to Sales
+  - name: purchase_amount
+    type: number
+    required: false
+    label: Purchase Amount
+  - name: amount_short
+    type: number
+    required: false
+    label: Amount Short
+  - name: total_amount_short
+    type: number
+    required: false
+    label: Total Amount Short
+  - name: entitlement_amount_due
+    type: number
+    required: false
+    label: Entitlement Amount Due
+  - name: sale_amount_due
+    type: number
+    required: false
+    label: Sale Amount Due
+  - name: amount_allocated_to_purchases
+    type: number
+    required: false
+    label: Amount Allocated to Purchases
+  - name: cash_balance
+    type: number
+    required: false
+    label: Available Cash Balance
+  - name: securities_holding_qty
+    type: number
+    required: false
+    label: Securities Holding Quantity
+  - name: trading_limit
+    type: number
+    required: false
+    label: Account Trading Limit
+  - name: limit_utilisation
+    type: number
+    required: false
+    label: Current Trading Limit Utilisation
+  - name: availability_status
+    type: select
+    required: true
+    label: Availability Check Status
+
+states:
+  field: availability_status
+  values:
+    - name: pending
+      initial: true
+    - name: passed
+    - name: failed
+      terminal: true
+  transitions:
+    - from: pending
+      to: passed
+      actor: back_office_system
+    - from: pending
+      to: failed
+      actor: back_office_system
+
+rules:
+  data_integrity:
+    batch_calculation_schedule: "Batch availability calculations run on T, T+1, T+2 and T+3 evenings; intraday run at 12h00 for T+4 deals"
+    proprietary_aggregation: "Proprietary availability is calculated across ALL proprietary accounts aggregated, not per individual account"
+    controlled_client_scope: "Controlled client calculations are produced daily T to T+3 and intraday on T+4"
+    proprietary_scope: "Proprietary account calculations are produced on T+2 and T+3"
+    display_freshness: "Displayed data is as at the specified batch or intraday time, and is NOT real-time allocation"
+  availability_formulas:
+    quantity_short: "quantity_short = sale_quantity + (demat_scrip_available + purchase_qty_on_suspense + slb_collateral_qty_due + entitlements_qty_due + purchase_qty_due - qty_allocated_to_sales)"
+    amount_short: "amount_short = purchase_amount - (entitlement_amount_due + sale_amount_due - amount_allocated_to_purchases)"
+    allocation_order: "Allocate available securities to sales and available funds to purchases from smallest to largest, as a running total until exhausted"
+  pre_trade:
+    cash_sufficiency: "Purchase orders require cash_balance >= purchase_amount + projected settlement obligations"
+    securities_sufficiency: "Sale orders require securities_holding_qty >= sale_quantity net of pending allocations"
+    trading_limit_enforcement: "Order value + limit_utilisation must not exceed trading_limit for the account"
+    real_time_lookup: "Real-time position lookup must reflect intraday deals and allocations, not only the last batch"
+  account_groupings:
+    boa: "Broker Own Accounts — accounts with institution type BOA, typically account type C"
+    controlled: "Controlled client accounts — account types C, B, CB, CL, CS, LL, A, AB, AF, AL, AN, AS, Q, QL, QN, QS"
+    proprietary: "Proprietary accounts — account types S, DA, N, EC, ER, EN, ES, LB, LK, LP, QD, RS, PT, D, OB"
+  security:
+    access_control: "Screen and API access controlled per role; view permissions distinct from override permissions"
+    segregation_of_duties: "Overriding a failed availability check requires risk officer role"
+  compliance:
+    popia_alignment: "Account and client data touched during availability checks follows POPIA protections defined in the popia-compliance blueprint"
+    audit_trail: "Every availability check and any override are logged with user, timestamp, inputs and result"
+  business:
+    failed_trade_prevention: "Availability messages feed the clearing system so loan requirements, margins and penalties can be computed for potential failed trades"
+    short_sale_flagging: "Sales with quantity_short > 0 are flagged for stock borrow or corrective action before settlement"
+    purchase_funding_flagging: "Purchases with amount_short > 0 are flagged for funding before settlement"
+
+errors:
+  - code: SFA_INSUFFICIENT_SECURITIES
+    status: 409
+    message: Insufficient securities available to cover the sale
+  - code: SFA_INSUFFICIENT_FUNDS
+    status: 409
+    message: Insufficient funds available to cover the purchase
+  - code: SFA_TRADING_LIMIT_EXCEEDED
+    status: 409
+    message: Order exceeds the account trading limit
+  - code: SFA_INVALID_BATCH_DATE
+    status: 400
+    message: Batch date must align with a valid settlement cycle run
+  - code: SFA_INVALID_ACCOUNT_GROUP
+    status: 400
+    message: Account group is not supported for this enquiry
+  - code: SFA_OVERRIDE_FORBIDDEN
+    status: 403
+    message: Only a risk officer role may override a failed availability check
+  - code: SFA_POSITION_LOOKUP_FAILED
+    status: 503
+    message: Real-time position lookup is temporarily unavailable
+
+events:
+  - name: availability.check.requested
+    payload: [account_code, instrument_code, purchase_sale_indicator, quantity, timestamp]
+  - name: availability.check.passed
+    payload: [account_code, instrument_code, deal_id, timestamp]
+  - name: availability.check.failed
+    payload: [account_code, instrument_code, deal_id, reason, quantity_short, amount_short, timestamp]
+  - name: availability.short_position_detected
+    payload: [account_code, instrument_code, settlement_date, quantity_short, timestamp]
+  - name: availability.funding_shortfall_detected
+    payload: [account_code, settlement_date, amount_short, timestamp]
+  - name: availability.trading_limit_breached
+    payload: [account_code, trading_limit, limit_utilisation, attempted_amount, timestamp]
+  - name: availability.override_applied
+    payload: [account_code, deal_id, overridden_by, reason, timestamp]
+  - name: availability.batch_completed
+    payload: [batch_date, source_indicator, account_group, records_processed, timestamp]
+
+outcomes:
+  pre_trade_cash_sufficient:
+    priority: 1
+    description: Purchase order passes pre-trade funds availability check
+    given:
+      - field: purchase_sale_indicator
+        source: input
+        operator: eq
+        value: P
+      - field: cash_balance
+        source: db
+        operator: gte
+        value: purchase_amount
+      - field: limit_utilisation
+        source: computed
+        operator: lte
+        value: trading_limit
+    then:
+      - action: set_field
+        target: availability_status
+        value: passed
+      - action: transition_state
+        field: availability_status
+        from: pending
+        to: passed
+      - action: emit_event
+        event: availability.check.passed
+    transaction: true
+
+  pre_trade_insufficient_funds:
+    priority: 2
+    error: SFA_INSUFFICIENT_FUNDS
+    description: Purchase order fails because available cash does not cover the purchase amount
+    given:
+      - field: purchase_sale_indicator
+        source: input
+        operator: eq
+        value: P
+      - field: cash_balance
+        source: db
+        operator: lt
+        value: purchase_amount
+    then:
+      - action: set_field
+        target: availability_status
+        value: failed
+      - action: transition_state
+        field: availability_status
+        from: pending
+        to: failed
+      - action: emit_event
+        event: availability.check.failed
+      - action: emit_event
+        event: availability.funding_shortfall_detected
+
+  pre_trade_securities_sufficient:
+    priority: 3
+    description: Sale order passes pre-trade securities availability check
+    given:
+      - field: purchase_sale_indicator
+        source: input
+        operator: eq
+        value: S
+      - field: securities_holding_qty
+        source: db
+        operator: gte
+        value: sale_quantity
+    then:
+      - action: set_field
+        target: availability_status
+        value: passed
+      - action: transition_state
+        field: availability_status
+        from: pending
+        to: passed
+      - action: emit_event
+        event: availability.check.passed
+    transaction: true
+
+  pre_trade_insufficient_securities:
+    priority: 4
+    error: SFA_INSUFFICIENT_SECURITIES
+    description: Sale order fails because available securities do not cover the sale quantity
+    given:
+      - field: purchase_sale_indicator
+        source: input
+        operator: eq
+        value: S
+      - field: securities_holding_qty
+        source: db
+        operator: lt
+        value: sale_quantity
+    then:
+      - action: set_field
+        target: availability_status
+        value: failed
+      - action: transition_state
+        field: availability_status
+        from: pending
+        to: failed
+      - action: emit_event
+        event: availability.check.failed
+      - action: emit_event
+        event: availability.short_position_detected
+
+  trading_limit_exceeded:
+    priority: 5
+    error: SFA_TRADING_LIMIT_EXCEEDED
+    description: Order is rejected because it would breach the account trading limit
+    given:
+      - field: limit_utilisation
+        source: computed
+        operator: gt
+        value: trading_limit
+    then:
+      - action: set_field
+        target: availability_status
+        value: failed
+      - action: transition_state
+        field: availability_status
+        from: pending
+        to: failed
+      - action: emit_event
+        event: availability.trading_limit_breached
+      - action: emit_event
+        event: availability.check.failed
+
+  real_time_position_lookup:
+    priority: 6
+    description: Back-office system returns real-time aggregated position for an account and instrument
+    given:
+      - field: account_code
+        source: input
+        operator: exists
+      - field: instrument_code
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: position_service
+      - action: emit_event
+        event: availability.check.requested
+
+  settlement_cycle_batch_run:
+    priority: 7
+    description: Scheduled batch extracts availability for open allocations to feed the clearing system
+    given:
+      - field: batch_date
+        source: system
+        operator: exists
+      - field: source_indicator
+        source: input
+        operator: in
+        value: [B, I]
+    then:
+      - action: call_service
+        target: availability_batch_job
+      - action: emit_event
+        event: availability.batch_completed
+    transaction: true
+
+  override_failed_check:
+    priority: 8
+    description: Risk officer overrides a failed availability check with documented reason
+    given:
+      - field: user_role
+        source: session
+        operator: eq
+        value: risk_officer
+      - field: availability_status
+        source: db
+        operator: eq
+        value: failed
+    then:
+      - action: emit_event
+        event: availability.override_applied
+
+  reject_non_risk_override:
+    priority: 9
+    error: SFA_OVERRIDE_FORBIDDEN
+    description: Prevent non-risk-officer roles from overriding a failed availability check
+    given:
+      - field: user_role
+        source: session
+        operator: neq
+        value: risk_officer
+    then:
+      - action: emit_event
+        event: availability.check.failed
+
+api:
+  http:
+    method: POST
+    path: /api/v1/availability/check
+  request:
+    schema:
+      account_code: text
+      instrument_code: text
+      purchase_sale_indicator: select
+      quantity: number
+      amount: number
+      settlement_date: date
+  response:
+    success:
+      status: 200
+      schema:
+        availability_status: select
+        quantity_short: number
+        amount_short: number
+        trading_limit: number
+        limit_utilisation: number
+    errors:
+      - error_code: SFA_INSUFFICIENT_SECURITIES
+        status: 409
+      - error_code: SFA_INSUFFICIENT_FUNDS
+        status: 409
+      - error_code: SFA_TRADING_LIMIT_EXCEEDED
+        status: 409
+      - error_code: SFA_INVALID_BATCH_DATE
+        status: 400
+      - error_code: SFA_POSITION_LOOKUP_FAILED
+        status: 503
+
+anti_patterns:
+  - rule: "Do not rely solely on overnight batch availability figures for intraday trading decisions"
+    why: Batch figures are point-in-time and do not reflect intraday allocations, leading to oversell or overspend
+  - rule: "Do not aggregate proprietary availability at the individual sub-account level"
+    why: Proprietary availability is inherently a firm-wide netted view; per-account views misrepresent the true position and can cause incorrect short-sell flagging
+  - rule: "Do not allow operators to override failed availability checks without risk-officer approval"
+    why: Overrides expose the firm to failed-trade penalties, margin calls and regulatory censure
+  - rule: "Do not persist personal information of clients in availability audit logs in plaintext"
+    why: POPIA s.19 requires appropriate technical safeguards; availability audit logs often transit third-party systems
+  - rule: "Do not bypass trading limit checks for any order channel"
+    why: Consistent limit enforcement across channels is the only reliable control against runaway exposure
+  - rule: "Do not treat foreign-currency deals as settled in the local cash balance"
+    why: Foreign-indicator deals settle in a different currency pool; mixing them overstates available funds
+
+related:
+  - feature: broker-client-account-maintenance
+    type: required
+  - feature: broker-client-data-upload
+    type: recommended
+  - feature: popia-compliance
+    type: required
+  - feature: broker-back-office-dissemination
+    type: recommended
+
+extensions:
+  screens:
+    SFENQ: SFA Selection Enquiry
+    SFPSS: SFA Proprietary Sales (Allocation View)
+    SFPSA: SFA Proprietary Sales (Availability View)
+    SFPPS: SFA Proprietary Purchases (Allocation View)
+    SFPPA: SFA Proprietary Purchases (Availability View)
+  batch_schedule:
+    controlled_batch: "Daily evening batch on T, T+1, T+2, T+3"
+    controlled_intraday: "Intraday run at 12h00 for T+4 deals"
+    proprietary_batch: "Evening batch on T+2 and T+3"

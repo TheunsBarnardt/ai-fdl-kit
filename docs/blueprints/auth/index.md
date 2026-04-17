@@ -15,6 +15,7 @@ Authentication, identity, and session management blueprints.
 |-----------|-------------|----------|
 | [Api Key Management]({{ site.baseurl }}/blueprints/auth/api-key-management/) | Create, rotate, revoke, and scope API keys for programmatic access | 1.0.0 |
 | [Biometric Auth]({{ site.baseurl }}/blueprints/auth/biometric-auth/) | Palm vein biometric authentication — alternative to password login with enrollment of up to 2 palms per user | 1.0.0 |
+| [Broker User Access]({{ site.baseurl }}/blueprints/auth/broker-user-access/) | User access management for back-office systems with screen-level and function-level security, role-based view/update permissions, dual-control verification, and audit trail of access changes | 1.0.0 |
 | [Cross Signing Verification]({{ site.baseurl }}/blueprints/auth/cross-signing-verification/) | Three-key trust hierarchy for verifying devices and users. Master key signs self-signing and user-signing keys. All uploads are cryptographically validated before storage. | 1.0.0 |
 | [Device Attestation]({{ site.baseurl }}/blueprints/auth/device-attestation/) | TPM-backed device identity and per-call signed attestation — terminals prove their identity to the Payments Gateway on every request; rejected devices cannot transact | 1.0.0 |
 | [Device Management]({{ site.baseurl }}/blueprints/auth/device-management/) | Track all client sessions as named devices per user account. List, rename, and delete devices with cascading cleanup. Auto-purge devices inactive beyond retention period. | 1.0.0 |
