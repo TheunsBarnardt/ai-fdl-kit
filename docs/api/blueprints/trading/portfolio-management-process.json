@@ -1,0 +1,230 @@
+{
+  "feature": "portfolio-management-process",
+  "version": "1.0.0",
+  "description": "Describe the three-step portfolio management process (planning, execution, feedback), types of investors, active vs. passive management, and the asset management industry structure",
+  "category": "trading",
+  "tags": [
+    "portfolio-management",
+    "process",
+    "active-passive",
+    "investor-types",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "planning-execution-feedback",
+    "portfolio-lifecycle",
+    "active-vs-passive",
+    "asset-management-industry",
+    "mutual-funds-etfs"
+  ],
+  "actors": [
+    {
+      "id": "portfolio_mgr",
+      "name": "Portfolio Manager",
+      "type": "human"
+    },
+    {
+      "id": "client",
+      "name": "Client Investor",
+      "type": "human"
+    }
+  ],
+  "fields": [
+    {
+      "name": "mandate_id",
+      "type": "text",
+      "required": true,
+      "label": "Mandate identifier"
+    },
+    {
+      "name": "investor_type",
+      "type": "select",
+      "required": true,
+      "label": "individual | pension | endowment | foundation | insurance | bank | sovereign_wealth"
+    },
+    {
+      "name": "management_style",
+      "type": "select",
+      "required": true,
+      "label": "active | passive | enhanced_index"
+    }
+  ],
+  "rules": {
+    "three_step_process": {
+      "planning": "Understand client, define IPS, set asset allocation",
+      "execution": "Implement asset allocation via security selection and trading",
+      "feedback": "Monitor, rebalance, evaluate performance, update IPS"
+    },
+    "investor_types": {
+      "individual": "Lifecycle-dependent; taxable; human capital",
+      "defined_benefit_pension": "Liability-driven; long horizon; tax-exempt",
+      "defined_contribution_pension": "Individual accounts; participant-directed",
+      "endowment": "Perpetual horizon; spending rule; intergenerational equity",
+      "foundation": "Grant-making mandate; spending tied to mission",
+      "insurance": "Asset-liability matching; regulatory capital",
+      "bank": "Liquidity and capital management",
+      "sovereign_wealth": "Macro objectives; long horizon; often exempt"
+    },
+    "active_vs_passive": {
+      "passive": "Track index; low fee; tax-efficient",
+      "active": "Seek alpha; higher fee; tracking error",
+      "enhanced_index": "Passive core with modest active bets"
+    },
+    "industry_structure": {
+      "traditional": "Long-only equity and fixed income managers",
+      "alternative": "Hedge funds, private equity, real assets managers",
+      "ownership": "Publicly listed firms, partnerships, bank-owned"
+    },
+    "pooled_vehicles": {
+      "mutual_funds": "Daily NAV; regulated; retail",
+      "etfs": "Exchange-listed; intraday liquidity; tax-efficient via creation/redemption",
+      "hedge_funds": "Limited partnerships; accredited investors; flexible strategies",
+      "pe_vc_funds": "Closed-end; long lock-up; capital calls"
+    },
+    "validation": {
+      "mandate_required": "mandate_id present",
+      "valid_investor": "investor_type in allowed set"
+    }
+  },
+  "outcomes": {
+    "establish_mandate": {
+      "priority": 1,
+      "description": "Establish portfolio mandate",
+      "given": [
+        {
+          "field": "mandate_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "investor_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "individual",
+            "pension",
+            "endowment",
+            "foundation",
+            "insurance",
+            "bank",
+            "sovereign_wealth"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "portfolio_mgr"
+        },
+        {
+          "action": "emit_event",
+          "event": "mandate.established"
+        }
+      ]
+    },
+    "invalid_investor": {
+      "priority": 10,
+      "description": "Unsupported investor type",
+      "given": [
+        {
+          "field": "investor_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "individual",
+            "pension",
+            "endowment",
+            "foundation",
+            "insurance",
+            "bank",
+            "sovereign_wealth"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "mandate.rejected"
+        }
+      ],
+      "error": "MANDATE_INVALID_INVESTOR"
+    }
+  },
+  "errors": [
+    {
+      "code": "MANDATE_INVALID_INVESTOR",
+      "status": 400,
+      "message": "investor_type must be a supported category"
+    }
+  ],
+  "events": [
+    {
+      "name": "mandate.established",
+      "payload": [
+        "mandate_id",
+        "investor_type",
+        "management_style",
+        "benchmark"
+      ]
+    },
+    {
+      "name": "mandate.rejected",
+      "payload": [
+        "mandate_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not skip the planning step to start trading",
+      "why": "Execution without IPS produces style drift, unmanaged risk, and client disputes when performance deviates"
+    },
+    {
+      "rule": "Do not assume active managers collectively add value",
+      "why": "Active management is zero-sum before fees, negative-sum after; selection risk is material"
+    },
+    {
+      "rule": "Do not treat endowments as perpetual without stress testing spending",
+      "why": "Spending rule must survive drawdowns; endowment model failed at several US schools in 2008-09"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/portfolio/mandate/establish"
+    },
+    "request": {
+      "schema": {
+        "mandate_id": "string",
+        "investor_type": "string",
+        "management_style": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "mandate_id": "string",
+          "investor_type": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "MANDATE_INVALID_INVESTOR"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "investment-policy-statement-ips",
+      "type": "required"
+    },
+    {
+      "feature": "strategic-asset-allocation",
+      "type": "recommended"
+    }
+  ]
+}

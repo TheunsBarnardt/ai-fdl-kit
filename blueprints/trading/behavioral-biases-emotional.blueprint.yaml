@@ -1,0 +1,133 @@
+# ============================================================
+# behavioral-biases-emotional — Feature Blueprint
+# Source: CFA LV1 2025 Vol 09 — Module 7, Emotional Biases
+# ============================================================
+
+feature: behavioral-biases-emotional
+version: "1.0.0"
+description: Identify emotional biases (loss aversion, overconfidence, self-control, status quo, endowment, regret aversion) and describe their effect on portfolio construction and rebalancing
+category: trading
+tags: [behavioral-finance, emotional-bias, loss-aversion, overconfidence, endowment-bias, cfa-level-1]
+aliases:
+  - loss-aversion-bias
+  - overconfidence-bias
+  - self-control-bias
+  - status-quo-bias
+  - endowment-bias
+  - regret-aversion-bias
+
+actors:
+  - id: emo_bias_detector
+    name: Emotional Bias Detector
+    type: system
+
+fields:
+  - name: detection_id
+    type: text
+    required: true
+    label: Detection identifier
+  - name: bias_type
+    type: select
+    required: true
+    label: loss_aversion | overconfidence | self_control | status_quo | endowment | regret_aversion
+
+rules:
+  loss_aversion:
+    pattern: "Losses feel ~2x worse than equivalent gains"
+    consequence: "Hold losers too long, sell winners too early"
+  overconfidence:
+    pattern: "Overestimate ability, precision of forecasts"
+    consequence: "Excessive trading, under-diversification"
+  self_control:
+    pattern: "Prefer immediate reward over future benefit"
+    consequence: "Under-save, raid long-term pots"
+  status_quo:
+    pattern: "Prefer keeping current allocation"
+    consequence: "Portfolio drift; fail to rebalance"
+  endowment:
+    pattern: "Value holdings more than equivalent non-holdings"
+    consequence: "Over-concentration in inherited or granted stock"
+  regret_aversion:
+    pattern: "Fear of errors of commission exceeds errors of omission"
+    consequence: "Avoid necessary trades; herd-follow"
+  investment_implications:
+    construction: "Advise using pre-commitment, buckets, automatic rebalancing"
+    monitoring: "Benchmark and independent review to counter overconfidence"
+  mitigation:
+    rule: "Automated rules, mandatory rebalancing bands, structured decision logs, client education"
+  validation:
+    detection_required: "detection_id present"
+    valid_bias: "bias_type in allowed set"
+
+outcomes:
+  detect_emo_bias:
+    priority: 1
+    description: Detect emotional bias
+    given:
+      - field: detection_id
+        source: input
+        operator: exists
+      - field: bias_type
+        source: input
+        operator: in
+        value: [loss_aversion, overconfidence, self_control, status_quo, endowment, regret_aversion]
+    then:
+      - action: call_service
+        target: emo_bias_detector
+      - action: emit_event
+        event: emotional_bias.detected
+  invalid_bias:
+    priority: 10
+    description: Unsupported bias type
+    given:
+      - field: bias_type
+        source: input
+        operator: not_in
+        value: [loss_aversion, overconfidence, self_control, status_quo, endowment, regret_aversion]
+    then:
+      - action: emit_event
+        event: emotional_bias.rejected
+    error: EMO_BIAS_INVALID
+
+errors:
+  - code: EMO_BIAS_INVALID
+    status: 400
+    message: bias_type must be a supported emotional bias
+
+events:
+  - name: emotional_bias.detected
+    payload: [detection_id, bias_type, risk_impact, mitigation_suggested]
+  - name: emotional_bias.rejected
+    payload: [detection_id, reason_code]
+
+anti_patterns:
+  - rule: Do not attempt to eliminate emotional biases in wealthy retirees
+    why: "Behavioural accommodation (bucket strategies) often produces better adherence than optimal allocation fought against emotion"
+  - rule: Do not treat overconfidence as a one-off
+    why: "Post-win overconfidence amplifies risk-taking cyclically; structural position sizing limits are the defence"
+  - rule: Do not rely on willpower for rebalancing
+    why: "Self-control biases defeat discretionary rebalancing; automate via calendar or threshold rules"
+
+api:
+  http:
+    method: POST
+    path: /portfolio/emotional-bias/detect
+  request:
+    schema:
+      detection_id: string
+      bias_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        detection_id: string
+        bias_type: string
+    errors:
+      - status: 400
+        error_code: EMO_BIAS_INVALID
+
+related:
+  - feature: behavioral-biases-cognitive
+    type: required
+  - feature: behavioral-finance-market-anomalies
+    type: required

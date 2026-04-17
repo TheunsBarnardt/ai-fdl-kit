@@ -1,0 +1,213 @@
+{
+  "feature": "portfolio-expected-return-variance",
+  "version": "1.0.0",
+  "description": "Compute portfolio expected return, variance, and standard deviation using asset weights, covariances, and correlations, and show how diversification reduces non-systematic risk",
+  "category": "trading",
+  "tags": [
+    "portfolio-management",
+    "mean-variance",
+    "covariance",
+    "correlation",
+    "diversification",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "portfolio-variance-cfa",
+    "portfolio-covariance-cfa",
+    "two-asset-portfolio-risk",
+    "portfolio-correlation-benefit",
+    "markowitz-mean-variance",
+    "variance-covariance-matrix"
+  ],
+  "actors": [
+    {
+      "id": "port_stats",
+      "name": "Portfolio Statistics Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "calc_id",
+      "type": "text",
+      "required": true,
+      "label": "Calculation identifier"
+    },
+    {
+      "name": "weights",
+      "type": "json",
+      "required": true,
+      "label": "Asset weights (sum to 1)"
+    },
+    {
+      "name": "expected_returns",
+      "type": "json",
+      "required": true,
+      "label": "Expected returns per asset"
+    },
+    {
+      "name": "covariance_matrix",
+      "type": "json",
+      "required": true,
+      "label": "Covariance matrix"
+    }
+  ],
+  "rules": {
+    "expected_return": {
+      "formula": "E(Rp) = sum(w_i * E(R_i))"
+    },
+    "two_asset_variance": {
+      "formula": "var(Rp) = w1^2 * var1 + w2^2 * var2 + 2*w1*w2*cov(1,2)",
+      "correlation_link": "cov = rho * sd1 * sd2"
+    },
+    "n_asset_variance": {
+      "formula": "var(Rp) = sum_i sum_j w_i * w_j * cov(i,j)",
+      "matrix_form": "var(Rp) = w^T * Sigma * w"
+    },
+    "diversification": {
+      "principle": "Correlation < 1 produces sd(Rp) less than weighted average of sd_i",
+      "limit": "Systematic risk cannot be diversified away"
+    },
+    "validation": {
+      "calc_required": "calc_id present",
+      "weights_sum_to_one": "sum(weights) == 1 (within tolerance)",
+      "matrix_dimensions_match": "covariance_matrix is NxN matching returns vector"
+    }
+  },
+  "outcomes": {
+    "compute_portfolio_stats": {
+      "priority": 1,
+      "description": "Compute portfolio expected return and variance",
+      "given": [
+        {
+          "field": "calc_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "weights",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "covariance_matrix",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "port_stats"
+        },
+        {
+          "action": "emit_event",
+          "event": "portfolio.stats_computed"
+        }
+      ]
+    },
+    "invalid_inputs": {
+      "priority": 10,
+      "description": "Missing required inputs",
+      "given": [
+        {
+          "any": [
+            {
+              "field": "weights",
+              "source": "input",
+              "operator": "not_exists"
+            },
+            {
+              "field": "covariance_matrix",
+              "source": "input",
+              "operator": "not_exists"
+            }
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "portfolio.stats_rejected"
+        }
+      ],
+      "error": "PORT_STATS_MISSING_INPUTS"
+    }
+  },
+  "errors": [
+    {
+      "code": "PORT_STATS_MISSING_INPUTS",
+      "status": 400,
+      "message": "weights and covariance_matrix are required"
+    }
+  ],
+  "events": [
+    {
+      "name": "portfolio.stats_computed",
+      "payload": [
+        "calc_id",
+        "expected_return",
+        "variance",
+        "std_dev"
+      ]
+    },
+    {
+      "name": "portfolio.stats_rejected",
+      "payload": [
+        "calc_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use sample correlation for long-horizon planning without shrinkage",
+      "why": "Sample correlations are noisy and unstable; shrinkage toward a structured matrix reduces estimation error and portfolio blow-ups"
+    },
+    {
+      "rule": "Do not assume correlations are constant across regimes",
+      "why": "Correlations spike toward one in crises; diversification benefit evaporates exactly when needed most"
+    },
+    {
+      "rule": "Do not ignore the weighted-average benefit cliff when rho > 0.9",
+      "why": "Near-perfect correlation means diversification is nearly absent; position sizing should reflect this"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/portfolio/stats/compute"
+    },
+    "request": {
+      "schema": {
+        "calc_id": "string",
+        "weights": "array",
+        "expected_returns": "array",
+        "covariance_matrix": "array"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "calc_id": "string",
+          "expected_return": "number",
+          "variance": "number",
+          "std_dev": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "PORT_STATS_MISSING_INPUTS"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "portfolio-efficient-frontier",
+      "type": "required"
+    }
+  ]
+}

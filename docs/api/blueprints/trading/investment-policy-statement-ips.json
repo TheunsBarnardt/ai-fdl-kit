@@ -1,0 +1,225 @@
+{
+  "feature": "investment-policy-statement-ips",
+  "version": "1.0.0",
+  "description": "Draft an Investment Policy Statement covering risk and return objectives, liquidity, time horizon, tax, legal, unique circumstances, and ESG considerations for individual and institutional clients",
+  "category": "trading",
+  "tags": [
+    "portfolio-management",
+    "ips",
+    "objectives",
+    "constraints",
+    "esg",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "investment-policy-statement",
+    "ips-risk-objective",
+    "ips-return-objective",
+    "ips-constraints",
+    "ips-liquidity-requirement",
+    "ips-time-horizon",
+    "ips-tax-concern",
+    "ips-legal-regulatory",
+    "ips-unique-circumstances",
+    "esg-considerations"
+  ],
+  "actors": [
+    {
+      "id": "ips_drafter",
+      "name": "IPS Drafter",
+      "type": "human"
+    },
+    {
+      "id": "client",
+      "name": "Client",
+      "type": "human"
+    }
+  ],
+  "fields": [
+    {
+      "name": "ips_id",
+      "type": "text",
+      "required": true,
+      "label": "IPS identifier"
+    },
+    {
+      "name": "client_type",
+      "type": "select",
+      "required": true,
+      "label": "individual | institutional"
+    },
+    {
+      "name": "return_objective_type",
+      "type": "select",
+      "required": true,
+      "label": "total | absolute | relative | liability_driven"
+    }
+  ],
+  "rules": {
+    "ips_components": {
+      "introduction": "Client and scope description",
+      "statement_of_purpose": "Why the IPS exists",
+      "duties_responsibilities": "Advisor, custodian, investor roles",
+      "procedures": "Process for updates, reviews",
+      "investment_objectives": "Risk and return",
+      "investment_constraints": "Liquidity, horizon, tax, legal, unique",
+      "investment_guidelines": "Permissible assets, prohibited investments",
+      "evaluation_measurement": "Benchmarks, review frequency",
+      "appendix": "Strategic asset allocation and rebalancing policy"
+    },
+    "risk_objective": {
+      "ability": "Wealth, horizon, income stability",
+      "willingness": "Psychological tolerance",
+      "conservative_of_the_two": "IPS risk tolerance = min(ability, willingness)"
+    },
+    "return_objective": {
+      "spending_plus_inflation": "Real return to sustain spending",
+      "liability_match": "Meet fixed liabilities",
+      "pre_post_tax": "State on consistent basis"
+    },
+    "constraints": {
+      "liquidity": "Near-term cash needs",
+      "time_horizon": "Single or multi-stage",
+      "tax": "Taxable vs. tax-deferred; jurisdiction",
+      "legal_regulatory": "Fiduciary, prudent investor, prohibited assets",
+      "unique_circumstances": "Concentrated holdings, ethical restrictions",
+      "esg": "Exclusions, integration, impact objectives"
+    },
+    "validation": {
+      "ips_required": "ips_id present",
+      "valid_client": "client_type in [individual, institutional]"
+    }
+  },
+  "outcomes": {
+    "draft_ips": {
+      "priority": 1,
+      "description": "Draft IPS document",
+      "given": [
+        {
+          "field": "ips_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "client_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "individual",
+            "institutional"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "ips_drafter"
+        },
+        {
+          "action": "emit_event",
+          "event": "ips.drafted"
+        }
+      ]
+    },
+    "invalid_client": {
+      "priority": 10,
+      "description": "Unsupported client type",
+      "given": [
+        {
+          "field": "client_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "individual",
+            "institutional"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "ips.draft_rejected"
+        }
+      ],
+      "error": "IPS_INVALID_CLIENT"
+    }
+  },
+  "errors": [
+    {
+      "code": "IPS_INVALID_CLIENT",
+      "status": 400,
+      "message": "client_type must be individual or institutional"
+    }
+  ],
+  "events": [
+    {
+      "name": "ips.drafted",
+      "payload": [
+        "ips_id",
+        "client_type",
+        "risk_tolerance",
+        "return_objective",
+        "constraints_count"
+      ]
+    },
+    {
+      "name": "ips.draft_rejected",
+      "payload": [
+        "ips_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not set risk tolerance as average of ability and willingness",
+      "why": "Client can be sold out of an allocation they couldn't stomach; take the conservative of the two"
+    },
+    {
+      "rule": "Do not state return objective without specifying pre- or post-tax",
+      "why": "A 7% pre-tax objective is 4-5% post-tax; mixing frames leads to systematic shortfall"
+    },
+    {
+      "rule": "Do not include constraints only by boilerplate",
+      "why": "Unique circumstances and ESG exclusions must be captured explicitly or they will be breached in execution"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/portfolio/ips/draft"
+    },
+    "request": {
+      "schema": {
+        "ips_id": "string",
+        "client_type": "string",
+        "return_objective_type": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "ips_id": "string",
+          "client_type": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "IPS_INVALID_CLIENT"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "portfolio-management-process",
+      "type": "required"
+    },
+    {
+      "feature": "strategic-asset-allocation",
+      "type": "required"
+    }
+  ]
+}

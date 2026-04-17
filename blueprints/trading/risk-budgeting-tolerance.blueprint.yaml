@@ -1,0 +1,151 @@
+# ============================================================
+# risk-budgeting-tolerance — Feature Blueprint
+# Source: CFA LV1 2025 Vol 09 — Module 8, Risk Budgeting
+# ============================================================
+
+feature: risk-budgeting-tolerance
+version: "1.0.0"
+description: Set enterprise risk tolerance, allocate a risk budget across business units and strategies, and measure marginal contribution to risk for consistent ex-ante capital allocation
+category: trading
+tags: [risk-management, risk-budget, risk-tolerance, marginal-var, cfa-level-1]
+aliases:
+  - risk-budget-allocation
+  - marginal-contribution-to-risk
+  - risk-tolerance-framework
+  - var-budget
+  - tracking-error-budget
+
+actors:
+  - id: risk_budget_mgr
+    name: Risk Budget Manager
+    type: system
+
+fields:
+  - name: budget_id
+    type: text
+    required: true
+    label: Risk budget identifier
+  - name: total_risk_budget
+    type: number
+    required: true
+    label: Total risk budget (e.g., VaR or TE)
+  - name: allocation_method
+    type: select
+    required: true
+    label: equal_weight | equal_risk | marginal_contribution
+
+rules:
+  risk_tolerance:
+    quantify: "Express as maximum acceptable loss, tracking error, or volatility"
+    consistency: "Applied across business units and strategies"
+  risk_budget:
+    total: "Aggregate risk allowance consistent with tolerance"
+    allocation: "Split across exposures; constrain each to sub-budget"
+  methods:
+    equal_weight: "Same risk budget per unit — simple but ignores differences"
+    equal_risk_contribution: "Each unit contributes equal ex-ante risk"
+    marginal_contribution: "Allocate where marginal Sharpe is highest"
+  measurement:
+    var: "Value-at-Risk at specified confidence"
+    tracking_error: "Annualised std dev of active return"
+    stress_tests: "Historical and hypothetical scenarios"
+  monitoring:
+    frequency: "Daily at trading level, weekly/monthly at strategy level"
+    breach_protocol: "Unwind or escalate when sub-budget breached"
+  validation:
+    budget_required: "budget_id present"
+    positive_budget: "total_risk_budget > 0"
+    valid_method: "allocation_method in allowed set"
+
+outcomes:
+  allocate_risk_budget:
+    priority: 1
+    description: Allocate risk budget across units
+    given:
+      - field: budget_id
+        source: input
+        operator: exists
+      - field: total_risk_budget
+        source: input
+        operator: gt
+        value: 0
+      - field: allocation_method
+        source: input
+        operator: in
+        value: [equal_weight, equal_risk, marginal_contribution]
+    then:
+      - action: call_service
+        target: risk_budget_mgr
+      - action: emit_event
+        event: risk_budget.allocated
+  invalid_method:
+    priority: 10
+    description: Unsupported allocation method
+    given:
+      - field: allocation_method
+        source: input
+        operator: not_in
+        value: [equal_weight, equal_risk, marginal_contribution]
+    then:
+      - action: emit_event
+        event: risk_budget.rejected
+    error: BUDGET_INVALID_METHOD
+  invalid_budget:
+    priority: 11
+    description: Non-positive budget
+    given:
+      - field: total_risk_budget
+        source: input
+        operator: lte
+        value: 0
+    then:
+      - action: emit_event
+        event: risk_budget.rejected
+    error: BUDGET_INVALID_AMOUNT
+
+errors:
+  - code: BUDGET_INVALID_METHOD
+    status: 400
+    message: allocation_method must be equal_weight, equal_risk, or marginal_contribution
+  - code: BUDGET_INVALID_AMOUNT
+    status: 400
+    message: total_risk_budget must be positive
+
+events:
+  - name: risk_budget.allocated
+    payload: [budget_id, allocation_method, sub_budgets, expected_return]
+  - name: risk_budget.rejected
+    payload: [budget_id, reason_code]
+
+anti_patterns:
+  - rule: Do not split risk budget equally across strategies
+    why: "Equal weight ignores differences in Sharpe and capacity; marginal-contribution allocation produces higher risk-adjusted returns"
+  - rule: Do not set risk budgets without monitoring in real time
+    why: "Static budgets don't detect regime shifts; ex-post compliance alone is too late"
+  - rule: Do not treat tracking error budget as hard cap in volatile markets
+    why: "Forced unwinds at breached TE can crystallise losses; use bands and escalation, not automatic unwinds"
+
+api:
+  http:
+    method: POST
+    path: /portfolio/risk-budget/allocate
+  request:
+    schema:
+      budget_id: string
+      total_risk_budget: number
+      allocation_method: string
+  response:
+    success:
+      status: 200
+      schema:
+        budget_id: string
+        sub_budgets: object
+    errors:
+      - status: 400
+        error_code: BUDGET_INVALID_METHOD
+      - status: 400
+        error_code: BUDGET_INVALID_AMOUNT
+
+related:
+  - feature: risk-management-framework
+    type: required

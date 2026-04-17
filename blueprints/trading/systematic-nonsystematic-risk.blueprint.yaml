@@ -1,0 +1,115 @@
+# ============================================================
+# systematic-nonsystematic-risk — Feature Blueprint
+# Source: CFA LV1 2025 Vol 09 — Module 2, Systematic Risk
+# ============================================================
+
+feature: systematic-nonsystematic-risk
+version: "1.0.0"
+description: Decompose total risk into systematic (market) and nonsystematic (unique) components, explain diversification of unique risk, and use single-index and market models for estimation
+category: trading
+tags: [portfolio-management, systematic-risk, unique-risk, single-index-model, cfa-level-1]
+aliases:
+  - systematic-risk-decomposition
+  - unique-risk
+  - idiosyncratic-risk
+  - diversifiable-risk
+  - single-index-model
+  - market-model
+
+actors:
+  - id: risk_decomp
+    name: Risk Decomposition Engine
+    type: system
+
+fields:
+  - name: decomp_id
+    type: text
+    required: true
+    label: Decomposition identifier
+  - name: asset_return
+    type: number
+    required: true
+    label: Asset return
+  - name: beta
+    type: number
+    required: true
+    label: Beta
+  - name: market_return
+    type: number
+    required: true
+    label: Market return
+
+rules:
+  total_risk:
+    formula: "var(Ri) = beta_i^2 * var(Rm) + var(epsilon_i)"
+    systematic: "beta_i^2 * var(Rm) — compensated market risk"
+    nonsystematic: "var(epsilon_i) — firm-specific, diversifiable"
+  market_model:
+    equation: "Ri = alpha_i + beta_i * Rm + epsilon_i"
+    estimation: "OLS regression of Ri on Rm"
+  single_index_model:
+    simplification: "Covariance between assets reduces to beta_i * beta_j * var(Rm)"
+    use: "Enables tractable portfolio variance calculations in large asset sets"
+  diversification_effect:
+    rule: "As N increases, average idiosyncratic variance falls as 1/N"
+    limit: "Systematic risk remains — cannot be diversified"
+  beta_estimation:
+    approach: "Rolling regressions 2-5 years"
+    adjusted_beta: "Shrink toward 1.0 to reduce estimation error"
+  validation:
+    decomp_required: "decomp_id present"
+
+outcomes:
+  decompose_risk:
+    priority: 1
+    description: Decompose asset risk into systematic and nonsystematic
+    given:
+      - field: decomp_id
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: risk_decomp
+      - action: emit_event
+        event: risk.decomposed
+
+errors:
+  - code: RISK_DECOMP_INVALID
+    status: 400
+    message: decomposition inputs invalid
+
+events:
+  - name: risk.decomposed
+    payload: [decomp_id, systematic_variance, nonsystematic_variance, beta, r_squared]
+
+anti_patterns:
+  - rule: Do not treat sample beta as the true beta
+    why: "Beta is a noisy OLS estimate; adjusted/Blume-shrunk betas improve out-of-sample portfolio construction"
+  - rule: Do not ignore multi-factor structure when single-index residuals cluster
+    why: "Sector or style factors create cross-sectional correlation missed by single-index model; portfolio variance is understated"
+  - rule: Do not extend diversification argument to concentrated portfolios
+    why: "With 5-10 names, idiosyncratic variance still dominates; ~30 names needed for textbook diversification"
+
+api:
+  http:
+    method: POST
+    path: /portfolio/risk/decompose
+  request:
+    schema:
+      decomp_id: string
+      asset_return: number
+      beta: number
+      market_return: number
+  response:
+    success:
+      status: 200
+      schema:
+        decomp_id: string
+        systematic_variance: number
+        nonsystematic_variance: number
+
+related:
+  - feature: beta-market-model
+    type: required
+  - feature: capm-security-market-line
+    type: required

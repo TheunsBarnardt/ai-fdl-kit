@@ -1,0 +1,130 @@
+# ============================================================
+# behavioral-biases-cognitive — Feature Blueprint
+# Source: CFA LV1 2025 Vol 09 — Module 7, Cognitive Errors
+# ============================================================
+
+feature: behavioral-biases-cognitive
+version: "1.0.0"
+description: Identify cognitive behavioral biases (conservatism, confirmation, representativeness, illusion of control, hindsight, framing, anchoring, availability) and their impact on investment decisions
+category: trading
+tags: [behavioral-finance, cognitive-bias, belief-perseverance, processing-errors, cfa-level-1]
+aliases:
+  - conservatism-bias
+  - confirmation-bias
+  - representativeness-bias
+  - illusion-of-control-bias
+  - hindsight-bias
+  - framing-bias
+  - anchoring-adjustment
+  - availability-bias
+
+actors:
+  - id: bias_detector
+    name: Cognitive Bias Detector
+    type: system
+
+fields:
+  - name: detection_id
+    type: text
+    required: true
+    label: Detection identifier
+  - name: bias_type
+    type: select
+    required: true
+    label: conservatism | confirmation | representativeness | illusion_of_control | hindsight | framing | anchoring | availability
+
+rules:
+  belief_perseverance:
+    conservatism: "Under-react to new information; retain priors"
+    confirmation: "Seek evidence confirming existing view"
+    representativeness: "Judge by similarity rather than base rates"
+    illusion_of_control: "Overestimate personal influence on outcomes"
+    hindsight: "Re-remember past as more predictable than it was"
+  processing_errors:
+    anchoring: "Fixate on initial value; insufficient adjustment"
+    mental_accounting: "Treat money differently by source/purpose"
+    framing: "Decisions change with presentation of equivalent information"
+    availability: "Weight easily recalled information over statistical evidence"
+  investment_consequences:
+    delayed_response: "Conservatism leads to slow revision after earnings"
+    overconcentration: "Confirmation and representativeness amplify single-stock bets"
+    false_confidence: "Illusion of control justifies active trading with no edge"
+  mitigation:
+    rule: "Structured processes, base-rate emphasis, red-team reviews, written decision journals"
+  validation:
+    detection_required: "detection_id present"
+    valid_bias: "bias_type in allowed set"
+
+outcomes:
+  detect_bias:
+    priority: 1
+    description: Detect cognitive bias in investment decision
+    given:
+      - field: detection_id
+        source: input
+        operator: exists
+      - field: bias_type
+        source: input
+        operator: in
+        value: [conservatism, confirmation, representativeness, illusion_of_control, hindsight, framing, anchoring, availability]
+    then:
+      - action: call_service
+        target: bias_detector
+      - action: emit_event
+        event: bias.detected
+  invalid_bias:
+    priority: 10
+    description: Unsupported bias type
+    given:
+      - field: bias_type
+        source: input
+        operator: not_in
+        value: [conservatism, confirmation, representativeness, illusion_of_control, hindsight, framing, anchoring, availability]
+    then:
+      - action: emit_event
+        event: bias.detection_rejected
+    error: BIAS_INVALID_TYPE
+
+errors:
+  - code: BIAS_INVALID_TYPE
+    status: 400
+    message: bias_type must be a supported cognitive bias category
+
+events:
+  - name: bias.detected
+    payload: [detection_id, bias_type, category, mitigation_suggested]
+  - name: bias.detection_rejected
+    payload: [detection_id, reason_code]
+
+anti_patterns:
+  - rule: Do not treat cognitive biases as fully correctable by awareness alone
+    why: "Education reduces some biases but processing errors persist; process and structural safeguards work better"
+  - rule: Do not confuse cognitive with emotional bias
+    why: "Cognitive errors respond to information; emotional biases require behavioural and structural intervention"
+  - rule: Do not use 'debiasing training' as compliance checkbox
+    why: "Without process redesign (checklists, red teams, pre-mortems), one-off training has negligible long-term effect"
+
+api:
+  http:
+    method: POST
+    path: /portfolio/bias/detect
+  request:
+    schema:
+      detection_id: string
+      bias_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        detection_id: string
+        bias_type: string
+        mitigation_suggested: string
+    errors:
+      - status: 400
+        error_code: BIAS_INVALID_TYPE
+
+related:
+  - feature: behavioral-biases-emotional
+    type: required
+  - feature: behavioral-finance-market-anomalies
+    type: required

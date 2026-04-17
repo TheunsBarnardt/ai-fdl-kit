@@ -1,0 +1,250 @@
+{
+  "feature": "strategic-asset-allocation",
+  "version": "1.0.0",
+  "description": "Set long-horizon strategic asset allocation using capital market expectations, investor IPS, and portfolio construction principles, and describe new developments and ESG integration",
+  "category": "trading",
+  "tags": [
+    "portfolio-management",
+    "strategic-allocation",
+    "cme",
+    "rebalancing",
+    "esg-integration",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "sa-asset-allocation",
+    "capital-market-expectations",
+    "policy-portfolio",
+    "rebalancing-policy",
+    "esg-portfolio-integration"
+  ],
+  "actors": [
+    {
+      "id": "saa_engine",
+      "name": "Strategic Asset Allocation Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "saa_id",
+      "type": "text",
+      "required": true,
+      "label": "SAA identifier"
+    },
+    {
+      "name": "horizon_years",
+      "type": "number",
+      "required": true,
+      "label": "Investment horizon in years"
+    },
+    {
+      "name": "rebalance_frequency",
+      "type": "select",
+      "required": true,
+      "label": "calendar | threshold | hybrid"
+    }
+  ],
+  "rules": {
+    "saa_principles": {
+      "core_idea": "Establish long-run asset mix consistent with IPS objectives and constraints",
+      "policy_portfolio": "SAA becomes benchmark; deviations reflect tactical tilts"
+    },
+    "capital_market_expectations": {
+      "inputs": "Expected returns, volatilities, correlations for asset classes",
+      "sources": "Historical data, building-block approach, equilibrium models"
+    },
+    "portfolio_construction_principles": {
+      "diversification": "Across assets, sectors, geographies",
+      "risk_budget": "Allocate ex-ante risk to each exposure",
+      "cost_awareness": "Minimise fees, taxes, market impact"
+    },
+    "rebalancing_policy": {
+      "calendar": "Fixed dates — simple, no path dependence",
+      "threshold": "Deviation band triggers trade — captures vol efficiently",
+      "hybrid": "Calendar with tolerance bands"
+    },
+    "new_developments": {
+      "liability_driven": "Match assets to liabilities for DB pensions and insurers",
+      "risk_parity": "Equal risk contribution across assets",
+      "factor_investing": "Target priced factor exposures directly",
+      "alternative_beta": "Systematic alt risk premia"
+    },
+    "esg_integration": {
+      "approaches": "Exclusion, best-in-class, integration, thematic, impact"
+    },
+    "validation": {
+      "saa_required": "saa_id present",
+      "positive_horizon": "horizon_years > 0",
+      "valid_frequency": "rebalance_frequency in [calendar, threshold, hybrid]"
+    }
+  },
+  "outcomes": {
+    "build_saa": {
+      "priority": 1,
+      "description": "Build strategic asset allocation",
+      "given": [
+        {
+          "field": "saa_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "horizon_years",
+          "source": "input",
+          "operator": "gt",
+          "value": 0
+        },
+        {
+          "field": "rebalance_frequency",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "calendar",
+            "threshold",
+            "hybrid"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "saa_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "saa.built"
+        }
+      ]
+    },
+    "invalid_frequency": {
+      "priority": 10,
+      "description": "Unsupported rebalance frequency",
+      "given": [
+        {
+          "field": "rebalance_frequency",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "calendar",
+            "threshold",
+            "hybrid"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "saa.rejected"
+        }
+      ],
+      "error": "SAA_INVALID_FREQUENCY"
+    },
+    "invalid_horizon": {
+      "priority": 11,
+      "description": "Non-positive horizon",
+      "given": [
+        {
+          "field": "horizon_years",
+          "source": "input",
+          "operator": "lte",
+          "value": 0
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "saa.rejected"
+        }
+      ],
+      "error": "SAA_INVALID_HORIZON"
+    }
+  },
+  "errors": [
+    {
+      "code": "SAA_INVALID_FREQUENCY",
+      "status": 400,
+      "message": "rebalance_frequency must be calendar, threshold, or hybrid"
+    },
+    {
+      "code": "SAA_INVALID_HORIZON",
+      "status": 400,
+      "message": "horizon_years must be positive"
+    }
+  ],
+  "events": [
+    {
+      "name": "saa.built",
+      "payload": [
+        "saa_id",
+        "allocation",
+        "expected_return",
+        "expected_volatility"
+      ]
+    },
+    {
+      "name": "saa.rejected",
+      "payload": [
+        "saa_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not change SAA based on short-horizon market moves",
+      "why": "SAA is the long-run plan; frequent change converts it into tactical allocation and destroys the discipline that makes SAA work"
+    },
+    {
+      "rule": "Do not use historical volatility as the sole CME input",
+      "why": "Long-run drift and regime shifts matter; blend equilibrium, survey, and building-block views"
+    },
+    {
+      "rule": "Do not rebalance aggressively in high-cost markets",
+      "why": "Transaction costs and tax impact can exceed rebalancing premium; widen bands in illiquid assets"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/portfolio/saa/build"
+    },
+    "request": {
+      "schema": {
+        "saa_id": "string",
+        "horizon_years": "number",
+        "rebalance_frequency": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "saa_id": "string",
+          "allocation": "object",
+          "expected_return": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "SAA_INVALID_FREQUENCY"
+        },
+        {
+          "status": 400,
+          "error_code": "SAA_INVALID_HORIZON"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "investment-policy-statement-ips",
+      "type": "required"
+    },
+    {
+      "feature": "portfolio-efficient-frontier",
+      "type": "recommended"
+    }
+  ]
+}

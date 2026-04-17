@@ -1,0 +1,122 @@
+# ============================================================
+# portfolio-performance-measures — Feature Blueprint
+# Source: CFA LV1 2025 Vol 09 — Module 2, Performance Measures
+# ============================================================
+
+feature: portfolio-performance-measures
+version: "1.0.0"
+description: Compute Sharpe ratio, Treynor ratio, M-squared, Jensen's alpha, and security characteristic line to evaluate risk-adjusted performance against benchmarks
+category: trading
+tags: [portfolio-management, sharpe-ratio, treynor-ratio, jensens-alpha, m-squared, cfa-level-1]
+aliases:
+  - sharpe-ratio
+  - treynor-ratio
+  - m-squared-rap
+  - jensens-alpha
+  - security-characteristic-line
+  - risk-adjusted-performance
+
+actors:
+  - id: perf_calc
+    name: Performance Measure Calculator
+    type: system
+
+fields:
+  - name: perf_id
+    type: text
+    required: true
+    label: Performance calc identifier
+  - name: portfolio_return
+    type: number
+    required: true
+    label: Portfolio return
+  - name: portfolio_std
+    type: number
+    required: false
+    label: Portfolio std dev
+  - name: portfolio_beta
+    type: number
+    required: false
+    label: Portfolio beta
+  - name: benchmark_return
+    type: number
+    required: true
+    label: Benchmark return
+  - name: risk_free_rate
+    type: number
+    required: true
+    label: Risk-free rate
+
+rules:
+  sharpe_ratio:
+    formula: "(Rp - Rf) / sd(Rp)"
+    use: "Total-risk-adjusted return; for standalone portfolio"
+  treynor_ratio:
+    formula: "(Rp - Rf) / beta_p"
+    use: "Systematic-risk-adjusted; for diversified sub-portfolio"
+  m_squared:
+    formula: "Rf + Sharpe_p * sd(Rm)"
+    interpretation: "Risk-adjusted performance stated as return at market risk level"
+  jensens_alpha:
+    formula: "Rp - [Rf + beta_p * (Rm - Rf)]"
+    interpretation: "Excess return over CAPM-expected"
+  security_characteristic_line:
+    definition: "Plot of asset excess return vs. market excess return; intercept is Jensen's alpha, slope is beta"
+  validation:
+    perf_required: "perf_id present"
+
+outcomes:
+  compute_performance:
+    priority: 1
+    description: Compute chosen performance measure
+    given:
+      - field: perf_id
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: perf_calc
+      - action: emit_event
+        event: performance.measured
+
+errors:
+  - code: PERF_MEASURE_INVALID
+    status: 400
+    message: measure inputs invalid
+
+events:
+  - name: performance.measured
+    payload: [perf_id, sharpe, treynor, m_squared, jensens_alpha]
+
+anti_patterns:
+  - rule: Do not rank concentrated portfolios by Sharpe alone
+    why: "Sharpe ignores idiosyncratic risk attribution; Treynor or Information Ratio is more appropriate for sub-portfolios within a diversified mandate"
+  - rule: Do not compare Jensen's alpha across different market cap segments without factor adjustment
+    why: "Alpha captured may be style or size premium, not skill; multi-factor alpha is cleaner"
+  - rule: Do not use in-sample Sharpe as forecast of live Sharpe
+    why: "Selection and survivorship bias inflate backtested Sharpe; haircut by 40-60% or use out-of-sample validation"
+
+api:
+  http:
+    method: POST
+    path: /portfolio/performance/measure
+  request:
+    schema:
+      perf_id: string
+      portfolio_return: number
+      portfolio_std: number
+      portfolio_beta: number
+      benchmark_return: number
+      risk_free_rate: number
+  response:
+    success:
+      status: 200
+      schema:
+        perf_id: string
+        sharpe: number
+        treynor: number
+        jensens_alpha: number
+
+related:
+  - feature: capm-security-market-line
+    type: required

@@ -1,0 +1,133 @@
+# ============================================================
+# capital-market-line-theory — Feature Blueprint
+# Source: CFA LV1 2025 Vol 09 — Module 2, Capital Market Theory
+# ============================================================
+
+feature: capital-market-line-theory
+version: "1.0.0"
+description: Derive the Capital Market Line, combine risk-free asset with the market portfolio, and describe leveraged and lending portfolios with differing borrowing and lending rates
+category: trading
+tags: [portfolio-management, cml, market-portfolio, leveraged-portfolio, cfa-level-1]
+aliases:
+  - cml-equation
+  - market-portfolio
+  - leveraged-cml
+  - lending-portfolio
+  - borrowing-portfolio
+  - capital-allocation-line
+
+actors:
+  - id: cml_engine
+    name: Capital Market Line Engine
+    type: system
+
+fields:
+  - name: cml_id
+    type: text
+    required: true
+    label: CML analysis identifier
+  - name: risk_free_rate
+    type: number
+    required: true
+    label: Risk-free rate (decimal)
+  - name: market_return
+    type: number
+    required: true
+    label: Expected market return
+  - name: market_std_dev
+    type: number
+    required: true
+    label: Market standard deviation
+
+rules:
+  cml_equation:
+    formula: "E(Rp) = Rf + ((E(Rm) - Rf) / sd(Rm)) * sd(Rp)"
+    slope: "Market Sharpe ratio"
+  market_portfolio:
+    definition: "Value-weighted portfolio of all risky assets"
+    proxy: "Broad equity index used in practice"
+  passive_vs_active:
+    passive: "Hold market portfolio; consistent with CAPM"
+    active: "Seek alpha relative to market; justified only if investor has skill"
+  leveraged_portfolios:
+    borrowing_rate_higher: "CML kinks down above market portfolio due to higher borrowing rate"
+    implication: "Leveraged investors lie on kinked CML with less attractive slope"
+  validation:
+    cml_required: "cml_id present"
+    positive_market_sd: "market_std_dev > 0"
+
+outcomes:
+  compute_cml:
+    priority: 1
+    description: Compute CML expected return at given portfolio risk
+    given:
+      - field: cml_id
+        source: input
+        operator: exists
+      - field: market_std_dev
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: cml_engine
+      - action: emit_event
+        event: cml.computed
+  invalid_market_sd:
+    priority: 10
+    description: Non-positive market std dev
+    given:
+      - field: market_std_dev
+        source: input
+        operator: lte
+        value: 0
+    then:
+      - action: emit_event
+        event: cml.computation_rejected
+    error: CML_INVALID_STD
+
+errors:
+  - code: CML_INVALID_STD
+    status: 400
+    message: market_std_dev must be positive
+
+events:
+  - name: cml.computed
+    payload: [cml_id, expected_return, sharpe_ratio, leverage_ratio]
+  - name: cml.computation_rejected
+    payload: [cml_id, reason_code]
+
+anti_patterns:
+  - rule: Do not conflate CML (portfolios) with SML (individual assets)
+    why: "CML uses total risk, SML uses beta; only efficient portfolios lie on CML, all priced assets lie on SML"
+  - rule: Do not assume lending and borrowing rates are equal in practice
+    why: "Retail and even institutional borrowing rates exceed risk-free; the kinked CML is the realistic model"
+  - rule: Do not use a narrow equity index as market portfolio without caveat
+    why: "True market portfolio includes bonds, real estate, human capital; S&P 500 proxy overweights US large-cap equity"
+
+api:
+  http:
+    method: POST
+    path: /portfolio/cml/compute
+  request:
+    schema:
+      cml_id: string
+      risk_free_rate: number
+      market_return: number
+      market_std_dev: number
+  response:
+    success:
+      status: 200
+      schema:
+        cml_id: string
+        expected_return: number
+        sharpe_ratio: number
+    errors:
+      - status: 400
+        error_code: CML_INVALID_STD
+
+related:
+  - feature: portfolio-efficient-frontier
+    type: required
+  - feature: capm-security-market-line
+    type: required

@@ -1,0 +1,219 @@
+{
+  "feature": "risk-management-framework",
+  "version": "1.0.0",
+  "description": "Establish an enterprise risk management framework with governance, risk tolerance, risk identification (financial and non-financial), and risk measurement, mitigation, and monitoring",
+  "category": "trading",
+  "tags": [
+    "risk-management",
+    "enterprise-risk",
+    "governance",
+    "financial-risk",
+    "non-financial-risk",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "enterprise-risk-management",
+    "risk-governance",
+    "risk-tolerance-policy",
+    "financial-vs-non-financial-risk",
+    "erm-framework"
+  ],
+  "actors": [
+    {
+      "id": "risk_officer",
+      "name": "Chief Risk Officer",
+      "type": "human"
+    },
+    {
+      "id": "risk_system",
+      "name": "Risk Management System",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "rm_id",
+      "type": "text",
+      "required": true,
+      "label": "Risk management identifier"
+    },
+    {
+      "name": "risk_type",
+      "type": "select",
+      "required": true,
+      "label": "market | credit | liquidity | operational | model | legal | reputational"
+    }
+  ],
+  "rules": {
+    "rm_process": {
+      "identify": "Catalogue risks — financial and non-financial",
+      "measure": "Quantify exposure — VaR, stress tests, scenario analysis",
+      "manage": "Accept, mitigate, transfer, or avoid",
+      "monitor": "Continuous reporting against risk appetite"
+    },
+    "governance": {
+      "board": "Sets risk appetite; oversight via risk committee",
+      "executive": "CRO responsible; enterprise view across silos"
+    },
+    "risk_tolerance": {
+      "willingness": "Strategic appetite for risk",
+      "capacity": "Financial ability to bear risk"
+    },
+    "financial_risks": {
+      "market": "Price movements in equity, rates, FX, commodity",
+      "credit": "Counterparty default",
+      "liquidity": "Funding or market liquidity failure"
+    },
+    "non_financial_risks": {
+      "operational": "People, process, systems failure",
+      "model": "Incorrect or misused model",
+      "legal_regulatory": "Compliance and litigation",
+      "reputational": "Brand damage"
+    },
+    "validation": {
+      "rm_required": "rm_id present",
+      "valid_type": "risk_type in allowed set"
+    }
+  },
+  "outcomes": {
+    "assess_risk": {
+      "priority": 1,
+      "description": "Assess risk within ERM framework",
+      "given": [
+        {
+          "field": "rm_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "risk_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "market",
+            "credit",
+            "liquidity",
+            "operational",
+            "model",
+            "legal",
+            "reputational"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "risk_system"
+        },
+        {
+          "action": "emit_event",
+          "event": "risk.assessed"
+        }
+      ]
+    },
+    "invalid_type": {
+      "priority": 10,
+      "description": "Unsupported risk type",
+      "given": [
+        {
+          "field": "risk_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "market",
+            "credit",
+            "liquidity",
+            "operational",
+            "model",
+            "legal",
+            "reputational"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "risk.assessment_rejected"
+        }
+      ],
+      "error": "RISK_INVALID_TYPE"
+    }
+  },
+  "errors": [
+    {
+      "code": "RISK_INVALID_TYPE",
+      "status": 400,
+      "message": "risk_type must be a supported risk category"
+    }
+  ],
+  "events": [
+    {
+      "name": "risk.assessed",
+      "payload": [
+        "rm_id",
+        "risk_type",
+        "exposure",
+        "mitigation_action"
+      ]
+    },
+    {
+      "name": "risk.assessment_rejected",
+      "payload": [
+        "rm_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not silo risks by asset class",
+      "why": "Enterprise risks correlate — 2008 liquidity risk triggered credit, market, and funding crises simultaneously; holistic view required"
+    },
+    {
+      "rule": "Do not confuse risk appetite with risk tolerance",
+      "why": "Appetite is willingness; capacity is ability; mandates must satisfy the more restrictive"
+    },
+    {
+      "rule": "Do not over-rely on VaR as sole risk metric",
+      "why": "VaR ignores tail beyond confidence threshold; augment with expected shortfall and scenario analysis"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/portfolio/risk/assess"
+    },
+    "request": {
+      "schema": {
+        "rm_id": "string",
+        "risk_type": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "rm_id": "string",
+          "risk_type": "string",
+          "exposure": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "RISK_INVALID_TYPE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "risk-budgeting-tolerance",
+      "type": "required"
+    },
+    {
+      "feature": "investment-policy-statement-ips",
+      "type": "recommended"
+    }
+  ]
+}

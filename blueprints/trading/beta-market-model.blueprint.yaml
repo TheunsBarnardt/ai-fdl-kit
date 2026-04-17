@@ -1,0 +1,137 @@
+# ============================================================
+# beta-market-model — Feature Blueprint
+# Source: CFA LV1 2025 Vol 09 — Module 2, Beta & Market Model
+# ============================================================
+
+feature: beta-market-model
+version: "1.0.0"
+description: Calculate and interpret beta using the market model, describe return-generating models, and explain beta adjustment, estimation windows, and implications for expected return
+category: trading
+tags: [portfolio-management, beta, market-model, return-generating-model, cfa-level-1]
+aliases:
+  - beta-estimation
+  - adjusted-beta
+  - blume-adjustment
+  - rolling-beta
+  - return-generating-model
+
+actors:
+  - id: beta_engine
+    name: Beta Estimation Engine
+    type: system
+
+fields:
+  - name: beta_id
+    type: text
+    required: true
+    label: Beta estimation identifier
+  - name: asset_returns
+    type: json
+    required: true
+    label: Array of asset returns
+  - name: market_returns
+    type: json
+    required: true
+    label: Array of market returns
+
+rules:
+  beta_formula:
+    definition: "beta_i = cov(R_i, R_m) / var(R_m)"
+    interpretation: "Sensitivity of asset return to market return"
+  return_generating_models:
+    market_model: "R_i = alpha + beta * R_m + epsilon"
+    macro_factor: "Factors such as GDP, inflation, term spread"
+    fundamental_factor: "Style factors — size, value, quality, momentum"
+  estimation_practice:
+    window: "2-5 years of monthly or weekly data"
+    frequency_trade_off: "Daily adds data but introduces microstructure noise"
+  adjusted_beta:
+    blume: "adj_beta = 0.67 * raw_beta + 0.33 * 1.0"
+    vasicek: "Shrinkage based on cross-sectional prior and estimation precision"
+  interpretation:
+    greater_than_one: "More cyclical than market"
+    less_than_one: "Defensive"
+    negative: "Hedges market — rare in equity, common in gold and treasuries"
+  validation:
+    beta_required: "beta_id present"
+    same_length: "asset_returns and market_returns same length"
+
+outcomes:
+  estimate_beta:
+    priority: 1
+    description: Estimate beta via market model regression
+    given:
+      - field: beta_id
+        source: input
+        operator: exists
+      - field: asset_returns
+        source: input
+        operator: exists
+      - field: market_returns
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: beta_engine
+      - action: emit_event
+        event: beta.estimated
+  missing_inputs:
+    priority: 10
+    description: Missing returns series
+    given:
+      - any:
+          - field: asset_returns
+            source: input
+            operator: not_exists
+          - field: market_returns
+            source: input
+            operator: not_exists
+    then:
+      - action: emit_event
+        event: beta.estimation_rejected
+    error: BETA_MISSING_SERIES
+
+errors:
+  - code: BETA_MISSING_SERIES
+    status: 400
+    message: asset_returns and market_returns are required
+
+events:
+  - name: beta.estimated
+    payload: [beta_id, raw_beta, adjusted_beta, r_squared, std_error]
+  - name: beta.estimation_rejected
+    payload: [beta_id, reason_code]
+
+anti_patterns:
+  - rule: Do not use a beta from a regime change that no longer applies
+    why: "Corporate action, leverage change, or sector shift resets beta; stale estimates misprice capital cost"
+  - rule: Do not mix trading frequencies (intra-day asset vs. daily market)
+    why: "Stale or non-synchronous prices bias beta downward; align observation frequency"
+  - rule: Do not apply Blume adjustment to betas outside US large-cap equity
+    why: "The 0.67/0.33 shrinkage was calibrated to specific datasets; re-estimate shrinkage for new universes"
+
+api:
+  http:
+    method: POST
+    path: /portfolio/beta/estimate
+  request:
+    schema:
+      beta_id: string
+      asset_returns: array
+      market_returns: array
+  response:
+    success:
+      status: 200
+      schema:
+        beta_id: string
+        raw_beta: number
+        adjusted_beta: number
+    errors:
+      - status: 400
+        error_code: BETA_MISSING_SERIES
+
+related:
+  - feature: systematic-nonsystematic-risk
+    type: required
+  - feature: capm-security-market-line
+    type: required

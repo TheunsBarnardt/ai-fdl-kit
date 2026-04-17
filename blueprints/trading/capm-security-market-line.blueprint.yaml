@@ -1,0 +1,121 @@
+# ============================================================
+# capm-security-market-line — Feature Blueprint
+# Source: CFA LV1 2025 Vol 09 — Module 2, CAPM & SML
+# ============================================================
+
+feature: capm-security-market-line
+version: "1.0.0"
+description: Apply the Capital Asset Pricing Model with its assumptions, plot the Security Market Line, compute expected return from beta, and describe CAPM limitations and extensions
+category: trading
+tags: [portfolio-management, capm, sml, expected-return, cfa-level-1]
+aliases:
+  - capital-asset-pricing-model
+  - security-market-line
+  - sml-equation
+  - capm-assumptions
+  - capm-limitations
+  - arbitrage-pricing-theory
+  - multi-factor-extension
+
+actors:
+  - id: capm_engine
+    name: CAPM Engine
+    type: system
+
+fields:
+  - name: capm_id
+    type: text
+    required: true
+    label: CAPM calculation identifier
+  - name: risk_free_rate
+    type: number
+    required: true
+    label: Risk-free rate
+  - name: market_return
+    type: number
+    required: true
+    label: Expected market return
+  - name: beta
+    type: number
+    required: true
+    label: Asset beta
+
+rules:
+  capm_equation:
+    formula: "E(R_i) = R_f + beta_i * (E(R_m) - R_f)"
+    market_risk_premium: "E(R_m) - R_f"
+  sml:
+    definition: "Plot of expected return versus beta for all assets"
+    slope: "Market risk premium"
+    intercept: "Risk-free rate"
+  assumptions:
+    rationality: "Investors are risk-averse, utility maximising, price takers"
+    homogeneous_expectations: "All investors share the same inputs"
+    no_frictions: "No taxes, transaction costs, or borrowing limits"
+    single_period: "Common holding period"
+    risk_free_borrow_lend: "Unlimited at same rate"
+  applications:
+    expected_return: "Required rate of return for valuation and capital budgeting"
+    security_selection: "Assets above SML undervalued; below SML overvalued"
+  limitations:
+    empirical: "Low-beta anomaly, size/value anomalies"
+    single_factor: "Market beta alone does not capture cross-sectional returns"
+  extensions:
+    arbitrage_pricing_theory: "Multiple priced factors"
+    fama_french: "Size, value, profitability, investment factors"
+  validation:
+    capm_required: "capm_id present"
+
+outcomes:
+  compute_capm_return:
+    priority: 1
+    description: Compute expected return via CAPM
+    given:
+      - field: capm_id
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: capm_engine
+      - action: emit_event
+        event: capm.computed
+
+errors:
+  - code: CAPM_INVALID_INPUTS
+    status: 400
+    message: required CAPM inputs missing
+
+events:
+  - name: capm.computed
+    payload: [capm_id, expected_return, market_risk_premium, beta]
+
+anti_patterns:
+  - rule: Do not use historical market return as unbiased estimate of forward equity premium
+    why: "Historical premium reflects survivor bias and regime; forward premium is empirically lower and time-varying"
+  - rule: Do not price low-quality, high-beta assets with pure CAPM
+    why: "CAPM under-prices idiosyncratic risk; empirically low-beta stocks outperform CAPM predictions (the low-volatility anomaly)"
+  - rule: Do not treat R_f as constant for long-horizon valuation
+    why: "Term structure matters; use maturity-matched treasury and consider stochastic rate effects"
+
+api:
+  http:
+    method: POST
+    path: /portfolio/capm/compute
+  request:
+    schema:
+      capm_id: string
+      risk_free_rate: number
+      market_return: number
+      beta: number
+  response:
+    success:
+      status: 200
+      schema:
+        capm_id: string
+        expected_return: number
+
+related:
+  - feature: beta-market-model
+    type: required
+  - feature: portfolio-performance-measures
+    type: required

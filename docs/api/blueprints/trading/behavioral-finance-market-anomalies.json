@@ -1,0 +1,208 @@
+{
+  "feature": "behavioral-finance-market-anomalies",
+  "version": "1.0.0",
+  "description": "Explain behavioural sources of momentum, bubbles and crashes, value, and other market anomalies and contrast behavioural finance with efficient-market explanations",
+  "category": "trading",
+  "tags": [
+    "behavioral-finance",
+    "market-anomaly",
+    "momentum",
+    "bubble",
+    "value",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "momentum-anomaly-behavioral",
+    "bubbles-crashes",
+    "value-anomaly-cfa",
+    "behavioral-vs-efficient-market",
+    "herding-bias-market",
+    "disposition-effect"
+  ],
+  "actors": [
+    {
+      "id": "anomaly_analyst",
+      "name": "Market Anomaly Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "anomaly_id",
+      "type": "text",
+      "required": true,
+      "label": "Anomaly analysis identifier"
+    },
+    {
+      "name": "anomaly_type",
+      "type": "select",
+      "required": true,
+      "label": "momentum | bubble_crash | value | reversal | post_earnings_drift"
+    }
+  ],
+  "rules": {
+    "momentum": {
+      "pattern": "Past winners outperform past losers over 6-12 months",
+      "explanation": "Under-reaction (conservatism) followed by over-reaction (representativeness)"
+    },
+    "bubbles_crashes": {
+      "pattern": "Prices decouple from fundamentals; collapse when narrative breaks",
+      "drivers": "Herding, overconfidence, illusion of control, social proof"
+    },
+    "value": {
+      "pattern": "Low price-to-fundamentals stocks outperform over long horizons",
+      "explanation": "Over-extrapolation of past growth leads to under-pricing of value"
+    },
+    "reversal": {
+      "pattern": "Long-run losers recover; winners mean-revert"
+    },
+    "post_earnings_drift": {
+      "pattern": "Stocks with earnings surprises drift in same direction for months",
+      "explanation": "Slow incorporation of news — conservatism"
+    },
+    "market_efficiency_relation": {
+      "weak_form": "Anomalies challenge weak-form efficiency",
+      "limits_to_arbitrage": "Noise-trader risk, costs, constraints prevent elimination"
+    },
+    "validation": {
+      "anomaly_required": "anomaly_id present",
+      "valid_type": "anomaly_type in allowed set"
+    }
+  },
+  "outcomes": {
+    "analyse_anomaly": {
+      "priority": 1,
+      "description": "Analyse behavioural market anomaly",
+      "given": [
+        {
+          "field": "anomaly_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "anomaly_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "momentum",
+            "bubble_crash",
+            "value",
+            "reversal",
+            "post_earnings_drift"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "anomaly_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "anomaly.analysed"
+        }
+      ]
+    },
+    "invalid_type": {
+      "priority": 10,
+      "description": "Unsupported anomaly type",
+      "given": [
+        {
+          "field": "anomaly_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "momentum",
+            "bubble_crash",
+            "value",
+            "reversal",
+            "post_earnings_drift"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "anomaly.rejected"
+        }
+      ],
+      "error": "ANOMALY_INVALID_TYPE"
+    }
+  },
+  "errors": [
+    {
+      "code": "ANOMALY_INVALID_TYPE",
+      "status": 400,
+      "message": "anomaly_type must be a supported anomaly"
+    }
+  ],
+  "events": [
+    {
+      "name": "anomaly.analysed",
+      "payload": [
+        "anomaly_id",
+        "anomaly_type",
+        "behavioural_driver",
+        "arbitrage_cost"
+      ]
+    },
+    {
+      "name": "anomaly.rejected",
+      "payload": [
+        "anomaly_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not assume behavioural anomalies produce stable arbitrage opportunities",
+      "why": "Anomalies decay as they become known; trading costs, leverage constraints, and regime shifts erode live alpha"
+    },
+    {
+      "rule": "Do not use anomaly explanations to justify post-hoc narratives",
+      "why": "Selecting anomaly after the fact is data mining; pre-register hypothesis and test out of sample"
+    },
+    {
+      "rule": "Do not rely on momentum in illiquid securities",
+      "why": "Transaction costs and market impact erase momentum premium; the anomaly holds strongest in liquid large-cap"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/portfolio/anomaly/analyse"
+    },
+    "request": {
+      "schema": {
+        "anomaly_id": "string",
+        "anomaly_type": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "anomaly_id": "string",
+          "behavioural_driver": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "ANOMALY_INVALID_TYPE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "behavioral-biases-cognitive",
+      "type": "required"
+    },
+    {
+      "feature": "behavioral-biases-emotional",
+      "type": "required"
+    }
+  ]
+}

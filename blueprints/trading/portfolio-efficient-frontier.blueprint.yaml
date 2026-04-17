@@ -1,0 +1,129 @@
+# ============================================================
+# portfolio-efficient-frontier — Feature Blueprint
+# Source: CFA LV1 2025 Vol 09 — Module 1, Efficient Frontier
+# ============================================================
+
+feature: portfolio-efficient-frontier
+version: "1.0.0"
+description: Construct the minimum-variance frontier and efficient frontier of risky assets, identify the minimum-variance portfolio, and locate the optimal risky portfolio given a risk-free asset
+category: trading
+tags: [portfolio-management, efficient-frontier, markowitz, mvp, optimal-portfolio, cfa-level-1]
+aliases:
+  - minimum-variance-frontier
+  - markowitz-frontier
+  - mvp-portfolio
+  - tangency-portfolio
+  - optimal-risky-portfolio
+  - efficient-set
+
+actors:
+  - id: frontier_engine
+    name: Efficient Frontier Engine
+    type: system
+
+fields:
+  - name: frontier_id
+    type: text
+    required: true
+    label: Frontier identifier
+  - name: asset_count
+    type: number
+    required: true
+    label: Number of assets
+  - name: risk_free_rate
+    type: number
+    required: false
+    label: Risk-free rate (decimal)
+
+rules:
+  minimum_variance_frontier:
+    definition: "Set of portfolios with lowest variance for each level of expected return"
+    construction: "Quadratic programming: minimise w^T Sigma w subject to w^T E(R) = target and sum(w) = 1"
+  minimum_variance_portfolio:
+    mvp: "Lowest-variance portfolio on the frontier; leftmost point"
+  efficient_frontier:
+    definition: "Upper portion of minimum-variance frontier from MVP upward"
+    rule: "Dominant — for a given risk offers highest return"
+  optimal_risky_portfolio:
+    rule: "With risk-free asset, tangency portfolio on efficient frontier maximises Sharpe ratio"
+    construction: "Line from Rf tangent to efficient frontier — the Capital Allocation Line"
+  investor_optimum:
+    selection: "Along CAL, investor picks mix of Rf and tangency based on risk aversion"
+  validation:
+    frontier_required: "frontier_id present"
+    positive_asset_count: "asset_count > 1"
+
+outcomes:
+  compute_frontier:
+    priority: 1
+    description: Compute efficient frontier
+    given:
+      - field: frontier_id
+        source: input
+        operator: exists
+      - field: asset_count
+        source: input
+        operator: gt
+        value: 1
+    then:
+      - action: call_service
+        target: frontier_engine
+      - action: emit_event
+        event: frontier.computed
+  insufficient_assets:
+    priority: 10
+    description: Need at least 2 assets
+    given:
+      - field: asset_count
+        source: input
+        operator: lte
+        value: 1
+    then:
+      - action: emit_event
+        event: frontier.computation_rejected
+    error: FRONTIER_INSUFFICIENT_ASSETS
+
+errors:
+  - code: FRONTIER_INSUFFICIENT_ASSETS
+    status: 400
+    message: asset_count must be greater than 1
+
+events:
+  - name: frontier.computed
+    payload: [frontier_id, mvp_weights, tangency_weights, max_sharpe]
+  - name: frontier.computation_rejected
+    payload: [frontier_id, reason_code]
+
+anti_patterns:
+  - rule: Do not run mean-variance optimisation on raw historical inputs
+    why: "Extreme weights and concentrated positions result; use shrinkage, resampling, or Black-Litterman"
+  - rule: Do not assume the tangency portfolio is stable through time
+    why: "Small changes in inputs produce large portfolio rotations; frequent rebalancing to tangency is costly and often counter-productive"
+  - rule: Do not take the MVP as a conservative default
+    why: "MVP concentrates in low-volatility, often high-duration assets; regime shifts can make it very risky"
+
+api:
+  http:
+    method: POST
+    path: /portfolio/frontier/compute
+  request:
+    schema:
+      frontier_id: string
+      asset_count: number
+      risk_free_rate: number
+  response:
+    success:
+      status: 200
+      schema:
+        frontier_id: string
+        mvp_weights: array
+        tangency_weights: array
+    errors:
+      - status: 400
+        error_code: FRONTIER_INSUFFICIENT_ASSETS
+
+related:
+  - feature: portfolio-expected-return-variance
+    type: required
+  - feature: capital-market-line-theory
+    type: required
