@@ -1,0 +1,254 @@
+feature: listings-requirements
+version: 1.0.0
+description: Manages listing and compliance requirements for securities, including approval criteria, disclosure obligations, and continuing obligations for issuers.
+category: trading
+tags:
+  - listings
+  - regulatory
+  - compliance
+  - disclosure
+  - securities
+  - corporate-governance
+aliases:
+  - listing-criteria
+  - listing-approval
+  - listing-compliance
+  - disclosure-requirements
+  - continuing-obligations
+
+actors:
+  - id: applicant_issuer
+    name: Applicant Issuer
+    type: external
+  - id: sponsor
+    name: Sponsor/Designated Adviser
+    type: external
+  - id: exchange_authority
+    name: Exchange Authority
+    type: system
+  - id: auditor
+    name: Auditor/Reporting Accountant
+    type: external
+  - id: public_shareholders
+    name: Public/Shareholders
+    type: external
+
+fields:
+  - name: issuer_name
+    type: text
+    required: true
+    label: Issuer Name
+  - name: security_type
+    type: select
+    required: true
+    label: Security Type
+  - name: listing_status
+    type: select
+    required: true
+    label: Listing Status
+  - name: public_float_percentage
+    type: number
+    required: false
+    label: Public Float Percentage
+  - name: market_value_zar
+    type: number
+    required: false
+    label: Market Value (ZAR)
+  - name: auditor_approved
+    type: boolean
+    required: false
+    label: Auditor Approved
+  - name: sponsor_appointed
+    type: boolean
+    required: false
+    label: Sponsor Appointed
+
+rules:
+  listing_requirements:
+    minimum_public_float: "Minimum 30% public float or 1,000 public shareholders"
+    accounting_standards: "Financial statements must comply with IFRS"
+    auditor_accreditation: "Auditor must be registered with regulatory body"
+    continuous_reporting: "Ongoing disclosure of material price-sensitive information required"
+    solvency_test: "Solvency and liquidity test required for corporate actions"
+
+  disclosure_obligations:
+    annual_reporting: "Annual financial statements within 4 months of year-end"
+    interim_reporting: "Interim results within 3 months of half-year end"
+    sens_announcements: "Price-sensitive information announced via SENS immediately"
+    closed_period_restrictions: "Directors restricted from trading during closed periods"
+    material_threshold: "Material information threshold generally 10%"
+
+states:
+  field: listing_status
+  values:
+    - status: pending_approval
+      description: Application submitted, awaiting review
+      initial: true
+    - status: approved
+      description: Application approved by exchange authority
+    - status: listed
+      description: Securities admitted to official list
+    - status: suspended
+      description: Trading suspended
+    - status: delisted
+      description: Securities removed from list
+      terminal: true
+  transitions:
+    - from: pending_approval
+      to: approved
+      actor: exchange_authority
+      condition: "All listing criteria satisfied"
+      description: Exchange approves listing
+    - from: approved
+      to: listed
+      actor: exchange_authority
+      condition: "All conditions precedent satisfied"
+      description: Securities admitted to list
+    - from: listed
+      to: suspended
+      actor: exchange_authority
+      condition: "Non-compliance or disclosure breach detected"
+      description: Trading suspended
+    - from: suspended
+      to: listed
+      actor: exchange_authority
+      condition: "Compliance restored"
+      description: Trading resumed
+    - from: listed
+      to: delisted
+      actor: exchange_authority
+      condition: "Non-compliance unresolved or delisting request"
+      description: Securities removed from list
+
+sla:
+  listing_approval_timeline:
+    max_duration: 120 days
+    description: Exchange to complete listing review and approval
+  disclosure_responsiveness:
+    max_duration: 1 day
+    description: Price-sensitive information disclosed via SENS immediately
+
+outcomes:
+  listing_approved:
+    priority: 1
+    description: Exchange approves listing application after criteria satisfied
+    given:
+      - "Applicant issuer applies for listing"
+      - "Sponsor appointed and confirmed"
+      - field: public_float_percentage
+        source: input
+        operator: gte
+        value: 30
+      - "Auditor appointed and accredited"
+      - "Full financial statements reviewed"
+    then:
+      - action: transition_state
+        field: listing_status
+        from: pending_approval
+        to: approved
+      - action: emit_event
+        event: listing.approved
+        payload: [issuer_name]
+    result: "Application approved; issuer permitted to proceed"
+    error: LISTING_APPROVED
+
+  listing_admitted:
+    priority: 2
+    description: Securities admitted to official list after all conditions precedent satisfied
+    given:
+      - "Listing approved by exchange"
+      - "All approval conditions satisfied"
+      - "Share certificates or dematerialised records issued"
+    then:
+      - action: transition_state
+        field: listing_status
+        from: approved
+        to: listed
+      - action: emit_event
+        event: listing.admitted
+        payload: [issuer_name, security_type]
+    result: "Securities admitted to official list; trading commenced"
+    error: LISTING_ADMITTED
+
+  annual_reporting_due:
+    priority: 3
+    description: Issuer must file audited financial statements within 4 months of year-end
+    given:
+      - "Issuer is in listed status"
+      - "Financial year end has passed"
+    then:
+      - action: emit_event
+        event: reporting.due
+        payload: [issuer_name]
+    result: "Reporting obligation created"
+    error: ANNUAL_REPORTING_DUE
+
+  material_disclosure_required:
+    priority: 4
+    description: Material price-sensitive information disclosed to market via SENS
+    given:
+      - "Issuer identifies material price-sensitive information"
+      - field: information_type
+        source: input
+        operator: exists
+    then:
+      - action: emit_event
+        event: disclosure.required
+        payload: [issuer_name]
+    result: "Information disclosed via SENS"
+    error: MATERIAL_DISCLOSURE_REQUIRED
+
+  regulatory_suspension:
+    priority: 5
+    description: Trading suspended when issuer non-compliance detected
+    given:
+      - "Issuer in listed status"
+      - field: compliance_status
+        source: db
+        operator: eq
+        value: non_compliant
+    then:
+      - action: transition_state
+        field: listing_status
+        from: listed
+        to: suspended
+      - action: emit_event
+        event: listing.suspended
+        payload: [issuer_name]
+    result: "Trading suspended; issuer required to remediate"
+    error: LISTING_SUSPENDED
+
+errors:
+  - code: LISTING_APPROVED
+    status: 409
+    message: "Listing application approved"
+  - code: LISTING_ADMITTED
+    status: 409
+    message: "Securities admitted to list"
+  - code: ANNUAL_REPORTING_DUE
+    status: 422
+    message: "Annual financial statements due"
+  - code: MATERIAL_DISCLOSURE_REQUIRED
+    status: 422
+    message: "Material information disclosure required"
+  - code: LISTING_SUSPENDED
+    status: 423
+    message: "Trading suspended for investigation"
+
+events:
+  - name: listing.approved
+    payload: [issuer_name, approval_date]
+  - name: listing.admitted
+    payload: [issuer_name, security_type, list_date]
+  - name: listing.suspended
+    payload: [issuer_name, suspension_date, reason]
+  - name: reporting.due
+    payload: [issuer_name, due_date]
+  - name: disclosure.required
+    payload: [issuer_name, information_type]
+
+related:
+  - feature: corporate-actions-reference-data
+    type: recommended
+  - feature: continuous-disclosure-policy
+    type: recommended
