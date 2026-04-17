@@ -1,0 +1,314 @@
+{
+  "feature": "safety-first-shortfall-risk",
+  "version": "1.0.0",
+  "description": "Apply Roy's safety-first criterion — select the portfolio that minimises the probability of return falling below a threshold by maximising the safety-first ratio",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "portfolio-mathematics",
+    "safety-first",
+    "shortfall-risk",
+    "roy-criterion",
+    "sharpe-ratio",
+    "downside-risk",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "roy-safety-first",
+    "safety-first-ratio",
+    "sfratio",
+    "shortfall-probability",
+    "roy-criterion",
+    "downside-probability",
+    "minimum-acceptable-return"
+  ],
+  "actors": [
+    {
+      "id": "portfolio_engine",
+      "name": "Portfolio Analytics Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "candidate_portfolios",
+      "type": "json",
+      "required": true,
+      "label": "Array of {portfolio_id, expected_return, std_dev}"
+    },
+    {
+      "name": "threshold_return",
+      "type": "number",
+      "required": true,
+      "label": "Minimum acceptable return R_L (shortfall level)"
+    },
+    {
+      "name": "risk_free_rate",
+      "type": "number",
+      "required": false,
+      "label": "If threshold = risk_free_rate, SFRatio reduces to Sharpe ratio"
+    }
+  ],
+  "rules": {
+    "core_formulas": {
+      "safety_first_ratio": "SFRatio = (E(R_P) - R_L) / sigma_P",
+      "shortfall_probability_normal": "P(R_P < R_L) = Normal_CDF(-SFRatio)",
+      "sharpe_equivalence": "When R_L = R_f, SFRatio = Sharpe ratio"
+    },
+    "roy_criterion": {
+      "objective": "Choose the portfolio that maximises SFRatio (minimises shortfall probability)",
+      "steps": [
+        "1. Calculate SFRatio for each candidate portfolio",
+        "2. Select the portfolio with the highest SFRatio",
+        "3. Under normality, this minimises P(R_P < R_L)"
+      ],
+      "normality_assumption": "Closed-form shortfall probability assumes normally distributed returns"
+    },
+    "interpretation": {
+      "positive_sfratio": "Expected return exceeds threshold; shortfall probability < 50%",
+      "zero_sfratio": "Expected return equals threshold; shortfall probability = 50%",
+      "negative_sfratio": "Expected return below threshold; shortfall probability > 50%",
+      "distance_in_sigmas": "SFRatio measures how many standard deviations the mean lies above the threshold"
+    },
+    "comparison_to_sharpe": {
+      "sharpe": "Sharpe = (E(R_P) - R_f) / sigma_P — excess return per unit of total risk",
+      "sfratio": "SFRatio generalises Sharpe to any threshold R_L, not just R_f",
+      "identical_when": "SFRatio == Sharpe when R_L = R_f"
+    },
+    "applications": {
+      "pension_funds": "R_L = required return to meet liabilities; minimise probability of underfunding",
+      "dc_plans": "R_L = inflation-adjusted target; select allocation that minimises real-return shortfall",
+      "hedge_funds": "R_L = absolute-return floor; communicate downside risk to LPs"
+    },
+    "validation": {
+      "std_dev_positive": "sigma_P > 0 for SFRatio to be defined",
+      "candidates_non_empty": "candidate_portfolios array must contain at least one entry",
+      "normality_flagged": "Flag non-normal return distributions where closed-form shortfall probability is unreliable"
+    }
+  },
+  "outcomes": {
+    "compute_sfratio_and_select": {
+      "priority": 1,
+      "description": "Compute SFRatio for each candidate and select the maximum",
+      "given": [
+        {
+          "field": "candidate_portfolios",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "threshold_return",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "portfolio_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "portfolio.safety_first_selected"
+        }
+      ]
+    },
+    "compute_shortfall_probability": {
+      "priority": 2,
+      "description": "Assuming normality, compute P(R_P < R_L) = Phi(-SFRatio)",
+      "given": [
+        {
+          "field": "candidate_portfolios",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "portfolio_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "portfolio.shortfall_probability_calculated"
+        }
+      ]
+    },
+    "zero_std_dev": {
+      "priority": 10,
+      "description": "Portfolio std dev is zero — SFRatio undefined",
+      "given": [
+        {
+          "field": "std_dev_positive",
+          "source": "computed",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "portfolio.safety_first_rejected"
+        }
+      ],
+      "error": "SF_STDDEV_ZERO"
+    },
+    "empty_candidates": {
+      "priority": 11,
+      "description": "No candidate portfolios provided",
+      "given": [
+        {
+          "field": "candidate_portfolios",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "portfolio.safety_first_rejected"
+        }
+      ],
+      "error": "SF_NO_CANDIDATES"
+    }
+  },
+  "errors": [
+    {
+      "code": "SF_STDDEV_ZERO",
+      "status": 422,
+      "message": "SFRatio undefined when portfolio standard deviation is zero"
+    },
+    {
+      "code": "SF_NO_CANDIDATES",
+      "status": 400,
+      "message": "At least one candidate portfolio required"
+    }
+  ],
+  "events": [
+    {
+      "name": "portfolio.safety_first_selected",
+      "payload": [
+        "selected_portfolio_id",
+        "sfratio",
+        "shortfall_probability",
+        "threshold_return"
+      ]
+    },
+    {
+      "name": "portfolio.shortfall_probability_calculated",
+      "payload": [
+        "portfolio_id",
+        "sfratio",
+        "shortfall_probability"
+      ]
+    },
+    {
+      "name": "portfolio.safety_first_rejected",
+      "payload": [
+        "request_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not apply the normal-distribution shortfall formula to heavy-tailed returns",
+      "why": "Closed-form Phi(-SFRatio) understates tail probabilities for returns with excess kurtosis; use empirical or parametric tail models instead"
+    },
+    {
+      "rule": "Do not compare SFRatios computed against different thresholds",
+      "why": "SFRatio is a function of R_L; ranking portfolios under different thresholds mixes incompatible risk metrics"
+    },
+    {
+      "rule": "Do not treat SFRatio as a complete risk metric without considering tail dependence",
+      "why": "Safety-first considers only the first shortfall moment; portfolios with the same SFRatio can have very different tail losses"
+    },
+    {
+      "rule": "Do not use sample estimates of E(Rp) and sigma_p without uncertainty bounds",
+      "why": "Point-estimate SFRatio ignores estimation error; small sample mean/stdev biases can flip portfolio rankings"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/portfolio/safety-first"
+    },
+    "request": {
+      "schema": {
+        "candidate_portfolios": "array",
+        "threshold_return": "number",
+        "risk_free_rate": "number"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "selected_portfolio_id": "string",
+          "sfratio": "number",
+          "shortfall_probability": "number",
+          "ranked_portfolios": "array"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "SF_NO_CANDIDATES"
+        },
+        {
+          "status": 422,
+          "error_code": "SF_STDDEV_ZERO"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "worked_example": {
+      "threshold_return": 0.02,
+      "portfolios": [
+        {
+          "id": "A",
+          "expected_return": 0.12,
+          "std_dev": 0.15,
+          "sfratio": 0.667
+        },
+        {
+          "id": "B",
+          "expected_return": 0.14,
+          "std_dev": 0.16,
+          "sfratio": 0.75
+        },
+        {
+          "id": "C",
+          "expected_return": 0.16,
+          "std_dev": 0.2,
+          "sfratio": 0.7
+        }
+      ],
+      "selected": "B",
+      "interpretation": "Highest SFRatio → lowest probability of falling below the 2% threshold"
+    },
+    "sharpe_relationship": {
+      "when_threshold_equals_rf": "SFRatio reduces to Sharpe ratio",
+      "example": "R_L = 0.03 = R_f → SFRatio_A = (0.12-0.03)/0.15 = 0.60 = Sharpe_A"
+    }
+  },
+  "related": [
+    {
+      "feature": "portfolio-expected-return",
+      "type": "required"
+    },
+    {
+      "feature": "portfolio-variance-covariance",
+      "type": "required"
+    },
+    {
+      "feature": "target-downside-deviation",
+      "type": "recommended"
+    },
+    {
+      "feature": "measures-of-dispersion",
+      "type": "recommended"
+    }
+  ]
+}

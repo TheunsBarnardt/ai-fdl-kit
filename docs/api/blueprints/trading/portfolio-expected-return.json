@@ -1,0 +1,252 @@
+{
+  "feature": "portfolio-expected-return",
+  "version": "1.0.0",
+  "description": "Compute the expected return of a portfolio as the weighted average of the expected returns on its component securities using currency-weighted portfolio weights",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "portfolio-mathematics",
+    "expected-return",
+    "portfolio-weights",
+    "modern-portfolio-theory",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "portfolio-return",
+    "weighted-average-return",
+    "expected-portfolio-return",
+    "portfolio-e-r",
+    "portfolio-mean-return",
+    "weighted-return"
+  ],
+  "actors": [
+    {
+      "id": "portfolio_engine",
+      "name": "Portfolio Analytics Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "holdings",
+      "type": "json",
+      "required": true,
+      "label": "Array of {asset_id, weight, expected_return} for each portfolio position"
+    },
+    {
+      "name": "weights_basis",
+      "type": "select",
+      "required": false,
+      "label": "currency_value (default) | shares | equal_weight"
+    }
+  ],
+  "rules": {
+    "core_formula": {
+      "expected_return": "E(Rp) = sum_{i=1..n}[ w_i * E(R_i) ]",
+      "weight_definition": "w_i = market_value_of_asset_i / total_portfolio_value"
+    },
+    "weight_properties": {
+      "sum_to_one": "sum(w_i) = 1 for long-only portfolios",
+      "negative_weights_allowed": "Short positions produce w_i < 0; long-short portfolios still require sum(w_i) = 1"
+    },
+    "interpretation": {
+      "weighted_average": "Portfolio expected return is a linear combination of asset expected returns — no diversification effect on return (unlike variance)",
+      "forward_looking": "E(R_i) are forecast means, not historical sample means"
+    },
+    "worked_example": {
+      "assets": [
+        {
+          "asset": "S&P 500",
+          "weight": 0.5,
+          "expected_return": 0.13
+        },
+        {
+          "asset": "US LT corporate bonds",
+          "weight": 0.25,
+          "expected_return": 0.06
+        },
+        {
+          "asset": "MSCI EAFE",
+          "weight": 0.25,
+          "expected_return": 0.15
+        }
+      ],
+      "portfolio_expected_return": 0.1175
+    },
+    "applications": {
+      "tactical_allocation": "Tilt weights toward higher-expected-return assets",
+      "performance_attribution": "Decompose realized return into weight contributions",
+      "benchmarking": "Compare active portfolio E(Rp) vs benchmark E(Rp)"
+    },
+    "validation": {
+      "weights_sum_to_one": "|sum(weights) - 1| <= 1e-6 for long-only",
+      "non_empty": "holdings array must contain at least one asset",
+      "returns_numeric": "All expected_return values must be numeric"
+    }
+  },
+  "outcomes": {
+    "compute_expected_return": {
+      "priority": 1,
+      "description": "Weighted average of component expected returns",
+      "given": [
+        {
+          "field": "holdings",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "weights_valid",
+          "source": "computed",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "portfolio_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "portfolio.expected_return_calculated"
+        }
+      ]
+    },
+    "weights_invalid": {
+      "priority": 10,
+      "description": "Weights do not sum to 1",
+      "given": [
+        {
+          "field": "weights_valid",
+          "source": "computed",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "portfolio.expected_return_rejected"
+        }
+      ],
+      "error": "PORT_ER_WEIGHTS_INVALID"
+    },
+    "empty_portfolio": {
+      "priority": 11,
+      "description": "No holdings provided",
+      "given": [
+        {
+          "field": "holdings",
+          "source": "input",
+          "operator": "not_exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "portfolio.expected_return_rejected"
+        }
+      ],
+      "error": "PORT_ER_EMPTY"
+    }
+  },
+  "errors": [
+    {
+      "code": "PORT_ER_EMPTY",
+      "status": 400,
+      "message": "Holdings array must not be empty"
+    },
+    {
+      "code": "PORT_ER_WEIGHTS_INVALID",
+      "status": 400,
+      "message": "Portfolio weights must sum to 1 within tolerance"
+    }
+  ],
+  "events": [
+    {
+      "name": "portfolio.expected_return_calculated",
+      "payload": [
+        "portfolio_id",
+        "expected_return",
+        "asset_count"
+      ]
+    },
+    {
+      "name": "portfolio.expected_return_rejected",
+      "payload": [
+        "portfolio_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not compute portfolio expected return from realised asset returns in a single period",
+      "why": "E(R_i) are forecast means, not single-period outcomes; using realised returns conflates expected value with a noisy sample draw"
+    },
+    {
+      "rule": "Do not use equal weights when market-value weights are available",
+      "why": "Market-cap weighted portfolios (e.g. benchmarks) must reflect currency proportions; equal weighting systematically tilts toward small caps"
+    },
+    {
+      "rule": "Do not omit short positions by treating them as zero weights",
+      "why": "Short weights are negative contributions to E(Rp); zeroing them overstates long-only return and misrepresents the portfolio"
+    },
+    {
+      "rule": "Do not mix percentage and decimal return inputs in the same calculation",
+      "why": "13% as 13 vs 0.13 produces 100x errors; normalise inputs to a single convention before aggregation"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/portfolio/expected-return"
+    },
+    "request": {
+      "schema": {
+        "holdings": "array",
+        "weights_basis": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "expected_return": "number",
+          "asset_count": "number",
+          "weights_sum": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "PORT_ER_EMPTY"
+        },
+        {
+          "status": 400,
+          "error_code": "PORT_ER_WEIGHTS_INVALID"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "related_blueprints": [
+      "expected-value-variance",
+      "portfolio-variance-covariance"
+    ]
+  },
+  "related": [
+    {
+      "feature": "expected-value-variance",
+      "type": "required"
+    },
+    {
+      "feature": "portfolio-variance-covariance",
+      "type": "recommended"
+    },
+    {
+      "feature": "covariance-correlation",
+      "type": "recommended"
+    }
+  ]
+}

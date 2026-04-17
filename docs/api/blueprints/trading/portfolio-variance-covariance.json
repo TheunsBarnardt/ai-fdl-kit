@@ -1,0 +1,328 @@
+{
+  "feature": "portfolio-variance-covariance",
+  "version": "1.0.0",
+  "description": "Compute portfolio variance and standard deviation from asset weights and the covariance matrix — the foundation of Markowitz mean-variance optimisation and diversification",
+  "category": "trading",
+  "tags": [
+    "quantitative-methods",
+    "portfolio-mathematics",
+    "portfolio-variance",
+    "covariance-matrix",
+    "markowitz",
+    "diversification",
+    "mpt",
+    "cfa-level-1"
+  ],
+  "aliases": [
+    "portfolio-variance",
+    "portfolio-standard-deviation",
+    "portfolio-risk",
+    "markowitz-variance",
+    "covariance-matrix-variance",
+    "portfolio-sigma",
+    "diversification-benefit"
+  ],
+  "actors": [
+    {
+      "id": "portfolio_engine",
+      "name": "Portfolio Analytics Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "weights",
+      "type": "json",
+      "required": true,
+      "label": "Array of portfolio weights w_i (sum to 1)"
+    },
+    {
+      "name": "covariance_matrix",
+      "type": "json",
+      "required": true,
+      "label": "n x n covariance matrix of returns; diagonal entries are variances"
+    },
+    {
+      "name": "correlation_matrix",
+      "type": "json",
+      "required": false,
+      "label": "Optional correlation matrix (used with stdevs to derive covariances)"
+    },
+    {
+      "name": "std_devs",
+      "type": "json",
+      "required": false,
+      "label": "Vector of asset standard deviations (required if using correlation_matrix)"
+    }
+  ],
+  "rules": {
+    "core_formulas": {
+      "two_asset_variance": "Var(Rp) = w1^2 * Var(R1) + w2^2 * Var(R2) + 2 * w1 * w2 * Cov(R1, R2)",
+      "three_asset_variance": "Var(Rp) = sum_i[w_i^2 * Var(R_i)] + 2 * sum_{i<j}[w_i * w_j * Cov(R_i, R_j)]",
+      "n_asset_variance": "Var(Rp) = sum_i sum_j [ w_i * w_j * Cov(R_i, R_j) ]",
+      "standard_deviation": "sigma(Rp) = sqrt(Var(Rp))",
+      "covariance_from_correlation": "Cov(R_i, R_j) = rho_ij * sigma_i * sigma_j"
+    },
+    "matrix_properties": {
+      "symmetric": "Cov(R_i, R_j) = Cov(R_j, R_i); covariance matrix is symmetric",
+      "diagonal_is_variance": "Cov(R_i, R_i) = Var(R_i)",
+      "positive_semi_definite": "A valid covariance matrix is PSD: w'Sw >= 0 for all w",
+      "distinct_covariances": "For n assets, there are n variances and n(n-1)/2 distinct off-diagonal covariances"
+    },
+    "diversification_insight": {
+      "principle": "Portfolio variance is less than the weighted sum of asset variances when correlations < 1",
+      "no_benefit": "rho = +1 → no diversification benefit; portfolio stdev = weighted stdev",
+      "max_benefit": "rho = -1 → full hedging possible; portfolio variance can reach 0",
+      "diversification_dominates_at_scale": "As n grows, covariance terms dominate variance terms; off-diagonal count is n(n-1)"
+    },
+    "worked_example": {
+      "weights": [
+        0.5,
+        0.25,
+        0.25
+      ],
+      "variances_pct_sq": [
+        400,
+        81,
+        441
+      ],
+      "covariances": {
+        "sp500_ltbond": 45,
+        "sp500_eafe": 189,
+        "ltbond_eafe": 38
+      },
+      "portfolio_variance": 195.875,
+      "portfolio_std_dev_pct": 14
+    },
+    "investment_applications": {
+      "efficient_frontier": "Minimise Var(Rp) for each target E(Rp); trace out efficient frontier",
+      "risk_parity": "Weight assets so each contributes equally to portfolio variance",
+      "stress_scenarios": "Apply crisis covariance matrices to gauge tail portfolio risk"
+    },
+    "validation": {
+      "matrix_square": "covariance_matrix must be n x n",
+      "matrix_symmetric": "|Cov[i][j] - Cov[j][i]| <= 1e-8 for all i, j",
+      "weights_length_match": "length(weights) = n (matrix dimension)",
+      "weights_sum_to_one": "|sum(weights) - 1| <= 1e-6"
+    }
+  },
+  "outcomes": {
+    "compute_variance": {
+      "priority": 1,
+      "description": "Bilinear form w' Sigma w over the covariance matrix",
+      "given": [
+        {
+          "field": "weights",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "covariance_matrix",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "inputs_valid",
+          "source": "computed",
+          "operator": "eq",
+          "value": true
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "portfolio_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "portfolio.variance_calculated"
+        }
+      ]
+    },
+    "compute_from_correlation": {
+      "priority": 2,
+      "description": "Derive covariance matrix from correlation matrix + std devs, then compute variance",
+      "given": [
+        {
+          "field": "correlation_matrix",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "std_devs",
+          "source": "input",
+          "operator": "exists"
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "portfolio_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "portfolio.variance_calculated"
+        }
+      ]
+    },
+    "matrix_malformed": {
+      "priority": 10,
+      "description": "Covariance matrix is not square or not symmetric",
+      "given": [
+        {
+          "field": "inputs_valid",
+          "source": "computed",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "portfolio.variance_rejected"
+        }
+      ],
+      "error": "PORT_VAR_MATRIX_MALFORMED"
+    },
+    "dimension_mismatch": {
+      "priority": 11,
+      "description": "Weight vector length does not match matrix dimension",
+      "given": [
+        {
+          "field": "dimensions_match",
+          "source": "computed",
+          "operator": "eq",
+          "value": false
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "portfolio.variance_rejected"
+        }
+      ],
+      "error": "PORT_VAR_DIMENSION_MISMATCH"
+    }
+  },
+  "errors": [
+    {
+      "code": "PORT_VAR_MATRIX_MALFORMED",
+      "status": 400,
+      "message": "Covariance matrix must be square and symmetric"
+    },
+    {
+      "code": "PORT_VAR_DIMENSION_MISMATCH",
+      "status": 400,
+      "message": "Weights length must match covariance matrix dimension"
+    }
+  ],
+  "events": [
+    {
+      "name": "portfolio.variance_calculated",
+      "payload": [
+        "portfolio_id",
+        "variance",
+        "std_dev",
+        "asset_count",
+        "diversification_ratio"
+      ]
+    },
+    {
+      "name": "portfolio.variance_rejected",
+      "payload": [
+        "portfolio_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not omit off-diagonal covariance terms to simplify the calculation",
+      "why": "Ignoring covariances collapses to a weighted sum of variances and understates or overstates portfolio risk — the whole point of Markowitz is the covariance structure"
+    },
+    {
+      "rule": "Do not use a historical sample covariance matrix without shrinkage for large n",
+      "why": "Sample covariance matrices are noisy and often singular when n approaches T; use Ledoit-Wolf shrinkage or factor models for stable estimates"
+    },
+    {
+      "rule": "Do not assume correlations remain stable across regimes",
+      "why": "Crisis correlations spike toward 1, destroying diversification exactly when it is most needed; use stressed covariance for tail analysis"
+    },
+    {
+      "rule": "Do not negate covariance contribution by forgetting the factor of 2 on off-diagonals",
+      "why": "Each distinct covariance appears twice in the double sum (i,j and j,i); the compact form sum_{i<j} requires doubling"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/analytics/portfolio/variance"
+    },
+    "request": {
+      "schema": {
+        "weights": "array",
+        "covariance_matrix": "array",
+        "correlation_matrix": "array",
+        "std_devs": "array"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "variance": "number",
+          "std_dev": "number",
+          "asset_count": "number",
+          "diversification_ratio": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "PORT_VAR_MATRIX_MALFORMED"
+        },
+        {
+          "status": 400,
+          "error_code": "PORT_VAR_DIMENSION_MISMATCH"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "diversification_ratio": {
+      "formula": "DR = sum_i[w_i * sigma_i] / sigma_p",
+      "interpretation": "DR > 1 indicates diversification benefit; DR = 1 means all assets perfectly correlated"
+    },
+    "two_asset_example": {
+      "weights": [
+        0.6,
+        0.4
+      ],
+      "std_devs": [
+        0.2,
+        0.15
+      ],
+      "correlation": 0.3,
+      "variance": "0.60^2*0.20^2 + 0.40^2*0.15^2 + 2*0.60*0.40*0.30*0.20*0.15 = 0.02172",
+      "std_dev": 0.1474
+    }
+  },
+  "related": [
+    {
+      "feature": "portfolio-expected-return",
+      "type": "required"
+    },
+    {
+      "feature": "covariance-correlation",
+      "type": "required"
+    },
+    {
+      "feature": "measures-of-dispersion",
+      "type": "recommended"
+    },
+    {
+      "feature": "joint-probability-covariance",
+      "type": "recommended"
+    }
+  ]
+}

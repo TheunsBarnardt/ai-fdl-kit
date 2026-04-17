@@ -1,0 +1,188 @@
+# ============================================================
+# joint-probability-covariance — Feature Blueprint
+# Source: CFA LV1 2025 Vol 01 — Module 5, Lesson 2, p.163-170
+# ============================================================
+
+feature: joint-probability-covariance
+version: "1.0.0"
+description: Compute the covariance of returns between two assets from a joint probability function — the forward-looking covariance used when historical data is unavailable or unrepresentative
+category: trading
+tags: [quantitative-methods, portfolio-mathematics, joint-probability, covariance, forward-looking, independence, cfa-level-1]
+aliases:
+  - joint-probability-function
+  - forward-looking-covariance
+  - scenario-covariance
+  - bivariate-probability
+  - joint-distribution-covariance
+  - ex-ante-covariance
+
+actors:
+  - id: portfolio_engine
+    name: Portfolio Analytics Engine
+    type: system
+
+fields:
+  - name: joint_distribution
+    type: json
+    required: true
+    label: Array of {r_a, r_b, probability} — joint probability mass over returns of assets A and B
+  - name: expected_returns
+    type: json
+    required: false
+    label: Optional precomputed {e_r_a, e_r_b}; else derived from marginals
+  - name: assume_independence
+    type: boolean
+    required: false
+    label: If true, assert Cov = 0 and verify P(A,B) = P(A)*P(B)
+
+rules:
+  core_formulas:
+    # Source: Vol 1, Module 5, Lesson 2, p.164-167
+    joint_covariance: "Cov(R_A, R_B) = sum_i sum_j [ P(R_A=i, R_B=j) * (R_A_i - E(R_A)) * (R_B_j - E(R_B)) ]"
+    marginal_a: "P(R_A = i) = sum_j P(R_A=i, R_B=j)"
+    marginal_b: "P(R_B = j) = sum_i P(R_A=i, R_B=j)"
+    independence_test: "P(R_A=i, R_B=j) = P(R_A=i) * P(R_B=j) for all i, j"
+    expected_product_independent: "E(X*Y) = E(X) * E(Y) when X, Y are independent"
+  interpretation:
+    joint_cov_is_scenario_weighted: "Probability-weighted sum of cross-deviation products; the ex-ante analog of sample covariance"
+    independence_implies_zero_cov: "Independent variables have covariance 0; converse is NOT true (zero cov does not imply independence except for joint normals)"
+    linear_vs_dependence: "Covariance captures linear co-movement; non-linear dependencies may have Cov = 0 while still dependent"
+  properties:
+    symmetry: "Cov(A, B) = Cov(B, A)"
+    self_covariance: "Cov(A, A) = Var(A)"
+    linearity: "Cov(aX + b, cY + d) = a*c*Cov(X, Y)"
+  applications:
+    scenario_analysis: "Build covariance from expert-elicited joint scenarios (recession/normal/boom co-movements)"
+    forward_covariance: "When historical correlations are non-stationary, forecast via joint probabilities"
+    stress_testing: "Elicit crisis-state joint distribution to derive stressed covariance"
+  validation:
+    probabilities_sum_to_one: "|sum(P_ij) - 1| <= 1e-8"
+    non_negative_probabilities: "All joint probabilities >= 0"
+    grid_complete: "Every (r_a, r_b) combination in the support has a defined probability"
+
+outcomes:
+  compute_joint_covariance:
+    priority: 1
+    description: Probability-weighted sum over joint distribution
+    given:
+      - field: joint_distribution
+        source: input
+        operator: exists
+      - field: distribution_valid
+        source: computed
+        operator: eq
+        value: true
+    then:
+      - action: call_service
+        target: portfolio_engine
+      - action: emit_event
+        event: portfolio.joint_covariance_calculated
+  verify_independence:
+    priority: 2
+    description: Assert independence and verify factorisation
+    given:
+      - field: assume_independence
+        source: input
+        operator: eq
+        value: true
+    then:
+      - action: call_service
+        target: portfolio_engine
+      - action: emit_event
+        event: portfolio.independence_verified
+  distribution_invalid:
+    priority: 10
+    description: Joint probabilities do not sum to 1 or are negative
+    given:
+      - field: distribution_valid
+        source: computed
+        operator: eq
+        value: false
+    then:
+      - action: emit_event
+        event: portfolio.joint_covariance_rejected
+    error: JOINT_COV_DISTRIBUTION_INVALID
+  independence_violated:
+    priority: 11
+    description: Independence assumed but factorisation fails
+    given:
+      - field: independence_holds
+        source: computed
+        operator: eq
+        value: false
+    then:
+      - action: emit_event
+        event: portfolio.joint_covariance_rejected
+    error: JOINT_COV_INDEPENDENCE_VIOLATED
+
+errors:
+  - code: JOINT_COV_DISTRIBUTION_INVALID
+    status: 400
+    message: Joint probabilities must be non-negative and sum to 1
+  - code: JOINT_COV_INDEPENDENCE_VIOLATED
+    status: 422
+    message: Independence assumption violated — P(A,B) does not factor as P(A)*P(B)
+
+events:
+  - name: portfolio.joint_covariance_calculated
+    payload: [pair_id, covariance, correlation, expected_r_a, expected_r_b]
+  - name: portfolio.independence_verified
+    payload: [pair_id, is_independent, max_factorisation_error]
+  - name: portfolio.joint_covariance_rejected
+    payload: [pair_id, reason_code]
+
+anti_patterns:
+  - rule: Do not treat zero covariance as proof of independence
+    why: "Only for jointly normal random variables does Cov = 0 imply independence; for non-normal, Y = X^2 has Cov(X, Y) = 0 despite perfect dependence"
+  - rule: Do not reuse the same marginal distribution to build a joint when assets are dependent
+    why: "Forming P(A,B) = P(A)*P(B) for dependent assets destroys the co-movement information covariance exists to capture"
+  - rule: Do not mix historical correlations with forward-looking joint probabilities inconsistently
+    why: "Covariance must come from one coherent probability model; stitching sources produces non-PSD matrices that break optimisers"
+  - rule: Do not omit low-probability joint cells under the assumption they are negligible
+    why: "Tail co-movement cells carry the largest cross-deviation products; omitting them systematically understates tail covariance"
+
+api:
+  http:
+    method: POST
+    path: /analytics/portfolio/joint-covariance
+  request:
+    schema:
+      joint_distribution: array
+      expected_returns: json
+      assume_independence: boolean
+  response:
+    success:
+      status: 200
+      schema:
+        covariance: number
+        correlation: number
+        expected_r_a: number
+        expected_r_b: number
+        is_independent: boolean
+    errors:
+      - status: 400
+        error_code: JOINT_COV_DISTRIBUTION_INVALID
+      - status: 422
+        error_code: JOINT_COV_INDEPENDENCE_VIOLATED
+
+extensions:
+  worked_example:
+    # Source: Vol 1, Module 5, p.166
+    joint_distribution:
+      - {r_a: 0.20, r_b: 0.15, probability: 0.30}
+      - {r_a: 0.10, r_b: 0.05, probability: 0.50}
+      - {r_a: -0.05, r_b: -0.10, probability: 0.20}
+    e_r_a: 0.10
+    e_r_b: 0.065
+    covariance_formula: "0.30*(0.20-0.10)*(0.15-0.065) + 0.50*(0.10-0.10)*(0.05-0.065) + 0.20*(-0.05-0.10)*(-0.10-0.065)"
+    positive_comovement: "All deviation cross-products have the same sign → strong positive covariance"
+
+related:
+  - feature: portfolio-variance-covariance
+    type: required
+  - feature: covariance-correlation
+    type: required
+  - feature: expected-value-variance
+    type: required
+  - feature: probability-tree-conditional-expectation
+    type: recommended
