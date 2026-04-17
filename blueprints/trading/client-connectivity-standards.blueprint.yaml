@@ -1,0 +1,178 @@
+feature: client-connectivity-standards
+version: 1.0.0
+description: Client connectivity standards, network security requirements, firewall rules, and handshake procedures for gateway access
+category: trading
+tags: [connectivity, network-security, firewall, client-onboarding, gateway-access]
+aliases:
+  - connectivity-standards
+  - network-connectivity-requirements
+  - client-onboarding-standards
+  - gateway-access-standards
+  - connectivity-security
+
+actors:
+  - id: client
+    name: Client (Broker/Participant)
+    type: human
+  - id: connectivity_team
+    name: Connectivity Management Team
+    type: human
+  - id: firewall_system
+    name: Firewall and Network Security
+    type: system
+  - id: gateway
+    name: Trading Gateway
+    type: system
+
+fields:
+  - name: participant_code
+    type: text
+    required: true
+    label: Participant Code
+  - name: client_ip
+    type: text
+    required: true
+    label: Client Public IP Address (CIDR)
+  - name: connection_type
+    type: select
+    required: true
+    label: Connection Type (Leased Line, Internet, VPN)
+  - name: bandwidth_committed
+    type: number
+    required: false
+    label: Committed Bandwidth (Mbps)
+  - name: protocol
+    type: select
+    required: true
+    label: Protocol (FIX, Native, MITCH, FAST)
+  - name: tls_version
+    type: select
+    required: false
+    label: TLS Version (1.2, 1.3)
+  - name: certificate_thumbprint
+    type: text
+    required: false
+    label: Client Certificate Thumbprint (SHA-256)
+
+rules:
+  network:
+    ip_whitelist: "Client IP must be pre-registered and whitelisted on firewall"
+    firewall_rules: "Inbound rules: allow client IP to gateway on designated ports only"
+    firewall_outbound: "Outbound: gateway initiates drop-copy back to client IP registered"
+  security:
+    tls_required: "All connections must use TLS 1.2 minimum; 1.3 recommended"
+    certificate_validation: "Client certificates must be valid, non-expired, and match registered thumbprint"
+    authentication: "Credentials (username/password) must be transmitted over encrypted channel only"
+  connectivity:
+    latency_sla: "Connection latency must not exceed 50ms 99th percentile (leased) or 100ms (internet)"
+    availability_sla: "Gateway availability target 99.8% during trading hours"
+    failover: "Client must have secondary/backup connectivity path for resilience"
+
+outcomes:
+  register_client_ip:
+    priority: 1
+    description: Client submits IP address(es) for whitelist registration
+    given:
+      - field: participant_code
+        source: input
+        operator: exists
+      - field: client_ip
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: firewall_system
+      - action: emit_event
+        event: client.registered
+    error: REGISTRATION_FAILED
+  validate_certificate:
+    priority: 2
+    description: Validate client certificate before gateway connection
+    given:
+      - field: certificate_thumbprint
+        source: input
+        operator: exists
+    then:
+      - action: emit_event
+        event: certificate.validated
+  establish_connection:
+    priority: 3
+    description: Client establishes secure connection to gateway
+    given:
+      - field: tls_version
+        source: system
+        operator: gte
+        value: "1.2"
+    then:
+      - action: call_service
+        target: gateway
+      - action: emit_event
+        event: connection.established
+    error: CONNECTION_FAILED
+  monitor_connectivity:
+    priority: 4
+    description: Continuous monitoring of client connection health
+    given:
+      - field: connection_type
+        source: system
+        operator: exists
+    then:
+      - action: emit_event
+        event: connectivity.monitored
+
+errors:
+  - code: REGISTRATION_FAILED
+    status: 400
+    message: Client IP registration failed
+  - code: CERTIFICATE_INVALID
+    status: 401
+    message: Client certificate invalid or expired
+  - code: CONNECTION_FAILED
+    status: 503
+    message: Unable to establish secure connection
+  - code: LATENCY_SLA_BREACH
+    status: 500
+    message: Connection latency exceeds SLA threshold
+
+events:
+  - name: client.registered
+    payload: [participant_code, client_ip, registration_timestamp]
+  - name: certificate.validated
+    payload: [participant_code, thumbprint, expiry_date]
+  - name: connection.established
+    payload: [participant_code, gateway_server, protocol, tls_version]
+  - name: connectivity.monitored
+    payload: [participant_code, latency_ms, packet_loss_pct, status]
+
+extensions:
+  connection_types:
+    - {code: LL, name: Leased Line, description: "Dedicated leased line; highest SLA"}
+    - {code: IN, name: Internet, description: "Public internet; standard SLA"}
+    - {code: VPN, name: VPN, description: "Virtual private network over internet"}
+  protocols_supported:
+    - {protocol: FIX, port: 6000, encryption: TLS1.2}
+    - {protocol: NATIVE, port: 6001, encryption: TLS1.2}
+    - {protocol: MITCH, port: 5000, encryption: UDP_unencrypted}
+    - {protocol: FAST, port: 5001, encryption: UDP_unencrypted}
+  firewall_rules:
+    - {source: client_ip, destination: gateway_ip, port: 6000, protocol: TCP, action: allow}
+    - {source: gateway_ip, destination: client_ip, port_range: "50000-55000", protocol: TCP, action: allow}
+    - {source: any, destination: gateway_ip, action: deny}
+  sla_targets:
+    - {metric: latency_p99, leased_line_ms: 50, internet_ms: 100}
+    - {metric: packet_loss, threshold_pct: 0.1}
+    - {metric: availability, trading_hours_pct: 99.8}
+    - {metric: mean_time_to_recovery, minutes: 15}
+  security_standards:
+    - {standard: TLS_version_min, requirement: "1.2"}
+    - {standard: certificate_expiry_validation, requirement: "Must validate before connection"}
+    - {standard: ip_whitelist, requirement: "Mandatory; no exceptions"}
+    - {standard: authentication_timeout, requirement: "30 seconds max"}
+
+related:
+  - feature: trading-gateway-fix
+    type: required
+  - feature: market-data-mitch-udp
+    type: required
+  - feature: reference-data-management
+    type: required

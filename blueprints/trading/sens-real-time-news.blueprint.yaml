@@ -1,0 +1,167 @@
+feature: sens-real-time-news
+version: 1.0.0
+description: SENS real-time regulatory news feed (NewsML format) for issuer announcements, trading halts, and corporate actions
+category: trading
+tags: [sens, regulatory-news, newsml, real-time, announcements, trading-halts]
+aliases:
+  - sens-news-feed
+  - regulatory-news-feed
+  - sens-newsml
+  - real-time-announcements
+  - sens-rtf
+
+actors:
+  - id: issuer
+    name: Issuer (Listed Company)
+    type: human
+  - id: news_distribution
+    name: SENS News Distribution System
+    type: system
+  - id: market_surveillance
+    name: Market Surveillance Officer
+    type: system
+  - id: exchange
+    name: Exchange Operations
+    type: system
+
+fields:
+  - name: announcement_id
+    type: text
+    required: true
+    label: SENS Announcement ID
+  - name: issuer_code
+    type: text
+    required: true
+    label: Issuer Code
+  - name: headline
+    type: text
+    required: true
+    label: Announcement Headline
+  - name: announcement_type
+    type: select
+    required: true
+    label: Type (SENS, RNS, Trading Halt, Delisting, etc)
+  - name: announcement_text
+    type: rich_text
+    required: true
+    label: Full Announcement Text
+  - name: trading_halt_flag
+    type: boolean
+    required: false
+    label: Trading Halt Required
+  - name: effective_time
+    type: datetime
+    required: true
+    label: Effective Time (UTC)
+
+rules:
+  submission:
+    format_required: "Announcements must be in NewsML-G2 format with mandatory metadata"
+    issuer_authentication: "Submission must be authenticated from registered issuer account"
+  distribution:
+    real_time_broadcast: "Announcement must be broadcast to all subscribers within 1 second of release"
+    archived: "All announcements archived for regulatory historical records (5+ years)"
+  trading_halt:
+    halt_enforcement: "If trading_halt_flag=true, exchange must halt trading immediately"
+    halt_duration: "Trading halt minimum 5 minutes; max 30 minutes unless extended by regulator"
+
+outcomes:
+  submit_announcement:
+    priority: 1
+    description: Issuer submits SENS announcement
+    given:
+      - field: announcement_id
+        source: input
+        operator: exists
+      - field: issuer_code
+        source: input
+        operator: exists
+    then:
+      - action: call_service
+        target: market_surveillance
+      - action: emit_event
+        event: announcement.submitted
+    error: ANNOUNCEMENT_SUBMIT_FAILED
+  broadcast_announcement:
+    priority: 2
+    description: SENS distributes announcement to all subscribers in real-time
+    given:
+      - field: announcement_type
+        source: system
+        operator: eq
+        value: SENS
+    then:
+      - action: emit_event
+        event: announcement.broadcast
+  execute_trading_halt:
+    priority: 3
+    description: Exchange halts trading for the issuer
+    given:
+      - field: trading_halt_flag
+        source: system
+        operator: eq
+        value: true
+    then:
+      - action: call_service
+        target: exchange
+      - action: emit_event
+        event: trading.halted
+  resume_trading:
+    priority: 4
+    description: Exchange resumes trading after halt period
+    given:
+      - field: halt_duration
+        source: system
+        operator: gte
+        value: 300
+    then:
+      - action: call_service
+        target: exchange
+      - action: emit_event
+        event: trading.resumed
+
+errors:
+  - code: ANNOUNCEMENT_SUBMIT_FAILED
+    status: 400
+    message: Announcement submission validation failed
+  - code: ISSUER_NOT_AUTHENTICATED
+    status: 401
+    message: Issuer not authenticated
+  - code: INVALID_NEWSML_FORMAT
+    status: 422
+    message: Announcement not in valid NewsML-G2 format
+
+events:
+  - name: announcement.submitted
+    payload: [announcement_id, issuer_code, timestamp]
+  - name: announcement.broadcast
+    payload: [announcement_id, subscriber_count, broadcast_time]
+  - name: trading.halted
+    payload: [issuer_code, halt_reason, halt_start_time]
+  - name: trading.resumed
+    payload: [issuer_code, halt_duration_seconds]
+
+extensions:
+  announcement_types:
+    - {code: SENS, name: "SENS - Stock Exchange News Service"}
+    - {code: RNS, name: "RNS - Regulatory News Service"}
+    - {code: HALT, name: "Trading Halt"}
+    - {code: DELIST, name: "Delisting Notice"}
+    - {code: RESUM, name: "Trading Resume"}
+    - {code: CA, name: "Corporate Action Announcement"}
+  newsml_mandatory_fields:
+    - {field: HeadLine, type: string, max_length: 140}
+    - {field: Body, type: rich_text}
+    - {field: IssuerID, type: string, length: 4}
+    - {field: AnnouncementDateTime, type: datetime}
+    - {field: Release, type: string, values: ["SENS", "RNS", "DELAYED"]}
+  distribution_channels:
+    - {channel: real_time_feed, protocol: HTTPS, latency_max_ms: 1000}
+    - {channel: email_alert, latency_max_minutes: 1}
+    - {channel: sms_alert, latency_max_seconds: 30}
+
+related:
+  - feature: market-data-mitch-udp
+    type: recommended
+  - feature: trading-gateway-fix
+    type: recommended
