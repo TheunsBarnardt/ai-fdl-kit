@@ -1,0 +1,198 @@
+{
+  "feature": "multiple-regression-evaluation-l2",
+  "version": "1.0.0",
+  "description": "Evaluate MLR fit using R-squared, adjusted R-squared, AIC, BIC, F-test for joint hypotheses, and generate forecasts with prediction intervals",
+  "category": "trading",
+  "tags": [
+    "quant",
+    "mlr-evaluation",
+    "goodness-of-fit",
+    "f-test",
+    "cfa-level-2"
+  ],
+  "aliases": [
+    "mlr-fit-l2",
+    "adjusted-r-squared-mlr",
+    "aic-bic-model-selection",
+    "f-test-joint-hypothesis",
+    "mlr-forecasting-intervals"
+  ],
+  "actors": [
+    {
+      "id": "mlr_evaluator",
+      "name": "MLR Fit Evaluator",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "model_id",
+      "type": "text",
+      "required": true,
+      "label": "Model identifier"
+    },
+    {
+      "name": "hypothesis_type",
+      "type": "select",
+      "required": true,
+      "label": "single | joint | nested"
+    }
+  ],
+  "rules": {
+    "goodness_of_fit": {
+      "r_squared": "SSR/SST = 1 - SSE/SST; always increases when adding regressors",
+      "adjusted_r_squared": "1 - [(n-1)/(n-k-1)] * (1 - R²); penalises adding non-informative regressors",
+      "aic": "n*ln(SSE/n) + 2k; lower is better; rewards parsimony",
+      "bic": "n*ln(SSE/n) + k*ln(n); stricter penalty than AIC for large samples"
+    },
+    "joint_hypothesis_tests": {
+      "f_test_statistic": "F = [(SSR_R - SSR_UR)/q] / [SSR_UR/(n-k-1)]",
+      "nested_models": "Compare unrestricted model to restricted model with q coefficients set to zero",
+      "general_linear_f": "F = (R²/k) / [(1-R²)/(n-k-1)] tests all slopes simultaneously zero"
+    },
+    "forecasting": {
+      "point_forecast": "Plug X values into fitted equation",
+      "prediction_interval": "ŷ ± t_critical * SE(forecast); accounts for both regression uncertainty and residual variance"
+    },
+    "validation": {
+      "model_required": "model_id present",
+      "valid_hypothesis": "hypothesis_type in [single, joint, nested]"
+    }
+  },
+  "outcomes": {
+    "evaluate_mlr": {
+      "priority": 1,
+      "description": "Evaluate MLR goodness of fit and joint hypotheses",
+      "given": [
+        {
+          "field": "model_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "hypothesis_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "single",
+            "joint",
+            "nested"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "mlr_evaluator"
+        },
+        {
+          "action": "emit_event",
+          "event": "mlr.evaluated"
+        }
+      ]
+    },
+    "invalid_hypothesis": {
+      "priority": 10,
+      "description": "Unsupported hypothesis type",
+      "given": [
+        {
+          "field": "hypothesis_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "single",
+            "joint",
+            "nested"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "mlr.evaluation_rejected"
+        }
+      ],
+      "error": "MLR_EVAL_INVALID_HYPOTHESIS"
+    }
+  },
+  "errors": [
+    {
+      "code": "MLR_EVAL_INVALID_HYPOTHESIS",
+      "status": 400,
+      "message": "hypothesis_type must be single, joint, or nested"
+    }
+  ],
+  "events": [
+    {
+      "name": "mlr.evaluated",
+      "payload": [
+        "model_id",
+        "r_squared",
+        "adjusted_r_squared",
+        "aic",
+        "bic",
+        "f_statistic",
+        "p_value"
+      ]
+    },
+    {
+      "name": "mlr.evaluation_rejected",
+      "payload": [
+        "model_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use R-squared alone to choose between models with different regressor counts",
+      "why": "R² always increases when adding regressors; adjusted R², AIC, or BIC penalise complexity and avoid overfitting"
+    },
+    {
+      "rule": "Do not run individual t-tests instead of an F-test for joint hypotheses",
+      "why": "Family-wise error rate inflates with multiple comparisons; F-test controls type-I error correctly for joint nulls"
+    },
+    {
+      "rule": "Do not extrapolate forecasts far outside the training sample range",
+      "why": "Linear model coefficients are only valid in the X-range observed; extrapolation amplifies bias and prediction interval understates true uncertainty"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/quant/mlr/evaluate"
+    },
+    "request": {
+      "schema": {
+        "model_id": "string",
+        "hypothesis_type": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "model_id": "string",
+          "adjusted_r_squared": "number",
+          "f_statistic": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "MLR_EVAL_INVALID_HYPOTHESIS"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "multiple-regression-basics-l2",
+      "type": "required"
+    },
+    {
+      "feature": "regression-goodness-of-fit",
+      "type": "recommended"
+    }
+  ]
+}

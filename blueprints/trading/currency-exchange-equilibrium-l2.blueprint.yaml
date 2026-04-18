@@ -1,0 +1,148 @@
+# ============================================================
+# currency-exchange-equilibrium-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 1 — Econ Module 1, Currency Exchange Rates
+# ============================================================
+
+feature: currency-exchange-equilibrium-l2
+version: "1.0.0"
+description: Determine FX equilibrium values via international parity conditions, carry trade, balance of payments flows, monetary models, and Mundell-Fleming
+category: trading
+tags: [economics, fx, international-parity, carry-trade, mundell-fleming, cfa-level-2]
+aliases:
+  - international-parity-l2
+  - covered-uncovered-interest-rate-parity-l2
+  - purchasing-power-parity-l2
+  - fisher-effect-real-rate-parity
+  - carry-trade-strategy-l2
+  - mundell-fleming-model
+  - balance-of-payments-fx
+  - portfolio-balance-approach
+  - currency-crisis-warning-signs
+
+actors:
+  - id: fx_equilibrium_engine
+    name: FX Equilibrium Engine
+    type: system
+
+fields:
+  - name: pair_id
+    type: text
+    required: true
+    label: Currency pair identifier
+  - name: parity_condition
+    type: select
+    required: true
+    label: cirp | uirp | frp | ppp | fisher
+
+rules:
+  fx_concepts:
+    spot_quote: "Price of base currency in units of price currency"
+    bid_ask_spread: "Ask – bid; widens with risk and illiquidity"
+    cross_rates: "Derive third pair via two intermediate pairs"
+    forward_premium_discount: "(F-S)/S annualised; positive = base trades at premium"
+    mark_to_market: "PV of (F_t - F_0)*notional discounted at price-currency rate"
+  international_parity_conditions:
+    cirp: "Covered interest rate parity F/S = (1+i_p)/(1+i_b); enforced by arbitrage"
+    uirp: "Uncovered interest rate parity E[%ΔS] = i_p - i_b; not enforced — empirical violations create carry trade"
+    frp: "Forward rate parity F = E[S]; combines CIRP and UIRP"
+    ppp: "Absolute PPP S = P_p/P_b; relative PPP %ΔS = π_p - π_b"
+    fisher: "Nominal i = real r + expected inflation"
+    real_interest_rate_parity: "Real rates equalise globally if all parities hold"
+  carry_trade:
+    strategy: "Borrow low-yield currency, invest high-yield currency"
+    risk: "Crash risk — high-yield currency depreciates sharply during stress"
+    pnl: "Interest differential plus FX move"
+  balance_of_payments_flows:
+    current_account: "Trade flows; persistent deficit pressures currency lower"
+    capital_account: "Investment flows; can offset CA deficits"
+    equity_market_trends: "Rising equity attracts capital inflows, supports currency"
+  monetary_fiscal_policy:
+    mundell_fleming: "Capital mobility, exchange regime, and policy mix determine currency response"
+    monetary_models: "Quantity theory and Dornbusch overshooting"
+    portfolio_balance: "Investors hold portfolios of domestic/foreign assets; fiscal expansion via bond issuance affects FX through risk premium"
+  intervention_controls:
+    sterilised_intervention: "FX op offset by domestic monetary op; weak effectiveness in deep markets"
+    capital_controls: "Restrict flows to manage exchange rate"
+  currency_crisis_warnings:
+    real_appreciation: "Loss of competitiveness"
+    declining_reserves: "Limited defence capacity"
+    rising_external_debt: "Currency mismatch risk"
+    political_instability: "Capital flight catalyst"
+  validation:
+    pair_required: "pair_id present"
+    valid_parity: "parity_condition in [cirp, uirp, frp, ppp, fisher]"
+
+outcomes:
+  evaluate_parity:
+    priority: 1
+    description: Evaluate FX parity condition
+    given:
+      - field: pair_id
+        source: input
+        operator: exists
+      - field: parity_condition
+        source: input
+        operator: in
+        value: [cirp, uirp, frp, ppp, fisher]
+    then:
+      - action: call_service
+        target: fx_equilibrium_engine
+      - action: emit_event
+        event: fx.parity_evaluated
+  invalid_parity:
+    priority: 10
+    description: Unsupported parity condition
+    given:
+      - field: parity_condition
+        source: input
+        operator: not_in
+        value: [cirp, uirp, frp, ppp, fisher]
+    then:
+      - action: emit_event
+        event: fx.parity_rejected
+    error: FX_INVALID_PARITY
+
+errors:
+  - code: FX_INVALID_PARITY
+    status: 400
+    message: parity_condition must be cirp, uirp, frp, ppp, or fisher
+
+events:
+  - name: fx.parity_evaluated
+    payload: [pair_id, parity_condition, theoretical_value, observed_value, deviation]
+  - name: fx.parity_rejected
+    payload: [pair_id, reason_code]
+
+anti_patterns:
+  - rule: Do not assume UIRP holds in the short run
+    why: "Empirically UIRP fails over weeks/months — this gap is exactly what carry traders exploit; only consider it a long-run anchor"
+  - rule: Do not ignore intervention regime when forecasting
+    why: "Fixed/managed regimes invalidate floating-rate equilibrium models; identify regime first (free float, managed, peg, currency board)"
+  - rule: Do not rely solely on absolute PPP for short-term forecasts
+    why: "Non-traded goods and price stickiness mean PPP can take years to hold; relative PPP and inflation differentials are more useful at policy horizons"
+
+api:
+  http:
+    method: POST
+    path: /economics/fx/parity/evaluate
+  request:
+    schema:
+      pair_id: string
+      parity_condition: string
+  response:
+    success:
+      status: 200
+      schema:
+        pair_id: string
+        deviation: number
+    errors:
+      - status: 400
+        error_code: FX_INVALID_PARITY
+
+related:
+  - feature: forward-exchange-rate-no-arbitrage
+    type: required
+  - feature: forward-rates-interest-rate-parity
+    type: required
+  - feature: exchange-rate-regimes
+    type: recommended

@@ -1,0 +1,145 @@
+# ============================================================
+# machine-learning-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 1 — Quant Module 6, Machine Learning
+# ============================================================
+
+feature: machine-learning-l2
+version: "1.0.0"
+description: Apply ML to investment problems — supervised (penalised regression, SVM, KNN, CART, random forest), unsupervised (PCA, clustering), neural networks, deep learning, reinforcement learning
+category: trading
+tags: [quant, machine-learning, supervised, unsupervised, neural-networks, cfa-level-2]
+aliases:
+  - ml-supervised-unsupervised-l2
+  - penalised-regression-lasso-ridge
+  - support-vector-machine-l2
+  - random-forest-cfa
+  - principal-components-analysis-l2
+  - k-means-hierarchical-clustering
+  - neural-network-deep-learning
+  - reinforcement-learning-finance
+
+actors:
+  - id: ml_engine_l2
+    name: ML Engine (L2)
+    type: system
+
+fields:
+  - name: model_id
+    type: text
+    required: true
+    label: Model identifier
+  - name: algorithm
+    type: select
+    required: true
+    label: penalised_regression | svm | knn | cart | random_forest | pca | kmeans | hierarchical | neural_network | deep_learning | reinforcement
+
+rules:
+  supervised_vs_unsupervised:
+    supervised: "Labelled data; predict Y from X (regression or classification)"
+    unsupervised: "No labels; discover structure (clusters, components)"
+  generalisation_overfitting:
+    bias_variance: "High bias = underfit; high variance = overfit"
+    train_validate_test: "Partition; train on training, tune on validation, evaluate on test"
+    k_fold_cv: "K-fold cross-validation reduces variance of performance estimate"
+  prevention_overfitting:
+    regularisation: "Penalise model complexity (L1/L2)"
+    early_stopping: "Halt training when validation error rises"
+  penalised_regression:
+    lasso: "L1 penalty; performs variable selection by zeroing coefficients"
+    ridge: "L2 penalty; shrinks coefficients without zeroing"
+    elastic_net: "Combines L1 and L2 penalties"
+  svm: "Linear classifier maximising margin between classes; kernel trick handles non-linear"
+  knn: "Classify by majority vote of k nearest neighbours; sensitive to feature scaling"
+  cart: "Recursive partitioning of feature space; prone to overfitting without pruning"
+  ensemble:
+    bagging: "Bootstrap aggregating; reduces variance"
+    random_forest: "Bagging on decision trees with random feature subsets at each split"
+    boosting: "Sequential weak learners weighted by previous errors"
+  unsupervised:
+    pca: "Linear orthogonal transformation maximising variance per component; eigenvalue scree plot to choose k"
+    kmeans: "Partition into k clusters minimising within-cluster sum of squares"
+    hierarchical: "Agglomerative or divisive; produces dendrogram"
+  neural_networks:
+    architecture: "Input layer → hidden layers (with non-linear activation) → output layer"
+    backpropagation: "Gradient descent on loss function via chain rule"
+    deep_learning: "Many hidden layers; learns hierarchical representations"
+  reinforcement_learning:
+    framework: "Agent learns policy maximising cumulative reward via state-action-reward feedback"
+    application: "Algorithmic trading strategies that adapt online"
+  validation:
+    model_required: "model_id present"
+    valid_algorithm: "algorithm in allowed set"
+
+outcomes:
+  train_ml_model:
+    priority: 1
+    description: Train ML model
+    given:
+      - field: model_id
+        source: input
+        operator: exists
+      - field: algorithm
+        source: input
+        operator: in
+        value: [penalised_regression, svm, knn, cart, random_forest, pca, kmeans, hierarchical, neural_network, deep_learning, reinforcement]
+    then:
+      - action: call_service
+        target: ml_engine_l2
+      - action: emit_event
+        event: ml.trained
+  invalid_algorithm:
+    priority: 10
+    description: Unsupported algorithm
+    given:
+      - field: algorithm
+        source: input
+        operator: not_in
+        value: [penalised_regression, svm, knn, cart, random_forest, pca, kmeans, hierarchical, neural_network, deep_learning, reinforcement]
+    then:
+      - action: emit_event
+        event: ml.train_rejected
+    error: ML_INVALID_ALGORITHM
+
+errors:
+  - code: ML_INVALID_ALGORITHM
+    status: 400
+    message: algorithm must be one of the supported ML algorithms
+
+events:
+  - name: ml.trained
+    payload: [model_id, algorithm, train_score, validation_score, hyperparameters]
+  - name: ml.train_rejected
+    payload: [model_id, reason_code]
+
+anti_patterns:
+  - rule: Do not evaluate models on the training set
+    why: "Training error understates generalisation error; always reserve a holdout or run cross-validation"
+  - rule: Do not run k-means without scaling features
+    why: "Distance metrics dominate by largest-scale features; standardise (z-scores) before clustering"
+  - rule: Do not stop hyperparameter tuning at first model that beats baseline
+    why: "Selection bias on validation set; use nested cross-validation or held-out test set for unbiased final estimate"
+
+api:
+  http:
+    method: POST
+    path: /quant/ml/train
+  request:
+    schema:
+      model_id: string
+      algorithm: string
+  response:
+    success:
+      status: 200
+      schema:
+        model_id: string
+        algorithm: string
+        validation_score: number
+    errors:
+      - status: 400
+        error_code: ML_INVALID_ALGORITHM
+
+related:
+  - feature: machine-learning-techniques
+    type: required
+  - feature: big-data-projects-l2
+    type: recommended

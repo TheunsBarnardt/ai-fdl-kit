@@ -1,0 +1,209 @@
+{
+  "feature": "regression-misspecification-l2",
+  "version": "1.0.0",
+  "description": "Diagnose and correct regression misspecification — heteroskedasticity, serial correlation, and multicollinearity — using Breusch-Pagan, Durbin-Watson/Breusch-Godfrey, and VIF",
+  "category": "trading",
+  "tags": [
+    "quant",
+    "misspecification",
+    "heteroskedasticity",
+    "serial-correlation",
+    "multicollinearity",
+    "cfa-level-2"
+  ],
+  "aliases": [
+    "heteroskedasticity-tests-l2",
+    "serial-correlation-l2",
+    "multicollinearity-vif",
+    "breusch-pagan-test",
+    "durbin-watson-statistic",
+    "breusch-godfrey-test",
+    "white-corrected-standard-errors"
+  ],
+  "actors": [
+    {
+      "id": "misspec_diagnostic",
+      "name": "Regression Misspecification Diagnostic",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "model_id",
+      "type": "text",
+      "required": true,
+      "label": "Model identifier"
+    },
+    {
+      "name": "violation_type",
+      "type": "select",
+      "required": true,
+      "label": "heteroskedasticity | serial_correlation | multicollinearity | omitted_variable"
+    }
+  ],
+  "rules": {
+    "specification_errors": {
+      "misspecified_form": "Wrong functional form (linear vs log-linear)",
+      "omitted_variables": "Relevant Xs missing — biases remaining coefficients",
+      "inappropriate_form_of_variables": "Use levels vs first differences inappropriately",
+      "inappropriate_scaling": "Mixing levels and ratios",
+      "inappropriate_pooling": "Combining heterogeneous data"
+    },
+    "heteroskedasticity": {
+      "consequences": "Coefficient estimates remain unbiased but SEs are wrong; t-tests unreliable",
+      "detection": "Breusch-Pagan test; Chi-sq with k df under H0 of homoskedasticity",
+      "correction": "White (robust) standard errors; weighted least squares"
+    },
+    "serial_correlation": {
+      "consequences": "SEs underestimated for positive autocorrelation; inflated t-stats",
+      "detection_dw": "Durbin-Watson ≈ 2(1-r); compare to dl/du critical values",
+      "detection_bg": "Breusch-Godfrey LM test for higher-order autocorrelation",
+      "correction": "Newey-West HAC standard errors; first-difference or AR(1) transformation"
+    },
+    "multicollinearity": {
+      "consequences": "SEs inflate; individual t-stats become insignificant despite high R²",
+      "detection_vif": "Variance Inflation Factor = 1/(1-R²_j); VIF > 10 suggests problematic collinearity",
+      "correction": "Drop one of correlated Xs; use principal components; collect more data"
+    },
+    "validation": {
+      "model_required": "model_id present",
+      "valid_violation": "violation_type in allowed set"
+    }
+  },
+  "outcomes": {
+    "diagnose_misspecification": {
+      "priority": 1,
+      "description": "Diagnose regression misspecification",
+      "given": [
+        {
+          "field": "model_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "violation_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "heteroskedasticity",
+            "serial_correlation",
+            "multicollinearity",
+            "omitted_variable"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "misspec_diagnostic"
+        },
+        {
+          "action": "emit_event",
+          "event": "misspec.diagnosed"
+        }
+      ]
+    },
+    "invalid_violation": {
+      "priority": 10,
+      "description": "Unsupported violation type",
+      "given": [
+        {
+          "field": "violation_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "heteroskedasticity",
+            "serial_correlation",
+            "multicollinearity",
+            "omitted_variable"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "misspec.diagnosis_rejected"
+        }
+      ],
+      "error": "MISSPEC_INVALID_VIOLATION"
+    }
+  },
+  "errors": [
+    {
+      "code": "MISSPEC_INVALID_VIOLATION",
+      "status": 400,
+      "message": "violation_type must be heteroskedasticity, serial_correlation, multicollinearity, or omitted_variable"
+    }
+  ],
+  "events": [
+    {
+      "name": "misspec.diagnosed",
+      "payload": [
+        "model_id",
+        "violation_type",
+        "test_statistic",
+        "p_value",
+        "recommended_correction"
+      ]
+    },
+    {
+      "name": "misspec.diagnosis_rejected",
+      "payload": [
+        "model_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not rely on Durbin-Watson when lagged dependent variables are regressors",
+      "why": "DW is biased toward 2 in such models; use Breusch-Godfrey LM test instead"
+    },
+    {
+      "rule": "Do not interpret high R² as evidence of correct specification",
+      "why": "Multicollinearity and omitted-variable bias both leave R² high while individual coefficient inferences are misleading"
+    },
+    {
+      "rule": "Do not drop multicollinear variables without examining theory",
+      "why": "Mechanical variable elimination can remove economically essential regressors; collinearity may be tolerable if forecasting and not testing individual betas"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/quant/regression/misspecification/diagnose"
+    },
+    "request": {
+      "schema": {
+        "model_id": "string",
+        "violation_type": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "model_id": "string",
+          "test_statistic": "number",
+          "p_value": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "MISSPEC_INVALID_VIOLATION"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "multiple-regression-basics-l2",
+      "type": "required"
+    },
+    {
+      "feature": "regression-assumptions",
+      "type": "required"
+    }
+  ]
+}

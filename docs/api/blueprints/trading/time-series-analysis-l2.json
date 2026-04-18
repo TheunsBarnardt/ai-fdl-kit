@@ -1,0 +1,237 @@
+{
+  "feature": "time-series-analysis-l2",
+  "version": "1.0.0",
+  "description": "Build and evaluate time-series models — linear and log-linear trends, AR(p), random walks with unit-root tests, MA, seasonal models, ARMA, and ARCH for conditional volatility",
+  "category": "trading",
+  "tags": [
+    "quant",
+    "time-series",
+    "ar-model",
+    "random-walk",
+    "arch",
+    "seasonality",
+    "cfa-level-2"
+  ],
+  "aliases": [
+    "ar-time-series-l2",
+    "random-walk-unit-root",
+    "dickey-fuller-test",
+    "moving-average-arima",
+    "arch-conditional-volatility",
+    "log-linear-trend-model",
+    "covariance-stationary-series"
+  ],
+  "actors": [
+    {
+      "id": "time_series_engine",
+      "name": "Time-Series Engine",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "model_id",
+      "type": "text",
+      "required": true,
+      "label": "Model identifier"
+    },
+    {
+      "name": "model_type",
+      "type": "select",
+      "required": true,
+      "label": "linear_trend | log_linear_trend | ar | random_walk | ma | arma | arch | seasonal"
+    }
+  ],
+  "rules": {
+    "trend_models": {
+      "linear": "y_t = b0 + b1*t + e_t; constant arithmetic change",
+      "log_linear": "ln(y_t) = b0 + b1*t + e_t; constant proportional growth rate",
+      "test_for_serial_correlation": "Durbin-Watson on residuals; if violated switch to AR model"
+    },
+    "covariance_stationary": {
+      "requirements": "Constant mean, constant variance, constant covariance with lagged values",
+      "detect_violation": "Augmented Dickey-Fuller (ADF) unit-root test; H0 = nonstationary"
+    },
+    "ar_models": {
+      "ar1": "x_t = b0 + b1*x_{t-1} + e_t",
+      "mean_reversion": "Unconditional mean = b0/(1-b1) when |b1| < 1",
+      "multiperiod_chain_rule": "Iterate one-period forecasts forward",
+      "detection_serial_correlation": "t-test on residual autocorrelations; |t| > 2 flags problem"
+    },
+    "random_walks": {
+      "pure_random_walk": "x_t = x_{t-1} + e_t; no constant or trend",
+      "random_walk_with_drift": "x_t = b0 + x_{t-1} + e_t",
+      "unit_root": "Coefficient on lagged level equals 1; ADF test",
+      "correction": "First-difference the series before regression"
+    },
+    "moving_average": {
+      "simple_ma": "Average of last m periods used for smoothing/forecasting",
+      "ma_q": "x_t = e_t + θ1*e_{t-1} + … + θq*e_{t-q}"
+    },
+    "seasonality": {
+      "detection": "Significant autocorrelation at lag k where k = seasonality period (4 quarterly, 12 monthly)",
+      "correction": "Add seasonal AR term x_{t-k} or seasonal dummy variables"
+    },
+    "arch_models": {
+      "arch_1": "var(e_t) = a0 + a1*e_{t-1}²",
+      "detection": "Regress squared residuals on their lags; significant coefficients indicate ARCH",
+      "use": "Forecast time-varying volatility for risk management"
+    },
+    "forecasting_steps": {
+      "plot_data": "Inspect for trend, seasonality, structural breaks",
+      "test_stationarity": "ADF; difference if needed",
+      "fit_candidate_model": "Compare AIC/BIC across AR(p)/ARMA(p,q)",
+      "diagnose_residuals": "Test for autocorrelation, ARCH, normality",
+      "out_of_sample_validation": "RMSE on holdout period"
+    },
+    "validation": {
+      "model_required": "model_id present",
+      "valid_model_type": "model_type in allowed set"
+    }
+  },
+  "outcomes": {
+    "fit_time_series": {
+      "priority": 1,
+      "description": "Fit time-series model",
+      "given": [
+        {
+          "field": "model_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "model_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "linear_trend",
+            "log_linear_trend",
+            "ar",
+            "random_walk",
+            "ma",
+            "arma",
+            "arch",
+            "seasonal"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "time_series_engine"
+        },
+        {
+          "action": "emit_event",
+          "event": "ts.fitted"
+        }
+      ]
+    },
+    "invalid_model_type": {
+      "priority": 10,
+      "description": "Unsupported time-series model",
+      "given": [
+        {
+          "field": "model_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "linear_trend",
+            "log_linear_trend",
+            "ar",
+            "random_walk",
+            "ma",
+            "arma",
+            "arch",
+            "seasonal"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "ts.fit_rejected"
+        }
+      ],
+      "error": "TS_INVALID_MODEL_TYPE"
+    }
+  },
+  "errors": [
+    {
+      "code": "TS_INVALID_MODEL_TYPE",
+      "status": 400,
+      "message": "model_type must be one of the supported time-series models"
+    }
+  ],
+  "events": [
+    {
+      "name": "ts.fitted",
+      "payload": [
+        "model_id",
+        "model_type",
+        "coefficients",
+        "aic",
+        "bic",
+        "residual_diagnostics"
+      ]
+    },
+    {
+      "name": "ts.fit_rejected",
+      "payload": [
+        "model_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not regress two trending series in levels",
+      "why": "Spurious regression — both series share a time trend producing high R² and significant t-stats with no economic relationship; difference or cointegrate first"
+    },
+    {
+      "rule": "Do not forecast from an AR model with significant residual autocorrelation",
+      "why": "Model is misspecified; add lags until autocorrelations are insignificant before generating forecasts"
+    },
+    {
+      "rule": "Do not assume stationarity from visual inspection alone",
+      "why": "Many series look stationary but contain unit roots; always run ADF or KPSS tests before estimation"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/quant/timeseries/fit"
+    },
+    "request": {
+      "schema": {
+        "model_id": "string",
+        "model_type": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "model_id": "string",
+          "coefficients": "object",
+          "aic": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "TS_INVALID_MODEL_TYPE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "multiple-regression-basics-l2",
+      "type": "required"
+    },
+    {
+      "feature": "regression-misspecification-l2",
+      "type": "recommended"
+    }
+  ]
+}

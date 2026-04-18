@@ -1,0 +1,218 @@
+{
+  "feature": "economic-growth-l2",
+  "version": "1.0.0",
+  "description": "Analyse drivers of economic growth — production function, growth accounting, capital deepening vs technology, classical/neoclassical/endogenous growth theories, convergence",
+  "category": "trading",
+  "tags": [
+    "economics",
+    "growth",
+    "production-function",
+    "solow-model",
+    "convergence",
+    "cfa-level-2"
+  ],
+  "aliases": [
+    "solow-growth-model",
+    "production-function-growth-l2",
+    "capital-deepening",
+    "growth-accounting-cfa",
+    "endogenous-growth-theory",
+    "convergence-hypothesis",
+    "total-factor-productivity"
+  ],
+  "actors": [
+    {
+      "id": "growth_analyst",
+      "name": "Growth Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "economy_id",
+      "type": "text",
+      "required": true,
+      "label": "Economy identifier"
+    },
+    {
+      "name": "growth_model",
+      "type": "select",
+      "required": true,
+      "label": "classical | neoclassical | endogenous"
+    }
+  ],
+  "rules": {
+    "factors_favouring_growth": {
+      "financial_markets": "Channel savings to productive investment",
+      "political_stability_law": "Property rights enforce contracts",
+      "education_health": "Human capital accumulation",
+      "tax_regulatory": "Predictable regimes encourage capital formation",
+      "free_trade_capital": "Specialisation gains, tech transfer"
+    },
+    "potential_growth_importance": {
+      "investor_implication": "Equity returns ≈ EPS growth ≈ GDP growth long-term",
+      "monetary_policy": "Output gap = actual − potential"
+    },
+    "production_function": {
+      "cobb_douglas": "Y = A * K^α * L^(1-α)",
+      "diminishing_returns_capital": "Marginal product of capital declines as K rises"
+    },
+    "growth_accounting": {
+      "decomposition": "%ΔY ≈ %ΔA + α*%ΔK + (1-α)*%ΔL",
+      "tfp_residual": "Solow residual = output growth not explained by factor inputs"
+    },
+    "capital_deepening_vs_tech": {
+      "capital_deepening": "Rising K/L; subject to diminishing returns",
+      "technological_progress": "Shifts production function up; only sustainable source of long-run per-capita growth"
+    },
+    "classical_model": {
+      "malthusian": "Population growth absorbs output gains; living standards stagnate"
+    },
+    "neoclassical_solow": {
+      "steady_state": "All economies converge to per-capita growth rate equal to TFP growth",
+      "convergence": "Poorer countries grow faster (β-convergence) given same fundamentals"
+    },
+    "endogenous_growth": {
+      "constant_returns_capital_broad": "Including human capital and R&D investment",
+      "no_steady_state_decline": "Policy can permanently raise growth via R&D incentives"
+    },
+    "convergence_types": {
+      "absolute": "All economies converge regardless of starting point",
+      "conditional": "Convergence only among economies with similar fundamentals",
+      "club": "Convergence within groups sharing institutions"
+    },
+    "validation": {
+      "economy_required": "economy_id present",
+      "valid_model": "growth_model in [classical, neoclassical, endogenous]"
+    }
+  },
+  "outcomes": {
+    "decompose_growth": {
+      "priority": 1,
+      "description": "Decompose economic growth",
+      "given": [
+        {
+          "field": "economy_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "growth_model",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "classical",
+            "neoclassical",
+            "endogenous"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "growth_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "growth.decomposed"
+        }
+      ]
+    },
+    "invalid_model": {
+      "priority": 10,
+      "description": "Unsupported growth model",
+      "given": [
+        {
+          "field": "growth_model",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "classical",
+            "neoclassical",
+            "endogenous"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "growth.decomposition_rejected"
+        }
+      ],
+      "error": "GROWTH_INVALID_MODEL"
+    }
+  },
+  "errors": [
+    {
+      "code": "GROWTH_INVALID_MODEL",
+      "status": 400,
+      "message": "growth_model must be classical, neoclassical, or endogenous"
+    }
+  ],
+  "events": [
+    {
+      "name": "growth.decomposed",
+      "payload": [
+        "economy_id",
+        "growth_model",
+        "capital_contribution",
+        "labour_contribution",
+        "tfp_contribution"
+      ]
+    },
+    {
+      "name": "growth.decomposition_rejected",
+      "payload": [
+        "economy_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not extrapolate developing-economy convergence forecasts uncritically",
+      "why": "Convergence is conditional on institutions, savings rate, and human capital; weak fundamentals mean a poor country can stay poor indefinitely"
+    },
+    {
+      "rule": "Do not attribute all residual growth to TFP",
+      "why": "Solow residual also captures measurement error in K and L; treat as upper bound on technology contribution"
+    },
+    {
+      "rule": "Do not confuse capital deepening with technological progress",
+      "why": "Capital deepening hits diminishing returns; only TFP sustains long-run per-capita growth"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/economics/growth/decompose"
+    },
+    "request": {
+      "schema": {
+        "economy_id": "string",
+        "growth_model": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "economy_id": "string",
+          "tfp_contribution": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "GROWTH_INVALID_MODEL"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "economic-indicators",
+      "type": "recommended"
+    }
+  ]
+}

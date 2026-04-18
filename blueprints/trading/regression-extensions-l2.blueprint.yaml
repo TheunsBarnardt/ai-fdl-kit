@@ -1,0 +1,125 @@
+# ============================================================
+# regression-extensions-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 1 — Quant Module 4, Extensions of Multiple Regression
+# ============================================================
+
+feature: regression-extensions-l2
+version: "1.0.0"
+description: Apply regression extensions — influence analysis (leverage, studentised residuals, Cook's D), dummy variables (intercept and slope), and qualitative dependents (logit, probit)
+category: trading
+tags: [quant, influence-analysis, dummy-variables, logit, probit, cfa-level-2]
+aliases:
+  - influence-diagnostics-l2
+  - cooks-distance
+  - leverage-points-regression
+  - dummy-variable-regression
+  - logit-probit-models
+  - qualitative-dependent-variable
+
+actors:
+  - id: regression_extensions_engine
+    name: Regression Extensions Engine
+    type: system
+
+fields:
+  - name: model_id
+    type: text
+    required: true
+    label: Model identifier
+  - name: extension_type
+    type: select
+    required: true
+    label: influence | dummy | logit | probit
+
+rules:
+  influence_analysis:
+    leverage: "Hat matrix diagonal h_ii; high leverage if h_ii > 3*(k+1)/n"
+    studentised_residuals: "Residual / its estimated SE; |t*| > 3 flags outlier"
+    cooks_distance: "D_i = (r_i² / (k+1)) * (h_ii/(1-h_ii)²); D_i > 1 (or > 0.5 cautious) flags influential observation"
+    detection_rule: "An observation is influential when removing it materially changes the fitted coefficients"
+  dummy_variables:
+    intercept_dummy: "0/1 indicator that shifts intercept for category"
+    slope_dummy: "Interaction term X*D allowing slope to vary by category"
+    n_minus_1_rule: "For n categories, use n-1 dummies to avoid the dummy variable trap"
+  qualitative_dependents:
+    logit: "ln(p/(1-p)) = b0 + b1X1 + …; coefficients interpreted as log-odds change"
+    probit: "Φ⁻¹(p) = b0 + b1X1 + …; uses standard normal CDF link"
+    estimation: "Maximum likelihood; not OLS"
+    pseudo_r_squared: "McFadden R² for fit comparison"
+  validation:
+    model_required: "model_id present"
+    valid_extension: "extension_type in [influence, dummy, logit, probit]"
+
+outcomes:
+  apply_extension:
+    priority: 1
+    description: Apply regression extension
+    given:
+      - field: model_id
+        source: input
+        operator: exists
+      - field: extension_type
+        source: input
+        operator: in
+        value: [influence, dummy, logit, probit]
+    then:
+      - action: call_service
+        target: regression_extensions_engine
+      - action: emit_event
+        event: regression_ext.applied
+  invalid_extension:
+    priority: 10
+    description: Unsupported extension type
+    given:
+      - field: extension_type
+        source: input
+        operator: not_in
+        value: [influence, dummy, logit, probit]
+    then:
+      - action: emit_event
+        event: regression_ext.rejected
+    error: REG_EXT_INVALID_TYPE
+
+errors:
+  - code: REG_EXT_INVALID_TYPE
+    status: 400
+    message: extension_type must be influence, dummy, logit, or probit
+
+events:
+  - name: regression_ext.applied
+    payload: [model_id, extension_type, key_metric, recommended_action]
+  - name: regression_ext.rejected
+    payload: [model_id, reason_code]
+
+anti_patterns:
+  - rule: Do not include n dummies for n categories
+    why: "Causes perfect multicollinearity with the intercept (dummy variable trap); always use n-1 dummies and interpret omitted as baseline"
+  - rule: Do not delete influential observations without investigation
+    why: "Influential points may signal genuine regime change or data error; mechanical deletion biases the model and hides real-world signal"
+  - rule: Do not fit OLS to a binary dependent variable
+    why: "Linear probability model produces fitted values outside [0,1] and heteroskedastic residuals; logit or probit are correct specifications"
+
+api:
+  http:
+    method: POST
+    path: /quant/regression/extensions/apply
+  request:
+    schema:
+      model_id: string
+      extension_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        model_id: string
+        extension_type: string
+        key_metric: number
+    errors:
+      - status: 400
+        error_code: REG_EXT_INVALID_TYPE
+
+related:
+  - feature: multiple-regression-basics-l2
+    type: required
+  - feature: regression-misspecification-l2
+    type: recommended
