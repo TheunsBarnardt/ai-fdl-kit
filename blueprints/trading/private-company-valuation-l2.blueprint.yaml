@@ -1,0 +1,155 @@
+# ============================================================
+# private-company-valuation-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 4 — Equity Valuation Module 4, Private Company Valuation
+# ============================================================
+
+feature: private-company-valuation-l2
+version: "1.0.0"
+description: Value private companies — public vs private differences, earnings normalisation, discount rate models, lack of control and marketability discounts, income/market/excess-earnings approaches
+category: trading
+tags: [equity-valuation, private-company, dlom, dloc, build-up-method, cfa-level-2]
+aliases:
+  - private-company-discount-rate
+  - lack-of-marketability-discount
+  - lack-of-control-discount
+  - excess-earnings-method
+  - guideline-public-company-method
+  - guideline-transactions-method
+  - earnings-normalization-private
+
+actors:
+  - id: private_valuator
+    name: Private Company Valuator
+    type: system
+
+fields:
+  - name: company_id
+    type: text
+    required: true
+    label: Company identifier
+  - name: approach
+    type: select
+    required: true
+    label: income | market | excess_earnings | asset
+
+rules:
+  public_vs_private_differences:
+    company_specific: "Lifecycle stage, size, management depth"
+    stock_specific: "Liquidity, control, restrictions"
+  uses_of_valuation:
+    transactions: "M&A, financing, IPO"
+    compliance: "Tax, financial reporting (purchase price allocation)"
+    litigation: "Shareholder disputes, divorce"
+  areas_of_focus:
+    venture_capital: "Pre-money valuation, milestone-based"
+    fairness_opinions: "Independent value for board"
+    estate_planning: "Gift tax, transfer pricing"
+  earnings_normalisation:
+    owner_compensation: "Adjust above-market salaries"
+    related_party: "Lease and service contracts"
+    discretionary_expenses: "Personal expenses run through company"
+    one_time_items: "Strip non-recurring"
+  cash_flow_estimation:
+    fcff_or_fcfe: "Same definitions as public; data quality lower"
+    capex_estimation: "Maintenance vs growth"
+  discount_rate_factors:
+    size_premium: "Smaller firms higher required return"
+    illiquidity: "Lack of marketability raises required return"
+    company_specific_risk: "Customer concentration, key-person"
+    diversification_lack: "Owner not diversified"
+  required_return_models:
+    capm_modified: "Add size and specific premia"
+    expanded_capm: "Rf + ERP + size + industry"
+    build_up_method: "Rf + ERP + size + specific (no beta)"
+    bond_yield_plus_risk_premium: "YTM + 3-5%"
+  valuation_discounts:
+    dloc_lack_of_control: "Minority interest discount; pro-rata reduction for inability to direct"
+    dlom_lack_of_marketability: "Restricted stock studies, pre-IPO studies; 20-40% typical"
+    combined: "Multiplicative not additive"
+  income_based_approach:
+    fcf_method: "Standard DCF with private adjustments"
+    capitalised_cash_flow: "CF / (k − g) for stable firms"
+    excess_earnings: "Identifies intangible value above tangible asset return"
+  market_based_approach:
+    gpcm_guideline_public: "Apply public-company multiples with control/liquidity adjustments"
+    gtm_guideline_transactions: "Multiples from comparable M&A"
+    prior_transaction: "Recent share sales as benchmark"
+  asset_based_approach:
+    appropriate_when: "Holding companies, distressed, liquidation"
+    method: "FV of identifiable assets less liabilities"
+  validation:
+    company_required: "company_id present"
+    valid_approach: "approach in [income, market, excess_earnings, asset]"
+
+outcomes:
+  value_private_company:
+    priority: 1
+    description: Value private company via selected approach
+    given:
+      - field: company_id
+        source: input
+        operator: exists
+      - field: approach
+        source: input
+        operator: in
+        value: [income, market, excess_earnings, asset]
+    then:
+      - action: call_service
+        target: private_valuator
+      - action: emit_event
+        event: private.valued
+  invalid_approach:
+    priority: 10
+    description: Unsupported valuation approach
+    given:
+      - field: approach
+        source: input
+        operator: not_in
+        value: [income, market, excess_earnings, asset]
+    then:
+      - action: emit_event
+        event: private.rejected
+    error: PRIVATE_INVALID_APPROACH
+
+errors:
+  - code: PRIVATE_INVALID_APPROACH
+    status: 400
+    message: approach must be one of the supported approaches
+
+events:
+  - name: private.valued
+    payload: [company_id, approach, marketable_minority_value, dloc, dlom, final_value]
+  - name: private.rejected
+    payload: [company_id, reason_code]
+
+anti_patterns:
+  - rule: Do not apply DLOC and DLOM additively
+    why: "Discounts are multiplicative — applying 30% DLOC and 30% DLOM additively gives 60% off, but compounding gives 51%; the additive shortcut overstates the discount"
+  - rule: Do not value private firms with public-company discount rates without size and specific premia
+    why: "Public CAPM understates required return for private firms; the build-up method explicitly adds size, industry, and company-specific risk premia"
+  - rule: Do not skip earnings normalisation for owner-managed firms
+    why: "Owner compensation, related-party rent, and personal expenses distort reported earnings; raw EBITDA can be 30-50% off true economic earnings"
+
+api:
+  http:
+    method: POST
+    path: /equity/private/value
+  request:
+    schema:
+      company_id: string
+      approach: string
+  response:
+    success:
+      status: 200
+      schema:
+        company_id: string
+        final_value: number
+    errors:
+      - status: 400
+        error_code: PRIVATE_INVALID_APPROACH
+
+related:
+  - feature: free-cash-flow-valuation-l2
+    type: recommended
+  - feature: market-based-valuation-multiples-l2
+    type: recommended

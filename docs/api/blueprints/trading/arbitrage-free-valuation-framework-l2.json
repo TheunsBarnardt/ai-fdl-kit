@@ -1,0 +1,224 @@
+{
+  "feature": "arbitrage-free-valuation-framework-l2",
+  "version": "1.0.0",
+  "description": "Value bonds arbitrage-free — law of one price, binomial interest rate trees, calibration to term structure, pathwise valuation, Monte Carlo, equilibrium and arbitrage-free term structure models",
+  "category": "trading",
+  "tags": [
+    "fixed-income",
+    "arbitrage-free",
+    "binomial-tree",
+    "monte-carlo",
+    "term-structure-models",
+    "cfa-level-2"
+  ],
+  "aliases": [
+    "law-of-one-price",
+    "binomial-interest-rate-tree",
+    "pathwise-valuation",
+    "monte-carlo-bond-valuation",
+    "equilibrium-term-structure-models",
+    "arbitrage-free-term-structure-models",
+    "calibration-binomial-tree"
+  ],
+  "actors": [
+    {
+      "id": "arbitrage_valuator",
+      "name": "Arbitrage-Free Bond Valuator",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "bond_id",
+      "type": "text",
+      "required": true,
+      "label": "Bond identifier"
+    },
+    {
+      "name": "valuation_method",
+      "type": "select",
+      "required": true,
+      "label": "zero_curve | binomial_tree | pathwise | monte_carlo"
+    }
+  ],
+  "rules": {
+    "meaning_of_arbitrage_free": {
+      "law_of_one_price": "Identical cash flows must have identical prices",
+      "arbitrage_opportunity": "Riskless profit with zero net investment",
+      "implications_fi": "Bonds with same cash flows in all states must have same price"
+    },
+    "arbitrage_free_option_free": {
+      "method": "Discount each cash flow at maturity-matching spot rate",
+      "formula": "P = Σ CF_t / (1+s_t)^t"
+    },
+    "binomial_interest_rate_tree": {
+      "structure": "Lognormal tree of one-period rates with up/down nodes",
+      "volatility_input": "σ governs spread between adjacent nodes (e.g., u/d = e^{2σ})",
+      "risk_neutral_probabilities": "Typically 0.5/0.5 in standard build"
+    },
+    "determining_node_value": {
+      "backward_induction": "V_node = 0.5 × (V_up + V_down + 2C) / (1 + r_node)",
+      "discount_at_node_rate": "Use one-period rate at that node"
+    },
+    "calibration": {
+      "objective": "Tree must price benchmark bonds (zero curve) exactly",
+      "process": "Iteratively solve for short rates so model prices match observed"
+    },
+    "valuing_option_free": {
+      "binomial": "Backward induction on the calibrated tree",
+      "cross_check": "Should equal zero-curve discounting"
+    },
+    "pathwise_valuation": {
+      "method": "Average present value across all 2^n paths",
+      "equivalence": "Mathematically same as backward induction"
+    },
+    "monte_carlo": {
+      "use_when": "Path-dependent securities (MBS, prepayment)",
+      "process": "Simulate many rate paths; discount along each; average",
+      "benchmark": "Calibrate so expected value matches benchmark prices"
+    },
+    "term_structure_models": {
+      "equilibrium_models": "CIR (cir > 0 mean reverting), Vasicek (Gaussian, mean reverting); derive curve from primitives",
+      "arbitrage_free_models": "Ho-Lee, BDT, HJM; fit observed curve exactly",
+      "modern_models": "Affine multi-factor; LMM for swaption pricing"
+    },
+    "validation": {
+      "bond_required": "bond_id present",
+      "valid_method": "valuation_method in [zero_curve, binomial_tree, pathwise, monte_carlo]"
+    }
+  },
+  "outcomes": {
+    "value_arbitrage_free": {
+      "priority": 1,
+      "description": "Value bond using arbitrage-free method",
+      "given": [
+        {
+          "field": "bond_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "valuation_method",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "zero_curve",
+            "binomial_tree",
+            "pathwise",
+            "monte_carlo"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "arbitrage_valuator"
+        },
+        {
+          "action": "emit_event",
+          "event": "arbitrage_free.valued"
+        }
+      ]
+    },
+    "invalid_method": {
+      "priority": 10,
+      "description": "Unsupported valuation method",
+      "given": [
+        {
+          "field": "valuation_method",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "zero_curve",
+            "binomial_tree",
+            "pathwise",
+            "monte_carlo"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "arbitrage_free.rejected"
+        }
+      ],
+      "error": "ARBITRAGE_INVALID_METHOD"
+    }
+  },
+  "errors": [
+    {
+      "code": "ARBITRAGE_INVALID_METHOD",
+      "status": 400,
+      "message": "valuation_method must be one of the supported methods"
+    }
+  ],
+  "events": [
+    {
+      "name": "arbitrage_free.valued",
+      "payload": [
+        "bond_id",
+        "valuation_method",
+        "value",
+        "calibration_check"
+      ]
+    },
+    {
+      "name": "arbitrage_free.rejected",
+      "payload": [
+        "bond_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use equilibrium models without checking fit to observed curve",
+      "why": "CIR and Vasicek may misprice the live curve by 50-100 bps; for trading, arbitrage-free models (Ho-Lee, BDT, HJM) are required to ensure no static arbitrage"
+    },
+    {
+      "rule": "Do not value path-dependent securities with backward induction alone",
+      "why": "MBS prepayment depends on rate path, not just current rate; backward induction averages incorrectly — Monte Carlo is required"
+    },
+    {
+      "rule": "Do not skip calibration of binomial trees to benchmark prices",
+      "why": "An uncalibrated tree produces theoretical values inconsistent with observable bond prices, exposing the user to immediate model arbitrage losses"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/fixed-income/arbitrage-free/value"
+    },
+    "request": {
+      "schema": {
+        "bond_id": "string",
+        "valuation_method": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "bond_id": "string",
+          "value": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "ARBITRAGE_INVALID_METHOD"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "term-structure-interest-rate-dynamics-l2",
+      "type": "required"
+    },
+    {
+      "feature": "bonds-with-embedded-options-l2",
+      "type": "recommended"
+    }
+  ]
+}

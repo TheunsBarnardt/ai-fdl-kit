@@ -1,0 +1,142 @@
+# ============================================================
+# credit-analysis-models-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 4 — Fixed Income Module 4, Credit Analysis Models
+# ============================================================
+
+feature: credit-analysis-models-l2
+version: "1.0.0"
+description: Model credit risk — credit valuation adjustment, scores and ratings, structural and reduced-form models, credit spread analysis, and term structure of credit spreads
+category: trading
+tags: [fixed-income, credit-risk, cva, structural-model, reduced-form-model, credit-spread, cfa-level-2]
+aliases:
+  - credit-valuation-adjustment-l2
+  - structural-credit-models
+  - reduced-form-credit-models
+  - merton-model-credit
+  - credit-scores-ratings
+  - term-structure-credit-spreads
+  - probability-of-default-modelling
+
+actors:
+  - id: credit_modeller
+    name: Credit Risk Modeller
+    type: system
+
+fields:
+  - name: bond_id
+    type: text
+    required: true
+    label: Bond identifier
+  - name: model_type
+    type: select
+    required: true
+    label: cva | structural | reduced_form | spread
+
+rules:
+  credit_risk_components:
+    probability_of_default: "PD over horizon"
+    loss_given_default: "1 − recovery rate"
+    exposure_at_default: "Outstanding amount at default"
+    expected_loss: "PD × LGD × EAD"
+  credit_valuation_adjustment:
+    definition: "PV of expected loss from counterparty default"
+    formula: "CVA = Σ PD_t × LGD × EAD_t × DF_t"
+    use_in_valuation: "Risk-free price minus CVA = risky price"
+  credit_scores_ratings:
+    consumer_scores: "FICO, vantage; statistical models"
+    corporate_ratings: "Moody's, S&P, Fitch; rating migration matrices"
+    rating_thresholds: "Investment grade vs high yield boundary"
+  structural_models:
+    merton_framework: "Equity is call option on assets struck at debt face value"
+    inputs: "Asset value, asset volatility, debt face, time to maturity"
+    pd_formula: "N(−d2) where d2 from BSM"
+    strengths: "Economic intuition, unifies equity and debt"
+    weaknesses: "Asset value not observable; assumes lognormal assets"
+  reduced_form_models:
+    framework: "Default as exogenous Poisson process with intensity λ"
+    inputs: "Hazard rate calibrated to observed credit spreads"
+    strengths: "Calibrates to market; flexible for complex products"
+    weaknesses: "No economic mechanism; relies on liquid market"
+  credit_spread_analysis:
+    nominal_spread: "Yield − benchmark yield"
+    z_spread: "Constant spread to spot curve"
+    oas: "Spread after option adjustment"
+    asset_swap_spread: "Spread over swap curve"
+  term_structure_of_spreads:
+    upward_sloping_typical: "Longer horizons higher cumulative default probability"
+    inverted_at_distress: "Near-term default risk priced into short end"
+    factors: "Macro, liquidity, supply"
+  validation:
+    bond_required: "bond_id present"
+    valid_model: "model_type in [cva, structural, reduced_form, spread]"
+
+outcomes:
+  model_credit:
+    priority: 1
+    description: Apply credit risk model
+    given:
+      - field: bond_id
+        source: input
+        operator: exists
+      - field: model_type
+        source: input
+        operator: in
+        value: [cva, structural, reduced_form, spread]
+    then:
+      - action: call_service
+        target: credit_modeller
+      - action: emit_event
+        event: credit.modelled
+  invalid_model:
+    priority: 10
+    description: Unsupported credit model
+    given:
+      - field: model_type
+        source: input
+        operator: not_in
+        value: [cva, structural, reduced_form, spread]
+    then:
+      - action: emit_event
+        event: credit.rejected
+    error: CREDIT_INVALID_MODEL
+
+errors:
+  - code: CREDIT_INVALID_MODEL
+    status: 400
+    message: model_type must be one of the supported credit models
+
+events:
+  - name: credit.modelled
+    payload: [bond_id, model_type, pd, lgd, expected_loss, cva, oas]
+  - name: credit.rejected
+    payload: [bond_id, reason_code]
+
+anti_patterns:
+  - rule: Do not equate credit ratings with market-implied default probabilities
+    why: "Ratings lag and span wide PD ranges within a notch; spreads price information ratings have not yet incorporated, and the divergence is the trade signal"
+  - rule: Do not ignore wrong-way risk in CVA
+    why: "CVA assumes EAD and PD are independent; in reality counterparty PD often correlates with the exposure (e.g., FX swap with sovereign), magnifying loss"
+  - rule: Do not use structural models without questioning asset volatility input
+    why: "Asset volatility is unobservable and proxied from equity volatility; small input errors translate to large PD swings — sensitivity analysis is mandatory"
+
+api:
+  http:
+    method: POST
+    path: /fixed-income/credit/model
+  request:
+    schema:
+      bond_id: string
+      model_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        bond_id: string
+        expected_loss: number
+    errors:
+      - status: 400
+        error_code: CREDIT_INVALID_MODEL
+
+related:
+  - feature: credit-default-swaps-l2
+    type: recommended

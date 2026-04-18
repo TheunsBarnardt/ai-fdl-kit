@@ -1,0 +1,151 @@
+# ============================================================
+# credit-default-swaps-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 4 — Fixed Income Module 5, Credit Default Swaps
+# ============================================================
+
+feature: credit-default-swaps-l2
+version: "1.0.0"
+description: Analyse credit default swaps — single-name and index CDS, mechanics, valuation (CDS spread vs credit curve), upfront payment, basis trades, and CDS uses in credit risk management
+category: trading
+tags: [fixed-income, cds, credit-derivatives, basis-trade, cdx, itraxx, cfa-level-2]
+aliases:
+  - single-name-cds-l2
+  - index-cds-cdx-itraxx
+  - cds-spread-valuation
+  - cds-upfront-payment
+  - basis-trade-cds-bond
+  - credit-event-isda
+  - cds-protection-buyer-seller
+
+actors:
+  - id: cds_analyst
+    name: Credit Default Swap Analyst
+    type: system
+
+fields:
+  - name: trade_id
+    type: text
+    required: true
+    label: CDS trade identifier
+  - name: cds_type
+    type: select
+    required: true
+    label: single_name | index | basket | tranche
+
+rules:
+  cds_basics:
+    contract: "Protection buyer pays periodic premium to seller; seller compensates loss on credit event"
+    notional: "Reference amount; not exchanged at inception"
+    coupon: "Standardised at 100 bps (IG) or 500 bps (HY)"
+    upfront_payment: "Reconciles standard coupon with market spread"
+  credit_events_isda:
+    bankruptcy: "Issuer files or fails to pay creditors"
+    failure_to_pay: "Past grace period"
+    restructuring: "Modified definitions for sovereign vs corporate"
+    determinations_committee: "ISDA decides if event triggered"
+  settlement:
+    physical: "Buyer delivers bond, receives par"
+    cash: "Auction determines recovery; cash payment of (1-recovery) × notional"
+    auction_protocol: "Standard since 2009"
+  single_name_vs_index:
+    single_name: "One reference entity"
+    index: "CDX (NA), iTraxx (Europe); equally weighted basket"
+    sub_indices: "IG, HY, EM, financials"
+  cds_spread:
+    intuition: "Annualised premium that equates expected protection payments to expected losses"
+    relationship: "CDS spread ≈ PD × LGD (approx; ignoring funding/liquidity)"
+  cds_pricing:
+    upfront_formula: "Upfront ≈ (CDS spread − fixed coupon) × duration × notional"
+    pv_protection_leg: "Σ PD_t × LGD × DF_t"
+    pv_premium_leg: "Σ coupon × DF_t × (1 − cumulative PD_t)"
+  credit_curve:
+    upward_sloping: "Higher cumulative PD over longer horizons"
+    inverted_at_distress: "Near-term default risk dominant"
+  uses_of_cds:
+    hedging: "Buy protection on bond holdings"
+    speculation: "Naked long/short credit exposure"
+    arbitrage: "Basis trade between CDS spread and bond Z-spread"
+    capital_relief: "Synthetic securitisation"
+  basis_trade:
+    definition: "CDS basis = CDS spread − bond Z-spread"
+    positive_basis: "Buy bond, buy protection (rare; funding stress)"
+    negative_basis: "Sell bond/short, sell protection"
+    drivers: "Funding, repo specials, contract specifics, deliverable squeeze"
+  index_tranches:
+    structure: "Equity (0-3%), mezzanine (3-7%), senior tranches"
+    correlation_sensitivity: "Equity tranche short correlation; senior long correlation"
+  validation:
+    trade_required: "trade_id present"
+    valid_type: "cds_type in [single_name, index, basket, tranche]"
+
+outcomes:
+  analyse_cds:
+    priority: 1
+    description: Analyse CDS trade
+    given:
+      - field: trade_id
+        source: input
+        operator: exists
+      - field: cds_type
+        source: input
+        operator: in
+        value: [single_name, index, basket, tranche]
+    then:
+      - action: call_service
+        target: cds_analyst
+      - action: emit_event
+        event: cds.analysed
+  invalid_type:
+    priority: 10
+    description: Unsupported CDS type
+    given:
+      - field: cds_type
+        source: input
+        operator: not_in
+        value: [single_name, index, basket, tranche]
+    then:
+      - action: emit_event
+        event: cds.rejected
+    error: CDS_INVALID_TYPE
+
+errors:
+  - code: CDS_INVALID_TYPE
+    status: 400
+    message: cds_type must be one of the supported types
+
+events:
+  - name: cds.analysed
+    payload: [trade_id, cds_type, spread_bps, upfront, mark_to_market, basis]
+  - name: cds.rejected
+    payload: [trade_id, reason_code]
+
+anti_patterns:
+  - rule: Do not assume CDS basis is always near zero
+    why: "Basis can widen by 100+ bps in funding stress (e.g., 2008, 2020); CDS-bond arbitrage requires funded long bond and capital, which become scarce in crises"
+  - rule: Do not use single-name CDS spreads to price index tranches
+    why: "Tranche valuation depends on default correlation, not just average spreads; correlation skew in index tranches priced separately from constituents"
+  - rule: Do not ignore restructuring clause variants
+    why: "CR (full restructuring), MR, MMR, XR (no restructuring) clauses produce materially different CDS pricing — cross-region trades must align documentation"
+
+api:
+  http:
+    method: POST
+    path: /fixed-income/cds/analyse
+  request:
+    schema:
+      trade_id: string
+      cds_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        trade_id: string
+        spread_bps: number
+        upfront: number
+    errors:
+      - status: 400
+        error_code: CDS_INVALID_TYPE
+
+related:
+  - feature: credit-analysis-models-l2
+    type: required

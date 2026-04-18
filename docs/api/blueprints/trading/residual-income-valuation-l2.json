@@ -1,0 +1,225 @@
+{
+  "feature": "residual-income-valuation-l2",
+  "version": "1.0.0",
+  "description": "Value equity via residual income — RI definition, general RI model, single-stage and multistage RI, persistence, clean surplus violations, and accounting adjustments",
+  "category": "trading",
+  "tags": [
+    "equity-valuation",
+    "residual-income",
+    "eva",
+    "clean-surplus",
+    "cfa-level-2"
+  ],
+  "aliases": [
+    "economic-value-added-l2",
+    "rim-residual-income-model",
+    "single-stage-residual-income",
+    "multistage-residual-income",
+    "clean-surplus-relationship",
+    "residual-income-persistence",
+    "eva-mva-valuation"
+  ],
+  "actors": [
+    {
+      "id": "ri_valuator",
+      "name": "Residual Income Valuator",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "company_id",
+      "type": "text",
+      "required": true,
+      "label": "Company identifier"
+    },
+    {
+      "name": "ri_model",
+      "type": "select",
+      "required": true,
+      "label": "single_stage | multistage | general"
+    }
+  ],
+  "rules": {
+    "residual_income_definition": {
+      "formula": "RI = NI − k_e × Equity",
+      "economic_meaning": "Earnings above required return on equity capital",
+      "eva_link": "EVA = NOPAT − WACC × Invested Capital"
+    },
+    "general_rim": {
+      "formula": "V0 = B0 + Σ RI_t / (1+k_e)^t",
+      "interpretation": "Value = book value + present value of future residual income"
+    },
+    "fundamental_drivers": {
+      "abnormal_roe": "(ROE − k_e) generates positive RI",
+      "persistence": "How long competitive advantage lasts",
+      "book_value_growth": "Reinvestment scales abnormal earnings"
+    },
+    "single_stage_ri": {
+      "formula": "V0 = B0 + (ROE − k_e) × B0 / (k_e − g)",
+      "use_when": "ROE-k_e and g constant in perpetuity"
+    },
+    "multistage_ri": {
+      "structure": "Explicit RI period + persistence factor for terminal",
+      "persistence_factor": "ω: 0 = immediate decay, 1 = perpetual",
+      "terminal_value": "Premium-over-book that fades to zero or constant level"
+    },
+    "relationship_to_other_models": {
+      "ddm_equivalence": "Mathematically equivalent given clean surplus",
+      "fcf_equivalence": "Different recognition timing; same value",
+      "rim_strengths": "Heavy weight on book value (less terminal sensitivity)"
+    },
+    "strengths_weaknesses": {
+      "strengths": "Less reliance on terminal value; uses accounting data; works for non-dividend payers and negative FCF firms",
+      "weaknesses": "Requires clean accounting; sensitive to ROE persistence; complex adjustments"
+    },
+    "guidelines_for_use": {
+      "appropriate": "No dividends; negative near-term FCF; uncertain terminal value",
+      "inappropriate": "Significant clean-surplus violations; non-recurring earnings dominate"
+    },
+    "accounting_considerations": {
+      "clean_surplus_violations": "OCI items bypass income; adjust for FX, pension, AFS securities",
+      "intangibles": "Capitalisation vs expensing affects book value and ROE",
+      "non_recurring": "Strip from RI forecast",
+      "aggressive_accounting": "Identify and reverse",
+      "international": "IFRS vs US GAAP differences in revaluation, intangibles"
+    },
+    "validation": {
+      "company_required": "company_id present",
+      "valid_model": "ri_model in [single_stage, multistage, general]"
+    }
+  },
+  "outcomes": {
+    "value_with_ri": {
+      "priority": 1,
+      "description": "Value equity using residual income model",
+      "given": [
+        {
+          "field": "company_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "ri_model",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "single_stage",
+            "multistage",
+            "general"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "ri_valuator"
+        },
+        {
+          "action": "emit_event",
+          "event": "ri.valued"
+        }
+      ]
+    },
+    "invalid_model": {
+      "priority": 10,
+      "description": "Unsupported RI model variant",
+      "given": [
+        {
+          "field": "ri_model",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "single_stage",
+            "multistage",
+            "general"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "ri.rejected"
+        }
+      ],
+      "error": "RI_INVALID_MODEL"
+    }
+  },
+  "errors": [
+    {
+      "code": "RI_INVALID_MODEL",
+      "status": 400,
+      "message": "ri_model must be one of the supported variants"
+    }
+  ],
+  "events": [
+    {
+      "name": "ri.valued",
+      "payload": [
+        "company_id",
+        "ri_model",
+        "intrinsic_value",
+        "premium_to_book",
+        "persistence_factor"
+      ]
+    },
+    {
+      "name": "ri.rejected",
+      "payload": [
+        "company_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use RIM without correcting clean-surplus violations",
+      "why": "OCI items (FX translation, pension remeasurement, AFS securities) bypass net income but change book value, breaking the model's identity"
+    },
+    {
+      "rule": "Do not assume residual income persists forever at full level",
+      "why": "Competitive forces compress abnormal ROE toward cost of capital; persistence factor ω models the fade and is essential for terminal value"
+    },
+    {
+      "rule": "Do not double-count by combining RIM with FCF/DDM blindly",
+      "why": "RIM, DDM, and FCF should produce identical value under consistent assumptions; differences signal forecasting inconsistency, not model superiority"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/equity/residual-income/value"
+    },
+    "request": {
+      "schema": {
+        "company_id": "string",
+        "ri_model": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "company_id": "string",
+          "intrinsic_value": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "RI_INVALID_MODEL"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "discounted-dividend-valuation-l2",
+      "type": "recommended"
+    },
+    {
+      "feature": "free-cash-flow-valuation-l2",
+      "type": "recommended"
+    }
+  ]
+}

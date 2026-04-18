@@ -1,0 +1,250 @@
+{
+  "feature": "market-based-valuation-multiples-l2",
+  "version": "1.0.0",
+  "description": "Apply price and enterprise value multiples — P/E, P/B, P/S, P/CF, dividend yield, EV/EBITDA, EV/Sales, justified vs comparables, harmonic mean, momentum indicators",
+  "category": "trading",
+  "tags": [
+    "equity-valuation",
+    "multiples",
+    "pe-ratio",
+    "ev-ebitda",
+    "comparables",
+    "cfa-level-2"
+  ],
+  "aliases": [
+    "price-multiples-valuation-l2",
+    "enterprise-value-multiples",
+    "justified-pe-l2",
+    "peer-comparable-valuation",
+    "harmonic-mean-multiples",
+    "momentum-valuation-indicators",
+    "ev-ebitda-l2"
+  ],
+  "actors": [
+    {
+      "id": "multiples_analyst",
+      "name": "Multiples Valuation Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "company_id",
+      "type": "text",
+      "required": true,
+      "label": "Company identifier"
+    },
+    {
+      "name": "multiple_type",
+      "type": "select",
+      "required": true,
+      "label": "pe | pb | ps | pcf | dy | ev_ebitda | ev_sales"
+    }
+  ],
+  "rules": {
+    "rationales_for_multiples": {
+      "intuitive": "Easy to communicate",
+      "market_aggregates": "Reflect investor consensus",
+      "empirical_support": "Value-investing literature"
+    },
+    "drawbacks": {
+      "static_snapshot": "Ignores forward growth dynamics",
+      "accounting_distortion": "Sensitive to policy choices",
+      "peer_comparability": "Hard to find true comparables"
+    },
+    "pe_basics": {
+      "trailing_pe": "Price ÷ trailing EPS",
+      "leading_pe": "Price ÷ forecast EPS",
+      "underlying_earnings": "Strip non-recurring, normalise"
+    },
+    "pe_justified": {
+      "formula": "Justified P/E = (1 − b) / (k_e − g)",
+      "cross_section_regression": "Predicted P/E from fundamentals across peers"
+    },
+    "pe_using": {
+      "peer_company": "Median multiple of comparables",
+      "industry_sector": "Industry composite",
+      "market_multiple": "Aggregate market level",
+      "own_historical": "Time-series average",
+      "cross_country": "Adjust for accounting and rate differences",
+      "terminal_value_in_ddm": "Multiply terminal earnings by exit P/E"
+    },
+    "pb_ratio": {
+      "book_value_method": "Common equity ÷ shares; adjust for intangibles, off-BS",
+      "justified_pb": "(ROE − g) / (k_e − g)",
+      "use_when": "Asset-heavy firms, financials"
+    },
+    "ps_ratio": {
+      "sales_method": "Less manipulable than EPS",
+      "justified_ps": "(NPM × (1−b) × (1+g)) / (k_e − g)",
+      "use_when": "Loss-making or cyclical firms"
+    },
+    "pcf_ratio": {
+      "cash_flow_definitions": "CFO, FCFE, EBITDA",
+      "use_when": "Earnings quality concerns"
+    },
+    "dividend_yield": {
+      "formula": "DPS / Price",
+      "use_when": "Income-focused investors; mature payers"
+    },
+    "ev_multiples": {
+      "enterprise_value": "Market cap + debt − cash + minority interest + preferred",
+      "ev_ebitda": "Capital-structure-neutral; pre-D&A",
+      "ev_sales": "For loss-makers",
+      "other_ev": "EV/EBIT, EV/CFO, EV/IC"
+    },
+    "international_considerations": {
+      "accounting_differences": "Adjust for IFRS vs US GAAP",
+      "currency": "Hedged vs unhedged comparables"
+    },
+    "momentum_indicators": {
+      "earnings_surprise": "Standardised unexpected earnings (SUE)",
+      "relative_strength": "Price momentum over 3-12 months"
+    },
+    "practical_issues": {
+      "harmonic_mean": "Less biased than arithmetic mean for ratios",
+      "multiple_indicators": "Triangulate from several multiples"
+    },
+    "validation": {
+      "company_required": "company_id present",
+      "valid_multiple": "multiple_type in allowed set"
+    }
+  },
+  "outcomes": {
+    "value_with_multiple": {
+      "priority": 1,
+      "description": "Value equity using selected multiple",
+      "given": [
+        {
+          "field": "company_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "multiple_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "pe",
+            "pb",
+            "ps",
+            "pcf",
+            "dy",
+            "ev_ebitda",
+            "ev_sales"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "multiples_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "multiple.valued"
+        }
+      ]
+    },
+    "invalid_multiple": {
+      "priority": 10,
+      "description": "Unsupported multiple",
+      "given": [
+        {
+          "field": "multiple_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "pe",
+            "pb",
+            "ps",
+            "pcf",
+            "dy",
+            "ev_ebitda",
+            "ev_sales"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "multiple.rejected"
+        }
+      ],
+      "error": "MULTIPLE_INVALID_TYPE"
+    }
+  },
+  "errors": [
+    {
+      "code": "MULTIPLE_INVALID_TYPE",
+      "status": 400,
+      "message": "multiple_type must be one of the supported multiples"
+    }
+  ],
+  "events": [
+    {
+      "name": "multiple.valued",
+      "payload": [
+        "company_id",
+        "multiple_type",
+        "implied_value",
+        "peer_median",
+        "percentile"
+      ]
+    },
+    {
+      "name": "multiple.rejected",
+      "payload": [
+        "company_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not use arithmetic mean of multiples for index aggregation",
+      "why": "Arithmetic mean over-weights outliers; harmonic mean (or weighted harmonic mean) is the unbiased aggregate for price-ratio data"
+    },
+    {
+      "rule": "Do not compare multiples across firms with different accounting",
+      "why": "Capitalisation vs expensing of R&D, lease treatment, and goodwill rules cause large multiple distortions; normalise before comparing"
+    },
+    {
+      "rule": "Do not ignore growth and risk when ranking on a single multiple",
+      "why": "A high P/E may reflect superior growth or lower risk, not over-valuation; use justified multiples to back out the implicit assumption"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/equity/multiples/value"
+    },
+    "request": {
+      "schema": {
+        "company_id": "string",
+        "multiple_type": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "company_id": "string",
+          "implied_value": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "MULTIPLE_INVALID_TYPE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "equity-valuation-applications-l2",
+      "type": "required"
+    }
+  ]
+}

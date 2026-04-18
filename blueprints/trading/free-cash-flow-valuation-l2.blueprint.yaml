@@ -1,0 +1,146 @@
+# ============================================================
+# free-cash-flow-valuation-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 4 — Equity Valuation Module 1, Free Cash Flow Valuation
+# ============================================================
+
+feature: free-cash-flow-valuation-l2
+version: "1.0.0"
+description: Value equity via free cash flow — FCFF and FCFE definitions, computation from net income/CFO/EBIT/EBITDA, single-stage, two-stage, three-stage models, and ESG integration in FCF
+category: trading
+tags: [equity-valuation, fcff, fcfe, free-cash-flow, dcf, cfa-level-2]
+aliases:
+  - fcff-valuation-l2
+  - fcfe-valuation-l2
+  - dcf-equity-valuation
+  - two-stage-fcf-model
+  - three-stage-fcf-model
+  - free-cash-flow-from-net-income
+  - sensitivity-analysis-fcf
+
+actors:
+  - id: fcf_valuator
+    name: Free Cash Flow Valuator
+    type: system
+
+fields:
+  - name: company_id
+    type: text
+    required: true
+    label: Company identifier
+  - name: cash_flow_type
+    type: select
+    required: true
+    label: fcff | fcfe
+
+rules:
+  fcff_definition:
+    formula: "FCFF = NI + NCC + Int(1-t) − FCInv − WCInv"
+    use_when: "Capital structure changing or value of firm needed; discounted at WACC"
+  fcfe_definition:
+    formula: "FCFE = NI + NCC − FCInv − WCInv + Net Borrowing"
+    alt_from_fcff: "FCFE = FCFF − Int(1-t) + Net Borrowing"
+    use_when: "Stable capital structure; discounted at cost of equity"
+  computing_fcff:
+    from_net_income: "Add back NCC, after-tax interest; subtract investment"
+    from_cfo: "FCFF = CFO + Int(1-t) − FCInv"
+    from_ebit: "FCFF = EBIT(1-t) + Dep − FCInv − WCInv"
+    from_ebitda: "FCFF = EBITDA(1-t) + Dep*t − FCInv − WCInv"
+  forecasting:
+    sales_driven: "Project margins, capex, working capital ratios"
+    components_separately: "Forecast each FCF component"
+    historical_growth: "Extrapolate but check for sustainability"
+  single_stage_model:
+    formula: "V0 = FCFF1 / (WACC − g) or FCFE1 / (k_e − g)"
+    international_application: "Adjust for currency and inflation"
+  two_stage_model:
+    fixed_growth: "High-growth period followed by stable perpetuity"
+    declining_growth: "Stage 1 growth declines linearly to long-run g"
+  three_stage_model:
+    structure: "High → transition → mature"
+    use_when: "Firm in middle of life cycle"
+  esg_integration:
+    revenue_adjustments: "Climate transition risk reduces forecast"
+    cost_adjustments: "Carbon taxes, compliance costs"
+    discount_rate_adjustments: "Higher WACC for elevated ESG risk"
+  non_operating_assets:
+    treatment: "Add market value of non-operating assets to operating value"
+    examples: "Excess cash, marketable securities, idle land"
+  sensitivity:
+    inputs: "g, WACC, margins, reinvestment rate"
+    output: "Tornado chart of value sensitivity"
+  validation:
+    company_required: "company_id present"
+    valid_type: "cash_flow_type in [fcff, fcfe]"
+
+outcomes:
+  value_with_fcf:
+    priority: 1
+    description: Value equity using FCF model
+    given:
+      - field: company_id
+        source: input
+        operator: exists
+      - field: cash_flow_type
+        source: input
+        operator: in
+        value: [fcff, fcfe]
+    then:
+      - action: call_service
+        target: fcf_valuator
+      - action: emit_event
+        event: fcf.valued
+  invalid_type:
+    priority: 10
+    description: Unsupported cash flow type
+    given:
+      - field: cash_flow_type
+        source: input
+        operator: not_in
+        value: [fcff, fcfe]
+    then:
+      - action: emit_event
+        event: fcf.rejected
+    error: FCF_INVALID_TYPE
+
+errors:
+  - code: FCF_INVALID_TYPE
+    status: 400
+    message: cash_flow_type must be fcff or fcfe
+
+events:
+  - name: fcf.valued
+    payload: [company_id, cash_flow_type, intrinsic_value, terminal_value, sensitivity]
+  - name: fcf.rejected
+    payload: [company_id, reason_code]
+
+anti_patterns:
+  - rule: Do not discount FCFE at WACC or FCFF at cost of equity
+    why: "Mixing cash flow definitions and discount rates double-counts or omits the financing component; FCFF→WACC and FCFE→k_e is mandatory"
+  - rule: Do not assume terminal growth above long-run nominal GDP
+    why: "Terminal g cannot exceed economy growth indefinitely; common error inflates valuations by 30-50%"
+  - rule: Do not forecast FCF without checking reinvestment consistency
+    why: "Growth requires reinvestment (g = retention × ROIC); high-growth assumption with low reinvestment is internally inconsistent"
+
+api:
+  http:
+    method: POST
+    path: /equity/fcf/value
+  request:
+    schema:
+      company_id: string
+      cash_flow_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        company_id: string
+        intrinsic_value: number
+    errors:
+      - status: 400
+        error_code: FCF_INVALID_TYPE
+
+related:
+  - feature: discounted-dividend-valuation-l2
+    type: recommended
+  - feature: cost-of-capital-advanced-l2
+    type: required

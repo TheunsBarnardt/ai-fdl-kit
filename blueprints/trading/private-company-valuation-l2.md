@@ -1,0 +1,106 @@
+<!-- AUTO-GENERATED FROM private-company-valuation-l2.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Private Company Valuation L2
+
+> Value private companies — public vs private differences, earnings normalisation, discount rate models, lack of control and marketability discounts, income/market/excess-earnings approaches
+
+**Category:** Trading · **Version:** 1.0.0 · **Tags:** equity-valuation · private-company · dlom · dloc · build-up-method · cfa-level-2
+
+## What this does
+
+Value private companies — public vs private differences, earnings normalisation, discount rate models, lack of control and marketability discounts, income/market/excess-earnings approaches
+
+Specifies 2 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **company_id** *(text, required)* — Company identifier
+- **approach** *(select, required)* — income | market | excess_earnings | asset
+
+## What must be true
+
+- **public_vs_private_differences → company_specific:** Lifecycle stage, size, management depth
+- **public_vs_private_differences → stock_specific:** Liquidity, control, restrictions
+- **uses_of_valuation → transactions:** M&A, financing, IPO
+- **uses_of_valuation → compliance:** Tax, financial reporting (purchase price allocation)
+- **uses_of_valuation → litigation:** Shareholder disputes, divorce
+- **areas_of_focus → venture_capital:** Pre-money valuation, milestone-based
+- **areas_of_focus → fairness_opinions:** Independent value for board
+- **areas_of_focus → estate_planning:** Gift tax, transfer pricing
+- **earnings_normalisation → owner_compensation:** Adjust above-market salaries
+- **earnings_normalisation → related_party:** Lease and service contracts
+- **earnings_normalisation → discretionary_expenses:** Personal expenses run through company
+- **earnings_normalisation → one_time_items:** Strip non-recurring
+- **cash_flow_estimation → fcff_or_fcfe:** Same definitions as public; data quality lower
+- **cash_flow_estimation → capex_estimation:** Maintenance vs growth
+- **discount_rate_factors → size_premium:** Smaller firms higher required return
+- **discount_rate_factors → illiquidity:** Lack of marketability raises required return
+- **discount_rate_factors → company_specific_risk:** Customer concentration, key-person
+- **discount_rate_factors → diversification_lack:** Owner not diversified
+- **required_return_models → capm_modified:** Add size and specific premia
+- **required_return_models → expanded_capm:** Rf + ERP + size + industry
+- **required_return_models → build_up_method:** Rf + ERP + size + specific (no beta)
+- **required_return_models → bond_yield_plus_risk_premium:** YTM + 3-5%
+- **valuation_discounts → dloc_lack_of_control:** Minority interest discount; pro-rata reduction for inability to direct
+- **valuation_discounts → dlom_lack_of_marketability:** Restricted stock studies, pre-IPO studies; 20-40% typical
+- **valuation_discounts → combined:** Multiplicative not additive
+- **income_based_approach → fcf_method:** Standard DCF with private adjustments
+- **income_based_approach → capitalised_cash_flow:** CF / (k − g) for stable firms
+- **income_based_approach → excess_earnings:** Identifies intangible value above tangible asset return
+- **market_based_approach → gpcm_guideline_public:** Apply public-company multiples with control/liquidity adjustments
+- **market_based_approach → gtm_guideline_transactions:** Multiples from comparable M&A
+- **market_based_approach → prior_transaction:** Recent share sales as benchmark
+- **asset_based_approach → appropriate_when:** Holding companies, distressed, liquidation
+- **asset_based_approach → method:** FV of identifiable assets less liabilities
+- **validation → company_required:** company_id present
+- **validation → valid_approach:** approach in [income, market, excess_earnings, asset]
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Value Private Company** — when company_id exists; approach in ["income","market","excess_earnings","asset"], then call service; emit private.valued. _Why: Value private company via selected approach._
+
+**❌ Failure paths**
+
+- **Invalid Approach** — when approach not_in ["income","market","excess_earnings","asset"], then emit private.rejected. _Why: Unsupported valuation approach._ *(error: `PRIVATE_INVALID_APPROACH`)*
+
+## Errors it can return
+
+- `PRIVATE_INVALID_APPROACH` — approach must be one of the supported approaches
+
+## Events
+
+**`private.valued`**
+  Payload: `company_id`, `approach`, `marketable_minority_value`, `dloc`, `dlom`, `final_value`
+
+**`private.rejected`**
+  Payload: `company_id`, `reason_code`
+
+## Connects to
+
+- **free-cash-flow-valuation-l2** *(recommended)*
+- **market-based-valuation-multiples-l2** *(recommended)*
+
+## Quality fitness 🟢 83/100
+
+Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
+
+| Dimension | Score | Points |
+|-----------|-------|--------|
+| Description | `██████████` | 10/10 |
+| Rules | `██████████` | 10/10 |
+| Outcomes | `████████████████████░░░░░` | 20/25 |
+| Structured conditions | `██████████` | 10/10 |
+| Error binding | `██████████` | 10/10 |
+| Field validation | `███████░░░` | 7/10 |
+| Relationships | `██████░░░░` | 6/10 |
+| Events | `█████` | 5/5 |
+| AGI readiness | `░░░░░` | 0/5 |
+| Simplicity | `█████` | 5/5 |
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/trading/private-company-valuation-l2/) · **Spec source:** [`private-company-valuation-l2.blueprint.yaml`](./private-company-valuation-l2.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*

@@ -1,0 +1,156 @@
+# ============================================================
+# bonds-with-embedded-options-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 4 — Fixed Income Module 3, Valuation and Analysis of Bonds with Embedded Options
+# ============================================================
+
+feature: bonds-with-embedded-options-l2
+version: "1.0.0"
+description: Value bonds with embedded options — callable, putable, convertible, capped/floored floaters; option-adjusted spread, effective duration and convexity, one-sided durations, key rate durations
+category: trading
+tags: [fixed-income, callable-bonds, putable-bonds, convertible-bonds, oas, effective-duration, cfa-level-2]
+aliases:
+  - callable-bond-valuation-l2
+  - putable-bond-valuation-l2
+  - convertible-bond-valuation-l2
+  - option-adjusted-spread
+  - effective-duration-convexity
+  - capped-floored-floater
+  - one-sided-duration
+
+actors:
+  - id: embedded_options_valuator
+    name: Embedded Options Bond Valuator
+    type: system
+
+fields:
+  - name: bond_id
+    type: text
+    required: true
+    label: Bond identifier
+  - name: option_type
+    type: select
+    required: true
+    label: callable | putable | convertible | capped_floater | floored_floater
+
+rules:
+  embedded_option_basics:
+    callable: "Issuer right to redeem early at call price"
+    putable: "Holder right to sell back at put price"
+    convertible: "Holder right to convert into equity"
+    relationships: "Callable = straight − call; Putable = straight + put"
+  valuation_no_volatility:
+    method: "Discount cash flows treating optimal exercise deterministically"
+    limitation: "Ignores time value of optionality"
+  effect_of_interest_rate_volatility:
+    higher_vol_more_value_to_holder: "Putable and convertible benefit"
+    higher_vol_more_value_to_issuer_short_call: "Callable price falls"
+    yield_curve_shape: "Steep curve increases call probability"
+  valuing_default_free_with_volatility:
+    callable: "Backward induction; at each node take min(continue, call)"
+    putable: "max(continue, put)"
+    process: "Use calibrated binomial tree; compare with straight bond"
+  valuing_risky:
+    method: "Add credit spread or use OAS"
+    binomial_with_credit: "Apply spread to discount rates at each node"
+  option_adjusted_spread:
+    definition: "Constant spread added to risk-free tree that prices bond"
+    interpretation: "Removes the embedded option value; isolates credit + liquidity"
+    higher_vol_lower_oas_for_callable: "Higher vol raises call value, lowers OAS"
+  effective_duration:
+    definition: "(P_- − P_+) / (2 × P_0 × ΔY); recompute via tree shifts"
+    callable_lower_than_straight: "Cap on upside as rates fall limits price gains"
+    putable_lower_than_straight_at_high_yields: "Floor protects holder"
+  one_sided_durations:
+    use_when: "Asymmetric price response near call or put strike"
+    method: "Separate up- and down-shift sensitivities"
+  key_rate_durations:
+    purpose: "Decompose curve risk by maturity bucket"
+    application: "Important for callable bonds where call timing depends on long rates"
+  effective_convexity:
+    callable: "Negative near call boundary"
+    putable: "Greater positive than straight"
+    formula: "(P_+ + P_- − 2P_0) / (P_0 × ΔY^2)"
+  capped_floored_floaters:
+    capped_floater: "Periodic cap reduces value vs uncapped (issuer short cap)"
+    floored_floater: "Floor adds value (holder long floor)"
+  convertible_bonds:
+    components: "Straight bond + call option on equity"
+    conversion_value: "Shares × stock price"
+    conversion_premium: "Bond price − conversion value"
+    minimum_value: "Max(straight bond value, conversion value)"
+    risk_return: "Hybrid; equity-sensitive when in-the-money, debt-sensitive otherwise"
+  validation:
+    bond_required: "bond_id present"
+    valid_option: "option_type in allowed set"
+
+outcomes:
+  value_embedded_option:
+    priority: 1
+    description: Value bond with embedded option
+    given:
+      - field: bond_id
+        source: input
+        operator: exists
+      - field: option_type
+        source: input
+        operator: in
+        value: [callable, putable, convertible, capped_floater, floored_floater]
+    then:
+      - action: call_service
+        target: embedded_options_valuator
+      - action: emit_event
+        event: embedded_option.valued
+  invalid_option:
+    priority: 10
+    description: Unsupported embedded option type
+    given:
+      - field: option_type
+        source: input
+        operator: not_in
+        value: [callable, putable, convertible, capped_floater, floored_floater]
+    then:
+      - action: emit_event
+        event: embedded_option.rejected
+    error: EMBEDDED_OPTION_INVALID_TYPE
+
+errors:
+  - code: EMBEDDED_OPTION_INVALID_TYPE
+    status: 400
+    message: option_type must be one of the supported types
+
+events:
+  - name: embedded_option.valued
+    payload: [bond_id, option_type, value, oas, effective_duration, effective_convexity]
+  - name: embedded_option.rejected
+    payload: [bond_id, reason_code]
+
+anti_patterns:
+  - rule: Do not use yield-to-call as if it equalled OAS
+    why: "YTC assumes a single deterministic call date; OAS averages across all possible exercise paths in a stochastic rate model — they differ materially in volatile environments"
+  - rule: Do not use modified duration for bonds with embedded options
+    why: "Modified duration assumes fixed cash flows; callable/putable bonds have rate-dependent cash flows — only effective duration captures the optionality"
+  - rule: Do not ignore negative convexity in callable bonds near the call boundary
+    why: "Hedging a callable bond as if it were a straight bond underestimates losses when rates fall toward the call strike; convexity becomes negative"
+
+api:
+  http:
+    method: POST
+    path: /fixed-income/embedded-option/value
+  request:
+    schema:
+      bond_id: string
+      option_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        bond_id: string
+        value: number
+        oas: number
+    errors:
+      - status: 400
+        error_code: EMBEDDED_OPTION_INVALID_TYPE
+
+related:
+  - feature: arbitrage-free-valuation-framework-l2
+    type: required

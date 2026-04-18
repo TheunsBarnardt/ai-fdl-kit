@@ -1,0 +1,146 @@
+# ============================================================
+# term-structure-interest-rate-dynamics-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 4 — Fixed Income Module 1, Term Structure and Interest Rate Dynamics
+# ============================================================
+
+feature: term-structure-interest-rate-dynamics-l2
+version: "1.0.0"
+description: Analyse term structure — spot, forward, par yields, swap curve, traditional theories (expectations, liquidity, segmented, preferred habitat), yield curve factor models, key rate duration
+category: trading
+tags: [fixed-income, term-structure, yield-curve, swap-rate, key-rate-duration, cfa-level-2]
+aliases:
+  - spot-forward-rates-l2
+  - swap-rate-curve
+  - expectations-theory-term-structure
+  - liquidity-preference-theory
+  - preferred-habitat-theory
+  - yield-curve-factor-model
+  - key-rate-duration-l2
+
+actors:
+  - id: yield_curve_analyst
+    name: Yield Curve Analyst
+    type: system
+
+fields:
+  - name: curve_id
+    type: text
+    required: true
+    label: Curve identifier
+  - name: analysis_type
+    type: select
+    required: true
+    label: spot_forward | swap_spread | theory | factor_model | key_rate_duration
+
+rules:
+  spot_forward_relationships:
+    spot_rate: "Yield on zero-coupon bond maturing at time t"
+    forward_rate: "Implied future spot rate from no-arbitrage"
+    forward_rate_model: "(1+s_T)^T = (1+s_t)^t × (1+f_{t,T-t})^(T-t)"
+    ytm_relationship: "YTM is complex average of spots over coupon dates"
+  yield_curve_movement:
+    forward_curve: "Realised future rates differ from forwards if expectations or premia change"
+    rolling_yield: "Total return = coupon + roll-down + price change"
+  active_management:
+    riding_yield_curve: "Buy long, hold as it rolls down"
+    bullet_barbell_ladder: "Convexity vs yield trade-off"
+  swap_rate_curve:
+    definition: "Fixed rate on par swap; benchmark vs treasuries"
+    why_used: "More liquid in many markets; reflects bank credit"
+    spread_to_treasury: "Swap spread; widened during crises"
+    quotation: "Z-spread, I-spread, OAS conventions"
+  traditional_theories:
+    expectations: "Forward rates equal expected future spots; no premium"
+    liquidity_preference: "Forwards = expected spot + positive liquidity premium increasing with maturity"
+    segmented_markets: "Yields determined within maturity segments by supply/demand"
+    preferred_habitat: "Investors leave preferred maturity only for sufficient premium"
+  yield_curve_factor_models:
+    level: "Parallel shifts; ~75% of variation"
+    slope: "Steepening/flattening; ~15%"
+    curvature: "Butterfly twists; ~5%"
+    factor_loadings: "Each maturity has factor sensitivity"
+  yield_curve_volatility:
+    short_end_higher: "Short-rate volatility usually exceeds long-rate"
+    term_structure_of_volatility: "Volatility differs by maturity"
+  key_rate_duration:
+    definition: "Sensitivity to a single key rate, holding others constant"
+    use_for_non_parallel_shift: "Decompose curve risk by maturity bucket"
+  macro_drivers:
+    inflation_expectations: "Push nominal rates up"
+    growth_expectations: "Real rates co-move with growth"
+    fiscal_policy: "Supply effect on long end"
+    monetary_policy: "Anchors short end"
+  validation:
+    curve_required: "curve_id present"
+    valid_analysis: "analysis_type in allowed set"
+
+outcomes:
+  analyse_term_structure:
+    priority: 1
+    description: Perform term-structure analysis
+    given:
+      - field: curve_id
+        source: input
+        operator: exists
+      - field: analysis_type
+        source: input
+        operator: in
+        value: [spot_forward, swap_spread, theory, factor_model, key_rate_duration]
+    then:
+      - action: call_service
+        target: yield_curve_analyst
+      - action: emit_event
+        event: term_structure.analysed
+  invalid_analysis:
+    priority: 10
+    description: Unsupported analysis type
+    given:
+      - field: analysis_type
+        source: input
+        operator: not_in
+        value: [spot_forward, swap_spread, theory, factor_model, key_rate_duration]
+    then:
+      - action: emit_event
+        event: term_structure.rejected
+    error: TERM_STRUCTURE_INVALID_ANALYSIS
+
+errors:
+  - code: TERM_STRUCTURE_INVALID_ANALYSIS
+    status: 400
+    message: analysis_type must be one of the supported types
+
+events:
+  - name: term_structure.analysed
+    payload: [curve_id, analysis_type, key_outputs, factor_loadings]
+  - name: term_structure.rejected
+    payload: [curve_id, reason_code]
+
+anti_patterns:
+  - rule: Do not interpret forward rates as best forecasts of future spots
+    why: "Under liquidity preference theory forwards include a term premium; treating forwards as unbiased forecasts mis-prices expectations of policy and growth"
+  - rule: Do not use effective duration alone for non-parallel shifts
+    why: "Effective duration assumes parallel shift; real curve moves include slope and curvature changes — key rate duration is required to capture them"
+  - rule: Do not rely on a single yield curve theory
+    why: "Empirical evidence supports a blend of expectations, liquidity, and preferred habitat; rigid adherence to one theory mis-prices the curve"
+
+api:
+  http:
+    method: POST
+    path: /fixed-income/term-structure/analyse
+  request:
+    schema:
+      curve_id: string
+      analysis_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        curve_id: string
+        outputs: object
+    errors:
+      - status: 400
+        error_code: TERM_STRUCTURE_INVALID_ANALYSIS
+
+related:
+  - feature: arbitrage-free-valuation-framework-l2
+    type: recommended
