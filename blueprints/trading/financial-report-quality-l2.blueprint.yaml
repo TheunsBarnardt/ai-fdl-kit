@@ -1,0 +1,145 @@
+# ============================================================
+# financial-report-quality-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 2 — FSA Module 5, Quality of Financial Reports
+# ============================================================
+
+feature: financial-report-quality-l2
+version: "1.0.0"
+description: Evaluate quality of financial reports — Beneish M-score, Altman Z-score, accrual-based earnings quality, cash-flow quality, and warning signs of misreporting
+category: trading
+tags: [fsa, report-quality, beneish, altman, earnings-quality, cfa-level-2]
+aliases:
+  - beneish-m-score-l2
+  - altman-z-score-l2
+  - earnings-persistence-accruals
+  - cash-flow-quality-indicators
+  - balance-sheet-quality
+  - bankruptcy-prediction-models
+  - revenue-recognition-cases
+
+actors:
+  - id: quality_assessor
+    name: Financial Report Quality Assessor
+    type: system
+
+fields:
+  - name: company_id
+    type: text
+    required: true
+    label: Company identifier
+  - name: assessment_type
+    type: select
+    required: true
+    label: beneish | altman | earnings_quality | cash_flow_quality | balance_sheet_quality
+
+rules:
+  conceptual_framework:
+    quality_spectrum: "High reporting quality = relevant + faithful representation; high earnings quality = sustainable + value-creating"
+    potential_problems: "Timing of recognition, classification, off-balance-sheet arrangements"
+  steps_to_evaluate:
+    understand_business: "Industry, strategy, accounting policies"
+    identify_accounting_areas_at_risk: "Revenue recognition, estimates, non-GAAP measures"
+    compare_statements: "Year-over-year, peer, auditor letter"
+    quantitative_tools: "Apply M-score, Z-score, accrual ratios"
+  beneish_m_score:
+    purpose: "Classify as earnings manipulator"
+    inputs: "DSRI, GMI, AQI, SGI, DEPI, SGAI, LVGI, TATA"
+    threshold: "M > -1.78 suggests likely manipulation"
+    limitations: "Calibrated to historical accounting frauds; false positives possible"
+  altman_z_score:
+    purpose: "Bankruptcy prediction for public manufacturers"
+    formula: "Z = 1.2*WC/TA + 1.4*RE/TA + 3.3*EBIT/TA + 0.6*MVE/TL + 1.0*Sales/TA"
+    zones: "Z > 2.99 safe; 1.81 < Z < 2.99 grey; Z < 1.81 distress"
+    limitations: "Not designed for financials or private firms; recalibrations exist"
+  earnings_quality_indicators:
+    persistence: "High proportion of cash-based earnings; low accruals"
+    accruals: "Total accruals / average NOA; high accruals portend reversal"
+    mean_reversion: "Extreme earnings revert; signals low persistence"
+    beating_benchmarks: "Suspicious clustering at zero EPS, analyst consensus, prior-year EPS"
+    external_indicators: "Restatements, SEC enforcement, auditor changes"
+  cash_flow_quality:
+    sustainable_cfo: "Organic operating cash flow excluding one-off items"
+    earnings_cash_gap: "Persistent gap between net income and CFO"
+    classification_games: "Shifting items between operating/investing/financing"
+  balance_sheet_quality:
+    completeness: "Off-balance-sheet exposures disclosed"
+    measurement: "FV hierarchy level 3 heavy reliance"
+    classification: "Appropriate split between operating/non-operating"
+  case_lessons:
+    sunbeam_microstrategy: "Channel stuffing, side agreements, multi-element contracts"
+    worldcom: "Capitalising operating expenses; detect via asset growth vs revenue growth"
+  validation:
+    company_required: "company_id present"
+    valid_assessment: "assessment_type in allowed set"
+
+outcomes:
+  assess_quality:
+    priority: 1
+    description: Assess financial report quality
+    given:
+      - field: company_id
+        source: input
+        operator: exists
+      - field: assessment_type
+        source: input
+        operator: in
+        value: [beneish, altman, earnings_quality, cash_flow_quality, balance_sheet_quality]
+    then:
+      - action: call_service
+        target: quality_assessor
+      - action: emit_event
+        event: quality.assessed
+  invalid_assessment:
+    priority: 10
+    description: Unsupported assessment type
+    given:
+      - field: assessment_type
+        source: input
+        operator: not_in
+        value: [beneish, altman, earnings_quality, cash_flow_quality, balance_sheet_quality]
+    then:
+      - action: emit_event
+        event: quality.assessment_rejected
+    error: QUALITY_INVALID_ASSESSMENT
+
+errors:
+  - code: QUALITY_INVALID_ASSESSMENT
+    status: 400
+    message: assessment_type must be one of beneish, altman, earnings_quality, cash_flow_quality, balance_sheet_quality
+
+events:
+  - name: quality.assessed
+    payload: [company_id, assessment_type, score, risk_level, flags]
+  - name: quality.assessment_rejected
+    payload: [company_id, reason_code]
+
+anti_patterns:
+  - rule: Do not rely on auditor's unqualified opinion as quality evidence
+    why: "Unqualified audits are the norm even for subsequent fraud cases; opinion addresses compliance, not quality"
+  - rule: Do not skip non-GAAP reconciliations
+    why: "Adjusted EPS and EBITDA strip recurring costs (stock-based comp, restructuring); reconciliation reveals the aggressive removals"
+  - rule: Do not use Altman Z across industries without recalibration
+    why: "Original Z-score was calibrated on manufacturers; retail, tech, and financials need sector-specific thresholds or modified models (Z', Z'')"
+
+api:
+  http:
+    method: POST
+    path: /fsa/quality/assess
+  request:
+    schema:
+      company_id: string
+      assessment_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        company_id: string
+        score: number
+        risk_level: string
+    errors:
+      - status: 400
+        error_code: QUALITY_INVALID_ASSESSMENT
+
+related:
+  - feature: intercorporate-investments-l2
+    type: optional

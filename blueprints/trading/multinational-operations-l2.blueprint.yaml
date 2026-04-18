@@ -1,0 +1,140 @@
+# ============================================================
+# multinational-operations-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 2 — FSA Module 3, Multinational Operations
+# ============================================================
+
+feature: multinational-operations-l2
+version: "1.0.0"
+description: Translate foreign-currency transactions and financial statements — functional-currency test, current-rate vs temporal methods, hyperinflationary economies, effective tax rate
+category: trading
+tags: [fsa, multinational, fx-translation, functional-currency, hyperinflation, cfa-level-2]
+aliases:
+  - fx-translation-current-rate
+  - fx-translation-temporal-method
+  - functional-currency-determination
+  - hyperinflationary-translation
+  - foreign-currency-transaction-accounting
+  - translation-vs-remeasurement
+  - multinational-effective-tax-rate
+
+actors:
+  - id: fx_translator
+    name: FX Translation Engine
+    type: system
+
+fields:
+  - name: entity_id
+    type: text
+    required: true
+    label: Foreign entity identifier
+  - name: method
+    type: select
+    required: true
+    label: current_rate | temporal | hyperinflationary
+
+rules:
+  foreign_currency_transactions:
+    initial_measurement: "Spot rate on transaction date"
+    settlement_gain_loss: "Rate change between transaction and settlement; P&L"
+    monetary_items_remeasurement: "Year-end closing rate; P&L impact"
+    non_monetary_at_cost: "Historical rate retained"
+  functional_currency_determination:
+    primary_indicators: "Currency that influences sales prices, labour, materials, financing"
+    secondary_indicators: "Day-to-day operating cash flow currency"
+    change_in_functional_currency: "Prospective; no restatement"
+  current_rate_method:
+    use_when: "Functional currency ≠ parent's presentation currency (foreign functional)"
+    asset_liability_rate: "Current (closing) rate"
+    revenue_expense_rate: "Weighted-average rate"
+    equity_rate: "Historical rate"
+    translation_gain_loss: "Cumulative Translation Adjustment in OCI; recycled to P&L on disposal"
+  temporal_method:
+    use_when: "Functional currency = parent's presentation currency (parent functional, local books in foreign)"
+    monetary_current_rate: "Cash, receivables, payables"
+    non_monetary_historical: "Inventory at lower of cost or NRV at historical rate; PPE at historical"
+    revenue_expense: "Historical rate for items tied to non-monetary; average for others"
+    cogs_depreciation: "Historical rate matching non-monetary assets"
+    remeasurement_gain_loss: "Recognised in P&L"
+  hyperinflationary_economies:
+    definition: "Cumulative 3-year inflation ≥ 100%"
+    ifrs_approach: "Restate local statements for inflation, then translate at current rate"
+    gaap_approach: "Use temporal method as if functional currency were parent's"
+  analytical_implications:
+    current_rate_leverage: "Unchanged; ratios translate cleanly"
+    temporal_leverage: "Can distort ratios because non-monetary items stay at historical rate"
+    effective_tax_rate: "Can deviate from statutory due to jurisdiction mix and translation effects"
+    sales_growth: "Disclose organic vs FX components"
+  validation:
+    entity_required: "entity_id present"
+    valid_method: "method in [current_rate, temporal, hyperinflationary]"
+
+outcomes:
+  translate_entity:
+    priority: 1
+    description: Translate foreign entity financial statements
+    given:
+      - field: entity_id
+        source: input
+        operator: exists
+      - field: method
+        source: input
+        operator: in
+        value: [current_rate, temporal, hyperinflationary]
+    then:
+      - action: call_service
+        target: fx_translator
+      - action: emit_event
+        event: fx_translation.completed
+  invalid_method:
+    priority: 10
+    description: Unsupported translation method
+    given:
+      - field: method
+        source: input
+        operator: not_in
+        value: [current_rate, temporal, hyperinflationary]
+    then:
+      - action: emit_event
+        event: fx_translation.rejected
+    error: FX_INVALID_METHOD
+
+errors:
+  - code: FX_INVALID_METHOD
+    status: 400
+    message: method must be current_rate, temporal, or hyperinflationary
+
+events:
+  - name: fx_translation.completed
+    payload: [entity_id, method, translation_gain_loss, cumulative_cta]
+  - name: fx_translation.rejected
+    payload: [entity_id, reason_code]
+
+anti_patterns:
+  - rule: Do not mechanically apply current-rate method based on parent country
+    why: "Functional currency is an economic assessment, not a country label; mis-identifying it produces wrong method and misleading gross margins"
+  - rule: Do not ignore CTA balance sitting in equity
+    why: "On disposal of a foreign operation, accumulated CTA recycles to P&L — a material one-off item analysts must forecast"
+  - rule: Do not compare gross margins of temporally translated peers without adjustment
+    why: "COGS translated at historical rate while revenue at average distorts margins during periods of FX volatility"
+
+api:
+  http:
+    method: POST
+    path: /fsa/multinational/translate
+  request:
+    schema:
+      entity_id: string
+      method: string
+  response:
+    success:
+      status: 200
+      schema:
+        entity_id: string
+        translation_gain_loss: number
+    errors:
+      - status: 400
+        error_code: FX_INVALID_METHOD
+
+related:
+  - feature: currency-exchange-equilibrium-l2
+    type: recommended

@@ -1,0 +1,224 @@
+{
+  "feature": "intercorporate-investments-l2",
+  "version": "1.0.0",
+  "description": "Account for intercorporate investments — IFRS 9 financial assets, equity method for associates/JVs, acquisition method for business combinations with NCI and goodwill",
+  "category": "trading",
+  "tags": [
+    "fsa",
+    "intercorporate-investments",
+    "ifrs-9",
+    "equity-method",
+    "acquisition-method",
+    "cfa-level-2"
+  ],
+  "aliases": [
+    "ifrs-9-financial-assets-classification",
+    "equity-method-accounting",
+    "associates-joint-ventures",
+    "business-combinations-acquisition-method",
+    "goodwill-impairment-l2",
+    "non-controlling-interest-cfa",
+    "variable-interest-entities-vies",
+    "securitisation-off-balance-sheet"
+  ],
+  "actors": [
+    {
+      "id": "intercorp_accountant",
+      "name": "Intercorporate Investment Accountant",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "investment_id",
+      "type": "text",
+      "required": true,
+      "label": "Investment identifier"
+    },
+    {
+      "name": "investment_type",
+      "type": "select",
+      "required": true,
+      "label": "financial_asset | associate | joint_venture | subsidiary"
+    }
+  ],
+  "rules": {
+    "classification_thresholds": {
+      "financial_asset": "Ownership < 20% — passive investment",
+      "associate": "20-50% significant influence — equity method",
+      "joint_venture": "Joint control — equity method under IFRS, proportionate historically under GAAP",
+      "subsidiary": "Control (typically >50%) — full consolidation via acquisition method"
+    },
+    "ifrs9_financial_assets": {
+      "amortised_cost": "Business model = hold to collect cash flows; SPPI pass",
+      "fvoci_debt": "Hold to collect and sell; OCI for unrealised gains/losses",
+      "fvoci_equity_election": "Irrevocable at initial recognition; no recycling on disposal",
+      "fvtpl": "Default; held for trading or failed SPPI test",
+      "reclassification": "Only on business-model change; rare"
+    },
+    "equity_method": {
+      "initial_recognition": "Record at cost",
+      "subsequent": "Investor's share of investee profit increases carrying amount; dividends decrease it",
+      "amortisation_of_excess": "Excess cost over book value of identifiable net assets allocated to assets; amortise non-goodwill portion",
+      "fair_value_option": "Available under IFRS; changes in FV go through P&L",
+      "impairment": "Compare recoverable amount to carrying value; loss cannot be reversed under US GAAP",
+      "transactions_with_associate": "Eliminate unrealised profits pro-rata"
+    },
+    "acquisition_method": {
+      "consideration": "FV of cash, stock, contingent consideration",
+      "identifiable_net_assets": "Recognise at acquisition-date FV",
+      "goodwill": "Consideration + FV of NCI - FV of identifiable net assets",
+      "nci_measurement": "Full goodwill (FV of NCI) vs partial goodwill (proportionate share)",
+      "less_than_100": "Elect full or partial goodwill method under IFRS; GAAP requires full",
+      "post_acquisition": "Subsidiary fully consolidated line-by-line; intra-group eliminated"
+    },
+    "goodwill_impairment": {
+      "trigger": "Annual test or when indicators exist",
+      "ifrs_test": "Compare recoverable amount of CGU to carrying value",
+      "gaap_test": "Qualitative then quantitative (step 1 reporting unit FV vs carrying)",
+      "non_reversible": "Goodwill impairment losses never reversed"
+    },
+    "vies_spes": {
+      "consolidation_trigger": "Primary beneficiary absorbs majority of expected losses/residual returns",
+      "securitisation": "Transfer of receivables to SPE — derecognition depends on risk-reward transfer"
+    },
+    "contingent_items": {
+      "contingent_consideration": "Recognise at FV at acquisition; subsequent changes to P&L",
+      "in_process_rd": "Recognise as indefinite-life intangible until project completion or abandonment"
+    },
+    "validation": {
+      "investment_required": "investment_id present",
+      "valid_type": "investment_type in [financial_asset, associate, joint_venture, subsidiary]"
+    }
+  },
+  "outcomes": {
+    "classify_investment": {
+      "priority": 1,
+      "description": "Classify and account for intercorporate investment",
+      "given": [
+        {
+          "field": "investment_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "investment_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "financial_asset",
+            "associate",
+            "joint_venture",
+            "subsidiary"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "intercorp_accountant"
+        },
+        {
+          "action": "emit_event",
+          "event": "intercorp.classified"
+        }
+      ]
+    },
+    "invalid_type": {
+      "priority": 10,
+      "description": "Unsupported investment type",
+      "given": [
+        {
+          "field": "investment_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "financial_asset",
+            "associate",
+            "joint_venture",
+            "subsidiary"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "intercorp.classification_rejected"
+        }
+      ],
+      "error": "INTERCORP_INVALID_TYPE"
+    }
+  },
+  "errors": [
+    {
+      "code": "INTERCORP_INVALID_TYPE",
+      "status": 400,
+      "message": "investment_type must be financial_asset, associate, joint_venture, or subsidiary"
+    }
+  ],
+  "events": [
+    {
+      "name": "intercorp.classified",
+      "payload": [
+        "investment_id",
+        "investment_type",
+        "accounting_method",
+        "carrying_amount"
+      ]
+    },
+    {
+      "name": "intercorp.classification_rejected",
+      "payload": [
+        "investment_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not treat a 15% stake with board representation as a financial asset",
+      "why": "Significant influence can arise below 20% ownership via board seats or participation in policy decisions; equity method is required when influence exists"
+    },
+    {
+      "rule": "Do not reverse goodwill impairment losses",
+      "why": "Both IFRS and US GAAP prohibit reversal; treating goodwill as recoverable overstates assets and future earnings"
+    },
+    {
+      "rule": "Do not ignore the full-vs-partial goodwill election",
+      "why": "Choice affects post-acquisition equity, NCI balance, and future impairment; under IFRS it must be applied consistently per transaction and disclosed"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/fsa/intercorp/classify"
+    },
+    "request": {
+      "schema": {
+        "investment_id": "string",
+        "investment_type": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "investment_id": "string",
+          "accounting_method": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "INTERCORP_INVALID_TYPE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "multiple-regression-basics-l2",
+      "type": "optional"
+    }
+  ]
+}

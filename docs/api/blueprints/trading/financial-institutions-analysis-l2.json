@@ -1,0 +1,209 @@
+{
+  "feature": "financial-institutions-analysis-l2",
+  "version": "1.0.0",
+  "description": "Analyse banks via CAMELS framework and insurance (P&C, life/health) specifics — capital adequacy, asset quality, earnings, liquidity, market-risk sensitivity",
+  "category": "trading",
+  "tags": [
+    "fsa",
+    "financial-institutions",
+    "camels",
+    "banks",
+    "insurance",
+    "cfa-level-2"
+  ],
+  "aliases": [
+    "camels-bank-analysis",
+    "bank-capital-adequacy-basel",
+    "bank-asset-quality-npls",
+    "insurance-analysis-pc",
+    "insurance-analysis-life-health",
+    "bank-liquidity-lcr-nsfr",
+    "bank-sensitivity-market-risk"
+  ],
+  "actors": [
+    {
+      "id": "fi_analyst",
+      "name": "Financial Institutions Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "institution_id",
+      "type": "text",
+      "required": true,
+      "label": "Institution identifier"
+    },
+    {
+      "name": "institution_type",
+      "type": "select",
+      "required": true,
+      "label": "bank | pc_insurer | life_insurer"
+    }
+  ],
+  "rules": {
+    "what_makes_fis_different": {
+      "balance_sheet_centric": "Business model = managing balance sheet spread and risk",
+      "regulated": "Global (Basel, IAIS) and national oversight",
+      "systemic": "Interconnectedness creates contagion risk"
+    },
+    "camels": {
+      "capital_adequacy": "CET1 ratio, Tier 1 ratio, Total capital ratio vs Basel minimums plus buffers",
+      "asset_quality": "Non-performing loan ratio, coverage ratio (reserves/NPLs), concentration",
+      "management": "Experience, strategy execution, risk culture, governance",
+      "earnings": "ROA, ROE, NIM, efficiency ratio, earnings volatility",
+      "liquidity": "LCR (≥100%), NSFR (≥100%), loan-to-deposit ratio, HQLA mix",
+      "sensitivity_to_market_risk": "Duration gap, VaR, stress tests, trading book exposure"
+    },
+    "non_camels_considerations": {
+      "government_support": "Implicit guarantee effects on cost of funding",
+      "mission_business_model": "Retail vs wholesale vs universal",
+      "competitive_position": "Market share, funding cost advantage",
+      "corporate_culture_governance": "Risk appetite, board oversight"
+    },
+    "pc_insurance_analysis": {
+      "key_ratios": "Loss ratio, expense ratio, combined ratio (<100% = underwriting profit)",
+      "reserves_adequacy": "Prior-year development",
+      "reinsurance_usage": "Ceding ratio, retention, counterparty credit",
+      "investment_portfolio": "Liquidity needs vs policyholder obligations"
+    },
+    "life_health_insurance_analysis": {
+      "key_ratios": "Mortality experience, persistence, expense ratio, return on embedded value",
+      "asset_liability_matching": "Duration matching for long-tail liabilities",
+      "risk_based_capital": "Regulatory solvency ratio (SCR, MCR)",
+      "product_mix": "Interest-sensitive vs mortality-sensitive"
+    },
+    "validation": {
+      "institution_required": "institution_id present",
+      "valid_type": "institution_type in [bank, pc_insurer, life_insurer]"
+    }
+  },
+  "outcomes": {
+    "analyse_institution": {
+      "priority": 1,
+      "description": "Analyse financial institution",
+      "given": [
+        {
+          "field": "institution_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "institution_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "bank",
+            "pc_insurer",
+            "life_insurer"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "fi_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "fi.analysed"
+        }
+      ]
+    },
+    "invalid_type": {
+      "priority": 10,
+      "description": "Unsupported institution type",
+      "given": [
+        {
+          "field": "institution_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "bank",
+            "pc_insurer",
+            "life_insurer"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "fi.analysis_rejected"
+        }
+      ],
+      "error": "FI_INVALID_TYPE"
+    }
+  },
+  "errors": [
+    {
+      "code": "FI_INVALID_TYPE",
+      "status": 400,
+      "message": "institution_type must be bank, pc_insurer, or life_insurer"
+    }
+  ],
+  "events": [
+    {
+      "name": "fi.analysed",
+      "payload": [
+        "institution_id",
+        "institution_type",
+        "overall_rating",
+        "key_risks"
+      ]
+    },
+    {
+      "name": "fi.analysis_rejected",
+      "payload": [
+        "institution_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not apply industrial-company ratios to banks",
+      "why": "Banks earn from balance sheet spread; current ratio, inventory turnover, gross margin are meaningless — CAMELS and Basel ratios are required"
+    },
+    {
+      "rule": "Do not ignore off-balance-sheet exposures for banks and insurers",
+      "why": "Loan commitments, derivatives, guarantees, and reinsurance obligations materially affect risk profile; disclosures must be read in full"
+    },
+    {
+      "rule": "Do not rely on prior-year loss reserves for P&C insurers",
+      "why": "Reserves are estimates; adverse development can flip underwriting result post-reporting; monitor development triangles"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/fsa/fi/analyse"
+    },
+    "request": {
+      "schema": {
+        "institution_id": "string",
+        "institution_type": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "institution_id": "string",
+          "overall_rating": "string"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "FI_INVALID_TYPE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "intercorporate-investments-l2",
+      "type": "optional"
+    }
+  ]
+}

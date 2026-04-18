@@ -1,0 +1,140 @@
+# ============================================================
+# financial-statement-modeling-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 2 — FSA Module 7, Financial Statement Modeling
+# ============================================================
+
+feature: financial-statement-modeling-l2
+version: "1.0.0"
+description: Build a three-statement financial model — revenue forecast, operating and non-operating cost build-up, pro forma income statement, cash flow and balance sheet, behavioural-bias checks
+category: trading
+tags: [fsa, financial-model, three-statement, forecasting, behavioural-bias, cfa-level-2]
+aliases:
+  - three-statement-model
+  - revenue-forecast-l2
+  - cogs-sga-modeling
+  - pro-forma-financials
+  - behavioural-bias-forecasts
+  - working-capital-forecast
+  - capex-depreciation-forecast
+
+actors:
+  - id: financial_modeler
+    name: Financial Modeler
+    type: system
+
+fields:
+  - name: model_id
+    type: text
+    required: true
+    label: Model identifier
+  - name: forecast_horizon
+    type: number
+    required: true
+    label: Years of explicit forecast
+
+rules:
+  model_overview:
+    top_down_bottom_up: "Top-down (macro → industry → company); bottom-up (segments → products → customers)"
+    explicit_terminal: "Discrete forecast period plus terminal value assumption"
+  income_statement_modeling:
+    revenue: "Volume × price by product/segment; industry growth × market share"
+    cogs: "Gross margin %, per-unit cost, or variable + fixed split"
+    sga: "Fixed vs variable; operating leverage visible here"
+    non_operating: "Interest expense from debt schedule; FX gains/losses"
+    taxes: "Effective rate = statutory × adjustments for permanent differences"
+    other_items: "Equity-method earnings, minority interest, restructuring"
+  balance_sheet_modeling:
+    working_capital: "Days-sales-outstanding, days-inventory, days-payables"
+    ppe_rollforward: "Beg PP&E + capex − depreciation = end PP&E"
+    debt_schedule: "Beg debt + issuance − repayments = end debt; feeds interest expense"
+    equity_rollforward: "Beg equity + NI − dividends ± share issuance/repurchase"
+  cash_flow_modeling:
+    cfo_indirect: "NI + non-cash adjustments − working capital investment"
+    cfi: "Capex + acquisitions − divestitures"
+    cff: "Debt issuance/repayment + equity issuance − dividends"
+  valuation_inputs:
+    operating_metrics: "Revenue, margins, ROIC"
+    growth_fade: "Decay competitive advantage toward industry norms"
+    terminal_assumptions: "Long-run growth ≤ GDP"
+  behavioural_biases:
+    overconfidence: "Narrow forecast intervals; actual results exceed expected dispersion"
+    illusion_of_control: "Assuming precise numeric output controls outcome"
+    conservatism_bias: "Anchoring to prior forecast, under-reacting to new info"
+    representativeness: "Assuming recent trends persist"
+    confirmation_bias: "Weighting inputs that support prior view"
+  validation:
+    model_required: "model_id present"
+    horizon_positive: "forecast_horizon > 0"
+
+outcomes:
+  build_model:
+    priority: 1
+    description: Build three-statement financial model
+    given:
+      - field: model_id
+        source: input
+        operator: exists
+      - field: forecast_horizon
+        source: input
+        operator: gt
+        value: 0
+    then:
+      - action: call_service
+        target: financial_modeler
+      - action: emit_event
+        event: fsm.built
+  invalid_horizon:
+    priority: 10
+    description: Invalid forecast horizon
+    given:
+      - field: forecast_horizon
+        source: input
+        operator: lte
+        value: 0
+    then:
+      - action: emit_event
+        event: fsm.build_rejected
+    error: FSM_INVALID_HORIZON
+
+errors:
+  - code: FSM_INVALID_HORIZON
+    status: 400
+    message: forecast_horizon must be positive
+
+events:
+  - name: fsm.built
+    payload: [model_id, forecast_horizon, implied_value, key_assumptions]
+  - name: fsm.build_rejected
+    payload: [model_id, reason_code]
+
+anti_patterns:
+  - rule: Do not plug balance sheet with a cash/debt sweep without integrity checks
+    why: "Plug masks modelling errors; always run a full three-statement reconciliation so cash balance ties to cash flow statement ending balance"
+  - rule: Do not extrapolate peak margins into perpetuity
+    why: "Industry returns fade toward cost of capital through competition; terminal margins should reflect mid-cycle economics, not peak quarter"
+  - rule: Do not ignore behavioural biases when reviewing your own forecast
+    why: "Overconfidence narrows your error band; use peer analyst range, historical forecast error, and scenario analysis to debias"
+
+api:
+  http:
+    method: POST
+    path: /fsa/model/build
+  request:
+    schema:
+      model_id: string
+      forecast_horizon: number
+  response:
+    success:
+      status: 200
+      schema:
+        model_id: string
+        implied_value: number
+    errors:
+      - status: 400
+        error_code: FSM_INVALID_HORIZON
+
+related:
+  - feature: fsa-integration-l2
+    type: required
+  - feature: financial-report-quality-l2
+    type: recommended

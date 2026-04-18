@@ -1,0 +1,213 @@
+{
+  "feature": "employee-compensation-l2",
+  "version": "1.0.0",
+  "description": "Report post-employment benefits (DB and DC pensions) and share-based compensation (restricted stock, stock options) — measure expense, obligation, and disclosures",
+  "category": "trading",
+  "tags": [
+    "fsa",
+    "pensions",
+    "share-based-compensation",
+    "db-plans",
+    "dc-plans",
+    "cfa-level-2"
+  ],
+  "aliases": [
+    "db-pension-accounting",
+    "dc-pension-accounting",
+    "stock-option-expense-l2",
+    "restricted-stock-awards",
+    "pbo-abo-pension",
+    "pension-disclosures-ifrs-gaap",
+    "share-based-compensation-modeling"
+  ],
+  "actors": [
+    {
+      "id": "comp_accountant",
+      "name": "Compensation Accountant",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "plan_id",
+      "type": "text",
+      "required": true,
+      "label": "Plan identifier"
+    },
+    {
+      "name": "plan_type",
+      "type": "select",
+      "required": true,
+      "label": "db_pension | dc_pension | stock_option | restricted_stock"
+    }
+  ],
+  "rules": {
+    "db_pension_core_concepts": {
+      "pbo": "Projected benefit obligation; actuarial PV of future payments assuming salary increases",
+      "abo": "Accumulated benefit obligation; PV assuming no future salary growth",
+      "service_cost": "Actuarial PV of benefits earned this period",
+      "interest_cost": "Unwinding of discount on PBO",
+      "actual_return_on_plan_assets": "FV change plus income",
+      "actuarial_gains_losses": "From assumption changes and experience"
+    },
+    "db_reporting_under_ifrs": {
+      "balance_sheet": "Net pension asset/liability = FV assets − PBO",
+      "pl_recognised": "Service cost + net interest (discount rate × net liability)",
+      "oci_recognised": "Remeasurements (actuarial gains/losses, asset return deviation); never recycled"
+    },
+    "db_reporting_under_gaap": {
+      "balance_sheet": "Funded status on face of balance sheet",
+      "pl_recognised": "Service cost, interest cost, expected return, amortisation of prior service cost and actuarial gains/losses",
+      "oci_recognised": "Actuarial gains/losses, prior service cost; amortised to P&L via corridor"
+    },
+    "dc_pensions": {
+      "expense": "Employer contribution recognised as expense when paid or accrued",
+      "no_obligation": "Employee bears investment risk"
+    },
+    "share_based_compensation": {
+      "restricted_stock": "FV at grant date divided by vesting period; expensed with offset to equity",
+      "stock_options": "FV measured using Black-Scholes or binomial; expense ratably over vesting",
+      "tax_effects": "Book-tax timing differences create deferred taxes",
+      "share_count_effects": "Dilutive EPS includes vested options via treasury stock method"
+    },
+    "financial_modeling": {
+      "forecasting_shares_outstanding": "Account for expected grants, vesting, forfeitures, repurchases",
+      "pension_reclassification_for_analysis": "Move actual return and service cost to operating, interest to financing, remeasurements out of P&L for peer comparison"
+    },
+    "validation": {
+      "plan_required": "plan_id present",
+      "valid_type": "plan_type in [db_pension, dc_pension, stock_option, restricted_stock]"
+    }
+  },
+  "outcomes": {
+    "measure_compensation": {
+      "priority": 1,
+      "description": "Measure compensation expense and obligation",
+      "given": [
+        {
+          "field": "plan_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "plan_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "db_pension",
+            "dc_pension",
+            "stock_option",
+            "restricted_stock"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "comp_accountant"
+        },
+        {
+          "action": "emit_event",
+          "event": "comp.measured"
+        }
+      ]
+    },
+    "invalid_type": {
+      "priority": 10,
+      "description": "Unsupported plan type",
+      "given": [
+        {
+          "field": "plan_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "db_pension",
+            "dc_pension",
+            "stock_option",
+            "restricted_stock"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "comp.measurement_rejected"
+        }
+      ],
+      "error": "COMP_INVALID_TYPE"
+    }
+  },
+  "errors": [
+    {
+      "code": "COMP_INVALID_TYPE",
+      "status": 400,
+      "message": "plan_type must be db_pension, dc_pension, stock_option, or restricted_stock"
+    }
+  ],
+  "events": [
+    {
+      "name": "comp.measured",
+      "payload": [
+        "plan_id",
+        "plan_type",
+        "expense",
+        "obligation",
+        "funded_status"
+      ]
+    },
+    {
+      "name": "comp.measurement_rejected",
+      "payload": [
+        "plan_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not compare DB plan expense across IFRS and US GAAP without adjustment",
+      "why": "GAAP expected-return smoothing and corridor amortisation give different P&L shape than IFRS net-interest approach; peer analysis needs alignment"
+    },
+    {
+      "rule": "Do not treat share-based compensation as a non-cash add-back without considering dilution",
+      "why": "Cash flow impact is muted but share count rises materially; earnings-per-share analysis must factor dilution to avoid overstating value per share"
+    },
+    {
+      "rule": "Do not ignore actuarial assumption sensitivity",
+      "why": "Discount rate, salary growth, and expected return drive PBO and expense; small changes (25-50 bp) produce large shifts in funded status"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/fsa/compensation/measure"
+    },
+    "request": {
+      "schema": {
+        "plan_id": "string",
+        "plan_type": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "plan_id": "string",
+          "expense": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "COMP_INVALID_TYPE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "intercorporate-investments-l2",
+      "type": "optional"
+    }
+  ]
+}

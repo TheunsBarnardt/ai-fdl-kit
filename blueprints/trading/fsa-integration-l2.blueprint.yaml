@@ -1,0 +1,143 @@
+# ============================================================
+# fsa-integration-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 2 — FSA Module 6, Integration of FSA Techniques
+# ============================================================
+
+feature: fsa-integration-l2
+version: "1.0.0"
+description: Integrate FSA techniques in a six-phase framework — define purpose, collect data, process, analyse via DuPont, segment and capital structure, conclude with recommendations
+category: trading
+tags: [fsa, integration, dupont, segment-analysis, capital-allocation, cfa-level-2]
+aliases:
+  - six-phase-fsa-framework
+  - dupont-decomposition-l2
+  - segment-analysis-capital-allocation
+  - capital-structure-analysis-fsa
+  - unusual-charges-adjustment
+  - accruals-earnings-quality
+  - fsa-case-study-integration
+
+actors:
+  - id: fsa_integrator
+    name: FSA Integration Analyst
+    type: system
+
+fields:
+  - name: case_id
+    type: text
+    required: true
+    label: Analysis case identifier
+  - name: phase
+    type: select
+    required: true
+    label: purpose | collect | process | analyse | conclude | follow_up
+
+rules:
+  six_phases:
+    purpose: "Define question (equity valuation, credit, acquisition, portfolio screening)"
+    collect: "Financial statements, MD&A, industry, macro, peer data"
+    process: "Normalisation, segment breakdown, ratio calculation"
+    analyse: "Interpret ratios, compare to peers, identify drivers and risks"
+    conclude: "Written recommendations with quantitative support"
+    follow_up: "Monitor thesis, react to new information"
+  dupont_decomposition:
+    three_step: "ROE = Net Profit Margin × Asset Turnover × Leverage"
+    five_step: "ROE = (NI/EBT)(EBT/EBIT)(EBIT/Rev)(Rev/Assets)(Assets/Equity); isolates tax, interest, operating, efficiency, leverage"
+  unusual_charges_adjustment:
+    purpose: "Remove non-recurring items to reveal sustainable earnings"
+    examples: "Restructuring, impairment, litigation, one-time tax benefits"
+    analyst_approach: "Treat recurring if they recur; analyse underlying cause"
+  asset_base_composition:
+    working_capital: "Liquidity, operating cycle"
+    fixed_assets: "Capital intensity, depreciation policy"
+    intangibles: "Goodwill vs other; acquisition-driven vs organic"
+  capital_structure_analysis:
+    leverage_ratios: "Debt/Equity, Debt/EBITDA, Interest Coverage"
+    debt_maturity_profile: "Refinancing risk concentration"
+    off_balance_sheet: "Operating leases (pre-IFRS 16), guarantees, JVs"
+  segment_analysis:
+    revenue_margin_by_segment: "Identify growth and profitability drivers"
+    capital_allocation: "Return on invested capital per segment; flag value-destroying units"
+  accruals_earnings_quality:
+    balance_sheet_approach: "(NOA_t − NOA_{t-1}) / NOA_avg"
+    cash_flow_approach: "(NI − CFO − CFI) / NOA_avg"
+    high_accruals: "Predict negative earnings surprise"
+  valuation_decomposition:
+    price_components: "P/E × Earnings; P/B × Book; EV/EBITDA × EBITDA"
+    attribution: "Revenue growth, margin expansion, multiple re-rating"
+  validation:
+    case_required: "case_id present"
+    valid_phase: "phase in [purpose, collect, process, analyse, conclude, follow_up]"
+
+outcomes:
+  execute_phase:
+    priority: 1
+    description: Execute FSA integration phase
+    given:
+      - field: case_id
+        source: input
+        operator: exists
+      - field: phase
+        source: input
+        operator: in
+        value: [purpose, collect, process, analyse, conclude, follow_up]
+    then:
+      - action: call_service
+        target: fsa_integrator
+      - action: emit_event
+        event: fsa.phase_executed
+  invalid_phase:
+    priority: 10
+    description: Unsupported phase
+    given:
+      - field: phase
+        source: input
+        operator: not_in
+        value: [purpose, collect, process, analyse, conclude, follow_up]
+    then:
+      - action: emit_event
+        event: fsa.phase_rejected
+    error: FSA_INVALID_PHASE
+
+errors:
+  - code: FSA_INVALID_PHASE
+    status: 400
+    message: phase must be one of the six defined phases
+
+events:
+  - name: fsa.phase_executed
+    payload: [case_id, phase, outputs, next_phase]
+  - name: fsa.phase_rejected
+    payload: [case_id, reason_code]
+
+anti_patterns:
+  - rule: Do not conflate accounting ROE with economic return
+    why: "Goodwill and intangibles from past deals inflate equity; peer ROE comparison needs disaggregation via DuPont and underlying asset adjustments"
+  - rule: Do not skip phase 1 (purpose) when the deadline is tight
+    why: "Without a clear question, the analysis produces generic metrics and misses the specific insight the user needs — wastes more time than phase 1 takes"
+  - rule: Do not analyse consolidated results without segment break-down
+    why: "Sum-of-parts can mask a healthy segment subsidising a dying one; capital allocation review requires segment ROIC"
+
+api:
+  http:
+    method: POST
+    path: /fsa/integration/execute
+  request:
+    schema:
+      case_id: string
+      phase: string
+  response:
+    success:
+      status: 200
+      schema:
+        case_id: string
+        phase: string
+    errors:
+      - status: 400
+        error_code: FSA_INVALID_PHASE
+
+related:
+  - feature: financial-report-quality-l2
+    type: required
+  - feature: multinational-operations-l2
+    type: optional
