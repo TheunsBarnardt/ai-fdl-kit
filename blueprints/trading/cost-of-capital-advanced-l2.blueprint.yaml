@@ -1,0 +1,146 @@
+# ============================================================
+# cost-of-capital-advanced-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 3 — Corp Issuers Module 3, Cost of Capital: Advanced Topics
+# ============================================================
+
+feature: cost-of-capital-advanced-l2
+version: "1.0.0"
+description: Estimate cost of capital — top-down and bottom-up factors, cost of debt, equity risk premium (historical vs forward), and cost of equity via DDM, BYPRP, and risk-based models
+category: trading
+tags: [corporate-issuers, cost-of-capital, erp, cost-of-equity, cost-of-debt, cfa-level-2]
+aliases:
+  - erp-historical-forward-looking
+  - cost-of-equity-ddm-l2
+  - bond-yield-plus-risk-premium
+  - cost-of-debt-traded-bank-lease
+  - private-company-cost-of-equity
+  - international-cost-of-capital
+  - country-risk-premium
+
+actors:
+  - id: coc_estimator
+    name: Cost of Capital Estimator
+    type: system
+
+fields:
+  - name: company_id
+    type: text
+    required: true
+    label: Company identifier
+  - name: capital_component
+    type: select
+    required: true
+    label: debt | equity | weighted
+
+rules:
+  top_down_factors:
+    capital_availability: "Liquidity, rate cycle, credit conditions"
+    inflation: "Higher inflation → higher nominal rates"
+    country_risk: "Sovereign risk premium adjustment"
+    exchange_rate_risk: "FX volatility affects foreign-currency funding"
+    economic_growth: "Risk-free rate co-moves with growth expectations"
+  bottom_up_factors:
+    industry: "Sector beta and default risk"
+    size: "Small-size premium evidence"
+    leverage: "Debt/equity mix affects both equity beta and default risk"
+    asset_profile: "Asset-light vs asset-heavy operational leverage"
+    volatility: "Earnings and cash flow volatility"
+  cost_of_debt_methods:
+    traded_debt: "Use yield to maturity on outstanding bonds"
+    non_traded: "Synthetic rating via interest coverage and size; comparable issuer yields"
+    bank_debt: "Effective rate on loans; adjust for compensating balances and fees"
+    leases: "IFRS 16 lease liability discount rate"
+    international: "Adjust for currency and jurisdiction risk"
+  erp_historical:
+    method: "Average excess of equity over risk-free over long history"
+    inputs: "Arithmetic vs geometric mean; choice of risk-free; survivorship bias"
+    limitations: "Backward-looking; stationarity assumption contestable"
+  erp_forward_looking:
+    implied_erp_ddm: "Solve k_e from current price and expected dividends; subtract Rf"
+    macro_approach: "Expected real earnings growth + inflation − bond yield"
+    survey_based: "CFO and analyst surveys"
+  cost_of_equity:
+    ddm: "k_e = D1/P0 + g"
+    bond_yield_plus_risk_premium: "k_e = YTM + small equity premium (3-5%)"
+    risk_based_capm: "Rf + β*(ERP); adjust β with leverage for target capital structure"
+    fama_french: "Rf + β_MKT*ERP + β_SMB*SMB + β_HML*HML"
+    pastor_stambaugh_liquidity: "Add liquidity premium"
+    private_companies: "Build-up: Rf + ERP + size premium + specific-company premium"
+  international_considerations:
+    country_risk_premium: "Sovereign spread or volatility-adjusted"
+    damodaran_framework: "CRP = sovereign spread × (σ_equity/σ_bond)"
+    lambda_exposure: "Firm-specific exposure to country risk"
+  validation:
+    company_required: "company_id present"
+    valid_component: "capital_component in [debt, equity, weighted]"
+
+outcomes:
+  estimate_coc:
+    priority: 1
+    description: Estimate cost of capital component
+    given:
+      - field: company_id
+        source: input
+        operator: exists
+      - field: capital_component
+        source: input
+        operator: in
+        value: [debt, equity, weighted]
+    then:
+      - action: call_service
+        target: coc_estimator
+      - action: emit_event
+        event: coc.estimated
+  invalid_component:
+    priority: 10
+    description: Unsupported capital component
+    given:
+      - field: capital_component
+        source: input
+        operator: not_in
+        value: [debt, equity, weighted]
+    then:
+      - action: emit_event
+        event: coc.estimation_rejected
+    error: COC_INVALID_COMPONENT
+
+errors:
+  - code: COC_INVALID_COMPONENT
+    status: 400
+    message: capital_component must be debt, equity, or weighted
+
+events:
+  - name: coc.estimated
+    payload: [company_id, capital_component, point_estimate, range]
+  - name: coc.estimation_rejected
+    payload: [company_id, reason_code]
+
+anti_patterns:
+  - rule: Do not use historical ERP without considering forward-looking alternatives
+    why: "Historical ERP reflects past regimes; implied/forward-looking estimates often differ by 1-3% and change discount rates materially"
+  - rule: Do not use market-value weights mechanically for target capital structure
+    why: "Cyclically depressed equity overweights debt in WACC and understates cost of capital; use target or industry average weights"
+  - rule: Do not ignore private-company illiquidity and size premia
+    why: "Public comparables understate required return for private firms; build-up method adds explicit size and specific-company premia"
+
+api:
+  http:
+    method: POST
+    path: /corporate/cost-of-capital/estimate
+  request:
+    schema:
+      company_id: string
+      capital_component: string
+  response:
+    success:
+      status: 200
+      schema:
+        company_id: string
+        point_estimate: number
+    errors:
+      - status: 400
+        error_code: COC_INVALID_COMPONENT
+
+related:
+  - feature: multiple-regression-basics-l2
+    type: optional

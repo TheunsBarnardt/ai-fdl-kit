@@ -1,0 +1,142 @@
+# ============================================================
+# discounted-dividend-valuation-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 3 — Equity Valuation Module 2, Discounted Dividend Valuation
+# ============================================================
+
+feature: discounted-dividend-valuation-l2
+version: "1.0.0"
+description: Value equity via discounted dividends — Gordon Growth, two-stage and three-stage DDM, H-model, spreadsheet modelling, sustainable growth rate, and PRAT decomposition
+category: trading
+tags: [equity-valuation, ddm, gordon-growth, h-model, sustainable-growth, prat, cfa-level-2]
+aliases:
+  - gordon-growth-model-l2
+  - two-stage-ddm
+  - three-stage-ddm
+  - h-model-ddm
+  - sustainable-growth-rate-prat
+  - spreadsheet-ddm-modelling
+  - present-value-of-growth-opportunities
+
+actors:
+  - id: ddm_valuator
+    name: Dividend Discount Model Valuator
+    type: system
+
+fields:
+  - name: company_id
+    type: text
+    required: true
+    label: Company identifier
+  - name: model_type
+    type: select
+    required: true
+    label: gordon | two_stage | three_stage | h_model | spreadsheet
+
+rules:
+  present_value_models:
+    general_dcf: "V0 = Σ CFt / (1+r)^t"
+    ddm_framework: "V0 = Σ Dt / (1+r)^t; terminal dividend value"
+    fcfe: "Use when dividends differ materially from capacity"
+    residual_income: "Use when FCF negative and dividends low"
+  single_stage_gordon_growth:
+    formula: "V0 = D1 / (k_e − g)"
+    assumptions: "Constant growth g < k_e in perpetuity"
+    pvgo: "P0 = E1/k_e + PVGO; backs out growth contribution"
+    applications: "Mature stable dividend payers, indices, utilities"
+    limitations: "Sensitive to (k_e − g); undefined if g ≥ k_e"
+  multistage_ddm:
+    two_stage: "Explicit high-growth period then constant growth perpetuity"
+    terminal_value: "V_n = D_{n+1} / (k_e − g_L)"
+    three_stage: "High growth → declining → stable (mirrors product life cycle)"
+    h_model: "Linear decline from g_S to g_L over 2H years; V0 = D0(1+g_L)/(k−g_L) + D0*H*(g_S−g_L)/(k−g_L)"
+    spreadsheet_general: "Explicit finite forecast + terminal; flexible for changing dividends"
+  terminal_value_methods:
+    gordon_terminal: "Perpetuity with long-run g"
+    multiple_based: "P/E or P/B at horizon date"
+    convergence: "Long-run g converges to nominal GDP"
+  sustainable_growth:
+    definition: "g = b × ROE where b = retention ratio"
+    prat_decomposition: "g = P × R × A × T (profit margin × retention × asset turnover × leverage)"
+    implication: "Forecast ROE and payout to derive g"
+    dupont_link: "PRAT is the extended DuPont with retention"
+  required_return_inputs:
+    capm: "k_e = Rf + β(ERP)"
+    build_up: "Rf + ERP + size + specific"
+    bond_yield_plus: "YTM + risk premium 3-5%"
+  validation:
+    company_required: "company_id present"
+    valid_model: "model_type in allowed set"
+    growth_lt_required_return: "g < k_e required for Gordon Growth"
+
+outcomes:
+  value_with_ddm:
+    priority: 1
+    description: Value equity using selected DDM variant
+    given:
+      - field: company_id
+        source: input
+        operator: exists
+      - field: model_type
+        source: input
+        operator: in
+        value: [gordon, two_stage, three_stage, h_model, spreadsheet]
+    then:
+      - action: call_service
+        target: ddm_valuator
+      - action: emit_event
+        event: ddm.valued
+  invalid_model:
+    priority: 10
+    description: Unsupported DDM variant
+    given:
+      - field: model_type
+        source: input
+        operator: not_in
+        value: [gordon, two_stage, three_stage, h_model, spreadsheet]
+    then:
+      - action: emit_event
+        event: ddm.rejected
+    error: DDM_INVALID_MODEL
+
+errors:
+  - code: DDM_INVALID_MODEL
+    status: 400
+    message: model_type must be one of the supported DDM variants
+
+events:
+  - name: ddm.valued
+    payload: [company_id, model_type, intrinsic_value, implied_growth, pvgo]
+  - name: ddm.rejected
+    payload: [company_id, reason_code]
+
+anti_patterns:
+  - rule: Do not use Gordon Growth when g ≥ k_e
+    why: "Denominator becomes zero or negative; the model breaks and produces nonsensical values. Use multistage DDM with explicit high-growth period instead"
+  - rule: Do not set terminal growth rate above long-run nominal GDP growth
+    why: "No firm can outgrow its economy forever; terminal g above nominal GDP implies the firm eventually becomes the entire economy, which is impossible"
+  - rule: Do not ignore the sensitivity of DDM to (k_e − g)
+    why: "Small changes in either input produce large value swings; always run sensitivity tables on both required return and terminal growth"
+
+api:
+  http:
+    method: POST
+    path: /equity/ddm/value
+  request:
+    schema:
+      company_id: string
+      model_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        company_id: string
+        intrinsic_value: number
+    errors:
+      - status: 400
+        error_code: DDM_INVALID_MODEL
+
+related:
+  - feature: equity-valuation-applications-l2
+    type: required
+  - feature: cost-of-capital-advanced-l2
+    type: required

@@ -1,0 +1,139 @@
+# ============================================================
+# esg-investment-analysis-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 3 — Corp Issuers Module 2, ESG
+# ============================================================
+
+feature: esg-investment-analysis-l2
+version: "1.0.0"
+description: Evaluate ESG considerations — ownership structures, board practices, remuneration, voting rights, material ESG risks and opportunities, and integration into investment analysis
+category: trading
+tags: [corporate-issuers, esg, governance, stewardship, materiality, cfa-level-2]
+aliases:
+  - esg-integration-l2
+  - corporate-governance-esg
+  - ownership-structure-effects
+  - board-policies-practices
+  - executive-remuneration-esg
+  - esg-materiality-horizon
+  - dispersed-concentrated-ownership
+
+actors:
+  - id: esg_analyst
+    name: ESG Analyst
+    type: system
+
+fields:
+  - name: company_id
+    type: text
+    required: true
+    label: Company identifier
+  - name: integration_approach
+    type: select
+    required: true
+    label: exclusion | best_in_class | thematic | impact | integration
+
+rules:
+  ownership_structures:
+    dispersed: "No single shareholder with material control; principal-agent problem dominant"
+    concentrated: "Controlling shareholder; principal-principal conflict with minorities"
+  types_of_influential_shareholders:
+    founders_families: "Long horizons; can entrench management"
+    governments: "Strategic objectives override commercial"
+    institutional: "Active managers, index funds, pension funds"
+    activist: "Campaign for governance or strategic change"
+    cross_holdings: "Mutual cross-ownership dilutes accountability"
+  governance_evaluation:
+    board_policies: "Independence, diversity, tenure, committees"
+    executive_remuneration: "Alignment with long-term value; malus and clawback"
+    shareholder_voting: "One-share-one-vote vs dual class; proxy access"
+    minority_protection: "Pre-emptive rights, tag-along, independent directors"
+  esg_risks_opportunities:
+    materiality: "ESG factors that affect financial performance by sector"
+    investment_horizon: "Longer horizon widens ESG relevance"
+    environmental_factors: "Climate transition, physical risk, resource scarcity"
+    social_factors: "Labour practices, product safety, community relations"
+    governance_factors: "Audit integrity, board, compensation, ethics"
+  integration_approaches:
+    exclusion: "Remove sectors/firms on values grounds"
+    best_in_class: "Tilt toward top ESG performers within sector"
+    thematic: "Invest in specific themes (clean energy, water)"
+    impact: "Target measurable social/environmental outcomes alongside return"
+    integration: "Systematically incorporate ESG into traditional analysis"
+  examples_of_integration:
+    adjust_cost_of_capital: "Higher WACC for elevated ESG risk"
+    adjust_cash_flow_forecast: "Penalise lower revenue or higher costs"
+    valuation_multiple: "Lower multiple for governance red flags"
+  validation:
+    company_required: "company_id present"
+    valid_approach: "integration_approach in [exclusion, best_in_class, thematic, impact, integration]"
+
+outcomes:
+  integrate_esg:
+    priority: 1
+    description: Integrate ESG considerations into investment analysis
+    given:
+      - field: company_id
+        source: input
+        operator: exists
+      - field: integration_approach
+        source: input
+        operator: in
+        value: [exclusion, best_in_class, thematic, impact, integration]
+    then:
+      - action: call_service
+        target: esg_analyst
+      - action: emit_event
+        event: esg.integrated
+  invalid_approach:
+    priority: 10
+    description: Unsupported integration approach
+    given:
+      - field: integration_approach
+        source: input
+        operator: not_in
+        value: [exclusion, best_in_class, thematic, impact, integration]
+    then:
+      - action: emit_event
+        event: esg.integration_rejected
+    error: ESG_INVALID_APPROACH
+
+errors:
+  - code: ESG_INVALID_APPROACH
+    status: 400
+    message: integration_approach must be one of the supported approaches
+
+events:
+  - name: esg.integrated
+    payload: [company_id, integration_approach, key_risks, adjusted_cost_of_capital]
+  - name: esg.integration_rejected
+    payload: [company_id, reason_code]
+
+anti_patterns:
+  - rule: Do not apply one-size-fits-all ESG scoring across sectors
+    why: "Materiality varies by sector — carbon is critical for utilities, irrelevant for asset managers; sector-adjusted frameworks (SASB, MSCI) are required"
+  - rule: Do not equate exclusion strategies with impact
+    why: "Divestment transfers shares to another holder without changing company behaviour; engagement and voting produce real-world change"
+  - rule: Do not treat ESG as purely qualitative
+    why: "Carbon emissions, board independence, controversy counts are quantifiable; integration requires explicit numerical adjustments to WACC, growth, or multiple"
+
+api:
+  http:
+    method: POST
+    path: /corporate/esg/integrate
+  request:
+    schema:
+      company_id: string
+      integration_approach: string
+  response:
+    success:
+      status: 200
+      schema:
+        company_id: string
+        adjusted_cost_of_capital: number
+    errors:
+      - status: 400
+        error_code: ESG_INVALID_APPROACH
+
+related:
+  - feature: dividends-share-repurchases-l2
+    type: optional

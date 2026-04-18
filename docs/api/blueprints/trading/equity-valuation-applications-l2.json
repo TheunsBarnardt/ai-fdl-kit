@@ -1,0 +1,228 @@
+{
+  "feature": "equity-valuation-applications-l2",
+  "version": "1.0.0",
+  "description": "Apply equity valuation — value definitions (intrinsic, going-concern, liquidation, fair), applications (stock selection, M&A, IPO, fairness opinions), model selection, and research report structure",
+  "category": "trading",
+  "tags": [
+    "equity-valuation",
+    "intrinsic-value",
+    "valuation-applications",
+    "research-report",
+    "cfa-level-2"
+  ],
+  "aliases": [
+    "intrinsic-value-l2",
+    "going-concern-liquidation-value",
+    "valuation-model-selection",
+    "equity-research-report-structure",
+    "fairness-opinion-valuation",
+    "m-and-a-valuation-applications",
+    "ipo-valuation-applications"
+  ],
+  "actors": [
+    {
+      "id": "valuation_analyst",
+      "name": "Equity Valuation Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "company_id",
+      "type": "text",
+      "required": true,
+      "label": "Company identifier"
+    },
+    {
+      "name": "valuation_purpose",
+      "type": "select",
+      "required": true,
+      "label": "stock_selection | ma | ipo | fairness_opinion | litigation | tax"
+    }
+  ],
+  "rules": {
+    "value_definitions": {
+      "intrinsic_value": "Value based on a correct understanding of the firm's characteristics",
+      "going_concern": "Value assuming firm continues operating",
+      "liquidation": "Value if assets sold individually; floor for distressed firms",
+      "fair_market_value": "Willing buyer/seller, arm's length, full information",
+      "investment_value": "Value to a specific buyer given synergies or goals"
+    },
+    "applications": {
+      "stock_selection": "Identify mispriced securities",
+      "inferring_expectations": "Reverse-engineer price to extract market assumptions",
+      "evaluating_events": "M&A, divestiture, restructuring impact",
+      "fairness_opinions": "Independent valuation for board fiduciary duty",
+      "research_reports": "Buy/sell/hold recommendations",
+      "private_business": "Transactions, tax, estate planning",
+      "share_based_payments": "Equity compensation expense"
+    },
+    "valuation_process": {
+      "understand_business": "Industry, strategy, quality of management",
+      "forecast_performance": "Top-down vs bottom-up; scenarios",
+      "select_model": "Absolute (DCF, RI) vs relative (multiples)",
+      "convert_to_valuation": "Run model, reconcile to market",
+      "apply_conclusions": "Recommendation, report, portfolio action"
+    },
+    "model_selection_criteria": {
+      "dividend_paying_stable": "DDM appropriate",
+      "no_dividends_positive_fcf": "FCFE/FCFF preferred",
+      "mature_industry_comparables": "Relative valuation via multiples",
+      "negative_earnings_asset_heavy": "Asset-based or residual income",
+      "private_illiquid": "Add size/illiquidity discount"
+    },
+    "research_report_structure": {
+      "table_of_contents": "Executive summary with recommendation",
+      "summary_and_investment_conclusion": "Target price, rating, horizon",
+      "business_summary": "Company, industry, strategy",
+      "risks": "Downside drivers",
+      "valuation": "Model, key assumptions, sensitivity",
+      "historical_and_prospective_data": "Financials, forecasts"
+    },
+    "analyst_responsibilities": {
+      "independence": "Avoid conflicts, disclose compensation",
+      "rigorous_analysis": "Support opinions with evidence",
+      "communication_clarity": "Distinguish fact from opinion",
+      "update_views": "Revise when information changes"
+    },
+    "validation": {
+      "company_required": "company_id present",
+      "valid_purpose": "valuation_purpose in allowed set"
+    }
+  },
+  "outcomes": {
+    "perform_valuation": {
+      "priority": 1,
+      "description": "Perform equity valuation for stated purpose",
+      "given": [
+        {
+          "field": "company_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "valuation_purpose",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "stock_selection",
+            "ma",
+            "ipo",
+            "fairness_opinion",
+            "litigation",
+            "tax"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "valuation_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "valuation.completed"
+        }
+      ]
+    },
+    "invalid_purpose": {
+      "priority": 10,
+      "description": "Unsupported valuation purpose",
+      "given": [
+        {
+          "field": "valuation_purpose",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "stock_selection",
+            "ma",
+            "ipo",
+            "fairness_opinion",
+            "litigation",
+            "tax"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "valuation.rejected"
+        }
+      ],
+      "error": "VALUATION_INVALID_PURPOSE"
+    }
+  },
+  "errors": [
+    {
+      "code": "VALUATION_INVALID_PURPOSE",
+      "status": 400,
+      "message": "valuation_purpose must be one of the supported purposes"
+    }
+  ],
+  "events": [
+    {
+      "name": "valuation.completed",
+      "payload": [
+        "company_id",
+        "valuation_purpose",
+        "intrinsic_value",
+        "recommendation",
+        "target_price"
+      ]
+    },
+    {
+      "name": "valuation.rejected",
+      "payload": [
+        "company_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not conflate market price with intrinsic value",
+      "why": "Mispricing is the core opportunity; assuming market price equals intrinsic value negates the purpose of valuation analysis"
+    },
+    {
+      "rule": "Do not pick valuation models for convenience over fit",
+      "why": "DDM on a non-dividend growth firm or multiples on a unique asset both produce spurious precision; model selection must reflect firm characteristics"
+    },
+    {
+      "rule": "Do not omit sensitivity analysis from research reports",
+      "why": "Point estimates hide assumption dependence; analysts must disclose the key drivers and ranges of possible outcomes"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/equity/valuation/perform"
+    },
+    "request": {
+      "schema": {
+        "company_id": "string",
+        "valuation_purpose": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "company_id": "string",
+          "intrinsic_value": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "VALUATION_INVALID_PURPOSE"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "discounted-dividend-valuation-l2",
+      "type": "recommended"
+    }
+  ]
+}

@@ -1,0 +1,104 @@
+<!-- AUTO-GENERATED FROM equity-valuation-applications-l2.blueprint.yaml — DO NOT EDIT. Run `npm run generate:readmes` to refresh. -->
+
+# Equity Valuation Applications L2
+
+> Apply equity valuation — value definitions (intrinsic, going-concern, liquidation, fair), applications (stock selection, M&A, IPO, fairness opinions), model selection, and research report structure
+
+**Category:** Trading · **Version:** 1.0.0 · **Tags:** equity-valuation · intrinsic-value · valuation-applications · research-report · cfa-level-2
+
+## What this does
+
+Apply equity valuation — value definitions (intrinsic, going-concern, liquidation, fair), applications (stock selection, M&A, IPO, fairness opinions), model selection, and research report structure
+
+Specifies 2 acceptance outcomes that any implementation must satisfy, regardless of language or framework.
+
+## Fields
+
+- **company_id** *(text, required)* — Company identifier
+- **valuation_purpose** *(select, required)* — stock_selection | ma | ipo | fairness_opinion | litigation | tax
+
+## What must be true
+
+- **value_definitions → intrinsic_value:** Value based on a correct understanding of the firm's characteristics
+- **value_definitions → going_concern:** Value assuming firm continues operating
+- **value_definitions → liquidation:** Value if assets sold individually; floor for distressed firms
+- **value_definitions → fair_market_value:** Willing buyer/seller, arm's length, full information
+- **value_definitions → investment_value:** Value to a specific buyer given synergies or goals
+- **applications → stock_selection:** Identify mispriced securities
+- **applications → inferring_expectations:** Reverse-engineer price to extract market assumptions
+- **applications → evaluating_events:** M&A, divestiture, restructuring impact
+- **applications → fairness_opinions:** Independent valuation for board fiduciary duty
+- **applications → research_reports:** Buy/sell/hold recommendations
+- **applications → private_business:** Transactions, tax, estate planning
+- **applications → share_based_payments:** Equity compensation expense
+- **valuation_process → understand_business:** Industry, strategy, quality of management
+- **valuation_process → forecast_performance:** Top-down vs bottom-up; scenarios
+- **valuation_process → select_model:** Absolute (DCF, RI) vs relative (multiples)
+- **valuation_process → convert_to_valuation:** Run model, reconcile to market
+- **valuation_process → apply_conclusions:** Recommendation, report, portfolio action
+- **model_selection_criteria → dividend_paying_stable:** DDM appropriate
+- **model_selection_criteria → no_dividends_positive_fcf:** FCFE/FCFF preferred
+- **model_selection_criteria → mature_industry_comparables:** Relative valuation via multiples
+- **model_selection_criteria → negative_earnings_asset_heavy:** Asset-based or residual income
+- **model_selection_criteria → private_illiquid:** Add size/illiquidity discount
+- **research_report_structure → table_of_contents:** Executive summary with recommendation
+- **research_report_structure → summary_and_investment_conclusion:** Target price, rating, horizon
+- **research_report_structure → business_summary:** Company, industry, strategy
+- **research_report_structure → risks:** Downside drivers
+- **research_report_structure → valuation:** Model, key assumptions, sensitivity
+- **research_report_structure → historical_and_prospective_data:** Financials, forecasts
+- **analyst_responsibilities → independence:** Avoid conflicts, disclose compensation
+- **analyst_responsibilities → rigorous_analysis:** Support opinions with evidence
+- **analyst_responsibilities → communication_clarity:** Distinguish fact from opinion
+- **analyst_responsibilities → update_views:** Revise when information changes
+- **validation → company_required:** company_id present
+- **validation → valid_purpose:** valuation_purpose in allowed set
+
+## Success & failure scenarios
+
+**✅ Success paths**
+
+- **Perform Valuation** — when company_id exists; valuation_purpose in ["stock_selection","ma","ipo","fairness_opinion","litigation","tax"], then call service; emit valuation.completed. _Why: Perform equity valuation for stated purpose._
+
+**❌ Failure paths**
+
+- **Invalid Purpose** — when valuation_purpose not_in ["stock_selection","ma","ipo","fairness_opinion","litigation","tax"], then emit valuation.rejected. _Why: Unsupported valuation purpose._ *(error: `VALUATION_INVALID_PURPOSE`)*
+
+## Errors it can return
+
+- `VALUATION_INVALID_PURPOSE` — valuation_purpose must be one of the supported purposes
+
+## Events
+
+**`valuation.completed`**
+  Payload: `company_id`, `valuation_purpose`, `intrinsic_value`, `recommendation`, `target_price`
+
+**`valuation.rejected`**
+  Payload: `company_id`, `reason_code`
+
+## Connects to
+
+- **discounted-dividend-valuation-l2** *(recommended)*
+
+## Quality fitness 🟢 82/100
+
+Automated quality score measuring outcome coverage, rule structure, error binding, and field validation depth. Regenerated by `npm run fitness` — see [`scripts/fitness.js`](../../scripts/fitness.js) for the scoring model.
+
+| Dimension | Score | Points |
+|-----------|-------|--------|
+| Description | `██████████` | 10/10 |
+| Rules | `██████████` | 10/10 |
+| Outcomes | `████████████████████░░░░░` | 20/25 |
+| Structured conditions | `██████████` | 10/10 |
+| Error binding | `██████████` | 10/10 |
+| Field validation | `███████░░░` | 7/10 |
+| Relationships | `█████░░░░░` | 5/10 |
+| Events | `█████` | 5/5 |
+| AGI readiness | `░░░░░` | 0/5 |
+| Simplicity | `█████` | 5/5 |
+
+---
+
+**Full reference:** [docs site](https://theunsbarnardt.github.io/ai-fdl-kit/blueprints/trading/equity-valuation-applications-l2/) · **Spec source:** [`equity-valuation-applications-l2.blueprint.yaml`](./equity-valuation-applications-l2.blueprint.yaml)
+
+*Generated from YAML — any edits to this file will be overwritten. Update the blueprint YAML and re-run `npm run generate:readmes`.*
