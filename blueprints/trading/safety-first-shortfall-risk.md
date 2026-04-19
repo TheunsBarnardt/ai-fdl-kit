@@ -36,7 +36,7 @@ Specifies 4 acceptance outcomes that any implementation must satisfy, regardless
 - **applications → pension_funds:** R_L = required return to meet liabilities; minimise probability of underfunding
 - **applications → dc_plans:** R_L = inflation-adjusted target; select allocation that minimises real-return shortfall
 - **applications → hedge_funds:** R_L = absolute-return floor; communicate downside risk to LPs
-- **validation → std_dev_positive:** sigma_P > 0 for SFRatio to be defined
+- **validation → std_dev_positive:** Portfolio standard deviation must be greater than zero; SFRatio is undefined for zero-volatility portfolios
 - **validation → candidates_non_empty:** candidate_portfolios array must contain at least one entry
 - **validation → normality_flagged:** Flag non-normal return distributions where closed-form shortfall probability is unreliable
 
