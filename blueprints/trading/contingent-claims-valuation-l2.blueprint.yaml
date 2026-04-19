@@ -1,0 +1,157 @@
+# ============================================================
+# contingent-claims-valuation-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 5 — Derivatives Module 2, Valuation of Contingent Claims
+# ============================================================
+
+feature: contingent-claims-valuation-l2
+version: "1.0.0"
+description: Value contingent claims — binomial model (one- and two-period), BSM assumptions and formula, carry benefits, Black model for futures/swaptions, option Greeks, implied volatility
+category: trading
+tags: [derivatives, options, bsm, binomial-model, option-greeks, implied-volatility, cfa-level-2]
+aliases:
+  - black-scholes-merton-l2
+  - binomial-option-valuation-l2
+  - option-greeks-l2
+  - implied-volatility-l2
+  - black-model-futures-options
+  - swaption-valuation-l2
+  - delta-gamma-vega-theta
+
+actors:
+  - id: options_pricer
+    name: Options Pricer
+    type: system
+
+fields:
+  - name: option_id
+    type: text
+    required: true
+    label: Option identifier
+  - name: model_type
+    type: select
+    required: true
+    label: binomial | bsm | black
+
+rules:
+  no_arbitrage_principles:
+    put_call_parity: "C − P = S − PV(X); holds under no-arbitrage"
+    bounds: "Call: max(0, S−PV(X)); Put: max(0, PV(X)−S)"
+  binomial_one_period:
+    risk_neutral_probability: "π = (1+r − d) / (u − d)"
+    option_value: "V0 = [π × Vu + (1−π) × Vd] / (1+r)"
+    replication: "Portfolio of stock + bond that replicates option payoff"
+  two_period_binomial:
+    backward_induction: "Work from terminal nodes back to today"
+    calls_puts: "Exercise decision at each node"
+    dividends: "Reduce up/down factors at ex-date"
+  interest_rate_options:
+    cap_floor: "Series of caplets/floorlets; reference vs strike"
+    multiperiod_binomial: "Rate tree; each node computes caplet payoff"
+  bsm_assumptions:
+    underlying: "Lognormal returns; no jumps"
+    constant_vol: "σ fixed over life"
+    continuous_trading: "No frictions, short selling allowed"
+    risk_free_constant: "Flat term structure"
+  bsm_formula:
+    call: "C = S × N(d1) − PV(X) × N(d2)"
+    put: "P = PV(X) × N(−d2) − S × N(−d1)"
+    d1: "(ln(S/X) + (r + σ²/2)T) / (σ√T)"
+    d2: "d1 − σ√T"
+  carry_benefits_extension:
+    dividends: "Replace S with S × e^{−qT}; lowers call, raises put"
+    fx_options: "Foreign risk-free rate acts as carry yield"
+    futures_options: "S = F × e^{−rT} (Black model)"
+  black_model:
+    call: "Bl(F, X, T, σ, r)"
+    use_for: "Futures options, caps, floors, swaptions"
+    swaption: "Receiver/payer swaption valued on forward swap rate"
+  greeks:
+    delta: "∂V/∂S; sensitivity to underlying price"
+    gamma: "∂²V/∂S²; rate of change of delta"
+    theta: "∂V/∂t; time decay (usually negative for long)"
+    vega: "∂V/∂σ; sensitivity to volatility"
+    rho: "∂V/∂r; sensitivity to interest rate"
+  delta_hedging:
+    portfolio_delta: "Sum of position deltas × holdings"
+    dynamic_hedging: "Rebalance continuously; gamma risk remains"
+  implied_volatility:
+    definition: "σ that equates BSM price to market price"
+    vol_smile: "Lower/higher strikes often imply higher vol"
+    vol_skew: "Equity smirk: OTM puts rich relative to model"
+  validation:
+    option_required: "option_id present"
+    valid_model: "model_type in [binomial, bsm, black]"
+
+outcomes:
+  value_option:
+    priority: 1
+    description: Value contingent claim using selected model
+    given:
+      - field: option_id
+        source: input
+        operator: exists
+      - field: model_type
+        source: input
+        operator: in
+        value: [binomial, bsm, black]
+    then:
+      - action: call_service
+        target: options_pricer
+      - action: emit_event
+        event: option.valued
+  invalid_model:
+    priority: 10
+    description: Unsupported model
+    given:
+      - field: model_type
+        source: input
+        operator: not_in
+        value: [binomial, bsm, black]
+    then:
+      - action: emit_event
+        event: option.rejected
+    error: OPTION_INVALID_MODEL
+
+errors:
+  - code: OPTION_INVALID_MODEL
+    status: 400
+    message: model_type must be one of the supported option models
+
+events:
+  - name: option.valued
+    payload: [option_id, model_type, value, delta, gamma, vega, theta]
+  - name: option.rejected
+    payload: [option_id, reason_code]
+
+anti_patterns:
+  - rule: Do not use BSM without checking its assumptions against the market
+    why: "BSM assumes constant vol and lognormal returns; fat tails and volatility clustering cause systematic mispricing of far OTM options — use implied vol smile"
+  - rule: Do not delta-hedge without monitoring gamma
+    why: "Delta hedges are instantaneously correct but drift as S moves; large gamma means rapid delta change — rebalancing frequency must scale with gamma exposure"
+  - rule: Do not value swaptions with the standard BSM without switching to the Black model
+    why: "BSM uses spot price as input; swaptions are exercised into swap contracts best modelled with forward swap rates — the Black model is the correct framework"
+
+api:
+  http:
+    method: POST
+    path: /derivatives/option/value
+  request:
+    schema:
+      option_id: string
+      model_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        option_id: string
+        value: number
+        delta: number
+    errors:
+      - status: 400
+        error_code: OPTION_INVALID_MODEL
+
+related:
+  - feature: forward-commitments-valuation-l2
+    type: required
+  - feature: bonds-with-embedded-options-l2
+    type: recommended

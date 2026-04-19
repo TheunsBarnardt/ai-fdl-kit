@@ -1,0 +1,235 @@
+{
+  "feature": "hedge-fund-strategies-l2",
+  "version": "1.0.0",
+  "description": "Evaluate hedge fund strategies — equity L/S, dedicated short, market neutral, merger arb, distressed, relative value, global macro, managed futures, and conditional factor risk model analysis",
+  "category": "trading",
+  "tags": [
+    "alternative-investments",
+    "hedge-funds",
+    "long-short-equity",
+    "merger-arbitrage",
+    "relative-value",
+    "global-macro",
+    "cfa-level-2"
+  ],
+  "aliases": [
+    "long-short-equity-strategy",
+    "merger-arbitrage-l2",
+    "distressed-securities-hedge-fund",
+    "fixed-income-arbitrage-l2",
+    "global-macro-strategy",
+    "managed-futures-strategy",
+    "conditional-factor-risk-model"
+  ],
+  "actors": [
+    {
+      "id": "hedge_fund_analyst",
+      "name": "Hedge Fund Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "fund_id",
+      "type": "text",
+      "required": true,
+      "label": "Fund identifier"
+    },
+    {
+      "name": "strategy_type",
+      "type": "select",
+      "required": true,
+      "label": "long_short_equity | dedicated_short | market_neutral | merger_arb | distressed | fi_arbitrage | convertible_arb | global_macro | managed_futures | volatility | multistrategy"
+    }
+  ],
+  "rules": {
+    "equity_strategies": {
+      "long_short_equity": "Long alpha stocks, short overvalued; net long bias typical",
+      "dedicated_short": "Net short; profits from market declines; contrarian vs consensus",
+      "market_neutral": "Zero net exposure; profits from stock-picking alpha"
+    },
+    "event_driven": {
+      "merger_arbitrage": "Long target, short acquirer; capture spread; risk = deal break",
+      "distressed": "Deep value in stressed/defaulted securities; illiquid; catalysts needed"
+    },
+    "relative_value": {
+      "fi_arbitrage": "Exploit yield curve, credit spread, or liquidity mispricings; high leverage",
+      "convertible_arb": "Long convertible, short equity; delta-neutral; earn yield + credit spread"
+    },
+    "opportunistic": {
+      "global_macro": "Top-down macro views in FX, rates, equities, commodities",
+      "managed_futures": "Systematic trend-following (CTA); long vol, negative skew in reversals"
+    },
+    "specialist": {
+      "volatility_trading": "Long gamma via options; short vol via variance swaps",
+      "reinsurance": "Cat bonds, life settlements; uncorrelated insurance risk"
+    },
+    "multi_manager": {
+      "fund_of_funds": "Diversified exposure; double fee layer; due diligence outsourced",
+      "multi_strategy": "Single fund with multiple desks; capital allocated dynamically"
+    },
+    "classification_keys": {
+      "return_drivers": "Alpha source — model, information, structural",
+      "risk_exposures": "Equity beta, credit beta, duration, vol, macro",
+      "liquidity": "Capital lock-up, redemption terms, asset liquidity mismatch"
+    },
+    "conditional_factor_risk_model": {
+      "unconditional": "Single set of factor loadings regardless of market",
+      "conditional": "Factor exposures change with market regime",
+      "up_market_beta": "β when market is positive",
+      "down_market_beta": "β when market is negative",
+      "portfolio_contribution": "Marginal contribution to Sharpe of 60/40 portfolio"
+    },
+    "validation": {
+      "fund_required": "fund_id present",
+      "valid_strategy": "strategy_type in allowed set"
+    }
+  },
+  "outcomes": {
+    "evaluate_hedge_fund": {
+      "priority": 1,
+      "description": "Evaluate hedge fund strategy",
+      "given": [
+        {
+          "field": "fund_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "strategy_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "long_short_equity",
+            "dedicated_short",
+            "market_neutral",
+            "merger_arb",
+            "distressed",
+            "fi_arbitrage",
+            "convertible_arb",
+            "global_macro",
+            "managed_futures",
+            "volatility",
+            "multistrategy"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "hedge_fund_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "hedge_fund.evaluated"
+        }
+      ]
+    },
+    "invalid_strategy": {
+      "priority": 10,
+      "description": "Unsupported strategy type",
+      "given": [
+        {
+          "field": "strategy_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "long_short_equity",
+            "dedicated_short",
+            "market_neutral",
+            "merger_arb",
+            "distressed",
+            "fi_arbitrage",
+            "convertible_arb",
+            "global_macro",
+            "managed_futures",
+            "volatility",
+            "multistrategy"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "hedge_fund.rejected"
+        }
+      ],
+      "error": "HEDGE_INVALID_STRATEGY"
+    }
+  },
+  "errors": [
+    {
+      "code": "HEDGE_INVALID_STRATEGY",
+      "status": 400,
+      "message": "strategy_type must be one of the supported hedge fund strategies"
+    }
+  ],
+  "events": [
+    {
+      "name": "hedge_fund.evaluated",
+      "payload": [
+        "fund_id",
+        "strategy_type",
+        "up_beta",
+        "down_beta",
+        "sharpe",
+        "portfolio_contribution"
+      ]
+    },
+    {
+      "name": "hedge_fund.rejected",
+      "payload": [
+        "fund_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not assess hedge funds with unconditional betas only",
+      "why": "Many hedge funds exhibit strong positive beta in down markets (crisis alpha disappears); conditional factor models separate up-market from down-market beta"
+    },
+    {
+      "rule": "Do not use reported returns without adjusting for illiquidity and smoothing",
+      "why": "Infrequent pricing of illiquid positions creates autocorrelation that inflates the Sharpe ratio — adjust with autocorrelation correction"
+    },
+    {
+      "rule": "Do not assume fund-of-funds diversification is free",
+      "why": "Double fees (management + performance) reduce net Sharpe materially; the fee drag must be weighed against correlation reduction and manager access benefits"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/alternatives/hedge-fund/evaluate"
+    },
+    "request": {
+      "schema": {
+        "fund_id": "string",
+        "strategy_type": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "fund_id": "string",
+          "sharpe": "number",
+          "portfolio_contribution": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "HEDGE_INVALID_STRATEGY"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "multifactor-models-l2",
+      "type": "recommended"
+    }
+  ]
+}

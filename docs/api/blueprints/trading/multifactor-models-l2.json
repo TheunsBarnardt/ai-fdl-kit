@@ -1,0 +1,229 @@
+{
+  "feature": "multifactor-models-l2",
+  "version": "1.0.0",
+  "description": "Apply multifactor models — APT, macroeconomic, fundamental (Fama-French), fixed-income factor models, return and risk attribution, portfolio construction and strategic decisions",
+  "category": "trading",
+  "tags": [
+    "portfolio-management",
+    "multifactor-models",
+    "apt",
+    "fama-french",
+    "factor-investing",
+    "risk-attribution",
+    "cfa-level-2"
+  ],
+  "aliases": [
+    "arbitrage-pricing-theory-l2",
+    "fama-french-three-factor",
+    "macroeconomic-factor-model",
+    "fundamental-factor-model",
+    "factor-return-attribution",
+    "factor-risk-attribution",
+    "smart-beta-factor-construction"
+  ],
+  "actors": [
+    {
+      "id": "factor_analyst",
+      "name": "Factor Model Analyst",
+      "type": "system"
+    }
+  ],
+  "fields": [
+    {
+      "name": "portfolio_id",
+      "type": "text",
+      "required": true,
+      "label": "Portfolio identifier"
+    },
+    {
+      "name": "model_type",
+      "type": "select",
+      "required": true,
+      "label": "macro | fundamental | statistical | fixed_income"
+    }
+  ],
+  "rules": {
+    "apt_framework": {
+      "key_insight": "Returns driven by systematic factor surprises; arbitrage enforces pricing",
+      "formula": "E(R) = Rf + Σ λ_k × β_k where λ_k is factor risk premium",
+      "no_free_lunch": "Well-diversified portfolios with no factor exposure earn risk-free rate"
+    },
+    "types_of_factors": {
+      "macroeconomic": "GDP surprise, inflation surprise, credit spread, term spread",
+      "fundamental": "Value (HML), size (SMB), momentum, quality, low-volatility",
+      "statistical": "PCA-derived components; less intuitive"
+    },
+    "fama_french": {
+      "three_factor": "Market β + SMB (size) + HML (value)",
+      "five_factor": "Adds profitability (RMW) and investment (CMA)",
+      "application": "Alpha relative to factor model vs CAPM alpha"
+    },
+    "fundamental_factor_structure": {
+      "standardised_sensitivity": "Z-score of characteristic (P/B, ROE, etc.)",
+      "cross_sectional_regression": "Factor returns estimated each period",
+      "active_exposure": "Portfolio sensitivity vs benchmark"
+    },
+    "fixed_income_multifactor": {
+      "factors": "Level, slope, curvature, credit spread, volatility",
+      "duration": "Dominant factor; key rate exposures capture non-parallel"
+    },
+    "return_attribution": {
+      "active_return": "Portfolio return − benchmark return",
+      "factor_contribution": "Active β × factor return",
+      "specific_return": "Residual after factor explanation"
+    },
+    "risk_attribution": {
+      "active_risk": "Tracking error",
+      "factor_risk": "Portion of TE from factor exposures",
+      "specific_risk": "Idiosyncratic, diversifiable",
+      "information_ratio": "Active return / active risk"
+    },
+    "portfolio_construction": {
+      "factor_tilt": "Overweight desired factor exposures",
+      "factor_neutralisation": "Zero net exposure to unwanted factors",
+      "risk_targeting": "Constrain tracking error"
+    },
+    "strategic_portfolio_decisions": {
+      "factor_timing": "Cyclical factor premia (value outperforms late cycle)",
+      "diversification": "Factor diversification reduces concentration",
+      "liability_matching": "Duration and credit factors for asset-liability"
+    },
+    "validation": {
+      "portfolio_required": "portfolio_id present",
+      "valid_model": "model_type in [macro, fundamental, statistical, fixed_income]"
+    }
+  },
+  "outcomes": {
+    "apply_factor_model": {
+      "priority": 1,
+      "description": "Apply multifactor model to portfolio",
+      "given": [
+        {
+          "field": "portfolio_id",
+          "source": "input",
+          "operator": "exists"
+        },
+        {
+          "field": "model_type",
+          "source": "input",
+          "operator": "in",
+          "value": [
+            "macro",
+            "fundamental",
+            "statistical",
+            "fixed_income"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "call_service",
+          "target": "factor_analyst"
+        },
+        {
+          "action": "emit_event",
+          "event": "factor_model.applied"
+        }
+      ]
+    },
+    "invalid_model": {
+      "priority": 10,
+      "description": "Unsupported factor model type",
+      "given": [
+        {
+          "field": "model_type",
+          "source": "input",
+          "operator": "not_in",
+          "value": [
+            "macro",
+            "fundamental",
+            "statistical",
+            "fixed_income"
+          ]
+        }
+      ],
+      "then": [
+        {
+          "action": "emit_event",
+          "event": "factor_model.rejected"
+        }
+      ],
+      "error": "FACTOR_INVALID_MODEL"
+    }
+  },
+  "errors": [
+    {
+      "code": "FACTOR_INVALID_MODEL",
+      "status": 400,
+      "message": "model_type must be one of the supported factor model types"
+    }
+  ],
+  "events": [
+    {
+      "name": "factor_model.applied",
+      "payload": [
+        "portfolio_id",
+        "model_type",
+        "factor_exposures",
+        "active_return",
+        "tracking_error",
+        "ir"
+      ]
+    },
+    {
+      "name": "factor_model.rejected",
+      "payload": [
+        "portfolio_id",
+        "reason_code"
+      ]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "rule": "Do not confuse factor return with factor premium",
+      "why": "Factor returns (cross-sectional regression coefficients) are realised period by period; factor risk premia are the expected future returns — they differ, especially in short samples"
+    },
+    {
+      "rule": "Do not treat factor models as identifying alpha",
+      "why": "Adding more factors mechanically reduces apparent alpha; alpha is only true if it survives a well-specified factor model that includes all priced risks"
+    },
+    {
+      "rule": "Do not ignore factor crowding risk in smart-beta construction",
+      "why": "When many investors tilt to the same factor, valuation spreads compress and the factor's future expected return declines — crowding is a systematic risk to factor strategies"
+    }
+  ],
+  "api": {
+    "http": {
+      "method": "POST",
+      "path": "/portfolio/factor/apply"
+    },
+    "request": {
+      "schema": {
+        "portfolio_id": "string",
+        "model_type": "string"
+      }
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "portfolio_id": "string",
+          "factor_exposures": "object",
+          "tracking_error": "number"
+        }
+      },
+      "errors": [
+        {
+          "status": 400,
+          "error_code": "FACTOR_INVALID_MODEL"
+        }
+      ]
+    }
+  },
+  "related": [
+    {
+      "feature": "backtesting-simulation-l2",
+      "type": "recommended"
+    }
+  ]
+}

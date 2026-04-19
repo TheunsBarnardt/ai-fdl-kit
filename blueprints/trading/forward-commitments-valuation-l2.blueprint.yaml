@@ -1,0 +1,142 @@
+# ============================================================
+# forward-commitments-valuation-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 5 — Derivatives Module 1, Pricing and Valuation of Forward Commitments
+# ============================================================
+
+feature: forward-commitments-valuation-l2
+version: "1.0.0"
+description: Price and value forward commitments — arbitrage-free carry model, equity/IR/FX/fixed-income forwards, interest rate and currency swaps, equity swap pricing and valuation
+category: trading
+tags: [derivatives, forwards, futures, swaps, carry-arbitrage, cfa-level-2]
+aliases:
+  - carry-arbitrage-model
+  - equity-forward-pricing-l2
+  - interest-rate-swap-pricing
+  - currency-swap-valuation
+  - equity-swap-pricing
+  - forward-futures-comparison
+  - fixed-income-forward-pricing
+
+actors:
+  - id: derivatives_pricer
+    name: Derivatives Pricer
+    type: system
+
+fields:
+  - name: contract_id
+    type: text
+    required: true
+    label: Contract identifier
+  - name: contract_type
+    type: select
+    required: true
+    label: equity_forward | ir_forward | fx_forward | fi_forward | ir_swap | fx_swap | equity_swap
+
+rules:
+  arbitrage_free_principle:
+    law_of_one_price: "Forward price set so no riskless profit exists"
+    replication: "Long forward = leveraged long spot minus carry costs"
+  carry_arbitrage_no_cash_flows:
+    formula: "F0 = S0 × (1+r)^T"
+    interpretation: "Future value of spot at risk-free rate"
+  carry_arbitrage_with_cash_flows:
+    formula: "F0 = (S0 − PV_cashflows) × (1+r)^T"
+    cash_flows: "Dividends, coupons, storage costs, convenience yield"
+  equity_forwards_futures:
+    continuous: "F0 = S0 × e^{(r−q)T}"
+    dividend_adjusted: "Subtract PV of dividends from spot"
+    index_futures: "Use continuously compounded dividend yield"
+  ir_forwards_fra:
+    fra_payoff: "Notional × (MRR − FRA rate) × period / (1 + MRR × period)"
+    settlement: "Discounted at MRR; paid at start of reference period"
+  fi_forward:
+    formula: "F0 = (B0 − PV_coupon) × (1+r)^T"
+    conversion_factor: "Treasury futures use cheapest-to-deliver bond"
+  forward_vs_futures:
+    marking_to_market: "Futures marked daily; T-bills as margin"
+    convexity_adjustment: "IR futures priced below equivalent forwards"
+  ir_swap:
+    fixed_rate: "Set so swap has zero value at inception"
+    value_after_inception: "PV of remaining fixed − PV of remaining floating"
+    pricing: "Derived from spot LIBOR/term rates"
+  fx_swap:
+    pricing: "Based on covered interest rate parity"
+    value: "Difference in PV of fixed legs in two currencies"
+  equity_swap:
+    pay_fixed_receive_equity: "Value = equity leg value − fixed annuity value"
+    pricing: "Fixed rate = equity expected return minus funding spread; equilibrium sets zero value"
+  validation:
+    contract_required: "contract_id present"
+    valid_type: "contract_type in allowed set"
+
+outcomes:
+  price_forward_commitment:
+    priority: 1
+    description: Price or value forward commitment contract
+    given:
+      - field: contract_id
+        source: input
+        operator: exists
+      - field: contract_type
+        source: input
+        operator: in
+        value: [equity_forward, ir_forward, fx_forward, fi_forward, ir_swap, fx_swap, equity_swap]
+    then:
+      - action: call_service
+        target: derivatives_pricer
+      - action: emit_event
+        event: forward.priced
+  invalid_type:
+    priority: 10
+    description: Unsupported contract type
+    given:
+      - field: contract_type
+        source: input
+        operator: not_in
+        value: [equity_forward, ir_forward, fx_forward, fi_forward, ir_swap, fx_swap, equity_swap]
+    then:
+      - action: emit_event
+        event: forward.rejected
+    error: FORWARD_INVALID_TYPE
+
+errors:
+  - code: FORWARD_INVALID_TYPE
+    status: 400
+    message: contract_type must be one of the supported forward commitment types
+
+events:
+  - name: forward.priced
+    payload: [contract_id, contract_type, forward_price, current_value]
+  - name: forward.rejected
+    payload: [contract_id, reason_code]
+
+anti_patterns:
+  - rule: Do not confuse the forward price with the forward contract value
+    why: "Forward price is set at inception so value=0; as rates/spot evolve, the contract acquires positive or negative value — these are distinct calculations"
+  - rule: Do not apply the same forward formula regardless of underlying cash flows
+    why: "Equities with dividends, coupon bonds, and FX pairs each require carry adjustments; the no-cash-flow formula overstates the forward price when income exists"
+  - rule: Do not ignore the daily settlement difference between forwards and futures
+    why: "Futures convexity adjustment (T-bill financing on marked gains) makes IR futures systematically cheaper than equivalent forward rate agreements"
+
+api:
+  http:
+    method: POST
+    path: /derivatives/forward/price
+  request:
+    schema:
+      contract_id: string
+      contract_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        contract_id: string
+        forward_price: number
+        current_value: number
+    errors:
+      - status: 400
+        error_code: FORWARD_INVALID_TYPE
+
+related:
+  - feature: contingent-claims-valuation-l2
+    type: recommended

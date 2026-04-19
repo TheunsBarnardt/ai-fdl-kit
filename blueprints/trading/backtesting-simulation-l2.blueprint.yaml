@@ -1,0 +1,147 @@
+# ============================================================
+# backtesting-simulation-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 5 — Portfolio Management Module 4, Backtesting and Simulation
+# ============================================================
+
+feature: backtesting-simulation-l2
+version: "1.0.0"
+description: Conduct backtesting and simulation — backtesting process, multifactor model backtesting, survivorship/look-ahead/data-snooping biases, historical and Monte Carlo simulation, sensitivity analysis
+category: trading
+tags: [portfolio-management, backtesting, simulation, look-ahead-bias, survivorship-bias, monte-carlo, cfa-level-2]
+aliases:
+  - strategy-backtesting-l2
+  - backtesting-biases-l2
+  - survivorship-bias-backtesting
+  - look-ahead-bias-l2
+  - data-snooping-bias
+  - historical-simulation-l2
+  - multifactor-model-backtesting
+
+actors:
+  - id: backtesting_analyst
+    name: Backtesting Analyst
+    type: system
+
+fields:
+  - name: strategy_id
+    type: text
+    required: true
+    label: Strategy identifier
+  - name: method_type
+    type: select
+    required: true
+    label: historical_backtest | mc_simulation | sensitivity | scenario
+
+rules:
+  backtesting_objectives:
+    hypothesis_testing: "Does the strategy earn the expected return?"
+    parameter_estimation: "Calibrate model parameters"
+    risk_assessment: "Drawdown, tail loss, worst periods"
+  backtesting_process:
+    step1_design: "Define strategy, signals, execution assumptions, universe"
+    step2_simulation: "Apply rules over historical data; generate P&L time series"
+    step3_output_analysis: "Sharpe, drawdown, turnover, factor attribution"
+  multifactor_backtesting:
+    universe_construction: "Consistent historical universe; point-in-time data"
+    signal_construction: "Factor scores normalised cross-sectionally"
+    portfolio_construction: "Long/short or long-only; rebalancing frequency"
+    transaction_costs: "Estimate and apply; critical for high-turnover strategies"
+    output_metrics: "IC, IR, factor returns, decay analysis"
+  common_biases:
+    survivorship_bias: "Backtest only on current members; removes failed firms; overstates return"
+    look_ahead_bias: "Use information not available at signal date (e.g. revised earnings)"
+    data_snooping: "Test many signals; select winners; in-sample overfitting"
+    short_history: "Too little data to distinguish skill from luck"
+    transaction_cost_underestimation: "Ignoring spread, market impact, and borrow costs"
+  simulation_types:
+    historical_simulation: "Bootstrap or rolling window of past returns"
+    monte_carlo: "Simulate factor paths from calibrated model; flexible"
+    sensitivity_analysis: "Vary key inputs (growth, vol, correlations); stress parameters"
+  historical_scenario_analysis:
+    crisis_periods: "GFC 2008, COVID 2020, DotCom 2000"
+    output: "Maximum drawdown, Sharpe degradation, correlation shift"
+  monte_carlo_process:
+    calibration: "Estimate return, vol, correlation from history"
+    path_generation: "Simulate future paths consistent with parameters"
+    aggregation: "Distribution of terminal wealth, drawdown, Sharpe"
+  output_interpretation:
+    is_vs_oos: "In-sample (backtest period) vs out-of-sample (holdout)"
+    t_statistic: "Signal significance; minimum 3 years monthly data"
+    decay: "How quickly IC and returns decline post-publication"
+  validation:
+    strategy_required: "strategy_id present"
+    valid_method: "method_type in [historical_backtest, mc_simulation, sensitivity, scenario]"
+
+outcomes:
+  run_backtest:
+    priority: 1
+    description: Run backtesting or simulation
+    given:
+      - field: strategy_id
+        source: input
+        operator: exists
+      - field: method_type
+        source: input
+        operator: in
+        value: [historical_backtest, mc_simulation, sensitivity, scenario]
+    then:
+      - action: call_service
+        target: backtesting_analyst
+      - action: emit_event
+        event: backtest.completed
+  invalid_method:
+    priority: 10
+    description: Unsupported method type
+    given:
+      - field: method_type
+        source: input
+        operator: not_in
+        value: [historical_backtest, mc_simulation, sensitivity, scenario]
+    then:
+      - action: emit_event
+        event: backtest.rejected
+    error: BACKTEST_INVALID_METHOD
+
+errors:
+  - code: BACKTEST_INVALID_METHOD
+    status: 400
+    message: method_type must be one of the supported methods
+
+events:
+  - name: backtest.completed
+    payload: [strategy_id, method_type, sharpe, max_drawdown, ic, ir]
+  - name: backtest.rejected
+    payload: [strategy_id, reason_code]
+
+anti_patterns:
+  - rule: Do not backtest on current index constituents
+    why: "Survivorship bias eliminates delisted and failed firms; only backtesting on point-in-time constituents produces unbiased estimates — expect 1-3% return overstatement from survivorship alone"
+  - rule: Do not use preliminary or revised data in backtests
+    why: "Earnings and economic data are heavily revised post-release; using revised data at signal dates introduces look-ahead bias and creates returns that are unachievable in real time"
+  - rule: Do not select the best strategy from hundreds of untested variants without statistical correction
+    why: "Data snooping inflates the t-statistic; the Bonferroni or BHY correction for multiple testing dramatically raises the required significance threshold"
+
+api:
+  http:
+    method: POST
+    path: /portfolio/backtest/run
+  request:
+    schema:
+      strategy_id: string
+      method_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        strategy_id: string
+        sharpe: number
+        max_drawdown: number
+    errors:
+      - status: 400
+        error_code: BACKTEST_INVALID_METHOD
+
+related:
+  - feature: multifactor-models-l2
+    type: required
+  - feature: market-risk-measurement-l2
+    type: recommended

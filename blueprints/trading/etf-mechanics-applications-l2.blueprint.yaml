@@ -1,0 +1,145 @@
+# ============================================================
+# etf-mechanics-applications-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 5 — Portfolio Management Module 1, ETF Mechanics and Applications
+# ============================================================
+
+feature: etf-mechanics-applications-l2
+version: "1.0.0"
+description: Evaluate ETF mechanics and portfolio applications — creation/redemption, tracking error, expense ratios, tax efficiency, trading costs, and ETF strategies for efficient portfolio management
+category: trading
+tags: [portfolio-management, etf, tracking-error, creation-redemption, index-tracking, cfa-level-2]
+aliases:
+  - etf-creation-redemption
+  - etf-tracking-error-l2
+  - etf-trading-costs-l2
+  - etf-portfolio-management
+  - etf-vs-mutual-fund
+  - etf-tax-efficiency
+  - authorized-participant-mechanism
+
+actors:
+  - id: etf_analyst
+    name: ETF Analyst
+    type: system
+
+fields:
+  - name: etf_id
+    type: text
+    required: true
+    label: ETF identifier
+  - name: analysis_type
+    type: select
+    required: true
+    label: mechanics | tracking | costs | portfolio_use
+
+rules:
+  creation_redemption:
+    authorized_participants: "Large market makers create/redeem in-kind at NAV"
+    creation_unit: "Large block of shares (typically 50,000+) in exchange for basket"
+    arbitrage_mechanism: "Price divergence from NAV corrected via creation/redemption"
+    settlement: "T+2 for ETF shares; in-kind redemption tax-efficient"
+  trading_and_settlement:
+    exchange_traded: "Intraday liquidity at market price"
+    bid_ask_spread: "Narrower for liquid ETFs; wider for illiquid underlying"
+    premiums_discounts: "Small in liquid markets; larger in illiquid asset ETFs"
+  expense_ratios:
+    total_expense_ratio: "Annual fee drag on returns"
+    lower_than_active: "Passive management reduces costs"
+    impact: "Compounds over time; material for long-horizon investors"
+  index_tracking:
+    full_replication: "Hold all index constituents; low tracking error"
+    sampling: "Hold representative subset; lower cost, higher tracking error"
+    optimised: "Factor-match the index; efficient for large illiquid indexes"
+    sources_of_tracking_error: "Fees, sampling, corporate actions, cash drag, timing"
+  tax_issues:
+    in_kind_redemption: "Removes low-basis shares without triggering capital gains"
+    vs_mutual_fund: "ETF typically more tax-efficient due to in-kind mechanism"
+    dividend_reinvestment: "Distributed as cash; investor must reinvest"
+  trading_costs:
+    bid_ask: "Immediate cost of round-trip trade"
+    market_impact: "Price moves against large orders"
+    premium_discount: "Entry/exit at NAV ± premium"
+    total_cost: "TER + bid-ask + premium/discount + opportunity cost"
+  etf_risks:
+    counterparty: "Synthetic ETFs rely on swap counterparty; collateral risk"
+    fund_closure: "Underlying ETF liquidated; forced realisation"
+    investor_related: "Panic selling at depressed prices; trading vs. holding"
+  portfolio_applications:
+    efficient_pm: "Equitise cash; reduce tracking error"
+    asset_class_exposure: "Rapid beta changes; tactical allocation"
+    active_factor_investing: "Factor tilts via smart-beta ETFs"
+    core_satellite: "Low-cost ETF core with active satellite"
+  validation:
+    etf_required: "etf_id present"
+    valid_analysis: "analysis_type in [mechanics, tracking, costs, portfolio_use]"
+
+outcomes:
+  analyse_etf:
+    priority: 1
+    description: Analyse ETF mechanics or application
+    given:
+      - field: etf_id
+        source: input
+        operator: exists
+      - field: analysis_type
+        source: input
+        operator: in
+        value: [mechanics, tracking, costs, portfolio_use]
+    then:
+      - action: call_service
+        target: etf_analyst
+      - action: emit_event
+        event: etf.analysed
+  invalid_analysis:
+    priority: 10
+    description: Unsupported analysis type
+    given:
+      - field: analysis_type
+        source: input
+        operator: not_in
+        value: [mechanics, tracking, costs, portfolio_use]
+    then:
+      - action: emit_event
+        event: etf.rejected
+    error: ETF_INVALID_ANALYSIS
+
+errors:
+  - code: ETF_INVALID_ANALYSIS
+    status: 400
+    message: analysis_type must be one of the supported types
+
+events:
+  - name: etf.analysed
+    payload: [etf_id, analysis_type, tracking_error, total_cost, premium_discount]
+  - name: etf.rejected
+    payload: [etf_id, reason_code]
+
+anti_patterns:
+  - rule: Do not evaluate ETF costs using expense ratio alone
+    why: "Total cost of ownership includes bid-ask spread, premium/discount at entry and exit, and market impact — TER alone understates cost for shorter holding periods"
+  - rule: Do not assume all ETFs provide liquid exposure to illiquid assets
+    why: "High-yield bond or small-cap ETFs may trade at persistent discounts in stress; the ETF itself is liquid but the underlying is not — the ETF is a wrapper, not a magic liquidity transform"
+  - rule: Do not use synthetic ETFs without assessing counterparty risk
+    why: "Swap-based ETFs depend on counterparty solvency; in 2008 many investors learned they held counterparty exposure, not direct asset exposure"
+
+api:
+  http:
+    method: POST
+    path: /portfolio/etf/analyse
+  request:
+    schema:
+      etf_id: string
+      analysis_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        etf_id: string
+        tracking_error: number
+    errors:
+      - status: 400
+        error_code: ETF_INVALID_ANALYSIS
+
+related:
+  - feature: multifactor-models-l2
+    type: recommended

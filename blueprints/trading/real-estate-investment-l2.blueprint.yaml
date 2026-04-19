@@ -1,0 +1,159 @@
+# ============================================================
+# real-estate-investment-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 5 — Alternative Investments Modules 2 & 3, Real Estate Investment
+# ============================================================
+
+feature: real-estate-investment-l2
+version: "1.0.0"
+description: Analyse real estate investments — property types, risk factors, appraisal vs transaction indexes, REIT structures, NAV per share, FFO/AFFO multiples, private vs public comparison
+category: trading
+tags: [alternative-investments, real-estate, reits, nav, ffo, affo, cfa-level-2]
+aliases:
+  - reit-valuation-l2
+  - net-asset-value-per-share-reit
+  - ffo-affo-multiples
+  - real-estate-index-types
+  - real-estate-property-types
+  - real-estate-risk-factors
+  - private-vs-public-real-estate
+
+actors:
+  - id: re_analyst
+    name: Real Estate Analyst
+    type: system
+
+fields:
+  - name: property_id
+    type: text
+    required: true
+    label: Property or REIT identifier
+  - name: valuation_approach
+    type: select
+    required: true
+    label: nav | income | multiples | comparables
+
+rules:
+  basic_forms:
+    direct_ownership: "Physical property; illiquid; large lot size"
+    mortgage: "Debt secured by real estate"
+    pooled: "REOC, REIT, commingled funds"
+  characteristics:
+    heterogeneous: "No two properties identical"
+    illiquid: "High transaction costs, long time to sell"
+    income_producing: "Rent provides predictable cash flow"
+    leverage: "Debt commonly used to enhance return"
+  risk_factors:
+    business_risk: "Tenant concentration, vacancy"
+    financial_risk: "Leverage amplifies volatility"
+    liquidity_risk: "Illiquidity in private markets"
+    inflation_risk: "Leases may lag CPI"
+    environmental: "Regulatory, remediation liabilities"
+  property_types:
+    office: "Long leases, cyclical demand"
+    retail: "Shopping malls; disrupted by e-commerce"
+    industrial: "Warehouses; benefiting from logistics growth"
+    residential: "Multifamily apartments; recession-resilient"
+    hotel: "Short-term; high operating leverage"
+    healthcare: "Long lease; government reimbursement risk"
+  economic_value_drivers:
+    gdp_employment: "Drive office and industrial demand"
+    demographics: "Drive residential and healthcare"
+    interest_rates: "Cap rate expansion = price decline"
+    construction_pipeline: "New supply constrains rent growth"
+  indexes:
+    appraisal_based: "NCREIF; lagged, smoothed; understates volatility"
+    transaction_based: "Hedonic regression on actual sales; better accuracy"
+    real_estate_security: "REIT indexes; liquid but equity-correlated"
+  reit_structures:
+    equity_reit: "Own and operate properties"
+    mortgage_reit: "Invest in mortgages or MBS; interest income"
+    hybrid: "Both property and mortgage"
+    us_requirements: "90% taxable income distributed; tax-transparent"
+  reit_valuation_nav:
+    nav_calculation: "Estimate market value of properties less liabilities"
+    navps: "NAV ÷ shares outstanding"
+    accounting: "REIT books investment property at cost or FV depending on GAAP/IFRS"
+    premium_discount: "REIT trades at premium when market expects growth above NAV"
+  reit_valuation_multiples:
+    ffo: "Net income + D&A − gains on sales"
+    affo: "FFO − capex maintenance; better cash proxy"
+    p_ffo: "Price ÷ FFO; main relative metric"
+    p_affo: "Price ÷ AFFO; sustainability check"
+    advantages: "Removes non-cash and one-off distortions"
+  private_vs_public:
+    private: "Core, value-add, opportunistic; illiquid; lower correlation to equities"
+    public: "Highly liquid; correlated with equities short-term; daily pricing"
+  validation:
+    property_required: "property_id present"
+    valid_approach: "valuation_approach in [nav, income, multiples, comparables]"
+
+outcomes:
+  analyse_real_estate:
+    priority: 1
+    description: Analyse real estate investment
+    given:
+      - field: property_id
+        source: input
+        operator: exists
+      - field: valuation_approach
+        source: input
+        operator: in
+        value: [nav, income, multiples, comparables]
+    then:
+      - action: call_service
+        target: re_analyst
+      - action: emit_event
+        event: real_estate.analysed
+  invalid_approach:
+    priority: 10
+    description: Unsupported valuation approach
+    given:
+      - field: valuation_approach
+        source: input
+        operator: not_in
+        value: [nav, income, multiples, comparables]
+    then:
+      - action: emit_event
+        event: real_estate.rejected
+    error: RE_INVALID_APPROACH
+
+errors:
+  - code: RE_INVALID_APPROACH
+    status: 400
+    message: valuation_approach must be one of the supported approaches
+
+events:
+  - name: real_estate.analysed
+    payload: [property_id, valuation_approach, navps, p_ffo, p_affo, implied_cap_rate]
+  - name: real_estate.rejected
+    payload: [property_id, reason_code]
+
+anti_patterns:
+  - rule: Do not use accounting net income as REIT earnings without FFO adjustment
+    why: "Real estate GAAP depreciation reduces reported income despite properties often appreciating; FFO adds back D&A to provide an economically meaningful earnings figure"
+  - rule: Do not treat appraisal-based indexes as having lower risk than listed REITs
+    why: "Appraisal smoothing artificially compresses variance; true economic volatility is higher — diversification benefits of private real estate are overstated"
+  - rule: Do not ignore cap rate expansion when rates rise
+    why: "Real estate values are the inverse of cap rates; rising interest rates typically push cap rates higher and prices lower, even if rents are stable"
+
+api:
+  http:
+    method: POST
+    path: /alternatives/real-estate/analyse
+  request:
+    schema:
+      property_id: string
+      valuation_approach: string
+  response:
+    success:
+      status: 200
+      schema:
+        property_id: string
+        navps: number
+    errors:
+      - status: 400
+        error_code: RE_INVALID_APPROACH
+
+related:
+  - feature: private-company-valuation-l2
+    type: recommended

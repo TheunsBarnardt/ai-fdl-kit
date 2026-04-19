@@ -1,0 +1,160 @@
+# ============================================================
+# market-risk-measurement-l2 — Feature Blueprint
+# Source: CFA LV2 2024 Vol 5 — Portfolio Management Module 3, Measuring and Managing Market Risk
+# ============================================================
+
+feature: market-risk-measurement-l2
+version: "1.0.0"
+description: Measure and manage market risk — VaR (parametric, historical, Monte Carlo), expected shortfall, sensitivity and scenario risk measures, risk budgeting, position and stop-loss limits
+category: trading
+tags: [portfolio-management, risk-management, var, expected-shortfall, risk-budgeting, scenario-analysis, cfa-level-2]
+aliases:
+  - value-at-risk-l2
+  - parametric-var
+  - historical-simulation-var
+  - monte-carlo-var
+  - expected-shortfall-cvar
+  - risk-budgeting-l2
+  - scenario-risk-measures
+
+actors:
+  - id: risk_manager
+    name: Market Risk Manager
+    type: system
+
+fields:
+  - name: portfolio_id
+    type: text
+    required: true
+    label: Portfolio identifier
+  - name: measure_type
+    type: select
+    required: true
+    label: var_parametric | var_historical | var_mc | expected_shortfall | scenario | sensitivity
+
+rules:
+  var_definition:
+    statement: "Maximum loss not exceeded with probability (1−α) over horizon T"
+    parameters: "Confidence level (95%, 99%), horizon (1-day, 10-day)"
+    formula: "VaR = −(μ × T − z_α × σ × √T)"
+  parametric_var:
+    assumptions: "Normal distribution; constant correlations"
+    advantages: "Fast; analytical; scalable"
+    limitations: "Fat tails; correlation breakdown in stress"
+  historical_simulation_var:
+    method: "Use actual historical return distribution; apply to current portfolio"
+    advantages: "No distributional assumption; captures fat tails"
+    limitations: "Depends on history length; doesn't adapt quickly to regime changes"
+  monte_carlo_var:
+    method: "Simulate many scenarios from factor model; compute portfolio P&L"
+    advantages: "Flexible; handles non-linearity; path-dependent instruments"
+    limitations: "Computationally intensive; model-dependent"
+  advantages_var:
+    simple: "Easy to communicate to management"
+    aggregation: "Portfolio-level measure"
+    regulation: "Basel III links capital to VaR"
+  limitations_var:
+    non_subadditive: "Doesn't always reward diversification"
+    no_tail_shape: "Silent on magnitude beyond threshold"
+    trending: "Portfolio may stay under daily VaR while accumulating losses"
+  expected_shortfall:
+    definition: "Average loss in the tail beyond VaR; aka CVaR"
+    advantage: "Coherent risk measure; subadditive; reveals tail severity"
+    regulation: "Basel IV moving to ES from VaR"
+  sensitivity_measures:
+    duration: "Bond price sensitivity to yield"
+    beta: "Equity sensitivity to market"
+    delta_gamma: "Option price sensitivity to spot"
+    dv01: "Dollar value of 1bp move"
+  scenario_measures:
+    historical: "2008 GFC, 2020 COVID, 1994 rate shock"
+    hypothetical: "User-defined extreme events"
+    reverse_scenario: "What scenario would produce loss X?"
+  risk_budgeting:
+    definition: "Allocate risk (VaR or TE) to strategies/desks"
+    marginal_var: "Incremental VaR from adding one unit of position"
+    component_var: "Contribution of each position to portfolio VaR"
+  constraints:
+    position_limits: "Max notional by issuer/sector/currency"
+    scenario_limits: "Max loss under defined scenario"
+    stop_loss: "Mandatory reduction if cumulative loss exceeds threshold"
+  market_participants:
+    banks: "VaR for trading book; economic capital; stress testing"
+    asset_managers: "Tracking error; factor risk; drawdown"
+    pension_funds: "Surplus at risk; ALM"
+    insurers: "Value-at-risk with liability sensitivity"
+  validation:
+    portfolio_required: "portfolio_id present"
+    valid_measure: "measure_type in allowed set"
+
+outcomes:
+  measure_market_risk:
+    priority: 1
+    description: Measure market risk of portfolio
+    given:
+      - field: portfolio_id
+        source: input
+        operator: exists
+      - field: measure_type
+        source: input
+        operator: in
+        value: [var_parametric, var_historical, var_mc, expected_shortfall, scenario, sensitivity]
+    then:
+      - action: call_service
+        target: risk_manager
+      - action: emit_event
+        event: market_risk.measured
+  invalid_measure:
+    priority: 10
+    description: Unsupported risk measure type
+    given:
+      - field: measure_type
+        source: input
+        operator: not_in
+        value: [var_parametric, var_historical, var_mc, expected_shortfall, scenario, sensitivity]
+    then:
+      - action: emit_event
+        event: market_risk.rejected
+    error: RISK_INVALID_MEASURE
+
+errors:
+  - code: RISK_INVALID_MEASURE
+    status: 400
+    message: measure_type must be one of the supported risk measures
+
+events:
+  - name: market_risk.measured
+    payload: [portfolio_id, measure_type, var_amount, expected_shortfall, scenario_loss]
+  - name: market_risk.rejected
+    payload: [portfolio_id, reason_code]
+
+anti_patterns:
+  - rule: Do not report VaR without also computing expected shortfall
+    why: "VaR is silent on tail severity beyond the threshold; ES captures the average loss in the tail and is a coherent measure — regulators and best practice now require both"
+  - rule: Do not apply a single VaR measure uniformly across all asset classes
+    why: "Options and structured products have non-linear payoffs; parametric VaR systematically underestimates tail risk — use Monte Carlo or full repricing for non-linear books"
+  - rule: Do not confuse position limits with risk limits
+    why: "Position limits control overconcentration but ignore duration, volatility, and correlation; VaR captures these but fails on liquidity and concentration — both are needed"
+
+api:
+  http:
+    method: POST
+    path: /portfolio/risk/measure
+  request:
+    schema:
+      portfolio_id: string
+      measure_type: string
+  response:
+    success:
+      status: 200
+      schema:
+        portfolio_id: string
+        var_amount: number
+        expected_shortfall: number
+    errors:
+      - status: 400
+        error_code: RISK_INVALID_MEASURE
+
+related:
+  - feature: backtesting-simulation-l2
+    type: required
